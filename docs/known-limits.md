@@ -1,87 +1,167 @@
-# Known limits: unresolved Calls
+# Known limits: unresolved calls
 
-FACT — Diagnose zu Pledge `9919bdd8c50d84b37c19a4d6047d85d726892c0e`; keine Änderung am Resolver.
-FACT — EE-Producer: `dc7526592073985ed69902b21d6a1c861ac02fa0`.
-FACT — Frischer Clone: `make check PRODUCER_ROOT="$PRODUCER_ROOT"`, Exit 0, 197 Tests einschließlich D-self.
+FACT — This diagnosis measures committed sources. It changes no resolver, contract, or check policy.
 
-## Methode und Quellen
+## Sources and reproduction
 
-FACT — Gezählt werden Call-Records mit `data.status == "unresolved"`, einmal je Record-ID; keine Laufzeithäufigkeiten. Anteile in den Mustertabellen beziehen sich auf alle unresolved Calls des jeweiligen Reports und sind auf zwei Nachkommastellen gerundet.
-FACT — Zuordnung zum AST über Datei, Startzeile, Endzeile, Spalte und `ast.unparse(call.func) == data.expression`; verschachtelte Calls können dieselbe Startposition haben. Alle Records sind eindeutig zugeordnet: 234/234 und 1512/1512, keine Restklasse UNKNOWN.
-FACT — Ein Muster ist die unmittelbare AST-Form von `Call.func`, bei `Attribute` zusätzlich dessen `value`. Die Klassen sind disjunkt. `x.m()` behauptet keinen Receiver-Typ; Protocol-Parameter, lokale Container und andere Namen sind darin zusammengefasst.
-FACT — Source-Digests der beiden Reports stimmen mit den gelesenen Dateien überein. Der D-self-Test reobserviert den Clone und vergleicht die gespeicherte Coverage (`tests/test_self.py:51`).
-FACT — D-self-Quelle: `fixtures/D-self/architecture.json` (Python 3.11.12). Repo-2-Quelle: `$REPO2_REPORT` (Python 3.12.10), Root `$REPO2_ROOT`.
-
-| FACT: Provenienz | D-self | Repo #2 |
+| FACT: Input | Immutable source | Producer Python |
 |---|---|---|
-| Source-Digest | `fcc8bb98c201745f4f2e1a5c7be5aad36033abdaab221afe65df9a966224e3f6` | `343d8ed481ab932b65660131132fe1d80f74b8939a0e922b555614775419d674` |
-| Report-SHA256 | `274b90a96aec2d6ebe0dec055c528f063d49d8b5e67fd7ad199166ae665808a2` | `5757b27b6a3ec020270f65a7411a0c3f06324586ef9f5d7f2f78d4bbe216cb81` |
+| D-self and Pledge checker | `pledge@094551b0d5cc9d38c843a7f710df93cff731d3a1` | 3.11.12 |
+| Repo #2 | `rd-svc-window-cleaning@74b3271133620983bb4be9a766850a2abc06073f` | 3.12.10 |
+| EE producer | `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0` | Same as each report |
 
-FACT — Reproduktionsskript und vollständige Zuordnung jeder Call-ID: `$DIAGNOSTICS/classify_calls.py`, `self-analysis.json`, `repo2-analysis.json`. Das Skript prüft Source-Digest, Parser-Version und Zuordnung; Exit 0 unter der jeweiligen Producer-Python-Version. Diese lokalen Diagnoseartefakte sind nicht Teil des Commits.
+FACT — `tools/classify_unresolved.py` in this document's commit emits a summary and the complete call ledger. It checks Python version, source digest, file count, unique call IDs, and exact AST matches. Its SHA-256 is checked before execution below. It is outside the package and `make check`.
+
+Set `PLEDGE_REPO`, `REPO2_REPO`, and `EE_REPO` to local repositories containing those commits. Set `PY311` and `PY312` to Python 3.11.12 and 3.12.10 with Pledge's `packaging` dependency installed. Run the following in one Bash session:
+
+```bash
+set -euo pipefail
+PLEDGE_SHA=094551b0d5cc9d38c843a7f710df93cff731d3a1
+REPO2_SHA=74b3271133620983bb4be9a766850a2abc06073f
+EE_SHA=dc7526592073985ed69902b21d6a1c861ac02fa0
+WORK=$(mktemp -d)
+export GIT_OPTIONAL_LOCKS=0 PYTHONDONTWRITEBYTECODE=1
+archive() {
+    mkdir -p "$3"
+    git -C "$1" archive "$2" | tar -xf - -C "$3"
+    git -C "$3" init -q
+    git -C "$3" fetch -q --depth=1 "$1" "$2"
+    git -C "$3" reset -q --mixed FETCH_HEAD
+    test "$(git -C "$3" rev-parse HEAD)" = "$2"
+}
+archive "$PLEDGE_REPO" "$PLEDGE_SHA" "$WORK/pledge"
+archive "$REPO2_REPO" "$REPO2_SHA" "$WORK/repo2"
+mkdir -p "$WORK/producer" "$WORK/repo2/docs/architecture"
+git -C "$EE_REPO" archive "$EE_SHA" script/__init__.py script/architecture |
+    tar -xf - -C "$WORK/producer"
+```
+
+FACT — The source files come from `git archive`. Temporary Git metadata supplies the HEAD/status required by `src/pledge/check/report.py:52`; `reset --mixed` updates only temporary metadata. The original Repo #2 working tree is neither read as scan input nor modified.
+
+Write the following unchanged 5b configuration to `$WORK/repo2/pledge.toml`:
+
+```toml
+[scan]
+roots = ["backend"]
+namespace = "backend"
+contract = "docs/architecture/architecture-contract.json"
+```
+
+Write this zero-rule contract to `$WORK/repo2/docs/architecture/architecture-contract.json`:
+
+```json
+{
+  "capabilities": [
+    {
+      "id": "CAP-APP",
+      "label": "Application",
+      "name": "application",
+      "provenance": [
+        "docs/architecture/architecture-contract.json"
+      ],
+      "review_order": 1
+    }
+  ],
+  "components": [],
+  "context_roots": [],
+  "context_roots_provenance": [
+    "docs/architecture/architecture-contract.json"
+  ],
+  "paths": [],
+  "public_api": [],
+  "public_api_provenance": [
+    "docs/architecture/architecture-contract.json"
+  ],
+  "public_commands": [],
+  "review_scopes": [],
+  "rules": [],
+  "schema_version": "1.1.0",
+  "spot_owners": []
+}
+```
+
+```bash
+export PYTHONPATH="$WORK/pledge/src"
+"$PY311" -c 'import platform; assert platform.python_version() == "3.11.12"'
+"$PY312" -c 'import platform; assert platform.python_version() == "3.12.10"'
+CLASSIFIER_SHA256=ee626f8f2b7e13baa41bcad7d3195c3b19e122b6661b938460c319ed351b6a9e
+"$PY311" - "$PLEDGE_REPO/tools/classify_unresolved.py" "$CLASSIFIER_SHA256" <<'PYTHON'
+import hashlib, pathlib, sys
+assert hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest() == sys.argv[2]
+PYTHON
+measure() {
+    "$2" -m pledge.cli report --root "$WORK/$1" \
+        --producer-root "$WORK/producer" --output "$WORK/$1-report.json" \
+        > "$WORK/$1-result.json"
+    "$2" "$PLEDGE_REPO/tools/classify_unresolved.py" --root "$WORK/$1" \
+        --report "$WORK/$1-report.json" --output "$WORK/$1-analysis.json"
+}
+measure pledge "$PY311"
+measure repo2 "$PY312"
+```
+
+FACT — Both reports and both classifier runs exited 0. Each scan discovered, read, and parsed every scoped file; both returned `diagnostics = []` and `violations = []`. The added Repo #2 configuration makes its temporary snapshot dirty; its Python source digest still identifies only committed files.
+
+| FACT: Report result | D-self | Repo #2 |
+|---|---:|---:|
+| Files discovered / read / parsed | 28 / 28 / 28 | 67 / 67 / 67 |
+| `calls_total` | 1322 | 4318 |
+| Unresolved / total | 237 / 1322 (17.93%) | 998 / 4318 (23.11%) |
+| Partially resolved (excluded below) | 60 | 380 |
+| Unmatched unresolved records | 0 | 0 |
+| Source digest | `7ddaddc7c9009c80898f20a9c0555af3b1f9ebff0cfe93d1ef41565314eb4d73` | `239326f54a8865aa052295fbf0b76f0bffb1a16b912b39cc82af7821b68e988a` |
+
+## Method
+
+FACT — Count each call record with `data.status == "unresolved"` once, not runtime executions. Match it to `ast.Call` by file, start/end line, column, and `ast.unparse(call.func) == data.expression`; nested calls can share a start position. All 237 and 998 records matched uniquely (`tools/classify_unresolved.py`).
+
+FACT — A pattern is the immediate AST type of `Call.func`, plus the type of its receiver for `Attribute`. Classes are disjoint. `Attribute(Name)` covers `x.m()` without claiming that `x` is a Protocol, dataclass, or container. Percentages below use all unresolved records in that repo as denominator, rounded to two decimals.
 
 ## D-self
 
-FACT — 28 Dateien vollständig geparst; `calls_total = 1318`; unresolved `234/1318 = 17,75 %`.
-
-| FACT: Rang / syntaktisches Muster | Anzahl | Anteil an unresolved | Zitat + Datei:Zeile |
+| FACT: Rank / syntax | Count | Share of unresolved | Quote + file:line at the source SHA |
 |---|---:|---:|---|
-| 1. Methode auf Namen: `x.m()` (`Attribute(Name)`) | 157 | 67,09 % | `value.decode()` — `src/pledge/check/git.py:47` |
-| 2. Methode auf Call-Ergebnis: `f().m()` (`Attribute(Call)`) | 31 | 13,25 % | `render_result(result).decode()` — `src/pledge/cli/__init__.py:98` |
-| 3. Direkter Namensaufruf: `f()` (`Name`) | 18 | 7,69 % | `producer(` — `src/pledge/check/run.py:158` |
-| 4. Methode auf Attribut: `x.y.m()` (`Attribute(Attribute)`) | 9 | 3,85 % | `path.parent.mkdir(parents=True, exist_ok=True)` — `src/pledge/check/report.py:56` |
-| 5. Methode auf indiziertem Wert: `x[k].m()` (`Attribute(Subscript)`) | 8 | 3,42 % | `entries[0][0].split()` — `src/pledge/check/git.py:39` |
+| 1. `Attribute(Name)` | 160 | 67.51% | `pending.pop()` — `src/pledge/check/delta.py:105` |
+| 2. `Attribute(Call)` | 31 | 13.08% | `key.replace("_", " ").title()` — `src/pledge/check/delta.py:287` |
+| 3. `Name` | 18 | 7.59% | `producer(` — `src/pledge/check/report.py:45` |
+| 4. `Attribute(Attribute)` | 9 | 3.80% | `path.parent.mkdir(parents=True, exist_ok=True)` — `src/pledge/check/report.py:59` |
+| 5. `Attribute(Subscript)` | 8 | 3.38% | `old_groups[item.logical_fingerprint].append(item)` — `src/pledge/check/delta.py:325` |
 
-FACT — Top-5 zusammen: 223/234 = 95,30 %. Rest vollständig aufgeschlüsselt:
-
-| FACT: Weitere AST-Form | Anzahl | Anteil an unresolved |
-|---|---:|---:|
-| Methode auf Literal (`Attribute(Constant)`) | 5 | 2,14 % |
-| Methode auf binärem Ausdruck (`Attribute(BinOp)`) | 4 | 1,71 % |
-| Methode auf Dict-Literal (`Attribute(Dict)`) | 1 | 0,43 % |
-| Methode auf Set-Literal (`Attribute(Set)`) | 1 | 0,43 % |
+FACT — Top five: 226/237 = 95.36%. Remaining forms: `Attribute(Constant)` 5 (2.11%); `Attribute(BinOp)` 4 (1.69%); `Attribute(Set)` 1 (0.42%); `Attribute(Dict)` 1 (0.42%).
 
 ## Repo #2
 
-FACT — 74 Dateien vollständig geparst; `calls_total = 6368`; unresolved `1512/6368 = 23,74 %`.
-
-| FACT: Rang / syntaktisches Muster | Anzahl | Anteil an unresolved | Zitat + Datei:Zeile |
+| FACT: Rank / syntax | Count | Share of unresolved | Quote + file:line at the source SHA |
 |---|---:|---:|---|
-| 1. Methode auf Call-Ergebnis: `f().m()` (`Attribute(Call)`) | 622 | 41,14 % | `select(MandantModel).where(MandantModel.id == mandant)` — `backend/services/customer_portal.py:111` |
-| 2. Methode auf Namen: `x.m()` (`Attribute(Name)`) | 515 | 34,06 % | `statement.where(PlanungslaufModel.typ == typ.value)` — `backend/services/disposition_queries.py:550` |
-| 3. Methode auf Await-Ergebnis: `(await f()).m()` (`Attribute(Await)`) | 217 | 14,35 % | `(await session.execute(order_query)).scalars()` — `backend/services/mobile_sync.py:157` |
-| 4. Methode auf Attribut: `x.y.m()` (`Attribute(Attribute)`) | 98 | 6,48 % | `uow.session.flush()` — `backend/services/disposition_commands.py:897` |
-| 5. Direkter Namensaufruf: `f()` (`Name`) | 28 | 1,85 % | `callback(message)` — `backend/orchestrator/handlers.py:69` |
+| 1. `Attribute(Call)` | 385 | 38.58% | `value.strip().lower()` — `backend/services/disposition_queries.py:804` |
+| 2. `Attribute(Name)` | 382 | 38.28% | `data.get("p")` — `backend/services/pagination.py:43` |
+| 3. `Attribute(Await)` | 116 | 11.62% | `(await session.execute(order_query)).scalars()` — `backend/services/mobile_sync.py:155` |
+| 4. `Attribute(Attribute)` | 68 | 6.81% | `row.name.lower()` — `backend/services/disposition_queries.py:156` |
+| 5. `Name` | 23 | 2.30% | `callback(message)` — `backend/orchestrator/handlers.py:69` |
 
-FACT — Top-5 zusammen: 1480/1512 = 97,88 %. Rest vollständig aufgeschlüsselt:
+FACT — Top five: 974/998 = 97.60%. Remaining forms: `Attribute(JoinedStr)` 8 (0.80%); `Attribute(Subscript)` 8 (0.80%); `Attribute(Constant)` 7 (0.70%); `Attribute(Dict)` 1 (0.10%).
 
-| FACT: Weitere AST-Form | Anzahl | Anteil an unresolved |
-|---|---:|---:|
-| Methode auf indiziertem Wert: `x[k].m()` (`Attribute(Subscript)`) | 10 | 0,66 % |
-| Methode auf f-String (`Attribute(JoinedStr)`) | 8 | 0,53 % |
-| Methode auf Literal (`Attribute(Constant)`) | 7 | 0,46 % |
-| Methode auf binärem Ausdruck (`Attribute(BinOp)`) | 3 | 0,20 % |
-| Methode auf Dict-Literal (`Attribute(Dict)`) | 2 | 0,13 % |
-| Methode auf booleschem Ausdruck (`Attribute(BoolOp)`) | 2 | 0,13 % |
+## Comparison and resolver boundary
 
-## Vergleich und Resolver-Grenze
+FACT — The top-five sets and their order within each repo are unchanged from 5c. Four forms overlap: `Attribute(Name)`, `Attribute(Call)`, `Attribute(Attribute)`, and `Name`. D-self additionally has `Attribute(Subscript)` (8); Repo #2 has `Attribute(Await)` (116). D-self has no Await receivers; Repo #2 has 8 Subscript receivers outside its top five.
 
-FACT — Nein, die Top-5 sind nicht identisch. Vier Formen überlappen: `Attribute(Name)`, `Attribute(Call)`, `Attribute(Attribute)`, `Name`. D-self hat zusätzlich `Attribute(Subscript)` (8); Repo #2 stattdessen `Attribute(Await)` (217). Await-Receiver: D-self 0. Subscript-Receiver: Repo #2 10, außerhalb seiner Top-5.
-FACT — Gemeinsame Scanner-Grenzen: `_resolve` prüft indizierte Namen, Import-Aliase, Builtins und einfache Attributketten. Argument-Annotationen, lokale Zuweisungen und Rückgabetypen gehen dort nicht ein (`script/architecture/scanner.py:573–618` im EE-Producer).
-FACT — Getrennt sichtbar: D-self wird von `x.m()` geprägt (157/234); in Repo #2 liegen Call- und Await-Ergebnisse vorn (622 + 217 = 839/1512). Die Beispiele zeigen Query-Verkettung und asynchrone Resultate; eine pauschale Gleichsetzung aller 839 Calls mit SQL wäre unbelegt.
-FACT — Die Report-Gründe lassen sich vollständig mit den Resolver-Zweigen abgleichen:
+FACT — The numbers changed: D-self went from 234/1318 to 237/1322 after Step H. The committed Repo #2 snapshot has 67 files and 998/4318 unresolved, replacing the previous dirty working-tree measurement of 74 files and 1512/6368. These are different source inputs, not evidence of resolver improvement. Previous values are recorded in `pledge@094551b:docs/known-limits.md`.
 
-| FACT: Report-Grund | D-self | Repo #2 | Prüfstelle im EE-Producer |
+FACT — Shared scanner limits remain visible, with different weights: D-self is dominated by `Attribute(Name)` (160/237); Repo #2 has 385 Call-result and 116 Await-result receivers (501/998). Syntax alone does not establish that those calls are SQL operations or have the same semantic cause.
+
+| FACT: Report reason | D-self | Repo #2 | EE producer branch at the pinned SHA |
 |---|---:|---:|---|
-| `dynamic attribute receiver` | 166 | 613 | `script/architecture/scanner.py:593–617` |
-| `call target is a dynamic expression` | 50 | 871 | `script/architecture/scanner.py:486–495`, `:618` |
-| `name has no statically indexed binding` | 18 | 28 | `script/architecture/scanner.py:573–591` |
+| `dynamic attribute receiver` | 169 | 450 | `script/architecture/scanner.py:593–617` |
+| `call target is a dynamic expression` | 50 | 525 | `script/architecture/scanner.py:486–495`, `:618` |
+| `name has no statically indexed binding` | 18 | 23 | `script/architecture/scanner.py:573–591` |
 
-FACT — Ein Call-/Await-/Subscript-/Literal-Receiver scheitert bereits an `_dotted_expression`; `_resolve` liefert dann den Grund `call target is a dynamic expression`. Das ist eine Scanner-Klassifikation, kein Beweis für einen zur Laufzeit unbestimmbaren Aufruf.
-FACT — `partially_resolved` ist hier ausgeschlossen: 60 Calls in D-self, 578 in Repo #2. Ein Namensmatch mit internen Methoden kann einen dynamischen Receiver bereits partiell klassifizieren; Import-Alias-Attribute werden direkt als resolved klassifiziert (`script/architecture/scanner.py:595–616`). Die unresolved-Quote allein misst deshalb keine Architekturqualität.
+FACT — `_resolve` checks indexed names, import aliases, builtins, and simple attribute chains. It does not use argument annotations, local assignments, or return types (`script/architecture/scanner.py:573–618`). Call/Await/Subscript/literal receivers fail `_dotted_expression` and reach the dynamic-expression branch. That classification does not prove runtime unpredictability.
 
-## Offene Aussagen
+FACT — Import-alias attributes are resolved directly; internal method-name matches can already classify a dynamic receiver as partially resolved (`script/architecture/scanner.py:595–616`). Partially resolved calls are excluded here. This diagnosis measures scanner resolution, not architecture quality.
 
-UNKNOWN — Wie viele Receiver innerhalb `x.m()` Protocols, Dataclasses oder andere konkrete Typen haben; diese Diagnose klassifiziert Syntax, keine Typen.
-UNKNOWN — Welche und wie viele Ziele ein erweiterter Resolver korrekt bestimmen könnte; kein alternativer Resolver wurde ausgeführt.
-HYPOTHESIS — Die unresolved-Quote könnte mit „Modernität“ des Codes steigen. Zwei verschiedene Repos, Scopes und Python-Versionen belegen keinen solchen Zusammenhang; „Modernität“ wurde nicht operationalisiert.
-UNKNOWN — Verfügbarkeit der lokalen Repo-2-/Diagnoseartefakte nach einer Bereinigung von `$DIAGNOSTICS`; sie sind nicht im Commit gesichert.
+## Open claims
+
+UNKNOWN — How many `Attribute(Name)` receivers are Protocols, dataclasses, or other concrete types; this classifier measures syntax, not types.
+UNKNOWN — Which additional targets another resolver could determine correctly; no alternative resolver was run.
+HYPOTHESIS — Unresolved share might rise with code “modernity”. Two different repos, scopes, and Python versions do not establish that relationship; modernity has not been defined or measured.
+UNKNOWN — Historical rejection rates and the right check policy; Step 5d has not run.
