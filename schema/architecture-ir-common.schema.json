@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pledge:architecture-ir:common:1.2.0",
+  "title": "Shared ArchitectureIR record and source-evidence definitions",
+  "$comment": "DESIGN ARTIFACT. Derived from model.py RECORD_FIELDS/EVIDENCE_FIELDS/EvidenceClass. Cross-record references, ID uniqueness, evidence authenticity, canonical byte encoding and metric arithmetic require code.",
+  "$ref": "#/$defs/record",
+  "$defs": {
+    "record": {
+      "type": "object",
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_class": {
+          "enum": [
+            "FACT",
+            "DECLARED_RULE",
+            "VIOLATION",
+            "HYPOTHESIS",
+            "UNKNOWN"
+          ]
+        },
+        "area": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "data": {
+          "type": "object",
+          "$comment": "Payload semantics belong to the producer profile. This envelope does not validate architecture meaning."
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "const": "DECLARED_RULE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "provenance": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "const": "VIOLATION"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rule_ids": {
+                "minItems": 1
+              },
+              "fact_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "id",
+        "file",
+        "line",
+        "end_line",
+        "column",
+        "excerpt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excerpt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

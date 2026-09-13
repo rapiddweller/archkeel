@@ -1,0 +1,51 @@
+[project]
+name = "pledge"
+version = "0.1.0"
+description = "Deterministic checks for declared architecture changes"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+# requires-python is PEP 440; stdlib has no specifier parser. Reuse packaging instead of one.
+dependencies = ["packaging>=24.2,<27"]
+
+[project.scripts]
+pledge = "pledge.cli:main"
+
+[build-system]
+# Hatchling maps the single schema/ source into wheels without a custom build hook.
+requires = ["hatchling>=1.32,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pledge"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schema" = "pledge/schema"
+
+[tool.hatch.build.targets.sdist]
+# Archived Phase-4 runs contain external symlinks and are not distribution inputs.
+only-include = [
+    "src", "schema", "tests", "Makefile", "uv.lock",
+    "fixtures/A-dispatch", "fixtures/B-posthoc", "fixtures/C-valid",
+    "fixtures/reproduce_milestone1.py", "fixtures/E-runtime", "fixtures/D-self",
+    "pledge.toml", "architecture-contract.json", "docs/architecture",
+]
+
+[dependency-groups]
+# Pytest preserves producer tests, Ruff checks style, and MyPy enforces the static boundary.
+dev = ["ruff==0.16.0", "pytest>=8.3.4,<9", "mypy==1.18.2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

@@ -1,0 +1,42 @@
+import json
+from pathlib import Path
+from unittest.mock import patch
+
+from test_delta import _model, _record
+
+from pledge.check.ports import ScanConfig
+from pledge.check.report import run_report
+from pledge.ir.codec import decode_canonical_model, parse_observation
+from pledge.ir.model import Diagnostic, ObservationResult
+
+
+def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
+    raw = _model(git_head="a" * 40)
+    failure = _record("failure", kind="parse_failure", evidence_class="UNKNOWN")
+    raw["unknowns"] = [failure]
+    raw["coverage"].update(status="FAIL", files_parsed=0, failures=[failure])
+    model = parse_observation(raw)
+    observed = ObservationResult(
+        model,
+        model.coverage,
+        (Diagnostic("parse_error", "probe.py", "AST coverage", "Repair the syntax."),),
+    )
+
+    def producer(*args: object, **kwargs: object) -> ObservationResult:
+        return observed
+
+    with (
+        patch("pledge.check.report.resolve_commit", return_value="a" * 40),
+        patch("pledge.check.report.git_bytes", return_value=b""),
+    ):
+        result = run_report(
+            tmp_path,
+            config=ScanConfig((".",), "sample", "contract.json", "d" * 64),
+            producer_root=tmp_path,
+            producer=producer,
+        )
+    assert result.exit_code == 2
+    assert result.coverage == model.coverage
+    assert result.diagnostics == observed.diagnostics
+    assert result.artifact is not None
+    assert decode_canonical_model(json.loads(Path(result.artifact).read_bytes())) == raw

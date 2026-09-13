@@ -1,0 +1,753 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pledge:architecture-ir:python-decoded:1.2.0",
+  "title": "Existing Python ArchitectureIR 1.2.0, decoded observation profile",
+  "$comment": "DESIGN ARTIFACT, not a product implementation. Top-level fields come from report.analyze_snapshot; coverage comes from scanner.scan_repository. Generic record data remains open where no per-kind schema is declared. Decode architecture-ir-columnar-v1 before validating. Do not silently use this legacy profile as the new accepted-run contract.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "analyzer",
+    "source",
+    "contract",
+    "coverage",
+    "metrics",
+    "declarations",
+    "scope_observations",
+    "packages",
+    "modules",
+    "symbols",
+    "imports",
+    "dependency_edges",
+    "transitive_paths",
+    "path_observations",
+    "cycles",
+    "calls",
+    "typing_signals",
+    "contexts",
+    "context_evidence",
+    "violations",
+    "unknowns",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.2.0"
+    },
+    "analyzer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "code_digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code_digest": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "git_head",
+        "dirty",
+        "source_digest",
+        "scope"
+      ],
+      "properties": {
+        "git_head": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|unknown)$"
+        },
+        "dirty": {
+          "type": [
+            "boolean",
+            "string"
+          ],
+          "enum": [
+            true,
+            false,
+            "unknown"
+          ]
+        },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "contract": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "digest",
+        "path"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "status",
+        "files_discovered",
+        "files_read",
+        "files_parsed",
+        "calls_analyzed",
+        "calls_resolved",
+        "calls_partially_resolved",
+        "calls_unresolved",
+        "ast_coverage_percent",
+        "call_resolution_percent",
+        "failures"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "files_discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_parsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls_analyzed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls_resolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls_partially_resolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls_unresolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ast_coverage_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "call_resolution_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "rules": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "declarations": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "scope_observations": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "source_module",
+                  "source_package",
+                  "target_module",
+                  "target_package",
+                  "binding",
+                  "symbol",
+                  "relative_level",
+                  "under_type_checking",
+                  "reexport",
+                  "reexport_chain",
+                  "origin_definition",
+                  "symbol_visibility",
+                  "declared_in_all"
+                ],
+                "properties": {
+                  "source_module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_package": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target_module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target_package": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "binding": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "symbol": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "relative_level": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "under_type_checking": {
+                    "type": "boolean"
+                  },
+                  "reexport": {
+                    "type": "boolean"
+                  },
+                  "reexport_chain": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "origin_definition": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "symbol_visibility": {
+                    "enum": [
+                      "private",
+                      "public_name",
+                      null
+                    ]
+                  },
+                  "declared_in_all": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      }
+    },
+    "dependency_edges": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "transitive_paths": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "path_observations": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "cycles": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "calls": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "source_scope",
+                  "source_module",
+                  "expression",
+                  "status",
+                  "targets",
+                  "candidate_count",
+                  "candidates_truncated",
+                  "reason",
+                  "target_evidence_ids"
+                ],
+                "properties": {
+                  "source_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expression": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "resolved",
+                      "partially_resolved",
+                      "unresolved"
+                    ]
+                  },
+                  "targets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "candidate_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "candidates_truncated": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "target_evidence_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      }
+    },
+    "typing_signals": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "context_evidence": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/evidence"
+      }
+    },
+    "python_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[ab][0-9]+|rc[0-9]+)?$",
+      "description": "Actual producer Python version. Historical observations may omit it; comparison requires a known equal version."
+    }
+  },
+  "additionalProperties": false
+}

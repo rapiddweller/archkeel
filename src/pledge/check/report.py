@@ -1,0 +1,88 @@
+"""Persist observations and expose typed command results to the CLI."""
+
+import subprocess
+from dataclasses import replace
+from pathlib import Path
+
+from pledge.ir.codec import canonical_report_bytes, result_bytes
+from pledge.ir.model import Diagnostic, DiagnosticError, RunResult
+from pledge.producer import observe
+
+from .git import git_bytes
+from .ports import Producer, ScanConfig
+from .run import inspect_observation
+from .snapshot import resolve_commit
+
+
+def unknown_result(command: str, subject: str, error: Exception) -> RunResult:
+    if isinstance(error, DiagnosticError):
+        diagnostic = error.diagnostic
+    else:
+        diagnostic = Diagnostic(
+            "timeout" if isinstance(error, subprocess.TimeoutExpired) else "parse_error",
+            subject,
+            f"The {command} result cannot be established: {error}",
+            "Repair the reported input or execution failure and retry.",
+        )
+    return RunResult(command, 2, diagnostics=(diagnostic,))
+
+
+def render_result(result: RunResult) -> bytes:
+    return result_bytes(result)
+
+
+def run_report(
+    root: Path,
+    *,
+    config: ScanConfig,
+    producer_root: Path,
+    output: Path | None = None,
+    producer: Producer = observe,
+) -> RunResult:
+    result = producer(
+        root,
+        producer_root=producer_root,
+        roots=config.roots,
+        namespace=config.namespace,
+        contract=config.contract,
+        git_head=resolve_commit(root, "HEAD"),
+        dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
+        contract_root=root,
+    )
+    model = result.observation
+    artifact = None
+    if model is not None:
+        path = output or root / "test-artifacts/architecture/architecture.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(canonical_report_bytes(model))
+        artifact = str(path.resolve())
+    if result.diagnostics:
+        return RunResult(
+            "report",
+            2,
+            diagnostics=result.diagnostics,
+            coverage=result.coverage,
+            artifact=artifact,
+            python_version=model.python_version if model is not None else None,
+        )
+    assert model is not None
+    try:
+        measurements, declared = inspect_observation(model)
+    except ValueError as error:
+        return replace(
+            unknown_result("report", "observation", error),
+            coverage=model.coverage,
+            artifact=artifact,
+            python_version=model.python_version,
+        )
+    return RunResult(
+        "report",
+        0,
+        observation_complete="PASS",
+        declared_rules=declared,
+        expectation_fulfilled="n/a",
+        coverage=model.coverage,
+        measurements=measurements,
+        artifact=artifact,
+        python_version=model.python_version,
+    )
