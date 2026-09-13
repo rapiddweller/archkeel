@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 import json
 from contextlib import nullcontext
 from hashlib import sha256

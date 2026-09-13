@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Identify the checker independently of the observation producer."""
 
 import hashlib

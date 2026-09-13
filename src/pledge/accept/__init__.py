@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """The CI acceptance command is not part of this milestone."""
 
 from pledge.ir.model import Diagnostic, RunResult

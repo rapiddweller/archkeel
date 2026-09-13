@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 # DATAMIMIC
 # Copyright (c) 2023-2026 Rapiddweller Asia Co., Ltd.
 

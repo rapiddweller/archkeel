@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Read merge-request diff-version evidence from GitLab."""
 
 from __future__ import annotations

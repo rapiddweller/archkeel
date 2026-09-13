@@ -6,6 +6,6 @@ build/
 *.egg-info/
 .DS_Store
 .idea/
-# Phase-4 archives contain absolute symlinks into local EE and /private/tmp checkouts.
+# Archived Phase-4 runs contain machine-specific symlinks.
 fixtures/A/
 fixtures/B/

@@ -188,4 +188,4 @@ Exact rules for locks, host records, ratchets and schemas: [docs/reference.md](d
 
 ---
 
-MIT © 2026 rapiddweller
+MIT © 2026 Rapiddweller Asia Co., Ltd.

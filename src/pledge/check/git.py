@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Read immutable Git inputs and check the declaration commit's shape."""
 
 import subprocess

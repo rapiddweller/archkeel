@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Run exactly the dispatch and post-hoc expectation counterexamples."""
 
 import argparse
@@ -67,7 +70,7 @@ def main():
     from script.architecture.model import analyzer_code_digest, canonical_report_bytes
     from script.architecture.report import analyze_snapshot
 
-    output = Path(tempfile.mkdtemp(prefix="architecture-phase4-", dir="/private/tmp"))
+    output = Path(tempfile.mkdtemp(prefix="architecture-phase4-"))
     environment = dict(os.environ, PYTHONPATH=str(framework), PYTHONDONTWRITEBYTECODE="1")
     framework_status_before = subprocess.check_output(["git", "status", "--short"], cwd=framework, text=True)
     framework_digest = analyzer_code_digest(framework)

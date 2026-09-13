@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Validate architecture measurement payloads independent of check policy."""
 
 from dataclasses import dataclass

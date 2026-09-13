@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Decode validated IR values and preserve the canonical wire representation."""
 
 from __future__ import annotations

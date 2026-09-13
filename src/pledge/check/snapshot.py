@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Safely materialize scoped Python files from one Git commit."""
 
 from __future__ import annotations

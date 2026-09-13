@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Persist observations and expose typed command results to the CLI."""
 
 import subprocess
@@ -55,7 +58,11 @@ def run_report(
         path = output or root / "test-artifacts/architecture/architecture.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(canonical_report_bytes(model))
-        artifact = str(path.resolve())
+        resolved = path.resolve()
+        root = root.resolve()
+        artifact = (
+            str(resolved.relative_to(root)) if resolved.is_relative_to(root) else str(resolved)
+        )
     if result.diagnostics:
         return RunResult(
             "report",

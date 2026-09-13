@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Validate the ordering evidence supplied by a forge host."""
 
 from __future__ import annotations

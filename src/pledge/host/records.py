@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Validated host evidence records shared by adapters and policy checks."""
 
 from __future__ import annotations

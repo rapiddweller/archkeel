@@ -1,10 +1,10 @@
 {
   "producer_head": "dc7526592073985ed69902b21d6a1c861ac02fa0",
   "producer_digest": "50c74c84e862fe44f660564e592c32f11e32edbf5c265b0cc2a8527995f3f51c",
-  "checker_digest": "fe6004893b95f9e98a12d632c313003d5d997c263bea04d6f654f63825aaef4e",
-  "source_digest": "fcc8bb98c201745f4f2e1a5c7be5aad36033abdaab221afe65df9a966224e3f6",
+  "checker_digest": "03722242eda4c1fe78289d425e33e35442b15eb460334a38cac9c3e5060b612c",
+  "source_digest": "7ddaddc7c9009c80898f20a9c0555af3b1f9ebff0cfe93d1ef41565314eb4d73",
   "contract_digest": "e8e93f9d6830526c0b0c9bb2a47877e1ac6240510b0827b5012e1d0aabafbf0a",
-  "artifact_digest": "274b90a96aec2d6ebe0dec055c528f063d49d8b5e67fd7ad199166ae665808a2",
+  "artifact_digest": "c7886b399d74a09ee0c1b950f4089a6d0e2d8565cc422dce4cdcc9bdca651f7e",
   "command": "pledge report --root . --producer-root \"$PRODUCER_ROOT\" --output fixtures/D-self/architecture.json",
   "exit_code": 0,
   "python_version": "3.11.12"

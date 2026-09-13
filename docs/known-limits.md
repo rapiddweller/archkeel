@@ -2,7 +2,7 @@
 
 FACT — Diagnose zu Pledge `9919bdd8c50d84b37c19a4d6047d85d726892c0e`; keine Änderung am Resolver.
 FACT — EE-Producer: `dc7526592073985ed69902b21d6a1c861ac02fa0`.
-FACT — Frischer Clone: `make check PRODUCER_ROOT=/Users/akell/PycharmProjects/development-v2/datamimic-ee`, Exit 0, 197 Tests einschließlich D-self.
+FACT — Frischer Clone: `make check PRODUCER_ROOT="$PRODUCER_ROOT"`, Exit 0, 197 Tests einschließlich D-self.
 
 ## Methode und Quellen
 
@@ -10,14 +10,14 @@ FACT — Gezählt werden Call-Records mit `data.status == "unresolved"`, einmal 
 FACT — Zuordnung zum AST über Datei, Startzeile, Endzeile, Spalte und `ast.unparse(call.func) == data.expression`; verschachtelte Calls können dieselbe Startposition haben. Alle Records sind eindeutig zugeordnet: 234/234 und 1512/1512, keine Restklasse UNKNOWN.
 FACT — Ein Muster ist die unmittelbare AST-Form von `Call.func`, bei `Attribute` zusätzlich dessen `value`. Die Klassen sind disjunkt. `x.m()` behauptet keinen Receiver-Typ; Protocol-Parameter, lokale Container und andere Namen sind darin zusammengefasst.
 FACT — Source-Digests der beiden Reports stimmen mit den gelesenen Dateien überein. Der D-self-Test reobserviert den Clone und vergleicht die gespeicherte Coverage (`tests/test_self.py:51`).
-FACT — D-self-Quelle: `fixtures/D-self/architecture.json` (Python 3.11.12). Repo-2-Quelle: `/private/tmp/pledge-step5-python312-tq_zl1qk/architecture.json` (Python 3.12.10), Root `/Users/akell/PycharmProjects/rd-svc-window-cleaning`.
+FACT — D-self-Quelle: `fixtures/D-self/architecture.json` (Python 3.11.12). Repo-2-Quelle: `$REPO2_REPORT` (Python 3.12.10), Root `$REPO2_ROOT`.
 
 | FACT: Provenienz | D-self | Repo #2 |
 |---|---|---|
 | Source-Digest | `fcc8bb98c201745f4f2e1a5c7be5aad36033abdaab221afe65df9a966224e3f6` | `343d8ed481ab932b65660131132fe1d80f74b8939a0e922b555614775419d674` |
 | Report-SHA256 | `274b90a96aec2d6ebe0dec055c528f063d49d8b5e67fd7ad199166ae665808a2` | `5757b27b6a3ec020270f65a7411a0c3f06324586ef9f5d7f2f78d4bbe216cb81` |
 
-FACT — Reproduktionsskript und vollständige Zuordnung jeder Call-ID: `/private/tmp/pledge-step5c-2cwccydu/classify_calls.py`, `self-analysis.json`, `repo2-analysis.json`. Das Skript prüft Source-Digest, Parser-Version und Zuordnung; Exit 0 unter der jeweiligen Producer-Python-Version. Diese lokalen Diagnoseartefakte sind nicht Teil des Commits.
+FACT — Reproduktionsskript und vollständige Zuordnung jeder Call-ID: `$DIAGNOSTICS/classify_calls.py`, `self-analysis.json`, `repo2-analysis.json`. Das Skript prüft Source-Digest, Parser-Version und Zuordnung; Exit 0 unter der jeweiligen Producer-Python-Version. Diese lokalen Diagnoseartefakte sind nicht Teil des Commits.
 
 ## D-self
 
@@ -84,4 +84,4 @@ FACT — `partially_resolved` ist hier ausgeschlossen: 60 Calls in D-self, 578 i
 UNKNOWN — Wie viele Receiver innerhalb `x.m()` Protocols, Dataclasses oder andere konkrete Typen haben; diese Diagnose klassifiziert Syntax, keine Typen.
 UNKNOWN — Welche und wie viele Ziele ein erweiterter Resolver korrekt bestimmen könnte; kein alternativer Resolver wurde ausgeführt.
 HYPOTHESIS — Die unresolved-Quote könnte mit „Modernität“ des Codes steigen. Zwei verschiedene Repos, Scopes und Python-Versionen belegen keinen solchen Zusammenhang; „Modernität“ wurde nicht operationalisiert.
-UNKNOWN — Verfügbarkeit der lokalen Repo-2-/Diagnoseartefakte nach einer Bereinigung von `/private/tmp`; sie sind nicht im Commit gesichert.
+UNKNOWN — Verfügbarkeit der lokalen Repo-2-/Diagnoseartefakte nach einer Bereinigung von `$DIAGNOSTICS`; sie sind nicht im Commit gesichert.

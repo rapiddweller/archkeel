@@ -1,6 +1,6 @@
 {
   "step": "Milestone1-STEP3",
-  "source": "/Users/akell/PycharmProjects/development-v2/datamimic-ee/tests/architecture",
+  "source": "datamimic-ee:tests/architecture@dc7526592073985ed69902b21d6a1c861ac02fa0",
   "tests": {
     "test_delta.py": {
       "source": "test_architecture_delta.py",

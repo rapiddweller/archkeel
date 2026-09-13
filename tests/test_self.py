@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Reobserve Pledge with the pinned external producer; verify the saved D-self evidence."""
 
 import json

@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Python decoded-IR profile: underscore-private imports across package boundaries."""
 
 from pledge.ir.model import Record

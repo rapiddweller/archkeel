@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Golden digests measured against the saved Step 2 checker before the typed port."""
 
 import hashlib

@@ -1,7 +1,11 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from test_delta import _model, _record
 
 from pledge.check.ports import ScanConfig
@@ -38,5 +42,30 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
     assert result.exit_code == 2
     assert result.coverage == model.coverage
     assert result.diagnostics == observed.diagnostics
-    assert result.artifact is not None
-    assert decode_canonical_model(json.loads(Path(result.artifact).read_bytes())) == raw
+    assert result.artifact == "test-artifacts/architecture/architecture.json"
+    assert decode_canonical_model(json.loads((tmp_path / result.artifact).read_bytes())) == raw
+
+
+@pytest.mark.parametrize("outside", [False, True])
+def test_report_artifact_path_is_relative_only_inside_root(tmp_path: Path, outside: bool) -> None:
+    root = tmp_path / "root"
+    output = tmp_path / "outside.json" if outside else root / "report.json"
+    model = parse_observation(_model(git_head="a" * 40))
+
+    def producer(*args: object, **kwargs: object) -> ObservationResult:
+        return ObservationResult(model, model.coverage, ())
+
+    with (
+        patch("pledge.check.report.resolve_commit", return_value="a" * 40),
+        patch("pledge.check.report.git_bytes", return_value=b""),
+    ):
+        result = run_report(
+            root,
+            config=ScanConfig((".",), "sample", "contract.json", "d" * 64),
+            producer_root=tmp_path,
+            output=output,
+            producer=producer,
+        )
+    assert result.exit_code == 0
+    assert result.artifact == (str(output.resolve()) if outside else "report.json")
+    assert decode_canonical_model(json.loads(output.read_bytes())) == _model(git_head="a" * 40)

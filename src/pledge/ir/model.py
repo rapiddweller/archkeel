@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Canonical ArchitectureIR primitives and deterministic serialization."""
 
 from __future__ import annotations

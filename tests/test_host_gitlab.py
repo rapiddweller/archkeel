@@ -1,3 +1,6 @@
+# Pledge
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import json
@@ -14,7 +17,9 @@ H = "c" * 40
 ENV = {"CI_PROJECT_ID": "7", "CI_MERGE_REQUEST_IID": "11", "CI_COMMIT_SHA": H}
 
 
-def test_gitlab_versions_become_exact_host_records(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_gitlab_versions_become_exact_host_records(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     output = "\n".join(
         (
             f'{{"head_commit_sha":"{E}","created_at":"2026-01-01T10:00:00Z"}}',
@@ -31,13 +36,11 @@ def test_gitlab_versions_become_exact_host_records(monkeypatch: pytest.MonkeyPat
             "ndjson",
             "projects/7/merge_requests/11/versions",
         ]
-        assert kwargs["cwd"] == Path("/tmp/repo")
+        assert kwargs["cwd"] == tmp_path
         return subprocess.CompletedProcess(args[0], 0, stdout=output, stderr="")
 
     monkeypatch.setattr("pledge.host.gitlab.subprocess.run", run)
-    assert load_gitlab_records(
-        Path("/tmp/repo"), expectation_sha=E, candidate_sha=H, environ=ENV
-    ) == (
+    assert load_gitlab_records(tmp_path, expectation_sha=E, candidate_sha=H, environ=ENV) == (
         HostRecord(E, "expectation_published", "2026-01-01T10:00:00Z"),
         HostRecord(H, "candidate_submitted", "2026-01-01T11:00:00Z"),
     )
