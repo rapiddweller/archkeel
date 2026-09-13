@@ -447,7 +447,7 @@ def build_architecture_delta(
     try:
         if not shared:
             raise RatchetError(
-                "Ratchets require the same known schema, scope, analyzer and contract"
+                "Regression checks require the same known schema, scope, analyzer and contract"
             )
         ratchets = RatchetObservations(
             "SUPPORTED", measure_python_ratchets(baseline), measure_python_ratchets(head)
@@ -460,7 +460,10 @@ def build_architecture_delta(
     available = ratchets.status == "SUPPORTED"
     if not available:
         unknowns.append(
-            _unknown("ratchets", ratchets.reason or "Required ratchet measurements are unavailable")
+            _unknown(
+                "ratchets",
+                ratchets.reason or "Required regression check measurements are unavailable",
+            )
         )
     for dimension in SUPPORTED_DIMENSIONS:
         before = (
@@ -475,7 +478,7 @@ def build_architecture_delta(
         elif dimension != "coverage" and not coverage_complete:
             reason = "Incomplete snapshot coverage forbids negative architecture conclusions"
         elif dimension != "coverage" and not available:
-            reason = "Required ratchet measurements are unavailable"
+            reason = "Required regression check measurements are unavailable"
         elif before is None or after is None:
             reason = f"Required ArchitectureIR data for {dimension} is unavailable"
         if reason is not None:

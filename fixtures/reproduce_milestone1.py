@@ -256,7 +256,7 @@ def reproduce(producer_root: Path, output: Path) -> dict:
                 "diagnostics": missing["diagnostics"],
             }
     assert results["A"]["host_order"] == "PASS" and all(
-        "ratchet regression" in item for item in results["A"]["failures"]
+        "regression check failed" in item for item in results["A"]["failures"]
     )
     assert results["B"]["failures"] == [
         "expectation was not published before the first candidate submission"

@@ -110,7 +110,7 @@ def test_unresolved_count_and_ratio_are_independent_exact_ratchets(
     assert result.passed is (not failures)
     assert len(result.failures) == len(failures)
     for name in failures:
-        assert any(f"ratchet regression in {name}:" in failure for failure in result.failures)
+        assert any(f"regression check failed in {name}:" in failure for failure in result.failures)
 
 
 def test_same_unknown_record_with_larger_unresolved_extent_fails() -> None:
@@ -132,8 +132,8 @@ def test_same_unknown_record_with_larger_unresolved_extent_fails() -> None:
     assert unknowns["added"] == []
     assert len(unknowns["changed"]) == 1
     assert _evaluate(delta).failures == (
-        "ratchet regression in calls_unresolved: 0->1",
-        "ratchet regression in unresolved_ratio: 0/2->1/1",
+        "regression check failed in calls_unresolved: 0->1",
+        "regression check failed in unresolved_ratio: 0/2->1/1",
     )
 
 
@@ -151,7 +151,7 @@ def test_denser_cycle_with_same_members_and_fingerprints_fails() -> None:
     cycles = delta["dimensions"]["cycles"]
     assert cycles["before_count"] == cycles["after_count"] == 1
     assert cycles["added"] == cycles["removed"] == cycles["changed"] == []
-    assert _evaluate(delta).failures == ("ratchet regression in cycle_edges: 2->3",)
+    assert _evaluate(delta).failures == ("regression check failed in cycle_edges: 2->3",)
 
 
 def test_more_missing_annotations_in_same_signal_fails() -> None:
@@ -170,7 +170,7 @@ def test_more_missing_annotations_in_same_signal_fails() -> None:
         ]
     delta = _delta(accepted, candidate)
     assert delta["dimensions"]["typing_signals"]["added"] == []
-    assert _evaluate(delta).failures == ("ratchet regression in typing_positions: 1->2",)
+    assert _evaluate(delta).failures == ("regression check failed in typing_positions: 1->2",)
 
 
 @pytest.mark.parametrize(

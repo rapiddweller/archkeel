@@ -467,7 +467,7 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, Any]:
     ratchets = delta.ratchets
     if ratchets.status == "SUPPORTED":
         if ratchets.baseline is None or ratchets.head is None:
-            raise ValueError("supported ratchets require both measurements")
+            raise ValueError("supported regression checks require both measurements")
         result["ratchets"] = {
             "status": "SUPPORTED",
             "baseline": _measurement_payload(ratchets.baseline),
@@ -475,7 +475,7 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, Any]:
         }
     else:
         if ratchets.reason is None:
-            raise ValueError("unknown ratchets require a reason")
+            raise ValueError("unknown regression checks require a reason")
         result["ratchets"] = {"status": "UNKNOWN", "reason": ratchets.reason}
     return result
 
@@ -593,7 +593,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
     ratchet_raw = _object(item["ratchets"], "delta.ratchets")
     if ratchet_raw.get("status") == "SUPPORTED":
         if set(ratchet_raw) != {"status", "baseline", "head"}:
-            raise ValueError("supported ratchets fields mismatch")
+            raise ValueError("supported regression check fields mismatch")
         ratchets = RatchetObservations(
             "SUPPORTED",
             parse_measurements(ratchet_raw["baseline"], "ratchets.baseline"),
@@ -601,7 +601,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         )
     elif ratchet_raw.get("status") == "UNKNOWN":
         if set(ratchet_raw) != {"status", "reason"}:
-            raise ValueError("unknown ratchets fields mismatch")
+            raise ValueError("unknown regression check fields mismatch")
         ratchets = RatchetObservations(
             "UNKNOWN", reason=_string(ratchet_raw.get("reason"), "ratchets.reason")
         )

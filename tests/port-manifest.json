@@ -49,6 +49,6 @@
     "analyzer_code_digest and producer version/digest path",
     "Phase4 fixtures A/B",
     "reproduce_phase4.py",
-    "ratchets, host, and lock implementation"
+    "regression checks, host, and lock implementation"
   ]
 }

@@ -4,14 +4,18 @@
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![Status: milestone 1](https://img.shields.io/badge/status-milestone%201-orange)
 
-Deterministic architecture checks for AI coding agents.
+Architecture consistency checks for AI-assisted code changes.
 
-An AI agent can make every architecture guardrail go green while the code gets worse.
-Pledge closes that gap in two ways:
+Pledge checks changes against declared architecture and ownership rules.
+The goals are consistent responsibilities, fewer architecture violations and
+competing implementation paths, and easier maintenance.
+
+A check rejects observed contract violations and regressions within the configured scan.
+It combines:
 
 1. **Precommitment.** The agent publishes *what should change* before it submits the change.
    Pledge proves the order from Git and host records, not from author dates.
-2. **Extent, not identity.** Ratchets compare raw measurements, not just "is this a new finding?".
+2. **Regression checks.** Compare raw measurements together with finding counts and fingerprints.
    A refactor that hides one call behind a dict fails, even if no new finding appears.
 
 ```mermaid
@@ -46,7 +50,7 @@ Pledge never folds everything into one score. Each question gets its own answer:
 | --- | --- | --- |
 | `observation_complete` | Did the scan see everything it claims to? | incomplete scan, empty scope, rule without subjects (exit 2) |
 | `declared_rules` | Does the code obey the architecture contract? | forbidden import between components |
-| `expectation_fulfilled` | Did the change match what was declared, without regressions? | ratchet regression, expectation published too late |
+| `expectation_fulfilled` | Did the change match what was declared, without regressions? | regression check failed, expectation published too late |
 
 | Exit | Meaning |
 | --- | --- |
@@ -75,8 +79,8 @@ Pledge measures extent and returns exit 1:
 
 ```text
 expectation_fulfilled: FAIL
-ratchet regression in calls_unresolved: 0->1
-ratchet regression in unresolved_ratio: 0/2->1/1
+regression check failed in calls_unresolved: 0->1
+regression check failed in unresolved_ratio: 0/2->1/1
 ```
 
 The ratio check uses integer cross-multiplication, never rounded percentages:
@@ -174,6 +178,7 @@ cli ──► check ──► ir
 
 ## Limits
 
+- **Competing implementations** require review when no declared rule or observed regression exposes them.
 - **Private crossings** cover import records only. `import pkg; pkg._member` is not detected.
 - **Precommitment** proves "published before submission", not "decided before any private edit".
 - **Producer Python** must be at least the target repository's Python.
@@ -184,7 +189,7 @@ cli ──► check ──► ir
 Milestone 1: `report` and `check` work. Next: CI-only `accept`, a review page,
 then agent commands (`propose`, `next`). See [docs/roadmap.md](docs/roadmap.md).
 
-Exact rules for locks, host records, ratchets and schemas: [docs/reference.md](docs/reference.md).
+Exact rules for locks, host records, regression checks and schemas: [docs/reference.md](docs/reference.md).
 
 ---
 

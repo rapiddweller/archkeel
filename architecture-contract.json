@@ -26,7 +26,7 @@
       "capability_id": "CAP-PLEDGE",
       "role": "component",
       "packages": ["pledge.check"],
-      "responsibilities": ["Deterministic deltas, ratchets, expectations and publication-order checks."],
+      "responsibilities": ["Deterministic deltas, regression checks, expectations and publication-order checks."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/pledge.md"]
     },

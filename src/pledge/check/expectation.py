@@ -246,7 +246,9 @@ def evaluate_expectation(
 
     ratchets = delta_model.ratchets
     if ratchets.status != "SUPPORTED" or ratchets.baseline is None or ratchets.head is None:
-        raise ExpectationError(f"delta ratchets are not safely comparable: {ratchets.reason}")
+        raise ExpectationError(
+            f"delta regression checks are not safely comparable: {ratchets.reason}"
+        )
     failures = list(compare_ratchets(ratchets.baseline, ratchets.head))
     for selected in expectation.selected_changes:
         identity = (selected.dimension, selected.change, selected.fingerprint)

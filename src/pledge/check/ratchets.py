@@ -1,7 +1,7 @@
 # Pledge
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Extent ratchets over the typed Python decoded-IR measurement profile."""
+"""Regression checks over the typed Python decoded-IR measurement profile."""
 
 from pledge.ir.measurements import Measurements, RatchetError, RatchetScalars
 from pledge.ir.model import Observation, Record
@@ -80,7 +80,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
 def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[str, ...]:
     """Compare validated measurements supplied by the caller, without rounding."""
     failures = [
-        f"ratchet regression in {name}: {before}->{after}"
+        f"regression check failed in {name}: {before}->{after}"
         for (name, before), (_, after) in zip(
             accepted.scalars.items(), candidate.scalars.items(), strict=True
         )
@@ -93,7 +93,7 @@ def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[s
         > accepted.scalars.calls_unresolved * candidate.calls_total
     ):
         failures.append(
-            "ratchet regression in unresolved_ratio: "
+            "regression check failed in unresolved_ratio: "
             f"{accepted.scalars.calls_unresolved}/{accepted.calls_total}->"
             f"{candidate.scalars.calls_unresolved}/{candidate.calls_total}"
         )

@@ -1,10 +1,10 @@
 {
   "producer_head": "dc7526592073985ed69902b21d6a1c861ac02fa0",
   "producer_digest": "50c74c84e862fe44f660564e592c32f11e32edbf5c265b0cc2a8527995f3f51c",
-  "checker_digest": "03722242eda4c1fe78289d425e33e35442b15eb460334a38cac9c3e5060b612c",
-  "source_digest": "7ddaddc7c9009c80898f20a9c0555af3b1f9ebff0cfe93d1ef41565314eb4d73",
-  "contract_digest": "e8e93f9d6830526c0b0c9bb2a47877e1ac6240510b0827b5012e1d0aabafbf0a",
-  "artifact_digest": "c7886b399d74a09ee0c1b950f4089a6d0e2d8565cc422dce4cdcc9bdca651f7e",
+  "checker_digest": "a0082c77ccab2c3b07b55f3b93399302bd36eae0acaf7acf871edad88f68448b",
+  "source_digest": "48e1840f57d51b666fe4348e5d5b7d0f58ff2d1431c9e928b8262841e94fb8b7",
+  "contract_digest": "0b699411ddaa4ccd72ed1368ba3faf77efd3034fc326306f90daf445a0085314",
+  "artifact_digest": "280b181d96cff3e3c082ac89490eac20c3d56d3fcada7e84b0cc4ac8911854ea",
   "command": "pledge report --root . --producer-root \"$PRODUCER_ROOT\" --output fixtures/D-self/architecture.json",
   "exit_code": 0,
   "python_version": "3.11.12"

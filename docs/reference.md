@@ -59,9 +59,9 @@ one-line `remedy`. Partial producer observations retain their typed coverage and
 are persisted by `report`. Invalid locks are never replaced with empty state.
 IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen dataclasses.
 
-## Ratchets
+## Regression checks
 
-Ratchets add these scalars to the existing record counts and fingerprint checks:
+Regression checks add these scalars to the existing record counts and fingerprint checks:
 
 | Guardrail | Scalar in the Python decoded-IR profile |
 | --- | --- |
@@ -78,8 +78,12 @@ Schema, scope, analyzer and contract must match.
 `calls_total` is the producer's `calls_analyzed`. With `U = calls_unresolved` and `T = calls_total`,
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.
-Zero total means `resolution: n/a`; the absolute ratchet still applies.
+Zero total means `resolution: n/a`; the absolute regression check still applies.
 Missing or inconsistent measurements produce `UNKNOWN`; regressions return failures.
+
+The JSON field `ratchets` and Python identifiers such as `compare_ratchets` keep their
+existing names for compatibility. Human-readable messages use "regression check".
+Historical evidence and reproduction commands retain the names from their pinned commits.
 
 ## Fixtures
 
