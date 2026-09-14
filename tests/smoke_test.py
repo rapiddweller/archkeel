@@ -19,26 +19,22 @@ def main() -> None:
         provenance.parent.mkdir(parents=True)
         provenance.write_text("# Architecture\n")
         contract = {
-            "schema_version": "1.1.0",
-            "capabilities": [
-                {
-                    "id": "CAP-SAMPLE",
-                    "name": "sample",
-                    "label": "Sample",
-                    "review_order": 1,
-                    "provenance": ["docs/architecture/contract.md"],
-                }
-            ],
+            "schema_version": "2.0.0",
             "components": [],
-            "review_scopes": [],
-            "public_api": [],
-            "public_api_provenance": ["docs/architecture/contract.md"],
-            "public_commands": [],
-            "context_roots": [],
-            "context_roots_provenance": ["docs/architecture/contract.md"],
-            "paths": [],
-            "spot_owners": [],
             "rules": [],
+            "declarations": {
+                "capabilities": [
+                    {
+                        "id": "CAP-SAMPLE",
+                        "name": "sample",
+                        "label": "Sample",
+                        "review_order": 1,
+                        "provenance": ["docs/architecture/contract.md"],
+                    }
+                ],
+                "public_api_provenance": ["docs/architecture/contract.md"],
+                "context_roots_provenance": ["docs/architecture/contract.md"],
+            },
         }
         (root / "architecture-contract.json").write_text(json.dumps(contract))
         (root / "archkeel.toml").write_text(

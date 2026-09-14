@@ -1,16 +1,25 @@
 {
-  "schema_version": "1.1.0",
-  "capabilities": [
-    {"id": "CAP-RUNTIME", "label": "Runtime fixture", "name": "runtime", "provenance": ["docs/architecture/architecture-contract.json"], "review_order": 1}
-  ],
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.0.0",
   "components": [],
-  "context_roots": [],
-  "context_roots_provenance": ["docs/architecture/architecture-contract.json"],
-  "paths": [],
-  "public_api": [],
-  "public_api_provenance": ["docs/architecture/architecture-contract.json"],
-  "public_commands": [],
-  "review_scopes": [],
   "rules": [],
-  "spot_owners": []
+  "declarations": {
+    "capabilities": [
+      {
+        "id": "CAP-RUNTIME",
+        "label": "Runtime fixture",
+        "name": "runtime",
+        "provenance": [
+          "docs/architecture/architecture-contract.json"
+        ],
+        "review_order": 1
+      }
+    ],
+    "context_roots_provenance": [
+      "docs/architecture/architecture-contract.json"
+    ],
+    "public_api_provenance": [
+      "docs/architecture/architecture-contract.json"
+    ]
+  }
 }

@@ -17,7 +17,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.model import EvidenceClass
+from archkeel.ir.model import (
+    ArchitectureContract,
+    ContractComponent,
+    ContractDeclarations,
+    ContractPath,
+    EvidenceClass,
+    ForbiddenDependencyRule,
+)
 
 from .graph import condensation_ranks, strongly_connected_components, transitive_paths
 from .records import classified, stable_id
@@ -1406,28 +1413,26 @@ def _cycle_records(
 
 
 def _declared_path_observations(
-    paths: Sequence[dict[str, Any]], package_edges: Sequence[dict[str, Any]]
+    paths: Sequence[ContractPath], package_edges: Sequence[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     edges = {(item["data"]["source"], item["data"]["target"]): item for item in package_edges}
     records: list[dict[str, Any]] = []
     for declared_path in paths:
-        steps = declared_path["steps"]
+        steps = declared_path.steps
         for index, (source, target) in enumerate(zip(steps, steps[1:], strict=False)):
             edge = edges.get((source, target))
             if edge is None:
                 records.append(
                     classified(
-                        item_id=stable_id(
-                            "UNKNOWN-PATH", declared_path["id"], index, source, target
-                        ),
+                        item_id=stable_id("UNKNOWN-PATH", declared_path.id, index, source, target),
                         evidence_class=EvidenceClass.UNKNOWN,
                         area="read_write_paths",
                         kind="path_segment_not_statically_observed",
                         title=f"{source} → {target} lacks direct static import evidence",
                         subjects=[source, target],
-                        rule_ids=[declared_path["id"]],
+                        rule_ids=[declared_path.id],
                         data={
-                            "path_id": declared_path["id"],
+                            "path_id": declared_path.id,
                             "source": source,
                             "target": target,
                             "status": "UNKNOWN",
@@ -1441,16 +1446,16 @@ def _declared_path_observations(
                 continue
             records.append(
                 classified(
-                    item_id=stable_id("PATH-OBS", declared_path["id"], index, edge["id"]),
+                    item_id=stable_id("PATH-OBS", declared_path.id, index, edge["id"]),
                     evidence_class=EvidenceClass.FACT,
                     area="read_write_paths",
                     kind="observed_path_segment",
                     title=f"{source} → {target} is statically observed",
                     subjects=[source, target],
-                    rule_ids=[declared_path["id"]],
+                    rule_ids=[declared_path.id],
                     fact_ids=[edge["id"]],
                     data={
-                        "path_id": declared_path["id"],
+                        "path_id": declared_path.id,
                         "source": source,
                         "target": target,
                         "status": "observed",
@@ -1462,15 +1467,13 @@ def _declared_path_observations(
 
 
 def _dependency_violations(
-    imports: Sequence[dict[str, Any]], rules: Sequence[dict[str, Any]]
+    imports: Sequence[dict[str, Any]], rules: Sequence[ForbiddenDependencyRule]
 ) -> list[dict[str, Any]]:
     violations: list[dict[str, Any]] = []
     for rule in rules:
-        if rule.get("kind") != "forbidden_dependency":
-            continue
-        source = rule["source"]
-        target = rule["target"]
-        allowed_sources = frozenset(rule.get("allowed_sources", ()))
+        source = rule.source
+        target = rule.target
+        allowed_sources = frozenset(rule.allowed_sources)
         for item in imports:
             data = item["data"]
             if (
@@ -1485,21 +1488,21 @@ def _dependency_violations(
                 continue
             if data["source_module"] in allowed_sources:
                 continue
-            if rule.get("target_symbol") is not None and data["symbol"] != rule["target_symbol"]:
+            if rule.target_symbol is not None and data["symbol"] != rule.target_symbol:
                 continue
-            if data["under_type_checking"] and not rule["include_type_checking"]:
+            if data["under_type_checking"] and not rule.include_type_checking:
                 continue
             target_name = ".".join(filter(None, (data["target_module"], data["symbol"])))
             violations.append(
                 classified(
-                    item_id=stable_id("VIO", rule["id"], item["id"]),
+                    item_id=stable_id("VIO", rule.id, item["id"]),
                     evidence_class=EvidenceClass.VIOLATION,
                     area="dependency_violations",
                     kind="forbidden_dependency",
                     title=f"{data['source_module']} imports forbidden {target_name}",
                     subjects=[data["source_module"], target_name],
                     evidence_ids=item["evidence_ids"],
-                    rule_ids=[rule["id"]],
+                    rule_ids=[rule.id],
                     fact_ids=[item["id"]],
                     data={
                         "source_module": data["source_module"],
@@ -1514,7 +1517,7 @@ def _dependency_violations(
 
 def _component_scope_observations(
     *,
-    components: Sequence[dict[str, Any]],
+    components: Sequence[ContractComponent],
     modules: Sequence[dict[str, Any]],
     module_edges: Sequence[dict[str, Any]],
     coverage_failures: Sequence[dict[str, Any]],
@@ -1530,8 +1533,8 @@ def _component_scope_observations(
     observations: list[dict[str, Any]] = []
     coverage_complete = not coverage_failures
 
-    for component in sorted(components, key=lambda item: item["id"]):
-        scopes = sorted(component["packages"])
+    for component in sorted(components, key=lambda item: item.id):
+        scopes = sorted(component.packages)
         matched_names = sorted(
             name
             for name in module_by_name
@@ -1555,22 +1558,22 @@ def _component_scope_observations(
         module_facts = [module_by_name[name] for name in matched_names]
         observations.append(
             classified(
-                item_id=stable_id("SCOPE", "declared_component", component["id"]),
+                item_id=stable_id("SCOPE", "declared_component", component.id),
                 evidence_class=EvidenceClass.FACT,
                 area="components",
                 kind="declared_component_scope_observation",
-                title=f"Observed source scope for {component['label']}",
+                title=f"Observed source scope for {component.label}",
                 subjects=scopes,
                 evidence_ids=[
                     evidence_id for item in module_facts for evidence_id in item["evidence_ids"]
                 ],
-                rule_ids=[component["id"]],
+                rule_ids=[component.id],
                 fact_ids=[
                     *[item["id"] for item in module_facts],
                     *[item["id"] for item in outgoing_edges],
                 ],
                 data={
-                    "component_id": component["id"],
+                    "component_id": component.id,
                     "scopes": scopes,
                     "scope_module_counts": [
                         {
@@ -1650,7 +1653,7 @@ def _component_scope_observations(
 
 def scan_repository(
     root: Path,
-    contract: dict[str, Any],
+    contract: ArchitectureContract,
     *,
     source_paths: Sequence[Path] | None = None,
     roots: tuple[str, ...],
@@ -1713,22 +1716,22 @@ def scan_repository(
 
     module_names = {module.module for module in parsed}
     rule_failures = []
-    for rule in contract["rules"]:
+    for rule in contract.rules:
         matches = {
-            side: sum(_belongs_to_scope(module, rule[side]) for module in module_names)
-            for side in ("source", "target")
+            "source": sum(_belongs_to_scope(module, rule.source) for module in module_names),
+            "target": sum(_belongs_to_scope(module, rule.target) for module in module_names),
         }
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
             rule_failures.append(
                 classified(
-                    item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule["id"]),
+                    item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule.id),
                     evidence_class=EvidenceClass.UNKNOWN,
                     area="analysis_coverage",
                     kind="rule-without-subjects",
-                    title=f"{rule['id']}: no scanned modules for {', '.join(missing)}",
-                    subjects=[rule[side] for side in missing],
-                    rule_ids=[rule["id"]],
+                    title=f"{rule.id}: no scanned modules for {', '.join(missing)}",
+                    subjects=[rule.source if side == "source" else rule.target for side in missing],
+                    rule_ids=[rule.id],
                     data={
                         "missing": missing,
                         "source_matches": matches["source"],
@@ -1793,6 +1796,7 @@ def scan_repository(
     calls.sort(key=lambda item: item["id"])
 
     typing_signals = _collect_typing_signals(parsed, calls, symbols, imports, evidence)
+    declarations = contract.declarations or ContractDeclarations()
     contexts, context_evidence = _collect_contexts(
         parsed,
         symbols,
@@ -1800,7 +1804,7 @@ def scan_repository(
         symbol_owners,
         imports,
         calls,
-        contract["context_roots"],
+        declarations.context_roots,
         evidence,
     )
 
@@ -1811,7 +1815,7 @@ def scan_repository(
         imports, level="package", internal_modules=module_names, namespace=namespace
     )
     dependency_edges = sorted([*package_edges, *module_edges], key=lambda item: item["id"])
-    path_observations = _declared_path_observations(contract["paths"], package_edges)
+    path_observations = _declared_path_observations(declarations.paths, package_edges)
 
     packages = sorted({module.package for module in parsed})
     package_fan_in = Counter(target for source, target in package_edge_pairs)
@@ -1868,7 +1872,7 @@ def scan_repository(
         for module in parsed
     ]
     scope_observations = _component_scope_observations(
-        components=contract["components"],
+        components=contract.components,
         modules=module_records,
         module_edges=module_edges,
         coverage_failures=failures,
@@ -1907,7 +1911,7 @@ def scan_repository(
         ],
         key=lambda item: item["id"],
     )
-    violations = _dependency_violations(imports, contract["rules"])
+    violations = _dependency_violations(imports, contract.rules)
 
     unknowns = [
         classified(
@@ -1929,7 +1933,7 @@ def scan_repository(
             area="contexts_state",
             kind="context_alias_limit",
             title="Context read/write topology excludes unproven dynamic aliases",
-            subjects=sorted(contract["context_roots"]),
+            subjects=sorted(declarations.context_roots),
             data={
                 "reason": (
                     "The scanner follows direct annotations, constructor bindings, "

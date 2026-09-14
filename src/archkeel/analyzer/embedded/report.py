@@ -261,9 +261,7 @@ def analyze_snapshot(
     contract_file = contract_path or declarations_root / DEFAULT_CONTRACT
     if not contract_file.is_absolute():
         contract_file = declarations_root / contract_file
-    contract, contract_digest = load_contract(
-        contract_file, root=declarations_root, namespace=namespace
-    )
+    contract, contract_digest = load_contract(contract_file)
     scan = scan_repository(
         source_root, contract, source_paths=source_paths, roots=roots, namespace=namespace
     )
@@ -296,7 +294,7 @@ def analyze_snapshot(
             "scope": [f"{source}/**/*.py" for source in roots],
         },
         "contract": {
-            "schema_version": contract["schema_version"],
+            "schema_version": contract.schema_version,
             "digest": contract_digest,
             "path": contract_file.relative_to(declarations_root).as_posix(),
         },

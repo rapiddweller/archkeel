@@ -1,14 +1,6 @@
 {
-  "schema_version": "1.1.0",
-  "capabilities": [
-    {
-      "id": "CAP-ARCHKEEL",
-      "name": "ARCHKEEL",
-      "label": "Archkeel governance",
-      "review_order": 1,
-      "provenance": ["docs/architecture/archkeel.md"]
-    }
-  ],
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.0.0",
   "components": [
     {
       "id": "COMP-IR",
@@ -81,17 +73,28 @@
       "provenance": ["docs/architecture/archkeel.md"]
     }
   ],
-  "review_scopes": [],
-  "public_api": [
-    "archkeel.ir.model",
-    "archkeel.ir.codec"
-  ],
-  "public_api_provenance": ["docs/architecture/archkeel.md"],
-  "public_commands": [],
-  "context_roots": [],
-  "context_roots_provenance": ["docs/architecture/archkeel.md"],
-  "paths": [],
-  "spot_owners": [],
+  "declarations": {
+    "capabilities": [
+      {
+        "id": "CAP-ARCHKEEL",
+        "name": "ARCHKEEL",
+        "label": "Archkeel governance",
+        "review_order": 1,
+        "provenance": ["docs/architecture/archkeel.md"]
+      }
+    ],
+    "review_scopes": [],
+    "public_api": [
+      "archkeel.ir.model",
+      "archkeel.ir.codec"
+    ],
+    "public_api_provenance": ["docs/architecture/archkeel.md"],
+    "public_commands": [],
+    "context_roots": [],
+    "context_roots_provenance": ["docs/architecture/archkeel.md"],
+    "paths": [],
+    "spot_owners": []
+  },
   "rules": [
     {
       "id": "DEP-IR-NO-CHECK",

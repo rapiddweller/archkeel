@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.model import EvidenceClass
+from archkeel.ir.codec import decode_json, parse_contract
+from archkeel.ir.model import ArchitectureContract, ContractDeclarations, EvidenceClass
 
 from .records import classified
 
@@ -35,17 +35,16 @@ def _is_namespace_module_prefix(value: str, *, namespace: str) -> bool:
     return value == namespace or value.startswith(f"{namespace}.")
 
 
-def load_contract(path: Path, *, root: Path, namespace: str) -> tuple[dict[str, Any], str]:
+def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
     try:
         raw = path.read_bytes()
     except (OSError, UnicodeError) as exc:
         raise ContractError(f"cannot read architecture contract: {exc}") from exc
     try:
-        data = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError) as exc:
+        contract = parse_contract(decode_json(raw))
+    except ValueError as exc:
         raise ContractError(f"invalid architecture contract JSON: {exc}") from exc
-    _validate_contract(data, root=root, namespace=namespace)
-    return data, hashlib.sha256(raw).hexdigest()
+    return contract, hashlib.sha256(raw).hexdigest()
 
 
 def _validate_contract(contract: object, *, root: Path, namespace: str) -> None:
@@ -241,92 +240,93 @@ def _validate_contract(contract: object, *, root: Path, namespace: str) -> None:
         dependency_pairs.add(dependency_pair)
 
 
-def project_declarations(contract: dict[str, Any]) -> list[dict[str, Any]]:
+def project_declarations(contract: ArchitectureContract) -> list[dict[str, Any]]:
     """Project the contract into classified records consumed by JSON and HTML."""
+    declarations = contract.declarations or ContractDeclarations()
     items: list[dict[str, Any]] = []
-    for capability in contract["capabilities"]:
+    for capability in declarations.capabilities:
         items.append(
             classified(
-                item_id=capability["id"],
+                item_id=capability.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="components",
                 kind="capability",
-                title=capability["label"],
-                subjects=[capability["name"]],
-                provenance=capability.get("provenance", []),
-                data={"name": capability["name"], "review_order": capability["review_order"]},
+                title=capability.label,
+                subjects=[capability.name],
+                provenance=list(capability.provenance),
+                data={"name": capability.name, "review_order": capability.review_order},
             )
         )
-    for component in contract["components"]:
+    for component in contract.components:
         items.append(
             classified(
-                item_id=component["id"],
+                item_id=component.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="components",
                 kind="component_responsibility",
-                title=component["label"],
-                subjects=component["packages"],
-                provenance=component.get("provenance", []),
+                title=component.label,
+                subjects=list(component.packages),
+                provenance=list(component.provenance),
                 data={
                     **(
-                        {"capability_id": component["capability_id"]}
-                        if "capability_id" in component
+                        {"capability_id": component.capability_id}
+                        if component.capability_id
                         else {}
                     ),
-                    "role": component["role"],
-                    "responsibilities": sorted(component["responsibilities"]),
-                    "forbidden_responsibilities": sorted(component["forbidden_responsibilities"]),
+                    "role": component.role.value,
+                    "responsibilities": sorted(component.responsibilities),
+                    "forbidden_responsibilities": sorted(component.forbidden_responsibilities),
                 },
             )
         )
-    for scope in contract["review_scopes"]:
+    for scope in declarations.review_scopes:
         items.append(
             classified(
-                item_id=scope["id"],
+                item_id=scope.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="components",
                 kind="review_scope",
-                title=scope["label"],
-                subjects=scope["subjects"],
-                provenance=scope.get("provenance", []),
-                data={"parent_id": scope["parent_id"]},
+                title=scope.label,
+                subjects=list(scope.subjects),
+                provenance=list(scope.provenance),
+                data={"parent_id": scope.parent_id},
             )
         )
-    for path in contract["paths"]:
+    for path in declarations.paths:
         items.append(
             classified(
-                item_id=path["id"],
+                item_id=path.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="read_write_paths",
-                kind=f"declared_{path['kind']}_path",
-                title=path["label"],
-                subjects=path["steps"],
-                provenance=path.get("provenance", []),
-                data={"steps": path["steps"]},
+                kind=f"declared_{path.kind.value}_path",
+                title=path.label,
+                subjects=list(path.steps),
+                provenance=list(path.provenance),
+                data={"steps": path.steps},
             )
         )
-    for rule in contract["rules"]:
-        target = ".".join(filter(None, (rule["target"], rule.get("target_symbol"))))
+    for rule in contract.rules:
+        target = ".".join(filter(None, (rule.target, rule.target_symbol)))
         items.append(
             classified(
-                item_id=rule["id"],
+                item_id=rule.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="dependency_violations",
-                kind=rule["kind"],
-                title=f"{rule['source']} must not depend on {target}",
-                subjects=[rule["source"], target],
-                provenance=rule.get("provenance", []),
+                kind=rule.kind,
+                title=f"{rule.source} must not depend on {target}",
+                subjects=[rule.source, target],
+                provenance=list(rule.provenance),
                 data={
-                    "source": rule["source"],
-                    "target": rule["target"],
-                    "include_type_checking": rule["include_type_checking"],
-                    "rationale": rule["rationale"],
-                    "allowed_sources": sorted(rule.get("allowed_sources", [])),
-                    **({"target_symbol": rule["target_symbol"]} if "target_symbol" in rule else {}),
+                    "source": rule.source,
+                    "target": rule.target,
+                    "include_type_checking": rule.include_type_checking,
+                    "rationale": rule.rationale,
+                    "allowed_sources": sorted(rule.allowed_sources),
+                    **({"target_symbol": rule.target_symbol} if rule.target_symbol else {}),
                 },
             )
         )
-    for api in sorted(contract["public_api"]):
+    for api in sorted(declarations.public_api):
         items.append(
             classified(
                 item_id=f"API-{hashlib.sha256(api.encode()).hexdigest()[:16]}",
@@ -335,27 +335,27 @@ def project_declarations(contract: dict[str, Any]) -> list[dict[str, Any]]:
                 kind="declared_public_api",
                 title=api,
                 subjects=[api],
-                provenance=contract["public_api_provenance"],
+                provenance=list(declarations.public_api_provenance),
                 data={"qualified_name": api},
             )
         )
-    for command in contract["public_commands"]:
+    for command in declarations.public_commands:
         items.append(
             classified(
-                item_id=command["id"],
+                item_id=command.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="api_surface",
                 kind="declared_public_command",
-                title=command["command"],
-                subjects=[command["command"]],
-                provenance=command.get("provenance", []),
+                title=command.command,
+                subjects=[command.command],
+                provenance=list(command.provenance),
                 data={
-                    "command": command["command"],
-                    "description": command["description"],
+                    "command": command.command,
+                    "description": command.description,
                 },
             )
         )
-    for context in sorted(contract["context_roots"]):
+    for context in sorted(declarations.context_roots):
         items.append(
             classified(
                 item_id=f"CTX-{hashlib.sha256(context.encode()).hexdigest()[:16]}",
@@ -364,23 +364,23 @@ def project_declarations(contract: dict[str, Any]) -> list[dict[str, Any]]:
                 kind="declared_context_root",
                 title=context,
                 subjects=[context],
-                provenance=contract["context_roots_provenance"],
+                provenance=list(declarations.context_roots_provenance),
                 data={"qualified_name": context},
             )
         )
-    for owner in contract["spot_owners"]:
+    for owner in declarations.spot_owners:
         items.append(
             classified(
-                item_id=owner["id"],
+                item_id=owner.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="spot_ownership",
                 kind="spot_owner",
-                title=owner["label"],
-                subjects=[owner["owner"]],
-                provenance=owner.get("provenance", []),
+                title=owner.label,
+                subjects=[owner.owner],
+                provenance=list(owner.provenance),
                 data={
-                    "owner": owner["owner"],
-                    "responsibility": owner["responsibility"],
+                    "owner": owner.owner,
+                    "responsibility": owner.responsibility,
                 },
             )
         )

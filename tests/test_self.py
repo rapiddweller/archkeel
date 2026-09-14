@@ -123,7 +123,7 @@ def test_self_contract_covers_modules_and_analyzer_interface(self_observation: O
     packages = {
         package for component in contract["components"] for package in component["packages"]
     }
-    public_api = set(contract["public_api"])
+    public_api = set(contract["declarations"]["public_api"])
     forbidden_ir = {
         rule["target"] for rule in contract["rules"] if rule["source"] == "archkeel.analyzer"
     }

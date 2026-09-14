@@ -49,26 +49,22 @@ def _json(path: Path, value: object) -> bytes:
 
 def minimal_contract(path: str) -> dict:
     return {
-        "schema_version": "1.1.0",
-        "capabilities": [
-            {
-                "id": "CAP-APP",
-                "name": "application",
-                "label": "Application",
-                "review_order": 1,
-                "provenance": [path],
-            }
-        ],
+        "schema_version": "2.0.0",
         "components": [],
-        "review_scopes": [],
-        "public_api": [],
-        "public_api_provenance": [path],
-        "public_commands": [],
-        "context_roots": [],
-        "context_roots_provenance": [path],
-        "paths": [],
-        "spot_owners": [],
         "rules": [],
+        "declarations": {
+            "capabilities": [
+                {
+                    "id": "CAP-APP",
+                    "name": "application",
+                    "label": "Application",
+                    "review_order": 1,
+                    "provenance": [path],
+                }
+            ],
+            "public_api_provenance": [path],
+            "context_roots_provenance": [path],
+        },
     }
 
 

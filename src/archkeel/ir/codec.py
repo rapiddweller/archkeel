@@ -70,6 +70,14 @@ _RECORD_KEYS = set(RECORD_FIELDS)
 _EVIDENCE_KEYS = set(EVIDENCE_FIELDS)
 
 
+class ContractVersionError(ValueError):
+    """The contract declares a schema version this parser cannot interpret."""
+
+    def __init__(self, actual: str) -> None:
+        self.actual = actual
+        super().__init__(f"contract.schema_version {actual!r} is not 2.0.0")
+
+
 def _object(raw: object, label: str) -> dict[str, Any]:
     if not isinstance(raw, dict) or not all(isinstance(k, str) for k in raw):
         raise ValueError(f"{label} must be an object")
@@ -549,7 +557,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         "contract",
     )
     if root["schema_version"] != "2.0.0":
-        raise ValueError("contract.schema_version must be 2.0.0")
+        raise ContractVersionError(str(root["schema_version"]))
     components_raw = root["components"]
     rules_raw = root["rules"]
     if not isinstance(components_raw, list) or not isinstance(rules_raw, list):
