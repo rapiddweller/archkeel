@@ -35,14 +35,14 @@ def test_check_requires_explicit_inputs(capsys: pytest.CaptureFixture) -> None:
     )
 
 
-def test_report_has_no_external_producer_option() -> None:
+def test_report_has_no_external_analyzer_option() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "archkeel.cli", "report", "--help"],
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0
-    assert "--producer-root" not in result.stdout
+    assert "--analyzer-root" not in result.stdout
 
 
 def test_report_missing_config_is_unknown(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:

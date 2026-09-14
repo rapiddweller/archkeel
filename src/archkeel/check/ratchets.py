@@ -28,7 +28,7 @@ def _positions(value: object, label: str) -> int:
 
 
 def measure_python_ratchets(observation: Observation) -> Measurements:
-    """Project raw counts; producer percentages never participate in the policy."""
+    """Project raw counts; analyzer percentages never participate in the policy."""
     coverage = observation.coverage
     if (
         coverage.status != "PASS"

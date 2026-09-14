@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 
 from archkeel.check.ordering import check_order
-from archkeel.ir.host import HostRecord, OrderingError, parse_records
+from archkeel.ir.host_records import HostRecord, OrderingError, parse_records
 
 E = "e" * 40
 H = "c" * 40

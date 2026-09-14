@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import NoReturn
 
 from ..accept import unavailable
+from ..analyzer import observe
 from ..check.report import render_result, run_report, unknown_result
 from ..check.run import run_check
 from ..host.gitlab import load_gitlab_records
-from ..producer import observe
 from ..render.html import render_architecture_html
 from .config import load_check_config, load_config
 
@@ -71,7 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if command == "report":
                 config = load_config(root)
                 subject = str(root)
-                result, architecture = run_report(root, config=config, producer=observe)
+                result, architecture = run_report(root, config=config, analyzer=observe)
                 if architecture is not None:
                     artifact = args.output or root / "test-artifacts/architecture/architecture.json"
                     artifact.parent.mkdir(parents=True, exist_ok=True)
@@ -109,7 +109,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     host_records_path=args.host_records,
                     environ=os.environ,
                     host=load_gitlab_records,
-                    producer=observe,
+                    analyzer=observe,
                 )
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -285,12 +285,12 @@ flowchart TB
     CLI["cli"] --> CHECK["check"]
     CLI --> ACCEPT["accept"]
     CLI --> RENDER["render"]
-    CLI --> PRODUCER["analyzer"]
+    CLI --> ANALYZER["analyzer"]
     CLI --> HOST["host"]
     CHECK --> IR["ir"]
     ACCEPT --> IR
     RENDER --> IR
-    PRODUCER --> IR
+    ANALYZER --> IR
     HOST --> IR
     IR --> RULE["imports nothing from archkeel"]
 
@@ -298,7 +298,7 @@ flowchart TB
     classDef core fill:#141414,stroke:#C5F82A,color:#E8E8E2
     classDef invariant fill:#C5F82A,stroke:#C5F82A,color:#0D1F05
 
-    class CLI,CHECK,ACCEPT,PRODUCER,HOST,RENDER module
+    class CLI,CHECK,ACCEPT,ANALYZER,HOST,RENDER module
     class IR core
     class RULE invariant
 ```

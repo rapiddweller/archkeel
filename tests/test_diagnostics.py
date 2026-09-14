@@ -18,7 +18,7 @@ from archkeel.ir.model import (
 def test_missing_observation_requires_diagnostic() -> None:
     with pytest.raises(ValueError, match="requires a diagnostic"):
         ObservationResult(None, None, ())
-    diagnostic = Diagnostic("missing_tool", "producer", "scan completeness", "Install producer.")
+    diagnostic = Diagnostic("missing_tool", "analyzer", "scan completeness", "Install analyzer.")
     result = ObservationResult(None, None, (diagnostic,))
     assert result.exit_code == 2
     assert result.diagnostics == (diagnostic,)

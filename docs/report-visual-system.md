@@ -92,7 +92,7 @@ red only when the contract classifies the change as a regression or failure.
    `observation_complete`, `declared_rules`, `expectation_fulfilled`.
 4. Evidence that caused a failure or uncertainty.
 5. Complete findings, raw measurements, fingerprints, and diagnostics.
-6. Reproduction metadata and producer/runtime versions.
+6. Reproduction metadata and analyzer/runtime versions.
 
 The three verdicts must never be averaged into one health number. A gauge such
 as “architecture score 84” destroys the contract semantics.

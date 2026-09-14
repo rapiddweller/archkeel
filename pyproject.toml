@@ -68,7 +68,7 @@ only-include = [
 ]
 
 [dependency-groups]
-# Pytest preserves producer tests, Ruff checks style, and MyPy enforces the static boundary.
+# Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.
 dev = ["ruff==0.16.0", "pytest>=8.3.4,<9", "mypy==1.18.2"]
 
 [tool.pytest.ini_options]

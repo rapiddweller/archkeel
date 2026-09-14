@@ -61,11 +61,11 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "COMP-PRODUCER",
+      "id": "COMP-ANALYZER",
       "label": "analyzer",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.producer"],
+      "packages": ["archkeel.analyzer"],
       "responsibilities": ["Run the bundled Python analyzer and preserve typed diagnostics."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
@@ -130,12 +130,12 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-IR-NO-PRODUCER",
+      "id": "DEP-IR-NO-ANALYZER",
       "kind": "forbidden_dependency",
       "source": "archkeel.ir",
-      "target": "archkeel.producer",
+      "target": "archkeel.analyzer",
       "include_type_checking": true,
-      "rationale": "ir does not depend on producer.",
+      "rationale": "ir does not depend on analyzer.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -166,10 +166,10 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-CHECK-NO-PRODUCER",
+      "id": "DEP-CHECK-NO-ANALYZER",
       "kind": "forbidden_dependency",
       "source": "archkeel.check",
-      "target": "archkeel.producer",
+      "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "The deterministic core receives observations through an injected port.",
       "provenance": ["docs/architecture/archkeel.md"]
@@ -202,12 +202,12 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-ACCEPT-NO-PRODUCER",
+      "id": "DEP-ACCEPT-NO-ANALYZER",
       "kind": "forbidden_dependency",
       "source": "archkeel.accept",
-      "target": "archkeel.producer",
+      "target": "archkeel.analyzer",
       "include_type_checking": true,
-      "rationale": "accept does not depend on producer.",
+      "rationale": "accept does not depend on analyzer.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -247,91 +247,91 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-HOST-NO-PRODUCER",
+      "id": "DEP-HOST-NO-ANALYZER",
       "kind": "forbidden_dependency",
       "source": "archkeel.host",
-      "target": "archkeel.producer",
+      "target": "archkeel.analyzer",
       "include_type_checking": true,
-      "rationale": "host does not depend on producer.",
+      "rationale": "host does not depend on analyzer.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-CHECK",
+      "id": "DEP-ANALYZER-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.check",
       "include_type_checking": true,
-      "rationale": "producer does not depend on check.",
+      "rationale": "analyzer does not depend on check.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-ACCEPT",
+      "id": "DEP-ANALYZER-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.accept",
       "include_type_checking": true,
-      "rationale": "producer does not depend on accept.",
+      "rationale": "analyzer does not depend on accept.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-CLI",
+      "id": "DEP-ANALYZER-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.cli",
       "include_type_checking": true,
-      "rationale": "producer does not depend on cli.",
+      "rationale": "analyzer does not depend on cli.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-HOST",
+      "id": "DEP-ANALYZER-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.host",
       "include_type_checking": true,
-      "rationale": "producer does not depend on host.",
+      "rationale": "analyzer does not depend on host.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-IR-DIGEST",
+      "id": "DEP-ANALYZER-NO-IR-DIGEST",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.ir.digest",
       "include_type_checking": true,
-      "rationale": "Producer may use only the IR model and codec boundaries.",
+      "rationale": "Analyzer may use only the IR model and codec boundaries.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-IR-LOCK",
+      "id": "DEP-ANALYZER-NO-IR-LOCK",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.ir.lock",
       "include_type_checking": true,
-      "rationale": "Producer may use only the IR model and codec boundaries.",
+      "rationale": "Analyzer may use only the IR model and codec boundaries.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-IR-MEASUREMENTS",
+      "id": "DEP-ANALYZER-NO-IR-MEASUREMENTS",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.ir.measurements",
       "include_type_checking": true,
-      "rationale": "Producer may use only the IR model and codec boundaries.",
+      "rationale": "Analyzer may use only the IR model and codec boundaries.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-IR-TRACE",
+      "id": "DEP-ANALYZER-NO-IR-TRACE",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.ir.trace",
       "include_type_checking": true,
-      "rationale": "Producer may use only the IR model and codec boundaries.",
+      "rationale": "Analyzer may use only the IR model and codec boundaries.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-IR-HOST",
+      "id": "DEP-ANALYZER-NO-IR-HOST-RECORDS",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
-      "target": "archkeel.ir.host",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir.host_records",
       "include_type_checking": true,
       "rationale": "The analyzer may publish only the common model and codec boundary.",
       "provenance": ["docs/architecture/archkeel.md"]
@@ -373,9 +373,9 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-PRODUCER-NO-RENDER",
+      "id": "DEP-ANALYZER-NO-RENDER",
       "kind": "forbidden_dependency",
-      "source": "archkeel.producer",
+      "source": "archkeel.analyzer",
       "target": "archkeel.render",
       "include_type_checking": true,
       "rationale": "The analyzer produces evidence without presentation dependencies.",
@@ -418,10 +418,10 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "DEP-RENDER-NO-PRODUCER",
+      "id": "DEP-RENDER-NO-ANALYZER",
       "kind": "forbidden_dependency",
       "source": "archkeel.render",
-      "target": "archkeel.producer",
+      "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "Rendering consumes IR values rather than analyzer implementations.",
       "provenance": ["docs/architecture/archkeel.md"]

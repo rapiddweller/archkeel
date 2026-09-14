@@ -11,7 +11,7 @@ The architecture schemas live once under `schema/`; builds include them as packa
 
 ## Analyzer and runtime
 
-The Python analyzer is bundled under `archkeel.producer`. `report` and `check`
+The Python analyzer is bundled under `archkeel.analyzer`. `report` and `check`
 need no source checkout or private package. The analyzer runs in an isolated
 subprocess and returns a typed observation at the analyzer boundary.
 D-self verifies the bundled analyzer digest recorded in `fixtures/D-self/provenance.json`.

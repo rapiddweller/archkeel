@@ -73,14 +73,14 @@ def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Ob
     }
 
 
-def test_self_contract_covers_modules_and_producer_interface(self_observation: Observation) -> None:
+def test_self_contract_covers_modules_and_analyzer_interface(self_observation: Observation) -> None:
     contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
     packages = {
         package for component in contract["components"] for package in component["packages"]
     }
     public_api = set(contract["public_api"])
     forbidden_ir = {
-        rule["target"] for rule in contract["rules"] if rule["source"] == "archkeel.producer"
+        rule["target"] for rule in contract["rules"] if rule["source"] == "archkeel.analyzer"
     }
     for module in self_observation.records("modules"):
         name = module.data.get("qualified_name")
@@ -97,7 +97,7 @@ def test_self_contract_covers_modules_and_producer_interface(self_observation: O
         source = record.data.get("source_module")
         target = record.data.get("target_module")
         assert isinstance(source, str) and isinstance(target, str)
-        if (source == "archkeel.producer" or source.startswith("archkeel.producer.")) and (
+        if (source == "archkeel.analyzer" or source.startswith("archkeel.analyzer.")) and (
             target == "archkeel.ir" or target.startswith("archkeel.ir.")
         ):
             assert target in public_api, (source, target)

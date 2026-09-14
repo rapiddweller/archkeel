@@ -27,7 +27,7 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
         (Diagnostic("parse_error", "probe.py", "AST coverage", "Repair the syntax."),),
     )
 
-    def producer(*args: object, **kwargs: object) -> ObservationResult:
+    def analyzer(*args: object, **kwargs: object) -> ObservationResult:
         return observed
 
     with (
@@ -37,7 +37,7 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
         result, architecture = run_report(
             tmp_path,
             config=ScanConfig((".",), "sample", "contract.json", "d" * 64),
-            producer=producer,
+            analyzer=analyzer,
         )
     assert result.exit_code == 2
     assert result.coverage == model.coverage
@@ -57,7 +57,7 @@ def test_cli_report_artifact_path_is_relative_only_inside_root(
     output = tmp_path / "outside.json" if outside else root / "report.json"
     model = parse_observation(_model(git_head="a" * 40))
 
-    def producer(*args: object, **kwargs: object) -> ObservationResult:
+    def analyzer(*args: object, **kwargs: object) -> ObservationResult:
         return ObservationResult(model, model.coverage, ())
 
     with (
@@ -67,7 +67,7 @@ def test_cli_report_artifact_path_is_relative_only_inside_root(
             "archkeel.cli.load_config",
             return_value=ScanConfig((".",), "sample", "contract.json", "d" * 64),
         ),
-        patch("archkeel.cli.observe", producer),
+        patch("archkeel.cli.observe", analyzer),
     ):
         assert main(["report", "--root", str(root), "--output", str(output)]) == 0
     result = json.loads(capsys.readouterr().out)

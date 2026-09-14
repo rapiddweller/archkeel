@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from archkeel.ir.host import HostRecord
+from archkeel.ir.host_records import HostRecord
 from archkeel.ir.model import ObservationResult
 
 
@@ -20,7 +20,7 @@ class ScanConfig:
     digest: str
 
 
-class Producer(Protocol):
+class Analyzer(Protocol):
     def __call__(
         self,
         source_root: Path,

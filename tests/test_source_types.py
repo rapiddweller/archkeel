@@ -14,7 +14,7 @@ from archkeel.ir.measurements import Measurements, RatchetScalars
 def test_source_has_no_untyped_module_boundaries_or_product_namespace() -> None:
     source = Path(__file__).parents[1] / "src"
     pattern = re.compile(r"dict\[str, Any\]|Mapping\[str, Any\]|: Any\b")
-    raw_record_owners = ("archkeel/ir/codec.py", "archkeel/producer/embedded/")
+    raw_record_owners = ("archkeel/ir/codec.py", "archkeel/analyzer/embedded/")
     hits = []
     namespace_hits = []
     for path in sorted(source.rglob("*.py")):

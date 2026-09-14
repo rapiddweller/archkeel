@@ -39,7 +39,7 @@ def test_check_keeps_partial_observation_on_exit_two(tmp_path: Path, stage: str)
         if stage == "accepted"
         else [ObservationResult(complete, complete.coverage, ()), observed]
     )
-    producer = Mock(side_effect=results)
+    analyzer = Mock(side_effect=results)
     expected = _expectation_payload()
     expected.update(accepted_digest=sha256(lock_bytes).hexdigest(), baseline_commit="b" * 40)
     expected_bytes = json.dumps(expected).encode()
@@ -74,7 +74,7 @@ def test_check_keeps_partial_observation_on_exit_two(tmp_path: Path, stage: str)
             host_records_path=None,
             environ={},
             host=Mock(return_value=()),
-            producer=producer,
+            analyzer=analyzer,
         )
     assert result.exit_code == 2
     assert result.observation == partial

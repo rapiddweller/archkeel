@@ -11,7 +11,7 @@ from archkeel.ir.codec import canonical_report_bytes, result_bytes
 from archkeel.ir.model import Diagnostic, DiagnosticError, RunResult
 
 from .git import git_bytes
-from .ports import Producer, ScanConfig
+from .ports import Analyzer, ScanConfig
 from .run import inspect_observation
 from .snapshot import resolve_commit
 
@@ -37,9 +37,9 @@ def run_report(
     root: Path,
     *,
     config: ScanConfig,
-    producer: Producer,
+    analyzer: Analyzer,
 ) -> tuple[RunResult, bytes | None]:
-    result = producer(
+    result = analyzer(
         root,
         roots=config.roots,
         namespace=config.namespace,

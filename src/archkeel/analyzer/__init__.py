@@ -107,7 +107,7 @@ def observe(
             "namespace": namespace,
         }
         result = subprocess.run(
-            [sys.executable, "-B", "-m", "archkeel.producer.bridge"],
+            [sys.executable, "-B", "-m", "archkeel.analyzer.bridge"],
             cwd=source_root,
             input=canonical_json_bytes(request).decode(),
             text=True,

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from archkeel.ir.host import HostRecord, OrderingError, parse_timestamp, validate_sha
+from archkeel.ir.host_records import HostRecord, OrderingError, parse_timestamp, validate_sha
 
 
 def check_order(

@@ -45,8 +45,8 @@
     }
   },
   "excluded": [
-    "producer/report/render tests",
-    "analyzer_code_digest and producer version/digest path",
+    "analyzer/report/render tests",
+    "analyzer_code_digest and analyzer version/digest path",
     "Phase4 fixtures A/B",
     "reproduce_phase4.py",
     "regression checks, host, and lock implementation"

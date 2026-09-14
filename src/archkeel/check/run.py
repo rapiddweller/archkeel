@@ -10,7 +10,7 @@ from typing import Literal
 
 from archkeel.ir.codec import canonical_report_bytes, declaration_paths, decode_json, parse_lock
 from archkeel.ir.digest import package_digest
-from archkeel.ir.host import parse_records
+from archkeel.ir.host_records import parse_records
 from archkeel.ir.lock import LOCK_PATH, LockError, verify_observation
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import CheckProvenance, Diagnostic, DiagnosticError, Observation, RunResult
@@ -28,7 +28,7 @@ from .git import (
     remote_tip,
 )
 from .ordering import check_order
-from .ports import Host, Producer, ScanConfig
+from .ports import Analyzer, Host, ScanConfig
 from .ratchets import measure_python_ratchets
 from .snapshot import SnapshotError, materialize_git_snapshot
 
@@ -67,7 +67,7 @@ def run_check(
     host_records_path: Path | None,
     environ: Mapping[str, str],
     host: Host,
-    producer: Producer,
+    analyzer: Analyzer,
 ) -> RunResult:
     if baseline != remote_tip(root, accepted_branch):
         raise GitError("baseline is not the current accepted origin branch tip")
@@ -122,7 +122,7 @@ def run_check(
         declarations = Path(temporary)
         materialize_declarations(root, baseline, config, declarations)
         with materialize_git_snapshot(root, lock.accepted_commit, roots=config.roots) as before:
-            accepted_result = producer(
+            accepted_result = analyzer(
                 before.root,
                 roots=config.roots,
                 namespace=config.namespace,
@@ -150,7 +150,7 @@ def run_check(
             measurements=measure_python_ratchets(accepted),
         )
         with materialize_git_snapshot(root, head, roots=config.roots) as after:
-            candidate_result = producer(
+            candidate_result = analyzer(
                 after.root,
                 roots=config.roots,
                 namespace=config.namespace,

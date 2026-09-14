@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Identify the checker independently of the observation producer."""
+"""Identify the checker independently of the observation analyzer."""
 
 import hashlib
 from pathlib import Path

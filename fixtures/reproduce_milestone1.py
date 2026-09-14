@@ -14,6 +14,7 @@ from dataclasses import asdict
 from pathlib import Path
 from tempfile import mkdtemp
 
+from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ratchets import measure_python_ratchets
@@ -25,7 +26,6 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.digest import package_digest
-from archkeel.producer import observe
 
 DEMO_CASES = {
     "A": (
