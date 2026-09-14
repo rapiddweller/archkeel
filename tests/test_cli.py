@@ -47,7 +47,16 @@ def test_report_has_no_external_analyzer_option() -> None:
     assert "--analyzer-root" not in result.stdout
 
 
-@pytest.mark.parametrize("command", ["init", "report", "validate", "check", "accept"])
+def test_skill_install_writes_the_packaged_instructions(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    assert main(["skill", "install", "claude", "--root", str(tmp_path), "--json"]) == 0
+    path = Path(json.loads(capsys.readouterr().out)["path"])
+    assert path == tmp_path / ".claude/skills/archkeel/SKILL.md"
+    assert "archkeel validate --json" in path.read_text()
+
+
+@pytest.mark.parametrize("command", ["init", "report", "validate", "check", "skill", "accept"])
 def test_every_command_help_explains_purpose_and_exit_codes(command: str) -> None:
     result = subprocess.run(
         [sys.executable, "-m", "archkeel.cli", command, "--help"],

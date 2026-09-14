@@ -4,6 +4,7 @@
 """Run repository observations and declaration checks."""
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -26,6 +27,7 @@ from ..render.html import render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
 from .config import load_check_config, load_config
+from .skill import install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 
@@ -51,7 +53,7 @@ def _observing(parser: _Parser, output_help: str | None) -> None:
         "--root",
         type=Path,
         default=Path.cwd(),
-        help="Repository root containing archkeel.toml. Default: the current directory.",
+        help="Repository root. Default: the current directory.",
     )
     if output_help is not None:
         parser.add_argument("--output", type=Path, help=output_help)
@@ -195,6 +197,26 @@ def build_parser() -> _Parser:
     init.add_argument("--namespace", help="Dotted Python package name of --source.")
     init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
 
+    skill = commands.add_parser(
+        "skill",
+        help="Install the Archkeel instructions for a coding agent.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "Writes .claude/skills/archkeel/SKILL.md for Claude Code or a marked section in\n"
+            "AGENTS.md for Codex. Running it again replaces the section in place.\n\n"
+            "Examples:\n"
+            "  archkeel skill install claude\n"
+            "  archkeel skill install codex --root ../service\n\n"
+            "Exit codes:\n"
+            "  0  instructions written\n"
+            "  2  the target file could not be updated\n\n"
+            f"Onboarding: {_DOCS}/onboarding.md"
+        ),
+    )
+    skill.add_argument("action", choices=["install"], help="The only supported action.")
+    skill.add_argument("agent", choices=["claude", "codex"], help="Coding agent to instruct.")
+    _observing(skill, None)
+
     commands.add_parser(
         "accept",
         help="Accept a candidate (not available in this release).",
@@ -217,6 +239,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         command = args.command
         interactive = interactive and not args.json
+        if command == "skill":
+            path = install_skill(args.root.resolve(), args.agent)
+            print(
+                f"Installed Archkeel instructions: {path}"
+                if interactive
+                else json.dumps({"command": "skill", "exit_code": 0, "path": str(path)})
+            )
+            return 0
         if command == "accept":
             result = unavailable()
         else:
