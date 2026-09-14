@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: check test lint typecheck fixtures build smoke release-check
+.PHONY: check test lint typecheck fixtures demo build smoke release-check
 check: lint typecheck test
 
 release-check: check build smoke
@@ -18,6 +18,9 @@ typecheck:
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
+
+demo:
+	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary
 
 # Twine validates PyPI metadata; it is a build-only tool.
 build:

@@ -27,6 +27,15 @@ from archkeel.ir.codec import (
 from archkeel.ir.digest import package_digest
 from archkeel.producer import observe
 
+DEMO_CASES = {
+    "A": (
+        1,
+        "The call graph gets blinder: calls_unresolved 0->1, unresolved_ratio 0/2->1/1.",
+    ),
+    "B": (1, "The expectation was published after the first candidate submission."),
+    "C": (0, "The declared change was fulfilled."),
+}
+
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.check_output(
@@ -261,10 +270,33 @@ def reproduce(output: Path) -> dict:
     return results
 
 
+def print_summary(output: Path) -> None:
+    print(
+        "Case · expected exit · actual exit · "
+        "observation_complete / declared_rules / expectation_fulfilled · "
+        "demonstrates · result JSON"
+    )
+    for case, (expected, description) in DEMO_CASES.items():
+        result_path = output / f"{case}-check.stdout.json"
+        result = json.loads(result_path.read_bytes())
+        actual = result["exit_code"]
+        if actual != expected:
+            raise SystemExit(f"Case {case}: expected exit {expected}, got {actual}")
+        verdicts = " / ".join(
+            result[key]
+            for key in ("observation_complete", "declared_rules", "expectation_fulfilled")
+        )
+        print(f"{case} · {expected} · {actual} · {verdicts} · {description} · {result_path}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--summary", action="store_true")
     args = parser.parse_args()
     destination = args.output or Path(mkdtemp(prefix="archkeel-fixtures-"))
     reproduce(destination)
-    print(destination / "results.json")
+    if args.summary:
+        print_summary(destination)
+    else:
+        print(destination / "results.json")
