@@ -12,7 +12,6 @@ from archkeel.ir.model import Diagnostic, DiagnosticError, RunResult
 from archkeel.producer import observe
 
 from .git import git_bytes
-from .html import render_html
 from .ports import Producer, ScanConfig
 from .run import inspect_observation
 from .snapshot import resolve_commit
@@ -94,14 +93,4 @@ def run_report(
                 artifact=artifact,
                 python_version=model.python_version,
             )
-    if model is not None:
-        html_path = path.with_name("interactive.html")
-        html_path.write_bytes(
-            render_html(
-                command_result,
-                model,
-                repository=root.name,
-                architecture_href=path.name,
-            )
-        )
     return command_result

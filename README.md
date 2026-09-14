@@ -284,17 +284,19 @@ self-scan.
 flowchart TB
     CLI["cli"] --> CHECK["check"]
     CLI --> ACCEPT["accept"]
+    CLI --> RENDER["render"]
     CHECK --> IR["ir"]
     CHECK --> PRODUCER["analyzer"]
     CHECK --> HOST["host"]
     ACCEPT --> IR
+    RENDER --> IR
     IR --> RULE["imports nothing from archkeel"]
 
     classDef module fill:#141414,stroke:#5EEAD4,color:#E8E8E2
     classDef core fill:#141414,stroke:#C5F82A,color:#E8E8E2
     classDef invariant fill:#C5F82A,stroke:#C5F82A,color:#0D1F05
 
-    class CLI,CHECK,ACCEPT,PRODUCER,HOST module
+    class CLI,CHECK,ACCEPT,PRODUCER,HOST,RENDER module
     class IR core
     class RULE invariant
 ```

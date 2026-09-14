@@ -13,6 +13,7 @@ from typing import NoReturn
 from ..accept import unavailable
 from ..check.report import render_result, run_report, unknown_result
 from ..check.run import run_check
+from ..render.html import render_architecture_html
 from .config import load_check_config, load_config
 
 
@@ -68,6 +69,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config = load_config(root)
                 subject = str(root)
                 result = run_report(root, config=config, output=args.output)
+                if result.artifact is not None:
+                    artifact = root / result.artifact
+                    (artifact.parent / "interactive.html").write_bytes(
+                        render_architecture_html(
+                            result,
+                            artifact.read_bytes(),
+                            repository=root.name,
+                            architecture_href=artifact.name,
+                        )
+                    )
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"

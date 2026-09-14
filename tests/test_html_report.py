@@ -7,10 +7,10 @@ from xml.etree import ElementTree
 import pytest
 from test_delta import _model
 
-from archkeel.check.html import render_html
 from archkeel.ir.codec import parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import Diagnostic, RunResult
+from archkeel.render.html import render_html
 
 
 def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
@@ -79,7 +79,7 @@ def test_html_report_never_styles_missing_evidence_as_pass() -> None:
 # Wordmarks may split the name across tspans; compare the rendered text, not the source.
 @pytest.mark.parametrize("name", ["archkeel-logo-dark.svg", "archkeel-logo-light.svg"])
 def test_logo_wordmark_reads_archkeel(name: str) -> None:
-    svg = Path(__file__).parents[1] / "src/archkeel/check/assets" / name
+    svg = Path(__file__).parents[1] / "src/archkeel/render/assets" / name
     text = ElementTree.parse(svg).find("{http://www.w3.org/2000/svg}text")
     assert text is not None
     assert "".join(text.itertext()).strip() == "archkeel"

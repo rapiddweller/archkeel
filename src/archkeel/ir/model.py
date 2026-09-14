@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, get_args
 
 from .measurements import Measurements
 
@@ -182,15 +182,7 @@ class Diagnostic:
     remedy: str
 
     def __post_init__(self) -> None:
-        if self.kind not in {
-            "missing_tool",
-            "timeout",
-            "parse_error",
-            "scope_empty",
-            "rule_without_subjects",
-            "runtime_mismatch",
-            "incomparable_runtime",
-        }:
+        if self.kind not in get_args(DiagnosticKind):
             raise ValueError("invalid diagnostic kind")
         if not all(value.strip() for value in (self.subject, self.unknown_claim, self.remedy)):
             raise ValueError("diagnostic fields must not be empty")

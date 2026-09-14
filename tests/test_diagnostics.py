@@ -2,10 +2,17 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from dataclasses import FrozenInstanceError
+from typing import cast, get_args
 
 import pytest
 
-from archkeel.ir.model import Diagnostic, ObservationResult, RecordData, RunResult
+from archkeel.ir.model import (
+    Diagnostic,
+    DiagnosticKind,
+    ObservationResult,
+    RecordData,
+    RunResult,
+)
 
 
 def test_missing_observation_requires_diagnostic() -> None:
@@ -24,6 +31,13 @@ def test_diagnostic_has_actionable_single_line_remedy() -> None:
         Diagnostic("parse_error", "file.py", "AST coverage", "Fix syntax.\nRetry.")
     with pytest.raises(ValueError, match="must not be empty"):
         Diagnostic("parse_error", "", "AST coverage", "Fix syntax.")
+
+
+def test_diagnostic_kind_uses_the_declared_literal_values() -> None:
+    for kind in get_args(DiagnosticKind):
+        Diagnostic(kind, "subject", "unknown claim", "Retry.")
+    with pytest.raises(ValueError, match="invalid diagnostic kind"):
+        Diagnostic(cast(DiagnosticKind, "invalid"), "subject", "unknown claim", "Retry.")
 
 
 def test_record_data_cannot_have_ambiguous_keys() -> None:

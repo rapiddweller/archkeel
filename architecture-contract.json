@@ -26,7 +26,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.check"],
-      "responsibilities": ["Deterministic deltas, regression checks, expectations, publication-order checks and evidence rendering."],
+      "responsibilities": ["Deterministic deltas, regression checks, expectations and publication-order checks."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
     },
@@ -68,6 +68,16 @@
       "packages": ["archkeel.producer"],
       "responsibilities": ["Run the bundled Python analyzer and preserve typed diagnostics."],
       "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "COMP-RENDER",
+      "label": "render",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": ["archkeel.render"],
+      "responsibilities": ["Deterministic HTML projections of typed Archkeel evidence."],
+      "forbidden_responsibilities": ["Architecture decisions and persistence."],
       "provenance": ["docs/architecture/archkeel.md"]
     }
   ],
@@ -324,6 +334,96 @@
       "target": "archkeel.ir.trace",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-IR-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.ir",
+      "target": "archkeel.render",
+      "include_type_checking": true,
+      "rationale": "IR remains independent of presentation.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CHECK-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.check",
+      "target": "archkeel.render",
+      "include_type_checking": true,
+      "rationale": "Checks produce typed results without presentation dependencies.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-ACCEPT-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.accept",
+      "target": "archkeel.render",
+      "include_type_checking": true,
+      "rationale": "Acceptance remains independent of presentation.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-HOST-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.host",
+      "target": "archkeel.render",
+      "include_type_checking": true,
+      "rationale": "Host evidence collection remains independent of presentation.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-PRODUCER-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.producer",
+      "target": "archkeel.render",
+      "include_type_checking": true,
+      "rationale": "The analyzer produces evidence without presentation dependencies.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-CHECK",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.render",
+      "target": "archkeel.check",
+      "include_type_checking": true,
+      "rationale": "Rendering consumes IR values without check implementation details.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-ACCEPT",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.render",
+      "target": "archkeel.accept",
+      "include_type_checking": true,
+      "rationale": "Rendering does not own acceptance.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-CLI",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.render",
+      "target": "archkeel.cli",
+      "include_type_checking": true,
+      "rationale": "The CLI owns presentation output orchestration.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-HOST",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.render",
+      "target": "archkeel.host",
+      "include_type_checking": true,
+      "rationale": "Rendering consumes typed evidence rather than host implementations.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-PRODUCER",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.render",
+      "target": "archkeel.producer",
+      "include_type_checking": true,
+      "rationale": "Rendering consumes IR values rather than analyzer implementations.",
       "provenance": ["docs/architecture/archkeel.md"]
     }
   ]

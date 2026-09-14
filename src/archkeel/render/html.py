@@ -7,14 +7,16 @@ from __future__ import annotations
 
 import base64
 import html
+import json
 from importlib.resources import files
 
+from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
 
 
 def _asset(name: str) -> bytes:
-    return files("archkeel.check").joinpath("assets", name).read_bytes()
+    return files("archkeel.render").joinpath("assets", name).read_bytes()
 
 
 def _data_uri(name: str, mime_type: str) -> str:
@@ -318,3 +320,20 @@ def render_html(
 </html>
 """
     return document.encode("utf-8")
+
+
+def render_architecture_html(
+    result: RunResult,
+    architecture_json: bytes,
+    *,
+    repository: str,
+    architecture_href: str,
+) -> bytes:
+    """Render a report result with its canonical observation artifact."""
+    observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
+    return render_html(
+        result,
+        observation,
+        repository=repository,
+        architecture_href=architecture_href,
+    )

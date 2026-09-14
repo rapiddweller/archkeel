@@ -160,7 +160,7 @@ unless the check has already classified them as a failure.
 
 ## Implementation assets
 
-- `src/archkeel/check/assets/archkeel-report.css`: tokens and report components.
-- `src/archkeel/check/assets/archkeel-logo-dark.svg`: dark-header logo.
-- `src/archkeel/check/assets/archkeel-logo-light.svg`: print/light logo.
-- `src/archkeel/check/assets/archkeel-mark.svg`: compact mark.
+- `src/archkeel/render/assets/archkeel-report.css`: tokens and report components.
+- `src/archkeel/render/assets/archkeel-logo-dark.svg`: dark-header logo.
+- `src/archkeel/render/assets/archkeel-logo-light.svg`: print/light logo.
+- `src/archkeel/render/assets/archkeel-mark.svg`: compact mark.
