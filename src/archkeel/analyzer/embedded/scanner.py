@@ -26,6 +26,7 @@ from archkeel.ir.model import (
     EvidenceClass,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    in_scope,
 )
 
 from .graph import condensation_ranks, strongly_connected_components, transitive_paths
@@ -133,10 +134,6 @@ def _module_for(path: Path, *, root: Path, namespace: str) -> str:
 def _package_for(module: str) -> str:
     parts = module.split(".")
     return ".".join(parts[:2]) if len(parts) > 1 else module
-
-
-def _belongs_to_scope(module: str, scope: str) -> bool:
-    return module == scope or module.startswith(f"{scope}.")
 
 
 def _top_level_scope(module: str) -> str | None:
@@ -257,9 +254,7 @@ class _ImportCollector(ast.NodeVisitor):
     ) -> None:
         evidence_id = _add_evidence(self.evidence, self.module, node)
         target_package = (
-            _package_for(target)
-            if _belongs_to_scope(target, self.namespace)
-            else target.split(".")[0]
+            _package_for(target) if in_scope(target, self.namespace) else target.split(".")[0]
         )
         line, _, column = _location(node)
         item_id = stable_id(
@@ -1355,7 +1350,7 @@ def _aggregate_edges(
         else:
             source = data["source_package"]
             target = data["target_package"]
-            if not _belongs_to_scope(target, namespace) or source == target:
+            if not in_scope(target, namespace) or source == target:
                 continue
         buckets[(source, target)].append(item["id"])
         if data["under_type_checking"]:
@@ -1494,14 +1489,8 @@ def _dependency_violations(
         allowed_sources = frozenset(rule.allowed_sources)
         for item in imports:
             data = item["data"]
-            if (
-                not data["source_module"].startswith(f"{source}.")
-                and data["source_module"] != source
-            ):
-                continue
-            if (
-                not data["target_module"].startswith(f"{target}.")
-                and data["target_module"] != target
+            if not in_scope(data["source_module"], source) or not in_scope(
+                data["target_module"], target
             ):
                 continue
             if data["source_module"] in allowed_sources:
@@ -1543,7 +1532,7 @@ def _construct_violations(
         for item in signals:
             construct = item["kind"].removesuffix("_call")
             owner = item["data"]["owner"]
-            if construct not in rule.constructs or not _belongs_to_scope(
+            if construct not in rule.constructs or not in_scope(
                 owner.split(":", 1)[0], rule.source
             ):
                 continue
@@ -1585,9 +1574,7 @@ def _component_scope_observations(
     for component in sorted(components, key=lambda item: item.id):
         scopes = sorted(component.packages)
         matched_names = sorted(
-            name
-            for name in module_by_name
-            if any(_belongs_to_scope(name, scope) for scope in scopes)
+            name for name in module_by_name if any(in_scope(name, scope) for scope in scopes)
         )
         assigned_modules.update(matched_names)
         matched_set = set(matched_names)
@@ -1628,7 +1615,7 @@ def _component_scope_observations(
                         {
                             "scope": scope,
                             "observed_module_count": sum(
-                                1 for name in matched_names if _belongs_to_scope(name, scope)
+                                1 for name in matched_names if in_scope(name, scope)
                             ),
                         }
                         for scope in scopes
@@ -1674,7 +1661,7 @@ def _component_scope_observations(
 
     for scope, names in sorted(unassigned_by_scope.items()):
         module_facts = [module_by_name[name] for name in names]
-        scope_modules = sorted(name for name in module_by_name if _belongs_to_scope(name, scope))
+        scope_modules = sorted(name for name in module_by_name if in_scope(name, scope))
         observations.append(
             classified(
                 item_id=stable_id("UNKNOWN-SCOPE", scope),
@@ -1770,7 +1757,7 @@ def scan_repository(
         if isinstance(rule, ForbiddenDependencyRule):
             scopes["target"] = rule.target
         matches = {
-            side: sum(_belongs_to_scope(module, scope) for module in module_names)
+            side: sum(in_scope(module, scope) for module in module_names)
             for side, scope in scopes.items()
         }
         missing = [side for side, count in matches.items() if count == 0]

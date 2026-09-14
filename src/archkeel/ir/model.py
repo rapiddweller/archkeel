@@ -231,6 +231,11 @@ class ForbiddenConstructRule:
 ArchitectureRule: TypeAlias = ForbiddenDependencyRule | ForbiddenConstructRule
 
 
+def in_scope(name: str, scope: str) -> bool:
+    """Match a qualified name against a dotted prefix without partial segments."""
+    return name == scope or name.startswith(f"{scope}.")
+
+
 @dataclass(frozen=True, slots=True)
 class ContractDeclarations:
     capabilities: tuple[ContractCapability, ...] = ()
@@ -251,6 +256,15 @@ class ArchitectureContract:
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None
     declarations: ContractDeclarations | None = None
+
+    def component_for(self, module: str) -> ContractComponent | None:
+        """Return the only component owning a module; overlapping ownership owns nothing."""
+        owners = [
+            component
+            for component in self.components
+            if any(in_scope(module, package) for package in component.packages)
+        ]
+        return owners[0] if len(owners) == 1 else None
 
 
 @dataclass(frozen=True, slots=True)

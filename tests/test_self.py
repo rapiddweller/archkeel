@@ -20,7 +20,13 @@ from archkeel.check.validation import (
 )
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.digest import package_digest
-from archkeel.ir.model import ArchitectureContract, ContractDeclarations, Observation
+from archkeel.ir.model import (
+    ArchitectureContract,
+    ContractDeclarations,
+    ForbiddenDependencyRule,
+    Observation,
+    in_scope,
+)
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
@@ -96,25 +102,23 @@ def test_self_contract_covers_modules_and_analyzer_interface(
     packages = {package for component in contract.components for package in component.packages}
     declarations = contract.declarations or ContractDeclarations()
     public_api = set(declarations.public_api)
-    forbidden_ir = {rule.target for rule in contract.rules if rule.source == "archkeel.analyzer"}
+    forbidden_ir = {
+        rule.target
+        for rule in contract.rules
+        if isinstance(rule, ForbiddenDependencyRule) and rule.source == "archkeel.analyzer"
+    }
     for module in self_observation.records("modules") or ():
         name = module.data.get("qualified_name")
         assert isinstance(name, str)
         if name != "archkeel":
-            assert any(name == package or name.startswith(package + ".") for package in packages), (
-                name
-            )
+            assert any(in_scope(name, package) for package in packages), name
         if name.startswith("archkeel.ir.") and name not in public_api:
-            assert any(
-                name == prefix or name.startswith(prefix + ".") for prefix in forbidden_ir
-            ), name
+            assert any(in_scope(name, prefix) for prefix in forbidden_ir), name
     for record in self_observation.records("imports") or ():
         source = record.data.get("source_module")
         target = record.data.get("target_module")
         assert isinstance(source, str) and isinstance(target, str)
-        if (source == "archkeel.analyzer" or source.startswith("archkeel.analyzer.")) and (
-            target == "archkeel.ir" or target.startswith("archkeel.ir.")
-        ):
+        if in_scope(source, "archkeel.analyzer") and in_scope(target, "archkeel.ir"):
             assert target in public_api, (source, target)
 
 
@@ -135,7 +139,9 @@ def test_closed_world_check_detects_a_removed_rule(self_observation: Observation
     rule = next(
         item
         for item in contract.rules
-        if item.source == "archkeel.ir" and item.target == "archkeel.check"
+        if isinstance(item, ForbiddenDependencyRule)
+        and item.source == "archkeel.ir"
+        and item.target == "archkeel.check"
     )
     broken = replace(contract, rules=tuple(item for item in contract.rules if item != rule))
     assert closed_world_diagnostics(broken, self_observation)[0].pointer == "/rules"
@@ -144,6 +150,7 @@ def test_closed_world_check_detects_a_removed_rule(self_observation: Observation
 def test_rationale_check_detects_a_repeated_rule() -> None:
     contract = _contract()
     rule = contract.rules[0]
+    assert isinstance(rule, ForbiddenDependencyRule)
     repeated = replace(rule, rationale=f"{rule.source} does not depend on {rule.target}.")
     broken = replace(contract, rules=(repeated, *contract.rules[1:]))
     assert rationale_diagnostics(broken)[0].pointer == "/rules/0/rationale"

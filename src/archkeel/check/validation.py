@@ -24,6 +24,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     Observation,
     RunResult,
+    in_scope,
 )
 
 from .ports import Analyzer, ScanConfig
@@ -48,30 +49,20 @@ def _package_owners(contract: ArchitectureContract) -> dict[str, str]:
     }
 
 
-def _component_for(module: str, owners: dict[str, str]) -> str | None:
-    matches = [
-        label
-        for package, label in owners.items()
-        if module == package or module.startswith(package + ".")
-    ]
-    return matches[0] if len(matches) == 1 else None
-
-
 def observed_component_edges(
     contract: ArchitectureContract, observation: Observation
 ) -> frozenset[tuple[str, str]]:
     """Project module imports onto declared component labels."""
-    owners = _package_owners(contract)
     edges: set[tuple[str, str]] = set()
     for record in observation.records("imports") or ():
         source_module = record.data.get("source_module")
         target_module = record.data.get("target_module")
         if not isinstance(source_module, str) or not isinstance(target_module, str):
             continue
-        source = _component_for(source_module, owners)
-        target = _component_for(target_module, owners)
+        source = contract.component_for(source_module)
+        target = contract.component_for(target_module)
         if source is not None and target is not None and source != target:
-            edges.add((source, target))
+            edges.add((source.label, target.label))
     return frozenset(edges)
 
 
@@ -201,10 +192,6 @@ def _sorted(diagnostics: list[Diagnostic]) -> tuple[Diagnostic, ...]:
     )
 
 
-def _inside_namespace(value: str, namespace: str) -> bool:
-    return value == namespace or value.startswith(namespace + ".")
-
-
 def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, ...]], ...]:
     declarations = contract.declarations or ContractDeclarations()
     return (
@@ -288,7 +275,7 @@ def reference_diagnostics(
             "Use a qualified name inside the configured namespace.",
         )
         for pointer, value in names
-        if not _inside_namespace(value, config.namespace)
+        if not in_scope(value, config.namespace)
     ]
     repository = root.resolve()
     for pointer, values in _provenance(contract):
@@ -313,9 +300,7 @@ def reference_diagnostics(
         }
         for component_index, component in enumerate(contract.components):
             for package_index, package in enumerate(component.packages):
-                if not any(
-                    module == package or module.startswith(package + ".") for module in modules
-                ):
+                if not any(in_scope(module, package) for module in modules):
                     diagnostics.append(
                         _diagnostic(
                             f"/components/{component_index}/packages/{package_index}",
