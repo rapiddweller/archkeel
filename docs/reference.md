@@ -110,15 +110,15 @@ The runtime fixture in `make check` requires Python 3.11 and 3.12.
 ## Release
 
 GitHub Actions runs the complete check and smoke-tests both built distributions.
-Version tags such as `v0.1.0` build version `0.1.0` and publish through PyPI
-Trusted Publishing. The `pypi` GitHub environment and matching PyPI publisher
-must be configured before pushing the first release tag.
+Version tags such as `0.1.0` or `v0.1.0` build version `0.1.0` and publish
+through PyPI Trusted Publishing. The `pypi` GitHub environment and matching
+PyPI publisher must be configured before pushing the first release tag.
 
 ## Release versions
 
-Versions come from Git tags. A clean checkout of `v1.2.3` builds version `1.2.3`;
-commits after the tag produce development versions. Release builds need the Git
-history and tags. No fixed fallback version is configured.
+Versions come from Git tags. A clean checkout of `1.2.3` or `v1.2.3` builds
+version `1.2.3`; commits after the tag produce development versions. Release
+builds need the Git history and tags. No fixed fallback version is configured.
 
 The README keeps its relative hero path for local previews. PyPI metadata uses
 an absolute image URL; the build does not rewrite the source README.
