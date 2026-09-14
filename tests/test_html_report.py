@@ -1,6 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+from pathlib import Path
+from xml.etree import ElementTree
+
+import pytest
 from test_delta import _model
 
 from archkeel.check.html import render_html
@@ -70,3 +74,12 @@ def test_html_report_never_styles_missing_evidence_as_pass() -> None:
     assert "unknown_claim" in page and "Install Git and retry." in page
     body = page.split("</style>", 1)[1]
     assert 'data-decision="pass"' not in body
+
+
+# Wordmarks may split the name across tspans; compare the rendered text, not the source.
+@pytest.mark.parametrize("name", ["archkeel-logo-dark.svg", "archkeel-logo-light.svg"])
+def test_logo_wordmark_reads_archkeel(name: str) -> None:
+    svg = Path(__file__).parents[1] / "src/archkeel/check/assets" / name
+    text = ElementTree.parse(svg).find("{http://www.w3.org/2000/svg}text")
+    assert text is not None
+    assert "".join(text.itertext()).strip() == "archkeel"

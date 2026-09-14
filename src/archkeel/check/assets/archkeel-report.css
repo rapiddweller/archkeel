@@ -323,6 +323,8 @@ code {
     --ck-border: #d8d8d2;
     --ck-text: #0d0d0d;
     --ck-muted: #4a4a44;
+    /* Screen teal fails contrast on white paper. */
+    --ck-teal: #0f766e;
   }
   body {
     print-color-adjust: exact;
@@ -335,14 +337,17 @@ code {
     display: block;
   }
   .report-shell {
-    width: 100%;
+    width: auto;
     padding: 28px 0;
   }
   .verdict-card,
   .diagnostic,
-  .table-wrap,
-  .verdict-card {
+  .table-wrap {
     break-inside: avoid;
+  }
+  h2,
+  h3 {
+    break-after: avoid;
   }
   tbody tr:hover {
     background: transparent;
