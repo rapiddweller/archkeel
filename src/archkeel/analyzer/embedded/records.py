@@ -32,7 +32,7 @@ class RawRecord(TypedDict):
 
 
 class RawEvidence(TypedDict):
-    """Evidence entry produced by ``_add_evidence`` in the scanner."""
+    """Evidence entry produced by ``add_evidence`` in :mod:`source`."""
 
     id: str
     file: str
