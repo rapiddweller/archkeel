@@ -21,7 +21,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
 )
 
-from .records import classified
+from .records import RawRecord, classified
 
 
 class ContractError(ValueError):
@@ -42,7 +42,7 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
     return contract, hashlib.sha256(raw).hexdigest()
 
 
-def _rule_declaration(rule: ArchitectureRule) -> dict[str, Any]:
+def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
     subjects: list[str]
     data: dict[str, Any]
     if isinstance(rule, ForbiddenDependencyRule):
@@ -101,10 +101,10 @@ def _rule_declaration(rule: ArchitectureRule) -> dict[str, Any]:
     )
 
 
-def project_declarations(contract: ArchitectureContract) -> list[dict[str, Any]]:
+def project_declarations(contract: ArchitectureContract) -> list[RawRecord]:
     """Project the contract into classified records consumed by JSON and HTML."""
     declarations = contract.declarations or ContractDeclarations()
-    items: list[dict[str, Any]] = []
+    items: list[RawRecord] = []
     for capability in declarations.capabilities:
         items.append(
             classified(

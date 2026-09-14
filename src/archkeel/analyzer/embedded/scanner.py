@@ -27,7 +27,7 @@ from archkeel.ir.model import (
 )
 
 from .graph import condensation_ranks, strongly_connected_components, transitive_paths
-from .records import classified, stable_id
+from .records import RawEvidence, RawRecord, classified, stable_id
 from .violations import rule_scopes, rule_violations
 
 _MUTATING_METHODS = {
@@ -80,22 +80,22 @@ class ParsedModule:
 class ScanResult:
     source_digest: str
     coverage: dict[str, Any]
-    evidence: list[dict[str, Any]]
-    scope_observations: list[dict[str, Any]]
-    packages: list[dict[str, Any]]
-    modules: list[dict[str, Any]]
-    symbols: list[dict[str, Any]]
-    imports: list[dict[str, Any]]
-    dependency_edges: list[dict[str, Any]]
-    transitive_paths: list[dict[str, Any]]
-    path_observations: list[dict[str, Any]]
-    cycles: list[dict[str, Any]]
-    calls: list[dict[str, Any]]
-    typing_signals: list[dict[str, Any]]
-    contexts: list[dict[str, Any]]
-    context_evidence: list[dict[str, Any]]
-    violations: list[dict[str, Any]]
-    unknowns: list[dict[str, Any]]
+    evidence: list[RawEvidence]
+    scope_observations: list[RawRecord]
+    packages: list[RawRecord]
+    modules: list[RawRecord]
+    symbols: list[RawRecord]
+    imports: list[RawRecord]
+    dependency_edges: list[RawRecord]
+    transitive_paths: list[RawRecord]
+    path_observations: list[RawRecord]
+    cycles: list[RawRecord]
+    calls: list[RawRecord]
+    typing_signals: list[RawRecord]
+    contexts: list[RawRecord]
+    context_evidence: list[RawRecord]
+    violations: list[RawRecord]
+    unknowns: list[RawRecord]
 
 
 def iter_source_paths(root: Path, *, roots: tuple[str, ...]) -> tuple[Path, ...]:
@@ -143,7 +143,7 @@ def _excerpt(module: ParsedModule, node: ast.AST) -> str:
     return module.lines[start - 1].rstrip() if start <= len(module.lines) else ""
 
 
-def _add_evidence(evidence: dict[str, dict[str, Any]], module: ParsedModule, node: ast.AST) -> str:
+def _add_evidence(evidence: dict[str, RawEvidence], module: ParsedModule, node: ast.AST) -> str:
     line, end_line, column = _location(node)
     # One source location is one evidence owner even when several observations
     # (for example a call and a dynamic-typing signal) refer to it.
@@ -172,7 +172,7 @@ class _ImportCollector(ast.NodeVisitor):
         self,
         module: ParsedModule,
         module_names: set[str],
-        evidence: dict[str, dict[str, Any]],
+        evidence: dict[str, RawEvidence],
         *,
         namespace: str,
     ) -> None:
@@ -181,7 +181,7 @@ class _ImportCollector(ast.NodeVisitor):
         self.evidence = evidence
         self.namespace = namespace
         self.under_type_checking = False
-        self.items: list[dict[str, Any]] = []
+        self.items: list[RawRecord] = []
 
     def visit_If(self, node: ast.If) -> None:  # noqa: N802 - ast visitor API
         previous = self.under_type_checking
@@ -399,9 +399,9 @@ def _class_is_frozen(
 
 
 def _collect_symbols(
-    modules: Sequence[ParsedModule], evidence: dict[str, dict[str, Any]]
-) -> tuple[list[dict[str, Any]], dict[str, ast.AST], dict[str, ParsedModule]]:
-    symbols: list[dict[str, Any]] = []
+    modules: Sequence[ParsedModule], evidence: dict[str, RawEvidence]
+) -> tuple[list[RawRecord], dict[str, ast.AST], dict[str, ParsedModule]]:
+    symbols: list[RawRecord] = []
     nodes: dict[str, ast.AST] = {}
     owners: dict[str, ParsedModule] = {}
     classes: dict[str, ast.ClassDef] = {}
@@ -504,9 +504,11 @@ def _collect_symbols(
                 if resolved_base in known_categories:
                     candidates.add(known_categories[resolved_base])
                 local_target = f"{owners[qualname].module}.{tail}"
-                inherited = symbol_by_name.get(resolved_base, {}).get("data", {}).get(
-                    "class_kind"
-                ) or symbol_by_name.get(local_target, {}).get("data", {}).get("class_kind")
+                resolved_symbol = symbol_by_name.get(resolved_base)
+                local_symbol = symbol_by_name.get(local_target)
+                inherited = (
+                    resolved_symbol["data"].get("class_kind") if resolved_symbol else None
+                ) or (local_symbol["data"].get("class_kind") if local_symbol else None)
                 if inherited:
                     candidates.add(inherited)
             if any(
@@ -551,14 +553,14 @@ class _CallCollector(ast.NodeVisitor):
         symbol_names: set[str],
         method_names: dict[str, list[str]],
         symbol_evidence: dict[str, list[str]],
-        evidence: dict[str, dict[str, Any]],
+        evidence: dict[str, RawEvidence],
     ) -> None:
         self.module = module
         self.symbol_names = symbol_names
         self.method_names = method_names
         self.symbol_evidence = symbol_evidence
         self.evidence = evidence
-        self.items: list[dict[str, Any]] = []
+        self.items: list[RawRecord] = []
         self.class_stack: list[str] = []
         self.scope_stack: list[str] = [module.module]
 
@@ -683,8 +685,8 @@ def _annotation_signals(
     annotation: ast.AST | None,
     *,
     owner: str,
-    evidence: dict[str, dict[str, Any]],
-) -> list[dict[str, Any]]:
+    evidence: dict[str, RawEvidence],
+) -> list[RawRecord]:
     text = _annotation(annotation)
     if not text:
         return []
@@ -706,7 +708,7 @@ def _annotation_signals(
         kinds.append("callable_any_annotation")
     if isinstance(annotation, ast.Name) and annotation.id == "object":
         kinds.append("object_annotation")
-    items: list[dict[str, Any]] = []
+    items: list[RawRecord] = []
     for kind in sorted(set(kinds)):
         evidence_id = _add_evidence(evidence, module, node)
         line, _, _ = _location(node)
@@ -727,12 +729,12 @@ def _annotation_signals(
 
 def _collect_typing_signals(
     modules: Sequence[ParsedModule],
-    calls: Sequence[dict[str, Any]],
-    symbols: Sequence[dict[str, Any]],
-    imports: Sequence[dict[str, Any]],
-    evidence: dict[str, dict[str, Any]],
-) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
+    calls: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    evidence: dict[str, RawEvidence],
+) -> list[RawRecord]:
+    items: list[RawRecord] = []
     used_cross_package: set[str] = set()
     for item in imports:
         data = item["data"]
@@ -923,14 +925,14 @@ def _function_class_owners(tree: ast.Module, module_name: str) -> dict[int, str]
 
 def _collect_contexts(
     modules: Sequence[ParsedModule],
-    symbols: Sequence[dict[str, Any]],
+    symbols: Sequence[RawRecord],
     symbol_nodes: dict[str, ast.AST],
     symbol_owners: dict[str, ParsedModule],
-    imports: Sequence[dict[str, Any]],
-    calls: Sequence[dict[str, Any]],
+    imports: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
     declared_roots: Sequence[str],
-    evidence: dict[str, dict[str, Any]],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    evidence: dict[str, RawEvidence],
+) -> tuple[list[RawRecord], list[RawRecord]]:
     class_symbols = [item for item in symbols if item["kind"] == "class"]
     roots = set(declared_roots)
     for item in class_symbols:
@@ -1054,8 +1056,8 @@ def _collect_contexts(
                                 }
                             )
 
-    result: list[dict[str, Any]] = []
-    all_detail_records: list[dict[str, Any]] = []
+    result: list[RawRecord] = []
+    all_detail_records: list[RawRecord] = []
     symbol_by_qname = {item["data"]["qualified_name"]: item for item in symbols}
     context_class_labels = {
         "declared_root": "DECLARED ROOT",
@@ -1208,7 +1210,7 @@ def _collect_contexts(
             for name in assignments_after_init | mutations:
                 fields[name]["mutability"] = "mutable"
 
-        detail_records: list[dict[str, Any]] = []
+        detail_records: list[RawRecord] = []
         detail_ids: dict[str, list[str]] = {
             "fields": [],
             "reads": [],
@@ -1327,8 +1329,8 @@ def _collect_contexts(
 
 
 def _aggregate_edges(
-    imports: Sequence[dict[str, Any]], *, level: str, internal_modules: set[str], namespace: str
-) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]:
+    imports: Sequence[RawRecord], *, level: str, internal_modules: set[str], namespace: str
+) -> tuple[list[RawRecord], list[tuple[str, str]]]:
     buckets: dict[tuple[str, str], list[str]] = defaultdict(list)
     type_checking_counts: Counter[tuple[str, str]] = Counter()
     for item in imports:
@@ -1381,10 +1383,10 @@ def _cycle_records(
     level: str,
     nodes: Iterable[str],
     edges: Sequence[tuple[str, str]],
-    edge_records: Sequence[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    edge_records: Sequence[RawRecord],
+) -> list[RawRecord]:
     edge_by_pair = {(item["data"]["source"], item["data"]["target"]): item for item in edge_records}
-    records: list[dict[str, Any]] = []
+    records: list[RawRecord] = []
     for component in strongly_connected_components(nodes, edges):
         self_loop = len(component) == 1 and (component[0], component[0]) in edge_by_pair
         if len(component) <= 1 and not self_loop:
@@ -1415,10 +1417,10 @@ def _cycle_records(
 
 
 def _declared_path_observations(
-    paths: Sequence[ContractPath], package_edges: Sequence[dict[str, Any]]
-) -> list[dict[str, Any]]:
+    paths: Sequence[ContractPath], package_edges: Sequence[RawRecord]
+) -> list[RawRecord]:
     edges = {(item["data"]["source"], item["data"]["target"]): item for item in package_edges}
-    records: list[dict[str, Any]] = []
+    records: list[RawRecord] = []
     for declared_path in paths:
         steps = declared_path.steps
         for index, (source, target) in enumerate(zip(steps, steps[1:], strict=False)):
@@ -1471,10 +1473,10 @@ def _declared_path_observations(
 def _component_scope_observations(
     *,
     components: Sequence[ContractComponent],
-    modules: Sequence[dict[str, Any]],
-    module_edges: Sequence[dict[str, Any]],
-    coverage_failures: Sequence[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    modules: Sequence[RawRecord],
+    module_edges: Sequence[RawRecord],
+    coverage_failures: Sequence[RawRecord],
+) -> list[RawRecord]:
     """Aggregate observed modules under accepted component prefixes.
 
     A prefix owns only its exact module and dot-delimited descendants. Coverage
@@ -1483,7 +1485,7 @@ def _component_scope_observations(
     """
     module_by_name = {item["data"]["qualified_name"]: item for item in modules}
     assigned_modules: set[str] = set()
-    observations: list[dict[str, Any]] = []
+    observations: list[RawRecord] = []
     coverage_complete = not coverage_failures
 
     for component in sorted(components, key=lambda item: item.id):
@@ -1616,8 +1618,8 @@ def scan_repository(
     )
     paths = tuple(sorted(paths, key=lambda path: path.relative_to(root).as_posix()))
     parsed: list[ParsedModule] = []
-    failures: list[dict[str, Any]] = []
-    evidence: dict[str, dict[str, Any]] = {}
+    failures: list[RawRecord] = []
+    evidence: dict[str, RawEvidence] = {}
     read_count = 0
     digest = hashlib.sha256()
     for path in paths:
@@ -1666,7 +1668,7 @@ def scan_repository(
         )
 
     module_names = {module.module for module in parsed}
-    rule_failures = []
+    rule_failures: list[RawRecord] = []
     for rule in contract.rules:
         scopes = rule_scopes(rule)
         matches = {
@@ -1695,7 +1697,7 @@ def scan_repository(
     module_evidence = {
         module.module: _add_evidence(evidence, module, module.tree) for module in parsed
     }
-    imports: list[dict[str, Any]] = []
+    imports: list[RawRecord] = []
     for module in parsed:
         module.all_exports = _literal_all_exports(module.tree)
         collector = _ImportCollector(module, module_names, evidence, namespace=namespace)
@@ -1740,7 +1742,7 @@ def scan_repository(
     for name in sorted(symbol_names):
         by_tail[name.rsplit(".", 1)[-1]].append(name)
 
-    calls: list[dict[str, Any]] = []
+    calls: list[RawRecord] = []
     symbol_evidence = {item["data"]["qualified_name"]: item["evidence_ids"] for item in symbols}
     for module in parsed:
         call_collector = _CallCollector(module, symbol_names, by_tail, symbol_evidence, evidence)

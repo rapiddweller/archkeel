@@ -7,11 +7,39 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from archkeel.ir.model import EvidenceClass
 
 ANALYZER_VERSION = "0.3.0"
+
+
+class RawRecord(TypedDict):
+    """Envelope produced by :func:`classified` for every scanner/report record."""
+
+    id: str
+    evidence_class: str
+    area: str
+    kind: str
+    title: str
+    subjects: list[str]
+    evidence_ids: list[str]
+    rule_ids: list[str]
+    fact_ids: list[str]
+    provenance: list[str]
+    # Record data payloads are open JSON that varies by record kind by design.
+    data: dict[str, Any]
+
+
+class RawEvidence(TypedDict):
+    """Evidence entry produced by ``_add_evidence`` in the scanner."""
+
+    id: str
+    file: str
+    line: int
+    end_line: int
+    column: int
+    excerpt: str
 
 
 def stable_id(prefix: str, *parts: object) -> str:
@@ -46,7 +74,7 @@ def classified(
     fact_ids: list[str] | None = None,
     provenance: list[str] | None = None,
     data: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> RawRecord:
     return {
         "id": item_id,
         "evidence_class": evidence_class.value,

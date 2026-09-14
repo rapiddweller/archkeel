@@ -11,7 +11,7 @@ from typing import Any
 from archkeel.ir.model import SCHEMA_VERSION, EvidenceClass
 
 from .contract import load_contract, project_declarations
-from .records import ANALYZER_VERSION, analyzer_code_digest, classified, stable_id
+from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified, stable_id
 from .scanner import ScanResult, scan_repository
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
@@ -24,7 +24,7 @@ def _metric(
     tab: str,
     *,
     fact_ids: list[str] | None = None,
-) -> dict[str, Any]:
+) -> RawRecord:
     return classified(
         item_id=stable_id("METRIC", kind),
         evidence_class=EvidenceClass.FACT,
@@ -36,7 +36,7 @@ def _metric(
     )
 
 
-def _metrics(scan: ScanResult) -> list[dict[str, Any]]:
+def _metrics(scan: ScanResult) -> list[RawRecord]:
     dependency_violations = [
         item for item in scan.violations if item["kind"] == "forbidden_dependency"
     ]

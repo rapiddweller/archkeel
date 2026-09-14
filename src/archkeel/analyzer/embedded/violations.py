@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Any, Final
+from typing import Final
 
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -23,13 +23,13 @@ from archkeel.ir.model import (
 )
 
 from .graph import strongly_connected_components
-from .records import classified, stable_id
+from .records import RawRecord, classified, stable_id
 
 
 def _dependency_violations(
-    imports: Sequence[dict[str, Any]], rules: Sequence[ArchitectureRule]
-) -> list[dict[str, Any]]:
-    violations: list[dict[str, Any]] = []
+    imports: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
     for rule in rules:
         if not isinstance(rule, ForbiddenDependencyRule):
             continue
@@ -83,9 +83,9 @@ _CONSTRUCT_SIGNALS: Final = {
 
 
 def _construct_violations(
-    signals: Sequence[dict[str, Any]], rules: Sequence[ArchitectureRule]
-) -> list[dict[str, Any]]:
-    violations: list[dict[str, Any]] = []
+    signals: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
     for rule in rules:
         if not isinstance(rule, ForbiddenConstructRule):
             continue
@@ -116,9 +116,9 @@ def _construct_violations(
 
 
 def _external_dependency_violations(
-    imports: Sequence[dict[str, Any]], rules: Sequence[ArchitectureRule]
-) -> list[dict[str, Any]]:
-    violations: list[dict[str, Any]] = []
+    imports: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
     for rule in rules:
         if not isinstance(rule, ExternalDependencyScopeRule):
             continue
@@ -151,9 +151,9 @@ def _external_dependency_violations(
 
 
 def _assignment_violations(
-    modules: Sequence[dict[str, Any]], contract: ArchitectureContract, blank: frozenset[str]
-) -> list[dict[str, Any]]:
-    violations: list[dict[str, Any]] = []
+    modules: Sequence[RawRecord], contract: ArchitectureContract, blank: frozenset[str]
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
     for rule in contract.rules:
         if not isinstance(rule, CompleteAssignmentRule):
             continue
@@ -185,19 +185,19 @@ def _assignment_violations(
 
 
 def _component_cycle_violations(
-    imports: Sequence[dict[str, Any]], contract: ArchitectureContract
-) -> list[dict[str, Any]]:
+    imports: Sequence[RawRecord], contract: ArchitectureContract
+) -> list[RawRecord]:
     rules = [rule for rule in contract.rules if isinstance(rule, NoComponentCyclesRule)]
     if not rules:
         return []
-    edge_imports: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    edge_imports: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
     for item in imports:
         source = contract.component_for(item["data"]["source_module"])
         target = contract.component_for(item["data"]["target_module"])
         if source is not None and target is not None and source != target:
             edge_imports[(source.label, target.label)].append(item)
     labels = [component.label for component in contract.components]
-    violations: list[dict[str, Any]] = []
+    violations: list[RawRecord] = []
     for members in strongly_connected_components(labels, edge_imports):
         if len(members) < 2:
             continue
@@ -240,12 +240,12 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
 
 def rule_violations(
     *,
-    imports: Sequence[dict[str, Any]],
-    typing_signals: Sequence[dict[str, Any]],
-    modules: Sequence[dict[str, Any]],
+    imports: Sequence[RawRecord],
+    typing_signals: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
     blank_modules: frozenset[str],
     contract: ArchitectureContract,
-) -> list[dict[str, Any]]:
+) -> list[RawRecord]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     return sorted(
         [
