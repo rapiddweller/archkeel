@@ -36,7 +36,8 @@ result deterministic. Imports through `importlib` remain a blind spot. Importing
 `archkeel.check` when only `archkeel.cli` is allowed is an example violation.
 
 `complete_assignment` has the field `source`. Every scanned module below `source` must belong to
-exactly one component; overlapping package prefixes count as unowned. The `source` module itself
+exactly one component; a module matched by two different components counts as unowned, while
+one component may list nested packages. The `source` module itself
 and blank files are exempt because they hold no code a component could own. A complete scan
 makes the result deterministic. A module whose first line is blank but contains code has no source
 excerpt, so its violation cannot be traced and the run reports UNKNOWN (exit 2) instead of FAIL.
