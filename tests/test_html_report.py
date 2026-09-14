@@ -12,7 +12,7 @@ from test_expectation import _delta_payload
 from archkeel.ir.codec import parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
-from archkeel.render.html import render_check_html, render_html
+from archkeel.render.html import check_decision_sentence, render_check_html, render_html
 
 FAILED_CHECK = RunResult(
     "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
@@ -88,20 +88,67 @@ def test_check_html_renders_structured_regression_values() -> None:
         parse_delta(_delta_payload()),
         ratchets=RatchetObservations("SUPPORTED", baseline, candidate),
     )
-    result = replace(FAILED_CHECK, delta=delta)
+    coverage = replace(
+        parse_observation(_model(git_head="a" * 40)).coverage,
+        files_discovered=3,
+        files_parsed=3,
+    )
+    result = replace(FAILED_CHECK, delta=delta, coverage=coverage)
     page = render_check_html(result, repository="sample", result_href="result.json").decode()
-    assert "Do not merge:" in page
+    assert check_decision_sentence(result) == (
+        "Do not merge: calls_unresolved rose 0 → 1 and unresolved_ratio 0/2 → 1/1."
+    )
+    assert check_decision_sentence(result) in page
+    assert "All 3 files parsed." in page
+    assert "2 of 7 regression checks failed." in page
     assert "calls_unresolved" in page and "0 → 1" in page
     assert "unresolved_ratio" in page and "0/2 → 1/1" in page
+    regression_table = page.split("<h2>Regression checks</h2>", 1)[1].split("</table>", 1)[0]
+    assert regression_table.index("calls_unresolved") < regression_table.index("violations")
+    assert regression_table.index("unresolved_ratio") < regression_table.index("violations")
     assert page.split("</style>", 1)[1].count('data-status="fail"') == 2
+
+
+def test_check_decision_limits_regression_details() -> None:
+    baseline = Measurements(RatchetScalars(0, 0, 0, 0, 0, 0), 2, "measured")
+    candidate = Measurements(RatchetScalars(1, 1, 1, 1, 1, 0), 1, "measured")
+    delta = replace(
+        parse_delta(_delta_payload()),
+        ratchets=RatchetObservations("SUPPORTED", baseline, candidate),
+    )
+    sentence = check_decision_sentence(replace(FAILED_CHECK, delta=delta))
+    assert sentence.endswith("private_crossings rose 0 → 1 and +3 more.")
+    assert "typing_positions" not in sentence
 
 
 def test_check_html_renders_publication_order_failure() -> None:
     failure = "expectation was not published before the first candidate submission"
     result = replace(FAILED_CHECK, host_order="FAIL", failures=(failure,))
     page = render_check_html(result, repository="sample", result_href="result.json").decode()
+    assert check_decision_sentence(result) == (
+        "Do not merge: the expectation was not published before the first candidate submission."
+    )
+    assert check_decision_sentence(result) in page
     assert "Publication order" in page and "host_order" in page
+    assert "Expectation published after first submission." in page
     assert failure in page
+
+
+def test_check_html_explains_a_passing_candidate() -> None:
+    measurements = Measurements(RatchetScalars(0, 0, 0, 0, 0, 0), 2, "measured")
+    result = replace(
+        FAILED_CHECK,
+        exit_code=0,
+        expectation_fulfilled="PASS",
+        delta=replace(
+            parse_delta(_delta_payload()),
+            ratchets=RatchetObservations("SUPPORTED", measurements, measurements),
+        ),
+    )
+    sentence = "Merge: all five verdicts passed and no regression check failed."
+    page = render_check_html(result, repository="sample", result_href="result.json").decode()
+    assert check_decision_sentence(result) == sentence
+    assert sentence in page
 
 
 def test_check_html_never_styles_unverifiable_as_pass() -> None:
@@ -110,8 +157,13 @@ def test_check_html_never_styles_unverifiable_as_pass() -> None:
     )
     result = RunResult("check", 2, diagnostics=(diagnostic,))
     page = render_check_html(result, repository="sample", result_href="result.json").decode()
+    assert check_decision_sentence(result) == (
+        "Do not merge: missing_tool — Commit order cannot be established."
+    )
+    assert check_decision_sentence(result) in page
     assert 'data-decision="unknown"' in page
     assert "UNVERIFIABLE" in page
+    assert "Scan completeness is unverifiable." in page
     assert "unknown_claim" in page and "Install Git and retry." in page
     assert 'data-decision="pass"' not in page.split("</style>", 1)[1]
 

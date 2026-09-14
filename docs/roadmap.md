@@ -39,7 +39,9 @@ only when its row names repository evidence.
 ## Later
 
 - Decide the regression policy, implement `accept`, add a GitHub host adapter and consider
-  renaming the `ratchets` schema field to `regression_checks`.
+  renaming the `ratchets` schema field to `regression_checks`. Evidence: `bbab17c` raised
+  `calls_unresolved` from 474 to 479 while `unresolved_ratio` improved, so the absolute check
+  would reject Archkeel's own commit.
 - Add `propose`, `next` and an agent skill.
 - Integrate Archkeel into DataMimic EE.
 - Add an interactive review surface and navigable dependency graph.

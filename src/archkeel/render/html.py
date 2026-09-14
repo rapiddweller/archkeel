@@ -62,7 +62,9 @@ def _verdict_card(label_text: str, key: str, value: str, reason: str) -> str:
       </article>"""
 
 
-def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
+def _document(
+    *, repository: str, kind: str, title: str, content: str, compact: bool = False
+) -> bytes:
     css = _asset("archkeel-report.css").decode("utf-8")
     dark_logo = _data_uri("archkeel-logo-dark.svg", "image/svg+xml")
     light_logo = _data_uri("archkeel-logo-light.svg", "image/svg+xml")
@@ -84,7 +86,7 @@ def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
     <img class="report-logo report-logo-light" src="{light_logo}" alt="Archkeel">
     <span class="report-kind">{_text(kind)}</span>
   </header>
-  <main class="report-shell">
+  <main class="report-shell{" check-shell" if compact else ""}">
     {content}
     <footer class="report-footer">Archkeel · deterministic architecture evidence</footer>
   </main>
@@ -297,7 +299,7 @@ def render_html(
         if architecture_href is not None
         else "Canonical architecture.json is unavailable."
     )
-    content = f"""
+    content = f"""<div class="check-report">
     <section class="report-heading">
       <span class="eyebrow">Repository observation</span>
       <h1>{_text(repository)}</h1>
@@ -343,41 +345,111 @@ def render_html(
 
 
 def _check_verdicts(result: RunResult) -> str:
-    values = (
+    comparisons = _check_regressions(result)
+    return "".join(
+        _verdict_card(label, key, value, _check_verdict_reason(result, key, value, comparisons))
+        for label, key, value in _check_verdict_values(result)
+    )
+
+
+def _check_verdict_values(result: RunResult) -> tuple[tuple[str, str, str], ...]:
+    return (
         ("Scan complete", "observation_complete", result.observation_complete),
         ("Rules followed", "declared_rules", result.declared_rules),
         ("Change as declared", "expectation_fulfilled", result.expectation_fulfilled),
         ("Git order", "git_predicate", result.git_predicate or "UNKNOWN"),
         ("Publication order", "host_order", result.host_order or "UNKNOWN"),
     )
-    return "".join(
-        _verdict_card(
-            label,
-            key,
-            value,
-            f"{label} passed." if value == "PASS" else f"{label} failed or is unverifiable.",
+
+
+def _check_regressions(result: RunResult) -> tuple[tuple[str, str, str, str], ...]:
+    ratchets = result.delta.ratchets if result.delta is not None else None
+    if ratchets is None or ratchets.status != "SUPPORTED":
+        return ()
+    assert ratchets.baseline is not None and ratchets.head is not None
+    comparisons = compare_measurements(ratchets.baseline, ratchets.head)
+    return tuple(sorted(comparisons, key=lambda item: item[3] != "FAIL"))
+
+
+def _check_verdict_reason(
+    result: RunResult,
+    key: str,
+    value: str,
+    comparisons: tuple[tuple[str, str, str, str], ...],
+) -> str:
+    if value == "UNKNOWN":
+        return {
+            "observation_complete": "Scan completeness is unverifiable.",
+            "declared_rules": "Rule evaluation is unverifiable.",
+            "expectation_fulfilled": "Expectation evidence is unverifiable.",
+            "git_predicate": "Git ordering is unverifiable.",
+            "host_order": "Publication timing is unverifiable.",
+        }[key]
+    if value == "FAIL":
+        failed = sum(status == "FAIL" for *_, status in comparisons)
+        return {
+            "declared_rules": "At least one declared rule was violated.",
+            "expectation_fulfilled": (
+                f"{failed} of {len(comparisons)} regression checks failed."
+                if failed
+                else "One or more expectation checks failed."
+            ),
+            "git_predicate": "Git ancestry or the expectation path failed validation.",
+            "host_order": "Expectation published after first submission.",
+        }[key]
+    if key == "observation_complete" and result.coverage is not None:
+        return f"All {result.coverage.files_parsed} files parsed."
+    return {
+        "observation_complete": "The configured source scope was parsed.",
+        "declared_rules": "No declared-rule violation was found.",
+        "expectation_fulfilled": "No undeclared change or regression was found.",
+        "git_predicate": "Git predicates verified.",
+        "host_order": "Published before candidate submission.",
+    }[key]
+
+
+def check_decision_sentence(result: RunResult) -> str:
+    """Explain a check decision from structured result fields."""
+    if result.exit_code == 2:
+        diagnostic = result.diagnostics[0]
+        return f"Do not merge: {diagnostic.kind} — {diagnostic.unknown_claim}"
+    if result.exit_code == 0:
+        return "Merge: all five verdicts passed and no regression check failed."
+    failed = [row for row in _check_regressions(result) if row[3] == "FAIL"]
+    if failed:
+        reasons = [
+            f"{name} {before} → {after}"
+            if name == "unresolved_ratio"
+            else f"{name} rose {before} → {after}"
+            for name, before, after, _ in failed
+        ]
+        shown = reasons[:3]
+        if len(reasons) > 3:
+            shown.append(f"+{len(reasons) - 3} more")
+        detail = shown[0] if len(shown) == 1 else f"{', '.join(shown[:-1])} and {shown[-1]}"
+        return f"Do not merge: {detail}."
+    if result.host_order == "FAIL":
+        return (
+            "Do not merge: the expectation was not published before the first candidate submission."
         )
-        for label, key, value in values
-    )
+    failed_verdicts = sum(value == "FAIL" for _, _, value in _check_verdict_values(result))
+    return f"Do not merge: {failed_verdicts} of five verdicts failed."
 
 
 def _regressions(result: RunResult) -> str:
-    ratchets = result.delta.ratchets if result.delta is not None else None
-    if ratchets is None or ratchets.status != "SUPPORTED":
+    comparisons = _check_regressions(result)
+    if not comparisons:
         return "<p>Regression measurements are unavailable.</p>"
-    assert ratchets.baseline is not None and ratchets.head is not None
     rows = "".join(
         "<tr>"
         f"<td><code>{_text(name)}</code></td>"
         f'<td class="numeric"><code>{_text(accepted)} → {_text(candidate)}</code></td>'
         f'<td><strong data-status="{_verdict(status)[0]}">{status}</strong></td>'
         "</tr>"
-        for name, accepted, candidate, status in compare_measurements(
-            ratchets.baseline, ratchets.head
-        )
+        for name, accepted, candidate, status in comparisons
     )
     return (
-        '<div class="table-wrap"><table><thead><tr><th>Measurement</th>'
+        '<div class="table-wrap"><table class="regression-table"><thead><tr><th>Measurement</th>'
         '<th class="numeric">Accepted → candidate</th><th>Status</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div>"
     )
@@ -406,11 +478,7 @@ def _semantic_changes(result: RunResult) -> str:
 def render_check_html(result: RunResult, *, repository: str, result_href: str) -> bytes:
     """Return a deterministic, offline projection of a check result."""
     decision, symbol, label, _ = _decision(result)
-    reason = {
-        0: "Merge: all required deterministic evidence passed.",
-        1: "Do not merge: one or more deterministic checks rejected the candidate.",
-        2: "Do not merge: required evidence is missing or invalid.",
-    }[result.exit_code]
+    reason = check_decision_sentence(result)
     provenance = result.provenance
     accepted = provenance.baseline if provenance else "UNKNOWN"
     candidate = provenance.head if provenance else "UNKNOWN"
@@ -425,7 +493,7 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     </section>
     <section class="decision-banner" data-decision="{decision}" aria-label="Decision: {label}">
       <span class="decision-symbol" aria-hidden="true">{symbol}</span><div>
-        <h2>{label}</h2><p>{reason}</p></div>
+        <h2>{label}</h2><p>{_text(reason)}</p></div>
     </section>
     <section aria-labelledby="verdicts-heading">
       <h2 id="verdicts-heading">Independent verdicts</h2><div
@@ -435,7 +503,8 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     <section class="report-section">
       <h2>Publication order evidence</h2><p>Status:
         <strong data-status="{_verdict(result.host_order or "UNKNOWN")[0]}">
-        {_text(result.host_order or "UNKNOWN")}</strong></p>
+        {_text(result.host_order or "UNKNOWN")}</strong></p></section>
+    <section class="report-section"><h2>Failures</h2>
       <ul class="failure-list">{failures or "<li>None.</li>"}</ul></section>
     <section class="report-section">
       <h2>Declared and observed changes</h2>
@@ -448,12 +517,14 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     <section class="report-section">
       <h2>Canonical result</h2><p><a href="{_text(result_href)}">Open the check result JSON</a>.</p>
     </section>
+</div>
 """
     return _document(
         repository=repository,
         kind="Architecture check report",
         title="Archkeel check",
         content=content,
+        compact=True,
     )
 
 
