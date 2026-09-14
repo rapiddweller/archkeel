@@ -12,7 +12,8 @@ from test_expectation import _delta_payload
 from archkeel.ir.codec import parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
-from archkeel.render.html import check_decision_sentence, render_check_html, render_html
+from archkeel.render.html import render_check_html, render_html
+from archkeel.render.summary import check_decision_sentence
 
 FAILED_CHECK = RunResult(
     "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
