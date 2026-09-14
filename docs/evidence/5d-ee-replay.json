@@ -1,6 +1,6 @@
 {
   "purpose": "Sequential EE replay closing the Step 5d attempt-accounting gap",
-  "checker_commit": "b6ebc0394bc4d6ed090ed1f72dd14b063f7f73cf",
+  "checker_commit": "19236c2ce7319c8e61687a1204b97fd729815e7f",
   "checker_digest": "03722242eda4c1fe78289d425e33e35442b15eb460334a38cac9c3e5060b612c",
   "producer_commit": "dc7526592073985ed69902b21d6a1c861ac02fa0",
   "producer_digest": "50c74c84e862fe44f660564e592c32f11e32edbf5c265b0cc2a8527995f3f51c",

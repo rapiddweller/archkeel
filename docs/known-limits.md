@@ -10,17 +10,17 @@ FACT — This diagnosis measures committed sources. It changes no resolver, cont
 
 | FACT: Input | Immutable source | Producer Python |
 |---|---|---|
-| D-self and Pledge checker | `pledge@094551b0d5cc9d38c843a7f710df93cff731d3a1` | 3.11.12 |
+| D-self and Pledge checker | `pledge@f5aaca35d1934e17ef3eb13ae3e1c3180a3a37b8` | 3.11.12 |
 | Repo #2 | `rd-svc-window-cleaning@74b3271133620983bb4be9a766850a2abc06073f` | 3.12.10 |
 | EE producer | `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0` | Same as each report |
 
-FACT — `tools/classify_unresolved.py` at `pledge@4d46c80b6ce3ef88d7509dde7a802a515f5b89fe` emits a summary and the complete call ledger. It checks Python version, source digest, file count, unique call IDs, and exact AST matches. Its SHA-256 is checked before execution below. It is outside the package and `make check`.
+FACT — `tools/classify_unresolved.py` at `pledge@19e91a1f00b93ebf7b5b9b8fe535d3869a70e407` emits a summary and the complete call ledger. It checks Python version, source digest, file count, unique call IDs, and exact AST matches. Its SHA-256 is checked before execution below. It is outside the package and `make check`.
 
 Set `PLEDGE_REPO` to a clone of this repository, and `REPO2_REPO` and `EE_REPO` to local repositories containing those commits. Set `PY311` and `PY312` to Python 3.11.12 and 3.12.10 with Pledge's `packaging` dependency installed. Run the following in one Bash session:
 
 ```bash
 set -euo pipefail
-PLEDGE_SHA=094551b0d5cc9d38c843a7f710df93cff731d3a1
+PLEDGE_SHA=f5aaca35d1934e17ef3eb13ae3e1c3180a3a37b8
 REPO2_SHA=74b3271133620983bb4be9a766850a2abc06073f
 EE_SHA=dc7526592073985ed69902b21d6a1c861ac02fa0
 WORK=$(mktemp -d)
@@ -88,7 +88,7 @@ Write this zero-rule contract to `$WORK/repo2/docs/architecture/architecture-con
 export PYTHONPATH="$WORK/pledge/src"
 "$PY311" -c 'import platform; assert platform.python_version() == "3.11.12"'
 "$PY312" -c 'import platform; assert platform.python_version() == "3.12.10"'
-git -C "$PLEDGE_REPO" show 4d46c80b6ce3ef88d7509dde7a802a515f5b89fe:tools/classify_unresolved.py > "$WORK/classify_unresolved.py"
+git -C "$PLEDGE_REPO" show 19e91a1f00b93ebf7b5b9b8fe535d3869a70e407:tools/classify_unresolved.py > "$WORK/classify_unresolved.py"
 CLASSIFIER_SHA256=ee626f8f2b7e13baa41bcad7d3195c3b19e122b6661b938460c319ed351b6a9e
 "$PY311" - "$WORK/classify_unresolved.py" "$CLASSIFIER_SHA256" <<'PYTHON'
 import hashlib, pathlib, sys
@@ -150,7 +150,7 @@ FACT — Top five: 974/998 = 97.60%. Remaining forms: `Attribute(JoinedStr)` 8 (
 
 FACT — The top-five sets and their order within each repo are unchanged from 5c. Four forms overlap: `Attribute(Name)`, `Attribute(Call)`, `Attribute(Attribute)`, and `Name`. D-self additionally has `Attribute(Subscript)` (8); Repo #2 has `Attribute(Await)` (116). D-self has no Await receivers; Repo #2 has 8 Subscript receivers outside its top five.
 
-FACT — The numbers changed: D-self went from 234/1318 to 237/1322 after Step H. The committed Repo #2 snapshot has 67 files and 998/4318 unresolved, replacing the previous dirty working-tree measurement of 74 files and 1512/6368. These are different source inputs, not evidence of resolver improvement. Previous values are recorded in `pledge@094551b:docs/known-limits.md`.
+FACT — The numbers changed: D-self went from 234/1318 to 237/1322 after Step H. The committed Repo #2 snapshot has 67 files and 998/4318 unresolved, replacing the previous dirty working-tree measurement of 74 files and 1512/6368. These are different source inputs, not evidence of resolver improvement. Previous values are recorded in `pledge@f5aaca3:docs/known-limits.md`.
 
 FACT — Shared scanner limits remain visible, with different weights: D-self is dominated by `Attribute(Name)` (160/237); Repo #2 has 385 Call-result and 116 Await-result receivers (501/998). Syntax alone does not establish that those calls are SQL operations or have the same semantic cause.
 
@@ -177,7 +177,7 @@ FACT — `evaluate_expectation()` unconditionally appends `compare_ratchets()` f
 
 ### Inputs and method
 
-FACT — Checker: `pledge@b6ebc0394bc4d6ed090ed1f72dd14b063f7f73cf`; producer: `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0`; Python 3.12.10 throughout. Repo #2 starts from `main@74b3271133620983bb4be9a766850a2abc06073f`; EE starts from `development@dc7526592073985ed69902b21d6a1c861ac02fa0` (no local `main`). Scan roots/namespaces are `backend` and `datamimic_ee`, respectively.
+FACT — Checker: `pledge@19236c2ce7319c8e61687a1204b97fd729815e7f`; producer: `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0`; Python 3.12.10 throughout. Repo #2 starts from `main@74b3271133620983bb4be9a766850a2abc06073f`; EE starts from `development@dc7526592073985ed69902b21d6a1c861ac02fa0` (no local `main`). Scan roots/namespaces are `backend` and `datamimic_ee`, respectively.
 
 FACT — Walk `git rev-list --first-parent <start-SHA>`, retain commits with a nonempty `git diff --numstat <SHA>^1 <SHA> -- <scan-root>`, and take at most 20/10. Repo #2 has only 17 qualifying commits among 27 first-parent commits; 16 pairs are comparable. EE supplies all 10 requested pairs. Diff lines below are additions plus deletions for all files under the root, including non-Python files; renames retain Git's detection.
 
