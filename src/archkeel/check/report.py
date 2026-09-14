@@ -33,7 +33,9 @@ def render_result(result: RunResult) -> bytes:
     return result_bytes(result)
 
 
-def observe_repository(root: Path, config: ScanConfig, analyzer: Analyzer) -> ObservationResult:
+def observe_repository(
+    root: Path, config: ScanConfig, analyzer: Analyzer, *, contract_root: Path | None = None
+) -> ObservationResult:
     """Observe the configured working tree through an injected analyzer."""
     return analyzer(
         root,
@@ -42,7 +44,7 @@ def observe_repository(root: Path, config: ScanConfig, analyzer: Analyzer) -> Ob
         contract=config.contract,
         git_head=resolve_commit(root, "HEAD"),
         dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
-        contract_root=root,
+        contract_root=contract_root or root,
     )
 
 

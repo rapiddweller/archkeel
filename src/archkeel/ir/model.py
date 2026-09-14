@@ -348,6 +348,7 @@ DiagnosticKind: TypeAlias = Literal[
     "runtime_mismatch",
     "incomparable_runtime",
     "contract_invalid",
+    "existing_files",
 ]
 
 

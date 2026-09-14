@@ -94,6 +94,17 @@ def report_summary(result: RunResult) -> Summary:
     return Summary(_decision_badge(result), sentence, verdicts, ())
 
 
+def init_summary(result: RunResult) -> Summary:
+    """Summarize onboarding, whose drafted rules are evaluated later by validate."""
+    report = report_summary(result)
+    sentence = (
+        "Draft written. Run archkeel validate to list every decision left."
+        if result.exit_code == 0
+        else report.sentence
+    )
+    return Summary(report.decision, sentence, report.verdicts[:1], ())
+
+
 def check_summary(result: RunResult) -> Summary:
     """Summarize a check result with its five verdicts and regression comparisons."""
     regressions = _check_regressions(result)

@@ -17,12 +17,13 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 from ..accept import unavailable
 from ..analyzer import observe
+from ..check.onboarding import run_init
 from ..check.report import render_result, run_report, unknown_result
 from ..check.run import run_check
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_html, render_check_html
-from ..render.summary import check_summary, report_summary
+from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
 from .config import load_check_config, load_config
 
@@ -71,6 +72,7 @@ def build_parser() -> _Parser:
         ),
         epilog=(
             "Start here:\n"
+            "  archkeel init       draft the contract from the observed imports\n"
             "  archkeel validate   check the contract against this repository\n"
             "  archkeel report     observe the repository and write evidence\n\n"
             f"Rules: {_DOCS}/rules.md\nReference: {_DOCS}/reference.md"
@@ -171,6 +173,28 @@ def build_parser() -> _Parser:
         help="Replay CI host records; the caller must authenticate this file.",
     )
 
+    init = commands.add_parser(
+        "init",
+        help="Draft archkeel.toml, a closed contract and its architecture page.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "Observes the only top-level package, proposes one component per subpackage and\n"
+            "forbids every component pair that is not imported today. Every rationale starts\n"
+            "as a TODO, so archkeel validate lists the decisions that remain.\n\n"
+            "Examples:\n"
+            "  archkeel init\n"
+            "  archkeel init --source lib/shop --namespace shop --json\n\n"
+            "Exit codes:\n"
+            "  0  draft written\n"
+            "  2  unverifiable: no single package, existing files or incomplete observation\n\n"
+            f"Onboarding: {_DOCS}/onboarding.md"
+        ),
+    )
+    _observing(init, None)
+    init.add_argument("--source", help="Package directory to scan, relative to --root.")
+    init.add_argument("--namespace", help="Dotted Python package name of --source.")
+    init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
+
     commands.add_parser(
         "accept",
         help="Accept a candidate (not available in this release).",
@@ -199,7 +223,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             root = args.root.resolve()
             subject = str(root / "archkeel.toml")
             with progress(f"archkeel {command}: observing {root.name}"):
-                if command == "report":
+                if command == "init":
+                    subject = str(root)
+                    result, files = run_init(
+                        root,
+                        source=args.source,
+                        namespace=args.namespace,
+                        force=args.force,
+                        analyzer=observe,
+                    )
+                    for relative, payload in files.items():
+                        target = root / relative
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(payload)
+                        artifacts.append(target)
+                elif command == "report":
                     config = load_config(root)
                     subject = str(root)
                     result, architecture = run_report(root, config=config, analyzer=observe)
@@ -268,7 +306,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             else unknown_result(command, subject, error)
         )
     if interactive:
-        summary = check_summary(result) if command == "check" else report_summary(result)
+        summary = (
+            check_summary(result)
+            if command == "check"
+            else init_summary(result)
+            if command == "init"
+            else report_summary(result)
+        )
         print_result(result, summary, artifacts=tuple(str(path) for path in artifacts))
     else:
         print(render_result(result).decode(), end="")
