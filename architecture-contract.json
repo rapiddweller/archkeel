@@ -436,6 +436,27 @@
       "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore"],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
       "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "EXTERNAL-PACKAGING-RUNTIME",
+      "kind": "external_dependency_scope",
+      "dependency": "packaging",
+      "allowed_sources": ["archkeel.analyzer.runtime"],
+      "rationale": "Only the runtime gate interprets requires-python specifiers; the core stays dependency-free.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "archkeel",
+      "rationale": "A module without one owning component escapes every boundary rule.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
+      "provenance": ["docs/architecture/archkeel.md"]
     }
   ]
 }

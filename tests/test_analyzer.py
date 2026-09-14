@@ -13,6 +13,7 @@ from archkeel.analyzer import observe
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.model import Coverage, Diagnostic, Observation
+from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 
@@ -95,6 +96,65 @@ def test_forbidden_construct_produces_a_violation_and_contract_pointer(tmp_path:
     documents = (("docs/architecture/sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n```"),)
     diagnostics = observation_diagnostics(contract, result.observation, documents)
     assert any(item.pointer == "/rules/0" for item in diagnostics)
+
+
+def _component(label: str) -> dict[str, object]:
+    return {
+        "id": f"COMP-{label.upper()}",
+        "label": label,
+        "role": "component",
+        "packages": [f"sample.{label}"],
+        "responsibilities": [],
+        "forbidden_responsibilities": [],
+        "provenance": ["docs/architecture/sample.md"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("rule", "sources"),
+    [
+        (
+            {
+                "kind": "external_dependency_scope",
+                "dependency": "json",
+                "allowed_sources": ["sample.cli"],
+            },
+            {"core.py": "import json\n", "cli.py": "import json\n"},
+        ),
+        (
+            {"kind": "complete_assignment", "source": "sample"},
+            {"core.py": "V = 1\n", "cli.py": "V = 1\n", "extra.py": "V = 1\n", "blank.py": "\n"},
+        ),
+        (
+            {"kind": "no_component_cycles"},
+            {"core.py": "import sample.cli\n", "cli.py": "import sample.core\n"},
+        ),
+    ],
+)
+def test_class_a_rule_produces_one_traceable_violation(
+    tmp_path: Path, rule: dict[str, object], sources: dict[str, str]
+) -> None:
+    contract = {
+        "schema_version": "2.0.0",
+        "components": [_component("core"), _component("cli")],
+        "rules": [
+            {
+                "id": "RULE",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                **rule,
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    for name, text in sources.items():
+        (tmp_path / "sample" / name).write_text(text)
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids) for item in violations] == [(rule["kind"], ("RULE",))]
+    assert len(result.observation.records("violations") or ()) == 1
 
 
 @pytest.mark.parametrize("cause", ["missing_tool", "timeout", "parse_error"])

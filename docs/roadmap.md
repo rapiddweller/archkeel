@@ -28,16 +28,16 @@ only when its row names repository evidence.
 | The component contract is closed and its graph matches observed imports | `tests/test_self.py`; `docs/architecture/archkeel.md`; `make check` |
 | PASS, FAIL and UNVERIFIABLE check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
 | Contract 2.0 has one typed model, JSON Schema and deterministic validation | `schema/architecture-contract.schema.json`; `tests/test_contract_model.py`; `tests/test_validation.py` |
+| All class-A rule types are enforced with one violation probe each and applied to Archkeel | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json` |
 
 ## Next
 
-1. Add the remaining deterministic class-A rule types.
-2. Add the Rich terminal view while preserving JSON for pipes and `--json`.
-3. Add onboarding with `init` and agent skill installation.
-4. Lead the README with the Fixture A failure report and document `make demo`.
-5. Verify PASS, FAIL and UNVERIFIABLE output on desktop, mobile and print PDF.
-6. Publish D-self artifacts and a report-only pull-request comparison in CI.
-7. Prepare release 0.2.0 after explicit approval.
+1. Add the Rich terminal view while preserving JSON for pipes and `--json`.
+2. Add onboarding with `init` and agent skill installation.
+3. Lead the README with the Fixture A failure report and document `make demo`.
+4. Verify PASS, FAIL and UNVERIFIABLE output on desktop, mobile and print PDF.
+5. Publish D-self artifacts and a report-only pull-request comparison in CI.
+6. Prepare release 0.2.0 after explicit approval.
 
 ## Later
 

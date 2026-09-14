@@ -29,7 +29,24 @@ digest and Python version make the result deterministic. Aliasing a function fir
 `f = getattr; f(value, name)`, is not resolved and remains a blind spot. Calling `eval()` below the
 configured source is an example violation.
 
-The remaining class-A rule types are planned and are not accepted by the schema yet.
+`external_dependency_scope` fields are `dependency` (a top-level import name) and
+`allowed_sources`. It matches import records whose target is the dependency or one of its
+submodules, including `TYPE_CHECKING` imports. Fixed source bytes and analyzer digest make the
+result deterministic. Imports through `importlib` remain a blind spot. Importing `rich` from
+`archkeel.check` when only `archkeel.cli` is allowed is an example violation.
+
+`complete_assignment` has the field `source`. Every scanned module below `source` must belong to
+exactly one component; overlapping package prefixes count as unowned. The `source` module itself
+and blank files are exempt because they hold no code a component could own. A complete scan
+makes the result deterministic. A module whose first line is blank but contains code has no source
+excerpt, so its violation cannot be traced and the run reports UNKNOWN (exit 2) instead of FAIL.
+Adding `archkeel/extra.py` without a component package is an example violation.
+
+`no_component_cycles` has no selector fields. It projects import records, including
+`TYPE_CHECKING` imports, onto components and reports each strongly connected component with two or
+more members. A complete scan and exact package assignment make the result deterministic. Imports
+between unowned modules are invisible; combine it with `complete_assignment`. Importing
+`sample.cli` from `sample.core` while `sample.cli` imports `sample.core` is an example violation.
 
 ## Class B: regression checks
 

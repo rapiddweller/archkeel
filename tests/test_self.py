@@ -99,7 +99,6 @@ def test_self_contract_covers_modules_and_analyzer_interface(
     self_observation: Observation,
 ) -> None:
     contract = _contract()
-    packages = {package for component in contract.components for package in component.packages}
     declarations = contract.declarations or ContractDeclarations()
     public_api = set(declarations.public_api)
     forbidden_ir = {
@@ -110,8 +109,6 @@ def test_self_contract_covers_modules_and_analyzer_interface(
     for module in self_observation.records("modules") or ():
         name = module.data.get("qualified_name")
         assert isinstance(name, str)
-        if name != "archkeel":
-            assert any(in_scope(name, package) for package in packages), name
         if name.startswith("archkeel.ir.") and name not in public_api:
             assert any(in_scope(name, prefix) for prefix in forbidden_ir), name
     for record in self_observation.records("imports") or ():

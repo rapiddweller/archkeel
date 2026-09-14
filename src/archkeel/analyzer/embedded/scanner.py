@@ -20,6 +20,7 @@ from typing import Any, Protocol, runtime_checkable
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
+    CompleteAssignmentRule,
     ContractComponent,
     ContractDeclarations,
     ContractPath,
@@ -1555,6 +1556,118 @@ def _construct_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _external_dependency_violations(
+    imports: Sequence[dict[str, Any]], rules: Sequence[ArchitectureRule]
+) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+    for rule in rules:
+        if not isinstance(rule, ExternalDependencyScopeRule):
+            continue
+        for item in imports:
+            data = item["data"]
+            source_module = data["source_module"]
+            if not in_scope(data["target_module"], rule.dependency) or any(
+                in_scope(source_module, allowed) for allowed in rule.allowed_sources
+            ):
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="dependency_violations",
+                    kind=rule.kind,
+                    title=f"{source_module} imports {rule.dependency} outside its allowed scope",
+                    subjects=[source_module, data["target_module"]],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "source_module": source_module,
+                        "target_module": data["target_module"],
+                        "dependency": rule.dependency,
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+def _assignment_violations(
+    modules: Sequence[dict[str, Any]], contract: ArchitectureContract, blank: frozenset[str]
+) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+    for rule in contract.rules:
+        if not isinstance(rule, CompleteAssignmentRule):
+            continue
+        for item in modules:
+            module = item["data"]["qualified_name"]
+            # The namespace container and blank files hold no code a component could own.
+            if (
+                module == rule.source
+                or module in blank
+                or not in_scope(module, rule.source)
+                or contract.component_for(module) is not None
+            ):
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="components",
+                    kind=rule.kind,
+                    title=f"{module} is not owned by exactly one component",
+                    subjects=[module],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={"source": rule.source, "module": module},
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+def _component_cycle_violations(
+    imports: Sequence[dict[str, Any]], contract: ArchitectureContract
+) -> list[dict[str, Any]]:
+    rules = [rule for rule in contract.rules if isinstance(rule, NoComponentCyclesRule)]
+    if not rules:
+        return []
+    edge_imports: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for item in imports:
+        source = contract.component_for(item["data"]["source_module"])
+        target = contract.component_for(item["data"]["target_module"])
+        if source is not None and target is not None and source != target:
+            edge_imports[(source.label, target.label)].append(item)
+    labels = [component.label for component in contract.components]
+    violations: list[dict[str, Any]] = []
+    for members in strongly_connected_components(labels, edge_imports):
+        if len(members) < 2:
+            continue
+        cycle_imports = [
+            item
+            for (source, target), items in edge_imports.items()
+            if source in members and target in members
+            for item in items
+        ]
+        violations.extend(
+            classified(
+                item_id=stable_id("VIO", rule.id, *members),
+                evidence_class=EvidenceClass.VIOLATION,
+                area="cycles",
+                kind=rule.kind,
+                title=f"Component cycle: {' ↔ '.join(members)}",
+                subjects=members,
+                evidence_ids=[
+                    evidence_id for item in cycle_imports for evidence_id in item["evidence_ids"]
+                ],
+                rule_ids=[rule.id],
+                fact_ids=[item["id"] for item in cycle_imports],
+                data={"members": members},
+            )
+            for rule in rules
+        )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def _rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     """Name the module selectors whose absence would make a rule vacuous."""
     if isinstance(rule, ForbiddenDependencyRule):
@@ -1966,6 +2079,13 @@ def scan_repository(
         [
             *_dependency_violations(imports, contract.rules),
             *_construct_violations(typing_signals, contract.rules),
+            *_external_dependency_violations(imports, contract.rules),
+            *_assignment_violations(
+                module_records,
+                contract,
+                frozenset(module.module for module in parsed if not module.source.strip()),
+            ),
+            *_component_cycle_violations(imports, contract),
         ],
         key=lambda item: item["id"],
     )
