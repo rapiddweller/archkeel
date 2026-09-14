@@ -21,6 +21,34 @@ analyzer runtime gate, `rich` to `archkeel.render.terminal` and `rich_argparse` 
 The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`. This keeps raw AST
 records inside the analyzer and exposes typed `ObservationResult` values at its boundary.
 
+## Decisions
+
+Each decision names its reason and the check that holds it. Code follows the decision; a change
+to a decision is recorded here before the code changes.
+
+**AD-1 Analyzer modules are flat and single-purpose.** `archkeel/analyzer/embedded/` holds only
+top-level modules: `source` (parsed modules and evidence locations), `scanner` (orchestration,
+imports, symbols, calls, typing signals), `contexts` (context and state evidence), `violations`
+(rule evaluation), `graph` (components and paths), `records` (record envelope, ids, analyzer
+digest), `contract` (declarations) and `report` (observation assembly). Reason:
+`analyzer_code_digest` hashes top-level `*.py` files, so code in a subpackage would change
+analyzer behavior without changing the digest. Check: `tests/test_analyzer.py`.
+
+**AD-2 JSON has one type.** Decoded or emitted JSON is `RawJson`; untrusted input is narrowed with
+`isinstance` at the boundary. Analyzer records are `RawRecord` and `RawEvidence`. `Any` remains
+only for the per-kind record `data` payload and where those records enter canonical encoding,
+each with a one-line reason. Check: `mypy --strict` and the typing measurements in
+`fixtures/D-self/`.
+
+**AD-3 The analyzer digest decides comparability; the version names it.** Two observations are
+comparable only with equal `analyzer.code_digest`. `ANALYZER_VERSION` is the human label: its minor
+number rises when the same input yields different records, such as new rule kinds or signals.
+Check: `check/delta.py` compares digests; the version is reviewed with the D-self fixture.
+
+**AD-4 Module length alone does not justify a split.** A split needs a responsibility seam. The
+analyzer's public IR API is exactly `ir.model` and `ir.codec`, so splitting either is a contract
+change. Check: `tests/test_self.py`.
+
 ## Allowed dependencies
 
 | Edge | Reason |

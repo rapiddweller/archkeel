@@ -16,6 +16,17 @@ from archkeel.ir.model import Coverage, Diagnostic, Observation
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
+EMBEDDED = ROOT / "src/archkeel/analyzer/embedded"
+
+
+def test_analyzer_digest_covers_every_embedded_module() -> None:
+    # AD-1: the analyzer digest hashes top-level modules only.
+    nested = [
+        path.relative_to(EMBEDDED).as_posix()
+        for path in EMBEDDED.rglob("*.py")
+        if path.parent != EMBEDDED and "__pycache__" not in path.parts
+    ]
+    assert nested == []
 
 
 def _prepare_source(tmp_path: Path) -> None:
