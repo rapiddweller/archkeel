@@ -79,3 +79,20 @@ def decorator_names(node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
         except Exception:
             continue
     return sorted(names)
+
+
+def module_for(path: Path, *, root: Path, namespace: str) -> str:
+    rel = path.relative_to(root).with_suffix("")
+    parts = list(rel.parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    prefix = namespace.split(".")
+    for index in range(len(parts) - len(prefix) + 1):
+        if parts[index : index + len(prefix)] == prefix:
+            return ".".join(parts[index:])
+    raise ValueError(f"source path does not contain configured namespace {namespace!r}")
+
+
+def package_for(module: str) -> str:
+    parts = module.split(".")
+    return ".".join(parts[:2]) if len(parts) > 1 else module

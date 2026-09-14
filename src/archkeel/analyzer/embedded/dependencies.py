@@ -1,0 +1,295 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Dependency edge, cycle, and declared-scope aggregation for the Python architecture scanner."""
+
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence
+
+from archkeel.ir.model import ContractComponent, ContractPath, EvidenceClass, in_scope
+
+from .graph import condensation_ranks, strongly_connected_components
+from .records import RawRecord, classified, stable_id
+
+
+def _top_level_scope(module: str) -> str | None:
+    parts = module.split(".")
+    return ".".join(parts[:2]) if len(parts) > 1 else None
+
+
+def aggregate_edges(
+    imports: Sequence[RawRecord], *, level: str, internal_modules: set[str], namespace: str
+) -> tuple[list[RawRecord], list[tuple[str, str]]]:
+    buckets: dict[tuple[str, str], list[str]] = defaultdict(list)
+    type_checking_counts: Counter[tuple[str, str]] = Counter()
+    for item in imports:
+        data = item["data"]
+        if level == "module":
+            source = data["source_module"]
+            target = data["target_module"]
+            if target not in internal_modules or source == target:
+                continue
+        else:
+            source = data["source_package"]
+            target = data["target_package"]
+            if not in_scope(target, namespace) or source == target:
+                continue
+        buckets[(source, target)].append(item["id"])
+        if data["under_type_checking"]:
+            type_checking_counts[(source, target)] += 1
+    graph_edges = sorted(buckets)
+    ranks = condensation_ranks({value for edge in graph_edges for value in edge}, graph_edges)
+    edge_set = set(graph_edges)
+    records = [
+        classified(
+            item_id=stable_id("EDGE", level, source, target),
+            evidence_class=EvidenceClass.FACT,
+            area=f"{level}_topology",
+            kind=f"{level}_dependency",
+            title=f"{source} → {target}",
+            subjects=[source, target],
+            fact_ids=sorted(buckets[(source, target)]),
+            data={
+                "level": level,
+                "source": source,
+                "target": target,
+                "count": len(buckets[(source, target)]),
+                "type_checking_count": type_checking_counts[(source, target)],
+                "runtime_count": len(buckets[(source, target)])
+                - type_checking_counts[(source, target)],
+                "source_rank": ranks.get(source, 0),
+                "target_rank": ranks.get(target, 0),
+                "bidirectional": (target, source) in edge_set,
+            },
+        )
+        for source, target in graph_edges
+    ]
+    return records, graph_edges
+
+
+def cycle_records(
+    *,
+    level: str,
+    nodes: Iterable[str],
+    edges: Sequence[tuple[str, str]],
+    edge_records: Sequence[RawRecord],
+) -> list[RawRecord]:
+    edge_by_pair = {(item["data"]["source"], item["data"]["target"]): item for item in edge_records}
+    records: list[RawRecord] = []
+    for component in strongly_connected_components(nodes, edges):
+        self_loop = len(component) == 1 and (component[0], component[0]) in edge_by_pair
+        if len(component) <= 1 and not self_loop:
+            continue
+        member_set = set(component)
+        internal_edges = [
+            edge_by_pair[(source, target)]
+            for source, target in edges
+            if source in member_set and target in member_set and (source, target) in edge_by_pair
+        ]
+        records.append(
+            classified(
+                item_id=stable_id("SCC", level, *component),
+                evidence_class=EvidenceClass.FACT,
+                area="cycles",
+                kind=f"{level}_scc",
+                title=f"{level.capitalize()} cycle with {len(component)} members",
+                subjects=component,
+                fact_ids=[item["id"] for item in internal_edges],
+                data={
+                    "level": level,
+                    "members": component,
+                    "internal_edges": [item["id"] for item in internal_edges],
+                },
+            )
+        )
+    return sorted(records, key=lambda item: item["id"])
+
+
+def declared_path_observations(
+    paths: Sequence[ContractPath], package_edges: Sequence[RawRecord]
+) -> list[RawRecord]:
+    edges = {(item["data"]["source"], item["data"]["target"]): item for item in package_edges}
+    records: list[RawRecord] = []
+    for declared_path in paths:
+        steps = declared_path.steps
+        for index, (source, target) in enumerate(zip(steps, steps[1:], strict=False)):
+            edge = edges.get((source, target))
+            if edge is None:
+                records.append(
+                    classified(
+                        item_id=stable_id("UNKNOWN-PATH", declared_path.id, index, source, target),
+                        evidence_class=EvidenceClass.UNKNOWN,
+                        area="read_write_paths",
+                        kind="path_segment_not_statically_observed",
+                        title=f"{source} → {target} lacks direct static import evidence",
+                        subjects=[source, target],
+                        rule_ids=[declared_path.id],
+                        data={
+                            "path_id": declared_path.id,
+                            "source": source,
+                            "target": target,
+                            "status": "UNKNOWN",
+                            "reason": (
+                                "Missing static proof does not prove that the runtime path "
+                                "is absent"
+                            ),
+                        },
+                    )
+                )
+                continue
+            records.append(
+                classified(
+                    item_id=stable_id("PATH-OBS", declared_path.id, index, edge["id"]),
+                    evidence_class=EvidenceClass.FACT,
+                    area="read_write_paths",
+                    kind="observed_path_segment",
+                    title=f"{source} → {target} is statically observed",
+                    subjects=[source, target],
+                    rule_ids=[declared_path.id],
+                    fact_ids=[edge["id"]],
+                    data={
+                        "path_id": declared_path.id,
+                        "source": source,
+                        "target": target,
+                        "status": "observed",
+                        "direct_import_count": edge["data"]["count"],
+                    },
+                )
+            )
+    return sorted(records, key=lambda item: item["id"])
+
+
+def component_scope_observations(
+    *,
+    components: Sequence[ContractComponent],
+    modules: Sequence[RawRecord],
+    module_edges: Sequence[RawRecord],
+    coverage_failures: Sequence[RawRecord],
+) -> list[RawRecord]:
+    """Aggregate observed modules under accepted component prefixes.
+
+    A prefix owns only its exact module and dot-delimited descendants. Coverage
+    failures suppress absence-based assignment findings because the missing
+    source may contain evidence that changes the result.
+    """
+    module_by_name = {item["data"]["qualified_name"]: item for item in modules}
+    assigned_modules: set[str] = set()
+    observations: list[RawRecord] = []
+    coverage_complete = not coverage_failures
+
+    for component in sorted(components, key=lambda item: item.id):
+        scopes = sorted(component.packages)
+        matched_names = sorted(
+            name for name in module_by_name if any(in_scope(name, scope) for scope in scopes)
+        )
+        assigned_modules.update(matched_names)
+        matched_set = set(matched_names)
+        outgoing_edges = sorted(
+            (
+                edge
+                for edge in module_edges
+                if edge["data"]["source"] in matched_set
+                and edge["data"]["target"] not in matched_set
+            ),
+            key=lambda item: item["id"],
+        )
+        outgoing_modules = sorted({edge["data"]["target"] for edge in outgoing_edges})
+        outgoing_scopes = sorted(
+            {scope for name in outgoing_modules if (scope := _top_level_scope(name)) is not None}
+        )
+        module_facts = [module_by_name[name] for name in matched_names]
+        observations.append(
+            classified(
+                item_id=stable_id("SCOPE", "declared_component", component.id),
+                evidence_class=EvidenceClass.FACT,
+                area="components",
+                kind="declared_component_scope_observation",
+                title=f"Observed source scope for {component.label}",
+                subjects=scopes,
+                evidence_ids=[
+                    evidence_id for item in module_facts for evidence_id in item["evidence_ids"]
+                ],
+                rule_ids=[component.id],
+                fact_ids=[
+                    *[item["id"] for item in module_facts],
+                    *[item["id"] for item in outgoing_edges],
+                ],
+                data={
+                    "component_id": component.id,
+                    "scopes": scopes,
+                    "scope_module_counts": [
+                        {
+                            "scope": scope,
+                            "observed_module_count": sum(
+                                1 for name in matched_names if in_scope(name, scope)
+                            ),
+                        }
+                        for scope in scopes
+                    ],
+                    "coverage_complete": coverage_complete,
+                    "module_count": len(matched_names) if coverage_complete else None,
+                    "observed_module_count": len(matched_names),
+                    "modules": matched_names,
+                    "files": sorted(module_by_name[name]["data"]["file"] for name in matched_names),
+                    "fan_out": len(outgoing_scopes) if coverage_complete else None,
+                    "outgoing_scopes": outgoing_scopes,
+                    "outgoing_modules": outgoing_modules,
+                },
+            )
+        )
+
+    if coverage_failures:
+        observations.append(
+            classified(
+                item_id="UNKNOWN-COMPONENT-SCOPE-COVERAGE",
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="components",
+                kind="component_scope_assignment_incomplete",
+                title="Component scope assignment cannot be completed safely",
+                subjects=sorted(
+                    subject
+                    for failure in coverage_failures
+                    for subject in failure.get("subjects", [])
+                ),
+                data={
+                    "reason": "Source coverage failed; unassigned-scope conclusions are suppressed",
+                    "coverage_failure_ids": sorted(failure["id"] for failure in coverage_failures),
+                },
+            )
+        )
+        return sorted(observations, key=lambda item: item["id"])
+
+    unassigned_by_scope: dict[str, list[str]] = defaultdict(list)
+    for name in sorted(module_by_name):
+        scope = _top_level_scope(name)
+        if scope is not None and name not in assigned_modules:
+            unassigned_by_scope[scope].append(name)
+
+    for scope, names in sorted(unassigned_by_scope.items()):
+        module_facts = [module_by_name[name] for name in names]
+        scope_modules = sorted(name for name in module_by_name if in_scope(name, scope))
+        observations.append(
+            classified(
+                item_id=stable_id("UNKNOWN-SCOPE", scope),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="components",
+                kind="unassigned_component_scope",
+                title=f"Accepted component ownership is undecided for {scope}",
+                subjects=[scope, *names],
+                evidence_ids=[
+                    evidence_id for item in module_facts for evidence_id in item["evidence_ids"]
+                ],
+                fact_ids=[item["id"] for item in module_facts],
+                data={
+                    "scope": scope,
+                    "module_count": len(names),
+                    "modules": names,
+                    "files": sorted(module_by_name[name]["data"]["file"] for name in names),
+                    "partially_assigned": any(name in assigned_modules for name in scope_modules),
+                    "reason": "No accepted component declaration covers these observed modules",
+                },
+            )
+        )
+    return sorted(observations, key=lambda item: item["id"])
