@@ -11,7 +11,7 @@ from typing import Any, TypedDict
 
 from archkeel.ir.model import EvidenceClass
 
-ANALYZER_VERSION = "0.3.0"
+ANALYZER_VERSION = "0.4.0"
 
 
 class RawRecord(TypedDict):
