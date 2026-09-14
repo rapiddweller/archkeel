@@ -8,7 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from archkeel.ir.codec import canonical_report_bytes, result_bytes
-from archkeel.ir.model import Diagnostic, DiagnosticError, RunResult
+from archkeel.ir.model import Diagnostic, DiagnosticError, ObservationResult, RunResult
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
@@ -33,13 +33,9 @@ def render_result(result: RunResult) -> bytes:
     return result_bytes(result)
 
 
-def run_report(
-    root: Path,
-    *,
-    config: ScanConfig,
-    analyzer: Analyzer,
-) -> tuple[RunResult, bytes | None]:
-    result = analyzer(
+def observe_repository(root: Path, config: ScanConfig, analyzer: Analyzer) -> ObservationResult:
+    """Observe the configured working tree through an injected analyzer."""
+    return analyzer(
         root,
         roots=config.roots,
         namespace=config.namespace,
@@ -48,6 +44,15 @@ def run_report(
         dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
         contract_root=root,
     )
+
+
+def run_report(
+    root: Path,
+    *,
+    config: ScanConfig,
+    analyzer: Analyzer,
+) -> tuple[RunResult, bytes | None]:
+    result = observe_repository(root, config, analyzer)
     model = result.observation
     architecture = canonical_report_bytes(model) if model is not None else None
     if result.diagnostics:

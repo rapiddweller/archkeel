@@ -1046,26 +1046,30 @@ def parse_lock(payload: bytes) -> AcceptedLock:
         raise LockError(str(error)) from error
 
 
-def declaration_paths(payload: bytes, contract_path: str) -> tuple[str, ...]:
-    contract = _object(decode_json(payload), "contract")
-    paths = {contract_path}
-    for key in ("public_api_provenance", "context_roots_provenance"):
-        paths.update(_strings(contract.get(key, []), key))
-    for key in (
-        "capabilities",
-        "components",
-        "review_scopes",
-        "public_commands",
-        "paths",
-        "spot_owners",
-        "rules",
+def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]:
+    """Return every repository path cited as contract provenance."""
+    declarations = contract.declarations or ContractDeclarations()
+    paths = {
+        *declarations.public_api_provenance,
+        *declarations.context_roots_provenance,
+    }
+    for records in (
+        contract.components,
+        contract.rules,
+        declarations.capabilities,
+        declarations.review_scopes,
+        declarations.public_commands,
+        declarations.paths,
+        declarations.spot_owners,
     ):
-        records = contract.get(key, [])
-        if not isinstance(records, list):
-            raise ValueError(f"contract.{key} must be a record list")
         for record in records:
-            paths.update(_strings(_object(record, key).get("provenance", []), f"{key}.provenance"))
+            paths.update(record.provenance)
     return tuple(sorted(paths))
+
+
+def declaration_paths(payload: bytes, contract_path: str) -> tuple[str, ...]:
+    contract = parse_contract(decode_json(payload))
+    return tuple(sorted({contract_path, *contract_provenance_paths(contract)}))
 
 
 def _record_payload(value: Record) -> dict[str, Any]:
