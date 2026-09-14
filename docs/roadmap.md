@@ -27,10 +27,11 @@ only when its row names repository evidence.
 | The analyzer package and active architecture documentation use one name | `2fa6ffd`; `tests/test_analyzer.py` |
 | The component contract is closed and its graph matches observed imports | `tests/test_self.py`; `docs/architecture/archkeel.md`; `make check` |
 | PASS, FAIL and UNVERIFIABLE check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
+| Contract 2.0 has one typed model, JSON Schema and deterministic validation | `schema/architecture-contract.schema.json`; `tests/test_contract_model.py`; `tests/test_validation.py` |
 
 ## Next
 
-1. Add the deterministic framework: rule catalog, Contract 2.0.0, JSON Schema, `validate` and new rule types.
+1. Add the remaining deterministic class-A rule types.
 2. Add the Rich terminal view while preserving JSON for pipes and `--json`.
 3. Add onboarding with `init` and agent skill installation.
 4. Lead the README with the Fixture A failure report and document `make demo`.
@@ -41,9 +42,10 @@ only when its row names repository evidence.
 ## Later
 
 - Decide the regression policy, implement `accept`, add a GitHub host adapter and consider
-  renaming the `ratchets` schema field to `regression_checks`. Evidence: `bbab17c` raised
-  `calls_unresolved` from 474 to 479 while `unresolved_ratio` improved, so the absolute check
-  would reject Archkeel's own commit.
+  renaming the `ratchets` schema field to `regression_checks`. Evidence: `5a07aed` reduced
+  `calls_unresolved` from 484 to 466 while `unresolved_ratio` worsened from 19.28% to 19.46%
+  because well-resolved duplicate code was deleted; a ratio-only check would reject this
+  improvement. `bbab17c` showed the opposite case for an absolute-only check.
 - Add `propose`, `next` and an agent skill.
 - Integrate Archkeel into DataMimic EE.
 - Add an interactive review surface and navigable dependency graph.

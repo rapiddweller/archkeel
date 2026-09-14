@@ -15,6 +15,7 @@ from ..accept import unavailable
 from ..analyzer import observe
 from ..check.report import render_result, run_report, unknown_result
 from ..check.run import run_check
+from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_html, render_check_html
 from .config import load_check_config, load_config
@@ -39,10 +40,13 @@ def html_path(output: Path, command: str) -> Path:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _Parser(prog="archkeel")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("report", "check"):
+    for name in ("report", "check", "validate"):
         subparser = commands.add_parser(name)
         subparser.add_argument("--root", type=Path, default=Path.cwd())
-        subparser.add_argument("--output", type=Path)
+        if name == "validate":
+            subparser.add_argument("--json", action="store_true")
+        else:
+            subparser.add_argument("--output", type=Path)
         if name == "check":
             subparser.add_argument("--baseline", type=_sha, required=True)
             subparser.add_argument("--expectation-commit", type=_sha, required=True)
@@ -98,6 +102,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                             architecture_href=artifact.name,
                         )
                     )
+            elif command == "validate":
+                config = load_config(root)
+                result = run_validate(root, config, observe)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
@@ -127,6 +134,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                         )
                     )
     except Exception as error:
-        result = unknown_result(command, subject, error)
+        result = (
+            invalid_result(subject, error)
+            if command == "validate"
+            else unknown_result(command, subject, error)
+        )
     print(render_result(result).decode(), end="")
     return result.exit_code

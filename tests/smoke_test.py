@@ -17,7 +17,9 @@ def main() -> None:
         (root / "sample/__init__.py").write_text("value = 1\n")
         provenance = root / "docs/architecture/contract.md"
         provenance.parent.mkdir(parents=True)
-        provenance.write_text("# Architecture\n")
+        provenance.write_text(
+            "# Architecture\n\n<!-- archkeel-component-graph -->\n```mermaid\ngraph TD\n```\n"
+        )
         contract = {
             "schema_version": "2.0.0",
             "components": [],
@@ -71,6 +73,13 @@ def main() -> None:
         assert result["declared_rules"] == "PASS"
         assert result["diagnostics"] == []
         assert output.is_file()
+        validate = subprocess.run(
+            [sys.executable, "-m", "archkeel.cli", "validate", "--root", str(root), "--json"],
+            capture_output=True,
+            text=True,
+        )
+        assert validate.returncode == 0, (validate.stdout, validate.stderr)
+        assert json.loads(validate.stdout)["diagnostics"] == []
 
 
 if __name__ == "__main__":

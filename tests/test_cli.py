@@ -10,6 +10,8 @@ import pytest
 
 from archkeel.cli import main
 
+ROOT = Path(__file__).parents[1]
+
 
 @pytest.mark.parametrize("entry", ["installed", "module"])
 def test_accept_remains_unknown_at_both_entrypoints(entry: str) -> None:
@@ -51,3 +53,22 @@ def test_report_missing_config_is_unknown(tmp_path: Path, capsys: pytest.Capture
     assert result["observation_complete"] == "UNKNOWN"
     assert result["declared_rules"] == "UNKNOWN"
     assert result["expectation_fulfilled"] == "UNKNOWN"
+
+
+def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> None:
+    assert main(["validate", "--root", str(ROOT)]) == 0
+    default = capsys.readouterr().out
+    assert main(["validate", "--root", str(ROOT), "--json"]) == 0
+    explicit = capsys.readouterr().out
+    assert explicit == default
+    result = json.loads(explicit)
+    assert result["observation_complete"] == result["declared_rules"] == "PASS"
+
+
+def test_validate_configuration_error_has_pointer(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    assert main(["validate", "--root", str(tmp_path), "--json"]) == 2
+    diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
+    assert diagnostic["kind"] == "contract_invalid"
+    assert diagnostic["pointer"] == ""
