@@ -22,7 +22,11 @@ It catches two failure modes that finding-only diffs miss:
 - the scanner saw less of the program, so the result looks clean only because
   the graph became blinder.
 
-[Quickstart](#quickstart) · [How it works](#how-it-works) ·
+<p>
+  <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
+</p>
+
+[Try the demo](#try-the-demo) · [Onboard your project](#onboard-your-project) · [How it works](#how-it-works) ·
 [Reference](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md) · [Roadmap](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md)
 
 Implemented and planned work is tracked in the [roadmap](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md).
@@ -83,51 +87,67 @@ and mechanically checkable.
 ## Review surface
 
 <p>
-  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel report showing the decision and three independent verdicts" width="1100">
+  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel check report rejecting Fixture A with five independent verdicts and the failed regression checks" width="1100">
 </p>
 
 The HTML report is designed for a reviewer making a merge decision:
 
-- **Decision first.** `PASS`, `REJECT`, or `UNVERIFIABLE` is visible before details.
-- **No blended score.** Scan completeness, contract compliance, and expectation matching
-  remain separate verdicts.
+- **Decision first.** `PASS`, `REJECT`, or `UNVERIFIABLE` and one sentence explaining it are
+  visible before details, in the HTML report and in the terminal.
+- **No blended score.** Scan completeness, contract compliance, expectation matching, Git order
+  and publication order remain separate verdicts.
 - **Unknown stays visible.** Missing or invalid evidence includes the affected subject,
   unknown claim, and remedy.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
 
-## Quickstart
+## Try the demo
 
-### Requirements
-
-- Python 3.11+
-
-Install the first Archkeel release from PyPI:
+The demo builds three small Git repositories and runs the real checks. Fixture A is rejected
+because the call graph got blinder, Fixture B because its expectation was published too late,
+and Fixture C passes.
 
 ```bash
-pip install archkeel==0.1.0
-archkeel --help
+git clone https://github.com/rapiddweller/archkeel.git
+cd archkeel
+make demo
 ```
 
-Add `archkeel.toml` to the repository you want to check:
+`make demo-screenshots OUTPUT=<directory>` also captures each HTML report as PNG and each
+terminal view as SVG.
 
-```toml
-[scan]
-roots = ["src/example"]          # directories, not globs
-namespace = "example"
-contract = "architecture-contract.json"
+## Onboard your project
+
+Requirements: Python 3.11+ and a Git repository with at least one commit.
+
+```bash
+uvx archkeel skill install claude    # or codex
+uvx archkeel init
+uvx archkeel validate
 ```
+
+`init` observes the only top-level package and writes `archkeel.toml`,
+`architecture-contract.json` and `docs/architecture/architecture.md`. It proposes one
+component per subpackage and forbids every component pair that is not imported today. Each rule
+starts with a `TODO:` rationale, so `validate` lists every decision that remains, each with a
+JSON Pointer. Give the prompt in [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md)
+to your coding agent, or work through the list yourself. The rule catalog is in
+[docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+
+To install it permanently instead, run `pip install archkeel`. Every command explains itself
+with `archkeel <command> --help`.
+
+## Quickstart
 
 Observe the current repository:
 
 ```bash
-archkeel report \
-  --root /repo \
-  --output architecture.json
+archkeel report
 ```
 
-The command also writes a self-contained `architecture.report.html` beside the canonical JSON.
-It presents the three independent verdicts, exact measurements, diagnostics and provenance.
+The command writes the canonical `architecture.json` and a self-contained
+`architecture.report.html` beside it. A terminal shows the decision and verdicts; pipes and
+`--json` receive the JSON result.
 
 Check a candidate against its published expectation:
 
@@ -272,11 +292,26 @@ Reproduce the protocol fixtures:
 make fixtures
 ```
 
-Archkeel checks its own boundaries. `archkeel.toml` and
-[architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) define the contract;
-[fixtures/D-self/result.json](https://github.com/rapiddweller/archkeel/blob/main/fixtures/D-self/result.json) contains the latest
-self-scan. The [architecture guide](docs/architecture/archkeel.md) contains the single
-component graph and the reason for every allowed dependency.
+## Archkeel checks itself
+
+[architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json)
+holds Archkeel to the rules it sells, and every rule was proven by a deliberate violation:
+
+- **Closed world.** Seven components; every ordered pair is either one of the ten observed
+  imports or forbidden with a rationale. The [architecture guide](docs/architecture/archkeel.md)
+  explains each allowed edge in the single marked component graph.
+- **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
+  the composition root. The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`.
+- **No dynamic shortcuts.** `getattr`, `hasattr`, `cast`, `eval`, `exec`, dynamic imports and
+  `type: ignore` are forbidden everywhere.
+- **Confined dependencies.** `packaging` only in the analyzer runtime gate, `rich` only in the
+  terminal view, `rich_argparse` only in the CLI.
+- **Complete and acyclic.** Every module belongs to exactly one component, and components form
+  no cycle.
+
+`make check` reobserves the repository and compares it with
+[fixtures/D-self](https://github.com/rapiddweller/archkeel/blob/main/fixtures/D-self/result.json);
+CI also runs `archkeel validate` and uploads the self-observation.
 
 ## Current boundaries
 
@@ -290,6 +325,8 @@ Archkeel is deliberately strict about what it can prove:
 - **Analyzer runtime:** Archkeel's Python must be at least the target
   repository's Python.
 - **Acceptance:** `accept` is a placeholder and returns exit `2`.
+- **Onboarding:** `init` detects one top-level package; other layouts need `--source` and
+  `--namespace`. It cannot know why a boundary exists, so every rationale stays a decision.
 
 ## Roadmap
 

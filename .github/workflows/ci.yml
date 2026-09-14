@@ -33,3 +33,19 @@ jobs:
 
       - name: Check source and distributions
         run: make release-check
+
+      - name: Validate Archkeel's own contract
+        run: uv run --locked archkeel validate --root . --json
+
+      - name: Observe Archkeel
+        run: >-
+          uv run --locked archkeel report --root . --json
+          --output test-artifacts/architecture/architecture.json
+
+      - name: Upload self-observation
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: archkeel-self-observation
+          path: test-artifacts/architecture/
+          if-no-files-found: error

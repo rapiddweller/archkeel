@@ -1,3 +1,61 @@
+# Archkeel 0.2.0 — Deterministic onboarding
+
+Archkeel 0.2.0 lets a coding agent set up the architecture contract and keeps every decision
+it cannot make visible as a validation diagnostic.
+
+## Highlights
+
+- `archkeel init` observes the only top-level package and drafts `archkeel.toml`, a closed
+  Contract 2.0 and `docs/architecture/architecture.md`. On Archkeel itself it reproduces the
+  hand-written component rules pair for pair.
+- `archkeel validate` checks contract structure, package and provenance references, closed-world
+  coverage, rule rationales and the marked component graph. Every diagnostic names a JSON
+  Pointer, so the output is the onboarding worklist.
+- `archkeel skill install claude|codex` installs one packaged instruction source for coding
+  agents; [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md)
+  contains the prompt to hand over.
+- The class-A rule catalog is enforced: `forbidden_dependency`, `forbidden_construct`,
+  `external_dependency_scope`, `complete_assignment` and `no_component_cycles`, each proven by
+  a violation test. See [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+- Terminals get a Rich summary with the decision sentence of the HTML report, verdicts,
+  regression checks and diagnostics. Every command has `--help` with examples and exit codes,
+  and `--json`.
+- `schema/architecture-contract.schema.json` describes Contract 2.0; tests keep it equal to the
+  parser verdict on a valid and invalid corpus.
+
+## Breaking changes
+
+- **Contract 2.0.0.** Class-C fields move under `declarations`. A 1.1.0 contract returns exit
+  `2` with a migration remedy; follow
+  [Migrating from 1.1.0](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md#migrating-from-1-1-0).
+- **Terminal output.** When stdout is a terminal, `report`, `check` and `validate` print the
+  summary. Pipes still receive JSON; pass `--json` to get JSON in a terminal.
+- **Dependencies.** `rich` and `rich-argparse` are new runtime dependencies. Contract rules
+  confine them to `archkeel.render.terminal` and `archkeel.cli`.
+- **Diagnostics.** The new kind `existing_files` reports that `init` would overwrite files.
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
+## Self-observation
+
+Archkeel's analyzer measured its own source at `0ffd413` and at this release:
+
+| Measurement | 0ffd413 | 0.2.0 | Explanation |
+|---|---:|---:|---|
+| Source files | 38 | 43 | Onboarding, terminal view, skill, summary and rule evaluation modules |
+| Violations | 0 | 0 | Now including construct, dependency-scope, assignment and cycle rules |
+| `getattr` calls | 14 | 0 | Replaced by explicit types |
+| Typing positions | 180 | 187 | +14 raw record annotations in the new rule evaluation module |
+| Unresolved calls | 507 / 2547 | 593 / 2830 | New calls into Rich, argparse and standard-library values |
+
+The unresolved ratio rose from 19.91% to 20.95% only in new modules; existing modules such as
+the scanner, report and validation resolve more calls than before.
+
 # Archkeel 0.1.0
 
 Archkeel adds deterministic architecture evidence to AI-assisted code review.

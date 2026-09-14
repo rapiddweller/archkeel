@@ -81,6 +81,22 @@ def main() -> None:
         assert validate.returncode == 0, (validate.stdout, validate.stderr)
         assert json.loads(validate.stdout)["diagnostics"] == []
 
+        def cli(*args: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                [sys.executable, "-m", "archkeel.cli", *args], capture_output=True, text=True
+            )
+
+        version = cli("--version")
+        assert version.returncode == 0 and version.stdout.startswith("archkeel "), version
+        skill = cli("skill", "install", "codex", "--root", str(root), "--json")
+        assert skill.returncode == 0, (skill.stdout, skill.stderr)
+        assert "archkeel init" in (root / "AGENTS.md").read_text()
+        init = cli("init", "--root", str(root), "--force", "--json")
+        assert init.returncode == 0, (init.stdout, init.stderr)
+        drafted = cli("validate", "--root", str(root), "--json")
+        pointers = {item["pointer"] for item in json.loads(drafted.stdout)["diagnostics"]}
+        assert drafted.returncode == 2 and pointers == {"/rules/0/rationale", "/rules/1/rationale"}
+
 
 if __name__ == "__main__":
     main()

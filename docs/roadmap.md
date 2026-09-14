@@ -29,15 +29,20 @@ only when its row names repository evidence.
 | PASS, FAIL and UNVERIFIABLE check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
 | Contract 2.0 has one typed model, JSON Schema and deterministic validation | `schema/architecture-contract.schema.json`; `tests/test_contract_model.py`; `tests/test_validation.py` |
 | All class-A rule types are enforced with one violation probe each and applied to Archkeel | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json` |
+| Terminals get a Rich summary with real `--help`; pipes and `--json` keep JSON | `376a3ab`; `tests/test_cli.py`; `tests/test_terminal.py` |
+| `init` drafts a closed contract that reproduces Archkeel's own component rules | `fe5214a`; `tests/test_onboarding.py`; `docs/onboarding.md` |
+| `skill install claude\|codex` writes one packaged agent instruction source | `99f5743`; `tests/test_skill.py` |
+| Fixture A leads the README with its report and terminal view | `make demo-screenshots`; `docs/assets/` |
+| CI validates Archkeel's contract and uploads its self-observation | `.github/workflows/ci.yml` |
 
 ## Next
 
-1. Add the Rich terminal view while preserving JSON for pipes and `--json`.
-2. Add onboarding with `init` and agent skill installation.
-3. Lead the README with the Fixture A failure report and document `make demo`.
-4. Verify PASS, FAIL and UNVERIFIABLE output on desktop, mobile and print PDF.
-5. Publish D-self artifacts and a report-only pull-request comparison in CI.
-6. Prepare release 0.2.0 after explicit approval.
+1. Prepare release 0.2.0 after explicit approval.
+2. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
+   accepted baseline on `main`, which the M → B → E → H protocol does not provide for
+   ordinary pull requests.
+3. Build scanner records as typed IR values instead of `dict[str, Any]` (analyzer boundary,
+   about 300–500 changed lines).
 
 ## Later
 
@@ -46,7 +51,7 @@ only when its row names repository evidence.
   `calls_unresolved` from 484 to 466 while `unresolved_ratio` worsened from 19.28% to 19.46%
   because well-resolved duplicate code was deleted; a ratio-only check would reject this
   improvement. `bbab17c` showed the opposite case for an absolute-only check.
-- Add `propose`, `next` and an agent skill.
+- Add `propose` and `next`.
 - Integrate Archkeel into DataMimic EE.
 - Add an interactive review surface and navigable dependency graph.
 - Add digest-bound blind LLM review whose verdict remains a hypothesis.

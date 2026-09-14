@@ -54,6 +54,10 @@ replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main
 pattern = 'src="docs/assets/archkeel-report-preview\.png"'
 replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-report-preview.png"'
 
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = 'src="docs/assets/archkeel-check-terminal\.svg"'
+replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-check-terminal.svg"'
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/archkeel"]
 
