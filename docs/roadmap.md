@@ -30,11 +30,13 @@ only when its row names repository evidence.
 
 ## Next
 
-1. Add a concise TTY view while preserving JSON for pipes and `--json`.
-2. Lead the README with the Fixture A failure report and document `make demo`.
-3. Verify PASS, FAIL and UNVERIFIABLE reports on desktop, mobile and print PDF.
-4. Publish D-self artifacts and a report-only pull-request comparison in CI.
-5. Prepare release 0.2.0 after explicit approval.
+1. Add the deterministic framework: rule catalog, Contract 2.0.0, JSON Schema, `validate` and new rule types.
+2. Add the Rich terminal view while preserving JSON for pipes and `--json`.
+3. Add onboarding with `init` and agent skill installation.
+4. Lead the README with the Fixture A failure report and document `make demo`.
+5. Verify PASS, FAIL and UNVERIFIABLE output on desktop, mobile and print PDF.
+6. Publish D-self artifacts and a report-only pull-request comparison in CI.
+7. Prepare release 0.2.0 after explicit approval.
 
 ## Later
 

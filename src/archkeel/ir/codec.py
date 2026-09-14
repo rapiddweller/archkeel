@@ -10,7 +10,7 @@ import re
 from collections import Counter
 from dataclasses import asdict
 from math import isfinite
-from typing import Any
+from typing import Any, TypeAlias
 
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import SCALARS, Measurements, RatchetError, RatchetScalars, count
@@ -19,8 +19,17 @@ from archkeel.ir.model import (
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
     AnalyzerInfo,
+    ArchitectureContract,
     ArchitectureDelta,
+    ComponentRole,
+    ContractCapability,
+    ContractCommand,
+    ContractComponent,
     ContractInfo,
+    ContractOwner,
+    ContractPath,
+    ContractPathKind,
+    ContractReviewScope,
     Coverage,
     DeltaCoverage,
     DeltaProvenance,
@@ -28,6 +37,7 @@ from archkeel.ir.model import (
     DimensionDelta,
     Evidence,
     EvidenceClass,
+    ForbiddenDependencyRule,
     JsonValue,
     Observation,
     Projection,
@@ -43,6 +53,8 @@ from archkeel.ir.model import (
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
+RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[str, "RawJson"]
+
 _MISSING_VALUE = object()
 _TOP_LEVEL = {
     "schema_version",
@@ -492,6 +504,234 @@ def _exact(value: object, keys: set[str], label: str) -> dict[str, Any]:
     if set(result) != keys:
         raise ValueError(f"{label} fields mismatch")
     return result
+
+
+def _contract_fields(
+    raw: RawJson, required: set[str], optional: set[str], label: str
+) -> dict[str, RawJson]:
+    item: dict[str, RawJson] = _object(raw, label)
+    if not required <= set(item) or set(item) - required - optional:
+        raise ValueError(f"{label} fields mismatch")
+    return item
+
+
+def _nonempty(raw: RawJson, label: str) -> str:
+    value = _string(raw, label)
+    if not value.strip():
+        raise ValueError(f"{label} must not be empty")
+    return value
+
+
+def _contract_strings(raw: RawJson, label: str, *, required: bool = False) -> tuple[str, ...]:
+    values = _strings(raw, label)
+    if required and not values:
+        raise ValueError(f"{label} must not be empty")
+    if any(not value.strip() for value in values) or len(set(values)) != len(values):
+        raise ValueError(f"{label} must contain unique non-empty strings")
+    return values
+
+
+def _contract_record(
+    raw: RawJson, required: set[str], optional: set[str], label: str
+) -> tuple[dict[str, RawJson], str, tuple[str, ...]]:
+    item = _contract_fields(raw, required | {"id", "provenance"}, optional, label)
+    provenance = _contract_strings(item["provenance"], label + ".provenance", required=True)
+    return item, _nonempty(item["id"], label + ".id"), provenance
+
+
+def parse_contract(raw: object) -> ArchitectureContract:
+    """Parse Contract 2.0 structure without repository-dependent reference checks."""
+    root = _contract_fields(
+        _object(raw, "contract"),
+        {"schema_version", "components", "rules"},
+        {
+            "$schema",
+            "capabilities",
+            "review_scopes",
+            "public_api",
+            "public_api_provenance",
+            "public_commands",
+            "context_roots",
+            "context_roots_provenance",
+            "paths",
+            "spot_owners",
+        },
+        "contract",
+    )
+    if root["schema_version"] != "2.0.0":
+        raise ValueError("contract.schema_version must be 2.0.0")
+    components_raw = root["components"]
+    rules_raw = root["rules"]
+    if not isinstance(components_raw, list) or not isinstance(rules_raw, list):
+        raise ValueError("contract components and rules must be arrays")
+
+    def records(key: str) -> list[RawJson]:
+        value = root.get(key, [])
+        if not isinstance(value, list):
+            raise ValueError(f"contract.{key} must be an array")
+        return value
+
+    capabilities = tuple(
+        _parse_capability(value, f"capabilities[{index}]")
+        for index, value in enumerate(records("capabilities"))
+    )
+    components = tuple(
+        _parse_component(value, f"components[{index}]")
+        for index, value in enumerate(components_raw)
+    )
+    scopes = tuple(
+        _parse_review_scope(value, f"review_scopes[{index}]")
+        for index, value in enumerate(records("review_scopes"))
+    )
+    commands = tuple(
+        _parse_command(value, f"public_commands[{index}]")
+        for index, value in enumerate(records("public_commands"))
+    )
+    paths = tuple(
+        _parse_contract_path(value, f"paths[{index}]")
+        for index, value in enumerate(records("paths"))
+    )
+    owners = tuple(
+        _parse_owner(value, f"spot_owners[{index}]")
+        for index, value in enumerate(records("spot_owners"))
+    )
+    rules = tuple(
+        _parse_forbidden_dependency(value, f"rules[{index}]")
+        for index, value in enumerate(rules_raw)
+    )
+    ids = [
+        item.id
+        for group in (capabilities, components, scopes, commands, paths, owners, rules)
+        for item in group
+    ]
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate contract ID")
+    schema = root.get("$schema")
+    return ArchitectureContract(
+        "2.0.0",
+        components,
+        rules,
+        _nonempty(schema, "contract.$schema") if schema is not None else None,
+        capabilities,
+        scopes,
+        _contract_strings(root.get("public_api", []), "contract.public_api"),
+        _contract_strings(root.get("public_api_provenance", []), "contract.public_api_provenance"),
+        commands,
+        _contract_strings(root.get("context_roots", []), "contract.context_roots"),
+        _contract_strings(
+            root.get("context_roots_provenance", []), "contract.context_roots_provenance"
+        ),
+        paths,
+        owners,
+    )
+
+
+def _parse_capability(raw: RawJson, label: str) -> ContractCapability:
+    item, item_id, provenance = _contract_record(
+        raw, {"name", "label", "review_order"}, set(), label
+    )
+    order = item["review_order"]
+    if not isinstance(order, int) or isinstance(order, bool) or order < 1:
+        raise ValueError(f"{label}.review_order must be a positive integer")
+    name = _nonempty(item["name"], f"{label}.name")
+    title = _nonempty(item["label"], f"{label}.label")
+    return ContractCapability(item_id, name, title, order, provenance)
+
+
+def _parse_component(raw: RawJson, label: str) -> ContractComponent:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
+        {"capability_id"},
+        label,
+    )
+    try:
+        role = ComponentRole(_string(item["role"], f"{label}.role"))
+    except ValueError as exc:
+        raise ValueError(f"{label}.role is invalid") from exc
+    capability = item.get("capability_id")
+    return ContractComponent(
+        item_id,
+        _nonempty(item["label"], f"{label}.label"),
+        role,
+        _contract_strings(item["packages"], f"{label}.packages", required=True),
+        _contract_strings(item["responsibilities"], f"{label}.responsibilities"),
+        _contract_strings(
+            item["forbidden_responsibilities"], f"{label}.forbidden_responsibilities"
+        ),
+        provenance,
+        _nonempty(capability, f"{label}.capability_id") if capability is not None else None,
+    )
+
+
+def _parse_review_scope(raw: RawJson, label: str) -> ContractReviewScope:
+    item, item_id, provenance = _contract_record(
+        raw, {"label", "parent_id", "subjects"}, set(), label
+    )
+    title = _nonempty(item["label"], f"{label}.label")
+    parent_id = _nonempty(item["parent_id"], f"{label}.parent_id")
+    subjects = _contract_strings(item["subjects"], f"{label}.subjects", required=True)
+    return ContractReviewScope(item_id, title, parent_id, subjects, provenance)
+
+
+def _parse_command(raw: RawJson, label: str) -> ContractCommand:
+    item, item_id, provenance = _contract_record(raw, {"command", "description"}, set(), label)
+    command = _nonempty(item["command"], f"{label}.command")
+    description = _nonempty(item["description"], f"{label}.description")
+    return ContractCommand(item_id, command, description, provenance)
+
+
+def _parse_contract_path(raw: RawJson, label: str) -> ContractPath:
+    item, item_id, provenance = _contract_record(raw, {"label", "kind", "steps"}, set(), label)
+    try:
+        kind = ContractPathKind(_string(item["kind"], f"{label}.kind"))
+    except ValueError as exc:
+        raise ValueError(f"{label}.kind is invalid") from exc
+    title = _nonempty(item["label"], f"{label}.label")
+    steps = _contract_strings(item["steps"], f"{label}.steps", required=True)
+    return ContractPath(item_id, title, kind, steps, provenance)
+
+
+def _parse_owner(raw: RawJson, label: str) -> ContractOwner:
+    item, item_id, provenance = _contract_record(
+        raw, {"label", "owner", "responsibility"}, set(), label
+    )
+    title = _nonempty(item["label"], f"{label}.label")
+    owner = _nonempty(item["owner"], f"{label}.owner")
+    responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
+    return ContractOwner(item_id, title, owner, responsibility, provenance)
+
+
+def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependencyRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "target", "include_type_checking", "rationale"},
+        {"target_symbol", "allowed_sources"},
+        label,
+    )
+    if item["kind"] != "forbidden_dependency":
+        raise ValueError(f"{label}.kind is unsupported")
+    include = item["include_type_checking"]
+    if not isinstance(include, bool):
+        raise ValueError(f"{label}.include_type_checking must be a boolean")
+    symbol = item.get("target_symbol")
+    if symbol is not None and (not isinstance(symbol, str) or not symbol.isidentifier()):
+        raise ValueError(f"{label}.target_symbol must be a Python identifier")
+    source = _nonempty(item["source"], f"{label}.source")
+    target = _nonempty(item["target"], f"{label}.target")
+    rationale = _nonempty(item["rationale"], f"{label}.rationale")
+    allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
+    return ForbiddenDependencyRule(
+        item_id,
+        "forbidden_dependency",
+        source,
+        target,
+        include,
+        rationale,
+        provenance,
+        symbol,
+        allowed,
+    )
 
 
 def _count(value: object, label: str) -> int:

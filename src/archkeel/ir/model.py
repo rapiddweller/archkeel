@@ -126,6 +126,105 @@ class ContractInfo:
     path: str
 
 
+class ComponentRole(StrEnum):
+    COMPONENT = "component"
+    INTERFACE = "interface"
+    CONTRACT = "contract"
+    PROJECTION = "projection"
+    FOUNDATION = "foundation"
+
+
+class ContractPathKind(StrEnum):
+    READ = "read"
+    WRITE = "write"
+
+
+@dataclass(frozen=True, slots=True)
+class ContractCapability:
+    id: str
+    name: str
+    label: str
+    review_order: int
+    provenance: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ContractComponent:
+    id: str
+    label: str
+    role: ComponentRole
+    packages: tuple[str, ...]
+    responsibilities: tuple[str, ...]
+    forbidden_responsibilities: tuple[str, ...]
+    provenance: tuple[str, ...]
+    capability_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ContractReviewScope:
+    id: str
+    label: str
+    parent_id: str
+    subjects: tuple[str, ...]
+    provenance: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ContractCommand:
+    id: str
+    command: str
+    description: str
+    provenance: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ContractPath:
+    id: str
+    label: str
+    kind: ContractPathKind
+    steps: tuple[str, ...]
+    provenance: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ContractOwner:
+    id: str
+    label: str
+    owner: str
+    responsibility: str
+    provenance: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ForbiddenDependencyRule:
+    id: str
+    kind: Literal["forbidden_dependency"]
+    source: str
+    target: str
+    include_type_checking: bool
+    rationale: str
+    provenance: tuple[str, ...]
+    target_symbol: str | None = None
+    allowed_sources: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ArchitectureContract:
+    schema_version: Literal["2.0.0"]
+    components: tuple[ContractComponent, ...]
+    rules: tuple[ForbiddenDependencyRule, ...]
+    schema: str | None = None
+    capabilities: tuple[ContractCapability, ...] = ()
+    review_scopes: tuple[ContractReviewScope, ...] = ()
+    public_api: tuple[str, ...] = ()
+    public_api_provenance: tuple[str, ...] = ()
+    public_commands: tuple[ContractCommand, ...] = ()
+    context_roots: tuple[str, ...] = ()
+    context_roots_provenance: tuple[str, ...] = ()
+    paths: tuple[ContractPath, ...] = ()
+    spot_owners: tuple[ContractOwner, ...] = ()
+
+
 @dataclass(frozen=True, slots=True)
 class Coverage:
     status: Literal["PASS", "FAIL"]

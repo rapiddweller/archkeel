@@ -9,7 +9,7 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
 [![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
-[![Status: milestone 1](https://img.shields.io/badge/status-milestone%201-8A8A84?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md)
+[![PyPI version](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
 
 Archkeel checks architecture boundaries and declared changes in AI-assisted code.
 It compares an accepted commit with a candidate, checks their scans against the
@@ -25,9 +25,7 @@ It catches two failure modes that finding-only diffs miss:
 [Quickstart](#quickstart) · [How it works](#how-it-works) ·
 [Reference](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md) · [Roadmap](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md)
 
-> [!NOTE]
-> **Milestone 1:** `report` and `check` work. `accept` is still a placeholder.
-> The Python analyzer ships inside the Archkeel package.
+Implemented and planned work is tracked in the [roadmap](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md).
 
 ## Why Archkeel
 
