@@ -40,6 +40,7 @@ from .violations import rule_scopes, rule_violations
 @dataclass
 class ScanResult:
     source_digest: str
+    # AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
     coverage: dict[str, Any]
     evidence: list[RawEvidence]
     scope_observations: list[RawRecord]

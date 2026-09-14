@@ -231,6 +231,7 @@ def analyze_snapshot(
             [*scan.coverage["failures"], git_failure], key=lambda item: item["id"]
         )
         scan.coverage["status"] = "FAIL"
+    # AD-2: mypy cannot assign TypedDict records to RawJson, so the canonical model stays open.
     model: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {

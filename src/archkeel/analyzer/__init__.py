@@ -11,6 +11,7 @@ from pathlib import Path
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
+    RawJson,
     canonical_json_bytes,
     decode_json,
     parse_observation,
@@ -127,7 +128,7 @@ def observe(
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
                     )
-        request = {
+        request: dict[str, RawJson] = {
             "source_root": str(source_root),
             "git_head": git_head,
             "dirty": dirty,

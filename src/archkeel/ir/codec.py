@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from math import isfinite
-from typing import Any, Final, TypeAlias, get_args
+from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
 
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import SCALARS, Measurements, RatchetError, RatchetScalars, count
@@ -63,7 +63,7 @@ from archkeel.ir.model import (
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
-RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[str, "RawJson"]
+RawJson: TypeAlias = str | int | float | bool | None | Sequence["RawJson"] | Mapping[str, "RawJson"]
 
 _MISSING_VALUE = object()
 _TOP_LEVEL = {
@@ -88,7 +88,7 @@ class ContractVersionError(ValueError):
         super().__init__(f"contract.schema_version {actual!r} is not {CONTRACT_SCHEMA_VERSION}")
 
 
-def _object(raw: object, label: str) -> dict[str, Any]:
+def _object(raw: object, label: str) -> dict[str, RawJson]:
     if not isinstance(raw, dict) or not all(isinstance(k, str) for k in raw):
         raise ValueError(f"{label} must be an object")
     return raw
@@ -104,6 +104,25 @@ def _strings(raw: object, label: str) -> tuple[str, ...]:
     if not isinstance(raw, list) or not all(isinstance(v, str) for v in raw):
         raise ValueError(f"{label} must be a string array")
     return tuple(raw)
+
+
+def _is_verdict(value: RawJson) -> TypeGuard[Verdict]:
+    return value in get_args(Verdict)
+
+
+def _is_comparison_status(value: RawJson) -> TypeGuard[ComparisonStatus]:
+    return value in get_args(ComparisonStatus)
+
+
+def _percent(value: RawJson, label: str) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not isfinite(value)
+        or not 0 <= value <= 100
+    ):
+        raise ValueError(f"{label} percentages invalid")
+    return value
 
 
 def _data(raw: object, label: str = "data") -> RecordData:
@@ -144,20 +163,23 @@ def parse_record(raw: object, label: str = "record") -> Record:
     )
 
 
+def _position(raw: RawJson, label: str) -> int:
+    if not isinstance(raw, int) or isinstance(raw, bool):
+        raise ValueError(f"{label} positions must be integers")
+    return raw
+
+
 def parse_evidence(raw: object, label: str = "evidence") -> Evidence:
     item = _object(raw, label)
     if set(item) != _EVIDENCE_KEYS:
         raise ValueError(f"{label} fields mismatch")
-    integers = ("line", "end_line", "column")
-    values = {key: item[key] for key in integers}
-    if any(not isinstance(value, int) or isinstance(value, bool) for value in values.values()):
-        raise ValueError(f"{label} positions must be integers")
+    line, end_line, column = (_position(item[key], label) for key in ("line", "end_line", "column"))
     return Evidence(
         id=_string(item["id"], f"{label}.id"),
         file=_string(item["file"], f"{label}.file"),
-        line=values["line"],
-        end_line=values["end_line"],
-        column=values["column"],
+        line=line,
+        end_line=end_line,
+        column=column,
         excerpt=_string(item["excerpt"], f"{label}.excerpt"),
     )
 
@@ -176,12 +198,12 @@ def parse_observation(raw: object) -> Observation:
         raise ValueError("source fields mismatch")
     if set(contract) != {"schema_version", "digest", "path"}:
         raise ValueError("contract fields mismatch")
-    if (
-        source["dirty"] is not True
-        and source["dirty"] is not False
-        and source["dirty"] != "unknown"
-    ):
+    dirty = source["dirty"]
+    if dirty is not True and dirty is not False and dirty != "unknown":
         raise ValueError("source.dirty is invalid")
+    dirty_value: bool | Literal["unknown"] = (
+        True if dirty is True else False if dirty is False else "unknown"
+    )
     coverage_keys = {
         "status",
         "files_discovered",
@@ -210,10 +232,11 @@ def parse_observation(raw: object) -> Observation:
         "failures",
     }.issubset(coverage):
         raise ValueError("coverage fields mismatch")
-    if coverage["status"] not in get_args(Verdict) or coverage.get("rules") not in (
-        None,
-        *get_args(Verdict),
-    ):
+    status = coverage["status"]
+    rules = coverage.get("rules")
+    if not _is_verdict(status):
+        raise ValueError("coverage status/rules invalid")
+    if rules is not None and not _is_verdict(rules):
         raise ValueError("coverage status/rules invalid")
     counts = (
         "files_discovered",
@@ -224,25 +247,17 @@ def parse_observation(raw: object) -> Observation:
         "calls_partially_resolved",
         "calls_unresolved",
     )
-    if any(
-        not isinstance(coverage[k], int) or isinstance(coverage[k], bool) or coverage[k] < 0
-        for k in counts
-    ):
-        raise ValueError("coverage counts invalid")
-    if any(
-        not isinstance(coverage[k], (int, float))
-        or isinstance(coverage[k], bool)
-        or not isfinite(coverage[k])
-        or not 0 <= coverage[k] <= 100
-        for k in ("ast_coverage_percent", "call_resolution_percent")
-    ):
-        raise ValueError("coverage percentages invalid")
-    if not isinstance(coverage["failures"], list) or not isinstance(item["evidence"], list):
+    count_values = {k: _count(coverage[k], f"coverage.{k}") for k in counts}
+    ast_coverage_percent = _percent(coverage["ast_coverage_percent"], "coverage")
+    call_resolution_percent = _percent(coverage["call_resolution_percent"], "coverage")
+    failures_raw = coverage["failures"]
+    evidence_raw = item["evidence"]
+    if not isinstance(failures_raw, list) or not isinstance(evidence_raw, list):
         raise ValueError("coverage.failures and evidence must be arrays")
     sections = tuple(
-        Section(name, tuple(parse_record(value, f"{name}[]") for value in item[name]))
+        Section(name, tuple(parse_record(value, f"{name}[]") for value in section_items))
         for name in CLASSIFIED_SECTIONS
-        if isinstance(item[name], list)
+        if isinstance(section_items := item[name], list)
     )
     if len(sections) != len(CLASSIFIED_SECTIONS):
         raise ValueError("sections must be arrays")
@@ -253,7 +268,7 @@ def parse_observation(raw: object) -> Observation:
         ),
         source=SourceInfo(
             _string(source["git_head"], "source.git_head"),
-            source["dirty"],
+            dirty_value,
             _string(source["source_digest"], "source.source_digest"),
             _strings(source["scope"], "source.scope"),
         ),
@@ -261,15 +276,15 @@ def parse_observation(raw: object) -> Observation:
             *(_string(contract[k], f"contract.{k}") for k in ("schema_version", "digest", "path"))
         ),
         coverage=Coverage(
-            status=coverage["status"],
-            **{k: coverage[k] for k in counts},
-            ast_coverage_percent=coverage["ast_coverage_percent"],
-            call_resolution_percent=coverage["call_resolution_percent"],
-            failures=tuple(parse_record(v, "coverage.failures[]") for v in coverage["failures"]),
-            rules=coverage.get("rules"),
+            status=status,
+            **count_values,
+            ast_coverage_percent=ast_coverage_percent,
+            call_resolution_percent=call_resolution_percent,
+            failures=tuple(parse_record(v, "coverage.failures[]") for v in failures_raw),
+            rules=rules,
         ),
         sections=sections,
-        evidence=tuple(parse_evidence(value, "evidence[]") for value in item["evidence"]),
+        evidence=tuple(parse_evidence(value, "evidence[]") for value in evidence_raw),
         python_version=_python_version(item["python_version"])
         if "python_version" in item
         else None,
@@ -283,11 +298,11 @@ def _python_version(raw: object) -> str:
     return value
 
 
-def _raw_object(value: dict[str, Any]) -> dict[str, Any]:
+def _raw_object(value: dict[str, Any]) -> dict[str, RawJson]:
     return {key: _raw_value(item) for key, item in value.items()}
 
 
-def _raw_value(value: Any) -> Any:
+def _raw_value(value: JsonValue | dict[str, Any] | tuple[Any, ...]) -> RawJson:
     if isinstance(value, RecordData):
         return {key: _raw_value(item) for key, item in value.entries}
     if isinstance(value, tuple):
@@ -305,7 +320,7 @@ def value_bytes(value: JsonValue) -> bytes:
     ).encode("utf-8")
 
 
-def observation_payload(observation: Observation) -> dict[str, Any]:
+def observation_payload(observation: Observation) -> dict[str, RawJson]:
     result = _raw_object(asdict(observation))
     if observation.python_version is None:
         del result["python_version"]
@@ -320,38 +335,44 @@ def observation_payload(observation: Observation) -> dict[str, Any]:
     return result
 
 
-def canonical_json_bytes(model: dict[str, Any]) -> bytes:
+def canonical_json_bytes(model: dict[str, RawJson]) -> bytes:
     """Serialize the canonical model without time, locale, or filesystem noise."""
     return (
         json.dumps(model, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode("utf-8")
 
 
-def encode_canonical_model(model: dict[str, Any]) -> dict[str, Any]:
+def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     """Losslessly columnize and intern repeated IR strings for browser-safe reports."""
     encoded = {
         key: value for key, value in model.items() if key not in {*CLASSIFIED_SECTIONS, "evidence"}
     }
     section_data_fields: dict[str, list[str]] = {}
+    # AD-2: rows hold the non-JSON _MISSING_VALUE sentinel until intern writes "$m".
     rows_by_section: dict[str, list[list[Any]]] = {}
     for section in CLASSIFIED_SECTIONS:
-        items = model.get(section, [])
-        data_fields = sorted({key for item in items for key in item["data"]})
+        raw_items = model.get(section, [])
+        if not isinstance(raw_items, list):
+            raise ValueError(f"{section} must be an array")
+        items = [_object(entry, f"{section}[]") for entry in raw_items]
+        data_fields = sorted({key for item in items for key in _object(item["data"], "data")})
         section_data_fields[section] = data_fields
         rows_by_section[section] = [
             [
                 *(item[field] for field in RECORD_FIELDS[:-1]),
-                [item["data"].get(field, _MISSING_VALUE) for field in data_fields],
+                [_object(item["data"], "data").get(field, _MISSING_VALUE) for field in data_fields],
             ]
             for item in items
         ]
-    evidence_rows = [
-        [item[field] for field in EVIDENCE_FIELDS] for item in model.get("evidence", [])
-    ]
+    raw_evidence = model.get("evidence", [])
+    if not isinstance(raw_evidence, list):
+        raise ValueError("evidence must be an array")
+    evidence_items = [_object(entry, "evidence[]") for entry in raw_evidence]
+    evidence_rows = [[item[field] for field in EVIDENCE_FIELDS] for item in evidence_items]
 
     counts: Counter[str] = Counter()
 
-    def count_strings(value: Any) -> None:
+    def count_strings(value: object) -> None:
         if isinstance(value, str):
             counts[value] += 1
         elif isinstance(value, list):
@@ -370,6 +391,7 @@ def encode_canonical_model(model: dict[str, Any]) -> dict[str, Any]:
     )
     string_indexes = {value: index for index, value in enumerate(string_table)}
 
+    # AD-2: rows mix RawJson with the _MISSING_VALUE sentinel; see rows_by_section.
     def intern(value: Any) -> Any:
         if value is _MISSING_VALUE:
             return "$m"
@@ -392,7 +414,7 @@ def encode_canonical_model(model: dict[str, Any]) -> dict[str, Any]:
 
     encoded.update({section: intern(rows) for section, rows in rows_by_section.items()})
     encoded["evidence"] = intern(evidence_rows)
-    encoded["encoding"] = {
+    encoding: dict[str, RawJson] = {
         "kind": "architecture-ir-columnar-v1",
         "record_fields": list(RECORD_FIELDS),
         "evidence_fields": list(EVIDENCE_FIELDS),
@@ -400,18 +422,20 @@ def encode_canonical_model(model: dict[str, Any]) -> dict[str, Any]:
         "string_reference": "$<index>",
         "escaped_literal": "additional leading $",
     }
+    encoded["encoding"] = encoding
     encoded["string_table"] = string_table
     return encoded
 
 
-def decode_canonical_model(encoded: dict[str, Any]) -> dict[str, Any]:
+def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     """Inflate the canonical columnar report into the in-memory ArchitectureIR."""
     encoding = encoded.get("encoding")
     if not isinstance(encoding, dict) or encoding.get("kind") != "architecture-ir-columnar-v1":
         return encoded
-    string_table = encoded["string_table"]
+    string_table = _strings(encoded["string_table"], "string_table")
 
     def expand(value: Any) -> Any:
+        # AD-2: expanded rows may hold the non-JSON _MISSING_VALUE sentinel at any depth.
         if isinstance(value, str):
             if value == "$m":
                 return _MISSING_VALUE
@@ -428,16 +452,20 @@ def decode_canonical_model(encoded: dict[str, Any]) -> dict[str, Any]:
             return {key: expand(entry) for key, entry in value.items()}
         return value
 
-    model = {
+    model: dict[str, RawJson] = {
         key: value
         for key, value in encoded.items()
         if key not in {*CLASSIFIED_SECTIONS, "evidence", "encoding", "string_table"}
     }
-    record_fields = encoding["record_fields"]
+    record_fields = _strings(encoding["record_fields"], "record_fields")
+    section_data_fields = _object(encoding["section_data_fields"], "section_data_fields")
     for section in CLASSIFIED_SECTIONS:
-        data_fields = encoding["section_data_fields"][section]
+        data_fields = _strings(section_data_fields[section], f"section_data_fields.{section}")
+        encoded_rows = encoded.get(section, [])
+        if not isinstance(encoded_rows, list):
+            raise ValueError(f"{section} must be an array")
         records = []
-        for encoded_row in encoded.get(section, []):
+        for encoded_row in encoded_rows:
             row = expand(encoded_row)
             item = dict(zip(record_fields, row, strict=True))
             item["data"] = {
@@ -447,23 +475,26 @@ def decode_canonical_model(encoded: dict[str, Any]) -> dict[str, Any]:
             }
             records.append(item)
         model[section] = records
+    evidence_fields = _strings(encoding["evidence_fields"], "evidence_fields")
+    encoded_evidence = encoded.get("evidence", [])
+    if not isinstance(encoded_evidence, list):
+        raise ValueError("evidence must be an array")
     model["evidence"] = [
-        dict(zip(encoding["evidence_fields"], expand(row), strict=True))
-        for row in encoded.get("evidence", [])
+        dict(zip(evidence_fields, expand(row), strict=True)) for row in encoded_evidence
     ]
     return model
 
 
-def canonical_report_bytes(model: Observation | dict[str, Any]) -> bytes:
+def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:
     raw = observation_payload(model) if isinstance(model, Observation) else model
     return canonical_json_bytes(encode_canonical_model(raw))
 
 
-def _measurement_payload(value: Measurements) -> dict[str, Any]:
+def _measurement_payload(value: Measurements) -> dict[str, RawJson]:
     return _raw_object(asdict(value))
 
 
-def _coverage_payload(value: Coverage) -> dict[str, Any]:
+def _coverage_payload(value: Coverage) -> dict[str, RawJson]:
     result = _raw_object(asdict(value))
     result["failures"] = [_record_payload(record) for record in value.failures]
     if value.rules is None:
@@ -471,13 +502,13 @@ def _coverage_payload(value: Coverage) -> dict[str, Any]:
     return result
 
 
-def _projection_payload(value: Projection) -> dict[str, Any]:
+def _projection_payload(value: Projection) -> dict[str, RawJson]:
     result = _raw_object(asdict(value))
     result["data"] = _raw_value(value.data)
     return result
 
 
-def delta_payload(delta: ArchitectureDelta) -> dict[str, Any]:
+def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
     result = _raw_object(asdict(delta))
     result["dimensions"] = {
         item.name: {key: value for key, value in _raw_object(asdict(item)).items() if key != "name"}
@@ -517,7 +548,7 @@ def decode_json(payload: bytes | str) -> object:
         raise ValueError(f"invalid JSON: {exc}") from exc
 
 
-def _exact(value: object, keys: set[str], label: str) -> dict[str, Any]:
+def _exact(value: object, keys: set[str], label: str) -> dict[str, RawJson]:
     result = _object(value, label)
     if set(result) != keys:
         raise ValueError(f"{label} fields mismatch")
@@ -916,12 +947,13 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         x = _object(value, label)
         if set(x) - {"python_version"} != {"git_head", "source_digest", "coverage_status"}:
             raise ValueError(f"{label} fields mismatch")
-        if x["coverage_status"] not in get_args(Verdict):
+        coverage_status = x["coverage_status"]
+        if not _is_verdict(coverage_status):
             raise ValueError(f"{label}.coverage_status invalid")
         return SnapshotSummary(
             _string(x["git_head"], f"{label}.git_head"),
             _string(x["source_digest"], f"{label}.source_digest"),
-            x["coverage_status"],
+            coverage_status,
             _python_version(x["python_version"]) if "python_version" in x else None,
         )
 
@@ -931,7 +963,14 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         {"status", "baseline_status", "head_status", "supported_dimensions", "unknown_dimensions"},
         "delta.coverage",
     )
-    if any(cv[k] not in get_args(Verdict) for k in ("status", "baseline_status", "head_status")):
+    delta_status = cv["status"]
+    baseline_status = cv["baseline_status"]
+    head_status = cv["head_status"]
+    if not _is_verdict(delta_status):
+        raise ValueError("delta coverage status invalid")
+    if not _is_verdict(baseline_status):
+        raise ValueError("delta coverage status invalid")
+    if not _is_verdict(head_status):
         raise ValueError("delta coverage status invalid")
     dimensions_raw = _object(item["dimensions"], "delta.dimensions")
     dimensions_list: list[DimensionDelta] = []
@@ -942,7 +981,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
             f"dimensions.{name}",
         )
         status = dimension["status"]
-        if status not in get_args(ComparisonStatus):
+        if not _is_comparison_status(status):
             raise ValueError(f"dimensions.{name}.status invalid")
         dimensions_list.append(
             DimensionDelta(
@@ -974,10 +1013,12 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         )
     else:
         raise ValueError("delta.ratchets status invalid")
-    if not isinstance(item["semantic_changes"], list) or not isinstance(item["unknowns"], list):
+    semantic_changes_raw = item["semantic_changes"]
+    unknowns_raw = item["unknowns"]
+    if not isinstance(semantic_changes_raw, list) or not isinstance(unknowns_raw, list):
         raise ValueError("semantic_changes and unknowns must be arrays")
     changes = []
-    for index, value in enumerate(item["semantic_changes"]):
+    for index, value in enumerate(semantic_changes_raw):
         x = _object(value, f"semantic_changes[{index}]")
         required = {
             "dimension",
@@ -1009,7 +1050,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
             )
         )
     unknowns_list: list[DeltaUnknown] = []
-    for value in item["unknowns"]:
+    for value in unknowns_raw:
         unknown = _exact(value, {"id", "dimension", "reason", "evidence_class"}, "unknown")
         if unknown["evidence_class"] != "UNKNOWN":
             raise ValueError("unknown.evidence_class invalid")
@@ -1048,9 +1089,9 @@ def parse_delta(raw: object) -> ArchitectureDelta:
             _string(c["path"], "contract.path"),
         ),
         DeltaCoverage(
-            cv["status"],
-            cv["baseline_status"],
-            cv["head_status"],
+            delta_status,
+            baseline_status,
+            head_status,
             _strings(cv["supported_dimensions"], "supported_dimensions"),
             _strings(cv["unknown_dimensions"], "unknown_dimensions"),
         ),
@@ -1061,11 +1102,16 @@ def parse_delta(raw: object) -> ArchitectureDelta:
     )
 
 
-def result_payload(result: RunResult) -> dict[str, Any]:
+def result_payload(result: RunResult) -> dict[str, RawJson]:
     payload = _raw_object(asdict(result))
-    for diagnostic in payload["diagnostics"]:
-        if isinstance(diagnostic, dict) and diagnostic.get("pointer") is None:
-            diagnostic.pop("pointer")
+    payload["diagnostics"] = [
+        {
+            key: value
+            for key, value in _raw_object(asdict(diagnostic)).items()
+            if key != "pointer" or value is not None
+        }
+        for diagnostic in result.diagnostics
+    ]
     if result.observation is not None:
         payload["observation"] = observation_payload(result.observation)
     if result.coverage is not None:
@@ -1114,25 +1160,25 @@ def parse_lock(payload: bytes) -> AcceptedLock:
         )
         if raw["schema_version"] != "1.0.0":
             raise ValueError("invalid accepted lock schema")
+        digests: dict[str, str] = {}
         for key, size in (
             ("accepted_commit", 40),
             ("observation_digest", 64),
             ("config_digest", 64),
             ("checker_digest", 64),
         ):
-            if (
-                not isinstance(raw[key], str)
-                or re.fullmatch(f"[0-9a-f]{{{size}}}", raw[key]) is None
-            ):
+            value = raw[key]
+            if not isinstance(value, str) or re.fullmatch(f"[0-9a-f]{{{size}}}", value) is None:
                 raise ValueError(f"invalid lock {key}")
+            digests[key] = value
         approval_ref = _string(raw["approval_ref"], "approval_ref")
         if not approval_ref.strip():
             raise ValueError("accepted lock needs an opaque approval_ref")
         return AcceptedLock(
-            raw["accepted_commit"],
-            raw["observation_digest"],
-            raw["config_digest"],
-            raw["checker_digest"],
+            digests["accepted_commit"],
+            digests["observation_digest"],
+            digests["config_digest"],
+            digests["checker_digest"],
             parse_measurements(raw["measurements"], "accepted"),
             approval_ref,
         )
@@ -1166,7 +1212,7 @@ def declaration_paths(payload: bytes, contract_path: str) -> tuple[str, ...]:
     return tuple(sorted({contract_path, *contract_provenance_paths(contract)}))
 
 
-def _record_payload(value: Record) -> dict[str, Any]:
+def _record_payload(value: Record) -> dict[str, RawJson]:
     result = _raw_object(asdict(value))
     result["data"] = _raw_value(value.data)
     return result
