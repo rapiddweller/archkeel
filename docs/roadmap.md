@@ -35,15 +35,15 @@ only when its row names repository evidence.
 | `skill install claude\|codex` writes one packaged agent instruction source | `99f5743`; `tests/test_skill.py` |
 | Fixture A leads the README with its report and terminal view | `make demo-screenshots`; `docs/assets/` |
 | CI validates Archkeel's contract and uploads its self-observation | `.github/workflows/ci.yml` |
+| Release 0.2.0 is published on PyPI | tag `0.2.0` at `07a2df6`; release run `34881396333`; [PyPI release](https://pypi.org/project/archkeel/0.2.0/) |
+| Analyzer records share one typed envelope; `Any` annotations fell from 118 to 35 | `ac547bc`; `analyzer/embedded/records.py`; `fixtures/D-self/` |
+| Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
 
 ## Next
 
-1. Prepare release 0.2.0 after explicit approval.
-2. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
+1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
-3. Build scanner records as typed IR values instead of `dict[str, Any]` (analyzer boundary,
-   about 300–500 changed lines).
 
 ## Later
 

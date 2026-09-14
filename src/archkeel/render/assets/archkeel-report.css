@@ -369,6 +369,10 @@ code {
   .table-wrap {
     break-inside: avoid;
   }
+  /* Paper cannot scroll, so 64-hex fingerprints must wrap inside the page. */
+  td code {
+    overflow-wrap: anywhere;
+  }
   h2,
   h3 {
     break-after: avoid;

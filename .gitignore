@@ -6,6 +6,8 @@ build/
 *.egg-info/
 .DS_Store
 .idea/
+# Local agent worktrees contain machine-specific paths.
+.claude/
 # Archived Phase-4 runs contain machine-specific symlinks.
 fixtures/A/
 fixtures/B/
