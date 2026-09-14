@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: check test lint typecheck fixtures demo build smoke release-check
+.PHONY: check test lint typecheck fixtures demo demo-screenshots build smoke release-check
 check: lint typecheck test
 
 release-check: check build smoke
@@ -21,6 +21,19 @@ fixtures:
 
 demo:
 	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary
+
+demo-screenshots:
+	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
+	@$(MAKE) demo OUTPUT="$(OUTPUT)"
+	@set -e; for case in A B C; do \
+		firefox --headless --no-remote --window-size 1440,1000 \
+		  --screenshot "$(OUTPUT)/$$case-check-1440x1000.png" \
+		  "file://$(abspath $(OUTPUT))/$$case-check.stdout.check.html"; \
+	done
+	@firefox --headless --no-remote --window-size 375,2400 \
+	  --screenshot "$(OUTPUT)/A-check-375x2400.png" \
+	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
+	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
 
 # Twine validates PyPI metadata; it is a build-only tool.
 build:

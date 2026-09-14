@@ -62,9 +62,7 @@ def _verdict_card(label_text: str, key: str, value: str, reason: str) -> str:
       </article>"""
 
 
-def _document(
-    *, repository: str, kind: str, title: str, content: str, compact: bool = False
-) -> bytes:
+def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
     css = _asset("archkeel-report.css").decode("utf-8")
     dark_logo = _data_uri("archkeel-logo-dark.svg", "image/svg+xml")
     light_logo = _data_uri("archkeel-logo-light.svg", "image/svg+xml")
@@ -86,7 +84,7 @@ def _document(
     <img class="report-logo report-logo-light" src="{light_logo}" alt="Archkeel">
     <span class="report-kind">{_text(kind)}</span>
   </header>
-  <main class="report-shell{" check-shell" if compact else ""}">
+  <main class="report-shell">
     {content}
     <footer class="report-footer">Archkeel · deterministic architecture evidence</footer>
   </main>
@@ -299,7 +297,7 @@ def render_html(
         if architecture_href is not None
         else "Canonical architecture.json is unavailable."
     )
-    content = f"""<div class="check-report">
+    content = f"""
     <section class="report-heading">
       <span class="eyebrow">Repository observation</span>
       <h1>{_text(repository)}</h1>
@@ -517,14 +515,12 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     <section class="report-section">
       <h2>Canonical result</h2><p><a href="{_text(result_href)}">Open the check result JSON</a>.</p>
     </section>
-</div>
 """
     return _document(
         repository=repository,
         kind="Architecture check report",
         title="Archkeel check",
         content=content,
-        compact=True,
     )
 
 

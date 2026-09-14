@@ -88,8 +88,8 @@ red only when the contract classifies the change as a regression or failure.
 1. Logo, repository, candidate SHA, accepted SHA when available, and source digest.
 2. Decision banner: pass, reject, or unverifiable. This is an exit decision,
    not a score.
-3. The three verdict cards, always in this order:
-   `observation_complete`, `declared_rules`, `expectation_fulfilled`.
+3. The report verdict cards, always in contract order. Architecture reports show three;
+   check reports add `git_predicate` and `host_order` for five total verdicts.
 4. Evidence that caused a failure or uncertainty.
 5. Complete findings, raw measurements, fingerprints, and diagnostics.
 6. Reproduction metadata and analyzer/runtime versions.
@@ -135,6 +135,27 @@ unless the check has already classified them as a failure.
 - Unknown edges: amber dotted line.
 - Straight right-angle connectors only. No gradients, glow, shadows, or
   decorative icons.
+
+## Shared report geometry
+
+Architecture and check reports use the same header spacing, typography, card
+height, card padding, and section rhythm. Check reports use five columns on wide
+screens because they expose five independent verdicts. Both report types collapse
+to one column below 760 px.
+
+## Reproducible demo captures
+
+Run from a clean checkout with Firefox available:
+
+```bash
+make demo-screenshots OUTPUT="$(mktemp -d)"
+```
+
+The command reproduces demo cases A, B, and C, then captures each check report
+at 1440 × 1000 and case A at 375 × 2400. Firefox is the reference browser because
+headless Chrome has produced incomplete captures on the current macOS compositor.
+The target is intentionally excluded from `make check` because it requires a local
+browser. Use a new output directory for each run.
 
 ## Accessibility and print
 
