@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Codekeel mark</title>
+  <desc id="desc">Two code brackets balanced around a central structural keel.</desc>
+  <path fill="#C5F82A" d="M108 28 28 88v80l80 60v-47l-40-30v-46l40-30V28Z"/>
+  <path fill="#5EEAD4" d="m148 28 80 60v80l-80 60v-47l40-30v-46l-40-30V28Z"/>
+  <path fill="#C5F82A" d="M112 112h32v104l-16 20-16-20V112Z"/>
+</svg>
