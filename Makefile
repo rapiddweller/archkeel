@@ -10,8 +10,8 @@ test:
 	$(UV) run --locked python -m pytest -q
 
 lint:
-	$(UV) run --locked ruff format --check src tests fixtures/reproduce_milestone1.py
-	$(UV) run --locked ruff check src tests fixtures/reproduce_milestone1.py
+	$(UV) run --locked ruff format --check src tests tools/terminal_svg.py fixtures/reproduce_milestone1.py
+	$(UV) run --locked ruff check src tests tools/terminal_svg.py fixtures/reproduce_milestone1.py
 
 typecheck:
 	$(UV) run --locked mypy src/archkeel
@@ -33,6 +33,7 @@ demo-screenshots:
 	@firefox --headless --no-remote --window-size 375,2400 \
 	  --screenshot "$(OUTPUT)/A-check-375x2400.png" \
 	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
+	@$(UV) run --locked python tools/terminal_svg.py "$(OUTPUT)"
 	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
 
 # Twine validates PyPI metadata; it is a build-only tool.

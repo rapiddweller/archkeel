@@ -308,6 +308,9 @@ code {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.regression-table td.numeric {
+  white-space: nowrap;
+}
 .report-footer {
   margin-top: 64px;
   padding-top: var(--ck-space-4);
