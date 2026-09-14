@@ -8,14 +8,41 @@ import subprocess
 import sys
 from pathlib import Path
 
-from archkeel.ir.codec import canonical_json_bytes, decode_json, parse_observation
+from archkeel.ir.codec import (
+    CONTRACT_SCHEMA_VERSION,
+    ContractVersionError,
+    canonical_json_bytes,
+    decode_json,
+    parse_observation,
+)
 from archkeel.ir.model import Diagnostic, DiagnosticKind, Observation, ObservationResult
 
+from .embedded.contract import ContractError, load_contract
 from .runtime import runtime_diagnostic
 
 
 def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> ObservationResult:
     return ObservationResult(None, None, (Diagnostic(kind, subject, claim, remedy),))
+
+
+def _contract_failure(path: Path) -> ObservationResult | None:
+    try:
+        load_contract(path)
+    except ContractVersionError as error:
+        return _failure(
+            "parse_error",
+            path.name,
+            f"Contract schema {error.actual} cannot be validated as {CONTRACT_SCHEMA_VERSION}.",
+            "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
+        )
+    except ContractError as error:
+        return _failure(
+            "parse_error",
+            path.name,
+            f"The architecture contract cannot be decoded: {error}",
+            "Correct the contract structure and run report again.",
+        )
+    return None
 
 
 def _diagnostics(model: Observation, runtime: Diagnostic | None) -> tuple[Diagnostic, ...]:
@@ -80,6 +107,9 @@ def observe(
 ) -> ObservationResult:
     source_root = source_root.resolve()
     try:
+        contract_file = contract_root / contract
+        if failure := _contract_failure(contract_file):
+            return failure
         for root in roots:
             directory = source_root / root
             if not directory.is_dir():

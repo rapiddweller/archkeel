@@ -17,6 +17,9 @@ def _prepare_source(tmp_path: Path) -> None:
     metadata = tmp_path / "pyproject.toml"
     if not metadata.exists():
         metadata.write_text('[project]\nrequires-python = ">=3.11"\n')
+    contract = tmp_path / "contract.json"
+    if not contract.exists():
+        contract.write_text('{"schema_version":"2.0.0","components":[],"rules":[]}')
 
 
 def _observe(source: Path):
@@ -55,6 +58,22 @@ def test_source_symlink_escape_is_rejected_before_analyzer(tmp_path: Path) -> No
     assert result.exit_code == 2
     assert result.diagnostics[0].subject == str(source / "linked.py")
     assert "Source path escapes" in result.diagnostics[0].unknown_claim
+
+
+def test_contract_1_1_has_migration_diagnostic(tmp_path: Path) -> None:
+    (tmp_path / "contract.json").write_text('{"schema_version":"1.1.0","components":[],"rules":[]}')
+    with patch("archkeel.analyzer.subprocess.run") as analyzer:
+        result = _observe(tmp_path)
+        analyzer.assert_not_called()
+    assert result.exit_code == 2
+    assert result.diagnostics == (
+        Diagnostic(
+            "parse_error",
+            "contract.json",
+            "Contract schema 1.1.0 cannot be validated as 2.0.0.",
+            "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
+        ),
+    )
 
 
 @pytest.mark.parametrize("cause", ["missing_tool", "timeout", "parse_error"])

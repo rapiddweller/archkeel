@@ -10,7 +10,7 @@ import re
 from collections import Counter
 from dataclasses import asdict
 from math import isfinite
-from typing import Any, TypeAlias
+from typing import Any, Final, TypeAlias
 
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import SCALARS, Measurements, RatchetError, RatchetScalars, count
@@ -68,6 +68,7 @@ _TOP_LEVEL = {
 }
 _RECORD_KEYS = set(RECORD_FIELDS)
 _EVIDENCE_KEYS = set(EVIDENCE_FIELDS)
+CONTRACT_SCHEMA_VERSION: Final = "2.0.0"
 
 
 class ContractVersionError(ValueError):
@@ -75,7 +76,7 @@ class ContractVersionError(ValueError):
 
     def __init__(self, actual: str) -> None:
         self.actual = actual
-        super().__init__(f"contract.schema_version {actual!r} is not 2.0.0")
+        super().__init__(f"contract.schema_version {actual!r} is not {CONTRACT_SCHEMA_VERSION}")
 
 
 def _object(raw: object, label: str) -> dict[str, Any]:
@@ -556,7 +557,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         {"$schema", "declarations"},
         "contract",
     )
-    if root["schema_version"] != "2.0.0":
+    if root["schema_version"] != CONTRACT_SCHEMA_VERSION:
         raise ContractVersionError(str(root["schema_version"]))
     components_raw = root["components"]
     rules_raw = root["rules"]
@@ -628,7 +629,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         raise ValueError("duplicate contract ID")
     schema = root.get("$schema")
     return ArchitectureContract(
-        "2.0.0",
+        CONTRACT_SCHEMA_VERSION,
         components,
         rules,
         _nonempty(schema, "contract.$schema") if schema is not None else None,
