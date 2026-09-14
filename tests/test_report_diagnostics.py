@@ -43,6 +43,9 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
     assert result.diagnostics == observed.diagnostics
     assert result.artifact == "test-artifacts/architecture/architecture.json"
     assert decode_canonical_model(json.loads((tmp_path / result.artifact).read_bytes())) == raw
+    html = (tmp_path / "test-artifacts/architecture/interactive.html").read_text()
+    assert 'data-decision="unknown"' in html
+    assert "unknown_claim" in html
 
 
 @pytest.mark.parametrize("outside", [False, True])
@@ -67,3 +70,4 @@ def test_report_artifact_path_is_relative_only_inside_root(tmp_path: Path, outsi
     assert result.exit_code == 0
     assert result.artifact == (str(output.resolve()) if outside else "report.json")
     assert decode_canonical_model(json.loads(output.read_bytes())) == _model(git_head="a" * 40)
+    assert (output.parent / "interactive.html").is_file()

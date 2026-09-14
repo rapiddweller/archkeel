@@ -46,6 +46,10 @@ fragments = [{ path = "README.md" }]
 pattern = 'src="docs/assets/codekeel-hero\.png"'
 replacement = 'src="https://raw.githubusercontent.com/rapiddweller/codekeel/main/docs/assets/codekeel-hero.png"'
 
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = 'src="docs/assets/codekeel-report-preview\.png"'
+replacement = 'src="https://raw.githubusercontent.com/rapiddweller/codekeel/main/docs/assets/codekeel-report-preview.png"'
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/codekeel"]
 
@@ -59,7 +63,8 @@ only-include = [
     "fixtures/A-dispatch", "fixtures/B-posthoc", "fixtures/C-valid",
     "fixtures/reproduce_milestone1.py", "fixtures/E-runtime", "fixtures/D-self",
     "codekeel.toml", "architecture-contract.json", "docs/architecture",
-    "docs/reference.md", "docs/roadmap.md", "README.md", "docs/assets/codekeel-hero.png",
+    "docs/reference.md", "docs/roadmap.md", "docs/report-visual-system.md", "README.md",
+    "docs/assets/codekeel-hero.png", "docs/assets/codekeel-report-preview.png",
 ]
 
 [dependency-groups]

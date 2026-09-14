@@ -82,6 +82,22 @@ Codekeel complements tests, linters, and human review. It does not replace any
 of them. Its job is narrower: keep architecture changes declared, observable,
 and mechanically checkable.
 
+## Review surface
+
+<p>
+  <img src="docs/assets/codekeel-report-preview.png" alt="Codekeel report showing the decision and three independent verdicts" width="1100">
+</p>
+
+The HTML report is designed for a reviewer making a merge decision:
+
+- **Decision first.** `PASS`, `REJECT`, or `UNVERIFIABLE` is visible before details.
+- **No blended score.** Scan completeness, contract compliance, and expectation matching
+  remain separate verdicts.
+- **Unknown stays visible.** Missing or invalid evidence includes the affected subject,
+  unknown claim, and remedy.
+- **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
+  and runtime provenance remain available beside the verdict.
+
 ## Quickstart
 
 ### Requirements
@@ -111,6 +127,9 @@ codekeel report \
   --root /repo \
   --output architecture.json
 ```
+
+The command also writes a self-contained `interactive.html` beside the canonical JSON.
+It presents the three independent verdicts, exact measurements, diagnostics and provenance.
 
 Check a candidate against its published expectation:
 

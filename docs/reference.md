@@ -59,6 +59,8 @@ Every exit 2 includes a Diagnostic with `kind`, `subject`, `unknown_claim` and a
 one-line `remedy`. Partial analyzer observations retain their typed coverage and
 are persisted by `report`. Invalid locks are never replaced with empty state.
 IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen dataclasses.
+`report` also writes a self-contained `interactive.html` beside the canonical JSON. The HTML
+is a presentation of the same result and observation; it does not calculate verdicts.
 
 ## Regression checks
 
