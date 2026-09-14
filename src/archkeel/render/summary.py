@@ -127,9 +127,8 @@ def _check_verdict_values(result: RunResult) -> tuple[tuple[str, str, str], ...]
 
 def _check_regressions(result: RunResult) -> tuple[Comparison, ...]:
     ratchets = result.delta.ratchets if result.delta is not None else None
-    if ratchets is None or ratchets.status != "SUPPORTED":
+    if ratchets is None or ratchets.baseline is None or ratchets.head is None:
         return ()
-    assert ratchets.baseline is not None and ratchets.head is not None
     comparisons = compare_measurements(ratchets.baseline, ratchets.head)
     return tuple(sorted(comparisons, key=lambda item: item[3] != "FAIL"))
 

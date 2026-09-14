@@ -57,7 +57,7 @@ def run_report(
     result = observe_repository(root, config, analyzer)
     model = result.observation
     architecture = canonical_report_bytes(model) if model is not None else None
-    if result.diagnostics:
+    if result.diagnostics or model is None:
         command_result = RunResult(
             "report",
             2,
@@ -66,7 +66,6 @@ def run_report(
             python_version=model.python_version if model is not None else None,
         )
     else:
-        assert model is not None
         try:
             measurements, declared = inspect_observation(model)
         except ValueError as error:

@@ -474,6 +474,10 @@ class RatchetObservations:
     head: Measurements | None = None
     reason: str | None = None
 
+    def __post_init__(self) -> None:
+        if self.status == "SUPPORTED" and (self.baseline is None or self.head is None):
+            raise ValueError("supported regression checks require baseline and head measurements")
+
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureDelta:

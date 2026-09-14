@@ -25,9 +25,8 @@ def _annotation_signals(
     evidence: dict[str, RawEvidence],
 ) -> list[RawRecord]:
     text = annotation_text(annotation)
-    if not text:
+    if annotation is None or not text:
         return []
-    assert annotation is not None
     names = {
         child.id if isinstance(child, ast.Name) else child.attr
         for child in ast.walk(annotation)

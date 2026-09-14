@@ -137,19 +137,16 @@ def run_check(
                 dirty=False,
                 contract_root=declarations,
             )
-        if accepted_result.diagnostics:
+        accepted = accepted_result.observation
+        if accepted_result.diagnostics or accepted is None:
             return RunResult(
                 "check",
                 2,
                 diagnostics=accepted_result.diagnostics,
                 coverage=accepted_result.coverage,
-                observation=accepted_result.observation,
-                python_version=accepted_result.observation.python_version
-                if accepted_result.observation is not None
-                else None,
+                observation=accepted,
+                python_version=accepted.python_version if accepted is not None else None,
             )
-        accepted = accepted_result.observation
-        assert accepted is not None
         verify_observation(
             lock,
             observation_digest=sha256_bytes(canonical_report_bytes(accepted)),
@@ -165,19 +162,16 @@ def run_check(
                 dirty=False,
                 contract_root=declarations,
             )
-    if candidate_result.diagnostics:
+    candidate = candidate_result.observation
+    if candidate_result.diagnostics or candidate is None:
         return RunResult(
             "check",
             2,
             diagnostics=candidate_result.diagnostics,
             coverage=candidate_result.coverage,
-            observation=candidate_result.observation,
-            python_version=candidate_result.observation.python_version
-            if candidate_result.observation is not None
-            else None,
+            observation=candidate,
+            python_version=candidate.python_version if candidate is not None else None,
         )
-    candidate = candidate_result.observation
-    assert candidate is not None
     inspect_observation(accepted)
     measurements, declared = inspect_observation(candidate)
     delta = build_architecture_delta(

@@ -11,9 +11,16 @@ from archkeel.ir.model import (
     Diagnostic,
     DiagnosticKind,
     ObservationResult,
+    RatchetObservations,
     RecordData,
     RunResult,
 )
+
+
+def test_supported_regression_checks_require_both_measurements() -> None:
+    with pytest.raises(ValueError, match="baseline and head"):
+        RatchetObservations("SUPPORTED")
+    assert RatchetObservations("UNKNOWN", reason="unavailable").baseline is None
 
 
 def test_missing_observation_requires_diagnostic() -> None:

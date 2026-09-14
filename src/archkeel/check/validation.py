@@ -395,7 +395,8 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
     if references:
         return RunResult("validate", 2, diagnostics=references)
     observed = observe_repository(root, config, analyzer)
-    if observed.diagnostics:
+    observation = observed.observation
+    if observed.diagnostics or observation is None:
         return RunResult(
             "validate",
             2,
@@ -404,8 +405,6 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
             ),
             coverage=observed.coverage,
         )
-    observation = observed.observation
-    assert observation is not None
     diagnostics = [*reference_diagnostics(root, config, contract, observation)]
     documents = tuple(
         (path, (root / path).read_text()) for path in contract_provenance_paths(contract)

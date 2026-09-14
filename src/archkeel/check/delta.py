@@ -479,9 +479,8 @@ def build_architecture_delta(
             reason = "Incomplete snapshot coverage forbids negative architecture conclusions"
         elif dimension != "coverage" and not available:
             reason = "Required regression check measurements are unavailable"
-        elif before is None or after is None:
-            reason = f"Required ArchitectureIR data for {dimension} is unavailable"
-        if reason is not None:
+        if reason is not None or before is None or after is None:
+            reason = reason or f"Required ArchitectureIR data for {dimension} is unavailable"
             unknowns.append(_unknown(dimension, reason))
             dimensions.append(
                 DimensionDelta(
@@ -492,7 +491,6 @@ def build_architecture_delta(
                 )
             )
             continue
-        assert before is not None and after is not None
         current = _compare_records(dimension, before, after)
         changes.extend(current)
         before_count = len(baseline.coverage.failures) if dimension == "coverage" else len(before)
