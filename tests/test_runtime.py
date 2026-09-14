@@ -94,7 +94,8 @@ def test_pep695_fixture_reports_actual_runtime(tmp_path: Path, minor: int) -> No
             "subject": f"python {version} < requires-python >=3.12",
             "unknown_claim": "AST may differ from target runtime; parse errors may be "
             "parser limitations, not source defects",
-            "remedy": "Run Archkeel with a Python matching the target's requires-python.",
+            "remedy": "Run Archkeel with a matching Python, for example: "
+            "uvx --python 3.12 archkeel <command>",
         }
         assert observation["coverage"]["files_parsed"] == 0
     else:

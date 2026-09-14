@@ -14,6 +14,7 @@ from archkeel.ir.model import Diagnostic
 
 def runtime_diagnostic(root: Path, python_version: str | None) -> Diagnostic | None:
     subject = f"python {python_version or 'unknown'}; requires-python unavailable"
+    remedy = "Run Archkeel with a Python matching the target's requires-python."
     try:
         path = root / "pyproject.toml"
         if not path.resolve().is_relative_to(root.resolve()):
@@ -24,6 +25,16 @@ def runtime_diagnostic(root: Path, python_version: str | None) -> Diagnostic | N
             raise ValueError("requires-python is missing")
         specifiers = SpecifierSet(required)
         subject = f"python {python_version or 'unknown'}; requires-python {required}"
+        # Only lower bounds name a concrete runtime; wildcard or exclusive bounds do not.
+        lower = max(
+            (Version(item.version) for item in specifiers if item.operator in {">=", "~="}),
+            default=None,
+        )
+        if lower is not None:
+            remedy = (
+                "Run Archkeel with a matching Python, for example: "
+                f"uvx --python {lower.major}.{lower.minor} archkeel <command>"
+            )
         if python_version is not None:
             actual = Version(python_version)
             if specifiers.contains(actual):
@@ -44,5 +55,5 @@ def runtime_diagnostic(root: Path, python_version: str | None) -> Diagnostic | N
         subject,
         "AST may differ from target runtime; parse errors may be parser limitations, "
         "not source defects",
-        "Run Archkeel with a Python matching the target's requires-python.",
+        remedy,
     )

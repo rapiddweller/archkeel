@@ -31,6 +31,7 @@ only when its row names repository evidence.
 | All class-A rule types are enforced with one violation probe each and applied to Archkeel | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json` |
 | Terminals get a Rich summary with real `--help`; pipes and `--json` keep JSON | `376a3ab`; `tests/test_cli.py`; `tests/test_terminal.py` |
 | `init` drafts a closed contract that reproduces Archkeel's own component rules | `fe5214a`; `tests/test_onboarding.py`; `docs/onboarding.md` |
+| Onboarding works on an internal 13-component service: 119 forbidden pairs, 121 rationale decisions, then `validate` exit 0 | Release-candidate wheel under Python 3.12, archived snapshot; not stored in this repository |
 | `skill install claude\|codex` writes one packaged agent instruction source | `99f5743`; `tests/test_skill.py` |
 | Fixture A leads the README with its report and terminal view | `make demo-screenshots`; `docs/assets/` |
 | CI validates Archkeel's contract and uploads its self-observation | `.github/workflows/ci.yml` |
