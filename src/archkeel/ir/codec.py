@@ -664,6 +664,22 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
 
 
+def contract_bytes(contract: ArchitectureContract) -> bytes:
+    """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
+    fields = asdict(contract)
+    schema = fields.pop("schema")
+    document = {**({"$schema": schema} if schema is not None else {}), **fields}
+    return (json.dumps(_without_none(document), indent=2, ensure_ascii=False) + "\n").encode()
+
+
+def _without_none(value: object) -> object:
+    if isinstance(value, dict):
+        return {key: _without_none(item) for key, item in value.items() if item is not None}
+    if isinstance(value, list | tuple):
+        return [_without_none(item) for item in value]
+    return value
+
+
 def _parse_capability(raw: RawJson, label: str) -> ContractCapability:
     item, item_id, provenance = _contract_record(
         raw, {"name", "label", "review_order"}, set(), label
