@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:architecture-contract:2.0.0",
+  "title": "Archkeel architecture contract", "description": "Contract 2.0 structure. Rule semantics are cataloged in docs/rules.md (planned).",
+  "type": "object",
+  "required": ["schema_version", "components", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"$ref": "#/$defs/nonEmpty"},
+    "schema_version": {"const": "2.0.0"},
+    "components": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/component"}},
+    "rules": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/forbiddenDependency"}},
+    "declarations": {"$ref": "#/$defs/declarations"}
+  },
+  "$defs": {
+    "nonEmpty": {"type": "string", "pattern": "\\S"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+    "provenance": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+    "component": {
+      "type": "object",
+      "required": ["id", "label", "role", "packages", "responsibilities", "forbidden_responsibilities", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "label": {"$ref": "#/$defs/nonEmpty"},
+        "role": {"enum": ["component", "interface", "contract", "projection", "foundation"]},
+        "packages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "responsibilities": {"$ref": "#/$defs/strings"},
+        "forbidden_responsibilities": {"$ref": "#/$defs/strings"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "capability_id": {"$ref": "#/$defs/nonEmpty"}
+      }
+    },
+    "forbiddenDependency": {
+      "type": "object",
+      "required": ["id", "kind", "source", "target", "include_type_checking", "rationale", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"enum": ["forbidden_dependency"]},
+        "source": {"$ref": "#/$defs/nonEmpty"},
+        "target": {"$ref": "#/$defs/nonEmpty"},
+        "include_type_checking": {"type": "boolean"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "target_symbol": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        "allowed_sources": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "declarations": {
+      "type": "object",
+      "description": "Declarations are documented, never enforced. See docs/rules.md (planned).",
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
+        "review_scopes": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/reviewScope"}},
+        "public_api": {"$ref": "#/$defs/strings"},
+        "public_api_provenance": {"$ref": "#/$defs/strings"},
+        "public_commands": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/command"}},
+        "context_roots": {"$ref": "#/$defs/strings"},
+        "context_roots_provenance": {"$ref": "#/$defs/strings"},
+        "paths": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/path"}},
+        "spot_owners": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/owner"}}
+      }
+    },
+    "capability": {
+      "type": "object",
+      "required": ["id", "name", "label", "review_order", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"}, "name": {"$ref": "#/$defs/nonEmpty"},
+        "label": {"$ref": "#/$defs/nonEmpty"}, "review_order": {"type": "integer", "minimum": 1},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "reviewScope": {
+      "type": "object",
+      "required": ["id", "label", "parent_id", "subjects", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"}, "label": {"$ref": "#/$defs/nonEmpty"},
+        "parent_id": {"$ref": "#/$defs/nonEmpty"},
+        "subjects": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["id", "command", "description", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"}, "command": {"$ref": "#/$defs/nonEmpty"},
+        "description": {"$ref": "#/$defs/nonEmpty"}, "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "path": {
+      "type": "object",
+      "required": ["id", "label", "kind", "steps", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"}, "label": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"enum": ["read", "write"]},
+        "steps": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "owner": {
+      "type": "object",
+      "required": ["id", "label", "owner", "responsibility", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"}, "label": {"$ref": "#/$defs/nonEmpty"},
+        "owner": {"$ref": "#/$defs/nonEmpty"}, "responsibility": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    }
+  }
+}

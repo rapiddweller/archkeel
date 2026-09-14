@@ -25,6 +25,7 @@ from archkeel.ir.model import (
     ContractCapability,
     ContractCommand,
     ContractComponent,
+    ContractDeclarations,
     ContractInfo,
     ContractOwner,
     ContractPath,
@@ -544,18 +545,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
     root = _contract_fields(
         _object(raw, "contract"),
         {"schema_version", "components", "rules"},
-        {
-            "$schema",
-            "capabilities",
-            "review_scopes",
-            "public_api",
-            "public_api_provenance",
-            "public_commands",
-            "context_roots",
-            "context_roots_provenance",
-            "paths",
-            "spot_owners",
-        },
+        {"$schema", "declarations"},
         "contract",
     )
     if root["schema_version"] != "2.0.0":
@@ -565,10 +555,32 @@ def parse_contract(raw: object) -> ArchitectureContract:
     if not isinstance(components_raw, list) or not isinstance(rules_raw, list):
         raise ValueError("contract components and rules must be arrays")
 
+    declarations_raw = root.get("declarations")
+    declarations = (
+        _contract_fields(
+            declarations_raw,
+            set(),
+            {
+                "capabilities",
+                "review_scopes",
+                "public_api",
+                "public_api_provenance",
+                "public_commands",
+                "context_roots",
+                "context_roots_provenance",
+                "paths",
+                "spot_owners",
+            },
+            "contract.declarations",
+        )
+        if declarations_raw is not None
+        else {}
+    )
+
     def records(key: str) -> list[RawJson]:
-        value = root.get(key, [])
+        value = declarations.get(key, [])
         if not isinstance(value, list):
-            raise ValueError(f"contract.{key} must be an array")
+            raise ValueError(f"contract.declarations.{key} must be an array")
         return value
 
     capabilities = tuple(
@@ -612,17 +624,29 @@ def parse_contract(raw: object) -> ArchitectureContract:
         components,
         rules,
         _nonempty(schema, "contract.$schema") if schema is not None else None,
-        capabilities,
-        scopes,
-        _contract_strings(root.get("public_api", []), "contract.public_api"),
-        _contract_strings(root.get("public_api_provenance", []), "contract.public_api_provenance"),
-        commands,
-        _contract_strings(root.get("context_roots", []), "contract.context_roots"),
-        _contract_strings(
-            root.get("context_roots_provenance", []), "contract.context_roots_provenance"
-        ),
-        paths,
-        owners,
+        ContractDeclarations(
+            capabilities,
+            scopes,
+            _contract_strings(
+                declarations.get("public_api", []), "contract.declarations.public_api"
+            ),
+            _contract_strings(
+                declarations.get("public_api_provenance", []),
+                "contract.declarations.public_api_provenance",
+            ),
+            commands,
+            _contract_strings(
+                declarations.get("context_roots", []), "contract.declarations.context_roots"
+            ),
+            _contract_strings(
+                declarations.get("context_roots_provenance", []),
+                "contract.declarations.context_roots_provenance",
+            ),
+            paths,
+            owners,
+        )
+        if declarations_raw is not None
+        else None,
     )
 
 

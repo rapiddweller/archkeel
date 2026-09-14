@@ -9,3 +9,4 @@ build/
 # Archived Phase-4 runs contain machine-specific symlinks.
 fixtures/A/
 fixtures/B/
+fixtures/D-self/*.html

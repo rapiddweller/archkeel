@@ -209,11 +209,7 @@ class ForbiddenDependencyRule:
 
 
 @dataclass(frozen=True, slots=True)
-class ArchitectureContract:
-    schema_version: Literal["2.0.0"]
-    components: tuple[ContractComponent, ...]
-    rules: tuple[ForbiddenDependencyRule, ...]
-    schema: str | None = None
+class ContractDeclarations:
     capabilities: tuple[ContractCapability, ...] = ()
     review_scopes: tuple[ContractReviewScope, ...] = ()
     public_api: tuple[str, ...] = ()
@@ -223,6 +219,15 @@ class ArchitectureContract:
     context_roots_provenance: tuple[str, ...] = ()
     paths: tuple[ContractPath, ...] = ()
     spot_owners: tuple[ContractOwner, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ArchitectureContract:
+    schema_version: Literal["2.0.0"]
+    components: tuple[ContractComponent, ...]
+    rules: tuple[ForbiddenDependencyRule, ...]
+    schema: str | None = None
+    declarations: ContractDeclarations | None = None
 
 
 @dataclass(frozen=True, slots=True)

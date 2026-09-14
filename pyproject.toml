@@ -69,7 +69,12 @@ only-include = [
 
 [dependency-groups]
 # Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.
-dev = ["ruff==0.16.0", "pytest>=8.3.4,<9", "mypy==1.18.2"]
+dev = [
+    "ruff==0.16.0",
+    "pytest>=8.3.4,<9",
+    "mypy==1.18.2",
+    "jsonschema==4.25.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
