@@ -22,6 +22,23 @@ def _interpreter(minor: int) -> str:
     return executable
 
 
+def _runtime_command(minor: int) -> list[str]:
+    executable = _interpreter(minor)
+    if executable == sys.executable:
+        return [executable]
+    return [
+        "uv",
+        "run",
+        "--isolated",
+        "--no-project",
+        "--with",
+        "packaging>=24.2,<27",
+        "--python",
+        executable,
+        "python",
+    ]
+
+
 def _git(root: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
 
@@ -40,7 +57,7 @@ def _fixture(tmp_path: Path) -> Path:
 def _report(minor: int, root: Path) -> tuple[int, dict[str, object]]:
     run = subprocess.run(
         [
-            _interpreter(minor),
+            *_runtime_command(minor),
             "-m",
             "codekeel.cli",
             "report",
