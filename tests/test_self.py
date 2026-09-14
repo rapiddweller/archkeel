@@ -1,7 +1,7 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Reobserve Codekeel with its bundled analyzer and verify the saved D-self evidence."""
+"""Reobserve Archkeel with its bundled analyzer and verify the saved D-self evidence."""
 
 import json
 import subprocess
@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from codekeel.ir.codec import decode_canonical_model, parse_observation
-from codekeel.ir.digest import package_digest
-from codekeel.ir.model import Observation
+from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.digest import package_digest
+from archkeel.ir.model import Observation
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
@@ -26,7 +26,7 @@ def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
         [
             sys.executable,
             "-m",
-            "codekeel.cli",
+            "archkeel.cli",
             "report",
             "--root",
             str(ROOT),
@@ -66,7 +66,7 @@ def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Ob
         "source_digest": saved.source.source_digest,
         "contract_digest": saved.contract.digest,
         "artifact_digest": sha256(artifact).hexdigest(),
-        "command": "codekeel report --root . --output fixtures/D-self/architecture.json",
+        "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
         "exit_code": 0,
         "python_version": saved.python_version,
     }
@@ -79,16 +79,16 @@ def test_self_contract_covers_modules_and_producer_interface(self_observation: O
     }
     public_api = set(contract["public_api"])
     forbidden_ir = {
-        rule["target"] for rule in contract["rules"] if rule["source"] == "codekeel.producer"
+        rule["target"] for rule in contract["rules"] if rule["source"] == "archkeel.producer"
     }
     for module in self_observation.records("modules"):
         name = module.data.get("qualified_name")
         assert isinstance(name, str)
-        if name != "codekeel":
+        if name != "archkeel":
             assert any(name == package or name.startswith(package + ".") for package in packages), (
                 name
             )
-        if name.startswith("codekeel.ir.") and name not in public_api:
+        if name.startswith("archkeel.ir.") and name not in public_api:
             assert any(
                 name == prefix or name.startswith(prefix + ".") for prefix in forbidden_ir
             ), name
@@ -96,7 +96,7 @@ def test_self_contract_covers_modules_and_producer_interface(self_observation: O
         source = record.data.get("source_module")
         target = record.data.get("target_module")
         assert isinstance(source, str) and isinstance(target, str)
-        if (source == "codekeel.producer" or source.startswith("codekeel.producer.")) and (
-            target == "codekeel.ir" or target.startswith("codekeel.ir.")
+        if (source == "archkeel.producer" or source.startswith("archkeel.producer.")) and (
+            target == "archkeel.ir" or target.startswith("archkeel.ir.")
         ):
             assert target in public_api, (source, target)

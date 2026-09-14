@@ -1,10 +1,10 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import pytest
 
-from codekeel.ir.codec import observation_payload, parse_observation
-from codekeel.ir.model import EvidenceClass, Observation, RecordData
+from archkeel.ir.codec import observation_payload, parse_observation
+from archkeel.ir.model import EvidenceClass, Observation, RecordData
 
 
 def raw_observation():

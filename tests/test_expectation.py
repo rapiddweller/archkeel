@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 # DATAMIMIC
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from codekeel.check.delta import SUPPORTED_DIMENSIONS as DELTA_DIMENSIONS
-from codekeel.check.expectation import (
+from archkeel.check.delta import SUPPORTED_DIMENSIONS as DELTA_DIMENSIONS
+from archkeel.check.expectation import (
     EXPECTATION_SCHEMA_VERSION,
     GUARDRAIL_DIMENSIONS,
     GUARDRAIL_KEYS,
@@ -26,10 +26,10 @@ from codekeel.check.expectation import (
     parse_expectation,
     sha256_bytes,
 )
-from codekeel.check.expectation import SUPPORTED_DIMENSIONS as EXPECTATION_DIMENSIONS
-from codekeel.ir.codec import parse_delta
-from codekeel.ir.digest import package_digest
-from codekeel.ir.model import ArchitectureDelta
+from archkeel.check.expectation import SUPPORTED_DIMENSIONS as EXPECTATION_DIMENSIONS
+from archkeel.ir.codec import parse_delta
+from archkeel.ir.digest import package_digest
+from archkeel.ir.model import ArchitectureDelta
 
 ANALYZER_DIGEST = "a" * 64
 CHECKER_DIGEST = package_digest()

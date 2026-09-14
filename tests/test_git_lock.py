@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import hashlib
@@ -11,11 +11,11 @@ from typing import Any
 import pytest
 from test_delta import _model as _base_model
 
-from codekeel.check.git import GitError, check_git_order
-from codekeel.check.ratchets import measure_python_ratchets
-from codekeel.check.snapshot import SnapshotError
-from codekeel.ir.codec import canonical_report_bytes, parse_lock, parse_observation
-from codekeel.ir.lock import LockError, verify_observation
+from archkeel.check.git import GitError, check_git_order
+from archkeel.check.ratchets import measure_python_ratchets
+from archkeel.check.snapshot import SnapshotError
+from archkeel.ir.codec import canonical_report_bytes, parse_lock, parse_observation
+from archkeel.ir.lock import LockError, verify_observation
 
 
 def _git(root: Path, *args: str) -> str:
@@ -27,7 +27,7 @@ def _repo(tmp_path: Path) -> tuple[Path, str, str, str]:
     root.mkdir()
     _git(root, "init", "-q")
     _git(root, "config", "user.email", "test@example.invalid")
-    _git(root, "config", "user.name", "Codekeel Test")
+    _git(root, "config", "user.name", "Archkeel Test")
     (root / "expectation.json").write_text("{}\n", encoding="utf-8")
     (root / "code.py").write_text("value = 1\n", encoding="utf-8")
     _git(root, "add", ".")

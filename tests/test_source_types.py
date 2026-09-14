@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import re
@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from codekeel.ir.codec import parse_measurements
-from codekeel.ir.measurements import Measurements, RatchetScalars
+from archkeel.ir.codec import parse_measurements
+from archkeel.ir.measurements import Measurements, RatchetScalars
 
 
 def test_source_has_no_untyped_module_boundaries_or_product_namespace() -> None:
     source = Path(__file__).parents[1] / "src"
     pattern = re.compile(r"dict\[str, Any\]|Mapping\[str, Any\]|: Any\b")
-    raw_record_owners = ("codekeel/ir/codec.py", "codekeel/producer/embedded/")
+    raw_record_owners = ("archkeel/ir/codec.py", "archkeel/producer/embedded/")
     hits = []
     namespace_hits = []
     for path in sorted(source.rglob("*.py")):

@@ -1,17 +1,17 @@
-# Codekeel
+# Archkeel
 
 **The agent declares before it submits. The check is deterministic.**
 
 <p>
-  <img src="docs/assets/codekeel-hero.png" alt="Codekeel architecture gate and keel" width="600">
+  <img src="docs/assets/archkeel-hero.png" alt="Archkeel architecture gate and keel" width="600">
 </p>
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
-[![CI](https://github.com/rapiddweller/codekeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/codekeel/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/codekeel/blob/main/LICENSE)
-[![Status: milestone 1](https://img.shields.io/badge/status-milestone%201-8A8A84?labelColor=141414)](https://github.com/rapiddweller/codekeel/blob/main/docs/roadmap.md)
+[![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
+[![Status: milestone 1](https://img.shields.io/badge/status-milestone%201-8A8A84?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md)
 
-Codekeel checks architecture boundaries and declared changes in AI-assisted code.
+Archkeel checks architecture boundaries and declared changes in AI-assisted code.
 It compares an accepted commit with a candidate, checks their scans against the
 configured contract, and verifies that the candidate matches an expectation
 published before its first submission.
@@ -23,13 +23,13 @@ It catches two failure modes that finding-only diffs miss:
   the graph became blinder.
 
 [Quickstart](#quickstart) · [How it works](#how-it-works) ·
-[Reference](https://github.com/rapiddweller/codekeel/blob/main/docs/reference.md) · [Roadmap](https://github.com/rapiddweller/codekeel/blob/main/docs/roadmap.md)
+[Reference](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md) · [Roadmap](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md)
 
 > [!NOTE]
 > **Milestone 1:** `report` and `check` work. `accept` is still a placeholder.
-> The Python analyzer ships inside the Codekeel package.
+> The Python analyzer ships inside the Archkeel package.
 
-## Why Codekeel
+## Why Archkeel
 
 An agent can keep tests green and introduce no new architecture finding while
 making the code harder to analyze. If the gate compares finding identities
@@ -52,7 +52,7 @@ But static call resolution gets worse:
 | Resolved calls | 2 of 2 | 0 of 1 |
 | Unresolved calls | 0 | 1 |
 | New finding fingerprints | 0 | 0 |
-| Codekeel verdict | baseline | **FAIL** |
+| Archkeel verdict | baseline | **FAIL** |
 
 ```text
 expectation_fulfilled: FAIL
@@ -60,7 +60,7 @@ regression check failed in calls_unresolved: 0->1
 regression check failed in unresolved_ratio: 0/2->1/1
 ```
 
-Codekeel compares raw measurements as well as finding counts and fingerprints.
+Archkeel compares raw measurements as well as finding counts and fingerprints.
 The ratio check uses integer cross-multiplication, never rounded percentages:
 
 ```text
@@ -78,14 +78,14 @@ U_candidate × T_accepted <= U_accepted × T_candidate   (when both T > 0)
   runtime mismatch returns exit `2` with a diagnostic. Unknown never becomes
   green.
 
-Codekeel complements tests, linters, and human review. It does not replace any
+Archkeel complements tests, linters, and human review. It does not replace any
 of them. Its job is narrower: keep architecture changes declared, observable,
 and mechanically checkable.
 
 ## Review surface
 
 <p>
-  <img src="docs/assets/codekeel-report-preview.png" alt="Codekeel report showing the decision and three independent verdicts" width="1100">
+  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel report showing the decision and three independent verdicts" width="1100">
 </p>
 
 The HTML report is designed for a reviewer making a merge decision:
@@ -104,14 +104,15 @@ The HTML report is designed for a reviewer making a merge decision:
 
 - Python 3.11+
 
-Install from PyPI:
+Install from a checkout until the first Archkeel release on PyPI
+(0.1.0 was published as `codekeel`):
 
 ```bash
-python -m pip install codekeel
-codekeel --help
+uv sync --locked
+uv run archkeel --help
 ```
 
-Add `codekeel.toml` to the repository you want to check:
+Add `archkeel.toml` to the repository you want to check:
 
 ```toml
 [scan]
@@ -123,7 +124,7 @@ contract = "architecture-contract.json"
 Observe the current repository:
 
 ```bash
-codekeel report \
+archkeel report \
   --root /repo \
   --output architecture.json
 ```
@@ -134,7 +135,7 @@ It presents the three independent verdicts, exact measurements, diagnostics and 
 Check a candidate against its published expectation:
 
 ```bash
-codekeel check \
+archkeel check \
   --root /repo \
   --baseline "$B" \
   --expectation-commit "$E" \
@@ -211,7 +212,7 @@ gitGraph
 
 | Commit | Contract |
 | --- | --- |
-| **M** | Accepted state. Codekeel re-observes it. |
+| **M** | Accepted state. Archkeel re-observes it. |
 | **B** | Lock-only child of M and tip of the accepted branch. It binds the config, checker, and observation digests. |
 | **E** | Child of B that changes only the expectation file. It must be published before the first submission of H. |
 | **H** | Descendant of E. It must not modify the lock, config, architecture contract, or expectation. |
@@ -222,11 +223,11 @@ gitGraph
 2. Write the intended architecture change and commit it alone as **E**.
 3. Publish **E** before submitting implementation work.
 4. Implement the change in one or more commits ending at **H**.
-5. Run `codekeel check`. Fix the code or revise the proposal in a new protocol
+5. Run `archkeel check`. Fix the code or revise the proposal in a new protocol
    cycle; do not rewrite protected inputs inside H.
 
 Fixture B writes its expectation after implementation by deriving it from the
-observed delta. Its architecture findings are otherwise clean. Codekeel still
+observed delta. Its architecture findings are otherwise clean. Archkeel still
 rejects it:
 
 ```text
@@ -240,13 +241,13 @@ private edit existed before publication.
 
 ## Host evidence
 
-In GitLab CI, Codekeel reads merge-request diff versions through `glab` to
+In GitLab CI, Archkeel reads merge-request diff versions through `glab` to
 establish publication order.
 
 For local testing, replay captured host records:
 
 ```bash
-uv run codekeel check ... --host-records records.json
+uv run archkeel check ... --host-records records.json
 ```
 
 A local replay validates the record shape and behavior. It does not prove host
@@ -260,7 +261,7 @@ Run the complete project gate:
 make check
 ```
 
-This runs Ruff, strict mypy, pytest, and Codekeel's self-check.
+This runs Ruff, strict mypy, pytest, and Archkeel's self-check.
 
 Run the full release check, build both distributions, and install each one in isolation:
 
@@ -274,9 +275,9 @@ Reproduce the protocol fixtures:
 make fixtures
 ```
 
-Codekeel checks its own boundaries. `codekeel.toml` and
-[architecture-contract.json](https://github.com/rapiddweller/codekeel/blob/main/architecture-contract.json) define the contract;
-[fixtures/D-self/result.json](https://github.com/rapiddweller/codekeel/blob/main/fixtures/D-self/result.json) contains the latest
+Archkeel checks its own boundaries. `archkeel.toml` and
+[architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) define the contract;
+[fixtures/D-self/result.json](https://github.com/rapiddweller/archkeel/blob/main/fixtures/D-self/result.json) contains the latest
 self-scan.
 
 ```mermaid
@@ -287,7 +288,7 @@ flowchart TB
     CHECK --> PRODUCER["analyzer"]
     CHECK --> HOST["host"]
     ACCEPT --> IR
-    IR --> RULE["imports nothing from codekeel"]
+    IR --> RULE["imports nothing from archkeel"]
 
     classDef module fill:#141414,stroke:#5EEAD4,color:#E8E8E2
     classDef core fill:#141414,stroke:#C5F82A,color:#E8E8E2
@@ -300,14 +301,14 @@ flowchart TB
 
 ## Current boundaries
 
-Codekeel is deliberately strict about what it can prove:
+Archkeel is deliberately strict about what it can prove:
 
 - **Competing implementations:** review is still required when no declared rule
   or observed regression exposes them.
 - **Private crossings:** only import records are checked. `import pkg;
   pkg._member` is not detected.
 - **Precommitment:** publication order is proven; private editing order is not.
-- **Analyzer runtime:** Codekeel's Python must be at least the target
+- **Analyzer runtime:** Archkeel's Python must be at least the target
   repository's Python.
 - **Acceptance:** `accept` is a placeholder and returns exit `2`.
 
@@ -319,8 +320,8 @@ Milestone 1 delivers `report` and `check`. Next:
 2. a review page
 3. agent commands: `propose` and `next`
 
-See [docs/roadmap.md](https://github.com/rapiddweller/codekeel/blob/main/docs/roadmap.md) for sequencing and
-[docs/reference.md](https://github.com/rapiddweller/codekeel/blob/main/docs/reference.md) for lock, host-record, schema, and
+See [docs/roadmap.md](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md) for sequencing and
+[docs/reference.md](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md) for lock, host-record, schema, and
 regression-check details.
 
 ## License

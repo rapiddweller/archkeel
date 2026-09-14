@@ -1,5 +1,8 @@
 # Codekeel 0.1.0
 
+> Published on PyPI as `codekeel`. The project was renamed to Archkeel after this
+> release; names below are kept as released.
+
 Codekeel adds deterministic architecture evidence to AI-assisted code review.
 It checks whether a repository remains observable, follows its architecture
 contract, and matches a change declaration published before submission.

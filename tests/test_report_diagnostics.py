@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -8,10 +8,10 @@ from unittest.mock import patch
 import pytest
 from test_delta import _model, _record
 
-from codekeel.check.ports import ScanConfig
-from codekeel.check.report import run_report
-from codekeel.ir.codec import decode_canonical_model, parse_observation
-from codekeel.ir.model import Diagnostic, ObservationResult
+from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
+from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.model import Diagnostic, ObservationResult
 
 
 def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
@@ -30,8 +30,8 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
         return observed
 
     with (
-        patch("codekeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("codekeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.report.git_bytes", return_value=b""),
     ):
         result = run_report(
             tmp_path,
@@ -58,8 +58,8 @@ def test_report_artifact_path_is_relative_only_inside_root(tmp_path: Path, outsi
         return ObservationResult(model, model.coverage, ())
 
     with (
-        patch("codekeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("codekeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.report.git_bytes", return_value=b""),
     ):
         result = run_report(
             root,

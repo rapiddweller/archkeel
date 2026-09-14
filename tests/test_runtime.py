@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -48,7 +48,7 @@ def _fixture(tmp_path: Path) -> Path:
     shutil.copytree(FIXTURE, root)
     _git(root, "init", "-q")
     _git(root, "config", "user.email", "fixture@example.invalid")
-    _git(root, "config", "user.name", "Codekeel fixture")
+    _git(root, "config", "user.name", "Archkeel fixture")
     _git(root, "add", ".")
     _git(root, "commit", "-qm", "runtime fixture")
     return root
@@ -59,7 +59,7 @@ def _report(minor: int, root: Path) -> tuple[int, dict[str, object]]:
         [
             *_runtime_command(minor),
             "-m",
-            "codekeel.cli",
+            "archkeel.cli",
             "report",
             "--root",
             str(root),
@@ -93,7 +93,7 @@ def test_pep695_fixture_reports_actual_runtime(tmp_path: Path, minor: int) -> No
             "subject": f"python {version} < requires-python >=3.12",
             "unknown_claim": "AST may differ from target runtime; parse errors may be "
             "parser limitations, not source defects",
-            "remedy": "Run Codekeel with a Python matching the target's requires-python.",
+            "remedy": "Run Archkeel with a Python matching the target's requires-python.",
         }
         assert observation["coverage"]["files_parsed"] == 0
     else:

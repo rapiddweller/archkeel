@@ -1,12 +1,12 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import pytest
 
-from codekeel.check.ordering import check_order
-from codekeel.host.records import HostRecord, OrderingError, parse_records
+from archkeel.check.ordering import check_order
+from archkeel.host.records import HostRecord, OrderingError, parse_records
 
 E = "e" * 40
 H = "c" * 40

@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -8,9 +8,9 @@ from unittest.mock import patch
 import pytest
 from test_git_lock import _lock, _model
 
-from codekeel.check.ports import ScanConfig
-from codekeel.cli import main
-from codekeel.ir.lock import LOCK_PATH
+from archkeel.check.ports import ScanConfig
+from archkeel.cli import main
+from archkeel.ir.lock import LOCK_PATH
 
 
 @pytest.mark.parametrize("cause", ["json", "schema", "digest", "missing"])
@@ -26,20 +26,20 @@ def test_bad_lock_is_exit_two_with_diagnostic_and_never_replaced(
 
     def read_blob(root: Path, commit: str, path: str) -> bytes:
         if not lock_path.exists():
-            from codekeel.check.git import GitError
+            from archkeel.check.git import GitError
 
             raise GitError("accepted lock is missing")
         return lock_path.read_bytes()
 
     with (
         patch(
-            "codekeel.cli.load_check_config",
+            "archkeel.cli.load_check_config",
             return_value=ScanConfig(("sample",), "sample", "contract.json", "b" * 64),
         ),
-        patch("codekeel.check.run.remote_tip", return_value="b" * 40),
-        patch("codekeel.check.run.read_blob", side_effect=read_blob),
-        patch("codekeel.check.run.parents", return_value=["a" * 40]),
-        patch("codekeel.check.run.changed_paths", return_value={LOCK_PATH}),
+        patch("archkeel.check.run.remote_tip", return_value="b" * 40),
+        patch("archkeel.check.run.read_blob", side_effect=read_blob),
+        patch("archkeel.check.run.parents", return_value=["a" * 40]),
+        patch("archkeel.check.run.changed_paths", return_value={LOCK_PATH}),
     ):
         code = main(
             [

@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -12,12 +12,12 @@ from test_delta import _model, _record
 from test_expectation import _expectation_payload
 from test_git_lock import _lock
 
-from codekeel.check.ports import ScanConfig
-from codekeel.check.report import render_result
-from codekeel.check.run import run_check
-from codekeel.check.snapshot import ArchivedSnapshot
-from codekeel.ir.codec import parse_observation
-from codekeel.ir.model import Diagnostic, ObservationResult
+from archkeel.check.ports import ScanConfig
+from archkeel.check.report import render_result
+from archkeel.check.run import run_check
+from archkeel.check.snapshot import ArchivedSnapshot
+from archkeel.ir.codec import parse_observation
+from archkeel.ir.model import Diagnostic, ObservationResult
 
 
 @pytest.mark.parametrize("stage", ["accepted", "candidate"])
@@ -48,16 +48,16 @@ def test_check_keeps_partial_observation_on_exit_two(tmp_path: Path, stage: str)
         return expected_bytes if path == "expectation.json" else lock_bytes
 
     with (
-        patch("codekeel.check.run.remote_tip", return_value="b" * 40),
-        patch("codekeel.check.run.read_blob", side_effect=read_blob),
-        patch("codekeel.check.run.parents", return_value=["a" * 40]),
-        patch("codekeel.check.run.changed_paths", return_value={"architecture-accepted.json"}),
-        patch("codekeel.check.run.package_digest", return_value="c" * 64),
-        patch("codekeel.check.run.check_git_order", return_value=()),
-        patch("codekeel.check.run.check_order", return_value=()),
-        patch("codekeel.check.run.materialize_declarations"),
+        patch("archkeel.check.run.remote_tip", return_value="b" * 40),
+        patch("archkeel.check.run.read_blob", side_effect=read_blob),
+        patch("archkeel.check.run.parents", return_value=["a" * 40]),
+        patch("archkeel.check.run.changed_paths", return_value={"architecture-accepted.json"}),
+        patch("archkeel.check.run.package_digest", return_value="c" * 64),
+        patch("archkeel.check.run.check_git_order", return_value=()),
+        patch("archkeel.check.run.check_order", return_value=()),
+        patch("archkeel.check.run.materialize_declarations"),
         patch(
-            "codekeel.check.run.materialize_git_snapshot",
+            "archkeel.check.run.materialize_git_snapshot",
             side_effect=lambda *args, **kwargs: nullcontext(ArchivedSnapshot(tmp_path, "a" * 40)),
         ),
     ):

@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -8,15 +8,15 @@ from pathlib import Path
 
 import pytest
 
-from codekeel.cli import main
+from archkeel.cli import main
 
 
 @pytest.mark.parametrize("entry", ["installed", "module"])
 def test_accept_remains_unknown_at_both_entrypoints(entry: str) -> None:
     command = (
-        [str(Path(sys.executable).with_name("codekeel"))]
+        [str(Path(sys.executable).with_name("archkeel"))]
         if entry == "installed"
-        else [sys.executable, "-m", "codekeel.cli"]
+        else [sys.executable, "-m", "archkeel.cli"]
     )
     result = subprocess.run(
         [*command, "accept"],
@@ -37,7 +37,7 @@ def test_check_requires_explicit_inputs(capsys: pytest.CaptureFixture) -> None:
 
 def test_report_has_no_external_producer_option() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "codekeel.cli", "report", "--help"],
+        [sys.executable, "-m", "archkeel.cli", "report", "--help"],
         capture_output=True,
         text=True,
     )

@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 # DATAMIMIC
@@ -10,13 +10,13 @@ import json
 
 from test_delta import _model as _base_model
 
-from codekeel.ir.codec import (
+from archkeel.ir.codec import (
     canonical_json_bytes,
     canonical_report_bytes,
     decode_canonical_model,
     parse_observation,
 )
-from codekeel.ir.trace import validate_evidence_classes
+from archkeel.ir.trace import validate_evidence_classes
 
 
 def _record(

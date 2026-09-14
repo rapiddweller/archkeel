@@ -14,7 +14,7 @@ lint:
 	$(UV) run --locked ruff check src tests fixtures/reproduce_milestone1.py
 
 typecheck:
-	$(UV) run --locked mypy src/codekeel
+	$(UV) run --locked mypy src/archkeel
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")

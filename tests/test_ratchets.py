@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import copy
@@ -14,15 +14,15 @@ from test_expectation import (
     _typed_delta,
 )
 
-from codekeel.check.expectation import (
+from archkeel.check.expectation import (
     ExpectationError,
     ExpectationResult,
     evaluate_expectation,
     parse_expectation,
 )
-from codekeel.check.ratchets import compare_ratchets, measure_python_ratchets
-from codekeel.ir.codec import parse_measurements, parse_observation
-from codekeel.ir.measurements import Measurements, RatchetError, RatchetScalars
+from archkeel.check.ratchets import compare_ratchets, measure_python_ratchets
+from archkeel.ir.codec import parse_measurements, parse_observation
+from archkeel.ir.measurements import Measurements, RatchetError, RatchetScalars
 
 
 def _calls(model: dict[str, Any], unresolved: int, total: int) -> None:

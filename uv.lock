@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.11"
 
 [[package]]
-name = "codekeel"
+name = "archkeel"
 source = { editable = "." }
 dependencies = [
     { name = "packaging" },

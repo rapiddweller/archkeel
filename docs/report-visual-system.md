@@ -1,8 +1,8 @@
-# Codekeel report visual system
+# Archkeel report visual system
 
 ## Purpose
 
-The report must make one thing obvious within five seconds: what Codekeel
+The report must make one thing obvious within five seconds: what Archkeel
 could verify, what failed, and what remains unknown. It is an evidence surface,
 not a dashboard and not a scorecard.
 
@@ -16,10 +16,10 @@ Use the logo as follows:
 
 | Context | Asset |
 | --- | --- |
-| Dark HTML header | `assets/codekeel-logo-dark.svg` |
-| White or printed report | `assets/codekeel-logo-light.svg` |
-| Favicon, compact navigation, status page | `assets/codekeel-mark.svg` |
-| Raster fallback | `assets/codekeel-mark.png` |
+| Dark HTML header | `assets/archkeel-logo-dark.svg` |
+| White or printed report | `assets/archkeel-logo-light.svg` |
+| Favicon, compact navigation, status page | `assets/archkeel-mark.svg` |
+| Raster fallback | `assets/archkeel-mark.png` |
 
 Minimum mark size: 24 px. Minimum horizontal-logo height: 28 px. Preserve clear
 space equal to the width of the central keel stroke. Do not rotate, stretch,
@@ -160,7 +160,7 @@ unless the check has already classified them as a failure.
 
 ## Implementation assets
 
-- `src/codekeel/check/assets/codekeel-report.css`: tokens and report components.
-- `src/codekeel/check/assets/codekeel-logo-dark.svg`: dark-header logo.
-- `src/codekeel/check/assets/codekeel-logo-light.svg`: print/light logo.
-- `src/codekeel/check/assets/codekeel-mark.svg`: compact mark.
+- `src/archkeel/check/assets/archkeel-report.css`: tokens and report components.
+- `src/archkeel/check/assets/archkeel-logo-dark.svg`: dark-header logo.
+- `src/archkeel/check/assets/archkeel-logo-light.svg`: print/light logo.
+- `src/archkeel/check/assets/archkeel-mark.svg`: compact mark.

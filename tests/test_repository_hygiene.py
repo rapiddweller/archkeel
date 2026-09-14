@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import subprocess
@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 HEADER = "\n".join(
     (
-        "# Codekeel",
+        "# Archkeel",
         "# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.",
         "# SPDX-License-Identifier: MIT",
         "",

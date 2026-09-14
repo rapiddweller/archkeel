@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 from test_delta import _model, _record
 
-from codekeel.ir.model import Coverage, Diagnostic, Observation
-from codekeel.producer import observe
+from archkeel.ir.model import Coverage, Diagnostic, Observation
+from archkeel.producer import observe
 
 
 def _prepare_source(tmp_path: Path) -> None:
@@ -37,7 +37,7 @@ def test_producer_failure_cannot_become_complete(tmp_path: Path, exit_code: obje
     response = subprocess.CompletedProcess(
         [], 0, json.dumps({"model": {}, "exit_code": exit_code}), ""
     )
-    with patch("codekeel.producer.subprocess.run", return_value=response):
+    with patch("archkeel.producer.subprocess.run", return_value=response):
         result = _observe(tmp_path)
     assert result.exit_code == 2
     assert result.diagnostics[0].kind == "parse_error"
@@ -49,7 +49,7 @@ def test_source_symlink_escape_is_rejected_before_producer(tmp_path: Path) -> No
     outside = tmp_path / "outside.py"
     outside.write_text("secret = 1\n")
     (source / "linked.py").symlink_to(outside)
-    with patch("codekeel.producer.subprocess.run") as producer:
+    with patch("archkeel.producer.subprocess.run") as producer:
         result = _observe(source)
         producer.assert_not_called()
     assert result.exit_code == 2
@@ -66,11 +66,11 @@ def test_execution_failure_has_structured_diagnostic(tmp_path: Path, cause: str)
     else:
         error = ValueError("unused")
     if cause in {"missing_tool", "timeout"}:
-        with patch("codekeel.producer.subprocess.run", side_effect=error):
+        with patch("archkeel.producer.subprocess.run", side_effect=error):
             result = _observe(tmp_path)
     else:
         with patch(
-            "codekeel.producer.subprocess.run",
+            "archkeel.producer.subprocess.run",
             return_value=subprocess.CompletedProcess([], 0, "not JSON", ""),
         ):
             result = _observe(tmp_path)
@@ -94,7 +94,7 @@ def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause
         raw["unknowns"] = [failure]
         coverage.update(rules="FAIL", failures=[failure])
     response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 2}), "")
-    with patch("codekeel.producer.subprocess.run", return_value=response):
+    with patch("archkeel.producer.subprocess.run", return_value=response):
         result = _observe(tmp_path)
     assert result.exit_code == 2
     assert isinstance(result.observation, Observation)
@@ -115,7 +115,7 @@ def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_pat
     ]
     raw["coverage"].update(status="FAIL", files_parsed=0, failures=failures)
     response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 2}), "")
-    with patch("codekeel.producer.subprocess.run", return_value=response):
+    with patch("archkeel.producer.subprocess.run", return_value=response):
         result = _observe(tmp_path)
     assert result.exit_code == 2
     assert result.observation.coverage.failures

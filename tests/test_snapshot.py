@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from codekeel.check.snapshot import SnapshotError, _materialize_archive, materialize_git_snapshot
+from archkeel.check.snapshot import SnapshotError, _materialize_archive, materialize_git_snapshot
 
 ROOT = Path(__file__).parents[2]
 

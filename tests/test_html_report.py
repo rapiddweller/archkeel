@@ -1,12 +1,12 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from test_delta import _model
 
-from codekeel.check.html import render_html
-from codekeel.ir.codec import parse_observation
-from codekeel.ir.measurements import Measurements, RatchetScalars
-from codekeel.ir.model import Diagnostic, RunResult
+from archkeel.check.html import render_html
+from archkeel.ir.codec import parse_observation
+from archkeel.ir.measurements import Measurements, RatchetScalars
+from archkeel.ir.model import Diagnostic, RunResult
 
 
 def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:

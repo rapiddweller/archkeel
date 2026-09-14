@@ -2,329 +2,329 @@
   "schema_version": "1.1.0",
   "capabilities": [
     {
-      "id": "CAP-CODEKEEL",
-      "name": "CODEKEEL",
-      "label": "Codekeel governance",
+      "id": "CAP-ARCHKEEL",
+      "name": "ARCHKEEL",
+      "label": "Archkeel governance",
       "review_order": 1,
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     }
   ],
   "components": [
     {
       "id": "COMP-IR",
       "label": "ir",
-      "capability_id": "CAP-CODEKEEL",
+      "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["codekeel.ir"],
+      "packages": ["archkeel.ir"],
       "responsibilities": ["Immutable observations, measurements, locks and JSON codecs."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "COMP-CHECK",
       "label": "check",
-      "capability_id": "CAP-CODEKEEL",
+      "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["codekeel.check"],
+      "packages": ["archkeel.check"],
       "responsibilities": ["Deterministic deltas, regression checks, expectations, publication-order checks and evidence rendering."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "COMP-ACCEPT",
       "label": "accept",
-      "capability_id": "CAP-CODEKEEL",
+      "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["codekeel.accept"],
+      "packages": ["archkeel.accept"],
       "responsibilities": ["CI acceptance entry point; currently an explicit unavailable result."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "COMP-CLI",
       "label": "cli",
-      "capability_id": "CAP-CODEKEEL",
+      "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["codekeel.cli"],
-      "responsibilities": ["Command arguments and codekeel.toml configuration."],
+      "packages": ["archkeel.cli"],
+      "responsibilities": ["Command arguments and archkeel.toml configuration."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "COMP-HOST",
       "label": "host",
-      "capability_id": "CAP-CODEKEEL",
+      "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["codekeel.host"],
+      "packages": ["archkeel.host"],
       "responsibilities": ["GitLab host records with SHA, event and timestamp."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "COMP-PRODUCER",
       "label": "analyzer",
-      "capability_id": "CAP-CODEKEEL",
+      "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["codekeel.producer"],
+      "packages": ["archkeel.producer"],
       "responsibilities": ["Run the bundled Python analyzer and preserve typed diagnostics."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     }
   ],
   "review_scopes": [],
   "public_api": [
-    "codekeel.ir.model",
-    "codekeel.ir.codec"
+    "archkeel.ir.model",
+    "archkeel.ir.codec"
   ],
-  "public_api_provenance": ["docs/architecture/codekeel.md"],
+  "public_api_provenance": ["docs/architecture/archkeel.md"],
   "public_commands": [],
   "context_roots": [],
-  "context_roots_provenance": ["docs/architecture/codekeel.md"],
+  "context_roots_provenance": ["docs/architecture/archkeel.md"],
   "paths": [],
   "spot_owners": [],
   "rules": [
     {
       "id": "DEP-IR-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "codekeel.ir",
-      "target": "codekeel.check",
+      "source": "archkeel.ir",
+      "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "ir does not depend on check.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-IR-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "codekeel.ir",
-      "target": "codekeel.accept",
+      "source": "archkeel.ir",
+      "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "ir does not depend on accept.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-IR-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "codekeel.ir",
-      "target": "codekeel.cli",
+      "source": "archkeel.ir",
+      "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "ir does not depend on cli.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-IR-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "codekeel.ir",
-      "target": "codekeel.host",
+      "source": "archkeel.ir",
+      "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "ir does not depend on host.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-IR-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "codekeel.ir",
-      "target": "codekeel.producer",
+      "source": "archkeel.ir",
+      "target": "archkeel.producer",
       "include_type_checking": true,
       "rationale": "ir does not depend on producer.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-CHECK-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "codekeel.check",
-      "target": "codekeel.accept",
+      "source": "archkeel.check",
+      "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "check does not depend on accept.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-CHECK-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "codekeel.check",
-      "target": "codekeel.cli",
+      "source": "archkeel.check",
+      "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "check does not depend on cli.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "codekeel.accept",
-      "target": "codekeel.check",
+      "source": "archkeel.accept",
+      "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "accept does not depend on check.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "codekeel.accept",
-      "target": "codekeel.cli",
+      "source": "archkeel.accept",
+      "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "accept does not depend on cli.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "codekeel.accept",
-      "target": "codekeel.host",
+      "source": "archkeel.accept",
+      "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "accept does not depend on host.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "codekeel.accept",
-      "target": "codekeel.producer",
+      "source": "archkeel.accept",
+      "target": "archkeel.producer",
       "include_type_checking": true,
       "rationale": "accept does not depend on producer.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-CLI-NO-IR",
       "kind": "forbidden_dependency",
-      "source": "codekeel.cli",
-      "target": "codekeel.ir",
+      "source": "archkeel.cli",
+      "target": "archkeel.ir",
       "include_type_checking": true,
       "rationale": "cli does not depend on ir.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-CLI-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "codekeel.cli",
-      "target": "codekeel.host",
+      "source": "archkeel.cli",
+      "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "cli does not depend on host.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-CLI-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "codekeel.cli",
-      "target": "codekeel.producer",
+      "source": "archkeel.cli",
+      "target": "archkeel.producer",
       "include_type_checking": true,
       "rationale": "cli does not depend on producer.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-HOST-NO-IR",
       "kind": "forbidden_dependency",
-      "source": "codekeel.host",
-      "target": "codekeel.ir",
+      "source": "archkeel.host",
+      "target": "archkeel.ir",
       "include_type_checking": true,
       "rationale": "host does not depend on ir.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-HOST-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "codekeel.host",
-      "target": "codekeel.check",
+      "source": "archkeel.host",
+      "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "host does not depend on check.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-HOST-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "codekeel.host",
-      "target": "codekeel.accept",
+      "source": "archkeel.host",
+      "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "host does not depend on accept.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-HOST-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "codekeel.host",
-      "target": "codekeel.cli",
+      "source": "archkeel.host",
+      "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "host does not depend on cli.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-HOST-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "codekeel.host",
-      "target": "codekeel.producer",
+      "source": "archkeel.host",
+      "target": "archkeel.producer",
       "include_type_checking": true,
       "rationale": "host does not depend on producer.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.check",
+      "source": "archkeel.producer",
+      "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "producer does not depend on check.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.accept",
+      "source": "archkeel.producer",
+      "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "producer does not depend on accept.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.cli",
+      "source": "archkeel.producer",
+      "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "producer does not depend on cli.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.host",
+      "source": "archkeel.producer",
+      "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "producer does not depend on host.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-DIGEST",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.ir.digest",
+      "source": "archkeel.producer",
+      "target": "archkeel.ir.digest",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-LOCK",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.ir.lock",
+      "source": "archkeel.producer",
+      "target": "archkeel.ir.lock",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-MEASUREMENTS",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.ir.measurements",
+      "source": "archkeel.producer",
+      "target": "archkeel.ir.measurements",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-TRACE",
       "kind": "forbidden_dependency",
-      "source": "codekeel.producer",
-      "target": "codekeel.ir.trace",
+      "source": "archkeel.producer",
+      "target": "archkeel.ir.trace",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/codekeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"]
     }
   ]
 }

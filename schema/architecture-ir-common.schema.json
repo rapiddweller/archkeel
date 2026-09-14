@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:codekeel:architecture-ir:common:1.2.0",
+  "$id": "urn:archkeel:architecture-ir:common:1.2.0",
   "title": "Shared ArchitectureIR record and source-evidence definitions",
   "$comment": "DESIGN ARTIFACT. Derived from model.py RECORD_FIELDS/EVIDENCE_FIELDS/EvidenceClass. Cross-record references, ID uniqueness, evidence authenticity, canonical byte encoding and metric arithmetic require code.",
   "$ref": "#/$defs/record",

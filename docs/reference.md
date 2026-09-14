@@ -1,17 +1,17 @@
-# Codekeel reference
+# Archkeel reference
 
 Exact rules behind the [README](../README.md). Code is the source of truth; this file explains it.
 
 ## Configuration
 
-[schema/codekeel.schema.json](../schema/codekeel.schema.json) defines `codekeel.toml`.
+[schema/archkeel.schema.json](../schema/archkeel.schema.json) defines `archkeel.toml`.
 Only `[scan]` with required `roots`, `namespace` and `contract` is accepted.
 Paths are relative to the repository root. Scan roots are directories, not globs.
 The architecture schemas live once under `schema/`; builds include them as package data.
 
 ## Analyzer and runtime
 
-The Python analyzer is bundled under `codekeel.producer`. `report` and `check`
+The Python analyzer is bundled under `archkeel.producer`. `report` and `check`
 need no source checkout or private package. The analyzer runs in an isolated
 subprocess and returns a typed observation at the analyzer boundary.
 D-self verifies the bundled analyzer digest recorded in `fixtures/D-self/provenance.json`.

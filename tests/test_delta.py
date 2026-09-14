@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
@@ -8,15 +8,15 @@ from typing import Any
 
 import pytest
 
-from codekeel.check.delta import build_architecture_delta
-from codekeel.ir.codec import (
+from archkeel.check.delta import build_architecture_delta
+from archkeel.ir.codec import (
     canonical_json_bytes,
     canonical_report_bytes,
     delta_payload,
     parse_observation,
 )
-from codekeel.ir.digest import package_digest
-from codekeel.ir.model import CLASSIFIED_SECTIONS
+from archkeel.ir.digest import package_digest
+from archkeel.ir.model import CLASSIFIED_SECTIONS
 
 
 def _evidence(identifier: str, line: int) -> dict[str, Any]:

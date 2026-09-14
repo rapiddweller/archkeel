@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from dataclasses import replace
@@ -7,11 +7,11 @@ import pytest
 from test_delta import _model
 from test_expectation import _delta_payload, _expectation_payload
 
-from codekeel.check.delta import build_architecture_delta
-from codekeel.check.expectation import evaluate_expectation, parse_expectation
-from codekeel.check.report import unknown_result
-from codekeel.ir.codec import parse_delta, parse_observation
-from codekeel.ir.model import DiagnosticError
+from archkeel.check.delta import build_architecture_delta
+from archkeel.check.expectation import evaluate_expectation, parse_expectation
+from archkeel.check.report import unknown_result
+from archkeel.ir.codec import parse_delta, parse_observation
+from archkeel.ir.model import DiagnosticError
 
 
 @pytest.mark.parametrize("version", [None, "3.12.10", "3.11.13"])

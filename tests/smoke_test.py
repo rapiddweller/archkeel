@@ -1,4 +1,4 @@
-# Codekeel
+# Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 """Verify that an installed distribution can scan without another checkout."""
@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 
 
 def main() -> None:
-    with TemporaryDirectory(prefix="codekeel-smoke-") as temporary:
+    with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:
         root = Path(temporary)
         (root / "sample").mkdir()
         (root / "sample/__init__.py").write_text("value = 1\n")
@@ -41,7 +41,7 @@ def main() -> None:
             "rules": [],
         }
         (root / "architecture-contract.json").write_text(json.dumps(contract))
-        (root / "codekeel.toml").write_text(
+        (root / "archkeel.toml").write_text(
             '[scan]\nroots = ["sample"]\nnamespace = "sample"\n'
             'contract = "architecture-contract.json"\n'
         )
@@ -49,7 +49,7 @@ def main() -> None:
         for args in (
             ("init", "-q"),
             ("config", "user.email", "smoke@example.invalid"),
-            ("config", "user.name", "Codekeel smoke test"),
+            ("config", "user.name", "Archkeel smoke test"),
             ("add", "."),
             ("commit", "-qm", "smoke fixture"),
         ):
@@ -59,7 +59,7 @@ def main() -> None:
             [
                 sys.executable,
                 "-m",
-                "codekeel.cli",
+                "archkeel.cli",
                 "report",
                 "--root",
                 str(root),

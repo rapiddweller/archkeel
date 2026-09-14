@@ -1,5 +1,5 @@
 [project]
-name = "codekeel"
+name = "archkeel"
 dynamic = ["version", "readme"]
 description = "Deterministic architecture checks for AI-assisted code changes"
 requires-python = ">=3.11"
@@ -22,12 +22,12 @@ classifiers = [
 dependencies = ["packaging>=24.2,<27"]
 
 [project.urls]
-Repository = "https://github.com/rapiddweller/codekeel"
-Documentation = "https://github.com/rapiddweller/codekeel/blob/main/docs/reference.md"
-Issues = "https://github.com/rapiddweller/codekeel/issues"
+Repository = "https://github.com/rapiddweller/archkeel"
+Documentation = "https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md"
+Issues = "https://github.com/rapiddweller/archkeel/issues"
 
 [project.scripts]
-codekeel = "codekeel.cli:main"
+archkeel = "archkeel.cli:main"
 
 [build-system]
 # Hatchling maps the single schema/ source into wheels without a custom build hook.
@@ -43,18 +43,18 @@ content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = 'src="docs/assets/codekeel-hero\.png"'
-replacement = 'src="https://raw.githubusercontent.com/rapiddweller/codekeel/main/docs/assets/codekeel-hero.png"'
+pattern = 'src="docs/assets/archkeel-hero\.png"'
+replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-hero.png"'
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = 'src="docs/assets/codekeel-report-preview\.png"'
-replacement = 'src="https://raw.githubusercontent.com/rapiddweller/codekeel/main/docs/assets/codekeel-report-preview.png"'
+pattern = 'src="docs/assets/archkeel-report-preview\.png"'
+replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-report-preview.png"'
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codekeel"]
+packages = ["src/archkeel"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"schema" = "codekeel/schema"
+"schema" = "archkeel/schema"
 
 [tool.hatch.build.targets.sdist]
 # Archived Phase-4 runs contain external symlinks and are not distribution inputs.
@@ -62,9 +62,9 @@ only-include = [
     "src", "schema", "tests", "Makefile", "uv.lock",
     "fixtures/A-dispatch", "fixtures/B-posthoc", "fixtures/C-valid",
     "fixtures/reproduce_milestone1.py", "fixtures/E-runtime", "fixtures/D-self",
-    "codekeel.toml", "architecture-contract.json", "docs/architecture",
+    "archkeel.toml", "architecture-contract.json", "docs/architecture",
     "docs/reference.md", "docs/roadmap.md", "docs/report-visual-system.md", "README.md",
-    "docs/assets/codekeel-hero.png", "docs/assets/codekeel-report-preview.png",
+    "docs/assets/archkeel-hero.png", "docs/assets/archkeel-report-preview.png",
 ]
 
 [dependency-groups]

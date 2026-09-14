@@ -1,8 +1,8 @@
 # Known limits: unresolved calls
 
-Historical Pledge evidence. Names and commands below refer to the pinned checker, before the Codekeel rename.
+Historical Pledge evidence. Names and commands below refer to the pinned checker, before the renames to Codekeel and Archkeel.
 
-FACT — Every `pledge@<SHA>` below is a commit in this repository's history before the Codekeel rename commit.
+FACT — Every `pledge@<SHA>` below is a commit in this repository's history before the Codekeel and Archkeel rename commits.
 
 FACT — This diagnosis measures committed sources. It changes no resolver, contract, or check policy.
 
