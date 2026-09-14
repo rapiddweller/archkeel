@@ -35,9 +35,9 @@ digest), `contract` (declarations) and `report` (observation assembly). Reason:
 analyzer behavior without changing the digest. Check: `tests/test_analyzer.py`.
 
 **AD-2 JSON has one type.** Decoded or emitted JSON is `RawJson`; untrusted input is narrowed with
-`isinstance` at the boundary. Analyzer records are `RawRecord` and `RawEvidence`. `Any` remains
-only for the per-kind record `data` payload and where those records enter canonical encoding,
-each with a one-line reason. Check: `mypy --strict` and the typing measurements in
+`isinstance` at the boundary. Analyzer records are `RawRecord` and `RawEvidence`; their per-kind
+payload is `RecordData`, the analyzer's single declared `Any`. The only other `Any` is where those
+records enter canonical encoding, with a one-line reason. Check: `mypy --strict` and the typing measurements in
 `fixtures/D-self/`.
 
 **AD-3 The analyzer digest decides comparability; the version names it.** Two observations are

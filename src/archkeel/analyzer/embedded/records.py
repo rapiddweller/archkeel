@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypeAlias, TypedDict
 
 from archkeel.ir.model import EvidenceClass
 
 ANALYZER_VERSION = "0.4.0"
+# AD-2: record payloads are open JSON whose shape varies by record kind.
+RecordData: TypeAlias = dict[str, Any]
 
 
 class RawRecord(TypedDict):
@@ -27,8 +29,7 @@ class RawRecord(TypedDict):
     rule_ids: list[str]
     fact_ids: list[str]
     provenance: list[str]
-    # Record data payloads are open JSON that varies by record kind by design.
-    data: dict[str, Any]
+    data: RecordData
 
 
 class RawEvidence(TypedDict):
@@ -73,7 +74,7 @@ def classified(
     rule_ids: list[str] | None = None,
     fact_ids: list[str] | None = None,
     provenance: list[str] | None = None,
-    data: dict[str, Any] | None = None,
+    data: RecordData | None = None,
 ) -> RawRecord:
     return {
         "id": item_id,

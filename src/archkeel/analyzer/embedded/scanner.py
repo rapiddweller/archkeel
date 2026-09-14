@@ -28,7 +28,7 @@ from archkeel.ir.model import (
 
 from .contexts import collect_contexts
 from .graph import condensation_ranks, strongly_connected_components, transitive_paths
-from .records import RawEvidence, RawRecord, classified, stable_id
+from .records import RawEvidence, RawRecord, RecordData, classified, stable_id
 from .source import (
     AliasBinding,
     ParsedModule,
@@ -257,7 +257,7 @@ def _resolve_static_name(module: ParsedModule, node: ast.AST) -> str:
     return ".".join([binding.target, *parts[1:]])
 
 
-def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> dict[str, Any]:
+def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordData:
     positional = [*node.args.posonlyargs, *node.args.args]
     parameters = [
         {"name": argument.arg, "annotation": annotation_text(argument.annotation)}
@@ -340,7 +340,7 @@ def _collect_symbols(
         parent: str | None = None,
     ) -> None:
         evidence_id = add_evidence(evidence, module, node)
-        data: dict[str, Any] = {
+        data: RecordData = {
             "qualified_name": qualname,
             "module": module.module,
             "package": module.package,

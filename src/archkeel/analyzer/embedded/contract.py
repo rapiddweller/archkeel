@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any
 
 from archkeel.ir.codec import ContractVersionError, decode_json, parse_contract
 from archkeel.ir.model import (
@@ -21,7 +20,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
 )
 
-from .records import RawRecord, classified
+from .records import RawRecord, RecordData, classified
 
 
 class ContractError(ValueError):
@@ -44,7 +43,7 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
 
 def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
     subjects: list[str]
-    data: dict[str, Any]
+    data: RecordData
     if isinstance(rule, ForbiddenDependencyRule):
         target = ".".join(filter(None, (rule.target, rule.target_symbol)))
         area, title, subjects = (

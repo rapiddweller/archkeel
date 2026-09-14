@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
-from typing import Any
 
 from archkeel.ir.model import EvidenceClass
 
-from .records import RawEvidence, RawRecord, classified, stable_id
+from .records import RawEvidence, RawRecord, RecordData, classified, stable_id
 from .source import ParsedModule, add_evidence, annotation_text, decorator_names
 
 _MUTATING_METHODS = {
@@ -99,7 +98,7 @@ def collect_contexts(
         if item["data"]["name"].endswith(("Context", "State")):
             roots.add(qualified)
     context_names = {name.rsplit(".", 1)[-1]: name for name in sorted(roots)}
-    observations: dict[str, dict[str, list[dict[str, Any]]]] = {
+    observations: dict[str, dict[str, list[RecordData]]] = {
         root: {"reads": [], "writes": [], "passes": [], "constructed_by": []} for root in roots
     }
 
@@ -235,7 +234,7 @@ def collect_contexts(
             context_class = "type_protocol_contract"
         else:
             context_class = "local_domain_state_candidate"
-        fields: dict[str, dict[str, Any]] = {}
+        fields: dict[str, RecordData] = {}
         methods: list[str] = []
         if isinstance(context_node, ast.ClassDef) and owner is not None:
             frozen = bool(symbol and symbol["data"].get("frozen_object"))
