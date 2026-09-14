@@ -12,7 +12,6 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/E-runtime"
-PRODUCER = Path(os.environ.get("CODEKEEL_PRODUCER_ROOT", str(ROOT.parent / "datamimic-ee")))
 
 
 def _interpreter(minor: int) -> str:
@@ -47,8 +46,6 @@ def _report(minor: int, root: Path) -> tuple[int, dict[str, object]]:
             "report",
             "--root",
             str(root),
-            "--producer-root",
-            str(PRODUCER),
             "--output",
             str(root / "architecture.json"),
         ],
@@ -79,7 +76,7 @@ def test_pep695_fixture_reports_actual_runtime(tmp_path: Path, minor: int) -> No
             "subject": f"python {version} < requires-python >=3.12",
             "unknown_claim": "AST may differ from target runtime; parse errors may be "
             "parser limitations, not source defects",
-            "remedy": "Run the producer with a Python matching the target's requires-python.",
+            "remedy": "Run Codekeel with a Python matching the target's requires-python.",
         }
         assert observation["coverage"]["files_parsed"] == 0
     else:

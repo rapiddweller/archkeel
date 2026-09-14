@@ -63,7 +63,6 @@ def test_check_keeps_partial_observation_on_exit_two(tmp_path: Path, stage: str)
     ):
         result = run_check(
             tmp_path,
-            producer_root=tmp_path.parent / "producer",
             config=ScanConfig((".",), "sample", "contract.json", "b" * 64),
             baseline="b" * 40,
             expectation_commit="e" * 40,

@@ -1,11 +1,10 @@
 {
-  "producer_head": "dc7526592073985ed69902b21d6a1c861ac02fa0",
-  "producer_digest": "50c74c84e862fe44f660564e592c32f11e32edbf5c265b0cc2a8527995f3f51c",
-  "checker_digest": "8763410b073d6c0ce2c3be3d4d7774110b86cab7ed78c3fda1060e317cc9c542",
-  "source_digest": "d3329c8ec3a0a6c27d5acd9010872453b647044a362fb33645cf8a0d70bc6e24",
-  "contract_digest": "283cc1d5ed999e8b6e02093dbe04ea87e72f2f5b24669b4a4c3505cf3eeaa779",
-  "artifact_digest": "206fe356d6c87fad788f6348f4a5812ac1e4a82aa5095504ee11ac45a76a6ffc",
-  "command": "codekeel report --root . --producer-root \"$PRODUCER_ROOT\" --output fixtures/D-self/architecture.json",
+  "analyzer_digest": "713c22d7e4e99dc3555ed6600cf430c4f112a5cb14e749273a48a7ef52f11f27",
+  "checker_digest": "c6f37fb01ffcd72b627c8a1f174a294e771090fc87258a6acd20ca133f6e50c3",
+  "source_digest": "2fd7141ecfad33992ba0c9a09c5139de33188b6b705a915365b1805c758ff671",
+  "contract_digest": "fcb047f1e49ea1e634dd2b130b731892857d630489a986b1c22bcfc634d0e05a",
+  "artifact_digest": "75601f0fc0ec9dd136d444fb29af249717688f51cd04ca84bb58e25edbeb2688",
+  "command": "codekeel report --root . --output fixtures/D-self/architecture.json",
   "exit_code": 0,
   "python_version": "3.11.12"
 }

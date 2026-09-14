@@ -46,8 +46,6 @@ def test_bad_lock_is_exit_two_with_diagnostic_and_never_replaced(
                 "check",
                 "--root",
                 str(tmp_path),
-                "--producer-root",
-                str(tmp_path.parent / "trusted-producer"),
                 "--baseline",
                 "b" * 40,
                 "--expectation-commit",

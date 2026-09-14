@@ -13,19 +13,16 @@ from codekeel.ir.model import Coverage, Diagnostic, Observation
 from codekeel.producer import observe
 
 
-def _producer(tmp_path: Path) -> Path:
-    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
-    root = tmp_path / "producer"
-    module = root / "script/architecture/report.py"
-    module.parent.mkdir(parents=True)
-    module.write_text("# external producer fixture\n")
-    return root
+def _prepare_source(tmp_path: Path) -> None:
+    metadata = tmp_path / "pyproject.toml"
+    if not metadata.exists():
+        metadata.write_text('[project]\nrequires-python = ">=3.11"\n')
 
 
-def _observe(source: Path, producer: Path):
+def _observe(source: Path):
+    _prepare_source(source)
     return observe(
         source,
-        producer_root=producer,
         roots=(".",),
         namespace="sample",
         contract="contract.json",
@@ -40,9 +37,8 @@ def test_producer_failure_cannot_become_complete(tmp_path: Path, exit_code: obje
     response = subprocess.CompletedProcess(
         [], 0, json.dumps({"model": {}, "exit_code": exit_code}), ""
     )
-    producer = _producer(tmp_path)
     with patch("codekeel.producer.subprocess.run", return_value=response):
-        result = _observe(tmp_path, producer)
+        result = _observe(tmp_path)
     assert result.exit_code == 2
     assert result.diagnostics[0].kind == "parse_error"
 
@@ -54,7 +50,7 @@ def test_source_symlink_escape_is_rejected_before_producer(tmp_path: Path) -> No
     outside.write_text("secret = 1\n")
     (source / "linked.py").symlink_to(outside)
     with patch("codekeel.producer.subprocess.run") as producer:
-        result = _observe(source, tmp_path)
+        result = _observe(source)
         producer.assert_not_called()
     assert result.exit_code == 2
     assert result.diagnostics[0].subject == str(source / "linked.py")
@@ -63,19 +59,21 @@ def test_source_symlink_escape_is_rejected_before_producer(tmp_path: Path) -> No
 
 @pytest.mark.parametrize("cause", ["missing_tool", "timeout", "parse_error"])
 def test_execution_failure_has_structured_diagnostic(tmp_path: Path, cause: str) -> None:
-    producer = _producer(tmp_path)
     if cause == "missing_tool":
-        (producer / "script/architecture/report.py").unlink()
-    if cause == "timeout":
-        response = subprocess.TimeoutExpired("producer", 60)
-        with patch("codekeel.producer.subprocess.run", side_effect=response):
-            result = _observe(tmp_path, producer)
+        error: Exception = OSError("missing Python executable")
+    elif cause == "timeout":
+        error = subprocess.TimeoutExpired("producer", 60)
+    else:
+        error = ValueError("unused")
+    if cause in {"missing_tool", "timeout"}:
+        with patch("codekeel.producer.subprocess.run", side_effect=error):
+            result = _observe(tmp_path)
     else:
         with patch(
             "codekeel.producer.subprocess.run",
             return_value=subprocess.CompletedProcess([], 0, "not JSON", ""),
         ):
-            result = _observe(tmp_path, producer)
+            result = _observe(tmp_path)
     assert result.exit_code == 2
     assert result.observation is None
     assert result.coverage is None
@@ -85,7 +83,6 @@ def test_execution_failure_has_structured_diagnostic(tmp_path: Path, cause: str)
 
 @pytest.mark.parametrize("cause", ["scope_empty", "rule_without_subjects"])
 def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause: str) -> None:
-    producer = _producer(tmp_path)
     raw = _model(git_head="a" * 40)
     coverage = raw["coverage"]
     coverage["status"] = "FAIL"
@@ -98,7 +95,7 @@ def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause
         coverage.update(rules="FAIL", failures=[failure])
     response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 2}), "")
     with patch("codekeel.producer.subprocess.run", return_value=response):
-        result = _observe(tmp_path, producer)
+        result = _observe(tmp_path)
     assert result.exit_code == 2
     assert isinstance(result.observation, Observation)
     assert isinstance(result.coverage, Coverage)
@@ -110,7 +107,6 @@ def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause
 
 
 def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_path: Path) -> None:
-    producer = _producer(tmp_path)
     (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.12"\n')
     raw = _model(git_head="a" * 40)
     failures = [
@@ -120,7 +116,7 @@ def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_pat
     raw["coverage"].update(status="FAIL", files_parsed=0, failures=failures)
     response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 2}), "")
     with patch("codekeel.producer.subprocess.run", return_value=response):
-        result = _observe(tmp_path, producer)
+        result = _observe(tmp_path)
     assert result.exit_code == 2
     assert result.observation.coverage.failures
     assert len(result.diagnostics) == len(failures)

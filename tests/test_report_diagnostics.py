@@ -36,7 +36,6 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
         result = run_report(
             tmp_path,
             config=ScanConfig((".",), "sample", "contract.json", "d" * 64),
-            producer_root=tmp_path,
             producer=producer,
         )
     assert result.exit_code == 2
@@ -62,7 +61,6 @@ def test_report_artifact_path_is_relative_only_inside_root(tmp_path: Path, outsi
         result = run_report(
             root,
             config=ScanConfig((".",), "sample", "contract.json", "d" * 64),
-            producer_root=tmp_path,
             output=output,
             producer=producer,
         )

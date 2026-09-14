@@ -58,7 +58,6 @@ def materialize_declarations(
 def run_check(
     root: Path,
     *,
-    producer_root: Path,
     config: ScanConfig,
     baseline: str,
     expectation_commit: str,
@@ -72,10 +71,6 @@ def run_check(
     host: Host = load_gitlab_records,
     producer: Producer = observe,
 ) -> RunResult:
-    if producer_root.resolve().is_relative_to(root.resolve()):
-        raise ValueError(
-            "check requires a trusted producer checkout outside the candidate repository"
-        )
     if baseline != remote_tip(root, accepted_branch):
         raise GitError("baseline is not the current accepted origin branch tip")
     try:
@@ -131,7 +126,6 @@ def run_check(
         with materialize_git_snapshot(root, lock.accepted_commit, roots=config.roots) as before:
             accepted_result = producer(
                 before.root,
-                producer_root=producer_root,
                 roots=config.roots,
                 namespace=config.namespace,
                 contract=config.contract,
@@ -160,7 +154,6 @@ def run_check(
         with materialize_git_snapshot(root, head, roots=config.roots) as after:
             candidate_result = producer(
                 after.root,
-                producer_root=producer_root,
                 roots=config.roots,
                 namespace=config.namespace,
                 contract=config.contract,

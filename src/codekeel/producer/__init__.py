@@ -1,7 +1,7 @@
 # Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Run the existing Python producer in its own trusted checkout."""
+"""Run the bundled Python analyzer in an isolated process."""
 
 import os
 import subprocess
@@ -12,20 +12,6 @@ from codekeel.ir.codec import canonical_json_bytes, decode_json, parse_observati
 from codekeel.ir.model import Diagnostic, DiagnosticKind, Observation, ObservationResult
 
 from .runtime import runtime_diagnostic
-
-_BRIDGE = """
-import json, platform, sys
-from pathlib import Path
-from script.architecture.report import analyze_snapshot
-request = json.load(sys.stdin)
-model, code = analyze_snapshot(
-    Path(request['source_root']), git_head=request['git_head'], dirty=request['dirty'],
-    contract_root=Path(request['contract_root']), contract_path=Path(request['contract']),
-    roots=tuple(request['roots']), namespace=request['namespace'], analyzer_root=Path.cwd(),
-)
-model['python_version'] = platform.python_version()
-json.dump({'model': model, 'exit_code': code}, sys.stdout, sort_keys=True)
-"""
 
 
 def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> ObservationResult:
@@ -67,7 +53,7 @@ def _diagnostics(model: Observation, runtime: Diagnostic | None) -> tuple[Diagno
                 "parse_error",
                 "coverage.rules",
                 "Rule applicability coverage is missing.",
-                "Use the pinned producer that reports rule applicability coverage.",
+                "Reinstall a complete Codekeel distribution.",
             )
         )
     if model.coverage.status == "FAIL" and not diagnostics:
@@ -75,8 +61,8 @@ def _diagnostics(model: Observation, runtime: Diagnostic | None) -> tuple[Diagno
             Diagnostic(
                 "parse_error",
                 "coverage",
-                "The producer reported incomplete coverage without a cause.",
-                "Inspect the producer coverage and repair its inputs.",
+                "The analyzer reported incomplete coverage without a cause.",
+                "Inspect the analyzer coverage and repair its inputs.",
             )
         )
     return tuple(diagnostics)
@@ -85,7 +71,6 @@ def _diagnostics(model: Observation, runtime: Diagnostic | None) -> tuple[Diagno
 def observe(
     source_root: Path,
     *,
-    producer_root: Path,
     roots: tuple[str, ...],
     namespace: str,
     contract: str,
@@ -112,13 +97,6 @@ def observe(
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
                     )
-        if not (producer_root / "script/architecture/report.py").is_file():
-            return _failure(
-                "missing_tool",
-                str(producer_root),
-                "The Python producer is unavailable.",
-                "Supply the trusted producer checkout with --producer-root.",
-            )
         request = {
             "source_root": str(source_root),
             "git_head": git_head,
@@ -129,61 +107,60 @@ def observe(
             "namespace": namespace,
         }
         result = subprocess.run(
-            [sys.executable, "-B", "-c", _BRIDGE],
-            cwd=producer_root.resolve(),
+            [sys.executable, "-B", "-m", "codekeel.producer.bridge"],
+            cwd=source_root,
             input=canonical_json_bytes(request).decode(),
             text=True,
             capture_output=True,
             timeout=60,
             env={
                 **os.environ,
-                "PYTHONPATH": str(producer_root.resolve()),
                 "PYTHONDONTWRITEBYTECODE": "1",
             },
         )
         if result.returncode:
             return _failure(
                 "parse_error",
-                str(producer_root),
-                f"Producer execution failed: {result.stderr.strip()}",
-                "Repair the producer failure and run report again.",
+                "bundled Python analyzer",
+                f"Analyzer execution failed: {result.stderr.strip()}",
+                "Repair the analyzer failure and run report again.",
             )
         response = decode_json(result.stdout)
         if not isinstance(response, dict) or set(response) != {"model", "exit_code"}:
-            raise ValueError("invalid producer response envelope")
+            raise ValueError("invalid analyzer response envelope")
         code = response["exit_code"]
         if type(code) is not int or code not in (0, 2):
-            raise ValueError("invalid producer exit code")
+            raise ValueError("invalid analyzer exit code")
         model = parse_observation(response["model"])
         diagnostics = _diagnostics(model, runtime_diagnostic(source_root, model.python_version))
         if code == 2 and not diagnostics:
             diagnostics = (
                 Diagnostic(
                     "parse_error",
-                    "producer response",
-                    "Producer exit 2 has no reported coverage cause.",
-                    "Repair the producer response.",
+                    "analyzer response",
+                    "Analyzer exit 2 has no reported coverage cause.",
+                    "Repair the analyzer response.",
                 ),
             )
         return ObservationResult(model, model.coverage, diagnostics)
     except subprocess.TimeoutExpired:
         return _failure(
             "timeout",
-            str(producer_root),
-            "The producer did not complete within 60 seconds.",
-            "Resolve the producer timeout and retry.",
+            "bundled Python analyzer",
+            "The analyzer did not complete within 60 seconds.",
+            "Resolve the analyzer timeout and retry.",
         )
     except OSError as error:
         return _failure(
             "missing_tool",
-            str(producer_root),
-            f"The producer could not be executed: {error}",
-            "Restore the producer checkout and Python executable.",
+            sys.executable,
+            f"The analyzer could not be executed: {error}",
+            "Restore the Codekeel installation and Python executable.",
         )
     except (ValueError, TypeError, KeyError) as error:
         return _failure(
             "parse_error",
-            "producer response",
+            "analyzer response",
             f"The observation could not be decoded: {error}",
-            "Repair the producer output to match the IR schema.",
+            "Repair the analyzer output to match the IR schema.",
         )

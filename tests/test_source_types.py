@@ -14,13 +14,13 @@ from codekeel.ir.measurements import Measurements, RatchetScalars
 def test_source_has_no_untyped_module_boundaries_or_product_namespace() -> None:
     source = Path(__file__).parents[1] / "src"
     pattern = re.compile(r"dict\[str, Any\]|Mapping\[str, Any\]|: Any\b")
+    raw_record_owners = ("codekeel/ir/codec.py", "codekeel/producer/embedded/")
     hits = []
     namespace_hits = []
     for path in sorted(source.rglob("*.py")):
         for line, text in enumerate(path.read_text().splitlines(), 1):
-            if (
-                pattern.search(text)
-                and path.relative_to(source).as_posix() != "codekeel/ir/codec.py"
+            if pattern.search(text) and not path.relative_to(source).as_posix().startswith(
+                raw_record_owners
             ):
                 hits.append(f"{path}:{line}:{text}")
             if "datamimic" in text.lower():

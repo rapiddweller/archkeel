@@ -38,13 +38,11 @@ def run_report(
     root: Path,
     *,
     config: ScanConfig,
-    producer_root: Path,
     output: Path | None = None,
     producer: Producer = observe,
 ) -> RunResult:
     result = producer(
         root,
-        producer_root=producer_root,
         roots=config.roots,
         namespace=config.namespace,
         contract=config.contract,

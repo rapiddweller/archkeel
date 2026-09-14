@@ -62,11 +62,11 @@
     },
     {
       "id": "COMP-PRODUCER",
-      "label": "producer",
+      "label": "analyzer",
       "capability_id": "CAP-CODEKEEL",
       "role": "component",
       "packages": ["codekeel.producer"],
-      "responsibilities": ["Invoke the external Python scanner and preserve typed diagnostics."],
+      "responsibilities": ["Run the bundled Python analyzer and preserve typed diagnostics."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/codekeel.md"]
     }

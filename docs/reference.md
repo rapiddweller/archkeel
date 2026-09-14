@@ -9,19 +9,20 @@ Only `[scan]` with required `roots`, `namespace` and `contract` is accepted.
 Paths are relative to the repository root. Scan roots are directories, not globs.
 The architecture schemas live once under `schema/`; builds include them as package data.
 
-## Producer and runtime
+## Analyzer and runtime
 
-The external Python producer is invoked through `--producer-root`; its scan algorithms are unchanged.
-`PRODUCER_ROOT` in the Makefile defaults to the adjacent EE checkout.
-D-self verifies the producer commit recorded in `fixtures/D-self/provenance.json`.
+The Python analyzer is bundled under `codekeel.producer`. `report` and `check`
+need no source checkout or private package. The analyzer runs in an isolated
+subprocess and returns a typed observation at the analyzer boundary.
+D-self verifies the bundled analyzer digest recorded in `fixtures/D-self/provenance.json`.
 
-The producer records `python_version` separately from its analyzer digest. Missing or incompatible
+The analyzer records `python_version` separately from its digest. Missing or incompatible
 `pyproject.toml` runtime requirements produce `runtime_mismatch`; AST parse errors only
 use `parse_error` after a compatible runtime check. Git snapshots carry their own project metadata.
 Delta comparison requires the same known full Python version; otherwise `incomparable_runtime`
 returns exit 2. Historical observations without runtime provenance remain readable, not comparable.
 
-The checker hashes its own installed Python package separately from the producer digest.
+The checker hashes its installed Python package separately from the analyzer digest.
 Delta schema 1.2.0 and expectation schema 1.2.0 bind `checker_digest`;
 the evaluator verifies the running package.
 Underscore-private imports belong to the Python decoded-IR profile in `check/python_profile.py`.
@@ -55,7 +56,7 @@ JSON results separate `observation_complete`, `declared_rules` and
 `expectation_fulfilled`. `report` uses `n/a` for expectations. Exit codes: 0 for
 complete report/successful check, 1 for a rejected check, 2 for unverifiable inputs.
 Every exit 2 includes a Diagnostic with `kind`, `subject`, `unknown_claim` and a
-one-line `remedy`. Partial producer observations retain their typed coverage and
+one-line `remedy`. Partial analyzer observations retain their typed coverage and
 are persisted by `report`. Invalid locks are never replaced with empty state.
 IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen dataclasses.
 
@@ -75,7 +76,7 @@ Regression checks add these scalars to the existing record counts and fingerprin
 The delta stores raw measurements for the accepted observation and candidate.
 Schema, scope, analyzer and contract must match.
 
-`calls_total` is the producer's `calls_analyzed`. With `U = calls_unresolved` and `T = calls_total`,
+`calls_total` is the analyzer's `calls_analyzed`. With `U = calls_unresolved` and `T = calls_total`,
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.
 Zero total means `resolution: n/a`; the absolute regression check still applies.
@@ -91,9 +92,9 @@ The original Phase-4 runs under `fixtures/A` and `fixtures/B` are unchanged arch
 not test or distribution inputs. `make fixtures` reproduces A, B and C from
 `fixtures/A-dispatch`, `fixtures/B-posthoc` and `fixtures/C-valid`.
 
-The current producer supports negative dependency rules. D-self also checks that
+The bundled analyzer supports negative dependency rules. D-self also checks that
 all observed modules have declared components, that new IR modules receive explicit
-producer prohibitions, and that producer imports stay within the declared IR API.
+analyzer prohibitions, and that analyzer imports stay within the declared IR API.
 
 ## Dependencies
 
@@ -103,6 +104,13 @@ Build: Hatchling packages the root schemas; `hatch-vcs` derives versions from Gi
 Development: Ruff (lint/format), MyPy (strict),
 Pytest. `make build` uses Twine only to validate distribution metadata.
 The runtime fixture in `make check` requires Python 3.11 and 3.12.
+
+## Release
+
+GitHub Actions runs the complete check and smoke-tests both built distributions.
+Version tags such as `v0.1.0` build version `0.1.0` and publish through PyPI
+Trusted Publishing. The `pypi` GitHub environment and matching PyPI publisher
+must be configured before pushing the first release tag.
 
 ## Release versions
 

@@ -1,17 +1,18 @@
 # Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Reobserve Codekeel with the pinned external producer; verify the saved D-self evidence."""
+"""Reobserve Codekeel with its bundled analyzer and verify the saved D-self evidence."""
 
 import json
-import os
 import subprocess
 import sys
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
 from codekeel.ir.codec import decode_canonical_model, parse_observation
+from codekeel.ir.digest import package_digest
 from codekeel.ir.model import Observation
 
 ROOT = Path(__file__).parents[1]
@@ -20,12 +21,6 @@ FIXTURE = ROOT / "fixtures/D-self"
 
 @pytest.fixture(scope="module")
 def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
-    producer = Path(
-        os.environ.get("CODEKEEL_PRODUCER_ROOT", str(ROOT.parent / "datamimic-ee"))
-    ).resolve()
-    manifest = json.loads((FIXTURE / "provenance.json").read_bytes())
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=producer, text=True).strip()
-    assert head == manifest["producer_head"], "D-self requires the pinned producer commit"
     output = tmp_path_factory.mktemp("self-report") / "architecture.json"
     run = subprocess.run(
         [
@@ -35,8 +30,6 @@ def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
             "report",
             "--root",
             str(ROOT),
-            "--producer-root",
-            str(producer),
             "--output",
             str(output),
         ],
@@ -53,9 +46,9 @@ def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
 
 def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Observation) -> None:
     observed = self_observation
-    saved = parse_observation(
-        decode_canonical_model(json.loads((FIXTURE / "architecture.json").read_bytes()))
-    )
+    artifact = (FIXTURE / "architecture.json").read_bytes()
+    provenance = json.loads((FIXTURE / "provenance.json").read_bytes())
+    saved = parse_observation(decode_canonical_model(json.loads(artifact)))
     assert observed.records("violations") == ()
     assert all(record.kind != "rule-without-subjects" for record in observed.records("unknowns"))
     coverage = observed.coverage
@@ -67,6 +60,16 @@ def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Ob
     assert observed.contract.digest == saved.contract.digest
     assert observed.analyzer.code_digest == saved.analyzer.code_digest
     assert coverage == saved.coverage
+    assert provenance == {
+        "analyzer_digest": saved.analyzer.code_digest,
+        "checker_digest": package_digest(),
+        "source_digest": saved.source.source_digest,
+        "contract_digest": saved.contract.digest,
+        "artifact_digest": sha256(artifact).hexdigest(),
+        "command": "codekeel report --root . --output fixtures/D-self/architecture.json",
+        "exit_code": 0,
+        "python_version": saved.python_version,
+    }
 
 
 def test_self_contract_covers_modules_and_producer_interface(self_observation: Observation) -> None:

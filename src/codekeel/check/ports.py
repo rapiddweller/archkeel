@@ -25,7 +25,6 @@ class Producer(Protocol):
         self,
         source_root: Path,
         *,
-        producer_root: Path,
         roots: tuple[str, ...],
         namespace: str,
         contract: str,

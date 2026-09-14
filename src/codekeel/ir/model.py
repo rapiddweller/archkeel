@@ -212,7 +212,7 @@ class ObservationResult:
 
     def __post_init__(self) -> None:
         if self.observation is not None and self.observation.coverage != self.coverage:
-            raise ValueError("producer coverage differs from its observation")
+            raise ValueError("analyzer coverage differs from its observation")
         if (
             self.observation is None or self.coverage is None or self.coverage.status != "PASS"
         ) and not self.diagnostics:

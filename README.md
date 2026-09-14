@@ -7,6 +7,7 @@
 </p>
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
+[![CI](https://github.com/rapiddweller/codekeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/codekeel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/codekeel/blob/main/LICENSE)
 [![Status: milestone 1](https://img.shields.io/badge/status-milestone%201-8A8A84?labelColor=141414)](https://github.com/rapiddweller/codekeel/blob/main/docs/roadmap.md)
 
@@ -26,8 +27,7 @@ It catches two failure modes that finding-only diffs miss:
 
 > [!NOTE]
 > **Milestone 1:** `report` and `check` work. `accept` is still a placeholder.
-> Codekeel currently uses the architecture producer from `datamimic-ee`; it is
-> not yet a standalone scanner.
+> The Python analyzer ships inside the Codekeel package.
 
 ## Why Codekeel
 
@@ -87,14 +87,12 @@ and mechanically checkable.
 ### Requirements
 
 - Python 3.11+
-- `packaging` for PEP 440 version constraints
-- a checkout of the external architecture producer, currently
-  `datamimic-ee/script/architecture`
 
-From the Codekeel repository:
+Install from PyPI:
 
 ```bash
-uv sync --locked
+python -m pip install codekeel
+codekeel --help
 ```
 
 Add `codekeel.toml` to the repository you want to check:
@@ -109,18 +107,16 @@ contract = "architecture-contract.json"
 Observe the current repository:
 
 ```bash
-uv run codekeel report \
+codekeel report \
   --root /repo \
-  --producer-root /path/to/datamimic-ee \
   --output architecture.json
 ```
 
 Check a candidate against its published expectation:
 
 ```bash
-uv run codekeel check \
+codekeel check \
   --root /repo \
-  --producer-root /path/to/datamimic-ee \
   --baseline "$B" \
   --expectation-commit "$E" \
   --head "$H" \
@@ -247,16 +243,16 @@ make check
 
 This runs Ruff, strict mypy, pytest, and Codekeel's self-check.
 
-Build the wheel and source distribution and validate their PyPI metadata:
+Run the full release check, build both distributions, and install each one in isolation:
 
 ```bash
-make build
+make release-check
 ```
 
-Reproduce the protocol fixtures against the producer:
+Reproduce the protocol fixtures:
 
 ```bash
-make fixtures PRODUCER_ROOT=../datamimic-ee
+make fixtures
 ```
 
 Codekeel checks its own boundaries. `codekeel.toml` and
@@ -269,7 +265,7 @@ flowchart TB
     CLI["cli"] --> CHECK["check"]
     CLI --> ACCEPT["accept"]
     CHECK --> IR["ir"]
-    CHECK --> PRODUCER["producer"]
+    CHECK --> PRODUCER["analyzer"]
     CHECK --> HOST["host"]
     ACCEPT --> IR
     IR --> RULE["imports nothing from codekeel"]
@@ -292,7 +288,7 @@ Codekeel is deliberately strict about what it can prove:
 - **Private crossings:** only import records are checked. `import pkg;
   pkg._member` is not detected.
 - **Precommitment:** publication order is proven; private editing order is not.
-- **Producer runtime:** the producer's Python must be at least the target
+- **Analyzer runtime:** Codekeel's Python must be at least the target
   repository's Python.
 - **Acceptance:** `accept` is a placeholder and returns exit `2`.
 

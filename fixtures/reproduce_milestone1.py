@@ -65,7 +65,7 @@ def minimal_contract(path: str) -> dict:
     }
 
 
-def reproduce(producer_root: Path, output: Path) -> dict:
+def reproduce(output: Path) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     commands = []
     cli = str(Path(sys.executable).with_name("codekeel"))
@@ -118,8 +118,6 @@ def reproduce(producer_root: Path, output: Path) -> dict:
                 "report",
                 "--root",
                 str(root),
-                "--producer-root",
-                str(producer_root),
                 "--output",
                 str(report_path),
             ],
@@ -151,7 +149,6 @@ def reproduce(producer_root: Path, output: Path) -> dict:
         config = load_config(root)
         planned_result = observe(
             preview,
-            producer_root=producer_root,
             roots=config.roots,
             namespace=config.namespace,
             contract=config.contract,
@@ -216,8 +213,6 @@ def reproduce(producer_root: Path, output: Path) -> dict:
             "check",
             "--root",
             str(root),
-            "--producer-root",
-            str(producer_root),
             "--baseline",
             baseline,
             "--expectation-commit",
@@ -268,9 +263,8 @@ def reproduce(producer_root: Path, output: Path) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--producer-root", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     destination = args.output or Path(mkdtemp(prefix="codekeel-fixtures-"))
-    reproduce(args.producer_root.resolve(), destination)
+    reproduce(destination)
     print(destination / "results.json")

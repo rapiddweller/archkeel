@@ -44,5 +44,5 @@ def runtime_diagnostic(root: Path, python_version: str | None) -> Diagnostic | N
         subject,
         "AST may differ from target runtime; parse errors may be parser limitations, "
         "not source defects",
-        "Run the producer with a Python matching the target's requires-python.",
+        "Run Codekeel with a Python matching the target's requires-python.",
     )

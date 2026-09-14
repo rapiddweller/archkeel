@@ -33,12 +33,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     for name in ("report", "check"):
         subparser = commands.add_parser(name)
         subparser.add_argument("--root", type=Path, default=Path.cwd())
-        subparser.add_argument(
-            "--producer-root",
-            type=Path,
-            required=True,
-            help="Trusted external Python producer checkout",
-        )
         subparser.add_argument("--output", type=Path)
         if name == "check":
             subparser.add_argument("--baseline", type=_sha, required=True)
@@ -73,15 +67,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             if command == "report":
                 config = load_config(root)
                 subject = str(root)
-                result = run_report(
-                    root, config=config, producer_root=args.producer_root, output=args.output
-                )
+                result = run_report(root, config=config, output=args.output)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
                 result = run_check(
                     root,
-                    producer_root=args.producer_root,
                     config=config,
                     baseline=args.baseline,
                     expectation_commit=args.expectation_commit,
