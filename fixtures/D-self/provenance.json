@@ -1,9 +1,9 @@
 {
   "analyzer_digest": "713c22d7e4e99dc3555ed6600cf430c4f112a5cb14e749273a48a7ef52f11f27",
-  "checker_digest": "c6f37fb01ffcd72b627c8a1f174a294e771090fc87258a6acd20ca133f6e50c3",
-  "source_digest": "2fd7141ecfad33992ba0c9a09c5139de33188b6b705a915365b1805c758ff671",
-  "contract_digest": "fcb047f1e49ea1e634dd2b130b731892857d630489a986b1c22bcfc634d0e05a",
-  "artifact_digest": "75601f0fc0ec9dd136d444fb29af249717688f51cd04ca84bb58e25edbeb2688",
+  "checker_digest": "e64ca964892215fe1bfe9751314496f83f63123c9824614a9623ee5c867255b6",
+  "source_digest": "a95f43890882bb2c74660d86b17007e40bb6efd2f036de2259c064af0c1288cb",
+  "contract_digest": "817458da6ffd1c8c8edb82f8599d53bf3fa1d98960c7115a52b87ad8f1577618",
+  "artifact_digest": "6ab332c42e955f3c10f40afe6a7c3e5b83ceb575d90a0868fac8b4c41186f2e3",
   "command": "codekeel report --root . --output fixtures/D-self/architecture.json",
   "exit_code": 0,
   "python_version": "3.11.12"

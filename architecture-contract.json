@@ -26,7 +26,7 @@
       "capability_id": "CAP-CODEKEEL",
       "role": "component",
       "packages": ["codekeel.check"],
-      "responsibilities": ["Deterministic deltas, regression checks, expectations and publication-order checks."],
+      "responsibilities": ["Deterministic deltas, regression checks, expectations, publication-order checks and evidence rendering."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/codekeel.md"]
     },
