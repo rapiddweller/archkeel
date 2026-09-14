@@ -104,12 +104,11 @@ The HTML report is designed for a reviewer making a merge decision:
 
 - Python 3.11+
 
-Install from a checkout until the first Archkeel release on PyPI
-(0.1.0 was published as `codekeel`):
+Install the first Archkeel release from PyPI:
 
 ```bash
-uv sync --locked
-uv run archkeel --help
+pip install archkeel==0.1.0
+archkeel --help
 ```
 
 Add `archkeel.toml` to the repository you want to check:
@@ -278,30 +277,8 @@ make fixtures
 Archkeel checks its own boundaries. `archkeel.toml` and
 [architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) define the contract;
 [fixtures/D-self/result.json](https://github.com/rapiddweller/archkeel/blob/main/fixtures/D-self/result.json) contains the latest
-self-scan.
-
-```mermaid
-flowchart TB
-    CLI["cli"] --> CHECK["check"]
-    CLI --> ACCEPT["accept"]
-    CLI --> RENDER["render"]
-    CLI --> ANALYZER["analyzer"]
-    CLI --> HOST["host"]
-    CHECK --> IR["ir"]
-    ACCEPT --> IR
-    RENDER --> IR
-    ANALYZER --> IR
-    HOST --> IR
-    IR --> RULE["imports nothing from archkeel"]
-
-    classDef module fill:#141414,stroke:#5EEAD4,color:#E8E8E2
-    classDef core fill:#141414,stroke:#C5F82A,color:#E8E8E2
-    classDef invariant fill:#C5F82A,stroke:#C5F82A,color:#0D1F05
-
-    class CLI,CHECK,ACCEPT,ANALYZER,HOST,RENDER module
-    class IR core
-    class RULE invariant
-```
+self-scan. The [architecture guide](docs/architecture/archkeel.md) contains the single
+component graph and the reason for every allowed dependency.
 
 ## Current boundaries
 
@@ -318,15 +295,9 @@ Archkeel is deliberately strict about what it can prove:
 
 ## Roadmap
 
-Milestone 1 delivers `report` and `check`. Next:
-
-1. CI-only `accept`
-2. a review page
-3. agent commands: `propose` and `next`
-
-See [docs/roadmap.md](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md) for sequencing and
-[docs/reference.md](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md) for lock, host-record, schema, and
-regression-check details.
+Completed work and the ordered UI, CI and release plan live in
+[docs/roadmap.md](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md).
+Items remain planned until their listed evidence exists.
 
 ## License
 

@@ -99,7 +99,7 @@
       "source": "archkeel.ir",
       "target": "archkeel.check",
       "include_type_checking": true,
-      "rationale": "ir does not depend on check.",
+      "rationale": "Stable evidence types remain usable without policy evaluation.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -108,7 +108,7 @@
       "source": "archkeel.ir",
       "target": "archkeel.accept",
       "include_type_checking": true,
-      "rationale": "ir does not depend on accept.",
+      "rationale": "Lock and observation types remain independent of acceptance orchestration.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -117,7 +117,7 @@
       "source": "archkeel.ir",
       "target": "archkeel.cli",
       "include_type_checking": true,
-      "rationale": "ir does not depend on cli.",
+      "rationale": "Evidence models and codecs remain reusable outside the command line.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -126,7 +126,7 @@
       "source": "archkeel.ir",
       "target": "archkeel.host",
       "include_type_checking": true,
-      "rationale": "ir does not depend on host.",
+      "rationale": "Host-independent evidence remains portable across repository providers.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -135,7 +135,7 @@
       "source": "archkeel.ir",
       "target": "archkeel.analyzer",
       "include_type_checking": true,
-      "rationale": "ir does not depend on analyzer.",
+      "rationale": "The shared evidence model remains independent of Python source analysis.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -144,7 +144,7 @@
       "source": "archkeel.check",
       "target": "archkeel.accept",
       "include_type_checking": true,
-      "rationale": "check does not depend on accept.",
+      "rationale": "Policy evaluation must not create or mutate accepted state.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -153,7 +153,7 @@
       "source": "archkeel.check",
       "target": "archkeel.cli",
       "include_type_checking": true,
-      "rationale": "check does not depend on cli.",
+      "rationale": "Deterministic checks remain callable without command-line orchestration.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -180,7 +180,7 @@
       "source": "archkeel.accept",
       "target": "archkeel.check",
       "include_type_checking": true,
-      "rationale": "accept does not depend on check.",
+      "rationale": "Acceptance remains separate from deterministic policy evaluation.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -189,7 +189,7 @@
       "source": "archkeel.accept",
       "target": "archkeel.cli",
       "include_type_checking": true,
-      "rationale": "accept does not depend on cli.",
+      "rationale": "Acceptance state remains usable without command-line orchestration.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -198,7 +198,7 @@
       "source": "archkeel.accept",
       "target": "archkeel.host",
       "include_type_checking": true,
-      "rationale": "accept does not depend on host.",
+      "rationale": "Acceptance stores opaque approval references instead of host-specific data.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -207,7 +207,7 @@
       "source": "archkeel.accept",
       "target": "archkeel.analyzer",
       "include_type_checking": true,
-      "rationale": "accept does not depend on analyzer.",
+      "rationale": "Acceptance must not trigger source analysis.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -216,7 +216,7 @@
       "source": "archkeel.cli",
       "target": "archkeel.ir",
       "include_type_checking": true,
-      "rationale": "cli does not depend on ir.",
+      "rationale": "Command services mediate IR access so the CLI only composes workflows.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -225,7 +225,7 @@
       "source": "archkeel.host",
       "target": "archkeel.check",
       "include_type_checking": true,
-      "rationale": "host does not depend on check.",
+      "rationale": "Host adapters collect evidence while check owns policy interpretation.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -234,7 +234,7 @@
       "source": "archkeel.host",
       "target": "archkeel.accept",
       "include_type_checking": true,
-      "rationale": "host does not depend on accept.",
+      "rationale": "Host adapters collect approval evidence but never persist accepted state.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -243,7 +243,7 @@
       "source": "archkeel.host",
       "target": "archkeel.cli",
       "include_type_checking": true,
-      "rationale": "host does not depend on cli.",
+      "rationale": "Host adapters remain callable without command-line orchestration.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -252,7 +252,7 @@
       "source": "archkeel.host",
       "target": "archkeel.analyzer",
       "include_type_checking": true,
-      "rationale": "host does not depend on analyzer.",
+      "rationale": "Host evidence collection remains independent of source analysis.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -261,7 +261,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.check",
       "include_type_checking": true,
-      "rationale": "analyzer does not depend on check.",
+      "rationale": "The analyzer produces observations without evaluating policy.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -270,7 +270,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.accept",
       "include_type_checking": true,
-      "rationale": "analyzer does not depend on accept.",
+      "rationale": "Source analysis must not create or mutate accepted state.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -279,7 +279,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.cli",
       "include_type_checking": true,
-      "rationale": "analyzer does not depend on cli.",
+      "rationale": "Source analysis remains callable without command-line orchestration.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -288,7 +288,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.host",
       "include_type_checking": true,
-      "rationale": "analyzer does not depend on host.",
+      "rationale": "Source analysis remains independent of repository-host APIs.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -297,7 +297,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.ir.digest",
       "include_type_checking": true,
-      "rationale": "Analyzer may use only the IR model and codec boundaries.",
+      "rationale": "Package identity is checker provenance, so the analyzer must not own package hashing.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -306,7 +306,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.ir.lock",
       "include_type_checking": true,
-      "rationale": "Analyzer may use only the IR model and codec boundaries.",
+      "rationale": "Accepted-state verification belongs to checks while the analyzer only observes source.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -315,7 +315,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.ir.measurements",
       "include_type_checking": true,
-      "rationale": "Analyzer may use only the IR model and codec boundaries.",
+      "rationale": "Checks derive regression measurements from observations instead of accepting analyzer policy.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -324,7 +324,7 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.ir.trace",
       "include_type_checking": true,
-      "rationale": "Analyzer may use only the IR model and codec boundaries.",
+      "rationale": "Checks validate evidence classes while analyzer output stays at the observation boundary.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
