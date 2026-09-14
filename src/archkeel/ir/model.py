@@ -475,8 +475,9 @@ class RatchetObservations:
     reason: str | None = None
 
     def __post_init__(self) -> None:
-        if self.status == "SUPPORTED" and (self.baseline is None or self.head is None):
-            raise ValueError("supported regression checks require baseline and head measurements")
+        measured = (self.baseline is not None, self.head is not None)
+        if measured != ((True, True) if self.status == "SUPPORTED" else (False, False)):
+            raise ValueError("measurements exist exactly when regression checks are SUPPORTED")
 
 
 @dataclass(frozen=True, slots=True)

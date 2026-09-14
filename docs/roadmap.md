@@ -37,7 +37,7 @@ only when its row names repository evidence.
 | CI validates Archkeel's contract and uploads its self-observation | `.github/workflows/ci.yml` |
 | Release 0.2.0 is published on PyPI | tag `0.2.0` at `07a2df6`; release run `34881396333`; [PyPI release](https://pypi.org/project/archkeel/0.2.0/) |
 | Analyzer records share one typed envelope; `Any` annotations fell from 118 to 35 | `ac547bc`; `analyzer/embedded/records.py`; `fixtures/D-self/` |
-| Architecture decisions AD-1 to AD-5 are recorded, and each has a check: flat single-purpose analyzer modules, one JSON type, digest-based comparability, constructor invariants | `docs/architecture/archkeel.md`; `bb5c401`; `dc28681`; `04344b6`; `tests/test_analyzer.py`; `tests/test_repository_hygiene.py` |
+| Architecture decisions AD-1 to AD-5 are recorded. AD-1, AD-2, AD-4 and AD-5 have tests or type checks; AD-3 comparability is enforced by digest, and its version label is reviewed by hand | `docs/architecture/archkeel.md`; `bb5c401`; `dc28681`; `04344b6`; `tests/test_analyzer.py`; `tests/test_repository_hygiene.py` |
 | Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
 
 ## Next

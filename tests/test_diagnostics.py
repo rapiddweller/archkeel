@@ -7,6 +7,7 @@ from typing import cast, get_args
 import pytest
 
 from archkeel.ir.codec import result_bytes
+from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import (
     Diagnostic,
     DiagnosticKind,
@@ -17,9 +18,13 @@ from archkeel.ir.model import (
 )
 
 
-def test_supported_regression_checks_require_both_measurements() -> None:
-    with pytest.raises(ValueError, match="baseline and head"):
-        RatchetObservations("SUPPORTED")
+def test_measurements_exist_exactly_when_regression_checks_are_supported() -> None:
+    measured = Measurements(RatchetScalars(0, 0, 0, 0, 0, 0), 1, "measured")
+    with pytest.raises(ValueError, match="exactly when"):
+        RatchetObservations("SUPPORTED", measured)
+    with pytest.raises(ValueError, match="exactly when"):
+        RatchetObservations("UNKNOWN", measured, measured, reason="unavailable")
+    assert RatchetObservations("SUPPORTED", measured, measured).head == measured
     assert RatchetObservations("UNKNOWN", reason="unavailable").baseline is None
 
 
