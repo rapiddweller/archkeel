@@ -6,14 +6,20 @@
 from collections.abc import Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Literal
 
 from archkeel.ir.codec import canonical_report_bytes, declaration_paths, decode_json, parse_lock
 from archkeel.ir.digest import package_digest
 from archkeel.ir.host_records import parse_records
 from archkeel.ir.lock import LOCK_PATH, LockError, verify_observation
 from archkeel.ir.measurements import Measurements
-from archkeel.ir.model import CheckProvenance, Diagnostic, DiagnosticError, Observation, RunResult
+from archkeel.ir.model import (
+    CheckProvenance,
+    Diagnostic,
+    DiagnosticError,
+    Observation,
+    RunResult,
+    Verdict,
+)
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .delta import build_architecture_delta
@@ -33,7 +39,7 @@ from .ratchets import measure_python_ratchets
 from .snapshot import SnapshotError, materialize_git_snapshot
 
 
-def inspect_observation(model: Observation) -> tuple[Measurements, Literal["PASS", "FAIL"]]:
+def inspect_observation(model: Observation) -> tuple[Measurements, Verdict]:
     validate_evidence_classes(model)
     measurements = measure_python_ratchets(model)
     violations = trace_valid_violations(model)

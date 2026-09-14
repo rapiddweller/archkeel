@@ -13,6 +13,8 @@ from typing import Literal, TypeAlias, get_args
 from .measurements import Measurements
 
 SCHEMA_VERSION = "1.2.0"
+Verdict: TypeAlias = Literal["PASS", "FAIL"]
+ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
 CLASSIFIED_SECTIONS = (
     "metrics",
     "declarations",
@@ -302,7 +304,7 @@ class ArchitectureContract:
 
 @dataclass(frozen=True, slots=True)
 class Coverage:
-    status: Literal["PASS", "FAIL"]
+    status: Verdict
     files_discovered: int
     files_read: int
     files_parsed: int
@@ -313,7 +315,7 @@ class Coverage:
     ast_coverage_percent: float
     call_resolution_percent: float
     failures: tuple[Record, ...]
-    rules: Literal["PASS", "FAIL"] | None = None
+    rules: Verdict | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,7 +423,7 @@ class SemanticChange:
 @dataclass(frozen=True, slots=True)
 class DimensionDelta:
     name: str
-    status: Literal["SUPPORTED", "UNKNOWN"]
+    status: ComparisonStatus
     before_count: int
     after_count: int
     added: tuple[str, ...] = ()
@@ -443,15 +445,15 @@ class DeltaProvenance:
 class SnapshotSummary:
     git_head: str
     source_digest: str
-    coverage_status: Literal["PASS", "FAIL"]
+    coverage_status: Verdict
     python_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class DeltaCoverage:
-    status: Literal["PASS", "FAIL"]
-    baseline_status: Literal["PASS", "FAIL"]
-    head_status: Literal["PASS", "FAIL"]
+    status: Verdict
+    baseline_status: Verdict
+    head_status: Verdict
     supported_dimensions: tuple[str, ...]
     unknown_dimensions: tuple[str, ...]
 
@@ -466,7 +468,7 @@ class DeltaUnknown:
 
 @dataclass(frozen=True, slots=True)
 class RatchetObservations:
-    status: Literal["SUPPORTED", "UNKNOWN"]
+    status: ComparisonStatus
     baseline: Measurements | None = None
     head: Measurements | None = None
     reason: str | None = None
@@ -509,8 +511,8 @@ class RunResult:
     python_version: str | None = None
     measurements: Measurements | None = None
     artifact: str | None = None
-    git_predicate: Literal["PASS", "FAIL"] | None = None
-    host_order: Literal["PASS", "FAIL"] | None = None
+    git_predicate: Verdict | None = None
+    host_order: Verdict | None = None
     host_source: str | None = None
     failures: tuple[str, ...] = ()
     delta: ArchitectureDelta | None = None

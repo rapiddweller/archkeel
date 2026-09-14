@@ -15,7 +15,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final
 
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -26,6 +26,7 @@ from archkeel.ir.model import (
     ContractPath,
     EvidenceClass,
     ExternalDependencyScopeRule,
+    ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     NoComponentCyclesRule,
@@ -53,15 +54,8 @@ _MUTATING_METHODS = {
 _BUILTINS = frozenset(dir(builtins))
 
 
-@runtime_checkable
-class _Located(Protocol):
-    lineno: int
-    col_offset: int
-    end_lineno: int | None
-
-
 def _location(node: ast.AST) -> tuple[int, int, int]:
-    if not isinstance(node, _Located):
+    if not isinstance(node, ast.stmt | ast.expr | ast.excepthandler | ast.arg | ast.keyword):
         return 1, 1, 0
     line = max(node.lineno, 1)
     return line, node.end_lineno or line, node.col_offset
@@ -1525,6 +1519,17 @@ def _dependency_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+_CONSTRUCT_SIGNALS: Final = {
+    "cast_call": ForbiddenConstructKind.CAST,
+    "getattr_call": ForbiddenConstructKind.GETATTR,
+    "hasattr_call": ForbiddenConstructKind.HASATTR,
+    "eval_call": ForbiddenConstructKind.EVAL,
+    "exec_call": ForbiddenConstructKind.EXEC,
+    "dynamic_import": ForbiddenConstructKind.DYNAMIC_IMPORT,
+    "type_ignore": ForbiddenConstructKind.TYPE_IGNORE,
+}
+
+
 def _construct_violations(
     signals: Sequence[dict[str, Any]], rules: Sequence[ArchitectureRule]
 ) -> list[dict[str, Any]]:
@@ -1533,10 +1538,12 @@ def _construct_violations(
         if not isinstance(rule, ForbiddenConstructRule):
             continue
         for item in signals:
-            construct = item["kind"].removesuffix("_call")
+            construct = _CONSTRUCT_SIGNALS.get(item["kind"])
             owner = item["data"]["owner"]
-            if construct not in rule.constructs or not in_scope(
-                owner.split(":", 1)[0], rule.source
+            if (
+                construct is None
+                or construct not in rule.constructs
+                or not in_scope(owner.split(":", 1)[0], rule.source)
             ):
                 continue
             violations.append(
@@ -1545,12 +1552,12 @@ def _construct_violations(
                     evidence_class=EvidenceClass.VIOLATION,
                     area="type_architecture",
                     kind=rule.kind,
-                    title=f"{owner} uses forbidden {construct}",
+                    title=f"{owner} uses forbidden {construct.value}",
                     subjects=[owner],
                     evidence_ids=item["evidence_ids"],
                     rule_ids=[rule.id],
                     fact_ids=[item["id"]],
-                    data={"source": rule.source, "construct": construct},
+                    data={"source": rule.source, "construct": construct.value},
                 )
             )
     return sorted(violations, key=lambda item: item["id"])

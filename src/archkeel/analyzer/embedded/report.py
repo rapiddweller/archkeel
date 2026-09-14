@@ -5,45 +5,16 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.model import EvidenceClass
+from archkeel.ir.model import SCHEMA_VERSION, EvidenceClass
 
 from .contract import load_contract, project_declarations
-from .records import (
-    ANALYZER_VERSION,
-    SCHEMA_VERSION,
-    analyzer_code_digest,
-    classified,
-    stable_id,
-)
+from .records import ANALYZER_VERSION, analyzer_code_digest, classified, stable_id
 from .scanner import ScanResult, scan_repository
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
-
-
-def _git_output(root: Path, *args: str) -> str:
-    try:
-        return subprocess.check_output(
-            ["git", *args], cwd=root, text=True, stderr=subprocess.DEVNULL
-        ).strip()
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-
-
-def _git_dirty(root: Path) -> bool | str:
-    try:
-        output = subprocess.check_output(
-            ["git", "status", "--porcelain", "--untracked-files=all"],
-            cwd=root,
-            text=True,
-            stderr=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return bool(output.strip())
 
 
 def _metric(
@@ -224,27 +195,6 @@ def _metrics(scan: ScanResult) -> list[dict[str, Any]]:
     )
 
 
-def analyze_repository(
-    root: Path,
-    *,
-    contract_path: Path | None = None,
-    source_paths: list[Path] | tuple[Path, ...] | None = None,
-    roots: tuple[str, ...] = ("src",),
-    namespace: str = "src",
-) -> tuple[dict[str, Any], int]:
-    root = root.resolve()
-    return analyze_snapshot(
-        root,
-        git_head=_git_output(root, "rev-parse", "HEAD"),
-        dirty=_git_dirty(root),
-        contract_root=root,
-        contract_path=contract_path,
-        source_paths=source_paths,
-        roots=roots,
-        namespace=namespace,
-    )
-
-
 def analyze_snapshot(
     source_root: Path,
     *,
@@ -253,14 +203,12 @@ def analyze_snapshot(
     contract_root: Path | None = None,
     contract_path: Path | None = None,
     source_paths: list[Path] | tuple[Path, ...] | None = None,
-    analyzer_root: Path | None = None,
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
 ) -> tuple[dict[str, Any], int]:
     """Analyze explicit source bytes and metadata without consulting Git."""
     source_root = source_root.resolve()
     declarations_root = (contract_root or source_root).resolve()
-    del analyzer_root
     contract_file = contract_path or declarations_root / DEFAULT_CONTRACT
     if not contract_file.is_absolute():
         contract_file = declarations_root / contract_file
@@ -322,78 +270,3 @@ def analyze_snapshot(
         "evidence": scan.evidence,
     }
     return model, 0 if scan.coverage["status"] == "PASS" else 2
-
-
-def _failure_model(
-    root: Path,
-    message: str,
-    *,
-    git_head: str | None = None,
-    dirty: bool | str | None = None,
-    analyzer_root: Path | None = None,
-) -> dict[str, Any]:
-    unknown = classified(
-        item_id="UNKNOWN-ANALYZER-FAILURE",
-        evidence_class=EvidenceClass.UNKNOWN,
-        area="analysis_coverage",
-        kind="analyzer_failure",
-        title="Architecture analysis could not complete safely",
-        data={"message": message},
-    )
-    del analyzer_root
-    try:
-        code_digest = analyzer_code_digest()
-    except (OSError, ValueError):
-        code_digest = "unknown"
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "analyzer": {
-            "name": "archkeel-python-analyzer",
-            "version": ANALYZER_VERSION,
-            "code_digest": code_digest,
-        },
-        "source": {
-            "git_head": git_head
-            if git_head is not None
-            else _git_output(root, "rev-parse", "HEAD"),
-            "dirty": dirty if dirty is not None else _git_dirty(root),
-            "source_digest": "unknown",
-            "scope": ["src/**/*.py"],
-        },
-        "contract": {
-            "schema_version": "unknown",
-            "digest": "unknown",
-            "path": DEFAULT_CONTRACT.as_posix(),
-        },
-        "coverage": {
-            "status": "FAIL",
-            "files_discovered": 0,
-            "files_read": 0,
-            "files_parsed": 0,
-            "ast_coverage_percent": 0.0,
-            "failures": [unknown],
-            "calls_analyzed": 0,
-            "calls_resolved": 0,
-            "calls_partially_resolved": 0,
-            "calls_unresolved": 0,
-            "call_resolution_percent": 0.0,
-        },
-        "metrics": [],
-        "declarations": [],
-        "scope_observations": [],
-        "packages": [],
-        "modules": [],
-        "symbols": [],
-        "imports": [],
-        "dependency_edges": [],
-        "transitive_paths": [],
-        "path_observations": [],
-        "cycles": [],
-        "calls": [],
-        "typing_signals": [],
-        "contexts": [],
-        "context_evidence": [],
-        "violations": [],
-        "unknowns": [unknown],
-        "evidence": [],
-    }

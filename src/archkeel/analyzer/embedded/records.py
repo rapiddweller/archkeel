@@ -11,7 +11,6 @@ from typing import Any
 
 from archkeel.ir.model import EvidenceClass
 
-SCHEMA_VERSION = "1.2.0"
 ANALYZER_VERSION = "0.3.0"
 
 

@@ -11,7 +11,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import asdict
 from math import isfinite
-from typing import Any, Final, TypeAlias
+from typing import Any, Final, TypeAlias, get_args
 
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import SCALARS, Measurements, RatchetError, RatchetScalars, count
@@ -23,6 +23,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureDelta,
     ArchitectureRule,
+    ComparisonStatus,
     CompleteAssignmentRule,
     ComponentRole,
     ContractCapability,
@@ -57,6 +58,7 @@ from archkeel.ir.model import (
     SemanticChange,
     SnapshotSummary,
     SourceInfo,
+    Verdict,
 )
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
@@ -208,10 +210,9 @@ def parse_observation(raw: object) -> Observation:
         "failures",
     }.issubset(coverage):
         raise ValueError("coverage fields mismatch")
-    if coverage["status"] not in ("PASS", "FAIL") or coverage.get("rules") not in (
+    if coverage["status"] not in get_args(Verdict) or coverage.get("rules") not in (
         None,
-        "PASS",
-        "FAIL",
+        *get_args(Verdict),
     ):
         raise ValueError("coverage status/rules invalid")
     counts = (
@@ -899,7 +900,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         x = _object(value, label)
         if set(x) - {"python_version"} != {"git_head", "source_digest", "coverage_status"}:
             raise ValueError(f"{label} fields mismatch")
-        if x["coverage_status"] not in ("PASS", "FAIL"):
+        if x["coverage_status"] not in get_args(Verdict):
             raise ValueError(f"{label}.coverage_status invalid")
         return SnapshotSummary(
             _string(x["git_head"], f"{label}.git_head"),
@@ -914,7 +915,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         {"status", "baseline_status", "head_status", "supported_dimensions", "unknown_dimensions"},
         "delta.coverage",
     )
-    if any(cv[k] not in ("PASS", "FAIL") for k in ("status", "baseline_status", "head_status")):
+    if any(cv[k] not in get_args(Verdict) for k in ("status", "baseline_status", "head_status")):
         raise ValueError("delta coverage status invalid")
     dimensions_raw = _object(item["dimensions"], "delta.dimensions")
     dimensions_list: list[DimensionDelta] = []
@@ -925,7 +926,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
             f"dimensions.{name}",
         )
         status = dimension["status"]
-        if status not in ("SUPPORTED", "UNKNOWN"):
+        if status not in get_args(ComparisonStatus):
             raise ValueError(f"dimensions.{name}.status invalid")
         dimensions_list.append(
             DimensionDelta(
