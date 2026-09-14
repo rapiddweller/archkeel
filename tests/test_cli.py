@@ -47,6 +47,36 @@ def test_report_has_no_external_analyzer_option() -> None:
     assert "--analyzer-root" not in result.stdout
 
 
+@pytest.mark.parametrize("command", ["report", "validate", "check", "accept"])
+def test_every_command_help_explains_purpose_and_exit_codes(command: str) -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "archkeel.cli", command, "--help"],
+        capture_output=True,
+        text=True,
+        env={"NO_COLOR": "1", "COLUMNS": "100", "PATH": ""},
+    )
+    assert result.returncode == 0
+    assert "Exit codes:" in result.stdout
+    assert command == "accept" or "Example" in result.stdout
+
+
+def test_no_arguments_prints_the_command_overview(capsys: pytest.CaptureFixture) -> None:
+    assert main([]) == 0
+    overview = capsys.readouterr().out
+    assert all(name in overview for name in ("report", "validate", "check", "--version"))
+
+
+def test_interactive_terminal_gets_a_summary_and_json_stays_available(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    assert main(["validate", "--root", str(ROOT)]) == 0
+    summary = capsys.readouterr().out
+    assert "Independent verdicts" in summary and not summary.startswith("{")
+    assert main(["validate", "--root", str(ROOT), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["exit_code"] == 0
+
+
 def test_report_missing_config_is_unknown(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     assert main(["report", "--root", str(tmp_path)]) == 2
     result = json.loads(capsys.readouterr().out)

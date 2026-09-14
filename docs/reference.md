@@ -100,6 +100,9 @@ analyzer prohibitions, and that analyzer imports stay within the declared IR API
 ## Dependencies
 
 Runtime: `packaging` parses PEP 440 `requires-python` ranges; stdlib has no equivalent.
+`rich` renders the terminal view in `archkeel.render.terminal`, and `rich-argparse` formats
+`--help` in `archkeel.cli`. `external_dependency_scope` rules in the contract confine all three
+imports to those modules; JSON results never depend on them.
 Build: Hatchling packages the root schemas; `hatch-vcs` derives versions from Git tags.
 `hatch-fancy-pypi-readme` rewrites the local hero path only in distribution metadata.
 Development: Ruff (lint/format), MyPy (strict),

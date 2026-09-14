@@ -454,6 +454,14 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
+      "id": "EXTERNAL-RICH-ARGPARSE-CLI",
+      "kind": "external_dependency_scope",
+      "dependency": "rich_argparse",
+      "allowed_sources": ["archkeel.cli"],
+      "rationale": "Help formatting belongs to the composition root that owns the argument parser.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
       "id": "ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
       "source": "archkeel",

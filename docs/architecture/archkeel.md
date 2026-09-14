@@ -16,7 +16,7 @@ core, writes artifacts and delegates HTML and terminal projection to `render`. C
 never select adapters or write presentation files.
 
 Third-party imports are confined by `external_dependency_scope` rules: `packaging` to the
-analyzer runtime gate and `rich` to `archkeel.render.terminal`.
+analyzer runtime gate, `rich` to `archkeel.render.terminal` and `rich_argparse` to `archkeel.cli`.
 
 The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`. This keeps raw AST
 records inside the analyzer and exposes typed `ObservationResult` values at its boundary.
