@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from archkeel.host.records import HostRecord
+from archkeel.ir.host import HostRecord
 from archkeel.ir.model import ObservationResult
 
 

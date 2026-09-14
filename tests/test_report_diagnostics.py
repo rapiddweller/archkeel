@@ -10,6 +10,7 @@ from test_delta import _model, _record
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
+from archkeel.cli import main
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Diagnostic, ObservationResult
 
@@ -33,7 +34,7 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
         patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
         patch("archkeel.check.report.git_bytes", return_value=b""),
     ):
-        result = run_report(
+        result, architecture = run_report(
             tmp_path,
             config=ScanConfig((".",), "sample", "contract.json", "d" * 64),
             producer=producer,
@@ -41,14 +42,18 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
     assert result.exit_code == 2
     assert result.coverage == model.coverage
     assert result.diagnostics == observed.diagnostics
-    assert result.artifact == "test-artifacts/architecture/architecture.json"
-    assert decode_canonical_model(json.loads((tmp_path / result.artifact).read_bytes())) == raw
+    assert result.artifact is None
+    assert architecture is not None
+    assert decode_canonical_model(json.loads(architecture)) == raw
     assert not (tmp_path / "test-artifacts/architecture/interactive.html").exists()
 
 
 @pytest.mark.parametrize("outside", [False, True])
-def test_report_artifact_path_is_relative_only_inside_root(tmp_path: Path, outside: bool) -> None:
+def test_cli_report_artifact_path_is_relative_only_inside_root(
+    tmp_path: Path, outside: bool, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tmp_path / "root"
+    root.mkdir()
     output = tmp_path / "outside.json" if outside else root / "report.json"
     model = parse_observation(_model(git_head="a" * 40))
 
@@ -58,14 +63,14 @@ def test_report_artifact_path_is_relative_only_inside_root(tmp_path: Path, outsi
     with (
         patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
         patch("archkeel.check.report.git_bytes", return_value=b""),
+        patch(
+            "archkeel.cli.load_config",
+            return_value=ScanConfig((".",), "sample", "contract.json", "d" * 64),
+        ),
+        patch("archkeel.cli.observe", producer),
     ):
-        result = run_report(
-            root,
-            config=ScanConfig((".",), "sample", "contract.json", "d" * 64),
-            output=output,
-            producer=producer,
-        )
-    assert result.exit_code == 0
-    assert result.artifact == (str(output.resolve()) if outside else "report.json")
+        assert main(["report", "--root", str(root), "--output", str(output)]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["artifact"] == (str(output.resolve()) if outside else "report.json")
     assert decode_canonical_model(json.loads(output.read_bytes())) == _model(git_head="a" * 40)
-    assert not (output.parent / "interactive.html").exists()
+    assert (output.parent / "interactive.html").is_file()

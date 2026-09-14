@@ -10,7 +10,7 @@ import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 
-from archkeel.host.records import HostRecord, OrderingError, parse_records, validate_sha
+from archkeel.ir.host import HostRecord, OrderingError, parse_records, validate_sha
 
 
 def _required(environ: Mapping[str, str], name: str) -> str:

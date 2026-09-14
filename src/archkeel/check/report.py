@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Persist observations and expose typed command results to the CLI."""
+"""Build typed report results and canonical observation bytes."""
 
 import subprocess
 from dataclasses import replace
@@ -9,7 +9,6 @@ from pathlib import Path
 
 from archkeel.ir.codec import canonical_report_bytes, result_bytes
 from archkeel.ir.model import Diagnostic, DiagnosticError, RunResult
-from archkeel.producer import observe
 
 from .git import git_bytes
 from .ports import Producer, ScanConfig
@@ -38,9 +37,8 @@ def run_report(
     root: Path,
     *,
     config: ScanConfig,
-    output: Path | None = None,
-    producer: Producer = observe,
-) -> RunResult:
+    producer: Producer,
+) -> tuple[RunResult, bytes | None]:
     result = producer(
         root,
         roots=config.roots,
@@ -51,23 +49,13 @@ def run_report(
         contract_root=root,
     )
     model = result.observation
-    artifact = None
-    if model is not None:
-        path = output or root / "test-artifacts/architecture/architecture.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(canonical_report_bytes(model))
-        resolved = path.resolve()
-        root = root.resolve()
-        artifact = (
-            str(resolved.relative_to(root)) if resolved.is_relative_to(root) else str(resolved)
-        )
+    architecture = canonical_report_bytes(model) if model is not None else None
     if result.diagnostics:
         command_result = RunResult(
             "report",
             2,
             diagnostics=result.diagnostics,
             coverage=result.coverage,
-            artifact=artifact,
             python_version=model.python_version if model is not None else None,
         )
     else:
@@ -78,7 +66,6 @@ def run_report(
             command_result = replace(
                 unknown_result("report", "observation", error),
                 coverage=model.coverage,
-                artifact=artifact,
                 python_version=model.python_version,
             )
         else:
@@ -90,7 +77,6 @@ def run_report(
                 expectation_fulfilled="n/a",
                 coverage=model.coverage,
                 measurements=measurements,
-                artifact=artifact,
                 python_version=model.python_version,
             )
-    return command_result
+    return command_result, architecture

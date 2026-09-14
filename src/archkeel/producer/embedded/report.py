@@ -9,7 +9,6 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.codec import canonical_json_bytes
 from archkeel.ir.model import EvidenceClass
 
 from .contract import load_contract, project_declarations
@@ -23,7 +22,6 @@ from .records import (
 from .scanner import ScanResult, scan_repository
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
-DEFAULT_OUTPUT = Path("test-artifacts/architecture")
 
 
 def _git_output(root: Path, *args: str) -> str:
@@ -398,33 +396,3 @@ def _failure_model(
         "unknowns": [unknown],
         "evidence": [],
     }
-
-
-def generate_report(
-    root: Path,
-    *,
-    output_dir: Path | None = None,
-    contract_path: Path | None = None,
-    source_paths: list[Path] | tuple[Path, ...] | None = None,
-) -> tuple[dict[str, Any], int, Path]:
-    root = root.resolve()
-    destination = output_dir or root / DEFAULT_OUTPUT
-    if not destination.is_absolute():
-        destination = root / destination
-    destination.mkdir(parents=True, exist_ok=True)
-    try:
-        model, exit_code = analyze_repository(
-            root, contract_path=contract_path, source_paths=source_paths
-        )
-    except Exception as exc:  # noqa: BLE001 - analyzer invariants must fail closed with artifacts
-        model = _failure_model(root, str(exc))
-        exit_code = 2
-    try:
-        json_bytes = canonical_json_bytes(model)
-    except Exception as exc:  # noqa: BLE001 - serialization/report integrity must produce exit 2
-        model = _failure_model(root, f"report integrity failure: {exc}")
-        json_bytes = canonical_json_bytes(model)
-        exit_code = 2
-    json_path = destination / "architecture.json"
-    json_path.write_bytes(json_bytes)
-    return model, exit_code, json_path

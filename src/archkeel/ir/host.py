@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Validated host evidence records shared by adapters and policy checks."""
+"""Host evidence values and deterministic boundary validation."""
 
 from __future__ import annotations
 

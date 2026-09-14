@@ -8,15 +8,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
 
-from archkeel.host.gitlab import load_gitlab_records
-from archkeel.host.records import parse_records
 from archkeel.ir.codec import canonical_report_bytes, declaration_paths, decode_json, parse_lock
 from archkeel.ir.digest import package_digest
+from archkeel.ir.host import parse_records
 from archkeel.ir.lock import LOCK_PATH, LockError, verify_observation
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import CheckProvenance, Diagnostic, DiagnosticError, Observation, RunResult
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
-from archkeel.producer import observe
 
 from .delta import build_architecture_delta
 from .expectation import evaluate_expectation, parse_expectation, sha256_bytes
@@ -68,8 +66,8 @@ def run_check(
     accepted_branch: str,
     host_records_path: Path | None,
     environ: Mapping[str, str],
-    host: Host = load_gitlab_records,
-    producer: Producer = observe,
+    host: Host,
+    producer: Producer,
 ) -> RunResult:
     if baseline != remote_tip(root, accepted_branch):
         raise GitError("baseline is not the current accepted origin branch tip")

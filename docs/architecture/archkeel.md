@@ -6,6 +6,9 @@ Within-component imports remain allowed.
 The producer component owns the bundled Python analyzer. Raw AST records stay inside that
 component; its public result is the typed `ObservationResult`.
 
-The core components `ir`, `check`, and `analyzer` produce typed evidence without presentation
-dependencies. `render` owns deterministic HTML projections and may import only `ir`. The CLI
-orchestrates commands and writes presentation files.
+The core components `ir` and `check` have no adapter or presentation dependencies. `check`
+receives the producer and host adapters through typed ports; the CLI wires their concrete
+implementations. Shared host evidence values and validation belong to `ir`.
+
+`render` owns deterministic HTML projections and may import only `ir`. The CLI orchestrates
+commands and writes report artifacts.

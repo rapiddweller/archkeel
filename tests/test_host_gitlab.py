@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from archkeel.host.gitlab import load_gitlab_records
-from archkeel.host.records import HostRecord, OrderingError
+from archkeel.ir.host import HostRecord, OrderingError
 
 E = "e" * 40
 H = "c" * 40

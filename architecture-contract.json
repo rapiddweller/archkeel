@@ -157,6 +157,24 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
+      "id": "DEP-CHECK-NO-HOST",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.check",
+      "target": "archkeel.host",
+      "include_type_checking": true,
+      "rationale": "The deterministic core receives host evidence through an injected port.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CHECK-NO-PRODUCER",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.check",
+      "target": "archkeel.producer",
+      "include_type_checking": true,
+      "rationale": "The deterministic core receives observations through an injected port.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
       "id": "DEP-ACCEPT-NO-CHECK",
       "kind": "forbidden_dependency",
       "source": "archkeel.accept",
@@ -199,33 +217,6 @@
       "target": "archkeel.ir",
       "include_type_checking": true,
       "rationale": "cli does not depend on ir.",
-      "provenance": ["docs/architecture/archkeel.md"]
-    },
-    {
-      "id": "DEP-CLI-NO-HOST",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.cli",
-      "target": "archkeel.host",
-      "include_type_checking": true,
-      "rationale": "cli does not depend on host.",
-      "provenance": ["docs/architecture/archkeel.md"]
-    },
-    {
-      "id": "DEP-CLI-NO-PRODUCER",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.cli",
-      "target": "archkeel.producer",
-      "include_type_checking": true,
-      "rationale": "cli does not depend on producer.",
-      "provenance": ["docs/architecture/archkeel.md"]
-    },
-    {
-      "id": "DEP-HOST-NO-IR",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.host",
-      "target": "archkeel.ir",
-      "include_type_checking": true,
-      "rationale": "host does not depend on ir.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
@@ -334,6 +325,15 @@
       "target": "archkeel.ir.trace",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-PRODUCER-NO-IR-HOST",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.producer",
+      "target": "archkeel.ir.host",
+      "include_type_checking": true,
+      "rationale": "The analyzer may publish only the common model and codec boundary.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {

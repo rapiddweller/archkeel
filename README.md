@@ -285,11 +285,13 @@ flowchart TB
     CLI["cli"] --> CHECK["check"]
     CLI --> ACCEPT["accept"]
     CLI --> RENDER["render"]
+    CLI --> PRODUCER["analyzer"]
+    CLI --> HOST["host"]
     CHECK --> IR["ir"]
-    CHECK --> PRODUCER["analyzer"]
-    CHECK --> HOST["host"]
     ACCEPT --> IR
     RENDER --> IR
+    PRODUCER --> IR
+    HOST --> IR
     IR --> RULE["imports nothing from archkeel"]
 
     classDef module fill:#141414,stroke:#5EEAD4,color:#E8E8E2

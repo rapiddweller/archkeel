@@ -7,12 +7,15 @@ import argparse
 import os
 import re
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import NoReturn
 
 from ..accept import unavailable
 from ..check.report import render_result, run_report, unknown_result
 from ..check.run import run_check
+from ..host.gitlab import load_gitlab_records
+from ..producer import observe
 from ..render.html import render_architecture_html
 from .config import load_check_config, load_config
 
@@ -68,13 +71,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             if command == "report":
                 config = load_config(root)
                 subject = str(root)
-                result = run_report(root, config=config, output=args.output)
-                if result.artifact is not None:
-                    artifact = root / result.artifact
+                result, architecture = run_report(root, config=config, producer=observe)
+                if architecture is not None:
+                    artifact = args.output or root / "test-artifacts/architecture/architecture.json"
+                    artifact.parent.mkdir(parents=True, exist_ok=True)
+                    artifact.write_bytes(architecture)
+                    resolved = artifact.resolve()
+                    result = replace(
+                        result,
+                        artifact=(
+                            str(resolved.relative_to(root))
+                            if resolved.is_relative_to(root)
+                            else str(resolved)
+                        ),
+                    )
                     (artifact.parent / "interactive.html").write_bytes(
                         render_architecture_html(
                             result,
-                            artifact.read_bytes(),
+                            architecture,
                             repository=root.name,
                             architecture_href=artifact.name,
                         )
@@ -94,6 +108,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     accepted_branch=args.accepted_branch,
                     host_records_path=args.host_records,
                     environ=os.environ,
+                    host=load_gitlab_records,
+                    producer=observe,
                 )
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
