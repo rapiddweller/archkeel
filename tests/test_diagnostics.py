@@ -6,6 +6,7 @@ from typing import cast, get_args
 
 import pytest
 
+from archkeel.ir.codec import result_bytes
 from archkeel.ir.model import (
     Diagnostic,
     DiagnosticKind,
@@ -53,3 +54,14 @@ def test_exit_two_cannot_exist_without_diagnostic(command: str) -> None:
     assert RunResult(command, 2, diagnostics=(diagnostic,)).exit_code == 2
     with pytest.raises(ValueError, match="diagnostics require"):
         RunResult(command, 0, diagnostics=(diagnostic,))
+
+
+def test_json_pointer_is_emitted_only_for_validation_diagnostics() -> None:
+    ordinary = Diagnostic("parse_error", "file.py", "unknown", "Retry.")
+    validation = Diagnostic("contract_invalid", "rule", "unknown", "Fix it.", "/rules/0")
+    assert b'"pointer"' not in result_bytes(RunResult("report", 2, diagnostics=(ordinary,)))
+    assert b'"pointer":"/rules/0"' in result_bytes(
+        RunResult("validate", 2, diagnostics=(validation,))
+    )
+    with pytest.raises(ValueError, match="JSON Pointer"):
+        Diagnostic("contract_invalid", "rule", "unknown", "Fix it.", "rules/0")

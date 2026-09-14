@@ -969,6 +969,9 @@ def parse_delta(raw: object) -> ArchitectureDelta:
 
 def result_payload(result: RunResult) -> dict[str, Any]:
     payload = _raw_object(asdict(result))
+    for diagnostic in payload["diagnostics"]:
+        if isinstance(diagnostic, dict) and diagnostic.get("pointer") is None:
+            diagnostic.pop("pointer")
     if result.observation is not None:
         payload["observation"] = observation_payload(result.observation)
     if result.coverage is not None:

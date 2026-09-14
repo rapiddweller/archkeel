@@ -1,67 +1,38 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Reobserve Archkeel with its bundled analyzer and verify the saved D-self evidence."""
+"""Reobserve Archkeel and verify its saved evidence and product quality checks."""
 
 import json
-import re
 import subprocess
 import sys
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.check.validation import (
+    COMPONENT_GRAPH_MARKER,
+    closed_world_diagnostics,
+    graph_diagnostics,
+    rationale_diagnostics,
+)
+from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.digest import package_digest
-from archkeel.ir.model import Observation
+from archkeel.ir.model import ArchitectureContract, ContractDeclarations, Observation
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
-COMPONENT_GRAPH = "<!-- archkeel-component-graph -->"
 
 
-def _contract() -> dict:
-    return json.loads((ROOT / "architecture-contract.json").read_bytes())
+def _contract() -> ArchitectureContract:
+    return parse_contract(decode_json((ROOT / "architecture-contract.json").read_bytes()))
 
 
-def _components(contract: dict) -> dict[str, tuple[str, ...]]:
-    components = {
-        component["label"]: tuple(component["packages"]) for component in contract["components"]
-    }
-    packages = [(label, package) for label, values in components.items() for package in values]
-    for index, (left_label, left) in enumerate(packages):
-        for right_label, right in packages[index + 1 :]:
-            if left_label != right_label:
-                assert not (
-                    left == right or left.startswith(right + ".") or right.startswith(left + ".")
-                )
-    return components
-
-
-def _component_for(module: str, components: dict[str, tuple[str, ...]]) -> str | None:
-    owners = [
-        label
-        for label, packages in components.items()
-        if any(module == package or module.startswith(package + ".") for package in packages)
-    ]
-    assert len(owners) <= 1, (module, owners)
-    return owners[0] if owners else None
-
-
-def _observed_edges(
-    observation: Observation, components: dict[str, tuple[str, ...]]
-) -> set[tuple[str, str]]:
-    edges = set()
-    for record in observation.records("imports") or ():
-        source_module = record.data.get("source_module")
-        target_module = record.data.get("target_module")
-        assert isinstance(source_module, str) and isinstance(target_module, str)
-        source = _component_for(source_module, components)
-        target = _component_for(target_module, components)
-        if source is not None and target is not None and source != target:
-            edges.add((source, target))
-    return edges
+def _architecture_documents() -> tuple[tuple[str, str], ...]:
+    paths = (ROOT / "docs/architecture/archkeel.md", ROOT / "README.md")
+    return tuple((str(path.relative_to(ROOT)), path.read_text()) for path in paths)
 
 
 @pytest.fixture(scope="module")
@@ -118,16 +89,15 @@ def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Ob
     }
 
 
-def test_self_contract_covers_modules_and_analyzer_interface(self_observation: Observation) -> None:
+def test_self_contract_covers_modules_and_analyzer_interface(
+    self_observation: Observation,
+) -> None:
     contract = _contract()
-    packages = {
-        package for component in contract["components"] for package in component["packages"]
-    }
-    public_api = set(contract["declarations"]["public_api"])
-    forbidden_ir = {
-        rule["target"] for rule in contract["rules"] if rule["source"] == "archkeel.analyzer"
-    }
-    for module in self_observation.records("modules"):
+    packages = {package for component in contract.components for package in component.packages}
+    declarations = contract.declarations or ContractDeclarations()
+    public_api = set(declarations.public_api)
+    forbidden_ir = {rule.target for rule in contract.rules if rule.source == "archkeel.analyzer"}
+    for module in self_observation.records("modules") or ():
         name = module.data.get("qualified_name")
         assert isinstance(name, str)
         if name != "archkeel":
@@ -138,7 +108,7 @@ def test_self_contract_covers_modules_and_analyzer_interface(self_observation: O
             assert any(
                 name == prefix or name.startswith(prefix + ".") for prefix in forbidden_ir
             ), name
-    for record in self_observation.records("imports"):
+    for record in self_observation.records("imports") or ():
         source = record.data.get("source_module")
         target = record.data.get("target_module")
         assert isinstance(source, str) and isinstance(target, str)
@@ -149,62 +119,42 @@ def test_self_contract_covers_modules_and_analyzer_interface(self_observation: O
 
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:
-    contract = _contract()
-    components = _components(contract)
-    package_owner = {
-        package: label for label, packages in components.items() for package in packages
-    }
-    forbidden = [
-        (package_owner[rule["source"]], package_owner[rule["target"]])
-        for rule in contract["rules"]
-        if rule["kind"] == "forbidden_dependency"
-        and rule["source"] in package_owner
-        and rule["target"] in package_owner
-    ]
-    rule_keys = [
-        (
-            rule["kind"],
-            rule["source"],
-            rule["target"],
-            rule.get("target_symbol"),
-            rule["include_type_checking"],
-        )
-        for rule in contract["rules"]
-    ]
-    observed = _observed_edges(self_observation, components)
-    expected = {
-        (source, target) for source in components for target in components if source != target
-    }
-    assert len(forbidden) == len(set(forbidden))
-    assert len(rule_keys) == len(set(rule_keys))
-    assert observed.isdisjoint(forbidden)
-    assert observed | set(forbidden) == expected
+    assert closed_world_diagnostics(_contract(), self_observation) == ()
 
 
 def test_contract_rationales_explain_more_than_the_rule() -> None:
-    repeated = re.compile(r"(?:The )?\S+ does not depend on \S+\.", re.IGNORECASE)
-    assert [
-        rule["id"] for rule in _contract()["rules"] if repeated.fullmatch(rule["rationale"])
-    ] == []
+    assert rationale_diagnostics(_contract()) == ()
 
 
 def test_component_graph_matches_observed_edges(self_observation: Observation) -> None:
-    components = _components(_contract())
-    graphs = []
-    for path in (ROOT / "docs/architecture/archkeel.md", ROOT / "README.md"):
-        fragments = path.read_text().split(COMPONENT_GRAPH)
-        for fragment in fragments[1:]:
-            mermaid = fragment.split("```mermaid\n", 1)[1].split("```", 1)[0]
-            graphs.append(
-                {
-                    match.groups()
-                    for line in mermaid.splitlines()
-                    if (
-                        match := re.fullmatch(
-                            r"\s*([a-z][a-z0-9_]*)\s*-->\s*([a-z][a-z0-9_]*)\s*", line
-                        )
-                    )
-                }
-            )
-    assert len(graphs) == 1
-    assert graphs[0] == _observed_edges(self_observation, components)
+    assert graph_diagnostics(_contract(), self_observation, _architecture_documents()) == ()
+
+
+def test_closed_world_check_detects_a_removed_rule(self_observation: Observation) -> None:
+    contract = _contract()
+    rule = next(
+        item
+        for item in contract.rules
+        if item.source == "archkeel.ir" and item.target == "archkeel.check"
+    )
+    broken = replace(contract, rules=tuple(item for item in contract.rules if item != rule))
+    assert closed_world_diagnostics(broken, self_observation)[0].pointer == "/rules"
+
+
+def test_rationale_check_detects_a_repeated_rule() -> None:
+    contract = _contract()
+    rule = contract.rules[0]
+    repeated = replace(rule, rationale=f"{rule.source} does not depend on {rule.target}.")
+    broken = replace(contract, rules=(repeated, *contract.rules[1:]))
+    assert rationale_diagnostics(broken)[0].pointer == "/rules/0/rationale"
+
+
+def test_graph_check_detects_a_missing_edge(self_observation: Observation) -> None:
+    documents = tuple(
+        (path, content.replace("    cli --> accept\n", ""))
+        for path, content in _architecture_documents()
+    )
+    diagnostic = graph_diagnostics(_contract(), self_observation, documents)[0]
+    assert diagnostic.pointer == "/components"
+    assert "cli->accept" in diagnostic.unknown_claim
+    assert COMPONENT_GRAPH_MARKER in _architecture_documents()[0][1]

@@ -275,6 +275,7 @@ DiagnosticKind: TypeAlias = Literal[
     "rule_without_subjects",
     "runtime_mismatch",
     "incomparable_runtime",
+    "contract_invalid",
 ]
 
 
@@ -284,6 +285,7 @@ class Diagnostic:
     subject: str
     unknown_claim: str
     remedy: str
+    pointer: str | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in get_args(DiagnosticKind):
@@ -292,6 +294,8 @@ class Diagnostic:
             raise ValueError("diagnostic fields must not be empty")
         if "\n" in self.remedy or "\r" in self.remedy:
             raise ValueError("diagnostic remedy must be one line")
+        if self.pointer is not None and self.pointer and not self.pointer.startswith("/"):
+            raise ValueError("diagnostic pointer must be a JSON Pointer")
 
 
 class DiagnosticError(ValueError):
