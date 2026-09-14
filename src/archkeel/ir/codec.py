@@ -38,6 +38,8 @@ from archkeel.ir.model import (
     DimensionDelta,
     Evidence,
     EvidenceClass,
+    ForbiddenConstructKind,
+    ForbiddenConstructRule,
     ForbiddenDependencyRule,
     JsonValue,
     Observation,
@@ -616,10 +618,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         _parse_owner(value, f"spot_owners[{index}]")
         for index, value in enumerate(records("spot_owners"))
     )
-    rules = tuple(
-        _parse_forbidden_dependency(value, f"rules[{index}]")
-        for index, value in enumerate(rules_raw)
-    )
+    rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     ids = [
         item.id
         for group in (capabilities, components, scopes, commands, paths, owners, rules)
@@ -765,6 +764,34 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
         symbol,
         allowed,
     )
+
+
+def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "source", "constructs", "rationale"}, set(), label
+    )
+    raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
+    try:
+        constructs = tuple(ForbiddenConstructKind(value) for value in raw_constructs)
+    except ValueError as exc:
+        raise ValueError(f"{label}.constructs contains an unsupported construct") from exc
+    return ForbiddenConstructRule(
+        item_id,
+        "forbidden_construct",
+        _nonempty(item["source"], f"{label}.source"),
+        constructs,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+    )
+
+
+def _parse_rule(raw: RawJson, label: str) -> ForbiddenDependencyRule | ForbiddenConstructRule:
+    kind = _object(raw, label).get("kind")
+    if kind == "forbidden_dependency":
+        return _parse_forbidden_dependency(raw, label)
+    if kind == "forbidden_construct":
+        return _parse_forbidden_construct(raw, label)
+    raise ValueError(f"{label}.kind is unsupported")
 
 
 def _count(value: object, label: str) -> int:

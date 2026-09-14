@@ -10,7 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from archkeel.ir.codec import ContractVersionError, decode_json, parse_contract
-from archkeel.ir.model import ArchitectureContract, ContractDeclarations, EvidenceClass
+from archkeel.ir.model import (
+    ArchitectureContract,
+    ContractDeclarations,
+    EvidenceClass,
+    ForbiddenConstructRule,
+)
 
 from .records import classified
 
@@ -99,6 +104,26 @@ def project_declarations(contract: ArchitectureContract) -> list[dict[str, Any]]
             )
         )
     for rule in contract.rules:
+        if isinstance(rule, ForbiddenConstructRule):
+            items.append(
+                classified(
+                    item_id=rule.id,
+                    evidence_class=EvidenceClass.DECLARED_RULE,
+                    area="type_architecture",
+                    kind=rule.kind,
+                    title=(
+                        f"{rule.source} forbids {', '.join(item.value for item in rule.constructs)}"
+                    ),
+                    subjects=[rule.source],
+                    provenance=list(rule.provenance),
+                    data={
+                        "source": rule.source,
+                        "constructs": [item.value for item in rule.constructs],
+                        "rationale": rule.rationale,
+                    },
+                )
+            )
+            continue
         target = ".".join(filter(None, (rule.target, rule.target_symbol)))
         items.append(
             classified(

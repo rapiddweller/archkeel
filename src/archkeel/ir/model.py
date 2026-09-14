@@ -208,6 +208,29 @@ class ForbiddenDependencyRule:
     allowed_sources: tuple[str, ...] = ()
 
 
+class ForbiddenConstructKind(StrEnum):
+    GETATTR = "getattr"
+    HASATTR = "hasattr"
+    CAST = "cast"
+    EVAL = "eval"
+    EXEC = "exec"
+    DYNAMIC_IMPORT = "dynamic_import"
+    TYPE_IGNORE = "type_ignore"
+
+
+@dataclass(frozen=True, slots=True)
+class ForbiddenConstructRule:
+    id: str
+    kind: Literal["forbidden_construct"]
+    source: str
+    constructs: tuple[ForbiddenConstructKind, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+
+
+ArchitectureRule: TypeAlias = ForbiddenDependencyRule | ForbiddenConstructRule
+
+
 @dataclass(frozen=True, slots=True)
 class ContractDeclarations:
     capabilities: tuple[ContractCapability, ...] = ()
@@ -225,7 +248,7 @@ class ContractDeclarations:
 class ArchitectureContract:
     schema_version: Literal["2.0.0"]
     components: tuple[ContractComponent, ...]
-    rules: tuple[ForbiddenDependencyRule, ...]
+    rules: tuple[ArchitectureRule, ...]
     schema: str | None = None
     declarations: ContractDeclarations | None = None
 

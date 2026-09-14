@@ -1,0 +1,14 @@
+{
+  "schema_version": "2.0.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "CONSTRUCT-UNKNOWN",
+      "kind": "forbidden_construct",
+      "source": "sample",
+      "constructs": ["reflection"],
+      "rationale": "Unsupported constructs must fail closed.",
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ]
+}

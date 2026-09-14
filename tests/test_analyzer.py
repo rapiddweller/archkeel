@@ -10,7 +10,11 @@ import pytest
 from test_delta import _model, _record
 
 from archkeel.analyzer import observe
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
+from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.model import Coverage, Diagnostic, Observation
+
+ROOT = Path(__file__).parents[1]
 
 
 def _prepare_source(tmp_path: Path) -> None:
@@ -74,6 +78,23 @@ def test_contract_1_1_has_migration_diagnostic(tmp_path: Path) -> None:
             "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
         ),
     )
+
+
+def test_forbidden_construct_produces_a_violation_and_contract_pointer(tmp_path: Path) -> None:
+    contract_path = ROOT / "tests/contracts/valid/forbidden-construct.json"
+    (tmp_path / "contract.json").write_bytes(contract_path.read_bytes())
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text('value = eval("1 + 1")\n')
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = result.observation.records("violations") or ()
+    assert [(item.kind, item.rule_ids) for item in violations] == [
+        ("forbidden_construct", ("CONSTRUCT-NO-DYNAMIC",))
+    ]
+    contract = parse_contract(decode_json(contract_path.read_bytes()))
+    documents = (("docs/architecture/sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n```"),)
+    diagnostics = observation_diagnostics(contract, result.observation, documents)
+    assert any(item.pointer == "/rules/0" for item in diagnostics)
 
 
 @pytest.mark.parametrize("cause", ["missing_tool", "timeout", "parse_error"])

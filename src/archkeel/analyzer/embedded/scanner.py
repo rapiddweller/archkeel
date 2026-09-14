@@ -15,14 +15,16 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from archkeel.ir.model import (
     ArchitectureContract,
+    ArchitectureRule,
     ContractComponent,
     ContractDeclarations,
     ContractPath,
     EvidenceClass,
+    ForbiddenConstructRule,
     ForbiddenDependencyRule,
 )
 
@@ -45,6 +47,20 @@ _MUTATING_METHODS = {
     "update",
 }
 _BUILTINS = frozenset(dir(builtins))
+
+
+@runtime_checkable
+class _Located(Protocol):
+    lineno: int
+    col_offset: int
+    end_lineno: int | None
+
+
+def _location(node: ast.AST) -> tuple[int, int, int]:
+    if not isinstance(node, _Located):
+        return 1, 1, 0
+    line = max(node.lineno, 1)
+    return line, node.end_lineno or line, node.col_offset
 
 
 @dataclass(frozen=True)
@@ -135,14 +151,12 @@ def _owning_package(module: ParsedModule) -> str:
 
 
 def _excerpt(module: ParsedModule, node: ast.AST) -> str:
-    start = max(int(getattr(node, "lineno", 1)), 1)
+    start, _, _ = _location(node)
     return module.lines[start - 1].rstrip() if start <= len(module.lines) else ""
 
 
 def _add_evidence(evidence: dict[str, dict[str, Any]], module: ParsedModule, node: ast.AST) -> str:
-    line = int(getattr(node, "lineno", 1))
-    end_line = int(getattr(node, "end_lineno", line) or line)
-    column = int(getattr(node, "col_offset", 0))
+    line, end_line, column = _location(node)
     # One source location is one evidence owner even when several observations
     # (for example a call and a dynamic-typing signal) refer to it.
     evidence_id = stable_id("EVD", module.rel_path, line, end_line, column)
@@ -247,11 +261,12 @@ class _ImportCollector(ast.NodeVisitor):
             if _belongs_to_scope(target, self.namespace)
             else target.split(".")[0]
         )
+        line, _, column = _location(node)
         item_id = stable_id(
             "IMP",
             self.module.rel_path,
-            getattr(node, "lineno", 1),
-            getattr(node, "col_offset", 0),
+            line,
+            column,
             target,
             symbol,
             binding,
@@ -436,14 +451,15 @@ def _collect_symbols(
         else:
             data.update(_function_signature(node))
             data["symbol_category"] = "method" if parent else "function"
+        line, _, column = _location(node)
         symbols.append(
             classified(
                 item_id=stable_id(
                     "SYM",
                     qualname,
                     module.rel_path,
-                    getattr(node, "lineno", 1),
-                    getattr(node, "col_offset", 0),
+                    line,
+                    column,
                 ),
                 evidence_class=EvidenceClass.FACT,
                 area="repository_topology",
@@ -590,11 +606,12 @@ class _CallCollector(ast.NodeVisitor):
             }
         )
         evidence_id = _add_evidence(self.evidence, self.module, node)
+        line, _, column = _location(node)
         item_id = stable_id(
             "CALL",
             self.module.rel_path,
-            getattr(node, "lineno", 1),
-            getattr(node, "col_offset", 0),
+            line,
+            column,
             expression,
         )
         self.items.append(
@@ -706,11 +723,10 @@ def _annotation_signals(
     items: list[dict[str, Any]] = []
     for kind in sorted(set(kinds)):
         evidence_id = _add_evidence(evidence, module, node)
+        line, _, _ = _location(node)
         items.append(
             classified(
-                item_id=stable_id(
-                    "TYPE", module.rel_path, getattr(node, "lineno", 1), owner, kind, text
-                ),
+                item_id=stable_id("TYPE", module.rel_path, line, owner, kind, text),
                 evidence_class=EvidenceClass.FACT,
                 area="type_architecture",
                 kind=kind,
@@ -1467,10 +1483,12 @@ def _declared_path_observations(
 
 
 def _dependency_violations(
-    imports: Sequence[dict[str, Any]], rules: Sequence[ForbiddenDependencyRule]
+    imports: Sequence[dict[str, Any]], rules: Sequence[ArchitectureRule]
 ) -> list[dict[str, Any]]:
     violations: list[dict[str, Any]] = []
     for rule in rules:
+        if not isinstance(rule, ForbiddenDependencyRule):
+            continue
         source = rule.source
         target = rule.target
         allowed_sources = frozenset(rule.allowed_sources)
@@ -1510,6 +1528,37 @@ def _dependency_violations(
                         "symbol": data["symbol"],
                         "under_type_checking": data["under_type_checking"],
                     },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+def _construct_violations(
+    signals: Sequence[dict[str, Any]], rules: Sequence[ArchitectureRule]
+) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+    for rule in rules:
+        if not isinstance(rule, ForbiddenConstructRule):
+            continue
+        for item in signals:
+            construct = item["kind"].removesuffix("_call")
+            owner = item["data"]["owner"]
+            if construct not in rule.constructs or not _belongs_to_scope(
+                owner.split(":", 1)[0], rule.source
+            ):
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="type_architecture",
+                    kind=rule.kind,
+                    title=f"{owner} uses forbidden {construct}",
+                    subjects=[owner],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={"source": rule.source, "construct": construct},
                 )
             )
     return sorted(violations, key=lambda item: item["id"])
@@ -1682,12 +1731,12 @@ def scan_repository(
             tree = ast.parse(source, filename=rel)
             module_name = _module_for(path, root=root, namespace=namespace)
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
-            line = int(getattr(exc, "lineno", 1) or 1)
-            message = (
-                getattr(exc, "msg", None)
-                or getattr(exc, "strerror", None)
-                or exc.__class__.__name__
-            )
+            if isinstance(exc, SyntaxError):
+                line, message = exc.lineno or 1, exc.msg
+            elif isinstance(exc, OSError):
+                line, message = 1, exc.strerror or exc.__class__.__name__
+            else:
+                line, message = 1, exc.__class__.__name__
             failure_id = stable_id("COVERAGE", rel, line, exc.__class__.__name__, message)
             failures.append(
                 classified(
@@ -1717,9 +1766,12 @@ def scan_repository(
     module_names = {module.module for module in parsed}
     rule_failures = []
     for rule in contract.rules:
+        scopes = {"source": rule.source}
+        if isinstance(rule, ForbiddenDependencyRule):
+            scopes["target"] = rule.target
         matches = {
-            "source": sum(_belongs_to_scope(module, rule.source) for module in module_names),
-            "target": sum(_belongs_to_scope(module, rule.target) for module in module_names),
+            side: sum(_belongs_to_scope(module, scope) for module in module_names)
+            for side, scope in scopes.items()
         }
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
@@ -1730,12 +1782,12 @@ def scan_repository(
                     area="analysis_coverage",
                     kind="rule-without-subjects",
                     title=f"{rule.id}: no scanned modules for {', '.join(missing)}",
-                    subjects=[rule.source if side == "source" else rule.target for side in missing],
+                    subjects=[scopes[side] for side in missing],
                     rule_ids=[rule.id],
                     data={
                         "missing": missing,
                         "source_matches": matches["source"],
-                        "target_matches": matches["target"],
+                        **({"target_matches": matches["target"]} if "target" in matches else {}),
                     },
                 )
             )
@@ -1911,7 +1963,13 @@ def scan_repository(
         ],
         key=lambda item: item["id"],
     )
-    violations = _dependency_violations(imports, contract.rules)
+    violations = sorted(
+        [
+            *_dependency_violations(imports, contract.rules),
+            *_construct_violations(typing_signals, contract.rules),
+        ],
+        key=lambda item: item["id"],
+    )
 
     unknowns = [
         classified(

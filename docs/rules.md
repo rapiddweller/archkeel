@@ -11,15 +11,25 @@ Contract 2.0 separates deterministic rules, regression checks, declarations and 
 
 ## Class A: deterministic rules
 
-`forbidden_dependency` is the implemented class-A rule. The analyzer projects imports between
-exact module prefixes and reports a violation when a forbidden source imports its target.
+`closed_world` is an implicit Contract 2.0 invariant: each ordered component pair must be an
+observed import edge or have one `forbidden_dependency` rule. It measures component-projected
+import records. A complete scan and exact package assignment make the result deterministic;
+dynamic imports remain a blind spot. Removing one pair rule from Archkeel is an example violation.
 
-- **Measurement:** matching import records, including type-checking imports when configured.
-- **Determinism:** requires a complete scan with the same contract and analyzer version.
-- **Blind spots:** dynamic imports that the analyzer cannot resolve remain unknown.
-- **Example:** forbid `sample.core` from importing `sample.cli`.
+`forbidden_dependency` fields are `source`, `target`, `include_type_checking`, optional
+`target_symbol` and optional `allowed_sources`. The analyzer matches import records by exact module
+prefix. A complete scan, fixed source bytes, analyzer digest and Python version make the result
+deterministic. Unresolved dynamic imports remain a blind spot. Importing `sample.cli` from
+`sample.core` is an example violation.
 
-Additional class-A rule types are planned and are not accepted by the Contract 2.0 schema yet.
+`forbidden_construct` fields are `source` and `constructs`. Supported constructs are `getattr`,
+`hasattr`, `cast`, `eval`, `exec`, `dynamic_import` and `type_ignore`. It matches typing-signal
+records produced from direct AST calls and type-ignore comments. Fixed source bytes, analyzer
+digest and Python version make the result deterministic. Aliasing a function first, such as
+`f = getattr; f(value, name)`, is not resolved and remains a blind spot. Calling `eval()` below the
+configured source is an example violation.
+
+The remaining class-A rule types are planned and are not accepted by the schema yet.
 
 ## Class B: regression checks
 

@@ -1,0 +1,24 @@
+{
+  "schema_version": "2.0.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "CONSTRUCT-NO-DYNAMIC",
+      "kind": "forbidden_construct",
+      "source": "sample.core",
+      "constructs": ["eval", "exec", "dynamic_import"],
+      "rationale": "Static source analysis remains complete for executable constructs.",
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ]
+}

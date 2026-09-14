@@ -66,6 +66,9 @@ def _metric(
 
 
 def _metrics(scan: ScanResult) -> list[dict[str, Any]]:
+    dependency_violations = [
+        item for item in scan.violations if item["kind"] == "forbidden_dependency"
+    ]
     private_crossings = [
         item
         for item in scan.imports
@@ -85,17 +88,17 @@ def _metrics(scan: ScanResult) -> list[dict[str, Any]]:
             evidence_by_id[evidence_id]["end_line"],
             evidence_by_id[evidence_id]["column"],
         )
-        for item in scan.violations
+        for item in dependency_violations
         for evidence_id in item["evidence_ids"]
         if evidence_id in evidence_by_id
     }
-    affected_violation_modules = {item["data"]["source_module"] for item in scan.violations}
+    affected_violation_modules = {item["data"]["source_module"] for item in dependency_violations}
     forbidden_package_edges = {
         (
             ".".join(item["data"]["source_module"].split(".")[:2]),
             ".".join(item["data"]["target_module"].split(".")[:2]),
         )
-        for item in scan.violations
+        for item in dependency_violations
     }
     violation_fact_ids = sorted(
         {fact_id for item in scan.violations for fact_id in item["fact_ids"]}

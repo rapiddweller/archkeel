@@ -21,6 +21,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ContractDeclarations,
     Diagnostic,
+    ForbiddenDependencyRule,
     Observation,
     RunResult,
 )
@@ -85,7 +86,9 @@ def closed_world_diagnostics(
     forbidden_items = [
         (owners[rule.source], owners[rule.target])
         for rule in contract.rules
-        if rule.source in owners and rule.target in owners
+        if isinstance(rule, ForbiddenDependencyRule)
+        and rule.source in owners
+        and rule.target in owners
     ]
     forbidden = set(forbidden_items)
     diagnostics = [
@@ -253,13 +256,13 @@ def reference_diagnostics(
             for item, value in enumerate(component.packages)
         )
     for index, rule in enumerate(contract.rules):
-        names.extend(
-            ((f"/rules/{index}/source", rule.source), (f"/rules/{index}/target", rule.target))
-        )
-        names.extend(
-            (f"/rules/{index}/allowed_sources/{item}", value)
-            for item, value in enumerate(rule.allowed_sources)
-        )
+        names.append((f"/rules/{index}/source", rule.source))
+        if isinstance(rule, ForbiddenDependencyRule):
+            names.append((f"/rules/{index}/target", rule.target))
+            names.extend(
+                (f"/rules/{index}/allowed_sources/{item}", value)
+                for item, value in enumerate(rule.allowed_sources)
+            )
     names.extend(
         (f"/declarations/public_api/{index}", value)
         for index, value in enumerate(declarations.public_api)

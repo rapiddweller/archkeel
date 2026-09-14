@@ -428,6 +428,14 @@
       "include_type_checking": true,
       "rationale": "Rendering consumes IR values rather than analyzer implementations.",
       "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "CONSTRUCT-NO-DYNAMIC",
+      "kind": "forbidden_construct",
+      "source": "archkeel",
+      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore"],
+      "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
+      "provenance": ["docs/architecture/archkeel.md"]
     }
   ]
 }
