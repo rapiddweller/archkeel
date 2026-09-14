@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:codekeel:configuration:1",
+  "title": "codekeel.toml configuration (after TOML decoding)",
+  "$comment": "Filesystem existence, directory/file types, and containment after symlink resolution require runtime validation.",
+  "type": "object",
+  "required": [
+    "scan"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "scan": {
+      "type": "object",
+      "required": [
+        "roots",
+        "namespace",
+        "contract"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "roots": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "description": "Repository-relative source directories, not globs. A dot selects the repository root."
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])",
+          "description": "ASCII dotted Python package prefix used for internal imports."
+        },
+        "contract": {
+          "$ref": "#/$defs/relativePath",
+          "not": {
+            "const": "."
+          },
+          "description": "Repository-relative architecture contract file, independent of scan roots."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?![\\s\\S]*\\\\)(?![\\s\\S]*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$",
+      "description": "POSIX repository-relative path; no absolute path, backslash, NUL, or parent component."
+    }
+  }
+}

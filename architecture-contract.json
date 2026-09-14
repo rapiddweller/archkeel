@@ -2,329 +2,329 @@
   "schema_version": "1.1.0",
   "capabilities": [
     {
-      "id": "CAP-PLEDGE",
-      "name": "PLEDGE",
-      "label": "Pledge governance",
+      "id": "CAP-CODEKEEL",
+      "name": "CODEKEEL",
+      "label": "Codekeel governance",
       "review_order": 1,
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     }
   ],
   "components": [
     {
       "id": "COMP-IR",
       "label": "ir",
-      "capability_id": "CAP-PLEDGE",
+      "capability_id": "CAP-CODEKEEL",
       "role": "component",
-      "packages": ["pledge.ir"],
+      "packages": ["codekeel.ir"],
       "responsibilities": ["Immutable observations, measurements, locks and JSON codecs."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "COMP-CHECK",
       "label": "check",
-      "capability_id": "CAP-PLEDGE",
+      "capability_id": "CAP-CODEKEEL",
       "role": "component",
-      "packages": ["pledge.check"],
+      "packages": ["codekeel.check"],
       "responsibilities": ["Deterministic deltas, regression checks, expectations and publication-order checks."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "COMP-ACCEPT",
       "label": "accept",
-      "capability_id": "CAP-PLEDGE",
+      "capability_id": "CAP-CODEKEEL",
       "role": "component",
-      "packages": ["pledge.accept"],
+      "packages": ["codekeel.accept"],
       "responsibilities": ["CI acceptance entry point; currently an explicit unavailable result."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "COMP-CLI",
       "label": "cli",
-      "capability_id": "CAP-PLEDGE",
+      "capability_id": "CAP-CODEKEEL",
       "role": "component",
-      "packages": ["pledge.cli"],
-      "responsibilities": ["Command arguments and pledge.toml configuration."],
+      "packages": ["codekeel.cli"],
+      "responsibilities": ["Command arguments and codekeel.toml configuration."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "COMP-HOST",
       "label": "host",
-      "capability_id": "CAP-PLEDGE",
+      "capability_id": "CAP-CODEKEEL",
       "role": "component",
-      "packages": ["pledge.host"],
+      "packages": ["codekeel.host"],
       "responsibilities": ["GitLab host records with SHA, event and timestamp."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "COMP-PRODUCER",
       "label": "producer",
-      "capability_id": "CAP-PLEDGE",
+      "capability_id": "CAP-CODEKEEL",
       "role": "component",
-      "packages": ["pledge.producer"],
+      "packages": ["codekeel.producer"],
       "responsibilities": ["Invoke the external Python scanner and preserve typed diagnostics."],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     }
   ],
   "review_scopes": [],
   "public_api": [
-    "pledge.ir.model",
-    "pledge.ir.codec"
+    "codekeel.ir.model",
+    "codekeel.ir.codec"
   ],
-  "public_api_provenance": ["docs/architecture/pledge.md"],
+  "public_api_provenance": ["docs/architecture/codekeel.md"],
   "public_commands": [],
   "context_roots": [],
-  "context_roots_provenance": ["docs/architecture/pledge.md"],
+  "context_roots_provenance": ["docs/architecture/codekeel.md"],
   "paths": [],
   "spot_owners": [],
   "rules": [
     {
       "id": "DEP-IR-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "pledge.ir",
-      "target": "pledge.check",
+      "source": "codekeel.ir",
+      "target": "codekeel.check",
       "include_type_checking": true,
       "rationale": "ir does not depend on check.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-IR-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "pledge.ir",
-      "target": "pledge.accept",
+      "source": "codekeel.ir",
+      "target": "codekeel.accept",
       "include_type_checking": true,
       "rationale": "ir does not depend on accept.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-IR-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "pledge.ir",
-      "target": "pledge.cli",
+      "source": "codekeel.ir",
+      "target": "codekeel.cli",
       "include_type_checking": true,
       "rationale": "ir does not depend on cli.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-IR-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "pledge.ir",
-      "target": "pledge.host",
+      "source": "codekeel.ir",
+      "target": "codekeel.host",
       "include_type_checking": true,
       "rationale": "ir does not depend on host.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-IR-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "pledge.ir",
-      "target": "pledge.producer",
+      "source": "codekeel.ir",
+      "target": "codekeel.producer",
       "include_type_checking": true,
       "rationale": "ir does not depend on producer.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-CHECK-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "pledge.check",
-      "target": "pledge.accept",
+      "source": "codekeel.check",
+      "target": "codekeel.accept",
       "include_type_checking": true,
       "rationale": "check does not depend on accept.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-CHECK-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "pledge.check",
-      "target": "pledge.cli",
+      "source": "codekeel.check",
+      "target": "codekeel.cli",
       "include_type_checking": true,
       "rationale": "check does not depend on cli.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "pledge.accept",
-      "target": "pledge.check",
+      "source": "codekeel.accept",
+      "target": "codekeel.check",
       "include_type_checking": true,
       "rationale": "accept does not depend on check.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "pledge.accept",
-      "target": "pledge.cli",
+      "source": "codekeel.accept",
+      "target": "codekeel.cli",
       "include_type_checking": true,
       "rationale": "accept does not depend on cli.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "pledge.accept",
-      "target": "pledge.host",
+      "source": "codekeel.accept",
+      "target": "codekeel.host",
       "include_type_checking": true,
       "rationale": "accept does not depend on host.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-ACCEPT-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "pledge.accept",
-      "target": "pledge.producer",
+      "source": "codekeel.accept",
+      "target": "codekeel.producer",
       "include_type_checking": true,
       "rationale": "accept does not depend on producer.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-CLI-NO-IR",
       "kind": "forbidden_dependency",
-      "source": "pledge.cli",
-      "target": "pledge.ir",
+      "source": "codekeel.cli",
+      "target": "codekeel.ir",
       "include_type_checking": true,
       "rationale": "cli does not depend on ir.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-CLI-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "pledge.cli",
-      "target": "pledge.host",
+      "source": "codekeel.cli",
+      "target": "codekeel.host",
       "include_type_checking": true,
       "rationale": "cli does not depend on host.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-CLI-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "pledge.cli",
-      "target": "pledge.producer",
+      "source": "codekeel.cli",
+      "target": "codekeel.producer",
       "include_type_checking": true,
       "rationale": "cli does not depend on producer.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-HOST-NO-IR",
       "kind": "forbidden_dependency",
-      "source": "pledge.host",
-      "target": "pledge.ir",
+      "source": "codekeel.host",
+      "target": "codekeel.ir",
       "include_type_checking": true,
       "rationale": "host does not depend on ir.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-HOST-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "pledge.host",
-      "target": "pledge.check",
+      "source": "codekeel.host",
+      "target": "codekeel.check",
       "include_type_checking": true,
       "rationale": "host does not depend on check.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-HOST-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "pledge.host",
-      "target": "pledge.accept",
+      "source": "codekeel.host",
+      "target": "codekeel.accept",
       "include_type_checking": true,
       "rationale": "host does not depend on accept.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-HOST-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "pledge.host",
-      "target": "pledge.cli",
+      "source": "codekeel.host",
+      "target": "codekeel.cli",
       "include_type_checking": true,
       "rationale": "host does not depend on cli.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-HOST-NO-PRODUCER",
       "kind": "forbidden_dependency",
-      "source": "pledge.host",
-      "target": "pledge.producer",
+      "source": "codekeel.host",
+      "target": "codekeel.producer",
       "include_type_checking": true,
       "rationale": "host does not depend on producer.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-CHECK",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.check",
+      "source": "codekeel.producer",
+      "target": "codekeel.check",
       "include_type_checking": true,
       "rationale": "producer does not depend on check.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-ACCEPT",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.accept",
+      "source": "codekeel.producer",
+      "target": "codekeel.accept",
       "include_type_checking": true,
       "rationale": "producer does not depend on accept.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-CLI",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.cli",
+      "source": "codekeel.producer",
+      "target": "codekeel.cli",
       "include_type_checking": true,
       "rationale": "producer does not depend on cli.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-HOST",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.host",
+      "source": "codekeel.producer",
+      "target": "codekeel.host",
       "include_type_checking": true,
       "rationale": "producer does not depend on host.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-DIGEST",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.ir.digest",
+      "source": "codekeel.producer",
+      "target": "codekeel.ir.digest",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-LOCK",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.ir.lock",
+      "source": "codekeel.producer",
+      "target": "codekeel.ir.lock",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-MEASUREMENTS",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.ir.measurements",
+      "source": "codekeel.producer",
+      "target": "codekeel.ir.measurements",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     },
     {
       "id": "DEP-PRODUCER-NO-IR-TRACE",
       "kind": "forbidden_dependency",
-      "source": "pledge.producer",
-      "target": "pledge.ir.trace",
+      "source": "codekeel.producer",
+      "target": "codekeel.ir.trace",
       "include_type_checking": true,
       "rationale": "Producer may use only the IR model and codec boundaries.",
-      "provenance": ["docs/architecture/pledge.md"]
+      "provenance": ["docs/architecture/codekeel.md"]
     }
   ]
 }

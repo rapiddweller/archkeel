@@ -1,68 +1,41 @@
-# Pledge
+# Codekeel
 
 **The agent declares before it submits. The check is deterministic.**
 
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![Status: milestone 1](https://img.shields.io/badge/status-milestone%201-orange)
+<p>
+  <img src="docs/assets/codekeel-hero.png" alt="Codekeel architecture gate and keel" width="600">
+</p>
 
-Architecture consistency checks for AI-assisted code changes.
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
+[![License: MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/codekeel/blob/main/LICENSE)
+[![Status: milestone 1](https://img.shields.io/badge/status-milestone%201-8A8A84?labelColor=141414)](https://github.com/rapiddweller/codekeel/blob/main/docs/roadmap.md)
 
-Pledge checks changes against declared architecture and ownership rules.
-The goals are consistent responsibilities, fewer architecture violations and
-competing implementation paths, and easier maintenance.
+Codekeel checks architecture boundaries and declared changes in AI-assisted code.
+It compares an accepted commit with a candidate, checks their scans against the
+configured contract, and verifies that the candidate matches an expectation
+published before its first submission.
 
-A check rejects observed contract violations and regressions within the configured scan.
-It combines:
+It catches two failure modes that finding-only diffs miss:
 
-1. **Precommitment.** The agent publishes *what should change* before it submits the change.
-   Pledge proves the order from Git and host records, not from author dates.
-2. **Regression checks.** Compare raw measurements together with finding counts and fingerprints.
-   A refactor that hides one call behind a dict fails, even if no new finding appears.
+- the architecture changed without being declared;
+- the scanner saw less of the program, so the result looks clean only because
+  the graph became blinder.
 
-```mermaid
-flowchart LR
-    M([M — accepted commit]) --> B[B — lock<br/>architecture-accepted.json]
-    B --> E[E — expectation<br/>published first]
-    E --> H[H — candidate<br/>agent's change]
-    H --> C{{pledge check}}
-    C --> V1[observation_complete]
-    C --> V2[declared_rules]
-    C --> V3[expectation_fulfilled]
-    V1 & V2 & V3 --> X{exit}
-    X -->|0| OK([pass])
-    X -->|1| NO([reject])
-    X -->|2| UNK([unverifiable<br/>+ diagnostic])
+[Quickstart](#quickstart) · [How it works](#how-it-works) ·
+[Reference](https://github.com/rapiddweller/codekeel/blob/main/docs/reference.md) · [Roadmap](https://github.com/rapiddweller/codekeel/blob/main/docs/roadmap.md)
 
-    classDef accepted fill:#d9f2e6,stroke:#2f855a,color:#1a202c
-    classDef declared fill:#fdf2d0,stroke:#b7791f,color:#1a202c
-    classDef candidate fill:#e3e8fd,stroke:#4c51bf,color:#1a202c
-    classDef gate fill:#fde2e2,stroke:#c53030,color:#1a202c
-    class M,B accepted
-    class E declared
-    class H candidate
-    class C,X gate
-```
+> [!NOTE]
+> **Milestone 1:** `report` and `check` work. `accept` is still a placeholder.
+> Codekeel currently uses the architecture producer from `datamimic-ee`; it is
+> not yet a standalone scanner.
 
-## Three verdicts, three exit codes
+## Why Codekeel
 
-Pledge never folds everything into one score. Each question gets its own answer:
+An agent can keep tests green and introduce no new architecture finding while
+making the code harder to analyze. If the gate compares finding identities
+only, that change passes.
 
-| Verdict | Question | Typical failure |
-| --- | --- | --- |
-| `observation_complete` | Did the scan see everything it claims to? | incomplete scan, empty scope, rule without subjects (exit 2) |
-| `declared_rules` | Does the code obey the architecture contract? | forbidden import between components |
-| `expectation_fulfilled` | Did the change match what was declared, without regressions? | regression check failed, expectation published too late |
-
-| Exit | Meaning |
-| --- | --- |
-| `0` | Complete report or successful check |
-| `1` | Rejected: a verdict is `FAIL` |
-| `2` | Unverifiable input. Always carries ≥1 diagnostic: `kind`, `subject`, `unknown_claim`, `remedy` |
-
-An unverifiable input is never treated as a pass. A broken lock is exit 2, never an empty state.
-
-## Why identity checks are not enough
-
-Fixture A is a real refactor. It replaces two direct calls with a dict dispatch:
+Fixture A is the smallest example:
 
 ```diff
  def run(key: str) -> int:
@@ -71,11 +44,15 @@ Fixture A is a real refactor. It replaces two direct calls with a dict dispatch:
 +    return handlers[key]()
 ```
 
-The previous guardrails compared findings by identity and returned **PASS**.
-No new violation, cycle or private import appeared. But the call graph got blinder:
-2 of 2 calls were resolved before, 0 of 1 after.
+The refactor introduces no new forbidden import, cycle, or private crossing.
+But static call resolution gets worse:
 
-Pledge measures extent and returns exit 1:
+| Observation | Accepted | Candidate |
+| --- | ---: | ---: |
+| Resolved calls | 2 of 2 | 0 of 1 |
+| Unresolved calls | 0 | 1 |
+| New finding fingerprints | 0 | 0 |
+| Codekeel verdict | baseline | **FAIL** |
 
 ```text
 expectation_fulfilled: FAIL
@@ -83,52 +60,44 @@ regression check failed in calls_unresolved: 0->1
 regression check failed in unresolved_ratio: 0/2->1/1
 ```
 
+Codekeel compares raw measurements as well as finding counts and fingerprints.
 The ratio check uses integer cross-multiplication, never rounded percentages:
 
 ```text
-U_candidate × T_accepted  ≤  U_accepted × T_candidate      (when both T > 0)
+U_candidate × T_accepted <= U_accepted × T_candidate   (when both T > 0)
 ```
 
-## The protocol: M → B → E → H
+### What the gate adds
 
-```mermaid
-gitGraph
-    commit id: "M — accepted"
-    commit id: "B — lock only"
-    branch candidate
-    commit id: "E — expectation only"
-    commit id: "H — agent's change"
-```
+- **Precommitment with evidence.** The agent publishes the intended change
+  before it submits the candidate. Git ancestry and host records prove the
+  order; author timestamps do not.
+- **Coverage-aware regression checks.** A disappearing edge is not mistaken
+  for an improvement just because a finding disappeared with it.
+- **Explicit uncertainty.** An incomplete scan, broken lock, empty scope, or
+  runtime mismatch returns exit `2` with a diagnostic. Unknown never becomes
+  green.
 
-| Commit | Rule Pledge enforces |
-| --- | --- |
-| **M** | The accepted state. Pledge re-observes it. |
-| **B** | Lock-only child of M, tip of the accepted branch. Binds config, checker, observation digests. |
-| **E** | Child of B that changes only the expectation file. Published before the first submission of H. |
-| **H** | Descendant of E. Must not touch lock, config, contract or expectation. |
-
-Fixture B writes the expectation *after* the change, from the delta. Every guardrail was green.
-Pledge rejects it:
-
-```text
-host_order: FAIL
-expectation_fulfilled: FAIL
-expectation was not published before the first candidate submission
-```
+Codekeel complements tests, linters, and human review. It does not replace any
+of them. Its job is narrower: keep architecture changes declared, observable,
+and mechanically checkable.
 
 ## Quickstart
 
-Runtime requirements: Python 3.11+ and `packaging` for PEP 440 version constraints.
+### Requirements
 
-> **Prerequisite:** Pledge calls an external architecture scanner (the *producer*).
-> Today that producer lives in the `datamimic-ee` repository under `script/architecture`.
-> Pass its checkout with `--producer-root`. Without it, Pledge cannot observe anything.
+- Python 3.11+
+- `packaging` for PEP 440 version constraints
+- a checkout of the external architecture producer, currently
+  `datamimic-ee/script/architecture`
+
+From the Codekeel repository:
 
 ```bash
 uv sync --locked
 ```
 
-Add a `pledge.toml` to the repository you want to check:
+Add `codekeel.toml` to the repository you want to check:
 
 ```toml
 [scan]
@@ -137,60 +106,210 @@ namespace = "example"
 contract = "architecture-contract.json"
 ```
 
-Observe the repository:
+Observe the current repository:
 
 ```bash
-uv run pledge report --root /repo --producer-root /path/to/datamimic-ee --output architecture.json
+uv run codekeel report \
+  --root /repo \
+  --producer-root /path/to/datamimic-ee \
+  --output architecture.json
 ```
 
-Check a candidate against its declaration:
+Check a candidate against its published expectation:
 
 ```bash
-uv run pledge check --root /repo --producer-root /path/to/datamimic-ee \
-  --baseline "$B" --expectation-commit "$E" --head "$H" \
-  --expected expectation.json --expected-digest "$DIGEST" \
-  --accepted-branch main --branch candidate
+uv run codekeel check \
+  --root /repo \
+  --producer-root /path/to/datamimic-ee \
+  --baseline "$B" \
+  --expectation-commit "$E" \
+  --head "$H" \
+  --expected expectation.json \
+  --expected-digest "$DIGEST" \
+  --accepted-branch main \
+  --branch candidate
 ```
 
-In GitLab CI, publication order comes from merge-request diff versions via `glab`.
-Locally, replay host records with `--host-records records.json`.
-A local replay does not prove host authenticity.
+Run the Python version required by the repository being scanned. A mismatch is
+reported as `runtime_mismatch` with exit `2`, not as broken source code.
 
-Run the Python version the scanned repository requires. A mismatch is reported as
-`runtime_mismatch` (exit 2), not as a broken source file.
+## How it works
+
+```mermaid
+flowchart TB
+    B["Locked accepted state"] --> O["Observe accepted + candidate"]
+    E["Expectation published first"] --> H["Candidate submitted"]
+    H --> O
+    O --> C{"Deterministic check"}
+    C --> P["0 · pass"]
+    C --> R["1 · reject"]
+    C --> U["2 · unverifiable"]
+
+    classDef locked fill:#141414,stroke:#C5F82A,color:#E8E8E2
+    classDef declared fill:#141414,stroke:#5EEAD4,color:#E8E8E2
+    classDef candidate fill:#141414,stroke:#8A8A84,color:#E8E8E2
+    classDef gate fill:#C5F82A,stroke:#C5F82A,color:#0D1F05
+    classDef result fill:#141414,stroke:#2A2A28,color:#E8E8E2
+
+    class B locked
+    class E declared
+    class H,O candidate
+    class C gate
+    class P,R,U result
+```
+
+A check answers three independent questions. It never compresses them into a
+single score.
+
+| Verdict | Question | Typical failure |
+| --- | --- | --- |
+| `observation_complete` | Did the scan see everything it claims to see? | Incomplete scan, empty scope, rule without subjects |
+| `declared_rules` | Does the code obey the architecture contract? | Forbidden import between components |
+| `expectation_fulfilled` | Did the candidate match the declaration without regressions? | Coverage regression, undeclared change, late expectation |
+
+### Exit codes
+
+| Exit | Meaning |
+| ---: | --- |
+| `0` | Complete report or successful check |
+| `1` | Rejected because at least one verdict is `FAIL` |
+| `2` | Unverifiable input, always with at least one diagnostic |
+
+Every exit `2` diagnostic contains:
+
+```text
+kind · subject · unknown_claim · remedy
+```
+
+A broken lock is therefore not interpreted as an empty accepted state.
+
+## The M → B → E → H protocol
+
+```mermaid
+gitGraph
+    commit id: "M · accepted"
+    commit id: "B · lock only"
+    branch candidate
+    commit id: "E · expectation only"
+    commit id: "H · implementation"
+```
+
+| Commit | Contract |
+| --- | --- |
+| **M** | Accepted state. Codekeel re-observes it. |
+| **B** | Lock-only child of M and tip of the accepted branch. It binds the config, checker, and observation digests. |
+| **E** | Child of B that changes only the expectation file. It must be published before the first submission of H. |
+| **H** | Descendant of E. It must not modify the lock, config, architecture contract, or expectation. |
+
+### Agent workflow
+
+1. Start from the lock commit **B**.
+2. Write the intended architecture change and commit it alone as **E**.
+3. Publish **E** before submitting implementation work.
+4. Implement the change in one or more commits ending at **H**.
+5. Run `codekeel check`. Fix the code or revise the proposal in a new protocol
+   cycle; do not rewrite protected inputs inside H.
+
+Fixture B writes its expectation after implementation by deriving it from the
+observed delta. Its architecture findings are otherwise clean. Codekeel still
+rejects it:
+
+```text
+host_order: FAIL
+expectation_fulfilled: FAIL
+expectation was not published before the first candidate submission
+```
+
+Precommitment proves "published before submission." It does not prove that no
+private edit existed before publication.
+
+## Host evidence
+
+In GitLab CI, Codekeel reads merge-request diff versions through `glab` to
+establish publication order.
+
+For local testing, replay captured host records:
+
+```bash
+uv run codekeel check ... --host-records records.json
+```
+
+A local replay validates the record shape and behavior. It does not prove host
+authenticity.
 
 ## Development
 
+Run the complete project gate:
+
 ```bash
-make check                                    # ruff, mypy --strict, pytest, D-self
-make fixtures PRODUCER_ROOT=../datamimic-ee   # reproduce fixtures A, B, C
+make check
 ```
 
-Pledge checks itself: `pledge.toml` and [architecture-contract.json](architecture-contract.json)
-define its own boundaries. The latest self-scan is in [fixtures/D-self/result.json](fixtures/D-self/result.json).
+This runs Ruff, strict mypy, pytest, and Codekeel's self-check.
 
-```text
-cli ──► check ──► ir
- │        ├──► producer
- │        └──► host
- └──► accept ──► ir          ir imports nothing from pledge
+Build the wheel and source distribution and validate their PyPI metadata:
+
+```bash
+make build
 ```
 
-## Limits
+Reproduce the protocol fixtures against the producer:
 
-- **Competing implementations** require review when no declared rule or observed regression exposes them.
-- **Private crossings** cover import records only. `import pkg; pkg._member` is not detected.
-- **Precommitment** proves "published before submission", not "decided before any private edit".
-- **Producer Python** must be at least the target repository's Python.
-- **`accept`** is a placeholder and returns exit 2.
+```bash
+make fixtures PRODUCER_ROOT=../datamimic-ee
+```
 
-## Status
+Codekeel checks its own boundaries. `codekeel.toml` and
+[architecture-contract.json](https://github.com/rapiddweller/codekeel/blob/main/architecture-contract.json) define the contract;
+[fixtures/D-self/result.json](https://github.com/rapiddweller/codekeel/blob/main/fixtures/D-self/result.json) contains the latest
+self-scan.
 
-Milestone 1: `report` and `check` work. Next: CI-only `accept`, a review page,
-then agent commands (`propose`, `next`). See [docs/roadmap.md](docs/roadmap.md).
+```mermaid
+flowchart TB
+    CLI["cli"] --> CHECK["check"]
+    CLI --> ACCEPT["accept"]
+    CHECK --> IR["ir"]
+    CHECK --> PRODUCER["producer"]
+    CHECK --> HOST["host"]
+    ACCEPT --> IR
+    IR --> RULE["imports nothing from codekeel"]
 
-Exact rules for locks, host records, regression checks and schemas: [docs/reference.md](docs/reference.md).
+    classDef module fill:#141414,stroke:#5EEAD4,color:#E8E8E2
+    classDef core fill:#141414,stroke:#C5F82A,color:#E8E8E2
+    classDef invariant fill:#C5F82A,stroke:#C5F82A,color:#0D1F05
 
----
+    class CLI,CHECK,ACCEPT,PRODUCER,HOST module
+    class IR core
+    class RULE invariant
+```
+
+## Current boundaries
+
+Codekeel is deliberately strict about what it can prove:
+
+- **Competing implementations:** review is still required when no declared rule
+  or observed regression exposes them.
+- **Private crossings:** only import records are checked. `import pkg;
+  pkg._member` is not detected.
+- **Precommitment:** publication order is proven; private editing order is not.
+- **Producer runtime:** the producer's Python must be at least the target
+  repository's Python.
+- **Acceptance:** `accept` is a placeholder and returns exit `2`.
+
+## Roadmap
+
+Milestone 1 delivers `report` and `check`. Next:
+
+1. CI-only `accept`
+2. a review page
+3. agent commands: `propose` and `next`
+
+See [docs/roadmap.md](https://github.com/rapiddweller/codekeel/blob/main/docs/roadmap.md) for sequencing and
+[docs/reference.md](https://github.com/rapiddweller/codekeel/blob/main/docs/reference.md) for lock, host-record, schema, and
+regression-check details.
+
+## License
 
 MIT © 2026 Rapiddweller Asia Co., Ltd.
+
+Maintained by [Alexander Kell](https://github.com/ake2l).

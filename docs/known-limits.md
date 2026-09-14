@@ -1,5 +1,9 @@
 # Known limits: unresolved calls
 
+Historical Pledge evidence. Names and commands below refer to the pinned checker, before the Codekeel rename.
+
+FACT — Every `pledge@<SHA>` below is a commit in this repository's history before the Codekeel rename commit.
+
 FACT — This diagnosis measures committed sources. It changes no resolver, contract, or check policy.
 
 ## Sources and reproduction
@@ -10,9 +14,9 @@ FACT — This diagnosis measures committed sources. It changes no resolver, cont
 | Repo #2 | `rd-svc-window-cleaning@74b3271133620983bb4be9a766850a2abc06073f` | 3.12.10 |
 | EE producer | `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0` | Same as each report |
 
-FACT — `tools/classify_unresolved.py` in this document's commit emits a summary and the complete call ledger. It checks Python version, source digest, file count, unique call IDs, and exact AST matches. Its SHA-256 is checked before execution below. It is outside the package and `make check`.
+FACT — `tools/classify_unresolved.py` at `pledge@4d46c80b6ce3ef88d7509dde7a802a515f5b89fe` emits a summary and the complete call ledger. It checks Python version, source digest, file count, unique call IDs, and exact AST matches. Its SHA-256 is checked before execution below. It is outside the package and `make check`.
 
-Set `PLEDGE_REPO`, `REPO2_REPO`, and `EE_REPO` to local repositories containing those commits. Set `PY311` and `PY312` to Python 3.11.12 and 3.12.10 with Pledge's `packaging` dependency installed. Run the following in one Bash session:
+Set `PLEDGE_REPO` to a clone of this repository, and `REPO2_REPO` and `EE_REPO` to local repositories containing those commits. Set `PY311` and `PY312` to Python 3.11.12 and 3.12.10 with Pledge's `packaging` dependency installed. Run the following in one Bash session:
 
 ```bash
 set -euo pipefail
@@ -84,8 +88,9 @@ Write this zero-rule contract to `$WORK/repo2/docs/architecture/architecture-con
 export PYTHONPATH="$WORK/pledge/src"
 "$PY311" -c 'import platform; assert platform.python_version() == "3.11.12"'
 "$PY312" -c 'import platform; assert platform.python_version() == "3.12.10"'
+git -C "$PLEDGE_REPO" show 4d46c80b6ce3ef88d7509dde7a802a515f5b89fe:tools/classify_unresolved.py > "$WORK/classify_unresolved.py"
 CLASSIFIER_SHA256=ee626f8f2b7e13baa41bcad7d3195c3b19e122b6661b938460c319ed351b6a9e
-"$PY311" - "$PLEDGE_REPO/tools/classify_unresolved.py" "$CLASSIFIER_SHA256" <<'PYTHON'
+"$PY311" - "$WORK/classify_unresolved.py" "$CLASSIFIER_SHA256" <<'PYTHON'
 import hashlib, pathlib, sys
 assert hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest() == sys.argv[2]
 PYTHON
@@ -93,7 +98,7 @@ measure() {
     "$2" -m pledge.cli report --root "$WORK/$1" \
         --producer-root "$WORK/producer" --output "$WORK/$1-report.json" \
         > "$WORK/$1-result.json"
-    "$2" "$PLEDGE_REPO/tools/classify_unresolved.py" --root "$WORK/$1" \
+    "$2" "$WORK/classify_unresolved.py" --root "$WORK/$1" \
         --report "$WORK/$1-report.json" --output "$WORK/$1-analysis.json"
 }
 measure pledge "$PY311"

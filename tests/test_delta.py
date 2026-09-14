@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
@@ -8,15 +8,15 @@ from typing import Any
 
 import pytest
 
-from pledge.check.delta import build_architecture_delta
-from pledge.ir.codec import (
+from codekeel.check.delta import build_architecture_delta
+from codekeel.ir.codec import (
     canonical_json_bytes,
     canonical_report_bytes,
     delta_payload,
     parse_observation,
 )
-from pledge.ir.digest import package_digest
-from pledge.ir.model import CLASSIFIED_SECTIONS
+from codekeel.ir.digest import package_digest
+from codekeel.ir.model import CLASSIFIED_SECTIONS
 
 
 def _evidence(identifier: str, line: int) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 # DATAMIMIC
@@ -10,13 +10,13 @@ import json
 
 from test_delta import _model as _base_model
 
-from pledge.ir.codec import (
+from codekeel.ir.codec import (
     canonical_json_bytes,
     canonical_report_bytes,
     decode_canonical_model,
     parse_observation,
 )
-from pledge.ir.trace import validate_evidence_classes
+from codekeel.ir.trace import validate_evidence_classes
 
 
 def _record(

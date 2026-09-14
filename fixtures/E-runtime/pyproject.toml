@@ -1,4 +1,4 @@
 [project]
-name = "pledge-runtime-fixture"
+name = "codekeel-runtime-fixture"
 version = "0.1.0"
 requires-python = ">=3.12"

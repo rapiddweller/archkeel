@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 # DATAMIMIC
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from pledge.check.delta import SUPPORTED_DIMENSIONS as DELTA_DIMENSIONS
-from pledge.check.expectation import (
+from codekeel.check.delta import SUPPORTED_DIMENSIONS as DELTA_DIMENSIONS
+from codekeel.check.expectation import (
     EXPECTATION_SCHEMA_VERSION,
     GUARDRAIL_DIMENSIONS,
     GUARDRAIL_KEYS,
@@ -26,10 +26,10 @@ from pledge.check.expectation import (
     parse_expectation,
     sha256_bytes,
 )
-from pledge.check.expectation import SUPPORTED_DIMENSIONS as EXPECTATION_DIMENSIONS
-from pledge.ir.codec import parse_delta
-from pledge.ir.digest import package_digest
-from pledge.ir.model import ArchitectureDelta
+from codekeel.check.expectation import SUPPORTED_DIMENSIONS as EXPECTATION_DIMENSIONS
+from codekeel.ir.codec import parse_delta
+from codekeel.ir.digest import package_digest
+from codekeel.ir.model import ArchitectureDelta
 
 ANALYZER_DIGEST = "a" * 64
 CHECKER_DIGEST = package_digest()

@@ -1,4 +1,0 @@
-[scan]
-roots = ["src/pledge"]
-namespace = "pledge"
-contract = "architecture-contract.json"

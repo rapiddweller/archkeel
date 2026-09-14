@@ -1,12 +1,12 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import pytest
 
-from pledge.check.ordering import check_order
-from pledge.host.records import HostRecord, OrderingError, parse_records
+from codekeel.check.ordering import check_order
+from codekeel.host.records import HostRecord, OrderingError, parse_records
 
 E = "e" * 40
 H = "c" * 40

@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 """Local protocol fixtures. Host events and CI lock authorship are simulated."""
@@ -14,18 +14,18 @@ from dataclasses import asdict
 from pathlib import Path
 from tempfile import mkdtemp
 
-from pledge.check.delta import build_architecture_delta
-from pledge.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
-from pledge.check.ratchets import measure_python_ratchets
-from pledge.cli.config import load_config
-from pledge.ir.codec import (
+from codekeel.check.delta import build_architecture_delta
+from codekeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
+from codekeel.check.ratchets import measure_python_ratchets
+from codekeel.cli.config import load_config
+from codekeel.ir.codec import (
     canonical_report_bytes,
     decode_canonical_model,
     delta_payload,
     parse_observation,
 )
-from pledge.ir.digest import package_digest
-from pledge.producer import observe
+from codekeel.ir.digest import package_digest
+from codekeel.producer import observe
 
 
 def _git(root: Path, *args: str) -> str:
@@ -68,7 +68,7 @@ def minimal_contract(path: str) -> dict:
 def reproduce(producer_root: Path, output: Path) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     commands = []
-    cli = str(Path(sys.executable).with_name("pledge"))
+    cli = str(Path(sys.executable).with_name("codekeel"))
 
     def command(args: list[str], *, expected: int, label: str) -> dict:
         env = {key: value for key, value in os.environ.items() if not key.startswith("CI_")}
@@ -105,7 +105,7 @@ def reproduce(producer_root: Path, output: Path) -> dict:
         contract_path = "docs/architecture/contract.json"
         (root / "docs/architecture").mkdir(parents=True)
         _json(root / contract_path, minimal_contract(contract_path))
-        (root / "pledge.toml").write_text(
+        (root / "codekeel.toml").write_text(
             f'[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "{contract_path}"\n'
         )
         (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
@@ -131,7 +131,7 @@ def reproduce(producer_root: Path, output: Path) -> dict:
             "schema_version": "1.0.0",
             "accepted_commit": accepted_commit,
             "observation_digest": sha256_bytes(canonical_report_bytes(accepted)),
-            "config_digest": sha256_bytes((root / "pledge.toml").read_bytes()),
+            "config_digest": sha256_bytes((root / "codekeel.toml").read_bytes()),
             "checker_digest": package_digest(),
             "measurements": asdict(measure_python_ratchets(accepted)),
             "approval_ref": "fixture-only:simulated-host-approval",
@@ -271,6 +271,6 @@ if __name__ == "__main__":
     parser.add_argument("--producer-root", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    destination = args.output or Path(mkdtemp(prefix="pledge-fixtures-"))
+    destination = args.output or Path(mkdtemp(prefix="codekeel-fixtures-"))
     reproduce(args.producer_root.resolve(), destination)
     print(destination / "results.json")

@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -8,15 +8,15 @@ from pathlib import Path
 
 import pytest
 
-from pledge.cli import main
+from codekeel.cli import main
 
 
 @pytest.mark.parametrize("entry", ["installed", "module"])
 def test_accept_remains_unknown_at_both_entrypoints(entry: str) -> None:
     command = (
-        [str(Path(sys.executable).with_name("pledge"))]
+        [str(Path(sys.executable).with_name("codekeel"))]
         if entry == "installed"
-        else [sys.executable, "-m", "pledge.cli"]
+        else [sys.executable, "-m", "codekeel.cli"]
     )
     result = subprocess.run(
         [*command, "accept"],

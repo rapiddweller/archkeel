@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import hashlib
@@ -11,11 +11,11 @@ from typing import Any
 import pytest
 from test_delta import _model as _base_model
 
-from pledge.check.git import GitError, check_git_order
-from pledge.check.ratchets import measure_python_ratchets
-from pledge.check.snapshot import SnapshotError
-from pledge.ir.codec import canonical_report_bytes, parse_lock, parse_observation
-from pledge.ir.lock import LockError, verify_observation
+from codekeel.check.git import GitError, check_git_order
+from codekeel.check.ratchets import measure_python_ratchets
+from codekeel.check.snapshot import SnapshotError
+from codekeel.ir.codec import canonical_report_bytes, parse_lock, parse_observation
+from codekeel.ir.lock import LockError, verify_observation
 
 
 def _git(root: Path, *args: str) -> str:
@@ -27,7 +27,7 @@ def _repo(tmp_path: Path) -> tuple[Path, str, str, str]:
     root.mkdir()
     _git(root, "init", "-q")
     _git(root, "config", "user.email", "test@example.invalid")
-    _git(root, "config", "user.name", "Pledge Test")
+    _git(root, "config", "user.name", "Codekeel Test")
     (root / "expectation.json").write_text("{}\n", encoding="utf-8")
     (root / "code.py").write_text("value = 1\n", encoding="utf-8")
     _git(root, "add", ".")

@@ -1,7 +1,7 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Reobserve Pledge with the pinned external producer; verify the saved D-self evidence."""
+"""Reobserve Codekeel with the pinned external producer; verify the saved D-self evidence."""
 
 import json
 import os
@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from pledge.ir.codec import decode_canonical_model, parse_observation
-from pledge.ir.model import Observation
+from codekeel.ir.codec import decode_canonical_model, parse_observation
+from codekeel.ir.model import Observation
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
@@ -21,7 +21,7 @@ FIXTURE = ROOT / "fixtures/D-self"
 @pytest.fixture(scope="module")
 def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
     producer = Path(
-        os.environ.get("PLEDGE_PRODUCER_ROOT", str(ROOT.parent / "datamimic-ee"))
+        os.environ.get("CODEKEEL_PRODUCER_ROOT", str(ROOT.parent / "datamimic-ee"))
     ).resolve()
     manifest = json.loads((FIXTURE / "provenance.json").read_bytes())
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=producer, text=True).strip()
@@ -31,7 +31,7 @@ def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
         [
             sys.executable,
             "-m",
-            "pledge.cli",
+            "codekeel.cli",
             "report",
             "--root",
             str(ROOT),
@@ -76,16 +76,16 @@ def test_self_contract_covers_modules_and_producer_interface(self_observation: O
     }
     public_api = set(contract["public_api"])
     forbidden_ir = {
-        rule["target"] for rule in contract["rules"] if rule["source"] == "pledge.producer"
+        rule["target"] for rule in contract["rules"] if rule["source"] == "codekeel.producer"
     }
     for module in self_observation.records("modules"):
         name = module.data.get("qualified_name")
         assert isinstance(name, str)
-        if name != "pledge":
+        if name != "codekeel":
             assert any(name == package or name.startswith(package + ".") for package in packages), (
                 name
             )
-        if name.startswith("pledge.ir.") and name not in public_api:
+        if name.startswith("codekeel.ir.") and name not in public_api:
             assert any(
                 name == prefix or name.startswith(prefix + ".") for prefix in forbidden_ir
             ), name
@@ -93,7 +93,7 @@ def test_self_contract_covers_modules_and_producer_interface(self_observation: O
         source = record.data.get("source_module")
         target = record.data.get("target_module")
         assert isinstance(source, str) and isinstance(target, str)
-        if (source == "pledge.producer" or source.startswith("pledge.producer.")) and (
-            target == "pledge.ir" or target.startswith("pledge.ir.")
+        if (source == "codekeel.producer" or source.startswith("codekeel.producer.")) and (
+            target == "codekeel.ir" or target.startswith("codekeel.ir.")
         ):
             assert target in public_api, (source, target)

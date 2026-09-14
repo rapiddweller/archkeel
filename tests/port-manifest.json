@@ -17,7 +17,7 @@
     "test_expectation.py": {
       "source": "test_architecture_expectation.py",
       "ported": "all 11 original test functions; parameter arrays preserved",
-      "adapter": "schema/checker fields; checker_digest = pledge.ir.digest.package_digest()"
+      "adapter": "schema/checker fields; checker_digest = codekeel.ir.digest.package_digest()"
     },
     "test_snapshot.py": {
       "source": "test_architecture_snapshot.py",
@@ -41,7 +41,7 @@
       "ported": [
         "test_report_enforce_fails_closed_before_enforcing_trace_valid_violations"
       ],
-      "adapter": "direct pledge.ir.trace function; two original parameter cases"
+      "adapter": "direct codekeel.ir.trace function; two original parameter cases"
     }
   },
   "excluded": [

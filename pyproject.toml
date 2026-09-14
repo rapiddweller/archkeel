@@ -1,26 +1,56 @@
 [project]
-name = "pledge"
-version = "0.1.0"
-description = "Deterministic checks for declared architecture changes"
-readme = "README.md"
+name = "codekeel"
+dynamic = ["version", "readme"]
+description = "Deterministic architecture checks for AI-assisted code changes"
 requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Rapiddweller Asia Co., Ltd." }]
+maintainers = [{ name = "Alexander Kell", email = "Alexander.Kell@rapiddweller.com" }]
+keywords = ["architecture", "static-analysis", "code-review", "ai-assisted", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
 # requires-python is PEP 440; stdlib has no specifier parser. Reuse packaging instead of one.
 dependencies = ["packaging>=24.2,<27"]
 
+[project.urls]
+Repository = "https://github.com/rapiddweller/codekeel"
+Documentation = "https://github.com/rapiddweller/codekeel/blob/main/docs/reference.md"
+Issues = "https://github.com/rapiddweller/codekeel/issues"
+
 [project.scripts]
-pledge = "pledge.cli:main"
+codekeel = "codekeel.cli:main"
 
 [build-system]
 # Hatchling maps the single schema/ source into wheels without a custom build hook.
-requires = ["hatchling>=1.32,<2"]
+# Git tags own versions; the README hook keeps local image paths out of PyPI metadata.
+requires = ["hatchling>=1.32,<2", "hatch-vcs>=0.5,<1", "hatch-fancy-pypi-readme>=25.1,<26"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [{ path = "README.md" }]
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = 'src="docs/assets/codekeel-hero\.png"'
+replacement = 'src="https://raw.githubusercontent.com/rapiddweller/codekeel/main/docs/assets/codekeel-hero.png"'
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/pledge"]
+packages = ["src/codekeel"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"schema" = "pledge/schema"
+"schema" = "codekeel/schema"
 
 [tool.hatch.build.targets.sdist]
 # Archived Phase-4 runs contain external symlinks and are not distribution inputs.
@@ -28,7 +58,8 @@ only-include = [
     "src", "schema", "tests", "Makefile", "uv.lock",
     "fixtures/A-dispatch", "fixtures/B-posthoc", "fixtures/C-valid",
     "fixtures/reproduce_milestone1.py", "fixtures/E-runtime", "fixtures/D-self",
-    "pledge.toml", "architecture-contract.json", "docs/architecture",
+    "codekeel.toml", "architecture-contract.json", "docs/architecture",
+    "docs/reference.md", "docs/roadmap.md", "README.md", "docs/assets/codekeel-hero.png",
 ]
 
 [dependency-groups]

@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 """Golden digests measured against the saved Step 2 checker before the typed port."""
@@ -8,8 +8,8 @@ import hashlib
 import pytest
 from test_delta import _evidence, _model, _record
 
-from pledge.check.delta import build_architecture_delta
-from pledge.ir.codec import canonical_json_bytes, delta_payload, parse_observation
+from codekeel.check.delta import build_architecture_delta
+from codekeel.ir.codec import canonical_json_bytes, delta_payload, parse_observation
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:pledge:architecture-ir:python-decoded:1.2.0",
+  "$id": "urn:codekeel:architecture-ir:python-decoded:1.2.0",
   "title": "Existing Python ArchitectureIR 1.2.0, decoded observation profile",
   "$comment": "DESIGN ARTIFACT, not a product implementation. Top-level fields come from report.analyze_snapshot; coverage comes from scanner.scan_repository. Generic record data remains open where no per-kind schema is declared. Decode architecture-ir-columnar-v1 before validating. Do not silently use this legacy profile as the new accepted-run contract.",
   "type": "object",
@@ -182,7 +182,7 @@
           "items": {
             "allOf": [
               {
-                "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+                "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
               },
               {
                 "not": {
@@ -213,7 +213,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -235,7 +235,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -257,7 +257,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -279,7 +279,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -301,7 +301,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -323,7 +323,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -347,7 +347,7 @@
           {
             "allOf": [
               {
-                "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+                "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
               },
               {
                 "not": {
@@ -455,7 +455,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -477,7 +477,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -499,7 +499,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -521,7 +521,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -545,7 +545,7 @@
           {
             "allOf": [
               {
-                "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+                "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
               },
               {
                 "not": {
@@ -632,7 +632,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -654,7 +654,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -676,7 +676,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -698,7 +698,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -720,7 +720,7 @@
       "items": {
         "allOf": [
           {
-            "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/record"
+            "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/record"
           },
           {
             "not": {
@@ -740,7 +740,7 @@
     "evidence": {
       "type": "array",
       "items": {
-        "$ref": "urn:pledge:architecture-ir:common:1.2.0#/$defs/evidence"
+        "$ref": "urn:codekeel:architecture-ir:common:1.2.0#/$defs/evidence"
       }
     },
     "python_version": {

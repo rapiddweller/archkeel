@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import io
@@ -13,19 +13,19 @@ from test_delta import _record
 from test_expectation import _delta_payload, _expectation_payload, _typed_delta
 from test_snapshot import _git, _write
 
-import pledge
-from pledge.check.expectation import ExpectationError, evaluate_expectation, parse_expectation
-from pledge.check.python_profile import crossing_imports
-from pledge.check.snapshot import SnapshotError, _materialize_archive, materialize_git_snapshot
-from pledge.ir.codec import parse_record
+import codekeel
+from codekeel.check.expectation import ExpectationError, evaluate_expectation, parse_expectation
+from codekeel.check.python_profile import crossing_imports
+from codekeel.check.snapshot import SnapshotError, _materialize_archive, materialize_git_snapshot
+from codekeel.ir.codec import parse_record
 
 
 def test_package_digest_is_location_independent_and_covers_nested_source(tmp_path: Path) -> None:
-    source = Path(pledge.__file__).parent
+    source = Path(codekeel.__file__).parent
     roots = [tmp_path / "first", tmp_path / "second"]
     for reverse, root in enumerate(roots):
         for path in sorted(source.rglob("*.py"), reverse=bool(reverse)):
-            target = root / "pledge" / path.relative_to(source)
+            target = root / "codekeel" / path.relative_to(source)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
 
@@ -36,7 +36,7 @@ def test_package_digest_is_location_independent_and_covers_nested_source(tmp_pat
                 "-B",
                 "-S",
                 "-c",
-                "from pledge.ir.digest import package_digest; print(package_digest())",
+                "from codekeel.ir.digest import package_digest; print(package_digest())",
             ],
             cwd=root,
             text=True,
@@ -44,7 +44,7 @@ def test_package_digest_is_location_independent_and_covers_nested_source(tmp_pat
 
     first = digest(roots[0])
     assert digest(roots[1]) == first
-    path = roots[1] / "pledge/check/python_profile.py"
+    path = roots[1] / "codekeel/check/python_profile.py"
     path.write_text(path.read_text() + "\n# changed checker source\n")
     assert digest(roots[1]) != first
 
@@ -118,8 +118,8 @@ def test_snapshot_uses_configured_roots_without_sibling_prefix_leakage(
     tmp_path: Path, roots: tuple[str, ...], expected: set[str]
 ) -> None:
     _git(tmp_path, "init", "-q")
-    _git(tmp_path, "config", "user.email", "pledge@example.invalid")
-    _git(tmp_path, "config", "user.name", "Pledge Test")
+    _git(tmp_path, "config", "user.email", "codekeel@example.invalid")
+    _git(tmp_path, "config", "user.name", "Codekeel Test")
     for name in (
         "src/app/__init__.py",
         "src/app/core.py",

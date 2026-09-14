@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
@@ -12,7 +12,7 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/E-runtime"
-PRODUCER = Path(os.environ.get("PLEDGE_PRODUCER_ROOT", str(ROOT.parent / "datamimic-ee")))
+PRODUCER = Path(os.environ.get("CODEKEEL_PRODUCER_ROOT", str(ROOT.parent / "datamimic-ee")))
 
 
 def _interpreter(minor: int) -> str:
@@ -32,7 +32,7 @@ def _fixture(tmp_path: Path) -> Path:
     shutil.copytree(FIXTURE, root)
     _git(root, "init", "-q")
     _git(root, "config", "user.email", "fixture@example.invalid")
-    _git(root, "config", "user.name", "Pledge fixture")
+    _git(root, "config", "user.name", "Codekeel fixture")
     _git(root, "add", ".")
     _git(root, "commit", "-qm", "runtime fixture")
     return root
@@ -43,7 +43,7 @@ def _report(minor: int, root: Path) -> tuple[int, dict[str, object]]:
         [
             _interpreter(minor),
             "-m",
-            "pledge.cli",
+            "codekeel.cli",
             "report",
             "--root",
             str(root),

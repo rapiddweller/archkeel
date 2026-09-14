@@ -1,10 +1,10 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-# Run from the Pledge checkout with the report's exact Python version:
+# Run from the Codekeel checkout with the report's exact Python version:
 # PYTHONPATH=src "$PYTHON" tools/classify_unresolved.py --root "$SOURCE_ROOT" \
 #   --report "$REPORT" --output "$OUTPUT"
-# SOURCE_ROOT must contain pledge.toml and the source matching the report digest.
+# SOURCE_ROOT must contain codekeel.toml and the source matching the report digest.
 # stdout: JSON summary; OUTPUT: summary plus one row per unresolved call.
 # Expected for the reports in docs/known-limits.md (exit 0):
 # D-self, Python 3.11.12: files=28, calls_total=1322, unresolved=237, unmatched=0.
@@ -26,7 +26,7 @@ from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 
-from pledge.ir.codec import decode_canonical_model
+from codekeel.ir.codec import decode_canonical_model
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--root", type=Path, required=True)
@@ -35,7 +35,7 @@ parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 report = decode_canonical_model(json.loads(args.report.read_bytes()))
 assert platform.python_version() == report["python_version"]
-scan = tomllib.loads((args.root / "pledge.toml").read_text())["scan"]
+scan = tomllib.loads((args.root / "codekeel.toml").read_text())["scan"]
 paths = sorted(
     (
         p

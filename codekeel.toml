@@ -1,0 +1,4 @@
+[scan]
+roots = ["src/codekeel"]
+namespace = "codekeel"
+contract = "architecture-contract.json"

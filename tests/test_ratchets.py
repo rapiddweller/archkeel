@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import copy
@@ -14,15 +14,15 @@ from test_expectation import (
     _typed_delta,
 )
 
-from pledge.check.expectation import (
+from codekeel.check.expectation import (
     ExpectationError,
     ExpectationResult,
     evaluate_expectation,
     parse_expectation,
 )
-from pledge.check.ratchets import compare_ratchets, measure_python_ratchets
-from pledge.ir.codec import parse_measurements, parse_observation
-from pledge.ir.measurements import Measurements, RatchetError, RatchetScalars
+from codekeel.check.ratchets import compare_ratchets, measure_python_ratchets
+from codekeel.ir.codec import parse_measurements, parse_observation
+from codekeel.ir.measurements import Measurements, RatchetError, RatchetScalars
 
 
 def _calls(model: dict[str, Any], unresolved: int, total: int) -> None:

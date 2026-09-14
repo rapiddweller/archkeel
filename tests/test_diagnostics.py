@@ -1,11 +1,11 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from dataclasses import FrozenInstanceError
 
 import pytest
 
-from pledge.ir.model import Diagnostic, ObservationResult, RecordData, RunResult
+from codekeel.ir.model import Diagnostic, ObservationResult, RecordData, RunResult
 
 
 def test_missing_observation_requires_diagnostic() -> None:

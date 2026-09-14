@@ -1,10 +1,10 @@
-# Pledge reference
+# Codekeel reference
 
 Exact rules behind the [README](../README.md). Code is the source of truth; this file explains it.
 
 ## Configuration
 
-[schema/pledge.schema.json](../schema/pledge.schema.json) defines `pledge.toml`.
+[schema/codekeel.schema.json](../schema/codekeel.schema.json) defines `codekeel.toml`.
 Only `[scan]` with required `roots`, `namespace` and `contract` is accepted.
 Paths are relative to the repository root. Scan roots are directories, not globs.
 The architecture schemas live once under `schema/`; builds include them as package data.
@@ -98,5 +98,17 @@ producer prohibitions, and that producer imports stay within the declared IR API
 ## Dependencies
 
 Runtime: `packaging` parses PEP 440 `requires-python` ranges; stdlib has no equivalent.
-Build: Hatchling packages the root schemas. Development: Ruff (lint/format), MyPy (strict),
-Pytest. The runtime fixture in `make check` requires Python 3.11 and 3.12.
+Build: Hatchling packages the root schemas; `hatch-vcs` derives versions from Git tags.
+`hatch-fancy-pypi-readme` rewrites the local hero path only in distribution metadata.
+Development: Ruff (lint/format), MyPy (strict),
+Pytest. `make build` uses Twine only to validate distribution metadata.
+The runtime fixture in `make check` requires Python 3.11 and 3.12.
+
+## Release versions
+
+Versions come from Git tags. A clean checkout of `v1.2.3` builds version `1.2.3`;
+commits after the tag produce development versions. Release builds need the Git
+history and tags. No fixed fallback version is configured.
+
+The README keeps its relative hero path for local previews. PyPI metadata uses
+an absolute image URL; the build does not rewrite the source README.

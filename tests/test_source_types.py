@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import re
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from pledge.ir.codec import parse_measurements
-from pledge.ir.measurements import Measurements, RatchetScalars
+from codekeel.ir.codec import parse_measurements
+from codekeel.ir.measurements import Measurements, RatchetScalars
 
 
 def test_source_has_no_untyped_module_boundaries_or_product_namespace() -> None:
@@ -18,7 +18,10 @@ def test_source_has_no_untyped_module_boundaries_or_product_namespace() -> None:
     namespace_hits = []
     for path in sorted(source.rglob("*.py")):
         for line, text in enumerate(path.read_text().splitlines(), 1):
-            if pattern.search(text) and path.relative_to(source).as_posix() != "pledge/ir/codec.py":
+            if (
+                pattern.search(text)
+                and path.relative_to(source).as_posix() != "codekeel/ir/codec.py"
+            ):
                 hits.append(f"{path}:{line}:{text}")
             if "datamimic" in text.lower():
                 namespace_hits.append(f"{path}:{line}:{text}")

@@ -1,4 +1,4 @@
-# Pledge
+# Codekeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 # DATAMIMIC
@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 from test_model import _model as _base_model
 
-from pledge.ir.codec import parse_observation
-from pledge.ir.trace import trace_valid_violations
+from codekeel.ir.codec import parse_observation
+from codekeel.ir.trace import trace_valid_violations
 
 
 def _model(trace_valid: bool) -> dict[str, object]:
