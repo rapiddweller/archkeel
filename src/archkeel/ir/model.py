@@ -228,7 +228,40 @@ class ForbiddenConstructRule:
     provenance: tuple[str, ...]
 
 
-ArchitectureRule: TypeAlias = ForbiddenDependencyRule | ForbiddenConstructRule
+@dataclass(frozen=True, slots=True)
+class ExternalDependencyScopeRule:
+    id: str
+    kind: Literal["external_dependency_scope"]
+    dependency: str
+    allowed_sources: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CompleteAssignmentRule:
+    id: str
+    kind: Literal["complete_assignment"]
+    source: str
+    rationale: str
+    provenance: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NoComponentCyclesRule:
+    id: str
+    kind: Literal["no_component_cycles"]
+    rationale: str
+    provenance: tuple[str, ...]
+
+
+ArchitectureRule: TypeAlias = (
+    ForbiddenDependencyRule
+    | ForbiddenConstructRule
+    | ExternalDependencyScopeRule
+    | CompleteAssignmentRule
+    | NoComponentCyclesRule
+)
 
 
 def in_scope(name: str, scope: str) -> bool:

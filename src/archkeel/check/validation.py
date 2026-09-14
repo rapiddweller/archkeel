@@ -19,8 +19,11 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.model import (
     ArchitectureContract,
+    CompleteAssignmentRule,
     ContractDeclarations,
     Diagnostic,
+    ExternalDependencyScopeRule,
+    ForbiddenConstructRule,
     ForbiddenDependencyRule,
     Observation,
     RunResult,
@@ -243,9 +246,13 @@ def reference_diagnostics(
             for item, value in enumerate(component.packages)
         )
     for index, rule in enumerate(contract.rules):
-        names.append((f"/rules/{index}/source", rule.source))
+        if isinstance(
+            rule, ForbiddenDependencyRule | ForbiddenConstructRule | CompleteAssignmentRule
+        ):
+            names.append((f"/rules/{index}/source", rule.source))
         if isinstance(rule, ForbiddenDependencyRule):
             names.append((f"/rules/{index}/target", rule.target))
+        if isinstance(rule, ForbiddenDependencyRule | ExternalDependencyScopeRule):
             names.extend(
                 (f"/rules/{index}/allowed_sources/{item}", value)
                 for item, value in enumerate(rule.allowed_sources)
@@ -342,7 +349,7 @@ def observation_diagnostics(
                 f"/rules/{rule_index.get(rule_id, 0)}",
                 rule_id,
                 f"The observed code violates the declared rule: {record.title}",
-                "Remove the dependency or amend the contract with owner approval.",
+                "Change the code or amend the contract with owner approval.",
             )
         )
     return _sorted(diagnostics)

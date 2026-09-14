@@ -1,0 +1,37 @@
+{
+  "schema_version": "2.0.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "EXTERNAL-JSON",
+      "kind": "external_dependency_scope",
+      "dependency": "json",
+      "allowed_sources": ["sample.core"],
+      "rationale": "Serialization stays at one boundary.",
+      "provenance": ["docs/architecture/sample.md"]
+    },
+    {
+      "id": "ASSIGNMENT",
+      "kind": "complete_assignment",
+      "source": "sample",
+      "rationale": "Every module has one accountable owner.",
+      "provenance": ["docs/architecture/sample.md"]
+    },
+    {
+      "id": "NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components can be reviewed in dependency order.",
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ]
+}

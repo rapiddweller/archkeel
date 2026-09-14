@@ -24,8 +24,10 @@ from archkeel.ir.model import (
     ContractDeclarations,
     ContractPath,
     EvidenceClass,
+    ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    NoComponentCyclesRule,
     in_scope,
 )
 
@@ -1553,6 +1555,17 @@ def _construct_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
+    """Name the module selectors whose absence would make a rule vacuous."""
+    if isinstance(rule, ForbiddenDependencyRule):
+        return {"source": (rule.source,), "target": (rule.target,)}
+    if isinstance(rule, ExternalDependencyScopeRule):
+        return {"allowed_sources": rule.allowed_sources}
+    if isinstance(rule, NoComponentCyclesRule):
+        return {}
+    return {"source": (rule.source,)}
+
+
 def _component_scope_observations(
     *,
     components: Sequence[ContractComponent],
@@ -1753,12 +1766,12 @@ def scan_repository(
     module_names = {module.module for module in parsed}
     rule_failures = []
     for rule in contract.rules:
-        scopes = {"source": rule.source}
-        if isinstance(rule, ForbiddenDependencyRule):
-            scopes["target"] = rule.target
+        scopes = _rule_scopes(rule)
         matches = {
-            side: sum(in_scope(module, scope) for module in module_names)
-            for side, scope in scopes.items()
+            side: sum(
+                any(in_scope(module, scope) for scope in side_scopes) for module in module_names
+            )
+            for side, side_scopes in scopes.items()
         }
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
@@ -1769,12 +1782,11 @@ def scan_repository(
                     area="analysis_coverage",
                     kind="rule-without-subjects",
                     title=f"{rule.id}: no scanned modules for {', '.join(missing)}",
-                    subjects=[scopes[side] for side in missing],
+                    subjects=[scope for side in missing for scope in scopes[side]],
                     rule_ids=[rule.id],
                     data={
                         "missing": missing,
-                        "source_matches": matches["source"],
-                        **({"target_matches": matches["target"]} if "target" in matches else {}),
+                        **{f"{side}_matches": count for side, count in matches.items()},
                     },
                 )
             )

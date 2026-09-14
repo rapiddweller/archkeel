@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import asdict
 from math import isfinite
 from typing import Any, Final, TypeAlias
@@ -21,6 +22,8 @@ from archkeel.ir.model import (
     AnalyzerInfo,
     ArchitectureContract,
     ArchitectureDelta,
+    ArchitectureRule,
+    CompleteAssignmentRule,
     ComponentRole,
     ContractCapability,
     ContractCommand,
@@ -38,10 +41,12 @@ from archkeel.ir.model import (
     DimensionDelta,
     Evidence,
     EvidenceClass,
+    ExternalDependencyScopeRule,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     JsonValue,
+    NoComponentCyclesRule,
     Observation,
     Projection,
     RatchetObservations,
@@ -785,13 +790,58 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     )
 
 
-def _parse_rule(raw: RawJson, label: str) -> ForbiddenDependencyRule | ForbiddenConstructRule:
+def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDependencyScopeRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "dependency", "allowed_sources", "rationale"}, set(), label
+    )
+    dependency = _nonempty(item["dependency"], f"{label}.dependency")
+    if not dependency.isidentifier():
+        raise ValueError(f"{label}.dependency must be a top-level import name")
+    return ExternalDependencyScopeRule(
+        item_id,
+        "external_dependency_scope",
+        dependency,
+        _contract_strings(item["allowed_sources"], f"{label}.allowed_sources", required=True),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+    )
+
+
+def _parse_complete_assignment(raw: RawJson, label: str) -> CompleteAssignmentRule:
+    item, item_id, provenance = _contract_record(raw, {"kind", "source", "rationale"}, set(), label)
+    return CompleteAssignmentRule(
+        item_id,
+        "complete_assignment",
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+    )
+
+
+def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRule:
+    item, item_id, provenance = _contract_record(raw, {"kind", "rationale"}, set(), label)
+    return NoComponentCyclesRule(
+        item_id,
+        "no_component_cycles",
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+    )
+
+
+_RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
+    "forbidden_dependency": _parse_forbidden_dependency,
+    "forbidden_construct": _parse_forbidden_construct,
+    "external_dependency_scope": _parse_external_dependency_scope,
+    "complete_assignment": _parse_complete_assignment,
+    "no_component_cycles": _parse_no_component_cycles,
+}
+
+
+def _parse_rule(raw: RawJson, label: str) -> ArchitectureRule:
     kind = _object(raw, label).get("kind")
-    if kind == "forbidden_dependency":
-        return _parse_forbidden_dependency(raw, label)
-    if kind == "forbidden_construct":
-        return _parse_forbidden_construct(raw, label)
-    raise ValueError(f"{label}.kind is unsupported")
+    if not isinstance(kind, str) or kind not in _RULE_PARSERS:
+        raise ValueError(f"{label}.kind is unsupported")
+    return _RULE_PARSERS[kind](raw, label)
 
 
 def _count(value: object, label: str) -> int:

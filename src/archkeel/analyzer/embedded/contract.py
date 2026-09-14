@@ -12,9 +12,13 @@ from typing import Any
 from archkeel.ir.codec import ContractVersionError, decode_json, parse_contract
 from archkeel.ir.model import (
     ArchitectureContract,
+    ArchitectureRule,
+    CompleteAssignmentRule,
     ContractDeclarations,
     EvidenceClass,
+    ExternalDependencyScopeRule,
     ForbiddenConstructRule,
+    ForbiddenDependencyRule,
 )
 
 from .records import classified
@@ -36,6 +40,65 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
     except ValueError as exc:
         raise ContractError(f"invalid architecture contract JSON: {exc}") from exc
     return contract, hashlib.sha256(raw).hexdigest()
+
+
+def _rule_declaration(rule: ArchitectureRule) -> dict[str, Any]:
+    subjects: list[str]
+    data: dict[str, Any]
+    if isinstance(rule, ForbiddenDependencyRule):
+        target = ".".join(filter(None, (rule.target, rule.target_symbol)))
+        area, title, subjects = (
+            "dependency_violations",
+            f"{rule.source} must not depend on {target}",
+            [rule.source, target],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "include_type_checking": rule.include_type_checking,
+            "rationale": rule.rationale,
+            "allowed_sources": sorted(rule.allowed_sources),
+            **({"target_symbol": rule.target_symbol} if rule.target_symbol else {}),
+        }
+    elif isinstance(rule, ForbiddenConstructRule):
+        constructs = [item.value for item in rule.constructs]
+        area, title, subjects = (
+            "type_architecture",
+            f"{rule.source} forbids {', '.join(constructs)}",
+            [rule.source],
+        )
+        data = {"source": rule.source, "constructs": constructs, "rationale": rule.rationale}
+    elif isinstance(rule, ExternalDependencyScopeRule):
+        area, title, subjects = (
+            "dependency_violations",
+            f"{rule.dependency} is allowed only in {', '.join(rule.allowed_sources)}",
+            [rule.dependency, *rule.allowed_sources],
+        )
+        data = {
+            "dependency": rule.dependency,
+            "allowed_sources": sorted(rule.allowed_sources),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, CompleteAssignmentRule):
+        area, title, subjects = (
+            "components",
+            f"Every module in {rule.source} belongs to one component",
+            [rule.source],
+        )
+        data = {"source": rule.source, "rationale": rule.rationale}
+    else:
+        area, title, subjects = "cycles", "Component dependencies form no cycle", []
+        data = {"rationale": rule.rationale}
+    return classified(
+        item_id=rule.id,
+        evidence_class=EvidenceClass.DECLARED_RULE,
+        area=area,
+        kind=rule.kind,
+        title=title,
+        subjects=subjects,
+        provenance=list(rule.provenance),
+        data=data,
+    )
 
 
 def project_declarations(contract: ArchitectureContract) -> list[dict[str, Any]]:
@@ -103,47 +166,7 @@ def project_declarations(contract: ArchitectureContract) -> list[dict[str, Any]]
                 data={"steps": path.steps},
             )
         )
-    for rule in contract.rules:
-        if isinstance(rule, ForbiddenConstructRule):
-            items.append(
-                classified(
-                    item_id=rule.id,
-                    evidence_class=EvidenceClass.DECLARED_RULE,
-                    area="type_architecture",
-                    kind=rule.kind,
-                    title=(
-                        f"{rule.source} forbids {', '.join(item.value for item in rule.constructs)}"
-                    ),
-                    subjects=[rule.source],
-                    provenance=list(rule.provenance),
-                    data={
-                        "source": rule.source,
-                        "constructs": [item.value for item in rule.constructs],
-                        "rationale": rule.rationale,
-                    },
-                )
-            )
-            continue
-        target = ".".join(filter(None, (rule.target, rule.target_symbol)))
-        items.append(
-            classified(
-                item_id=rule.id,
-                evidence_class=EvidenceClass.DECLARED_RULE,
-                area="dependency_violations",
-                kind=rule.kind,
-                title=f"{rule.source} must not depend on {target}",
-                subjects=[rule.source, target],
-                provenance=list(rule.provenance),
-                data={
-                    "source": rule.source,
-                    "target": rule.target,
-                    "include_type_checking": rule.include_type_checking,
-                    "rationale": rule.rationale,
-                    "allowed_sources": sorted(rule.allowed_sources),
-                    **({"target_symbol": rule.target_symbol} if rule.target_symbol else {}),
-                },
-            )
-        )
+    items.extend(_rule_declaration(rule) for rule in contract.rules)
     for api in sorted(declarations.public_api):
         items.append(
             classified(
