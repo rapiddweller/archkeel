@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -26,13 +27,13 @@ def _runtime_command(minor: int) -> list[str]:
     executable = _interpreter(minor)
     if executable == sys.executable:
         return [executable]
+    dependencies = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["dependencies"]
     return [
         "uv",
         "run",
         "--isolated",
         "--no-project",
-        "--with",
-        "packaging>=24.2,<27",
+        *(argument for dependency in dependencies for argument in ("--with", dependency)),
         "--python",
         executable,
         "python",

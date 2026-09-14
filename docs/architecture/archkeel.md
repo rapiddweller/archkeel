@@ -12,8 +12,11 @@ imports remain allowed. Every cross-component pair is either observed or forbidd
 | Edge | `cli`, `render`, `accept` | Composition, presentation and accepted-state entry points |
 
 The CLI is the composition root. It selects concrete analyzer and host adapters, invokes the
-core, writes artifacts and delegates HTML projection to `render`. Core modules never select
-adapters or write presentation files.
+core, writes artifacts and delegates HTML and terminal projection to `render`. Core modules
+never select adapters or write presentation files.
+
+Third-party imports are confined by `external_dependency_scope` rules: `packaging` to the
+analyzer runtime gate and `rich` to `archkeel.render.terminal`.
 
 The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`. This keeps raw AST
 records inside the analyzer and exposes typed `ObservationResult` values at its boundary.

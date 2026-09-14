@@ -68,7 +68,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.render"],
-      "responsibilities": ["Deterministic HTML projections of typed Archkeel evidence."],
+      "responsibilities": ["Deterministic HTML and terminal projections of typed Archkeel evidence."],
       "forbidden_responsibilities": ["Architecture decisions and persistence."],
       "provenance": ["docs/architecture/archkeel.md"]
     }
@@ -443,6 +443,14 @@
       "dependency": "packaging",
       "allowed_sources": ["archkeel.analyzer.runtime"],
       "rationale": "Only the runtime gate interprets requires-python specifiers; the core stays dependency-free.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "EXTERNAL-RICH-TERMINAL",
+      "kind": "external_dependency_scope",
+      "dependency": "rich",
+      "allowed_sources": ["archkeel.render.terminal"],
+      "rationale": "Terminal styling stays replaceable; JSON and HTML evidence never depend on it.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
