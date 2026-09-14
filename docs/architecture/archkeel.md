@@ -27,10 +27,25 @@ Each decision names its reason and the check that holds it. Code follows the dec
 to a decision is recorded here before the code changes.
 
 **AD-1 Analyzer modules are flat and single-purpose.** `archkeel/analyzer/embedded/` holds only
-top-level modules: `source` (parsed modules and evidence locations), `scanner` (orchestration,
-imports, symbols, calls, typing signals), `contexts` (context and state evidence), `violations`
-(rule evaluation), `graph` (components and paths), `records` (record envelope, ids, analyzer
-digest), `contract` (declarations) and `report` (observation assembly). Reason:
+top-level modules, one responsibility each:
+
+| Module | Responsibility |
+|---|---|
+| `scanner` | Discover and parse sources, run the collectors, return `ScanResult` |
+| `source` | Parsed modules, module names, evidence locations |
+| `imports` | Import bindings and `__all__` exports |
+| `symbols` | Classes, functions and their signatures |
+| `calls` | Call sites and their resolution |
+| `typing_signals` | Weak typing signals such as `Any`, `object` and `type: ignore` |
+| `dependencies` | Dependency edges, cycles, declared paths and component scopes |
+| `contexts` | Context and state evidence |
+| `violations` | Contract rule evaluation |
+| `graph` | Graph algorithms: components, ranks, transitive paths |
+| `records` | Record envelope, stable ids, analyzer version and digest |
+| `contract` | Contract loading and declarations |
+| `report` | Observation assembly |
+
+ Reason:
 `analyzer_code_digest` hashes top-level `*.py` files, so code in a subpackage would change
 analyzer behavior without changing the digest. Check: `tests/test_analyzer.py`.
 
