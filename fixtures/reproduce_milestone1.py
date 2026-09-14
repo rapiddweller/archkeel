@@ -18,6 +18,7 @@ from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ratchets import measure_python_ratchets
+from archkeel.cli import html_path
 from archkeel.cli.config import load_config
 from archkeel.ir.codec import (
     canonical_report_bytes,
@@ -28,10 +29,7 @@ from archkeel.ir.codec import (
 from archkeel.ir.digest import package_digest
 
 DEMO_CASES = {
-    "A": (
-        1,
-        "The call graph gets blinder: calls_unresolved 0->1, unresolved_ratio 0/2->1/1.",
-    ),
+    "A": (1, None),
     "B": (1, "The expectation was published after the first candidate submission."),
     "C": (0, "The declared change was fulfilled."),
 }
@@ -81,8 +79,12 @@ def reproduce(output: Path) -> dict:
 
     def command(args: list[str], *, expected: int, label: str) -> dict:
         env = {key: value for key, value in os.environ.items() if not key.startswith("CI_")}
-        result = subprocess.run([cli, *args], capture_output=True, text=True, env=env)
-        (output / (label + ".stdout.json")).write_text(result.stdout)
+        result_path = output / (label + ".stdout.json")
+        run_args = [*args]
+        if label.endswith("-check"):
+            run_args.extend(("--output", str(result_path)))
+        result = subprocess.run([cli, *run_args], capture_output=True, text=True, env=env)
+        result_path.write_text(result.stdout)
         (output / (label + ".stderr")).write_text(result.stderr)
         commands.append({"command": shlex.join([cli, *args]), "exit_code": result.returncode})
         _json(output / "commands.json", commands)
@@ -274,7 +276,7 @@ def print_summary(output: Path) -> None:
     print(
         "Case · expected exit · actual exit · "
         "observation_complete / declared_rules / expectation_fulfilled · "
-        "demonstrates · result JSON"
+        "demonstrates · result JSON · check HTML"
     )
     for case, (expected, description) in DEMO_CASES.items():
         result_path = output / f"{case}-check.stdout.json"
@@ -286,7 +288,21 @@ def print_summary(output: Path) -> None:
             result[key]
             for key in ("observation_complete", "declared_rules", "expectation_fulfilled")
         )
-        print(f"{case} · {expected} · {actual} · {verdicts} · {description} · {result_path}")
+        if case == "A":
+            baseline = result["delta"]["ratchets"]["baseline"]
+            candidate = result["delta"]["ratchets"]["head"]
+            baseline_unresolved = baseline["scalars"]["calls_unresolved"]
+            candidate_unresolved = candidate["scalars"]["calls_unresolved"]
+            description = (
+                f"The call graph gets blinder: calls_unresolved "
+                f"{baseline_unresolved}->{candidate_unresolved}, unresolved_ratio "
+                f"{baseline_unresolved}/{baseline['calls_total']}->"
+                f"{candidate_unresolved}/{candidate['calls_total']}."
+            )
+        print(
+            f"{case} · {expected} · {actual} · {verdicts} · {description} · "
+            f"{result_path} · {html_path(result_path, 'check')}"
+        )
 
 
 if __name__ == "__main__":

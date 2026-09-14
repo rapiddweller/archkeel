@@ -11,7 +11,7 @@ import json
 from importlib.resources import files
 
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.measurements import Measurements
+from archkeel.ir.measurements import Measurements, compare_measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
 
 
@@ -51,14 +51,46 @@ def _decision(result: RunResult) -> tuple[str, str, str, str]:
     )
 
 
-def _verdict_card(key: str, value: str, reason: str) -> str:
+def _verdict_card(label_text: str, key: str, value: str, reason: str) -> str:
     state, symbol, label = _verdict(value)
     return f"""
       <article class="verdict-card" data-verdict="{state}">
         <div class="verdict-state"><span aria-hidden="true">{symbol}</span>{label}</div>
-        <h3><code>{_text(key)}</code></h3>
+        <h3>{_text(label_text)}</h3>
+        <code class="verdict-key">{_text(key)}</code>
         <p>{_text(reason)}</p>
       </article>"""
+
+
+def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
+    css = _asset("archkeel-report.css").decode("utf-8")
+    dark_logo = _data_uri("archkeel-logo-dark.svg", "image/svg+xml")
+    light_logo = _data_uri("archkeel-logo-light.svg", "image/svg+xml")
+    mark = _data_uri("archkeel-mark.svg", "image/svg+xml")
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+  <link rel="icon" href="{mark}" type="image/svg+xml">
+  <title>{_text(title)} · {_text(repository)}</title>
+  <style>{css}</style>
+</head>
+<body>
+  <header class="report-header">
+    <img class="report-logo report-logo-dark" src="{dark_logo}" alt="Archkeel">
+    <img class="report-logo report-logo-light" src="{light_logo}" alt="Archkeel">
+    <span class="report-kind">{_text(kind)}</span>
+  </header>
+  <main class="report-shell">
+    {content}
+    <footer class="report-footer">Archkeel · deterministic architecture evidence</footer>
+  </main>
+</body>
+</html>
+""".encode()
 
 
 def _diagnostic(item: Diagnostic) -> str:
@@ -203,10 +235,6 @@ def render_html(
     architecture_href: str | None,
 ) -> bytes:
     """Return a deterministic, offline HTML projection of one command result."""
-    css = _asset("archkeel-report.css").decode("utf-8")
-    dark_logo = _data_uri("archkeel-logo-dark.svg", "image/svg+xml")
-    light_logo = _data_uri("archkeel-logo-light.svg", "image/svg+xml")
-    mark = _data_uri("archkeel-mark.svg", "image/svg+xml")
     decision, symbol, label, reason = _decision(result)
     observation_reason = (
         "All configured source files were read and parsed."
@@ -226,10 +254,18 @@ def render_html(
     }[result.expectation_fulfilled]
     verdicts = "".join(
         (
-            _verdict_card("observation_complete", result.observation_complete, observation_reason),
-            _verdict_card("declared_rules", result.declared_rules, rules_reason),
             _verdict_card(
-                "expectation_fulfilled", result.expectation_fulfilled, expectation_reason
+                "Scan complete",
+                "observation_complete",
+                result.observation_complete,
+                observation_reason,
+            ),
+            _verdict_card("Rules followed", "declared_rules", result.declared_rules, rules_reason),
+            _verdict_card(
+                "Change as declared",
+                "expectation_fulfilled",
+                result.expectation_fulfilled,
+                expectation_reason,
             ),
         )
     )
@@ -261,24 +297,7 @@ def render_html(
         if architecture_href is not None
         else "Canonical architecture.json is unavailable."
     )
-    document = f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
-  <link rel="icon" href="{mark}" type="image/svg+xml">
-  <title>Archkeel report · {_text(repository)}</title>
-  <style>{css}</style>
-</head>
-<body>
-  <header class="report-header">
-    <img class="report-logo report-logo-dark" src="{dark_logo}" alt="Archkeel">
-    <img class="report-logo report-logo-light" src="{light_logo}" alt="Archkeel">
-    <span class="report-kind">Architecture evidence report</span>
-  </header>
-  <main class="report-shell">
+    content = f"""
     <section class="report-heading">
       <span class="eyebrow">Repository observation</span>
       <h1>{_text(repository)}</h1>
@@ -314,12 +333,128 @@ def render_html(
       <h2>Reproduction metadata</h2>
       {metadata_html}
     </section>
-    <footer class="report-footer">Archkeel · deterministic architecture evidence</footer>
-  </main>
-</body>
-</html>
 """
-    return document.encode("utf-8")
+    return _document(
+        repository=repository,
+        kind="Architecture evidence report",
+        title="Archkeel report",
+        content=content,
+    )
+
+
+def _check_verdicts(result: RunResult) -> str:
+    values = (
+        ("Scan complete", "observation_complete", result.observation_complete),
+        ("Rules followed", "declared_rules", result.declared_rules),
+        ("Change as declared", "expectation_fulfilled", result.expectation_fulfilled),
+        ("Git order", "git_predicate", result.git_predicate or "UNKNOWN"),
+        ("Publication order", "host_order", result.host_order or "UNKNOWN"),
+    )
+    return "".join(
+        _verdict_card(
+            label,
+            key,
+            value,
+            f"{label} passed." if value == "PASS" else f"{label} failed or is unverifiable.",
+        )
+        for label, key, value in values
+    )
+
+
+def _regressions(result: RunResult) -> str:
+    ratchets = result.delta.ratchets if result.delta is not None else None
+    if ratchets is None or ratchets.status != "SUPPORTED":
+        return "<p>Regression measurements are unavailable.</p>"
+    assert ratchets.baseline is not None and ratchets.head is not None
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{_text(name)}</code></td>"
+        f'<td class="numeric"><code>{_text(accepted)} → {_text(candidate)}</code></td>'
+        f'<td><strong data-status="{_verdict(status)[0]}">{status}</strong></td>'
+        "</tr>"
+        for name, accepted, candidate, status in compare_measurements(
+            ratchets.baseline, ratchets.head
+        )
+    )
+    return (
+        '<div class="table-wrap"><table><thead><tr><th>Measurement</th>'
+        '<th class="numeric">Accepted → candidate</th><th>Status</th></tr></thead>'
+        f"<tbody>{rows}</tbody></table></div>"
+    )
+
+
+def _semantic_changes(result: RunResult) -> str:
+    changes = result.delta.semantic_changes if result.delta is not None else ()
+    if not changes:
+        return "<p>No semantic changes were observed.</p>"
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{_text(item.dimension)}</code></td>"
+        f"<td>{_text(item.change)}</td>"
+        f'<td class="numeric">{item.before_count} → {item.after_count}</td>'
+        f"<td><code>{_text(item.fingerprint)}</code></td>"
+        "</tr>"
+        for item in changes
+    )
+    return (
+        '<div class="table-wrap"><table><thead><tr><th>Dimension</th>'
+        '<th>Observed change</th><th class="numeric">Before → after</th>'
+        f"<th>Fingerprint</th></tr></thead><tbody>{rows}</tbody></table></div>"
+    )
+
+
+def render_check_html(result: RunResult, *, repository: str, result_href: str) -> bytes:
+    """Return a deterministic, offline projection of a check result."""
+    decision, symbol, label, _ = _decision(result)
+    reason = {
+        0: "Merge: all required deterministic evidence passed.",
+        1: "Do not merge: one or more deterministic checks rejected the candidate.",
+        2: "Do not merge: required evidence is missing or invalid.",
+    }[result.exit_code]
+    provenance = result.provenance
+    accepted = provenance.baseline if provenance else "UNKNOWN"
+    candidate = provenance.head if provenance else "UNKNOWN"
+    failures = "".join(f"<li><code>{_text(item)}</code></li>" for item in result.failures)
+    diagnostics = "".join(_diagnostic(item) for item in result.diagnostics)
+    content = f"""
+    <section class="report-heading">
+      <span class="eyebrow">Candidate check</span><h1>{_text(repository)}</h1>
+      <div class="report-meta"><span>Accepted <strong>{_text(accepted)}</strong></span>
+        <span>Candidate <strong>{_text(candidate)}</strong></span>
+        <span>Host source <strong>{_text(result.host_source or "UNKNOWN")}</strong></span></div>
+    </section>
+    <section class="decision-banner" data-decision="{decision}" aria-label="Decision: {label}">
+      <span class="decision-symbol" aria-hidden="true">{symbol}</span><div>
+        <h2>{label}</h2><p>{reason}</p></div>
+    </section>
+    <section aria-labelledby="verdicts-heading">
+      <h2 id="verdicts-heading">Independent verdicts</h2><div
+        class="verdict-grid verdict-grid-check">{_check_verdicts(result)}</div></section>
+    <section class="report-section"><h2>Regression checks</h2>{_regressions(result)}
+    </section>
+    <section class="report-section">
+      <h2>Publication order evidence</h2><p>Status:
+        <strong data-status="{_verdict(result.host_order or "UNKNOWN")[0]}">
+        {_text(result.host_order or "UNKNOWN")}</strong></p>
+      <ul class="failure-list">{failures or "<li>None.</li>"}</ul></section>
+    <section class="report-section">
+      <h2>Declared and observed changes</h2>
+      <p>The check compared these observed changes with the published declaration.</p>{
+        _semantic_changes(result)
+    }</section>
+    <section class="report-section"><h2>Diagnostics</h2><div class="diagnostic-list">{
+        diagnostics or "<p>None.</p>"
+    }</div></section>
+    <section class="report-section">
+      <h2>Canonical result</h2><p><a href="{_text(result_href)}">Open the check result JSON</a>.</p>
+    </section>
+"""
+    return _document(
+        repository=repository,
+        kind="Architecture check report",
+        title="Archkeel check",
+        content=content,
+    )
 
 
 def render_architecture_html(

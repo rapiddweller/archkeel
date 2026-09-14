@@ -45,7 +45,7 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
     assert result.artifact is None
     assert architecture is not None
     assert decode_canonical_model(json.loads(architecture)) == raw
-    assert not (tmp_path / "test-artifacts/architecture/interactive.html").exists()
+    assert not (tmp_path / "test-artifacts/architecture/architecture.report.html").exists()
 
 
 @pytest.mark.parametrize("outside", [False, True])
@@ -73,4 +73,4 @@ def test_cli_report_artifact_path_is_relative_only_inside_root(
     result = json.loads(capsys.readouterr().out)
     assert result["artifact"] == (str(output.resolve()) if outside else "report.json")
     assert decode_canonical_model(json.loads(output.read_bytes())) == _model(git_head="a" * 40)
-    assert (output.parent / "interactive.html").is_file()
+    assert output.with_name(f"{output.stem}.report.html").is_file()

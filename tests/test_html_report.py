@@ -1,16 +1,22 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+from dataclasses import replace
 from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
 from test_delta import _model
+from test_expectation import _delta_payload
 
-from archkeel.ir.codec import parse_observation
+from archkeel.ir.codec import parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
-from archkeel.ir.model import Diagnostic, RunResult
-from archkeel.render.html import render_html
+from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
+from archkeel.render.html import render_check_html, render_html
+
+FAILED_CHECK = RunResult(
+    "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
+)
 
 
 def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
@@ -72,8 +78,42 @@ def test_html_report_never_styles_missing_evidence_as_pass() -> None:
     assert 'data-decision="unknown"' in page
     assert "UNVERIFIABLE" in page
     assert "unknown_claim" in page and "Install Git and retry." in page
-    body = page.split("</style>", 1)[1]
-    assert 'data-decision="pass"' not in body
+    assert 'data-decision="pass"' not in page.split("</style>", 1)[1]
+
+
+def test_check_html_renders_structured_regression_values() -> None:
+    baseline = Measurements(RatchetScalars(0, 0, 0, 0, 0, 0), 2, "measured")
+    candidate = Measurements(RatchetScalars(0, 0, 0, 0, 1, 0), 1, "measured")
+    delta = replace(
+        parse_delta(_delta_payload()),
+        ratchets=RatchetObservations("SUPPORTED", baseline, candidate),
+    )
+    result = replace(FAILED_CHECK, delta=delta)
+    page = render_check_html(result, repository="sample", result_href="result.json").decode()
+    assert "Do not merge:" in page
+    assert "calls_unresolved" in page and "0 → 1" in page
+    assert "unresolved_ratio" in page and "0/2 → 1/1" in page
+    assert page.split("</style>", 1)[1].count('data-status="fail"') == 2
+
+
+def test_check_html_renders_publication_order_failure() -> None:
+    failure = "expectation was not published before the first candidate submission"
+    result = replace(FAILED_CHECK, host_order="FAIL", failures=(failure,))
+    page = render_check_html(result, repository="sample", result_href="result.json").decode()
+    assert "Publication order" in page and "host_order" in page
+    assert failure in page
+
+
+def test_check_html_never_styles_unverifiable_as_pass() -> None:
+    diagnostic = Diagnostic(
+        "missing_tool", "git", "Commit order cannot be established.", "Install Git and retry."
+    )
+    result = RunResult("check", 2, diagnostics=(diagnostic,))
+    page = render_check_html(result, repository="sample", result_href="result.json").decode()
+    assert 'data-decision="unknown"' in page
+    assert "UNVERIFIABLE" in page
+    assert "unknown_claim" in page and "Install Git and retry." in page
+    assert 'data-decision="pass"' not in page.split("</style>", 1)[1]
 
 
 # Wordmarks may split the name across tspans; compare the rendered text, not the source.

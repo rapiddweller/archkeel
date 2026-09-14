@@ -16,7 +16,7 @@ from ..analyzer import observe
 from ..check.report import render_result, run_report, unknown_result
 from ..check.run import run_check
 from ..host.gitlab import load_gitlab_records
-from ..render.html import render_architecture_html
+from ..render.html import render_architecture_html, render_check_html
 from .config import load_check_config, load_config
 
 
@@ -29,6 +29,11 @@ def _sha(value: str) -> str:
 class _Parser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:
         raise ValueError(message)
+
+
+def html_path(output: Path, command: str) -> Path:
+    """Name an HTML sidecar by JSON stem and command."""
+    return output.parent / f"{output.stem}.{command}.html"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -85,7 +90,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             else str(resolved)
                         ),
                     )
-                    (artifact.parent / "interactive.html").write_bytes(
+                    html_path(artifact, "report").write_bytes(
                         render_architecture_html(
                             result,
                             architecture,
@@ -114,6 +119,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))
+                    html_path(args.output, "check").write_bytes(
+                        render_check_html(
+                            result,
+                            repository=root.name,
+                            result_href=args.output.name,
+                        )
+                    )
     except Exception as error:
         result = unknown_result(command, subject, error)
     print(render_result(result).decode(), end="")

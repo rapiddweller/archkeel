@@ -3,7 +3,12 @@
 # SPDX-License-Identifier: MIT
 """Regression checks over the typed Python decoded-IR measurement profile."""
 
-from archkeel.ir.measurements import Measurements, RatchetError, RatchetScalars
+from archkeel.ir.measurements import (
+    Measurements,
+    RatchetError,
+    RatchetScalars,
+    compare_measurements,
+)
 from archkeel.ir.model import Observation, Record
 
 from .python_profile import crossing_imports
@@ -79,22 +84,12 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
 
 def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[str, ...]:
     """Compare validated measurements supplied by the caller, without rounding."""
-    failures = [
-        f"regression check failed in {name}: {before}->{after}"
-        for (name, before), (_, after) in zip(
-            accepted.scalars.items(), candidate.scalars.items(), strict=True
+    return tuple(
+        sorted(
+            f"regression check failed in {name}: {accepted_value}->{candidate_value}"
+            for name, accepted_value, candidate_value, status in compare_measurements(
+                accepted, candidate
+            )
+            if status == "FAIL"
         )
-        if after > before
-    ]
-    if (
-        accepted.calls_total > 0
-        and candidate.calls_total > 0
-        and candidate.scalars.calls_unresolved * accepted.calls_total
-        > accepted.scalars.calls_unresolved * candidate.calls_total
-    ):
-        failures.append(
-            "regression check failed in unresolved_ratio: "
-            f"{accepted.scalars.calls_unresolved}/{accepted.calls_total}->"
-            f"{candidate.scalars.calls_unresolved}/{candidate.calls_total}"
-        )
-    return tuple(sorted(failures))
+    )

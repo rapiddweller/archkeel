@@ -166,6 +166,7 @@ h3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--ck-space-4);
 }
+.verdict-grid-check { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .verdict-card {
   position: relative;
   min-height: 174px;
@@ -212,6 +213,11 @@ h3 {
   margin-bottom: 0;
   color: var(--ck-muted);
 }
+.verdict-key { display: block; margin: calc(-1 * var(--ck-space-1)) 0 var(--ck-space-3); }
+[data-status="pass"] { color: var(--ck-pass); }
+[data-status="fail"] { color: var(--ck-fail); }
+[data-status="unknown"],
+[data-status="n/a"] { color: var(--ck-unknown); }
 .report-section {
   margin-top: 48px;
 }

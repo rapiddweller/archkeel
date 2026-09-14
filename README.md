@@ -128,7 +128,7 @@ archkeel report \
   --output architecture.json
 ```
 
-The command also writes a self-contained `interactive.html` beside the canonical JSON.
+The command also writes a self-contained `architecture.report.html` beside the canonical JSON.
 It presents the three independent verdicts, exact measurements, diagnostics and provenance.
 
 Check a candidate against its published expectation:

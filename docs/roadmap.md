@@ -26,15 +26,15 @@ only when its row names repository evidence.
 | The core receives analyzer and host adapters from the CLI | `53a0d22`; `tests/test_self.py` |
 | The analyzer package and active architecture documentation use one name | `2fa6ffd`; `tests/test_analyzer.py` |
 | The component contract is closed and its graph matches observed imports | `tests/test_self.py`; `docs/architecture/archkeel.md`; `make check` |
+| PASS, FAIL and UNVERIFIABLE check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
 
 ## Next
 
-1. Render PASS, FAIL and UNVERIFIABLE `check` results as distinct HTML reports.
-2. Add a concise TTY view while preserving JSON for pipes and `--json`.
-3. Lead the README with the Fixture A failure report and document `make demo`.
-4. Verify PASS, FAIL and UNVERIFIABLE reports on desktop, mobile and print PDF.
-5. Publish D-self artifacts and a report-only pull-request comparison in CI.
-6. Prepare release 0.2.0 after explicit approval.
+1. Add a concise TTY view while preserving JSON for pipes and `--json`.
+2. Lead the README with the Fixture A failure report and document `make demo`.
+3. Verify PASS, FAIL and UNVERIFIABLE reports on desktop, mobile and print PDF.
+4. Publish D-self artifacts and a report-only pull-request comparison in CI.
+5. Prepare release 0.2.0 after explicit approval.
 
 ## Later
 
@@ -45,6 +45,7 @@ only when its row names repository evidence.
 - Add an interactive review surface and navigable dependency graph.
 - Add digest-bound blind LLM review whose verdict remains a hypothesis.
 - Track finding lifecycle states on existing fingerprints without changing check outcomes.
+- Add a publication timeline when check results carry host-record timestamps.
 
 ## Excluded
 

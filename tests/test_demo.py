@@ -26,7 +26,11 @@ def test_make_demo_reproduces_all_three_outcomes(tmp_path: Path) -> None:
     }
     for case, expected in (("A", 1), ("B", 1), ("C", 0)):
         result_path = output / f"{case}-check.stdout.json"
+        html = output / f"{case}-check.stdout.check.html"
         result = json.loads(result_path.read_bytes())
         assert result["exit_code"] == expected
         assert f"{case} · {expected} · {expected} ·" in run.stdout
         assert str(result_path) in run.stdout
+        assert str(html) in run.stdout
+        assert html.is_file()
+    assert len(list(output.glob("*.check.html"))) == 3

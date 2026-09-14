@@ -82,7 +82,7 @@ def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
         text=True,
     )
     assert run.returncode == 0, (run.stdout, run.stderr)
-    assert output.with_name("interactive.html").is_file()
+    assert output.with_name("architecture.report.html").is_file()
     result = json.loads(run.stdout)
     assert result["diagnostics"] == []
     assert result["observation_complete"] == result["declared_rules"] == "PASS"

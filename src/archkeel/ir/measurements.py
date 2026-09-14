@@ -61,6 +61,30 @@ class Measurements:
             raise RatchetError("scan must be complete without coverage failures")
 
 
+def compare_measurements(
+    accepted: Measurements, candidate: Measurements
+) -> tuple[tuple[str, str, str, str], ...]:
+    comparisons: tuple[tuple[str, str, str, str], ...] = tuple(
+        (name, str(before), str(after), "FAIL" if after > before else "PASS")
+        for (name, before), (_, after) in zip(
+            accepted.scalars.items(), candidate.scalars.items(), strict=True
+        )
+    )
+    comparable = accepted.calls_total > 0 and candidate.calls_total > 0
+    ratio_failed = (
+        candidate.scalars.calls_unresolved * accepted.calls_total
+        > accepted.scalars.calls_unresolved * candidate.calls_total
+    )
+    return comparisons + (
+        (
+            "unresolved_ratio",
+            f"{accepted.scalars.calls_unresolved}/{accepted.calls_total}",
+            f"{candidate.scalars.calls_unresolved}/{candidate.calls_total}",
+            "FAIL" if comparable and ratio_failed else "PASS" if comparable else "n/a",
+        ),
+    )
+
+
 def count(raw: object, label: str) -> int:
     if not isinstance(raw, int) or isinstance(raw, bool) or raw < 0:
         raise RatchetError(f"{label} must be a non-negative integer")
