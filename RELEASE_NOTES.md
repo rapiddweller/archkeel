@@ -1,19 +1,16 @@
-# Codekeel 0.1.0
+# Archkeel 0.1.0
 
-> Published on PyPI as `codekeel`. The project was renamed to Archkeel after this
-> release; names below are kept as released.
-
-Codekeel adds deterministic architecture evidence to AI-assisted code review.
+Archkeel adds deterministic architecture evidence to AI-assisted code review.
 It checks whether a repository remains observable, follows its architecture
 contract, and matches a change declaration published before submission.
 
 ## Highlights
 
 - Run as a standalone Python package with the bundled analyzer.
-- Define scan roots, namespace, and contract in `codekeel.toml`.
-- Generate canonical `architecture.json` evidence with `codekeel report`.
+- Define scan roots, namespace, and contract in `archkeel.toml`.
+- Generate canonical `architecture.json` evidence with `archkeel report`.
 - Review the same evidence in a self-contained `interactive.html` report.
-- Compare accepted and candidate commits with `codekeel check`.
+- Compare accepted and candidate commits with `archkeel check`.
 - Detect forbidden imports, cycles, private crossings, typing regressions,
   unresolved-call regressions, coverage loss, and changed finding fingerprints.
 - Keep scan completeness, contract compliance, and expectation fulfillment as
@@ -25,16 +22,16 @@ contract, and matches a change declaration published before submission.
 
 ## Install
 
-Codekeel requires Python 3.11 or newer.
+Archkeel requires Python 3.11 or newer.
 
 ```bash
-python -m pip install codekeel==0.1.0
-codekeel --help
+python -m pip install archkeel==0.1.0
+archkeel --help
 ```
 
 ## Quick start
 
-Add `codekeel.toml` to the repository:
+Add `archkeel.toml` to the repository:
 
 ```toml
 [scan]
@@ -46,7 +43,7 @@ contract = "architecture-contract.json"
 Generate architecture evidence:
 
 ```bash
-codekeel report --root . --output architecture.json
+archkeel report --root . --output architecture.json
 ```
 
 The command writes `architecture.json` and a portable `interactive.html` review
@@ -60,5 +57,5 @@ surface beside it.
 - GitHub is used for distribution and CI; declaration-order retrieval currently
   has a GitLab adapter. Portable host records can be supplied explicitly.
 
-See the [README](https://github.com/rapiddweller/codekeel) for the full protocol,
+See the [README](https://github.com/rapiddweller/archkeel) for the full protocol,
 configuration, check command, and report preview.
