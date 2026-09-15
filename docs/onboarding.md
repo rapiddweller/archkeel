@@ -10,7 +10,7 @@ hand a coding agent to run it.
 
 ```mermaid
 flowchart TD
-    A[Install skill: archkeel skill install claude|codex] --> B[archkeel init --json]
+    A["Install skill: archkeel skill install claude|codex"] --> B[archkeel init --json]
     B --> C[archkeel validate --json]
     C -->|diagnostics| D[Replace one TODO rationale\nor remove one unintended import]
     D --> C
