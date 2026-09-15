@@ -212,6 +212,18 @@ class ForbiddenDependencyRule:
     allowed_sources: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class AllowedDependencyRule:
+    """AD-15: a decision that a component pair may depend; it adds no report violation."""
+
+    id: str
+    kind: Literal["allowed_dependency"]
+    source: str
+    target: str
+    rationale: str
+    provenance: tuple[str, ...]
+
+
 class ForbiddenConstructKind(StrEnum):
     GETATTR = "getattr"
     HASATTR = "hasattr"
@@ -273,6 +285,7 @@ class InterfaceBoundaryRule:
 
 ArchitectureRule: TypeAlias = (
     ForbiddenDependencyRule
+    | AllowedDependencyRule
     | ForbiddenConstructRule
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
@@ -301,7 +314,7 @@ class ContractDeclarations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal["2.0.0"]
+    schema_version: Literal["2.1.0"]
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None

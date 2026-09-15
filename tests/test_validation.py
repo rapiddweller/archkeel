@@ -33,7 +33,7 @@ def test_validate_rejects_contract_1_1_with_exact_pointer(tmp_path: Path) -> Non
     assert result.exit_code == 2
     assert result.diagnostics[0].pointer == "/schema_version"
     assert result.diagnostics[0].unknown_claim == (
-        "Contract schema 1.1.0 cannot be validated as 2.0.0."
+        "Contract schema 1.1.0 cannot be validated as 2.1.0."
     )
 
 
@@ -74,7 +74,7 @@ def test_reference_check_rejects_a_component_without_scanned_modules() -> None:
 def test_public_entry_outside_namespace_is_a_diagnostic() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [_component("core", public=["other.module"])],
             "rules": [],
         }
@@ -89,7 +89,7 @@ def test_public_entry_outside_namespace_is_a_diagnostic() -> None:
 def test_public_entry_owned_by_another_component_is_a_diagnostic() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [
                 _component("core", public=["sample.cli"]),
                 _component("cli"),
@@ -108,7 +108,7 @@ def test_public_entry_owned_by_another_component_is_a_diagnostic() -> None:
 def test_public_entry_with_underscore_name_is_a_diagnostic() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [_component("core", public=["sample.core:_Hidden"])],
             "rules": [],
         }
@@ -139,7 +139,7 @@ def _cross_import(target_module: str, **data: object) -> dict[str, object]:
 def test_undeclared_interface_is_a_diagnostic_when_a_rule_is_present() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [_component("core"), _component("cli")],
             "rules": [_INTERFACE_RULE],
         }
@@ -154,7 +154,7 @@ def test_undeclared_interface_is_a_diagnostic_when_a_rule_is_present() -> None:
 def test_declared_public_interface_has_no_undeclared_diagnostic() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [_component("core", public=["sample.core"]), _component("cli")],
             "rules": [_INTERFACE_RULE],
         }
@@ -168,7 +168,7 @@ def test_declared_public_interface_has_no_undeclared_diagnostic() -> None:
 def test_unused_public_entry_is_a_diagnostic() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [_component("core", public=["sample.core:Widget"]), _component("cli")],
             "rules": [_INTERFACE_RULE],
         }
@@ -181,7 +181,7 @@ def test_unused_public_entry_is_a_diagnostic() -> None:
 def test_public_entry_used_through_a_reexport_chain_has_no_diagnostic() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [
                 _component("core", public=["sample.core.impl:Widget"]),
                 _component("cli"),
@@ -206,7 +206,7 @@ def test_public_entry_used_through_a_reexport_chain_has_no_diagnostic() -> None:
 def test_no_interface_rule_means_neither_diagnostic() -> None:
     contract = parse_contract(
         {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "components": [_component("core"), _component("cli")],
             "rules": [],
         }

@@ -38,7 +38,7 @@ def _prepare_source(tmp_path: Path) -> None:
         metadata.write_text('[project]\nrequires-python = ">=3.11"\n')
     contract = tmp_path / "contract.json"
     if not contract.exists():
-        contract.write_text('{"schema_version":"2.0.0","components":[],"rules":[]}')
+        contract.write_text('{"schema_version":"2.1.0","components":[],"rules":[]}')
 
 
 def _observe(source: Path):
@@ -89,7 +89,7 @@ def test_contract_1_1_has_migration_diagnostic(tmp_path: Path) -> None:
         Diagnostic(
             "parse_error",
             "contract.json",
-            "Contract schema 1.1.0 cannot be validated as 2.0.0.",
+            "Contract schema 1.1.0 cannot be validated as 2.1.0.",
             "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
         ),
     )
@@ -168,7 +168,7 @@ def test_class_a_rule_produces_one_traceable_violation(
     tmp_path: Path, rule: dict[str, object], sources: dict[str, str]
 ) -> None:
     contract = {
-        "schema_version": "2.0.0",
+        "schema_version": "2.1.0",
         "components": [_component("core"), _component("cli")],
         "rules": [
             {
@@ -262,7 +262,7 @@ def test_interface_boundary_rule_matches_the_declared_public_interface(
     expected_violations: int,
 ) -> None:
     contract = {
-        "schema_version": "2.0.0",
+        "schema_version": "2.1.0",
         "components": [_component("core", public=core_public), _component("cli")],
         "rules": [
             {

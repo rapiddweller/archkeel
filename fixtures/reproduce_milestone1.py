@@ -49,7 +49,7 @@ def _json(path: Path, value: object) -> bytes:
 
 def minimal_contract(path: str) -> dict:
     return {
-        "schema_version": "2.0.0",
+        "schema_version": "2.1.0",
         "components": [],
         "rules": [],
         "declarations": {

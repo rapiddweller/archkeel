@@ -19,6 +19,7 @@ from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
+    AllowedDependencyRule,
     AnalyzerInfo,
     ArchitectureContract,
     ArchitectureDelta,
@@ -96,7 +97,7 @@ _COVERAGE_KEYS = {
     "rules",
 }
 _COVERAGE_REQUIRED_KEYS = _COVERAGE_KEYS - {"rules"}
-CONTRACT_SCHEMA_VERSION: Final = "2.0.0"
+CONTRACT_SCHEMA_VERSION: Final = "2.1.0"
 
 
 class ContractVersionError(ValueError):
@@ -835,6 +836,22 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
     )
 
 
+def _parse_allowed_dependency(raw: RawJson, label: str) -> AllowedDependencyRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "source", "target", "rationale"}, set(), label
+    )
+    if item["kind"] != "allowed_dependency":
+        raise ValueError(f"{label}.kind is unsupported")
+    return AllowedDependencyRule(
+        item_id,
+        "allowed_dependency",
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["target"], f"{label}.target"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+    )
+
+
 def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRule:
     item, item_id, provenance = _contract_record(
         raw, {"kind", "source", "constructs", "rationale"}, {"allowed_sources"}, label
@@ -912,6 +929,7 @@ def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule
 
 _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "forbidden_dependency": _parse_forbidden_dependency,
+    "allowed_dependency": _parse_allowed_dependency,
     "forbidden_construct": _parse_forbidden_construct,
     "external_dependency_scope": _parse_external_dependency_scope,
     "complete_assignment": _parse_complete_assignment,

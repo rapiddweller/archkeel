@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Final
+from typing import Final, assert_never
 
 from archkeel.ir.model import (
+    AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
     CompleteAssignmentRule,
@@ -306,13 +307,15 @@ def _interface_violations(
 
 def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     """Name the module selectors whose absence would make a rule vacuous."""
-    if isinstance(rule, ForbiddenDependencyRule):
+    if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
         return {"allowed_sources": rule.allowed_sources}
     if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule):
         return {}
-    return {"source": (rule.source,)}
+    if isinstance(rule, ForbiddenConstructRule | CompleteAssignmentRule):
+        return {"source": (rule.source,)}
+    assert_never(rule)
 
 
 def rule_subject_failures(

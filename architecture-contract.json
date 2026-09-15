@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "2.0.0",
+  "schema_version": "2.1.0",
   "components": [
     {
       "id": "COMP-IR",
@@ -460,6 +460,86 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "Rendering consumes IR values rather than analyzer implementations.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CLI-ALLOWS-ACCEPT",
+      "kind": "allowed_dependency",
+      "source": "archkeel.cli",
+      "target": "archkeel.accept",
+      "rationale": "Dispatch the acceptance command from the composition root.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CLI-ALLOWS-ANALYZER",
+      "kind": "allowed_dependency",
+      "source": "archkeel.cli",
+      "target": "archkeel.analyzer",
+      "rationale": "Supply the concrete source analyzer to report and check workflows.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CLI-ALLOWS-CHECK",
+      "kind": "allowed_dependency",
+      "source": "archkeel.cli",
+      "target": "archkeel.check",
+      "rationale": "Invoke deterministic report and check services.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CLI-ALLOWS-HOST",
+      "kind": "allowed_dependency",
+      "source": "archkeel.cli",
+      "target": "archkeel.host",
+      "rationale": "Supply the concrete host-record loader to checks.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CLI-ALLOWS-RENDER",
+      "kind": "allowed_dependency",
+      "source": "archkeel.cli",
+      "target": "archkeel.render",
+      "rationale": "Project typed results and write presentation artifacts.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-ACCEPT-ALLOWS-IR",
+      "kind": "allowed_dependency",
+      "source": "archkeel.accept",
+      "target": "archkeel.ir",
+      "rationale": "Return typed command results through shared IR values.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-ANALYZER-ALLOWS-IR",
+      "kind": "allowed_dependency",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir",
+      "rationale": "Publish observations through the common model and codec boundary.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-CHECK-ALLOWS-IR",
+      "kind": "allowed_dependency",
+      "source": "archkeel.check",
+      "target": "archkeel.ir",
+      "rationale": "Compare observations and return typed results.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-HOST-ALLOWS-IR",
+      "kind": "allowed_dependency",
+      "source": "archkeel.host",
+      "target": "archkeel.ir",
+      "rationale": "Construct validated host-record values.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-RENDER-ALLOWS-IR",
+      "kind": "allowed_dependency",
+      "source": "archkeel.render",
+      "target": "archkeel.ir",
+      "rationale": "Render typed evidence without importing policy implementations.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {

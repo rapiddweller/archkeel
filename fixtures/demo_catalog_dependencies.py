@@ -1,8 +1,8 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-11 forbidden_dependency, external_dependency_scope, complete_assignment,
-no_component_cycles and closed_world rows.
+"""AD-11 forbidden_dependency, allowed_dependency, external_dependency_scope,
+complete_assignment, no_component_cycles and closed_world rows.
 
 `REPOSITORY_WITH_MONEY_IMPORT` and `SHOP_EXTRA` are public so `demo_catalog_showcase` can
 reuse this family's file content instead of duplicating it.
@@ -172,6 +172,28 @@ _CLOSED_WORLD_MISSING = Variant(
     expected_violations=(),
     expected_codes=("closed_world.missing",),
 )
+_ALLOWED_DEPENDENCY_DUPLICATE = Variant(
+    id="class-a-allowed-dependency-duplicate",
+    section="class_a",
+    item="allowed_dependency:duplicate",
+    summary="A second allowed_dependency rule repeats the shop.store -> shop.model pair "
+    "already covered by DEP-STORE-ALLOWS-MODEL.",
+    files={
+        "architecture-contract.json": contract_with_rule(
+            {
+                "id": "DEP-STORE-ALLOWS-MODEL-2",
+                "kind": "allowed_dependency",
+                "source": "shop.store",
+                "target": "shop.model",
+                "rationale": "A second, deliberately duplicate decision for the architecture "
+                "demo's closed-world coverage.",
+                "provenance": ["docs/architecture/shop.md"],
+            }
+        )
+    },
+    expected_violations=(),
+    expected_codes=("closed_world.duplicate",),
+)
 _CLOSED_WORLD_DUPLICATE = Variant(
     id="class-a-closed-world-duplicate",
     section="class_a",
@@ -195,7 +217,6 @@ _CLOSED_WORLD_DUPLICATE = Variant(
     expected_violations=(),
     expected_codes=("closed_world.duplicate",),
 )
-
 VARIANTS: tuple[Variant, ...] = (
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,
@@ -206,4 +227,5 @@ VARIANTS: tuple[Variant, ...] = (
     _NO_COMPONENT_CYCLES,
     _CLOSED_WORLD_MISSING,
     _CLOSED_WORLD_DUPLICATE,
+    _ALLOWED_DEPENDENCY_DUPLICATE,
 )

@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
+from typing import TypeVar
 
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
@@ -18,6 +20,7 @@ from archkeel.ir.codec import (
     parse_contract,
 )
 from archkeel.ir.model import (
+    AllowedDependencyRule,
     ArchitectureContract,
     CompleteAssignmentRule,
     ContractDeclarations,
@@ -74,52 +77,71 @@ def observed_component_edges(
     return frozenset(edges)
 
 
+_DecisionRule = TypeVar("_DecisionRule", ForbiddenDependencyRule, AllowedDependencyRule)
+
+
+def _decided_pairs(
+    contract: ArchitectureContract, rule_type: type[_DecisionRule]
+) -> list[tuple[str, str]]:
+    """Return the component pairs one rule type decides, keyed by exact package ownership."""
+    owners = _package_owners(contract)
+    return [
+        (owners[rule.source], owners[rule.target])
+        for rule in contract.rules
+        if isinstance(rule, rule_type) and rule.source in owners and rule.target in owners
+    ]
+
+
+def _pair_diagnostics(
+    code: DiagnosticCode, pairs: Iterable[tuple[str, str]], claim: str, remedy: str
+) -> list[Diagnostic]:
+    return [
+        _diagnostic(code, "/rules", f"{source} -> {target}", claim, remedy)
+        for source, target in pairs
+    ]
+
+
 def closed_world_diagnostics(
     contract: ArchitectureContract, observation: Observation
 ) -> tuple[Diagnostic, ...]:
-    """Require each ordered component pair to be observed or explicitly forbidden."""
-    owners = _package_owners(contract)
+    """Require each ordered component pair to be observed or explicitly decided."""
     labels = {component.label for component in contract.components}
     expected = {(source, target) for source in labels for target in labels if source != target}
-    observed = set(observed_component_edges(contract, observation))
-    forbidden_items = [
-        (owners[rule.source], owners[rule.target])
-        for rule in contract.rules
-        if isinstance(rule, ForbiddenDependencyRule)
-        and rule.source in owners
-        and rule.target in owners
-    ]
+    observed = observed_component_edges(contract, observation)
+    forbidden_items = _decided_pairs(contract, ForbiddenDependencyRule)
+    allowed_items = _decided_pairs(contract, AllowedDependencyRule)
     forbidden = set(forbidden_items)
-    diagnostics = [
-        _diagnostic(
-            "closed_world.missing",
-            "/rules",
-            f"{source} -> {target}",
-            "The component pair has neither an observed import nor a forbidden_dependency rule.",
-            "Add the observed dependency or forbid the component pair with a rationale.",
-        )
-        for source, target in sorted(expected - observed - forbidden)
-    ]
+    allowed = set(allowed_items)
+    diagnostics = _pair_diagnostics(
+        "closed_world.missing",
+        sorted(expected - observed - forbidden - allowed),
+        "The component pair has neither an observed import, an allowed_dependency rule, "
+        "nor a forbidden_dependency rule.",
+        "Add the observed dependency, allow it, or forbid the component pair with a rationale.",
+    )
     diagnostics.extend(
-        _diagnostic(
+        _pair_diagnostics(
             "closed_world.observed_forbidden",
-            "/rules",
-            f"{source} -> {target}",
+            sorted(observed & forbidden),
             "An observed component dependency is also forbidden.",
             "Remove the dependency or correct the forbidden_dependency rule.",
         )
-        for source, target in sorted(observed & forbidden)
     )
     diagnostics.extend(
-        _diagnostic(
+        _pair_diagnostics(
             "closed_world.duplicate",
-            "/rules",
-            f"{source} -> {target}",
+            sorted(pair for pair, count in Counter(forbidden_items).items() if count > 1),
             "The component pair has duplicate forbidden_dependency rules.",
             "Keep one forbidden_dependency rule for this ordered component pair.",
         )
-        for (source, target), count in sorted(Counter(forbidden_items).items())
-        if count > 1
+    )
+    diagnostics.extend(
+        _pair_diagnostics(
+            "closed_world.duplicate",
+            sorted(pair for pair, count in Counter(allowed_items).items() if count > 1),
+            "The component pair has duplicate allowed_dependency rules.",
+            "Keep one allowed_dependency rule for this ordered component pair.",
+        )
     )
     return tuple(diagnostics)
 
@@ -331,10 +353,14 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
             )
     for index, rule in enumerate(contract.rules):
         if isinstance(
-            rule, ForbiddenDependencyRule | ForbiddenConstructRule | CompleteAssignmentRule
+            rule,
+            ForbiddenDependencyRule
+            | AllowedDependencyRule
+            | ForbiddenConstructRule
+            | CompleteAssignmentRule,
         ):
             names.append((f"/rules/{index}/source", rule.source))
-        if isinstance(rule, ForbiddenDependencyRule):
+        if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
             names.append((f"/rules/{index}/target", rule.target))
         if isinstance(rule, ForbiddenDependencyRule | ExternalDependencyScopeRule):
             names.extend(

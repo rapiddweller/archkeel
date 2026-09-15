@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "2.0.0",
+  "schema_version": "2.1.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -254,6 +254,54 @@
       "target_symbol": "Money",
       "include_type_checking": true,
       "rationale": "Persistence serialises whole orders and must not compute or interpret money amounts itself.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-STORE-ALLOWS-MODEL",
+      "kind": "allowed_dependency",
+      "source": "shop.store",
+      "target": "shop.model",
+      "rationale": "Persistence serialises the domain values it is given.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-APP-ALLOWS-MODEL",
+      "kind": "allowed_dependency",
+      "source": "shop.app",
+      "target": "shop.model",
+      "rationale": "Use cases construct orders from domain values.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-APP-ALLOWS-STORE",
+      "kind": "allowed_dependency",
+      "source": "shop.app",
+      "target": "shop.store",
+      "rationale": "Use cases persist and load orders through the repository.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-RENDER-ALLOWS-MODEL",
+      "kind": "allowed_dependency",
+      "source": "shop.render",
+      "target": "shop.model",
+      "rationale": "Text projection reads the values it renders.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-CLI-ALLOWS-APP",
+      "kind": "allowed_dependency",
+      "source": "shop.cli",
+      "target": "shop.app",
+      "rationale": "The composition root invokes the order use cases.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-CLI-ALLOWS-RENDER",
+      "kind": "allowed_dependency",
+      "source": "shop.cli",
+      "target": "shop.render",
+      "rationale": "The composition root prints the rendered order.",
       "provenance": ["docs/architecture/shop.md"]
     },
     {

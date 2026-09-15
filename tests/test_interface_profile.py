@@ -120,7 +120,7 @@ def _contract() -> ArchitectureContract:
         )
 
     return ArchitectureContract(
-        schema_version="2.0.0",
+        schema_version="2.1.0",
         components=(component("COMP-A", "a", "pkg.a"), component("COMP-B", "b", "pkg.b")),
         rules=(),
     )
@@ -134,7 +134,7 @@ def _observation(
         analyzer=AnalyzerInfo(name="test", version="0", code_digest="0"),
         source=SourceInfo(git_head="0", dirty=False, source_digest="0", scope=()),
         contract=ContractInfo(
-            schema_version="2.0.0", digest="0", path="architecture-contract.json"
+            schema_version="2.1.0", digest="0", path="architecture-contract.json"
         ),
         coverage=_COVERAGE,
         sections=(

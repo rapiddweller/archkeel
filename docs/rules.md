@@ -11,10 +11,11 @@ Contract 2.0 separates deterministic rules, regression checks, declarations and 
 
 ## Class A: deterministic rules
 
-`closed_world` is an implicit Contract 2.0 invariant: each ordered component pair must be an
-observed import edge or have one `forbidden_dependency` rule. It measures component-projected
-import records. A complete scan and exact package assignment make the result deterministic;
-dynamic imports remain a blind spot. Removing one pair rule from Archkeel is an example violation.
+`closed_world` is an implicit Contract 2.1 invariant: each ordered component pair must be an
+observed import edge, have one `allowed_dependency` rule, or have one `forbidden_dependency` rule.
+It measures component-projected import records. A complete scan and exact package assignment make
+the result deterministic; dynamic imports remain a blind spot. Removing one pair rule from Archkeel
+is an example violation.
 
 `forbidden_dependency` fields are `source`, `target`, `include_type_checking`, optional
 `target_symbol` and optional `allowed_sources`. The analyzer matches import records by exact module
@@ -25,6 +26,11 @@ observed import, including `TYPE_CHECKING` and allowed-source imports, so `allow
 target or a `target_symbol`. A complete scan, fixed source bytes, analyzer digest and Python
 version make the result deterministic. Unresolved dynamic imports remain a blind spot. Importing
 `sample.cli` from `sample.core` is an example violation.
+
+`allowed_dependency` fields are `source`, `target` and `rationale`: the architect's decision that a
+component pair may depend, recorded with its reason. It adds no report violation and is evaluated
+only by closed-world validation, never by the analyzer. Declaring `sample.core` allowed to depend
+on `sample.cli` when no code observes that edge is valid; it simply decides the pair.
 
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources`, whose
 prefixes exempt owners as in `external_dependency_scope`. Supported constructs are `getattr`,
@@ -130,6 +136,6 @@ under the optional `declarations` object:
 | `paths` | `declarations.paths` |
 | `spot_owners` | `declarations.spot_owners` |
 
-Set `schema_version` to `2.0.0`. The optional `$schema` points to
+Set `schema_version` to `2.1.0`. The optional `$schema` points to
 `schema/architecture-contract.schema.json`. Omit unused declaration arrays instead of copying
 empty arrays. Run `archkeel validate --root . --json` to verify the migrated contract.

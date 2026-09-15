@@ -1,16 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:architecture-contract:2.0.0",
-  "title": "Archkeel architecture contract", "description": "Contract 2.0 structure. Rule semantics are cataloged in docs/rules.md.",
+  "$id": "urn:archkeel:architecture-contract:2.1.0",
+  "title": "Archkeel architecture contract", "description": "Contract 2.1 structure. Rule semantics are cataloged in docs/rules.md.",
   "type": "object",
   "required": ["schema_version", "components", "rules"],
   "additionalProperties": false,
   "properties": {
     "$schema": {"$ref": "#/$defs/nonEmpty"},
-    "schema_version": {"const": "2.0.0"},
+    "schema_version": {"const": "2.1.0"},
     "components": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/component"}},
     "rules": {"type": "array", "uniqueItems": true, "items": {"oneOf": [
-      {"$ref": "#/$defs/forbiddenDependency"}, {"$ref": "#/$defs/forbiddenConstruct"},
+      {"$ref": "#/$defs/forbiddenDependency"}, {"$ref": "#/$defs/allowedDependency"},
+      {"$ref": "#/$defs/forbiddenConstruct"},
       {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
       {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"}
     ]}},
@@ -53,6 +54,19 @@
         "provenance": {"$ref": "#/$defs/provenance"},
         "target_symbol": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
         "allowed_sources": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "allowedDependency": {
+      "type": "object",
+      "required": ["id", "kind", "source", "target", "rationale", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "allowed_dependency"},
+        "source": {"$ref": "#/$defs/nonEmpty"},
+        "target": {"$ref": "#/$defs/nonEmpty"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"}
       }
     },
     "forbiddenConstruct": {

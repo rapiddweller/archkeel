@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from typing import assert_never
 
 from archkeel.ir.codec import ContractVersionError, decode_json, parse_contract
 from archkeel.ir.model import (
+    AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
     CompleteAssignmentRule,
@@ -19,6 +21,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    NoComponentCyclesRule,
 )
 
 from .records import RawRecord, RecordData, classified
@@ -60,6 +63,13 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "allowed_sources": sorted(rule.allowed_sources),
             **({"target_symbol": rule.target_symbol} if rule.target_symbol else {}),
         }
+    elif isinstance(rule, AllowedDependencyRule):
+        area, title, subjects = (
+            "dependency_violations",
+            f"{rule.source} may depend on {rule.target}",
+            [rule.source, rule.target],
+        )
+        data = {"source": rule.source, "target": rule.target, "rationale": rule.rationale}
     elif isinstance(rule, ForbiddenConstructRule):
         constructs = [item.value for item in rule.constructs]
         area, title, subjects = (
@@ -96,9 +106,11 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "include_type_checking": rule.include_type_checking,
             "rationale": rule.rationale,
         }
-    else:
+    elif isinstance(rule, NoComponentCyclesRule):
         area, title, subjects = "cycles", "Component dependencies form no cycle", []
         data = {"rationale": rule.rationale}
+    else:
+        assert_never(rule)
     return classified(
         item_id=rule.id,
         evidence_class=EvidenceClass.DECLARED_RULE,
