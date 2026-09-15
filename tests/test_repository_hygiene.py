@@ -45,7 +45,7 @@ ALLOWED_LONG_FUNCTIONS = {
     "src/archkeel/analyzer/embedded/report.py::_metrics": "One literal of metric records; the "
     "sets above it only feed that literal.",
     "src/archkeel/analyzer/embedded/scanner.py::scan_repository": _PENDING
-    + "parsing, rule subjects, re-exports, package and module records, coverage.",
+    + "import and call collection, transitive path records, analysis limits.",
     "src/archkeel/check/delta.py::_compare_records": "Exact, relocated and changed stages share "
     "the unmatched record pools.",
     "src/archkeel/check/delta.py::build_architecture_delta": "Shared, coverage and availability "

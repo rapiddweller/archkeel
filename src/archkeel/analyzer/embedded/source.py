@@ -6,10 +6,14 @@
 from __future__ import annotations
 
 import ast
+import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .records import RawEvidence, stable_id
+from archkeel.ir.model import EvidenceClass
+
+from .records import RawEvidence, RawRecord, classified, stable_id
 
 
 def location(node: ast.AST) -> tuple[int, int, int]:
@@ -66,7 +70,7 @@ def annotation_text(node: ast.AST | None) -> str | None:
         return None
     try:
         return ast.unparse(node)
-    except Exception:
+    except ValueError:
         return None
 
 
@@ -76,7 +80,7 @@ def decorator_names(node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
         try:
             names.append(ast.unparse(target))
-        except Exception:
+        except ValueError:
             continue
     return sorted(names)
 
@@ -96,3 +100,71 @@ def module_for(path: Path, *, root: Path, namespace: str) -> str:
 def package_for(module: str) -> str:
     parts = module.split(".")
     return ".".join(parts[:2]) if len(parts) > 1 else module
+
+
+@dataclass(frozen=True)
+class ParsedSources:
+    """Modules parsed from one scan pass, their coverage failures and source digest."""
+
+    modules: list[ParsedModule]
+    failures: list[RawRecord]
+    files_read: int
+    source_digest: str
+
+
+def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> ParsedSources:
+    """Read, digest and parse each candidate path into a module or a coverage failure."""
+    modules: list[ParsedModule] = []
+    failures: list[RawRecord] = []
+    read_count = 0
+    digest = hashlib.sha256()
+    for path in paths:
+        rel = path.relative_to(root).as_posix()
+        try:
+            raw = path.read_bytes()
+            read_count += 1
+            digest.update(rel.encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(raw)
+            digest.update(b"\0")
+            source = raw.decode("utf-8")
+            tree = ast.parse(source, filename=rel)
+            module_name = module_for(path, root=root, namespace=namespace)
+        except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+            if isinstance(exc, SyntaxError):
+                line, message = exc.lineno or 1, exc.msg
+            elif isinstance(exc, OSError):
+                line, message = 1, exc.strerror or exc.__class__.__name__
+            else:
+                line, message = 1, exc.__class__.__name__
+            failure_id = stable_id("COVERAGE", rel, line, exc.__class__.__name__, message)
+            failures.append(
+                classified(
+                    item_id=failure_id,
+                    evidence_class=EvidenceClass.UNKNOWN,
+                    area="analysis_coverage",
+                    kind=exc.__class__.__name__,
+                    title=f"{rel}:{line} could not be analyzed",
+                    subjects=[rel],
+                    data={"file": rel, "line": line, "message": str(message)},
+                )
+            )
+            continue
+        modules.append(
+            ParsedModule(
+                path=path,
+                rel_path=rel,
+                module=module_name,
+                package=package_for(module_name),
+                source=source,
+                source_bytes=raw,
+                lines=source.splitlines(),
+                tree=tree,
+            )
+        )
+    return ParsedSources(
+        modules=modules,
+        failures=failures,
+        files_read=read_count,
+        source_digest=digest.hexdigest(),
+    )

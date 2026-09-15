@@ -37,7 +37,7 @@ top-level modules, one responsibility each:
 | `symbols` | Classes, functions and their signatures |
 | `calls` | Call sites and their resolution |
 | `typing_signals` | Weak typing signals such as `Any`, `object` and `type: ignore` |
-| `dependencies` | Dependency edges, cycles, declared paths and component scopes |
+| `dependencies` | Package and module topology, dependency edges, cycles, declared paths and component scopes |
 | `contexts` | Context and state evidence |
 | `violations` | Contract rule evaluation |
 | `graph` | Graph algorithms: components, ranks, transitive paths |

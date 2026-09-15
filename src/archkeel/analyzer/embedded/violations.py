@@ -238,6 +238,39 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     return {"source": (rule.source,)}
 
 
+def rule_subject_failures(
+    rules: Sequence[ArchitectureRule], module_names: set[str]
+) -> list[RawRecord]:
+    """Flag each rule whose scope selectors match no scanned module."""
+    rule_failures: list[RawRecord] = []
+    for rule in rules:
+        scopes = rule_scopes(rule)
+        matches = {
+            side: sum(
+                any(in_scope(module, scope) for scope in side_scopes) for module in module_names
+            )
+            for side, side_scopes in scopes.items()
+        }
+        missing = [side for side, count in matches.items() if count == 0]
+        if missing:
+            rule_failures.append(
+                classified(
+                    item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule.id),
+                    evidence_class=EvidenceClass.UNKNOWN,
+                    area="analysis_coverage",
+                    kind="rule-without-subjects",
+                    title=f"{rule.id}: no scanned modules for {', '.join(missing)}",
+                    subjects=[scope for side in missing for scope in scopes[side]],
+                    rule_ids=[rule.id],
+                    data={
+                        "missing": missing,
+                        **{f"{side}_matches": count for side, count in matches.items()},
+                    },
+                )
+            )
+    return rule_failures
+
+
 def rule_violations(
     *,
     imports: Sequence[RawRecord],

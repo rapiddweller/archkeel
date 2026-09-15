@@ -12,6 +12,7 @@ from archkeel.ir.model import ContractComponent, ContractPath, EvidenceClass, in
 
 from .graph import condensation_ranks, strongly_connected_components
 from .records import RawRecord, classified, stable_id
+from .source import ParsedModule
 
 
 def _top_level_scope(module: str) -> str | None:
@@ -67,6 +68,78 @@ def aggregate_edges(
         for source, target in graph_edges
     ]
     return records, graph_edges
+
+
+def package_records(
+    parsed: Sequence[ParsedModule],
+    packages: Sequence[str],
+    package_edge_pairs: Sequence[tuple[str, str]],
+) -> list[RawRecord]:
+    """Build one FACT record per package with fan-in/out, rank and declared dependencies."""
+    package_fan_in = Counter(target for source, target in package_edge_pairs)
+    package_fan_out = Counter(source for source, target in package_edge_pairs)
+    # condensation_ranks only depends on packages/package_edge_pairs, both loop-invariant here.
+    ranks = condensation_ranks(packages, package_edge_pairs)
+    return [
+        classified(
+            item_id=stable_id("PKG", package),
+            evidence_class=EvidenceClass.FACT,
+            area="package_topology",
+            kind="package",
+            title=package,
+            subjects=[package],
+            fact_ids=sorted(
+                stable_id("MOD", module.module) for module in parsed if module.package == package
+            ),
+            data={
+                "qualified_name": package,
+                "module_count": sum(1 for module in parsed if module.package == package),
+                "fan_in": package_fan_in[package],
+                "fan_out": package_fan_out[package],
+                "rank": ranks.get(package, 0),
+                "dependencies": sorted(
+                    target for source, target in package_edge_pairs if source == package
+                ),
+            },
+        )
+        for package in packages
+    ]
+
+
+def module_records(
+    parsed: Sequence[ParsedModule],
+    module_names: set[str],
+    module_edge_pairs: Sequence[tuple[str, str]],
+    symbols: Sequence[RawRecord],
+    module_evidence: dict[str, str],
+) -> list[RawRecord]:
+    """Build one FACT record per module with fan-in/out, rank and its export set."""
+    module_fan_in = Counter(target for source, target in module_edge_pairs)
+    module_fan_out = Counter(source for source, target in module_edge_pairs)
+    module_ranks = condensation_ranks(module_names, module_edge_pairs)
+    symbols_by_module = Counter(item["data"]["module"] for item in symbols)
+    return [
+        classified(
+            item_id=stable_id("MOD", module.module),
+            evidence_class=EvidenceClass.FACT,
+            area="module_topology",
+            kind="module",
+            title=module.module,
+            subjects=[module.module, module.package],
+            evidence_ids=[module_evidence[module.module]],
+            data={
+                "qualified_name": module.module,
+                "package": module.package,
+                "file": module.rel_path,
+                "symbol_count": symbols_by_module[module.module],
+                "fan_in": module_fan_in[module.module],
+                "fan_out": module_fan_out[module.module],
+                "rank": module_ranks.get(module.module, 0),
+                "all_exports": sorted(module.all_exports),
+            },
+        )
+        for module in parsed
+    ]
 
 
 def cycle_records(

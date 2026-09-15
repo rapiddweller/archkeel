@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+from collections.abc import Sequence
 
 from archkeel.ir.model import EvidenceClass, in_scope
 
@@ -139,6 +140,39 @@ class ImportCollector(ast.NodeVisitor):
                     "reexport": self.module.path.name == "__init__.py",
                 },
             )
+        )
+
+
+def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str, set[str]]) -> None:
+    """Follow re-export chains in place so each import records its origin definition."""
+    reexports: dict[str, str] = {}
+    for item in imports:
+        data = item["data"]
+        if not data["reexport"] or not data["symbol"]:
+            continue
+        reexports[f"{data['source_module']}.{data['binding']}"] = (
+            f"{data['target_module']}.{data['symbol']}"
+        )
+    for item in imports:
+        data = item["data"]
+        if not data["symbol"]:
+            data["reexport_chain"] = []
+            data["origin_definition"] = None
+            data["symbol_visibility"] = None
+            data["declared_in_all"] = False
+            continue
+        current = f"{data['target_module']}.{data['symbol']}"
+        chain = [current]
+        seen = {current}
+        while current in reexports and reexports[current] not in seen:
+            current = reexports[current]
+            seen.add(current)
+            chain.append(current)
+        data["reexport_chain"] = chain
+        data["origin_definition"] = chain[-1]
+        data["symbol_visibility"] = "private" if data["symbol"].startswith("_") else "public_name"
+        data["declared_in_all"] = data["binding"] in exports_by_module.get(
+            data["source_module"], set()
         )
 
 
