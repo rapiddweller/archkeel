@@ -32,7 +32,6 @@ SOURCES = tuple(
     path for path in TRACKED if path.suffix == ".py" and path.is_relative_to(ROOT / "src")
 )
 LONG_FUNCTION_LINES = 80
-_PENDING = "Pending AD-6 split: "
 ALLOWED_LONG_FUNCTIONS = {
     "src/archkeel/analyzer/__init__.py::observe": "Subprocess boundary; one try maps launch, "
     "decode and failure to diagnostics.",
@@ -42,8 +41,6 @@ ALLOWED_LONG_FUNCTIONS = {
     "threads fields, properties, post-init assignments and mutations together.",
     "src/archkeel/analyzer/embedded/contract.py::project_declarations": "One classified record "
     "per declaration kind; nothing is shared between them.",
-    "src/archkeel/analyzer/embedded/dependencies.py::component_scope_observations": _PENDING
-    + "per-component scope record and coverage suppression record.",
     "src/archkeel/analyzer/embedded/report.py::_metrics": "One literal of metric records; the "
     "sets above it only feed that literal.",
     "src/archkeel/analyzer/embedded/scanner.py::scan_repository": "Sequences the collectors into "

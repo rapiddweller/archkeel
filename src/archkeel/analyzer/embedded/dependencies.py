@@ -276,89 +276,99 @@ def component_scope_observations(
     coverage_complete = not coverage_failures
 
     for component in sorted(components, key=lambda item: item.id):
-        scopes = sorted(component.packages)
-        matched_names = sorted(
-            name for name in module_by_name if any(in_scope(name, scope) for scope in scopes)
+        record, matched_names = _declared_scope_record(
+            component, module_by_name, module_edges, coverage_complete
         )
         assigned_modules.update(matched_names)
-        matched_set = set(matched_names)
-        outgoing_edges = sorted(
-            (
-                edge
-                for edge in module_edges
-                if edge["data"]["source"] in matched_set
-                and edge["data"]["target"] not in matched_set
-            ),
-            key=lambda item: item["id"],
-        )
-        outgoing_modules = sorted({edge["data"]["target"] for edge in outgoing_edges})
-        outgoing_scopes = sorted(
-            {scope for name in outgoing_modules if (scope := _top_level_scope(name)) is not None}
-        )
-        module_facts = [module_by_name[name] for name in matched_names]
-        observations.append(
-            classified(
-                item_id=stable_id("SCOPE", "declared_component", component.id),
-                evidence_class=EvidenceClass.FACT,
-                area="components",
-                kind="declared_component_scope_observation",
-                title=f"Observed source scope for {component.label}",
-                subjects=scopes,
-                evidence_ids=[
-                    evidence_id for item in module_facts for evidence_id in item["evidence_ids"]
-                ],
-                rule_ids=[component.id],
-                fact_ids=[
-                    *[item["id"] for item in module_facts],
-                    *[item["id"] for item in outgoing_edges],
-                ],
-                data={
-                    "component_id": component.id,
-                    "scopes": scopes,
-                    "scope_module_counts": [
-                        {
-                            "scope": scope,
-                            "observed_module_count": sum(
-                                1 for name in matched_names if in_scope(name, scope)
-                            ),
-                        }
-                        for scope in scopes
-                    ],
-                    "coverage_complete": coverage_complete,
-                    "module_count": len(matched_names) if coverage_complete else None,
-                    "observed_module_count": len(matched_names),
-                    "modules": matched_names,
-                    "files": sorted(module_by_name[name]["data"]["file"] for name in matched_names),
-                    "fan_out": len(outgoing_scopes) if coverage_complete else None,
-                    "outgoing_scopes": outgoing_scopes,
-                    "outgoing_modules": outgoing_modules,
-                },
-            )
-        )
+        observations.append(record)
 
     if coverage_failures:
-        observations.append(
-            classified(
-                item_id="UNKNOWN-COMPONENT-SCOPE-COVERAGE",
-                evidence_class=EvidenceClass.UNKNOWN,
-                area="components",
-                kind="component_scope_assignment_incomplete",
-                title="Component scope assignment cannot be completed safely",
-                subjects=sorted(
-                    subject
-                    for failure in coverage_failures
-                    for subject in failure.get("subjects", [])
-                ),
-                data={
-                    "reason": "Source coverage failed; unassigned-scope conclusions are suppressed",
-                    "coverage_failure_ids": sorted(failure["id"] for failure in coverage_failures),
-                },
-            )
-        )
+        observations.append(_scope_coverage_unknown(coverage_failures))
         return sorted(observations, key=lambda item: item["id"])
 
     observations.extend(_unassigned_scope_records(module_by_name, assigned_modules))
     return sorted(observations, key=lambda item: item["id"])
+
+
+def _declared_scope_record(
+    component: ContractComponent,
+    module_by_name: dict[str, RawRecord],
+    module_edges: Sequence[RawRecord],
+    coverage_complete: bool,
+) -> tuple[RawRecord, list[str]]:
+    """Build one component's DECLARED scope record and its matched module names."""
+    scopes = sorted(component.packages)
+    matched_names = sorted(
+        name for name in module_by_name if any(in_scope(name, scope) for scope in scopes)
+    )
+    matched_set = set(matched_names)
+    outgoing_edges = sorted(
+        (
+            edge
+            for edge in module_edges
+            if edge["data"]["source"] in matched_set and edge["data"]["target"] not in matched_set
+        ),
+        key=lambda item: item["id"],
+    )
+    outgoing_modules = sorted({edge["data"]["target"] for edge in outgoing_edges})
+    outgoing_scopes = sorted(
+        {scope for name in outgoing_modules if (scope := _top_level_scope(name)) is not None}
+    )
+    module_facts = [module_by_name[name] for name in matched_names]
+    record = classified(
+        item_id=stable_id("SCOPE", "declared_component", component.id),
+        evidence_class=EvidenceClass.FACT,
+        area="components",
+        kind="declared_component_scope_observation",
+        title=f"Observed source scope for {component.label}",
+        subjects=scopes,
+        evidence_ids=[evidence_id for item in module_facts for evidence_id in item["evidence_ids"]],
+        rule_ids=[component.id],
+        fact_ids=[
+            *[item["id"] for item in module_facts],
+            *[item["id"] for item in outgoing_edges],
+        ],
+        data={
+            "component_id": component.id,
+            "scopes": scopes,
+            "scope_module_counts": [
+                {
+                    "scope": scope,
+                    "observed_module_count": sum(
+                        1 for name in matched_names if in_scope(name, scope)
+                    ),
+                }
+                for scope in scopes
+            ],
+            "coverage_complete": coverage_complete,
+            "module_count": len(matched_names) if coverage_complete else None,
+            "observed_module_count": len(matched_names),
+            "modules": matched_names,
+            "files": sorted(module_by_name[name]["data"]["file"] for name in matched_names),
+            "fan_out": len(outgoing_scopes) if coverage_complete else None,
+            "outgoing_scopes": outgoing_scopes,
+            "outgoing_modules": outgoing_modules,
+        },
+    )
+    return record, matched_names
+
+
+def _scope_coverage_unknown(coverage_failures: Sequence[RawRecord]) -> RawRecord:
+    """Build the UNKNOWN record when source coverage failed before scope assignment."""
+    return classified(
+        item_id="UNKNOWN-COMPONENT-SCOPE-COVERAGE",
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="components",
+        kind="component_scope_assignment_incomplete",
+        title="Component scope assignment cannot be completed safely",
+        subjects=sorted(
+            subject for failure in coverage_failures for subject in failure.get("subjects", [])
+        ),
+        data={
+            "reason": "Source coverage failed; unassigned-scope conclusions are suppressed",
+            "coverage_failure_ids": sorted(failure["id"] for failure in coverage_failures),
+        },
+    )
 
 
 def _unassigned_scope_records(
