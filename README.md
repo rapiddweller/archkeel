@@ -134,13 +134,17 @@ uvx archkeel init
 uvx archkeel validate
 ```
 
-`init` observes the only top-level package and writes `archkeel.toml`,
-`architecture-contract.json` and `docs/architecture/architecture.md`. It proposes one
-component per subpackage and forbids every component pair that is not imported today. Each rule
-starts with a `TODO:` rationale, so `validate` lists every decision that remains, each with a
-JSON Pointer. Give the prompt in [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md)
-to your coding agent, or work through the list yourself. The rule catalog is in
-[docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+The contract is your target architecture, not a copy of the code. `init` observes the only
+top-level package and writes `archkeel.toml`, `architecture-contract.json` and
+`docs/architecture/architecture.md`: one component per subpackage, drafted `public` interfaces and
+no dependency rule. Every ordered component pair is an open decision; `init --json` and
+`validate --json` list them heaviest first, each with the exact `allowed_dependency` and
+`forbidden_dependency` rule to choose from. The installed skill runs onboarding in one of two
+modes: an interview, where the agent reads your ADRs and documents, recommends and asks only about
+conflicts and gaps, or auto mode, where the agent decides. Every rule records `decided_by`, and
+reports count the decisions the architect has not reviewed yet. The prompt is in
+[docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
+rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
 
 To install it permanently instead, run `pip install archkeel`. Every command explains itself
 with `archkeel <command> --help`.
@@ -305,9 +309,10 @@ make fixtures
 [architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json)
 holds Archkeel to the rules it sells, and every rule was proven by a deliberate violation:
 
-- **Closed world.** Seven components; every ordered pair is either one of the ten observed
-  imports or forbidden with a rationale. The [architecture guide](docs/architecture/archkeel.md)
-  explains each allowed edge in the single marked component graph.
+- **Every pair decided.** Six components; each of the 30 ordered pairs is an
+  `allowed_dependency` or `forbidden_dependency` rule with a rationale, all decided by the
+  architect. The [architecture guide](docs/architecture/archkeel.md) names the quality goal each
+  allowed edge serves.
 - **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
   the composition root. The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`.
 - **No dynamic shortcuts.** `getattr`, `hasattr`, `cast`, `eval`, `exec`, dynamic imports and
@@ -333,7 +338,10 @@ Archkeel is deliberately strict about what it can prove:
 - **Analyzer runtime:** Archkeel's Python must be at least the target
   repository's Python.
 - **Onboarding:** `init` detects one top-level package; other layouts need `--source` and
-  `--namespace`. It cannot know why a boundary exists, so every rationale stays a decision.
+  `--namespace`. It never decides a dependency; the architect or, in auto mode, the agent does,
+  and `decided_by` keeps the difference visible.
+- **Static observation:** runtime behavior, data flow and performance are not observed; see
+  [docs/known-limits.md](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
 
 ## Roadmap
 

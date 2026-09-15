@@ -61,6 +61,7 @@ are persisted by `report`. Invalid locks are never replaced with empty state.
 IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen dataclasses.
 `report` and `check --output` write `<output-stem>.report.html` and `<output-stem>.check.html`. The suffix separates commands; the stem separates runs.
 The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
+`init --json` and `validate --json` add `open_decisions`, heaviest observed pair first, each with its `allowed_dependency` and `forbidden_dependency` option rule (AD-15). `validate` and `report` add `agent_decisions` as `[agent, total]` rules (AD-16).
 
 ## Regression checks
 
@@ -90,11 +91,11 @@ Historical evidence and reproduction commands retain the names from their pinned
 
 ## Fixtures
 
-The original Phase-4 runs under `fixtures/A` and `fixtures/B` are unchanged archives,
-not test or distribution inputs. `make fixtures` reproduces A, B and C from
-`fixtures/A-dispatch`, `fixtures/B-posthoc` and `fixtures/C-valid`.
+`make fixtures` reproduces A, B and C from `fixtures/A-dispatch`, `fixtures/B-posthoc` and
+`fixtures/C-valid`. `fixtures/F-architecture` is the shop sample behind the demo catalog (AD-11).
 
-The bundled analyzer supports negative dependency rules. D-self also checks that
+Every ordered component pair is decided by one `allowed_dependency` or `forbidden_dependency`
+rule (AD-15). D-self also checks that
 all observed modules have declared components, that new IR modules receive explicit
 analyzer prohibitions, and that analyzer imports stay within the declared IR API.
 

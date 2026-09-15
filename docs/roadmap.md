@@ -46,17 +46,18 @@ only when its row names repository evidence.
 | The report headline follows its verdicts instead of the exit code alone (AD-14) | `e383d62`; `tests/test_html_report.py`; `tests/test_terminal.py` |
 | An internal 13-component service was onboarded to `validate` exit 0 with the release candidate; anonymized artifacts and findings are published | `docs/evidence/internal-service/` |
 | Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
+| The HTML report draws component flow: edges weighted by import sites, violated edges with their rule ids, a legend and the heaviest connections (AD-10) | `b1fa8df`; `7b2502a`; `tests/test_flow.py`; `tests/test_html_report.py` |
+| Onboarding is a decision interview: `allowed_dependency`, contract 2.1.0, `decision.open` and `decision.conflict`, open decisions with option rules, component-level enforcement (AD-15) | `1951aa0`; `4a8548b`; `540226c`; `4b5936e`; `0740030`; `919f514`; `tests/test_decisions.py`; `tests/test_onboarding.py` |
+| Every rule records `decided_by`; the skill runs an interview or auto mode, and reports count agent decisions (AD-16) | `52be155`; `819981a`; `c7baf9c` |
+| Archkeel's contract names its quality goals, `ir` holds pure derivations, and the `accept` placeholder is gone (AD-17) | `0212447`; `e7d5178` |
 
 ## Next
 
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
-2. Before tagging 0.3.0, ship the component flow in the HTML report (AD-10), onboarding as a
-   decision interview (AD-15), and the interview and auto modes with `decided_by` (AD-16).
-3. Then repeat the internal service onboarding as an interview with the owner as architect, replace
-   the agent-drafted rationales in `docs/evidence/internal-service/` with the owner's decisions, and
-   decide which findings in its README block the release.
+2. Before tagging 0.3.0, replace `docs/evidence/internal-service/` with the anonymized interview
+   and blind auto-mode evidence, and decide which of its findings block the release.
 
 ## Later
 
@@ -72,7 +73,6 @@ only when its row names repository evidence.
 - Split `ir/codec.py` along its contract, observation, delta, result and lock seams (AD-17).
 - Add `propose` and `next`.
 - Integrate Archkeel into DataMimic EE.
-- Add an interactive review surface and navigable dependency graph.
 - Add digest-bound blind LLM review whose verdict remains a hypothesis.
 - Track finding lifecycle states on existing fingerprints without changing check outcomes.
 - Add a publication timeline when check results carry host-record timestamps.
