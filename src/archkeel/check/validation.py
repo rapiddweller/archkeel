@@ -25,7 +25,9 @@ from archkeel.ir.model import (
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    InterfaceBoundaryRule,
     Observation,
+    RecordData,
     RunResult,
     in_scope,
 )
@@ -113,6 +115,74 @@ def closed_world_diagnostics(
         for (source, target), count in sorted(Counter(forbidden_items).items())
         if count > 1
     )
+    return tuple(diagnostics)
+
+
+def _entry_used(entry: str, records: list[RecordData]) -> bool:
+    """Match one public entry's usage the way `_interface_allows` walks reexport_chain.
+
+    Deliberately looser than the analyzer's runtime check: no `__all__` gate and no
+    underscore rejection, since a public entry naming a private or unexported name is
+    a rule violation already reported elsewhere, not an unused-entry drift signal.
+    """
+    module, colon, name = entry.partition(":")
+    for data in records:
+        chain = data.get("reexport_chain")
+        chain_items = chain if isinstance(chain, tuple) else ()
+        if colon:
+            if any(item == f"{module}.{name}" for item in chain_items if isinstance(item, str)):
+                return True
+            continue
+        if data.get("target_module") == module:
+            return True
+        for item in chain_items:
+            if isinstance(item, str) and item.rpartition(".")[0] == module:
+                return True
+    return False
+
+
+def interface_diagnostics(
+    contract: ArchitectureContract, observation: Observation
+) -> tuple[Diagnostic, ...]:
+    """Require a declared interface for inbound imports and usage for declared entries."""
+    if not any(isinstance(rule, InterfaceBoundaryRule) for rule in contract.rules):
+        return ()
+    imports_by_target: dict[str, list[RecordData]] = {}
+    for record in observation.records("imports") or ():
+        source_module = record.data.get("source_module")
+        target_module = record.data.get("target_module")
+        if not isinstance(source_module, str) or not isinstance(target_module, str):
+            continue
+        source = contract.component_for(source_module)
+        target = contract.component_for(target_module)
+        if source is None or target is None or source == target:
+            continue
+        imports_by_target.setdefault(target.label, []).append(record.data)
+    diagnostics = []
+    for index, component in enumerate(contract.components):
+        records = imports_by_target.get(component.label, [])
+        if component.public is None:
+            if records:
+                diagnostics.append(
+                    _diagnostic(
+                        f"/components/{index}",
+                        component.label,
+                        "The component receives cross-component imports but declares "
+                        "no public interface.",
+                        "Declare the used modules or names in public.",
+                    )
+                )
+            continue
+        for item, entry in enumerate(component.public):
+            if not _entry_used(entry, records):
+                diagnostics.append(
+                    _diagnostic(
+                        f"/components/{index}/public/{item}",
+                        entry,
+                        "No cross-component import reaches this public entry.",
+                        "Remove the entry or confirm another component should use it.",
+                    )
+                )
     return tuple(diagnostics)
 
 
@@ -370,6 +440,7 @@ def observation_diagnostics(
     rule_index = {rule.id: index for index, rule in enumerate(contract.rules)}
     diagnostics = [
         *closed_world_diagnostics(contract, observation),
+        *interface_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]

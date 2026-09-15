@@ -6,10 +6,11 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from test_analyzer import _component
+from test_delta import _model, _record
 
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import reference_diagnostics, run_validate
+from archkeel.check.validation import interface_diagnostics, reference_diagnostics, run_validate
 from archkeel.cli.config import load_config
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 
@@ -109,3 +110,100 @@ def test_public_entry_with_underscore_name_is_a_diagnostic() -> None:
         item.pointer == "/components/0/public/0" and "Underscore" in item.unknown_claim
         for item in diagnostics
     )
+
+
+_INTERFACE_RULE = {
+    "id": "INTERFACE",
+    "kind": "interface_boundary",
+    "rationale": "Probe.",
+    "provenance": ["docs/architecture/sample.md"],
+}
+
+
+def _cross_import(target_module: str, **data: object) -> dict[str, object]:
+    return _record(
+        "IMPORT-1",
+        kind="import",
+        data={"source_module": "sample.cli", "target_module": target_module, **data},
+    )
+
+
+def test_undeclared_interface_is_a_diagnostic_when_a_rule_is_present() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [_component("core"), _component("cli")],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(git_head="a" * 40, imports=[_cross_import("sample.core")])
+    )
+    diagnostics = interface_diagnostics(contract, observation)
+    assert [item.pointer for item in diagnostics] == ["/components/0"]
+
+
+def test_declared_public_interface_has_no_undeclared_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [_component("core", public=["sample.core"]), _component("cli")],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(git_head="a" * 40, imports=[_cross_import("sample.core")])
+    )
+    assert interface_diagnostics(contract, observation) == ()
+
+
+def test_unused_public_entry_is_a_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [_component("core", public=["sample.core:Widget"]), _component("cli")],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(_model(git_head="a" * 40, imports=[]))
+    diagnostics = interface_diagnostics(contract, observation)
+    assert [item.pointer for item in diagnostics] == ["/components/0/public/0"]
+
+
+def test_public_entry_used_through_a_reexport_chain_has_no_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [
+                _component("core", public=["sample.core.impl:Widget"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            imports=[
+                _cross_import(
+                    "sample.core",
+                    reexport_chain=["sample.core.Widget", "sample.core.impl.Widget"],
+                )
+            ],
+        )
+    )
+    assert interface_diagnostics(contract, observation) == ()
+
+
+def test_no_interface_rule_means_neither_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [_component("core"), _component("cli")],
+            "rules": [],
+        }
+    )
+    observation = parse_observation(
+        _model(git_head="a" * 40, imports=[_cross_import("sample.core")])
+    )
+    assert interface_diagnostics(contract, observation) == ()
