@@ -125,6 +125,7 @@ _INTERFACE_RULE = {
     "kind": "interface_boundary",
     "rationale": "Probe.",
     "provenance": ["docs/architecture/sample.md"],
+    "decided_by": "architect",
 }
 
 

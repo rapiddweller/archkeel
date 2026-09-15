@@ -18,7 +18,8 @@
       "source": "sample.core",
       "constructs": ["eval", "exec", "dynamic_import"],
       "rationale": "Static source analysis remains complete for executable constructs.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

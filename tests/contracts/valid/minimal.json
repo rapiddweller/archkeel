@@ -29,7 +29,8 @@
       "target": "sample.cli",
       "include_type_checking": true,
       "rationale": "Stable domain data remains independent of the application edge.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

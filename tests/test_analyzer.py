@@ -175,6 +175,7 @@ def test_class_a_rule_produces_one_traceable_violation(
                 "id": "RULE",
                 "rationale": "Probe.",
                 "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
                 **rule,
             }
         ],
@@ -221,6 +222,7 @@ def test_forbidden_dependency_naming_one_package_enforces_the_whole_component(
                 "include_type_checking": True,
                 "rationale": "Probe.",
                 "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
             }
         ],
     }
@@ -256,6 +258,7 @@ def test_forbidden_dependency_scoped_to_a_submodule_matches_only_that_submodule(
                 "include_type_checking": True,
                 "rationale": "Probe.",
                 "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
             }
         ],
     }
@@ -356,6 +359,7 @@ def test_interface_boundary_rule_matches_the_declared_public_interface(
                 "kind": "interface_boundary",
                 "rationale": "Probe.",
                 "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
                 **rule_overrides,
             }
         ],

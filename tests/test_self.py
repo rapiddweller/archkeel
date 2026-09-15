@@ -159,6 +159,7 @@ def test_closed_world_check_detects_a_conflicting_rule(self_observation: Observa
         rule.target,
         "Conflict probe.",
         rule.provenance,
+        "architect",
     )
     broken = replace(contract, rules=(*contract.rules, conflict))
     diagnostics = closed_world_diagnostics(broken, self_observation)

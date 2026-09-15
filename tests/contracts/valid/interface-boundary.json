@@ -26,7 +26,8 @@
       "id": "INTERFACE",
       "kind": "interface_boundary",
       "rationale": "Cross-component imports must reach a declared public interface.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

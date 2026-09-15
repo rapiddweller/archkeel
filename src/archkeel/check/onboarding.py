@@ -202,6 +202,7 @@ def draft_contract(
             namespace,
             "TODO: explain why every module needs exactly one owning component.",
             (DOCUMENT_PATH,),
+            "agent",
         )
     ]
     if not _has_cycle(labels, edges):
@@ -211,6 +212,7 @@ def draft_contract(
                 "no_component_cycles",
                 "TODO: explain why components must stay acyclic.",
                 (DOCUMENT_PATH,),
+                "agent",
             )
         )
     if public:
@@ -220,6 +222,7 @@ def draft_contract(
                 "interface_boundary",
                 "TODO: explain why cross-component imports must use declared interfaces.",
                 (DOCUMENT_PATH,),
+                "agent",
             )
         )
     return ArchitectureContract(CONTRACT_SCHEMA_VERSION, components, tuple(rules)), edges

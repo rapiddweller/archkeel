@@ -209,6 +209,7 @@ class ForbiddenDependencyRule:
     include_type_checking: bool
     rationale: str
     provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
     target_symbol: str | None = None
     allowed_sources: tuple[str, ...] = ()
 
@@ -223,6 +224,7 @@ class AllowedDependencyRule:
     target: str
     rationale: str
     provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
 
 
 class ForbiddenConstructKind(StrEnum):
@@ -245,6 +247,7 @@ class ForbiddenConstructRule:
     constructs: tuple[ForbiddenConstructKind, ...]
     rationale: str
     provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
     allowed_sources: tuple[str, ...] = ()
 
 
@@ -256,6 +259,7 @@ class ExternalDependencyScopeRule:
     allowed_sources: tuple[str, ...]
     rationale: str
     provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,6 +269,7 @@ class CompleteAssignmentRule:
     source: str
     rationale: str
     provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,6 +278,7 @@ class NoComponentCyclesRule:
     kind: Literal["no_component_cycles"]
     rationale: str
     provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,6 +287,7 @@ class InterfaceBoundaryRule:
     kind: Literal["interface_boundary"]
     rationale: str
     provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
     include_type_checking: bool = True
 
 
@@ -614,6 +621,8 @@ class RunResult:
     delta: ArchitectureDelta | None = None
     provenance: CheckProvenance | None = None
     open_decisions: tuple[OpenDecision, ...] = ()
+    # AD-16: (agent-decided rules, total rules), from `ir.decisions.agent_decisions`.
+    agent_decisions: tuple[int, int] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

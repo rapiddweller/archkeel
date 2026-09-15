@@ -9,7 +9,8 @@
       "constructs": ["assert"],
       "allowed_sources": "sample.cli",
       "rationale": "allowed_sources must be an array of strings, not a bare string.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

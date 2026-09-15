@@ -199,6 +199,7 @@ _VALIDATION_RULE_WITHOUT_SUBJECTS = Variant(
                 "rationale": "A rule whose source matches no scanned module, for the "
                 "architecture demo's rule_without_subjects coverage.",
                 "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
             }
         )
     },

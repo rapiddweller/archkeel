@@ -63,6 +63,14 @@ def _decision_badge(result: RunResult) -> Badge:
     return Badge("unknown", "?", "UNVERIFIABLE")
 
 
+def _agent_decisions_line(result: RunResult) -> str:
+    """Name agent-decided rules still awaiting the architect (AD-16); silent when none."""
+    if not result.agent_decisions or not result.agent_decisions[0]:
+        return ""
+    agent, total = result.agent_decisions
+    return f"\n\n{agent} of {total} rules decided by the agent, awaiting the architect."
+
+
 def _open_decisions_lines(result: RunResult) -> str:
     """Name the open decisions left, heaviest observed edges first; never their rule JSON."""
     if not result.open_decisions:
@@ -122,7 +130,8 @@ def report_summary(result: RunResult) -> Summary:
             expectation_reason,
         ),
     )
-    return Summary(_decision_badge(result), sentence + _open_decisions_lines(result), verdicts, ())
+    sentence += _open_decisions_lines(result) + _agent_decisions_line(result)
+    return Summary(_decision_badge(result), sentence, verdicts, ())
 
 
 def init_summary(result: RunResult) -> Summary:

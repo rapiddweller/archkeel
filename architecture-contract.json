@@ -128,7 +128,8 @@
       "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "Stable evidence types remain usable without policy evaluation.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-IR-NO-ACCEPT",
@@ -137,7 +138,8 @@
       "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "Lock and observation types remain independent of acceptance orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-IR-NO-CLI",
@@ -146,7 +148,8 @@
       "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "Evidence models and codecs remain reusable outside the command line.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-IR-NO-HOST",
@@ -155,7 +158,8 @@
       "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "Host-independent evidence remains portable across repository providers.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-IR-NO-ANALYZER",
@@ -164,7 +168,8 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "The shared evidence model remains independent of Python source analysis.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CHECK-NO-ACCEPT",
@@ -173,7 +178,8 @@
       "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "Policy evaluation must not create or mutate accepted state.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CHECK-NO-CLI",
@@ -182,7 +188,8 @@
       "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "Deterministic checks remain callable without command-line orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CHECK-NO-HOST",
@@ -191,7 +198,8 @@
       "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "The deterministic core receives host evidence through an injected port.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CHECK-NO-ANALYZER",
@@ -200,7 +208,8 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "The deterministic core receives observations through an injected port.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ACCEPT-NO-CHECK",
@@ -209,7 +218,8 @@
       "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "Acceptance remains separate from deterministic policy evaluation.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ACCEPT-NO-CLI",
@@ -218,7 +228,8 @@
       "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "Acceptance state remains usable without command-line orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ACCEPT-NO-HOST",
@@ -227,7 +238,8 @@
       "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "Acceptance stores opaque approval references instead of host-specific data.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ACCEPT-NO-ANALYZER",
@@ -236,7 +248,8 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "Acceptance must not trigger source analysis.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-NO-IR",
@@ -245,7 +258,8 @@
       "target": "archkeel.ir",
       "include_type_checking": true,
       "rationale": "Command services mediate IR access so the CLI only composes workflows.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-HOST-NO-CHECK",
@@ -254,7 +268,8 @@
       "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "Host adapters collect evidence while check owns policy interpretation.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-HOST-NO-ACCEPT",
@@ -263,7 +278,8 @@
       "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "Host adapters collect approval evidence but never persist accepted state.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-HOST-NO-CLI",
@@ -272,7 +288,8 @@
       "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "Host adapters remain callable without command-line orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-HOST-NO-ANALYZER",
@@ -281,7 +298,8 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "Host evidence collection remains independent of source analysis.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-CHECK",
@@ -290,7 +308,8 @@
       "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "The analyzer produces observations without evaluating policy.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-ACCEPT",
@@ -299,7 +318,8 @@
       "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "Source analysis must not create or mutate accepted state.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-CLI",
@@ -308,7 +328,8 @@
       "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "Source analysis remains callable without command-line orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-HOST",
@@ -317,7 +338,8 @@
       "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "Source analysis remains independent of repository-host APIs.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-IR-DIGEST",
@@ -326,7 +348,8 @@
       "target": "archkeel.ir.digest",
       "include_type_checking": true,
       "rationale": "Package identity is checker provenance, so the analyzer must not own package hashing.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-IR-LOCK",
@@ -335,7 +358,8 @@
       "target": "archkeel.ir.lock",
       "include_type_checking": true,
       "rationale": "Accepted-state verification belongs to checks while the analyzer only observes source.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-IR-MEASUREMENTS",
@@ -344,7 +368,8 @@
       "target": "archkeel.ir.measurements",
       "include_type_checking": true,
       "rationale": "Checks derive regression measurements from observations instead of accepting analyzer policy.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-IR-TRACE",
@@ -353,7 +378,8 @@
       "target": "archkeel.ir.trace",
       "include_type_checking": true,
       "rationale": "Checks validate evidence classes while analyzer output stays at the observation boundary.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-IR-HOST-RECORDS",
@@ -362,7 +388,8 @@
       "target": "archkeel.ir.host_records",
       "include_type_checking": true,
       "rationale": "The analyzer may publish only the common model and codec boundary.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-IR-INTERFACES",
@@ -371,7 +398,8 @@
       "target": "archkeel.ir.interfaces",
       "include_type_checking": true,
       "rationale": "Component communication is derived from observations by render, not built by the analyzer that only observes source.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-IR-DECISIONS",
@@ -380,7 +408,8 @@
       "target": "archkeel.ir.decisions",
       "include_type_checking": true,
       "rationale": "Undecided component pairs are derived from observations by validation and the report, not built by the analyzer that only observes source.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-IR-NO-RENDER",
@@ -389,7 +418,8 @@
       "target": "archkeel.render",
       "include_type_checking": true,
       "rationale": "IR remains independent of presentation.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CHECK-NO-RENDER",
@@ -398,7 +428,8 @@
       "target": "archkeel.render",
       "include_type_checking": true,
       "rationale": "Checks produce typed results without presentation dependencies.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ACCEPT-NO-RENDER",
@@ -407,7 +438,8 @@
       "target": "archkeel.render",
       "include_type_checking": true,
       "rationale": "Acceptance remains independent of presentation.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-HOST-NO-RENDER",
@@ -416,7 +448,8 @@
       "target": "archkeel.render",
       "include_type_checking": true,
       "rationale": "Host evidence collection remains independent of presentation.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-NO-RENDER",
@@ -425,7 +458,8 @@
       "target": "archkeel.render",
       "include_type_checking": true,
       "rationale": "The analyzer produces evidence without presentation dependencies.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-CHECK",
@@ -434,7 +468,8 @@
       "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "Rendering consumes IR values without check implementation details.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-ACCEPT",
@@ -443,7 +478,8 @@
       "target": "archkeel.accept",
       "include_type_checking": true,
       "rationale": "Rendering does not own acceptance.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-CLI",
@@ -452,7 +488,8 @@
       "target": "archkeel.cli",
       "include_type_checking": true,
       "rationale": "The CLI owns presentation output orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-HOST",
@@ -461,7 +498,8 @@
       "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "Rendering consumes typed evidence rather than host implementations.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-ANALYZER",
@@ -470,7 +508,8 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "Rendering consumes IR values rather than analyzer implementations.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-ALLOWS-ACCEPT",
@@ -478,7 +517,8 @@
       "source": "archkeel.cli",
       "target": "archkeel.accept",
       "rationale": "Dispatch the acceptance command from the composition root.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-ALLOWS-ANALYZER",
@@ -486,7 +526,8 @@
       "source": "archkeel.cli",
       "target": "archkeel.analyzer",
       "rationale": "Supply the concrete source analyzer to report and check workflows.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-ALLOWS-CHECK",
@@ -494,7 +535,8 @@
       "source": "archkeel.cli",
       "target": "archkeel.check",
       "rationale": "Invoke deterministic report and check services.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-ALLOWS-HOST",
@@ -502,7 +544,8 @@
       "source": "archkeel.cli",
       "target": "archkeel.host",
       "rationale": "Supply the concrete host-record loader to checks.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-ALLOWS-RENDER",
@@ -510,7 +553,8 @@
       "source": "archkeel.cli",
       "target": "archkeel.render",
       "rationale": "Project typed results and write presentation artifacts.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ACCEPT-ALLOWS-IR",
@@ -518,7 +562,8 @@
       "source": "archkeel.accept",
       "target": "archkeel.ir",
       "rationale": "Return typed command results through shared IR values.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-ANALYZER-ALLOWS-IR",
@@ -526,7 +571,8 @@
       "source": "archkeel.analyzer",
       "target": "archkeel.ir",
       "rationale": "Publish observations through the common model and codec boundary.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CHECK-ALLOWS-IR",
@@ -534,7 +580,8 @@
       "source": "archkeel.check",
       "target": "archkeel.ir",
       "rationale": "Compare observations and return typed results.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-HOST-ALLOWS-IR",
@@ -542,7 +589,8 @@
       "source": "archkeel.host",
       "target": "archkeel.ir",
       "rationale": "Construct validated host-record values.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-ALLOWS-IR",
@@ -550,7 +598,8 @@
       "source": "archkeel.render",
       "target": "archkeel.ir",
       "rationale": "Render typed evidence without importing policy implementations.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-DYNAMIC",
@@ -558,7 +607,8 @@
       "source": "archkeel",
       "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore"],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-ASSERT",
@@ -566,7 +616,8 @@
       "source": "archkeel",
       "constructs": ["assert"],
       "rationale": "Invariants are checked where values are built, because assert statements vanish under python -O.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-BROAD-EXCEPT",
@@ -575,7 +626,8 @@
       "constructs": ["broad_except"],
       "allowed_sources": ["archkeel.cli.main"],
       "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit-2 result.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-PACKAGING-RUNTIME",
@@ -583,7 +635,8 @@
       "dependency": "packaging",
       "allowed_sources": ["archkeel.analyzer.runtime"],
       "rationale": "Only the runtime gate interprets requires-python specifiers; the core stays dependency-free.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-RICH-TERMINAL",
@@ -591,7 +644,8 @@
       "dependency": "rich",
       "allowed_sources": ["archkeel.render.terminal"],
       "rationale": "Terminal styling stays replaceable; JSON and HTML evidence never depend on it.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-RICH-ARGPARSE-CLI",
@@ -599,26 +653,30 @@
       "dependency": "rich_argparse",
       "allowed_sources": ["archkeel.cli"],
       "rationale": "Help formatting belongs to the composition root that owns the argument parser.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
       "source": "archkeel",
       "rationale": "A module without one owning component escapes every boundary rule.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
       "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     }
   ]
 }

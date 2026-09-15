@@ -15,6 +15,7 @@ from typing import Final
 from .interfaces import component_owners, owner_of
 from .model import (
     AllowedDependencyRule,
+    ArchitectureContract,
     ForbiddenDependencyRule,
     Observation,
     OpenDecision,
@@ -96,6 +97,7 @@ def _open_decision(
             True,
             _PLACEHOLDER_RATIONALE,
             (DOCUMENT_PATH,),
+            "agent",
         ),
         AllowedDependencyRule(
             allowed_id,
@@ -104,6 +106,7 @@ def _open_decision(
             target_package,
             _PLACEHOLDER_RATIONALE,
             (DOCUMENT_PATH,),
+            "agent",
         ),
     )
 
@@ -138,6 +141,13 @@ def open_decisions(
 
 def identifier(label: str) -> str:
     return label.upper().replace("_", "-")
+
+
+def agent_decisions(contract: ArchitectureContract) -> tuple[int, int]:
+    """Count rules `decided_by` the agent against the total, in one place (AD-16)."""
+    total = len(contract.rules)
+    agent = sum(rule.decided_by == "agent" for rule in contract.rules)
+    return agent, total
 
 
 def dependency_rule_ids(source: str, target: str) -> tuple[str, str]:

@@ -19,7 +19,7 @@ from archkeel.ir.codec import (
     decode_json,
     parse_contract,
 )
-from archkeel.ir.decisions import open_decisions
+from archkeel.ir.decisions import agent_decisions, open_decisions
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -592,6 +592,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         measurements = None
         declared = "FAIL"
     decisions = open_decisions(observation)
+    counts = agent_decisions(contract)
     if diagnostics:
         return RunResult(
             "validate",
@@ -600,6 +601,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
             coverage=observation.coverage,
             python_version=observation.python_version,
             open_decisions=decisions,
+            agent_decisions=counts,
         )
     return RunResult(
         "validate",
@@ -611,4 +613,5 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         python_version=observation.python_version,
         measurements=measurements,
         open_decisions=decisions,
+        agent_decisions=counts,
     )

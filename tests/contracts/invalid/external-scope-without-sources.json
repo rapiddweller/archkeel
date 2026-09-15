@@ -8,7 +8,8 @@
       "dependency": "json",
       "allowed_sources": [],
       "rationale": "Serialization stays at one boundary.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

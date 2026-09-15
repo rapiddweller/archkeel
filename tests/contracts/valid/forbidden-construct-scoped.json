@@ -28,7 +28,8 @@
       "constructs": ["assert", "broad_except"],
       "allowed_sources": ["sample.cli"],
       "rationale": "Assertions and broad excepts stay out of enforced modules except the CLI boundary.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

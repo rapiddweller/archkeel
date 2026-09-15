@@ -117,7 +117,8 @@
       "target": "shop.store",
       "include_type_checking": true,
       "rationale": "Order and Line value types stay independent of any persistence mechanism.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-MODEL-NO-APP",
@@ -126,7 +127,8 @@
       "target": "shop.app",
       "include_type_checking": true,
       "rationale": "Value types remain reusable without depending on the use cases that construct them.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-MODEL-NO-RENDER",
@@ -135,7 +137,8 @@
       "target": "shop.render",
       "include_type_checking": true,
       "rationale": "Value types remain independent of how orders are projected as text.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-MODEL-NO-CLI",
@@ -144,7 +147,8 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Value types remain independent of command-line composition.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-STORE-NO-APP",
@@ -153,7 +157,8 @@
       "target": "shop.app",
       "include_type_checking": true,
       "rationale": "Persistence stays a leaf dependency and never calls back into use cases.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-STORE-NO-RENDER",
@@ -162,7 +167,8 @@
       "target": "shop.render",
       "include_type_checking": true,
       "rationale": "Persistence remains independent of how orders are displayed.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-STORE-NO-CLI",
@@ -171,7 +177,8 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Persistence stays callable without command-line orchestration.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-APP-NO-RENDER",
@@ -180,7 +187,8 @@
       "target": "shop.render",
       "include_type_checking": true,
       "rationale": "Use cases return typed values; only the composition root decides how to project them.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-APP-NO-CLI",
@@ -189,7 +197,8 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Use cases remain callable without command-line orchestration.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-STORE",
@@ -198,7 +207,8 @@
       "target": "shop.store",
       "include_type_checking": true,
       "rationale": "Text projection consumes typed values without touching persistence.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-APP",
@@ -207,7 +217,8 @@
       "target": "shop.app",
       "include_type_checking": true,
       "rationale": "Text projection stays a pure view over values, not a caller of use cases.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-NO-CLI",
@@ -216,7 +227,8 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Text projection remains reusable without command-line composition.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-NO-MODEL",
@@ -225,7 +237,8 @@
       "target": "shop.model",
       "include_type_checking": true,
       "rationale": "The composition root reaches domain values only through the use cases it calls.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-NO-STORE",
@@ -234,7 +247,8 @@
       "target": "shop.store",
       "include_type_checking": true,
       "rationale": "The composition root reaches persistence only through the use cases it calls.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-APP-NO-STORE-SQLITE",
@@ -244,7 +258,8 @@
       "include_type_checking": false,
       "allowed_sources": ["shop.app.maintenance"],
       "rationale": "Only the maintenance use case may run store housekeeping; ordinary order use cases stay on the repository.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-STORE-NO-MONEY",
@@ -254,7 +269,8 @@
       "target_symbol": "Money",
       "include_type_checking": true,
       "rationale": "Persistence serialises whole orders and must not compute or interpret money amounts itself.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-STORE-ALLOWS-MODEL",
@@ -262,7 +278,8 @@
       "source": "shop.store",
       "target": "shop.model",
       "rationale": "Persistence serialises the domain values it is given.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-APP-ALLOWS-MODEL",
@@ -270,7 +287,8 @@
       "source": "shop.app",
       "target": "shop.model",
       "rationale": "Use cases construct orders from domain values.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-APP-ALLOWS-STORE",
@@ -278,7 +296,8 @@
       "source": "shop.app",
       "target": "shop.store",
       "rationale": "Use cases persist and load orders through the repository.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-RENDER-ALLOWS-MODEL",
@@ -286,7 +305,8 @@
       "source": "shop.render",
       "target": "shop.model",
       "rationale": "Text projection reads the values it renders.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-ALLOWS-APP",
@@ -294,7 +314,8 @@
       "source": "shop.cli",
       "target": "shop.app",
       "rationale": "The composition root invokes the order use cases.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "DEP-CLI-ALLOWS-RENDER",
@@ -302,7 +323,8 @@
       "source": "shop.cli",
       "target": "shop.render",
       "rationale": "The composition root prints the rendered order.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-DYNAMIC",
@@ -310,7 +332,8 @@
       "source": "shop",
       "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore"],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-ASSERT",
@@ -318,7 +341,8 @@
       "source": "shop",
       "constructs": ["assert"],
       "rationale": "Invariants are checked where values are built, because assert statements vanish under python -O.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-BROAD-EXCEPT",
@@ -327,7 +351,8 @@
       "constructs": ["broad_except"],
       "allowed_sources": ["shop.cli.main"],
       "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit code.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-JSON-STORE",
@@ -335,26 +360,30 @@
       "dependency": "json",
       "allowed_sources": ["shop.store"],
       "rationale": "Only the store component chooses the JSON file format; other components stay format-agnostic.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
       "source": "shop",
       "rationale": "A module without one owning component escapes every boundary rule.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
       "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     }
   ]
 }

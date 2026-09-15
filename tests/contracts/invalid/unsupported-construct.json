@@ -8,7 +8,8 @@
       "source": "sample",
       "constructs": ["reflection"],
       "rationale": "Unsupported constructs must fail closed.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

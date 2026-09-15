@@ -573,6 +573,16 @@ def _nonempty(raw: RawJson, label: str) -> str:
     return value
 
 
+def _decided_by(raw: RawJson, label: str) -> Literal["architect", "agent"]:
+    """Narrow to the Literal by value, never by cast (AD-16)."""
+    value = _nonempty(raw, label)
+    if value == "architect":
+        return "architect"
+    if value == "agent":
+        return "agent"
+    raise ValueError(f"{label} must be architect or agent")
+
+
 def _contract_strings(raw: RawJson, label: str, *, required: bool = False) -> tuple[str, ...]:
     values = _strings(raw, label)
     if required and not values:
@@ -808,7 +818,7 @@ def _parse_owner(raw: RawJson, label: str) -> ContractOwner:
 def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependencyRule:
     item, item_id, provenance = _contract_record(
         raw,
-        {"kind", "source", "target", "include_type_checking", "rationale"},
+        {"kind", "source", "target", "include_type_checking", "rationale", "decided_by"},
         {"target_symbol", "allowed_sources"},
         label,
     )
@@ -823,6 +833,7 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
     source = _nonempty(item["source"], f"{label}.source")
     target = _nonempty(item["target"], f"{label}.target")
     rationale = _nonempty(item["rationale"], f"{label}.rationale")
+    decided_by = _decided_by(item["decided_by"], f"{label}.decided_by")
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
     return ForbiddenDependencyRule(
         item_id,
@@ -832,6 +843,7 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
         include,
         rationale,
         provenance,
+        decided_by,
         symbol,
         allowed,
     )
@@ -839,7 +851,7 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
 
 def _parse_allowed_dependency(raw: RawJson, label: str) -> AllowedDependencyRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "source", "target", "rationale"}, set(), label
+        raw, {"kind", "source", "target", "rationale", "decided_by"}, set(), label
     )
     if item["kind"] != "allowed_dependency":
         raise ValueError(f"{label}.kind is unsupported")
@@ -850,12 +862,16 @@ def _parse_allowed_dependency(raw: RawJson, label: str) -> AllowedDependencyRule
         _nonempty(item["target"], f"{label}.target"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
     )
 
 
 def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "source", "constructs", "rationale"}, {"allowed_sources"}, label
+        raw,
+        {"kind", "source", "constructs", "rationale", "decided_by"},
+        {"allowed_sources"},
+        label,
     )
     raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
     try:
@@ -870,13 +886,14 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         constructs,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
         allowed,
     )
 
 
 def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDependencyScopeRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "dependency", "allowed_sources", "rationale"}, set(), label
+        raw, {"kind", "dependency", "allowed_sources", "rationale", "decided_by"}, set(), label
     )
     dependency = _nonempty(item["dependency"], f"{label}.dependency")
     if not dependency.isidentifier():
@@ -888,33 +905,40 @@ def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDepend
         _contract_strings(item["allowed_sources"], f"{label}.allowed_sources", required=True),
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
     )
 
 
 def _parse_complete_assignment(raw: RawJson, label: str) -> CompleteAssignmentRule:
-    item, item_id, provenance = _contract_record(raw, {"kind", "source", "rationale"}, set(), label)
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "source", "rationale", "decided_by"}, set(), label
+    )
     return CompleteAssignmentRule(
         item_id,
         "complete_assignment",
         _nonempty(item["source"], f"{label}.source"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
     )
 
 
 def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRule:
-    item, item_id, provenance = _contract_record(raw, {"kind", "rationale"}, set(), label)
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "rationale", "decided_by"}, set(), label
+    )
     return NoComponentCyclesRule(
         item_id,
         "no_component_cycles",
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
     )
 
 
 def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "rationale"}, {"include_type_checking"}, label
+        raw, {"kind", "rationale", "decided_by"}, {"include_type_checking"}, label
     )
     include = item.get("include_type_checking", True)
     if not isinstance(include, bool):
@@ -924,6 +948,7 @@ def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule
         "interface_boundary",
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
         include,
     )
 

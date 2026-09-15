@@ -18,20 +18,23 @@
       "dependency": "json",
       "allowed_sources": ["sample.core"],
       "rationale": "Serialization stays at one boundary.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     },
     {
       "id": "ASSIGNMENT",
       "kind": "complete_assignment",
       "source": "sample",
       "rationale": "Every module has one accountable owner.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     },
     {
       "id": "NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components can be reviewed in dependency order.",
-      "provenance": ["docs/architecture/sample.md"]
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

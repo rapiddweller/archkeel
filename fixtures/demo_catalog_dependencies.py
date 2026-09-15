@@ -166,6 +166,7 @@ _NO_COMPONENT_CYCLES = Variant(
                 "rationale": "Cycle probe: model temporarily allowed to reach render, for the "
                 "architecture demo's no_component_cycles coverage.",
                 "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
             },
         ),
         "docs/architecture/shop.md": CLEAN_SHOP_MD.replace(
@@ -201,6 +202,7 @@ _ALLOWED_DEPENDENCY_DUPLICATE = Variant(
                 "rationale": "A second, deliberately duplicate decision for the architecture "
                 "demo's closed-world coverage.",
                 "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
             }
         )
     },
@@ -224,6 +226,7 @@ _CLOSED_WORLD_DUPLICATE = Variant(
                 "rationale": "A second, deliberately duplicate boundary for the architecture "
                 "demo's closed-world coverage.",
                 "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
             }
         )
     },
@@ -248,6 +251,7 @@ _DECISION_CONFLICT = Variant(
                 "rationale": "A deliberately conflicting boundary for the architecture demo's "
                 "decision-conflict coverage.",
                 "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
             }
         )
     },
