@@ -47,7 +47,7 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
-2. Decide component interfaces: public and private parts per component, derived by `init`,
+2. Implement component interfaces (AD-9): public and private parts per component, derived by `init`,
    enforced for cross-component imports and shown as labeled communication edges.
 
 ## Later
