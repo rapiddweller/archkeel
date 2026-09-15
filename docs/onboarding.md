@@ -12,11 +12,11 @@ hand a coding agent to run it.
 flowchart TD
     A["Install skill: archkeel skill install claude|codex"] --> B[archkeel init --json]
     B --> C[archkeel validate --json]
-    C -->|diagnostics| D[Replace one TODO rationale\nor remove one unintended import]
+    C -->|diagnostics| D["Replace one TODO rationale<br/>or remove one unintended import"]
     D --> C
     C -->|exit 0| E[archkeel report]
     E --> F[Show the owner the contract diff]
-    F --> G[Commit archkeel.toml, architecture-contract.json,\ndocs/architecture/architecture.md]
+    F --> G["Commit archkeel.toml, architecture-contract.json,<br/>docs/architecture/architecture.md"]
 ```
 
 ## Prompt for your coding agent

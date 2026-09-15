@@ -41,6 +41,7 @@ only when its row names repository evidence.
 | Report bytes are measured as independent of hash seed, clone path, working directory, time zone and locale (AD-7) | `f392702`; `tests/test_determinism.py`; CI run `34921160319` |
 | Class C judgments are defined, and `assert` and `broad_except` are Class A forbidden constructs with `allowed_sources`, applied to Archkeel (AD-8) | `0b61873`; `b5090ca`; `59fc6cf`; `docs/rules.md`; `architecture-contract.json` |
 | Components declare `public` interfaces; `interface_boundary` enforces them, validation reports drift, `init` drafts them and the report shows component communication with signatures (AD-9) | `289e81f`; `0809021`; `05beddc`; `a2f2427`; `abb8f96`; `f87bc72`; `39c8917`; `docs/evidence/ad9-interface-profile.md` |
+| A test rejects unquoted Mermaid labels that break the parser, and CI renders every Mermaid block with pinned mermaid-cli (AD-13) | `59a678b`; `tests/test_mermaid.py`; CI run `34937525824` |
 | Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
 
 ## Next
@@ -50,7 +51,6 @@ only when its row names repository evidence.
    ordinary pull requests.
 2. Demonstrate every checkable item on a catalogued sample repository (AD-11), with coded
    validation diagnostics (AD-12).
-3. Check Mermaid labels locally and render every Mermaid block in CI (AD-13).
 
 ## Later
 
