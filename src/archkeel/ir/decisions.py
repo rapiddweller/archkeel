@@ -12,8 +12,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
-# AD-9: reused ahead of its promotion to a public interface on this module.
-from .interfaces import _components
+from .interfaces import component_owners
 from .model import Observation
 
 _DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
@@ -80,7 +79,7 @@ def _component_import_sites(
 
 def open_decisions(observation: Observation) -> tuple[OpenDecision, ...]:
     """Derive undecided component pairs, heaviest observed edges first (AD-15)."""
-    components = _components(observation)
+    components = component_owners(observation)
     owners = _package_owners(components)
     labels = {label for label, _ in components}
     expected = {(source, target) for source in labels for target in labels if source != target}

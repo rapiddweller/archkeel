@@ -28,7 +28,8 @@ class InterfaceEdge:
     names: tuple[InterfaceName, ...]
 
 
-def _components(observation: Observation) -> tuple[tuple[str, tuple[str, ...]], ...]:
+def component_owners(observation: Observation) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Return each declared component's label and owned packages (also used by AD-10 flow)."""
     # project_declarations writes each component's label as title and its packages as subjects.
     declarations = observation.records("declarations") or ()
     return tuple(
@@ -38,7 +39,8 @@ def _components(observation: Observation) -> tuple[tuple[str, tuple[str, ...]], 
     )
 
 
-def _owner(module: str, components: tuple[tuple[str, tuple[str, ...]], ...]) -> str | None:
+def owner_of(module: str, components: tuple[tuple[str, tuple[str, ...]], ...]) -> str | None:
+    """Return the one component owning a module, or None if zero or many components claim it."""
     owners = [
         label
         for label, packages in components
@@ -97,7 +99,7 @@ def _interface_name(item: Record, symbols_by_name: dict[str, Record]) -> Interfa
 
 def interface_edges(observation: Observation) -> tuple[InterfaceEdge, ...]:
     """Return the cross-component interface each edge of one observation exercises."""
-    components = _components(observation)
+    components = component_owners(observation)
     symbols_by_name = _symbols_by_name(observation)
     grouped: dict[tuple[str, str], dict[str, InterfaceName]] = {}
     for item in observation.records("imports") or ():
@@ -106,8 +108,8 @@ def interface_edges(observation: Observation) -> tuple[InterfaceEdge, ...]:
         target_module = data.get("target_module")
         if not isinstance(source_module, str) or not isinstance(target_module, str):
             continue
-        source = _owner(source_module, components)
-        target = _owner(target_module, components)
+        source = owner_of(source_module, components)
+        target = owner_of(target_module, components)
         if source is None or target is None or source == target:
             continue
         interface_name = _interface_name(item, symbols_by_name)
