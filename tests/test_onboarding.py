@@ -94,12 +94,19 @@ def test_init_reproduces_the_closed_world_of_archkeel_and_validate_lists_the_rat
             assert any(in_scope(module, package) for package in component.packages)
 
     assert main(["validate", "--root", str(root), "--json"]) == 2
-    pointers = {item["pointer"] for item in json.loads(capsys.readouterr().out)["diagnostics"]}
-    assert pointers == {f"/rules/{index}/rationale" for index in range(len(draft.rules))}
+    diagnostics = json.loads(capsys.readouterr().out)["diagnostics"]
+    pointers = {item["pointer"] for item in diagnostics}
+    # AD-15: init writes no dependency rule for an observed pair, so every observed edge
+    # stays undecided (decision.open) alongside the drafted rules' placeholder rationales.
+    assert pointers == {f"/rules/{index}/rationale" for index in range(len(draft.rules))} | {
+        "/rules"
+    }
 
     contract = root / "architecture-contract.json"
     contract.write_text(contract.read_text().replace("TODO: explain why", "The owners decided"))
-    assert main(["validate", "--root", str(root), "--json"]) == 0
+    assert main(["validate", "--root", str(root), "--json"]) == 2
+    remaining = json.loads(capsys.readouterr().out)["diagnostics"]
+    assert remaining and all(item["code"] == "decision.open" for item in remaining)
 
 
 def test_init_never_replaces_existing_files_without_force(

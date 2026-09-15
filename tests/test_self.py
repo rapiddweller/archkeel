@@ -22,6 +22,7 @@ from archkeel.check.validation import (
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import (
+    AllowedDependencyRule,
     ArchitectureContract,
     ForbiddenDependencyRule,
     Observation,
@@ -141,7 +142,8 @@ def test_component_graph_matches_observed_edges(self_observation: Observation) -
     assert graph_diagnostics(_contract(), self_observation, _architecture_documents()) == ()
 
 
-def test_closed_world_check_detects_a_removed_rule(self_observation: Observation) -> None:
+def test_closed_world_check_detects_a_conflicting_rule(self_observation: Observation) -> None:
+    """closed_world_diagnostics reads decisions from the live contract, not just observation."""
     contract = _contract()
     rule = next(
         item
@@ -150,8 +152,18 @@ def test_closed_world_check_detects_a_removed_rule(self_observation: Observation
         and item.source == "archkeel.ir"
         and item.target == "archkeel.check"
     )
-    broken = replace(contract, rules=tuple(item for item in contract.rules if item != rule))
-    assert closed_world_diagnostics(broken, self_observation)[0].pointer == "/rules"
+    conflict = AllowedDependencyRule(
+        "DEP-IR-ALLOWS-CHECK-PROBE",
+        "allowed_dependency",
+        rule.source,
+        rule.target,
+        "Conflict probe.",
+        rule.provenance,
+    )
+    broken = replace(contract, rules=(*contract.rules, conflict))
+    diagnostics = closed_world_diagnostics(broken, self_observation)
+    assert diagnostics and diagnostics[0].code == "decision.conflict"
+    assert diagnostics[0].pointer == "/rules"
 
 
 def test_rationale_check_detects_a_repeated_rule() -> None:

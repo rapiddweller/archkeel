@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 """AD-11 forbidden_dependency, allowed_dependency, external_dependency_scope,
-complete_assignment, no_component_cycles and closed_world rows.
+complete_assignment, no_component_cycles and closed_world/decision rows.
 
 `REPOSITORY_WITH_MONEY_IMPORT` and `SHOP_EXTRA` are public so `demo_catalog_showcase` can
 reuse this family's file content instead of duplicating it.
@@ -15,6 +15,7 @@ from fixtures.demo_catalog_support import (
     HEADER,
     Variant,
     contract_rule_field,
+    contract_rule_replaced,
     contract_with_rule,
     contract_without_rule,
 )
@@ -143,8 +144,9 @@ _NO_COMPONENT_CYCLES = Variant(
     section="class_a",
     item="no_component_cycles",
     summary="shop.model imports shop.render, closing a two-component cycle with the "
-    "existing render->model edge. DEP-MODEL-NO-RENDER is removed and the marked graph "
-    "gains the new edge, so only the cycle rule fires.",
+    "existing render->model edge. DEP-MODEL-NO-RENDER is replaced by an allowed_dependency "
+    "decision for the same pair and the marked graph gains the new edge, so only the cycle "
+    "rule fires.",
     files={
         "shop/model/uses_render.py": HEADER
         + (
@@ -154,7 +156,18 @@ _NO_COMPONENT_CYCLES = Variant(
             "from shop.render.text import render_order\n\n"
             "describe_order = render_order\n"
         ),
-        "architecture-contract.json": contract_without_rule("DEP-MODEL-NO-RENDER"),
+        "architecture-contract.json": contract_rule_replaced(
+            "DEP-MODEL-NO-RENDER",
+            {
+                "id": "DEP-MODEL-ALLOWS-RENDER",
+                "kind": "allowed_dependency",
+                "source": "shop.model",
+                "target": "shop.render",
+                "rationale": "Cycle probe: model temporarily allowed to reach render, for the "
+                "architecture demo's no_component_cycles coverage.",
+                "provenance": ["docs/architecture/shop.md"],
+            },
+        ),
         "docs/architecture/shop.md": CLEAN_SHOP_MD.replace(
             "    render --> model\n", "    render --> model\n    model --> render\n", 1
         ),
@@ -162,15 +175,15 @@ _NO_COMPONENT_CYCLES = Variant(
     expected_violations=("COMPONENT-NO-CYCLES",),
     expected_codes=("rule.violated",),
 )
-_CLOSED_WORLD_MISSING = Variant(
-    id="class-a-closed-world-missing",
+_DECISION_OPEN = Variant(
+    id="class-a-decision-open",
     section="class_a",
-    item="closed_world:missing",
-    summary="Removing DEP-CLI-NO-MODEL leaves shop.cli -> shop.model neither observed nor "
-    "forbidden.",
+    item="decision:open",
+    summary="Removing DEP-CLI-NO-MODEL leaves shop.cli -> shop.model neither allowed nor "
+    "forbidden: an open decision, unobserved at 0 import sites.",
     files={"architecture-contract.json": contract_without_rule("DEP-CLI-NO-MODEL")},
     expected_violations=(),
-    expected_codes=("closed_world.missing",),
+    expected_codes=("decision.open",),
 )
 _ALLOWED_DEPENDENCY_DUPLICATE = Variant(
     id="class-a-allowed-dependency-duplicate",
@@ -217,6 +230,31 @@ _CLOSED_WORLD_DUPLICATE = Variant(
     expected_violations=(),
     expected_codes=("closed_world.duplicate",),
 )
+_DECISION_CONFLICT = Variant(
+    id="class-a-decision-conflict",
+    section="class_a",
+    item="decision:conflict",
+    summary="A new forbidden_dependency rule targets shop.store -> shop.model, the same "
+    "observed pair DEP-STORE-ALLOWS-MODEL already allows: a rule.violated, an "
+    "observed-yet-forbidden closed-world pair, and an allowed/forbidden decision.conflict.",
+    files={
+        "architecture-contract.json": contract_with_rule(
+            {
+                "id": "DEP-STORE-NO-MODEL-CONFLICT",
+                "kind": "forbidden_dependency",
+                "source": "shop.store",
+                "target": "shop.model",
+                "include_type_checking": True,
+                "rationale": "A deliberately conflicting boundary for the architecture demo's "
+                "decision-conflict coverage.",
+                "provenance": ["docs/architecture/shop.md"],
+            }
+        )
+    },
+    expected_violations=("DEP-STORE-NO-MODEL-CONFLICT",),
+    expected_codes=("closed_world.observed_forbidden", "decision.conflict", "rule.violated"),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,
@@ -225,7 +263,8 @@ VARIANTS: tuple[Variant, ...] = (
     _EXTERNAL_DEPENDENCY_SCOPE,
     _COMPLETE_ASSIGNMENT,
     _NO_COMPONENT_CYCLES,
-    _CLOSED_WORLD_MISSING,
+    _DECISION_OPEN,
     _CLOSED_WORLD_DUPLICATE,
     _ALLOWED_DEPENDENCY_DUPLICATE,
+    _DECISION_CONFLICT,
 )

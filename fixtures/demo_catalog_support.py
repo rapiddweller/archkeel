@@ -100,6 +100,17 @@ def contract_with_rule(rule: dict[str, object]) -> str:
     return _dump_contract(contract)
 
 
+def contract_rule_replaced(rule_id: str, rule: dict[str, object]) -> str:
+    """Clean contract JSON with one rule removed by id and a new rule appended.
+
+    Keeps the pair decided (AD-15) when a demo probe removes the rule that decided it.
+    """
+    contract = _clean_contract()
+    contract["rules"] = [item for item in contract["rules"] if item["id"] != rule_id]
+    contract["rules"].append(rule)
+    return _dump_contract(contract)
+
+
 def contract_component_field_appended(label: str, field: str, value: object) -> str:
     """Clean contract JSON with one value appended to a component's list field."""
     contract = _clean_contract()

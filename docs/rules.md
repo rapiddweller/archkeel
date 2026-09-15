@@ -11,11 +11,13 @@ Contract 2.0 separates deterministic rules, regression checks, declarations and 
 
 ## Class A: deterministic rules
 
-`closed_world` is an implicit Contract 2.1 invariant: each ordered component pair must be an
-observed import edge, have one `allowed_dependency` rule, or have one `forbidden_dependency` rule.
-It measures component-projected import records. A complete scan and exact package assignment make
-the result deterministic; dynamic imports remain a blind spot. Removing one pair rule from Archkeel
-is an example violation.
+`closed_world` is an implicit Contract 2.1 invariant (AD-15): each ordered component pair is a
+decision, made exactly once, by one `allowed_dependency` rule or one `forbidden_dependency` rule.
+Being observed is not a decision; an undecided pair is reported as `decision.open`, naming whether
+it is observed and at how many import sites. A pair decided twice, or decided both ways, is
+`closed_world.duplicate`; an observed pair also forbidden is `closed_world.observed_forbidden`. A
+complete scan and exact package assignment make the result deterministic; dynamic imports remain a
+blind spot. Removing one pair rule from Archkeel is an example violation.
 
 `forbidden_dependency` fields are `source`, `target`, `include_type_checking`, optional
 `target_symbol` and optional `allowed_sources`. The analyzer matches import records by exact module
@@ -138,4 +140,6 @@ under the optional `declarations` object:
 
 Set `schema_version` to `2.1.0`. The optional `$schema` points to
 `schema/architecture-contract.schema.json`. Omit unused declaration arrays instead of copying
-empty arrays. Run `archkeel validate --root . --json` to verify the migrated contract.
+empty arrays. Decide every ordered component pair with an `allowed_dependency` or
+`forbidden_dependency` rule (AD-15); `validate --root . --json` reports an undecided pair as
+`decision.open`. Run `archkeel validate --root . --json` to verify the migrated contract.

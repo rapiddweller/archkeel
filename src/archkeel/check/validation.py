@@ -19,6 +19,7 @@ from archkeel.ir.codec import (
     decode_json,
     parse_contract,
 )
+from archkeel.ir.decisions import open_decisions
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -101,24 +102,32 @@ def _pair_diagnostics(
     ]
 
 
+def _open_decision_diagnostics(observation: Observation) -> list[Diagnostic]:
+    return [
+        _diagnostic(
+            "decision.open",
+            "/rules",
+            f"{decision.source} -> {decision.target}",
+            f"The component pair is {'observed' if decision.observed else 'not observed'} at "
+            f"{decision.import_sites} import site(s) and is undecided: no allowed_dependency or "
+            "forbidden_dependency rule covers it.",
+            "Decide the pair with an allowed_dependency or forbidden_dependency rule "
+            "and rationale.",
+        )
+        for decision in open_decisions(observation)
+    ]
+
+
 def closed_world_diagnostics(
     contract: ArchitectureContract, observation: Observation
 ) -> tuple[Diagnostic, ...]:
-    """Require each ordered component pair to be observed or explicitly decided."""
-    labels = {component.label for component in contract.components}
-    expected = {(source, target) for source in labels for target in labels if source != target}
+    """Require each ordered component pair to be a decision, and each decision unique (AD-15)."""
     observed = observed_component_edges(contract, observation)
     forbidden_items = _decided_pairs(contract, ForbiddenDependencyRule)
     allowed_items = _decided_pairs(contract, AllowedDependencyRule)
     forbidden = set(forbidden_items)
     allowed = set(allowed_items)
-    diagnostics = _pair_diagnostics(
-        "closed_world.missing",
-        sorted(expected - observed - forbidden - allowed),
-        "The component pair has neither an observed import, an allowed_dependency rule, "
-        "nor a forbidden_dependency rule.",
-        "Add the observed dependency, allow it, or forbid the component pair with a rationale.",
-    )
+    diagnostics = _open_decision_diagnostics(observation)
     diagnostics.extend(
         _pair_diagnostics(
             "closed_world.observed_forbidden",
@@ -141,6 +150,14 @@ def closed_world_diagnostics(
             sorted(pair for pair, count in Counter(allowed_items).items() if count > 1),
             "The component pair has duplicate allowed_dependency rules.",
             "Keep one allowed_dependency rule for this ordered component pair.",
+        )
+    )
+    diagnostics.extend(
+        _pair_diagnostics(
+            "decision.conflict",
+            sorted(allowed & forbidden),
+            "The component pair has both an allowed_dependency and a forbidden_dependency rule.",
+            "Keep only one decision for this ordered component pair.",
         )
     )
     return tuple(diagnostics)

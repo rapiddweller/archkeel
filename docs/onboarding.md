@@ -33,10 +33,16 @@ Install the Archkeel skill for yourself, then onboard this repository:
 5. Show me every edge in the Mermaid graph of docs/architecture/architecture.md.
    Keep the generated forbidden_dependency rules. If I call an edge unintended,
    remove that import in the code and add the forbidden_dependency rule for the pair.
-6. Repeat steps 3-5 until `archkeel validate --json` exits 0.
+6. Repeat steps 3-5 until `archkeel validate --json` exits 0. It exits 0 only once every
+   ordered component pair carries an `allowed_dependency` or a `forbidden_dependency` rule
+   with a real rationale, not just an observed import.
 7. Run `uvx archkeel report` and show me the diff of the three generated files before
    committing anything.
 ```
+
+AD-15 records onboarding as a decision interview: `init` output is planned to ask about each
+undecided pair directly instead of drafting a `forbidden_dependency` rule for every unobserved
+one.
 
 ## What gets written
 

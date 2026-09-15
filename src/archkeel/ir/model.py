@@ -381,7 +381,8 @@ DiagnosticKind: TypeAlias = Literal[
 
 # AD-12: sixteen findings shared one kind and differed only in prose.
 DiagnosticCode: TypeAlias = Literal[
-    "closed_world.missing",
+    "decision.open",
+    "decision.conflict",
     "closed_world.observed_forbidden",
     "closed_world.duplicate",
     "interface.undeclared",

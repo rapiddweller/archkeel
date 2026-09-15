@@ -30,9 +30,10 @@ run shows many violations together; every other row isolates one item.
 | class_a | external_dependency_scope | class-a-external-dependency-scope | validate/report run | EXTERNAL-JSON-STORE | rule.violated | shop/app/reporting.py |
 | class_a | complete_assignment | class-a-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE | rule.violated | shop/extra.py |
 | class_a | no_component_cycles | class-a-no-component-cycles | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
-| class_a | closed_world:missing | class-a-closed-world-missing | validate/report run | - | closed_world.missing | architecture-contract.json |
+| class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |
 | class_a | closed_world:duplicate | class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
+| class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated | architecture-contract.json |
 | class_a | interface_boundary:underscore | class-a-interface-boundary-underscore | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:undeclared symbol | class-a-interface-boundary-undeclared-symbol | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:whole-module import | class-a-interface-boundary-whole-module | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/maintenance_report.py |

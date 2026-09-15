@@ -141,7 +141,7 @@ regression measurements from code, and fails when one has no catalog entry, when
 findings differ from the catalog, or when the clean sample reports anything.
 
 **AD-12 Validation diagnostics carry a code.** Every `contract_invalid` diagnostic has a stable
-`code` from one `DiagnosticCode` literal, such as `closed_world.missing`, `interface.unused` or
+`code` from one `DiagnosticCode` literal, such as `decision.open`, `interface.unused` or
 `rule.violated`; the constructor rejects a `contract_invalid` diagnostic without one, and result
 JSON emits the code next to the pointer. Diagnostics the analyzer reports before validation, such
 as `rule_without_subjects`, keep their kind without a code, and a code no path can produce is
@@ -178,8 +178,9 @@ code yields facts and questions, never intent. `init` proposes components and `p
 and returns a deterministic list of open decisions ordered by import sites; it writes no dependency
 rule. Every ordered component pair must be decided exactly once in the contract: an
 `allowed_dependency` rule or a `forbidden_dependency` rule, each with the architect's rationale.
-Validation derives the undecided pairs from the contract and the observed component edges it already
-compares, so the analyzer and its version stay unchanged; `decision.open` replaces
+One function in `ir` derives the undecided pairs from the observation alone, from the projected
+dependency decisions and the observed component edges, so validation and the report, including a
+report rendered later from `architecture.json`, share one derivation; `decision.open` replaces
 `closed_world.missing` and names whether the pair is observed and at how many import sites. Each open
 decision in the `init --json` and `validate --json` output carries the exact rule for every option,
 so the id scheme has one owner and only the architect's reason is written by hand. The report draws

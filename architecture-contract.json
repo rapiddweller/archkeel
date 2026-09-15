@@ -10,6 +10,7 @@
       "packages": ["archkeel.ir"],
       "public": [
         "archkeel.ir.codec",
+        "archkeel.ir.decisions",
         "archkeel.ir.digest",
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
@@ -370,6 +371,15 @@
       "target": "archkeel.ir.interfaces",
       "include_type_checking": true,
       "rationale": "Component communication is derived from observations by render, not built by the analyzer that only observes source.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "DEP-ANALYZER-NO-IR-DECISIONS",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir.decisions",
+      "include_type_checking": true,
+      "rationale": "Undecided component pairs are derived from observations by validation and the report, not built by the analyzer that only observes source.",
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
