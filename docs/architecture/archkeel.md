@@ -66,8 +66,8 @@ change. Check: `tests/test_self.py`.
 **AD-5 Invariants live where values are built.** A value whose fields depend on each other
 checks that dependency in `__post_init__`, for example `ObservationResult` (no diagnostics means
 a complete observation) and `RatchetObservations` (measurements exist exactly when the status
-is `SUPPORTED`). Consumers narrow with ordinary control flow. Reason: `assert` disappears under `python -O` and
-hides the invariant from its owner. Check: `tests/test_repository_hygiene.py` rejects `assert`
+is `SUPPORTED`). Consumers narrow with ordinary control flow. Reason: `assert` disappears
+under `python -O` and hides the invariant from its owner. Check: `tests/test_repository_hygiene.py` rejects `assert`
 statements in `src/`.
 
 **AD-6 A function has one responsibility.** A function longer than 80 lines, counted from `def`
