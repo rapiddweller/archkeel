@@ -11,7 +11,7 @@ from test_html_report import FAILED_CHECK
 from archkeel.ir.codec import parse_delta
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
-from archkeel.render.summary import Summary, check_summary, report_summary
+from archkeel.render.summary import Summary, check_summary, init_summary, report_summary
 from archkeel.render.terminal import print_result
 
 _DIAGNOSTIC = Diagnostic(
@@ -25,8 +25,17 @@ _DELTA = replace(
         Measurements(RatchetScalars(0, 0, 0, 0, 1, 0), 1, "measured"),
     ),
 )
+_REPORT_FAIL = RunResult(
+    "report",
+    0,
+    "PASS",
+    "FAIL",
+    "n/a",
+    measurements=Measurements(RatchetScalars(2, 0, 0, 0, 0, 0), 0, "n/a"),
+)
 _RESULTS = {
     "report-pass": report_summary(RunResult("report", 0, "PASS", "PASS", "n/a")),
+    "report-fail": report_summary(_REPORT_FAIL),
     "report-unverifiable": report_summary(RunResult("report", 2, diagnostics=(_DIAGNOSTIC,))),
     "check-reject": check_summary(replace(FAILED_CHECK, delta=_DELTA, failures=("regressed",))),
 }
@@ -43,6 +52,7 @@ def test_terminal_view_fits_80_columns_and_uses_the_shared_wording(case: str) ->
     summary = _RESULTS[case]
     result = {
         "report-pass": RunResult("report", 0, "PASS", "PASS", "n/a"),
+        "report-fail": _REPORT_FAIL,
         "report-unverifiable": RunResult("report", 2, diagnostics=(_DIAGNOSTIC,)),
         "check-reject": replace(FAILED_CHECK, delta=_DELTA, failures=("regressed",)),
     }[case]
@@ -70,3 +80,28 @@ def test_terminal_view_does_not_interpret_markup_in_evidence() -> None:
     diagnostic = replace(_DIAGNOSTIC, subject="[bold]src[/bold]")
     result = RunResult("report", 2, diagnostics=(diagnostic,))
     assert "[bold]src[/bold]" in _render(result, report_summary(result), 200)
+
+
+def test_report_headline_fails_on_declared_rule_violations_even_though_exit_code_is_zero() -> None:
+    """AD-14: the exit code alone must never drive the report headline."""
+    summary = _RESULTS["report-fail"]
+    assert _REPORT_FAIL.exit_code == 0
+    assert summary.decision.label == "FAIL"
+    assert summary.decision.state == "fail"
+    assert "2 declared-rule violation(s) found" in summary.sentence
+    assert "report records violations without gating" in summary.sentence
+
+
+def test_init_headline_is_unchanged_by_the_report_decision_fix() -> None:
+    """AD-14 only changes report; init keeps its onboarding sentence and pass badge."""
+    result = RunResult(
+        "init",
+        0,
+        observation_complete="PASS",
+        expectation_fulfilled="n/a",
+        artifact="architecture-contract.json",
+    )
+    summary = init_summary(result)
+    assert summary.decision.label == "PASS"
+    assert summary.sentence == "Draft written. Run archkeel validate to list every decision left."
+    assert len(summary.verdicts) == 1

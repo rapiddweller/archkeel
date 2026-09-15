@@ -48,7 +48,14 @@ def badge(value: str) -> Badge:
     return Badge("unknown", "?", "UNVERIFIABLE")
 
 
+def report_violates_rules(result: RunResult) -> bool:
+    """Whether a completed report found violations its exit code does not express (AD-14)."""
+    return result.command == "report" and result.exit_code == 0 and result.declared_rules == "FAIL"
+
+
 def _decision_badge(result: RunResult) -> Badge:
+    if report_violates_rules(result):
+        return badge("FAIL")
     if result.exit_code == 0:
         return Badge("pass", "✓", "PASS")
     if result.exit_code == 1:
@@ -63,6 +70,16 @@ def report_summary(result: RunResult) -> Summary:
         1: "One or more deterministic checks rejected the candidate.",
         2: "Required evidence is missing or invalid; no pass decision was made.",
     }[result.exit_code]
+    if report_violates_rules(result):
+        found = (
+            f"{result.measurements.scalars.violations} declared-rule violation(s) found"
+            if result.measurements is not None
+            else "Declared rules are violated"
+        )
+        sentence = (
+            f"{found}; report records violations without gating (exit code stays 0). "
+            "Run archkeel check to gate on rule violations."
+        )
     observation_reason = (
         "All configured source files were read and parsed."
         if result.observation_complete == "PASS"

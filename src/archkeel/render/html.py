@@ -15,7 +15,14 @@ from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
 
-from .summary import Comparison, VerdictRow, badge, check_summary, report_summary
+from .summary import (
+    Comparison,
+    VerdictRow,
+    badge,
+    check_summary,
+    report_summary,
+    report_violates_rules,
+)
 
 
 def _asset(name: str) -> bytes:
@@ -257,7 +264,12 @@ def render_html(
         diagnostics = "<p>None.</p>"
     failures = "".join(f"<li><code>{_text(item)}</code></li>" for item in result.failures)
     if not failures:
-        failures = "<li>None.</li>"
+        failures = (
+            "<li>Report mode does not evaluate an expectation; see declared-rule violations "
+            "below.</li>"
+            if report_violates_rules(result)
+            else "<li>None.</li>"
+        )
     violations = observation.records("violations") if observation is not None else ()
     unknowns = observation.records("unknowns") if observation is not None else ()
     source_sha = observation.source.git_head if observation is not None else "UNKNOWN"

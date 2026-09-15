@@ -61,6 +61,52 @@ def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
     assert 'src="http' not in page and 'href="http' not in page
 
 
+def test_html_report_shows_fail_headline_when_declared_rules_fail() -> None:
+    """AD-14: report's exit code stays 0, but the headline must follow declared_rules."""
+    raw = _model(git_head="a" * 40)
+    observation = parse_observation(raw)
+    measurements = Measurements(RatchetScalars(3, 0, 0, 0, 0, 0), 0, "n/a")
+    result = RunResult(
+        "report",
+        0,
+        observation_complete="PASS",
+        declared_rules="FAIL",
+        expectation_fulfilled="n/a",
+        coverage=observation.coverage,
+        measurements=measurements,
+        python_version=observation.python_version,
+    )
+
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+
+    assert result.exit_code == 0
+    body = page.split("</style>", 1)[1]
+    assert 'data-decision="fail"' in body
+    assert 'data-decision="pass"' not in body
+    assert "3 declared-rule violation(s) found" in page
+    assert "report records violations without gating (exit code stays 0)" in page
+    assert "Run archkeel check to gate on rule violations" in page
+    failures_section = page.split("<h3>Failures</h3>", 1)[1].split("<h3>Diagnostics</h3>", 1)[0]
+    assert "None." not in failures_section
+    assert "see declared-rule violations below" in failures_section
+
+
+def test_html_report_clean_report_still_reports_no_failures() -> None:
+    raw = _model(git_head="a" * 40)
+    observation = parse_observation(raw)
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", coverage=observation.coverage)
+
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+
+    assert 'data-decision="pass"' in page.split("</style>", 1)[1]
+    failures_section = page.split("<h3>Failures</h3>", 1)[1].split("<h3>Diagnostics</h3>", 1)[0]
+    assert "<li>None.</li>" in failures_section
+
+
 def test_html_report_renders_component_communication_table() -> None:
     raw = _model(
         git_head="a" * 40,

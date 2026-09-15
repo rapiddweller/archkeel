@@ -60,6 +60,7 @@ one-line `remedy`. Partial analyzer observations retain their typed coverage and
 are persisted by `report`. Invalid locks are never replaced with empty state.
 IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen dataclasses.
 `report` and `check --output` write `<output-stem>.report.html` and `<output-stem>.check.html`. The suffix separates commands; the stem separates runs.
+The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
 
 ## Regression checks
 
