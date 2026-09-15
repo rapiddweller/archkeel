@@ -65,7 +65,7 @@ def _model(
     coverage_status: str = "PASS",
 ) -> dict[str, Any]:
     raw = {
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "python_version": "3.11.12",
         "analyzer": {"name": "observer", "version": "0.3.0", "code_digest": "a" * 64},
         "source": {

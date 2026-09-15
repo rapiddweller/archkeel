@@ -1,0 +1,34 @@
+{
+  "schema_version": "2.0.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "role": "component",
+      "packages": ["sample.cli"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "CONSTRUCT-SCOPED",
+      "kind": "forbidden_construct",
+      "source": "sample",
+      "constructs": ["assert", "broad_except"],
+      "allowed_sources": ["sample.cli"],
+      "rationale": "Assertions and broad excepts stay out of enforced modules except the CLI boundary.",
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ]
+}

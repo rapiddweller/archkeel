@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+import ast
 import json
 import subprocess
 from pathlib import Path
@@ -10,6 +11,8 @@ import pytest
 from test_delta import _model, _record
 
 from archkeel.analyzer import observe
+from archkeel.analyzer.embedded.constructs import collect_constructs
+from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.model import Coverage, Diagnostic, Observation
@@ -140,6 +143,22 @@ def _component(label: str) -> dict[str, object]:
             {"kind": "no_component_cycles"},
             {"core.py": "import sample.cli\n", "cli.py": "import sample.core\n"},
         ),
+        (
+            {"kind": "forbidden_construct", "source": "sample", "constructs": ["assert"]},
+            {"core.py": "assert True\n"},
+        ),
+        (
+            {
+                "kind": "forbidden_construct",
+                "source": "sample",
+                "constructs": ["broad_except"],
+                "allowed_sources": ["sample.cli"],
+            },
+            {
+                "core.py": "try:\n    pass\nexcept Exception:\n    pass\n",
+                "cli.py": "try:\n    pass\nexcept Exception:\n    pass\n",
+            },
+        ),
     ],
 )
 def test_class_a_rule_produces_one_traceable_violation(
@@ -215,6 +234,49 @@ def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause
     if cause == "rule_without_subjects":
         assert result.diagnostics[0].subject == "rule-zero"
         assert result.observation.records("unknowns")[0].id == "unknown-rule"
+
+
+def _parsed_module(source: str, module: str = "sample.mod") -> ParsedModule:
+    return ParsedModule(
+        path=Path("sample/mod.py"),
+        rel_path="sample/mod.py",
+        module=module,
+        package="sample",
+        source=source,
+        source_bytes=source.encode(),
+        lines=source.splitlines(),
+        tree=ast.parse(source),
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("try:\n    pass\nexcept:\n    pass\n", [("broad_except", "sample.mod")]),
+        (
+            "try:\n    pass\nexcept (ValueError, Exception):\n    pass\n",
+            [("broad_except", "sample.mod")],
+        ),
+        (
+            "import builtins\ntry:\n    pass\nexcept builtins.Exception:\n    pass\n",
+            [("broad_except", "sample.mod")],
+        ),
+        ("try:\n    pass\nexcept Exception:\n    raise\n", [("broad_except", "sample.mod")]),
+        ("try:\n    pass\nexcept* Exception:\n    pass\n", [("broad_except", "sample.mod")]),
+        (
+            "class Widget:\n    def m(self):\n        try:\n            pass\n"
+            "        except Exception:\n            pass\n",
+            [("broad_except", "sample.mod.Widget.m")],
+        ),
+        ("try:\n    pass\nexcept ValueError:\n    pass\n", []),
+        ("E = Exception\ntry:\n    pass\nexcept E:\n    pass\n", []),
+    ],
+)
+def test_collect_constructs_detects_broad_except_and_documented_blind_spots(
+    source: str, expected: list[tuple[str, str]]
+) -> None:
+    records = collect_constructs([_parsed_module(source)], {})
+    assert sorted((item["kind"], item["data"]["owner"]) for item in records) == sorted(expected)
 
 
 def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_path: Path) -> None:

@@ -12,7 +12,7 @@ from typing import Literal, TypeAlias, get_args
 
 from .measurements import Measurements
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
 CLASSIFIED_SECTIONS = (
@@ -29,6 +29,7 @@ CLASSIFIED_SECTIONS = (
     "cycles",
     "calls",
     "typing_signals",
+    "constructs",
     "contexts",
     "context_evidence",
     "violations",
@@ -218,6 +219,8 @@ class ForbiddenConstructKind(StrEnum):
     EXEC = "exec"
     DYNAMIC_IMPORT = "dynamic_import"
     TYPE_IGNORE = "type_ignore"
+    ASSERT = "assert"
+    BROAD_EXCEPT = "broad_except"
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +231,7 @@ class ForbiddenConstructRule:
     constructs: tuple[ForbiddenConstructKind, ...]
     rationale: str
     provenance: tuple[str, ...]
+    allowed_sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

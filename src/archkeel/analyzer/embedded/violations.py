@@ -79,6 +79,8 @@ _CONSTRUCT_SIGNALS: Final = {
     "exec_call": ForbiddenConstructKind.EXEC,
     "dynamic_import": ForbiddenConstructKind.DYNAMIC_IMPORT,
     "type_ignore": ForbiddenConstructKind.TYPE_IGNORE,
+    "assert_statement": ForbiddenConstructKind.ASSERT,
+    "broad_except": ForbiddenConstructKind.BROAD_EXCEPT,
 }
 
 
@@ -92,10 +94,12 @@ def _construct_violations(
         for item in signals:
             construct = _CONSTRUCT_SIGNALS.get(item["kind"])
             owner = item["data"]["owner"]
+            scope = owner.split(":", 1)[0]
             if (
                 construct is None
                 or construct not in rule.constructs
-                or not in_scope(owner.split(":", 1)[0], rule.source)
+                or not in_scope(scope, rule.source)
+                or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
             ):
                 continue
             violations.append(
@@ -275,6 +279,7 @@ def rule_violations(
     *,
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     blank_modules: frozenset[str],
     contract: ArchitectureContract,
@@ -283,7 +288,7 @@ def rule_violations(
     return sorted(
         [
             *_dependency_violations(imports, contract.rules),
-            *_construct_violations(typing_signals, contract.rules),
+            *_construct_violations([*typing_signals, *constructs], contract.rules),
             *_external_dependency_violations(imports, contract.rules),
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),

@@ -817,13 +817,14 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
 
 def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "source", "constructs", "rationale"}, set(), label
+        raw, {"kind", "source", "constructs", "rationale"}, {"allowed_sources"}, label
     )
     raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
     try:
         constructs = tuple(ForbiddenConstructKind(value) for value in raw_constructs)
     except ValueError as exc:
         raise ValueError(f"{label}.constructs contains an unsupported construct") from exc
+    allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
     return ForbiddenConstructRule(
         item_id,
         "forbidden_construct",
@@ -831,6 +832,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         constructs,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
+        allowed,
     )
 
 

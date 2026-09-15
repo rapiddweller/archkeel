@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.0.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "CONSTRUCT-BAD-SCOPE",
+      "kind": "forbidden_construct",
+      "source": "sample",
+      "constructs": ["assert"],
+      "allowed_sources": "sample.cli",
+      "rationale": "allowed_sources must be an array of strings, not a bare string.",
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ]
+}

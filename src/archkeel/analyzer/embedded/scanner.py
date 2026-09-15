@@ -17,6 +17,7 @@ from archkeel.ir.model import (
 )
 
 from .calls import collect_calls
+from .constructs import collect_constructs
 from .contexts import collect_contexts
 from .dependencies import (
     aggregate_edges,
@@ -54,6 +55,7 @@ class ScanResult:
     cycles: list[RawRecord]
     calls: list[RawRecord]
     typing_signals: list[RawRecord]
+    constructs: list[RawRecord]
     contexts: list[RawRecord]
     context_evidence: list[RawRecord]
     violations: list[RawRecord]
@@ -180,6 +182,7 @@ def scan_repository(
     calls = collect_calls(parsed, symbols, evidence)
 
     typing_signals = collect_typing_signals(parsed, calls, symbols, imports, evidence)
+    constructs = collect_constructs(parsed, evidence)
     declarations = contract.declarations or ContractDeclarations()
     contexts, context_evidence = collect_contexts(
         parsed,
@@ -232,6 +235,7 @@ def scan_repository(
     violations = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
+        constructs=constructs,
         modules=module_facts,
         blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
         contract=contract,
@@ -263,6 +267,7 @@ def scan_repository(
         cycles=cycles,
         calls=calls,
         typing_signals=typing_signals,
+        constructs=constructs,
         contexts=contexts,
         context_evidence=context_evidence,
         violations=violations,

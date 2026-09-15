@@ -22,12 +22,15 @@ prefix. A complete scan, fixed source bytes, analyzer digest and Python version 
 deterministic. Unresolved dynamic imports remain a blind spot. Importing `sample.cli` from
 `sample.core` is an example violation.
 
-`forbidden_construct` fields are `source` and `constructs`. Supported constructs are `getattr`,
-`hasattr`, `cast`, `eval`, `exec`, `dynamic_import` and `type_ignore`. It matches typing-signal
-records produced from direct AST calls and type-ignore comments. Fixed source bytes, analyzer
-digest and Python version make the result deterministic. Aliasing a function first, such as
-`f = getattr; f(value, name)`, is not resolved and remains a blind spot. Calling `eval()` below the
-configured source is an example violation.
+`forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources`, whose
+prefixes exempt owners as in `external_dependency_scope`. Supported constructs are `getattr`,
+`hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `assert` and `broad_except`. It
+matches typing-signal records from direct AST calls and type-ignore comments, and construct records
+from `assert` statements and `except` handlers with no type or with `Exception` or `BaseException`,
+alone, in a tuple or as `builtins.Exception`; `except Exception: raise` counts. Fixed source bytes,
+analyzer digest and Python version make the result deterministic. Aliasing first, such as
+`f = getattr; f(value, name)` or `E = Exception; except E:`, is not resolved and remains a blind
+spot. Calling `eval()` below the configured source is an example violation.
 
 `external_dependency_scope` fields are `dependency` (a top-level import name) and
 `allowed_sources`. It matches import records whose target is the dependency or one of its
