@@ -182,6 +182,24 @@
     return label === source || label === target;
   }
 
+  function capturedFocus() {
+    const node = document.activeElement.closest(".node");
+    if (node) return { kind: "node", key: node.getAttribute("data-label") };
+    if (document.activeElement.classList.contains("hit")) {
+      return { kind: "edge", key: document.activeElement.getAttribute("data-key") };
+    }
+    return null;
+  }
+
+  function restoreFocus(focused) {
+    if (!focused) return;
+    const attr = focused.kind === "node" ? "data-label" : "data-key";
+    const selector = `[${attr}="${CSS.escape(focused.key)}"]`;
+    const layer = focused.kind === "node" ? nodeLayer : edgeLayer;
+    const target = layer.querySelector(selector);
+    if (target) target.focus();
+  }
+
   function render() {
     // render() replaces every card and edge, which would otherwise silently drop keyboard focus.
     const focused = capturedFocus();
@@ -387,4 +405,223 @@
     renderInspector(visible);
   }
 
+  function statBlock() {
+    const modules = DATA.components.reduce((acc, c) => acc + c.modules.length, 0);
+    const sites = DATA.edges.reduce((acc, e) => acc + weight(e), 0);
+    const violations = new Set(DATA.edges.flatMap((e) => e.rule_ids)).size;
+    return `<dl class="kv"><dt>Components</dt><dd>${DATA.components.length}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${DATA.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Rules broken</dt><dd>${violations}</dd></dl>`;
+  }
+
+  function topHeaviestEdges(limit) {
+    return [...DATA.edges]
+      .sort(
+        (a, b) => weight(b) - weight(a) || a.source.localeCompare(b.source) || a.target.localeCompare(b.target),
+      )
+      .slice(0, limit);
+  }
+
+  function heaviestBlock() {
+    const top = topHeaviestEdges(5);
+    if (!top.length) return "";
+    const max = weight(top[0]) || 1;
+    const rows = top
+      .map(
+        (e) =>
+          `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}"><span class="name">${esc(e.source)} → ${esc(e.target)}</span><em>${weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
+      )
+      .join("");
+    return `<h3>Heaviest connections</h3><div class="bars">${rows}</div>`;
+  }
+
+  function overview() {
+    return `<div class="kicker">Overview</div><h2>Component flow</h2><p>Select a card to see its modules and declared public interface, or a connector to see the exact names one component uses from another.</p>${statBlock()}${heaviestBlock()}`;
+  }
+
+  function wireHeaviestRows() {
+    inspector.querySelectorAll(".bars .row[data-key]").forEach((row) => {
+      const select = () => {
+        selected = { type: "edge", key: row.getAttribute("data-key") };
+        render();
+      };
+      row.addEventListener("click", select);
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          select();
+        }
+      });
+    });
+  }
+
+  function showOverview() {
+    inspector.innerHTML = overview();
+    wireHeaviestRows();
+  }
+
+  function renderInspector(visible) {
+    if (!selected) {
+      showOverview();
+      return;
+    }
+    if (selected.type === "node") {
+      const component = componentByLabel.get(selected.label);
+      if (!component) {
+        selected = null;
+        showOverview();
+        return;
+      }
+      const uses = DATA.edges.filter((e) => e.source === component.label);
+      const usedBy = DATA.edges.filter((e) => e.target === component.label);
+      inspector.innerHTML = `<div class="kicker">Component</div><h2>${esc(component.label)}</h2>
+        <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd>
+        <dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
+        <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd></dl>
+        <h3>Modules</h3><ul class="plain">${component.modules.map((m) => `<li><code>${esc(m)}</code></li>`).join("") || '<li class="empty">None observed.</li>'}</ul>
+        <h3>Declared public interface</h3>${
+          component.public === null
+            ? '<p class="empty">No public interface declared; every module is reachable.</p>'
+            : `<ul class="plain">${component.public.map((p) => `<li><code>${esc(p)}</code></li>`).join("") || '<li class="empty">Declared empty.</li>'}</ul>`
+        }`;
+      return;
+    }
+    // A heaviest-connections row (any edge, regardless of the threshold slider) can select an
+    // edge the diagram is currently hiding, so fall back to the full edge list before giving up.
+    const edge = visible.find((e) => edgeKey(e) === selected.key) || DATA.edges.find((e) => edgeKey(e) === selected.key);
+    if (!edge) {
+      selected = null;
+      showOverview();
+      return;
+    }
+    const grouped = groupBy(edge.names, (n) => n.name.split(":")[0]);
+    const names = [...grouped.entries()]
+      .map(
+        ([module, items]) =>
+          `<div class="group"><div><code>${esc(module)}</code></div><ul class="plain">${items
+            .map(
+              (n) =>
+                `<li>${esc(n.name.split(":")[1] ?? n.name)} <small>${esc(n.kind)}</small>${
+                  n.returns ? `<br><span class="sig">(${n.params.map(esc).join(", ")}) → ${esc(n.returns)}</span>` : ""
+                }</li>`,
+            )
+            .join("")}</ul></div>`,
+      )
+      .join("");
+    inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(edge.source)} → ${esc(edge.target)}</h2>
+      <dl class="kv"><dt>Import sites</dt><dd>${edge.import_sites}</dd><dt>Interface names</dt><dd>${edge.names.length}</dd></dl>
+      ${
+        edge.rule_ids.length
+          ? `<h3>Broken rules</h3><ul class="plain">${edge.rule_ids.map((r) => `<li class="violation-card"><code>${esc(r)}</code></li>`).join("")}</ul>`
+          : ""
+      }
+      ${edge.names.length ? `<h3>Names used across the boundary</h3>${names}` : ""}`;
+  }
+
+  function legendSwatch(state) {
+    const swatch = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    swatch.setAttribute("class", "flow-legend-swatch");
+    swatch.setAttribute("viewBox", "0 0 28 10");
+    swatch.appendChild(el("g", { class: `edge ${state}` }, el("path", { class: "line", d: "M1,5 H27" })));
+    return swatch;
+  }
+
+  function renderLegend() {
+    if (!legend) return;
+    legend.textContent = "";
+    EDGE_STATES.forEach(({ id, label }) => {
+      const item = document.createElement("span");
+      item.className = "flow-legend-item";
+      item.appendChild(legendSwatch(id));
+      const text = document.createElement("span");
+      text.textContent = label;
+      item.appendChild(text);
+      legend.appendChild(item);
+    });
+    const hint = document.createElement("span");
+    hint.className = "flow-legend-hint";
+    hint.textContent = "Click a card or a line, drag cards, scroll to zoom.";
+    legend.appendChild(hint);
+  }
+
+  function fit(animate) {
+    const bounds = viewport.getBBox();
+    if (!bounds.width || !bounds.height) return;
+    const box = svg.getBoundingClientRect();
+    const scale = Math.min(1.4, 0.9 * Math.min(box.width / bounds.width, box.height / bounds.height));
+    transform = {
+      k: scale,
+      x: box.width / 2 - scale * (bounds.x + bounds.width / 2),
+      y: box.height / 2 - scale * (bounds.y + bounds.height / 2),
+    };
+    applyTransform(animate && !reducedMotion);
+  }
+
+  function applyTransform(animate) {
+    viewport.style.transition = animate ? "transform 250ms ease-out" : "none";
+    viewport.setAttribute("transform", `translate(${transform.x},${transform.y}) scale(${transform.k})`);
+  }
+
+  // Both live at IIFE scope, and both are driven from svg's own listeners (not the node's or
+  // viewport's): render() rebuilds every card and edge, which would drop a listener attached
+  // to one of them mid-drag.
+  let panState = null;
+  let dragState = null;
+  svg.addEventListener("pointerdown", (event) => {
+    if (event.target !== svg) return;
+    panState = { x: event.clientX, y: event.clientY, start: { ...transform } };
+    capturePointer(svg, event);
+  });
+  svg.addEventListener("pointermove", (event) => {
+    if (dragState) {
+      const dx = (event.clientX - dragState.x) / transform.k;
+      const dy = (event.clientY - dragState.y) / transform.k;
+      positions[dragState.label] = { x: dragState.start.x + dx, y: dragState.start.y + dy };
+      render();
+      return;
+    }
+    if (!panState) return;
+    transform = {
+      ...panState.start,
+      x: panState.start.x + (event.clientX - panState.x),
+      y: panState.start.y + (event.clientY - panState.y),
+    };
+    applyTransform(false);
+  });
+  const endPointer = () => {
+    panState = null;
+    dragState = null;
+  };
+  svg.addEventListener("pointerup", endPointer);
+  svg.addEventListener("pointercancel", endPointer);
+  svg.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const cx = event.clientX - rect.left;
+      const cy = event.clientY - rect.top;
+      const factor = Math.exp(-event.deltaY * 0.001);
+      const k = Math.min(2.4, Math.max(0.3, transform.k * factor));
+      const ratio = k / transform.k;
+      transform = {
+        k,
+        x: cx - ratio * (cx - transform.x),
+        y: cy - ratio * (cy - transform.y),
+      };
+      applyTransform(false);
+    },
+    { passive: false },
+  );
+  svg.addEventListener("click", () => {
+    if (!selected) return;
+    selected = null;
+    render();
+  });
+
+  thresholdInput.addEventListener("input", render);
+  fitButton.addEventListener("click", () => fit(true));
+
+  renderLegend();
+  render();
+  fit(false);
+  window.addEventListener("resize", () => fit(false));
 })();
