@@ -51,6 +51,8 @@ only when its row names repository evidence.
    ordinary pull requests.
 2. Demonstrate every checkable item on a catalogued sample repository (AD-11), with coded
    validation diagnostics (AD-12).
+3. Before tagging 0.3.0, onboard the internal 13-component service with the release-candidate
+   wheel until `validate` exits 0, and fix the report headline (AD-14).
 
 ## Later
 
