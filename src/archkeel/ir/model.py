@@ -377,7 +377,6 @@ DiagnosticCode: TypeAlias = Literal[
     "rationale.repeated",
     "graph.count",
     "graph.drift",
-    "rule.without_subjects",
     "rule.violated",
     "reference.namespace",
     "reference.public_owner",

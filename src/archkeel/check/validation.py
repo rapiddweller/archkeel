@@ -463,18 +463,6 @@ def observation_diagnostics(
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]
-    for record in observation.records("unknowns") or ():
-        if record.kind == "rule-without-subjects":
-            for rule_id in record.rule_ids:
-                diagnostics.append(
-                    _diagnostic(
-                        "rule.without_subjects",
-                        f"/rules/{rule_index.get(rule_id, 0)}",
-                        rule_id,
-                        "The rule matched no scanned source or target module.",
-                        "Correct the rule selector or scan scope.",
-                    )
-                )
     for record in observation.records("violations") or ():
         rule_id = record.rule_ids[0] if record.rule_ids else record.id
         diagnostics.append(
