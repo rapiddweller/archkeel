@@ -45,7 +45,7 @@ class ImportCollector(ast.NodeVisitor):
         self.under_type_checking = False
         self.items: list[RawRecord] = []
 
-    def visit_If(self, node: ast.If) -> None:  # noqa: N802 - ast visitor API
+    def visit_If(self, node: ast.If) -> None:
         previous = self.under_type_checking
         if _is_type_checking_test(node.test):
             self.under_type_checking = True
@@ -57,7 +57,7 @@ class ImportCollector(ast.NodeVisitor):
             return
         self.generic_visit(node)
 
-    def visit_Import(self, node: ast.Import) -> None:  # noqa: N802 - ast visitor API
+    def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
             binding = alias.asname or alias.name.split(".")[0]
             # ``import a.b`` binds ``a``; ``import a.b as b`` binds the full module.
@@ -65,7 +65,7 @@ class ImportCollector(ast.NodeVisitor):
             self.module.aliases[binding] = AliasBinding(target=binding_target, kind="module")
             self._record(node, target=alias.name, symbol=None, binding=binding, relative_level=0)
 
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:  # noqa: N802 - ast visitor API
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         package = _owning_package(self.module)
         raw = "." * node.level + (node.module or "")
         try:

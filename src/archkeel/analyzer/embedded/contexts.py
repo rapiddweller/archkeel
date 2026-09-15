@@ -58,7 +58,7 @@ def _function_class_owners(tree: ast.Module, module_name: str) -> dict[int, str]
         def __init__(self) -> None:
             self.stack: list[str] = []
 
-        def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
             qualified = (
                 f"{self.stack[-1]}.{node.name}" if self.stack else f"{module_name}.{node.name}"
             )
@@ -71,10 +71,10 @@ def _function_class_owners(tree: ast.Module, module_name: str) -> dict[int, str]
                 owners[id(node)] = self.stack[-1]
             self.generic_visit(node)
 
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
             self._visit_function(node)
 
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # noqa: N802
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
             self._visit_function(node)
 
     OwnerVisitor().visit(tree)

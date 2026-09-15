@@ -48,7 +48,7 @@ class CallCollector(ast.NodeVisitor):
         self.class_stack: list[str] = []
         self.scope_stack: list[str] = [module.module]
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         qualname = f"{self.scope_stack[-1]}.{node.name}"
         self.class_stack.append(qualname)
         self.scope_stack.append(qualname)
@@ -61,13 +61,13 @@ class CallCollector(ast.NodeVisitor):
         self.generic_visit(node)
         self.scope_stack.pop()
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._visit_function(node)
 
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # noqa: N802
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._visit_function(node)
 
-    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+    def visit_Call(self, node: ast.Call) -> None:
         expression = annotation_text(node.func) or "<unparseable>"
         status, targets, reason, candidate_count = self._resolve(node.func)
         target_evidence_ids = sorted(

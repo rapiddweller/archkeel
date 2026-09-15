@@ -44,7 +44,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.items: list[RawRecord] = []
         self.scope_stack: list[str] = [module.module]
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
         self.generic_visit(node)
         self.scope_stack.pop()
@@ -54,17 +54,17 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
         self.scope_stack.pop()
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._visit_function(node)
 
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # noqa: N802
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._visit_function(node)
 
-    def visit_Assert(self, node: ast.Assert) -> None:  # noqa: N802
+    def visit_Assert(self, node: ast.Assert) -> None:
         self._record(node, kind="assert_statement", construct="assert", handled=None)
         self.generic_visit(node)
 
-    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:  # noqa: N802
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
         if node.type is None or _is_broad_type(node.type):
             handled = [] if node.type is None else _handled_types(node.type)
             self._record(node, kind="broad_except", construct="broad_except", handled=handled)
