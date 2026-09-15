@@ -8,6 +8,7 @@ from xml.etree import ElementTree
 import pytest
 from test_delta import _model
 from test_expectation import _delta_payload
+from test_interfaces import _declaration, _import_record, _symbol_record
 
 from archkeel.ir.codec import parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
@@ -58,6 +59,75 @@ def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
     assert page.count("data:image/svg+xml;base64,") == 3
     assert "architecture score" not in page.lower()
     assert 'src="http' not in page and 'href="http' not in page
+
+
+def test_html_report_renders_component_communication_table() -> None:
+    raw = _model(
+        git_head="a" * 40,
+        imports=[
+            _import_record(
+                "IMP-1",
+                source_module="pkg.a.mod",
+                target_module="pkg.b",
+                symbol="typed",
+                origin_definition="pkg.b.typed",
+            ),
+            _import_record(
+                "IMP-2",
+                source_module="pkg.a.mod",
+                target_module="pkg.b",
+                symbol="untyped",
+                origin_definition="pkg.b.untyped",
+            ),
+        ],
+    )
+    raw["declarations"] = [_declaration("a", ["pkg.a"]), _declaration("b", ["pkg.b"])]
+    raw["symbols"] = [
+        _symbol_record(
+            "SYM-1",
+            kind="function",
+            qualified_name="pkg.b.typed",
+            module="pkg.b",
+            name="typed",
+            parameters=[{"name": "value", "annotation": "int"}],
+            returns="str",
+        ),
+        _symbol_record(
+            "SYM-2",
+            kind="function",
+            qualified_name="pkg.b.untyped",
+            module="pkg.b",
+            name="untyped",
+            parameters=[{"name": "value", "annotation": None}],
+            returns=None,
+        ),
+    ]
+    observation = parse_observation(raw)
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", coverage=observation.coverage)
+
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+
+    assert "Component communication" in page
+    assert "pkg.b:typed" in page and "pkg.b:untyped" in page
+    assert "value: int" in page and ") → str" in page
+    assert "value: UNKNOWN" in page and ") → UNKNOWN" in page
+    assert "a → b" in page
+
+
+def test_html_report_reports_no_cross_component_imports() -> None:
+    raw = _model(git_head="a" * 40)
+    raw["declarations"] = [_declaration("a", ["pkg.a"])]
+    observation = parse_observation(raw)
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", coverage=observation.coverage)
+
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+
+    assert "Component communication" in page
+    assert "No cross-component imports were observed." in page
 
 
 def test_html_report_never_styles_missing_evidence_as_pass() -> None:

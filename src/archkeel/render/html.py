@@ -11,6 +11,7 @@ import json
 from importlib.resources import files
 
 from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
 
@@ -115,6 +116,39 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
         </table>
       </div>
     </section>"""
+
+
+def _interface_name_line(item: InterfaceName) -> str:
+    line = f"<code>{_text(item.name)}</code> {_text(item.kind)}"
+    if item.returns:
+        params = ", ".join(_text(parameter) for parameter in item.parameters)
+        line += f" ({params}) → {_text(item.returns)}"
+    return line
+
+
+def _interface_edge_row(edge: InterfaceEdge) -> str:
+    names = "<br>".join(_interface_name_line(item) for item in edge.names)
+    return (
+        "<tr>"
+        f"<td><code>{_text(edge.source)} → {_text(edge.target)}</code></td>"
+        f'<td class="numeric">{len(edge.names)}</td>'
+        f"<td>{names}</td>"
+        "</tr>"
+    )
+
+
+def _interfaces_section(observation: Observation) -> str:
+    edges = interface_edges(observation)
+    if not edges:
+        body = "<p>No cross-component imports were observed.</p>"
+    else:
+        rows = "".join(_interface_edge_row(edge) for edge in edges)
+        body = (
+            '<div class="table-wrap"><table><thead><tr><th>Edge</th>'
+            '<th class="numeric">Names</th><th>Interface</th></tr></thead>'
+            f"<tbody>{rows}</tbody></table></div>"
+        )
+    return f'<section class="report-section"><h2>Component communication</h2>{body}</section>'
 
 
 def _measurements(measurements: Measurements | None) -> str:
@@ -235,6 +269,7 @@ def render_html(
     unknowns_html = (
         _findings("Known unknowns", unknowns or (), observation) if observation is not None else ""
     )
+    communication_html = _interfaces_section(observation) if observation is not None else ""
     measurements_html = _measurements(result.measurements)
     coverage_html = _coverage(observation)
     inventory_html = _section_inventory(observation)
@@ -269,6 +304,7 @@ def render_html(
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
     {violations_html}
+    {communication_html}
     {unknowns_html}
     <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
     <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
