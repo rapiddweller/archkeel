@@ -9,7 +9,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -35,12 +35,14 @@ from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
 from .violations import rule_subject_failures, rule_violations
 
+# AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
+CoveragePayload: TypeAlias = dict[str, Any]
+
 
 @dataclass
 class ScanResult:
     source_digest: str
-    # AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
-    coverage: dict[str, Any]
+    coverage: CoveragePayload
     evidence: list[RawEvidence]
     scope_observations: list[RawRecord]
     packages: list[RawRecord]
@@ -79,7 +81,7 @@ def _coverage(
     failures: Sequence[RawRecord],
     rule_failures: Sequence[RawRecord],
     calls: Sequence[RawRecord],
-) -> dict[str, Any]:
+) -> CoveragePayload:
     """Summarize file discovery, rule and call-resolution coverage for one scan."""
     calls_analyzed = len(calls)
     calls_resolved = sum(1 for call in calls if call["data"]["status"] == "resolved")

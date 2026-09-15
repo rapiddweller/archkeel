@@ -45,15 +45,14 @@ top-level modules, one responsibility each:
 | `contract` | Contract loading and declarations |
 | `report` | Observation assembly |
 
- Reason:
-`analyzer_code_digest` hashes top-level `*.py` files, so code in a subpackage would change
-analyzer behavior without changing the digest. Check: `tests/test_analyzer.py`.
+Reason: `analyzer_code_digest` hashes top-level `*.py` files, so code in a subpackage would
+change analyzer behavior without changing the digest. Check: `tests/test_analyzer.py`.
 
 **AD-2 JSON has one type.** Decoded or emitted JSON is `RawJson`; untrusted input is narrowed with
 `isinstance` at the boundary. Analyzer records are `RawRecord` and `RawEvidence`; their per-kind
-payload is `RecordData`, the analyzer's single declared `Any`. The only other `Any` is where those
-records enter canonical encoding, with a one-line reason. Check: `mypy --strict` and the typing measurements in
-`fixtures/D-self/`.
+payload is `RecordData`, the analyzer's single declared `Any`. The other `Any` positions are the
+named `CoveragePayload` and the places where those records enter canonical encoding, each with a
+one-line reason. Check: `mypy --strict` and the typing measurements in `fixtures/D-self/`.
 
 **AD-3 The analyzer digest decides comparability; the version names it.** Two observations are
 comparable only with equal `analyzer.code_digest`. `ANALYZER_VERSION` is the human label: its minor
@@ -66,8 +65,8 @@ change. Check: `tests/test_self.py`.
 
 **AD-5 Invariants live where values are built.** A value whose fields depend on each other
 checks that dependency in `__post_init__`, for example `ObservationResult` (no diagnostics means
-a complete observation) and `RatchetObservations` (measurements exist exactly when the status is `SUPPORTED`).
-Consumers narrow with ordinary control flow. Reason: `assert` disappears under `python -O` and
+a complete observation) and `RatchetObservations` (measurements exist exactly when the status
+is `SUPPORTED`). Consumers narrow with ordinary control flow. Reason: `assert` disappears under `python -O` and
 hides the invariant from its owner. Check: `tests/test_repository_hygiene.py` rejects `assert`
 statements in `src/`.
 
