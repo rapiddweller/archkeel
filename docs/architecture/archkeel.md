@@ -173,14 +173,26 @@ break its documented intent faster than any table, and a prototype on the shop s
 for every rule kind. Check: the HTML report tests, `tests/test_determinism.py`, and the shop tour
 report drawing every violated edge.
 
-**AD-15 `init` never approves an observed edge.** `init` drafts one `forbidden_dependency` rule with
-a `TODO:` rationale for every ordered component pair, observed or not. An observed pair therefore
-starts as a violation, and the owner decides it: keep the rule and change the code, or delete the
-rule to allow the edge. `validate` blocks until every drafted rationale is replaced. Reason: drafting
-rules only for unobserved pairs made the first report pass by construction; on the internal service,
-rules taken from its own architecture document made 7 observed edges fail at 200 import sites.
-Check: an onboarding test proves that every ordered pair has a drafted rule, and the first report
-after `init` on the shop sample fails on every observed edge.
+**AD-15 Onboarding is a decision interview: the code proposes, the architect decides.** Observed
+code yields facts and questions, never intent. `init` proposes components and `public` interfaces
+and returns a deterministic list of open decisions ordered by import sites; it writes no dependency
+rule. Every ordered component pair must be decided exactly once in the contract: an
+`allowed_dependency` rule or a `forbidden_dependency` rule, each with the architect's rationale.
+Validation derives the undecided pairs from the contract and the observed component edges it already
+compares, so the analyzer and its version stay unchanged; `decision.open` replaces
+`closed_world.missing` and names whether the pair is observed and at how many import sites. Each open
+decision in the `init --json` and `validate --json` output carries the exact rule for every option,
+so the id scheme has one owner and only the architect's reason is written by hand. The report draws
+undecided observed edges as their own edge state from the same derivation. The skill makes the agent
+an interviewer: it asks the architect multiple-choice questions with a custom answer, heaviest edges
+first, offers a single decision for all unobserved pairs of a component, marks anything read from
+documentation as a hypothesis with its source, and never answers itself. Contract 2.1.0 adds the rule
+kind; 2.0.0 contracts still decode and report their observed edges as open decisions. Reason: `init`
+wrote the complement of the observed graph, so the first report passed by construction, while rules
+taken from the internal service's own architecture document made 7 observed edges fail at 200 import
+sites. Check: `init` drafts no dependency rule, every undecided pair yields `decision.open`, a
+forbidden observed edge is a violation on the first report, and Archkeel's own contract and the shop
+sample decide every pair.
 
 ## Allowed dependencies
 
