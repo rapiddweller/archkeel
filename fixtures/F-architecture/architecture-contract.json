@@ -1,0 +1,312 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.0.0",
+  "components": [
+    {
+      "id": "COMP-MODEL",
+      "label": "model",
+      "capability_id": "CAP-SHOP",
+      "role": "component",
+      "packages": ["shop.model"],
+      "public": ["shop.model.entities"],
+      "responsibilities": ["Order and Line value types, and Money arithmetic."],
+      "forbidden_responsibilities": ["Persistence, use cases, presentation or command-line orchestration."],
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "COMP-STORE",
+      "label": "store",
+      "capability_id": "CAP-SHOP",
+      "role": "component",
+      "packages": ["shop.store"],
+      "public": [
+        "shop.store.repository:OrderRepository",
+        "shop.store.sqlite:vacuum",
+        "shop.store.sqlite:Connection"
+      ],
+      "responsibilities": ["Persist orders as JSON files."],
+      "forbidden_responsibilities": ["Order use cases and presentation."],
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "COMP-APP",
+      "label": "app",
+      "capability_id": "CAP-SHOP",
+      "role": "component",
+      "packages": ["shop.app"],
+      "public": ["shop.app.orders:place_order"],
+      "responsibilities": ["Use cases: place and summarise orders."],
+      "forbidden_responsibilities": ["Persistence details and presentation."],
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "COMP-RENDER",
+      "label": "render",
+      "capability_id": "CAP-SHOP",
+      "role": "component",
+      "packages": ["shop.render"],
+      "public": ["shop.render.text"],
+      "responsibilities": ["Text projection of an order."],
+      "forbidden_responsibilities": ["Order use cases and persistence."],
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "capability_id": "CAP-SHOP",
+      "role": "component",
+      "packages": ["shop.cli"],
+      "responsibilities": ["Argument parsing, composition and the single broad error boundary."],
+      "forbidden_responsibilities": ["Domain logic, persistence and presentation formatting."],
+      "provenance": ["docs/architecture/shop.md"]
+    }
+  ],
+  "declarations": {
+    "capabilities": [
+      {
+        "id": "CAP-SHOP",
+        "name": "SHOP",
+        "label": "Shop sample ordering",
+        "review_order": 1,
+        "provenance": ["docs/architecture/shop.md"]
+      }
+    ],
+    "review_scopes": [
+      {
+        "id": "SCOPE-SHOP-ORDERS",
+        "label": "Order placement review",
+        "parent_id": "CAP-SHOP",
+        "subjects": ["shop.app.orders"],
+        "provenance": ["docs/architecture/shop.md"]
+      }
+    ],
+    "public_commands": [
+      {
+        "id": "CMD-SHOP-PLACE-ORDER",
+        "command": "shop.cli.main:main",
+        "description": "Parse order arguments, place the order and print it as text.",
+        "provenance": ["docs/architecture/shop.md"]
+      }
+    ],
+    "context_roots": ["shop"],
+    "context_roots_provenance": ["docs/architecture/shop.md"],
+    "paths": [
+      {
+        "id": "PATH-SHOP-PLACE-ORDER",
+        "label": "Place an order",
+        "kind": "write",
+        "steps": ["shop.cli.main", "shop.app.orders", "shop.store", "shop.model.entities"],
+        "provenance": ["docs/architecture/shop.md"]
+      }
+    ],
+    "spot_owners": [
+      {
+        "id": "OWNER-SHOP-MODEL",
+        "label": "Order value types",
+        "owner": "shop.model",
+        "responsibility": "Order, Line and Money stay the single source of truth for order arithmetic.",
+        "provenance": ["docs/architecture/shop.md"]
+      }
+    ]
+  },
+  "rules": [
+    {
+      "id": "DEP-MODEL-NO-STORE",
+      "kind": "forbidden_dependency",
+      "source": "shop.model",
+      "target": "shop.store",
+      "include_type_checking": true,
+      "rationale": "Order and Line value types stay independent of any persistence mechanism.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-MODEL-NO-APP",
+      "kind": "forbidden_dependency",
+      "source": "shop.model",
+      "target": "shop.app",
+      "include_type_checking": true,
+      "rationale": "Value types remain reusable without depending on the use cases that construct them.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-MODEL-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "shop.model",
+      "target": "shop.render",
+      "include_type_checking": true,
+      "rationale": "Value types remain independent of how orders are projected as text.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-MODEL-NO-CLI",
+      "kind": "forbidden_dependency",
+      "source": "shop.model",
+      "target": "shop.cli",
+      "include_type_checking": true,
+      "rationale": "Value types remain independent of command-line composition.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-STORE-NO-APP",
+      "kind": "forbidden_dependency",
+      "source": "shop.store",
+      "target": "shop.app",
+      "include_type_checking": true,
+      "rationale": "Persistence stays a leaf dependency and never calls back into use cases.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-STORE-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "shop.store",
+      "target": "shop.render",
+      "include_type_checking": true,
+      "rationale": "Persistence remains independent of how orders are displayed.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-STORE-NO-CLI",
+      "kind": "forbidden_dependency",
+      "source": "shop.store",
+      "target": "shop.cli",
+      "include_type_checking": true,
+      "rationale": "Persistence stays callable without command-line orchestration.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-APP-NO-RENDER",
+      "kind": "forbidden_dependency",
+      "source": "shop.app",
+      "target": "shop.render",
+      "include_type_checking": true,
+      "rationale": "Use cases return typed values; only the composition root decides how to project them.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-APP-NO-CLI",
+      "kind": "forbidden_dependency",
+      "source": "shop.app",
+      "target": "shop.cli",
+      "include_type_checking": true,
+      "rationale": "Use cases remain callable without command-line orchestration.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-STORE",
+      "kind": "forbidden_dependency",
+      "source": "shop.render",
+      "target": "shop.store",
+      "include_type_checking": true,
+      "rationale": "Text projection consumes typed values without touching persistence.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-APP",
+      "kind": "forbidden_dependency",
+      "source": "shop.render",
+      "target": "shop.app",
+      "include_type_checking": true,
+      "rationale": "Text projection stays a pure view over values, not a caller of use cases.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-RENDER-NO-CLI",
+      "kind": "forbidden_dependency",
+      "source": "shop.render",
+      "target": "shop.cli",
+      "include_type_checking": true,
+      "rationale": "Text projection remains reusable without command-line composition.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-CLI-NO-MODEL",
+      "kind": "forbidden_dependency",
+      "source": "shop.cli",
+      "target": "shop.model",
+      "include_type_checking": true,
+      "rationale": "The composition root reaches domain values only through the use cases it calls.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-CLI-NO-STORE",
+      "kind": "forbidden_dependency",
+      "source": "shop.cli",
+      "target": "shop.store",
+      "include_type_checking": true,
+      "rationale": "The composition root reaches persistence only through the use cases it calls.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-APP-NO-STORE-SQLITE",
+      "kind": "forbidden_dependency",
+      "source": "shop.app",
+      "target": "shop.store.sqlite",
+      "include_type_checking": false,
+      "allowed_sources": ["shop.app.maintenance"],
+      "rationale": "Only the maintenance use case may run store housekeeping; ordinary order use cases stay on the repository.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "DEP-STORE-NO-MONEY",
+      "kind": "forbidden_dependency",
+      "source": "shop.store",
+      "target": "shop.model.entities",
+      "target_symbol": "Money",
+      "include_type_checking": true,
+      "rationale": "Persistence serialises whole orders and must not compute or interpret money amounts itself.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "CONSTRUCT-NO-DYNAMIC",
+      "kind": "forbidden_construct",
+      "source": "shop",
+      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore"],
+      "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "CONSTRUCT-NO-ASSERT",
+      "kind": "forbidden_construct",
+      "source": "shop",
+      "constructs": ["assert"],
+      "rationale": "Invariants are checked where values are built, because assert statements vanish under python -O.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "CONSTRUCT-NO-BROAD-EXCEPT",
+      "kind": "forbidden_construct",
+      "source": "shop",
+      "constructs": ["broad_except"],
+      "allowed_sources": ["shop.cli.main"],
+      "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit code.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "EXTERNAL-JSON-STORE",
+      "kind": "external_dependency_scope",
+      "dependency": "json",
+      "allowed_sources": ["shop.store"],
+      "rationale": "Only the store component chooses the JSON file format; other components stay format-agnostic.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "shop",
+      "rationale": "A module without one owning component escapes every boundary rule.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
+      "provenance": ["docs/architecture/shop.md"]
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",
+      "provenance": ["docs/architecture/shop.md"]
+    }
+  ]
+}
