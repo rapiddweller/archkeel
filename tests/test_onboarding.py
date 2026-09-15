@@ -166,6 +166,9 @@ def test_deciding_every_open_pair_from_init_options_makes_validate_pass(
     validated = json.loads(capsys.readouterr().out)
     assert validated["diagnostics"] == []
     assert validated["open_decisions"] == []
+    # AD-16: every rule here still carries init's decided_by: agent placeholder verbatim.
+    agent_decided, total_rules = validated["agent_decisions"]
+    assert agent_decided == total_rules == len(raw["rules"])
 
 
 def test_open_decision_import_sites_match_a_ground_truth_count_from_imports(

@@ -112,6 +112,21 @@ def test_html_report_clean_report_still_reports_no_failures() -> None:
     assert "<li>None.</li>" in failures_section
 
 
+def test_html_report_names_agent_decisions_awaiting_the_architect() -> None:
+    """AD-16: the HTML summary shows the same agent-decision count as the terminal."""
+    raw = _model(git_head="a" * 40)
+    observation = parse_observation(raw)
+    result = RunResult(
+        "report", 0, "PASS", "PASS", "n/a", coverage=observation.coverage, agent_decisions=(2, 5)
+    )
+
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+
+    assert "2 of 5 rules decided by the agent, awaiting the architect." in page
+
+
 def test_html_report_renders_component_communication_table() -> None:
     raw = _model(
         git_head="a" * 40,

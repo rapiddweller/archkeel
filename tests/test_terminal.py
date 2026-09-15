@@ -105,3 +105,17 @@ def test_init_headline_is_unchanged_by_the_report_decision_fix() -> None:
     assert summary.decision.label == "PASS"
     assert summary.sentence == "Draft written. Run archkeel validate to list every decision left."
     assert len(summary.verdicts) == 1
+
+
+def test_terminal_view_names_agent_decisions_awaiting_the_architect() -> None:
+    """AD-16: validate and report say how many rules the agent decided, not just PASS."""
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", agent_decisions=(3, 10))
+    summary = report_summary(result)
+    assert "3 of 10 rules decided by the agent, awaiting the architect." in summary.sentence
+    wide = _render(result, summary, 200)
+    assert "3 of 10 rules decided by the agent, awaiting the architect." in wide
+
+
+def test_terminal_view_omits_the_agent_decisions_line_when_none_remain() -> None:
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", agent_decisions=(0, 10))
+    assert "decided by the agent" not in report_summary(result).sentence
