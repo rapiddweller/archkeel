@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import ast
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -27,6 +28,61 @@ TRACKED = tuple(
     for name in subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT, text=True).split("\0")
     if name
 )
+SOURCES = tuple(
+    path for path in TRACKED if path.suffix == ".py" and path.is_relative_to(ROOT / "src")
+)
+LONG_FUNCTION_LINES = 80
+_PENDING = "Pending AD-6 split: "
+ALLOWED_LONG_FUNCTIONS = {
+    "src/archkeel/analyzer/__init__.py::observe": "Subprocess boundary; one try maps launch, "
+    "decode and failure to diagnostics.",
+    "src/archkeel/analyzer/embedded/contexts.py::collect_contexts": _PENDING
+    + "access observations, class fields, detail records.",
+    "src/archkeel/analyzer/embedded/contract.py::project_declarations": "One classified record "
+    "per declaration kind; nothing is shared between them.",
+    "src/archkeel/analyzer/embedded/dependencies.py::component_scope_observations": _PENDING
+    + "unassigned scope records.",
+    "src/archkeel/analyzer/embedded/report.py::_metrics": "One literal of metric records; the "
+    "sets above it only feed that literal.",
+    "src/archkeel/analyzer/embedded/scanner.py::scan_repository": _PENDING
+    + "parsing, rule subjects, re-exports, package and module records, coverage.",
+    "src/archkeel/analyzer/embedded/symbols.py::collect_symbols": _PENDING
+    + "symbol data and class kind resolution.",
+    "src/archkeel/analyzer/embedded/typing_signals.py::collect_typing_signals": _PENDING
+    + "type-ignore, dynamic-call and boundary-annotation signals.",
+    "src/archkeel/check/delta.py::_compare_records": "Exact, relocated and changed stages share "
+    "the unmatched record pools.",
+    "src/archkeel/check/delta.py::build_architecture_delta": "Shared, coverage and availability "
+    "reasons are decided in one place per dimension.",
+    "src/archkeel/check/expectation.py::evaluate_expectation": "Raises in declaration order; each "
+    "step reads the previous index.",
+    "src/archkeel/check/run.py::run_check": _PENDING
+    + "input authentication, snapshot observation, incomplete results.",
+    "src/archkeel/check/validation.py::reference_diagnostics": _PENDING + "namespace references.",
+    "src/archkeel/cli/__init__.py::build_parser": "Declarative argparse setup, one subparser per "
+    "command; help text is the length.",
+    "src/archkeel/cli/__init__.py::main": "Composition root; one error boundary maps every "
+    "command to a result.",
+    "src/archkeel/ir/codec.py::encode_canonical_model": "Columnizing and interning share the "
+    "sentinel rows.",
+    "src/archkeel/ir/codec.py::parse_contract": "Field lists plus one parser per kind; the "
+    "duplicate-id check spans all groups.",
+    "src/archkeel/ir/codec.py::parse_delta": _PENDING
+    + "snapshot summary, dimension, ratchets, semantic change, unknown.",
+    "src/archkeel/ir/codec.py::parse_observation": _PENDING + "coverage parsing.",
+    "src/archkeel/render/html.py::render_html": "One template with its bindings.",
+}
+
+
+def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            name = f"{prefix}{child.name}"
+            if not isinstance(child, ast.ClassDef):
+                yield name, (child.end_lineno or child.lineno) - child.lineno + 1
+            yield from _functions(child, f"{name}.")
+        else:
+            yield from _functions(child, prefix)
 
 
 def test_tracked_python_files_have_license_header() -> None:
@@ -43,12 +99,23 @@ def test_source_has_no_assert_statements() -> None:
     # AD-5: invariants belong in constructors; assert vanishes under python -O.
     hits = [
         f"{path.relative_to(ROOT)}:{node.lineno}"
-        for path in TRACKED
-        if path.suffix == ".py" and path.is_relative_to(ROOT / "src")
+        for path in SOURCES
         for node in ast.walk(ast.parse(path.read_bytes()))
         if isinstance(node, ast.Assert)
     ]
     assert hits == []
+
+
+def test_long_functions_have_a_named_reason() -> None:
+    # AD-6: every long function is listed with its reason, and the list only shrinks.
+    long_functions = {
+        f"{path.relative_to(ROOT)}::{name}"
+        for path in SOURCES
+        for name, lines in _functions(ast.parse(path.read_bytes()), "")
+        if lines > LONG_FUNCTION_LINES
+    }
+    assert sorted(long_functions - ALLOWED_LONG_FUNCTIONS.keys()) == []
+    assert sorted(ALLOWED_LONG_FUNCTIONS.keys() - long_functions) == []
 
 
 def test_tracked_text_has_no_local_absolute_paths() -> None:
