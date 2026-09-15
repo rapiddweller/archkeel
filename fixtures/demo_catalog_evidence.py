@@ -1,99 +1,62 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-11 class_b, protocol, class_c and class_d rows: evidence-anchored, not run on the sample.
+"""AD-11 class_b, class_c and class_d rows that cannot run on the sample.
 
-These compare two observations (class_b, protocol) or are declarations Archkeel decodes but
-never enforces (class_c) or has not implemented (class_d), so no single-repository overlay
-demonstrates them; each row cites the existing test or fixture that does.
+The remaining class_b rows are genuinely undemonstrable, not merely uncatalogued: raising
+coverage_failures or unknowns makes `Measurements.__post_init__` or `evaluate_expectation`
+raise instead of returning a typed FAIL, and coverage_must_pass is a fixed guardrail key, never
+a comparable dimension. See `fixtures/demo_catalog_check.py` for every scalar and guardrail
+dimension that a `check` demo can fire, and its protocol rows for `git_order`/`host_order`.
+class_c (declarations Archkeel decodes but never enforces) and class_d (not implemented) each
+cite the existing test or fixture that demonstrates them instead.
 """
 
 from __future__ import annotations
 
 from dataclasses import fields as dataclass_fields
 
-from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
-from archkeel.ir.measurements import SCALARS
 from archkeel.ir.model import ContractDeclarations
 from fixtures.demo_catalog_support import Variant
 
-_SCALAR_EVIDENCE = "tests/test_ratchets.py"
 _CLASS_B_ROWS: tuple[Variant, ...] = (
-    *(
-        Variant(
-            id=f"class-b-scalar-{name}",
-            section="class_b",
-            item=f"SCALARS:{name}",
-            summary=f"The {name} ratchet scalar compares an accepted and a candidate "
-            "observation; not a single-observation overlay.",
-            files={},
-            expected_violations=(),
-            expected_codes=(),
-            evidence="docs/rules.md" if name == "coverage_failures" else _SCALAR_EVIDENCE,
-        )
-        for name in SCALARS
-    ),
     Variant(
-        id="class-b-unresolved-ratio",
+        id="class-b-scalar-coverage-failures",
         section="class_b",
-        item="unresolved_ratio",
-        summary="The cross-multiplied unresolved-call ratio is demonstrated by demo case A, "
-        "whose calls_unresolved rises against calls_total.",
+        item="SCALARS:coverage_failures",
+        summary="A scan failure that would raise coverage_failures also fails "
+        'Measurements.__post_init__ ("scan must be complete"), so check never returns a '
+        "typed FAIL for it; only a crash. Exercised by the measurement tests instead.",
         files={},
         expected_violations=(),
         expected_codes=(),
-        evidence="fixtures/reproduce_milestone1.py",
-    ),
-    *(
-        Variant(
-            id=f"class-b-guardrail-{name}",
-            section="class_b",
-            item=f"GUARDRAIL_DIMENSIONS:{name}",
-            summary=f"The {name} guardrail dimension compares accepted and candidate "
-            "observations; exercised by the expectation tests.",
-            files={},
-            expected_violations=(),
-            expected_codes=(),
-            evidence="tests/test_expectation.py",
-        )
-        for name in GUARDRAIL_DIMENSIONS
+        evidence="tests/test_ratchets.py",
     ),
     Variant(
-        id="class-b-coverage-must-pass",
+        id="class-b-guardrail-unknowns",
         section="class_b",
-        item="coverage_must_pass",
-        summary="coverage_must_pass is a fixed guardrail key, not a comparable dimension; "
-        "exercised only by the expectation tests.",
+        item="GUARDRAIL_DIMENSIONS:unknowns",
+        summary="The two structural analysis-limit records are fixed in kind and subjects, so "
+        "code-only changes can only change their data, never add a new one; a genuinely new "
+        "unknowns record needs a scan failure or a rule losing every subject, both of which "
+        "fail coverage and crash measurement before the guardrail is compared. Exercised by "
+        "the expectation tests instead.",
         files={},
         expected_violations=(),
         expected_codes=(),
         evidence="tests/test_expectation.py",
     ),
-)
-
-_PROTOCOL_ROWS: tuple[Variant, ...] = (
     Variant(
-        id="protocol-git-order",
-        section="protocol",
-        item="git_order",
-        summary="check_git_order's parent, changed-path and ancestry predicates are "
-        "exercised directly against real Git history.",
+        id="class-b-coverage-must-pass",
+        section="class_b",
+        item="coverage_must_pass",
+        summary="coverage_must_pass is a fixed guardrail key, not a comparable dimension: a "
+        "failing scan makes evaluate_expectation raise before any guardrail is compared. "
+        "Exercised only by the expectation tests.",
         files={},
         expected_violations=(),
         expected_codes=(),
-        evidence="tests/test_git_lock.py",
-    ),
-    Variant(
-        id="protocol-host-order",
-        section="protocol",
-        item="host_order",
-        summary="Demo case B publishes the expectation only after the first candidate "
-        "submission, producing the ordering failure at exit code 1; its companion run "
-        "with the host branch missing shows the exit 2 diagnostic path.",
-        files={},
-        expected_violations=(),
-        expected_codes=(),
-        evidence="fixtures/reproduce_milestone1.py",
+        evidence="tests/test_expectation.py",
     ),
 )
 
@@ -138,7 +101,6 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
 
 VARIANTS: tuple[Variant, ...] = (
     *_CLASS_B_ROWS,
-    *_PROTOCOL_ROWS,
     *_CLASS_C_ROWS,
     *_CLASS_D_ROWS,
 )

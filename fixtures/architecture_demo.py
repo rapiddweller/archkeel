@@ -19,6 +19,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
+from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
@@ -33,6 +35,8 @@ CATALOG: tuple[Variant, ...] = (
     *_DEPENDENCY_VARIANTS,
     *_INTERFACE_VARIANTS,
     *_VALIDATION_VARIANTS,
+    *_CHECK_PROTOCOL_VARIANTS,
+    *_CHECK_REGRESSION_VARIANTS,
     *_EVIDENCE_VARIANTS,
 )
 
@@ -49,6 +53,15 @@ _SHOWCASE_NOTE = (
 )
 
 
+def _demo_type(variant: Variant) -> str:
+    """Name each row's demo kind: what it runs, not what it changes."""
+    if variant.check is not None:
+        return "check run"
+    if variant.evidence is not None:
+        return "tested only"
+    return "validate/report run"
+
+
 def markdown() -> str:
     """Render docs/architecture-demo.md from CATALOG."""
     lines = [
@@ -58,16 +71,16 @@ def markdown() -> str:
         "",
         *textwrap.wrap(_SHOWCASE_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
-        "| Section | Item | Variant | Rule ids | Diagnostic codes | Evidence / files |",
-        "|---|---|---|---|---|---|",
+        "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
+        "|---|---|---|---|---|---|---|",
     ]
     for variant in CATALOG:
         violations = ", ".join(variant.expected_violations) or "-"
         codes = ", ".join(variant.expected_codes) or "-"
         reference = variant.evidence or ", ".join(sorted(variant.files)) or "clean sample"
         lines.append(
-            f"| {variant.section} | {variant.item} | {variant.id} | {violations} | "
-            f"{codes} | {reference} |"
+            f"| {variant.section} | {variant.item} | {variant.id} | {_demo_type(variant)} | "
+            f"{violations} | {codes} | {reference} |"
         )
     return "\n".join(lines) + "\n"
 
