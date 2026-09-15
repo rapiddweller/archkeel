@@ -48,6 +48,8 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
+2. Demonstrate every checkable item on a catalogued sample repository (AD-11), with coded
+   validation diagnostics (AD-12).
 
 ## Later
 

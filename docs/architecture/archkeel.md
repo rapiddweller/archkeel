@@ -109,8 +109,9 @@ entry `pkg.module` makes every non-underscore top-level name of that module publ
 `__all__` when present, and `pkg.module:Name` makes exactly one name public. The Class A rule
 `interface_boundary` accepts a cross-component import only when it reaches a declared name of the
 target component, directly or through its re-export chain; underscore names never qualify, and
-`TYPE_CHECKING` imports count unless `include_type_checking` is false. Validation reports a
-component with inbound imports but no `public`, and a `public` entry that no other component uses.
+`TYPE_CHECKING` imports count unless `include_type_checking` is false. When an
+`interface_boundary` rule exists, validation reports a component with inbound imports but no
+`public`, and a `public` entry that no other component uses.
 `init` proposes a module entry when the module defines `__all__` or other components use at least
 half of its public names, and symbol entries otherwise, so a module entry admits at most twice the
 names in use. `declarations.public_api` stays valid but is superseded. The report derives a
@@ -120,6 +121,27 @@ and new regression measures are out of scope. Reason: Archkeel already checks wh
 talk; the interface states through what, so reaching into another component's internals requires
 a visible contract change. Check: violation probes in `tests/test_analyzer.py`, drift tests in
 `tests/test_validation.py`, Archkeel's own contract, and the measured profile in `docs/evidence/`.
+
+**AD-11 Every checkable item has a catalogued demo.** `fixtures/F-architecture/` is a committed
+five-component sample repository with a closed contract, `public` interfaces, a marked Mermaid
+graph and every Class A rule kind declared; `validate` and `report` on it are clean. One catalog
+in `fixtures/architecture_demo.py` lists named variants, each a mapping of repository-relative
+files to new content applied over a copy of the clean tree, together with the exact violations and
+diagnostic codes it must produce. Regression checks and the check protocol stay demonstrated by
+demo cases A, B and C; the catalog lists them with their evidence and marks items that cannot be
+demonstrated, such as `coverage_failures`, as tested only. A generated catalog table in
+`docs/architecture-demo.md` is compared with the catalog. Reason: a user must be able to see
+each rule fire on one readable repository, not only in unit tests. Check:
+`tests/test_architecture_demo.py` enumerates rule kinds, construct values, diagnostic codes and
+regression measurements from code, and fails when one has no catalog entry, when a variant's
+findings differ from the catalog, or when the clean sample reports anything.
+
+**AD-12 Validation diagnostics carry a code.** Every `contract_invalid` diagnostic has a stable
+`code` from one `DiagnosticCode` literal, such as `closed_world.missing`, `interface.unused` or
+`rule.violated`; the constructor rejects a `contract_invalid` diagnostic without one, and result
+JSON emits the code next to the pointer. Reason: sixteen different findings shared one kind and
+differed only in prose, so tests and agents had to match free text. Check: the constructor, and
+the catalog test in AD-11 compares codes instead of messages.
 
 ## Allowed dependencies
 

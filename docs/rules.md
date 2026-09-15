@@ -18,9 +18,13 @@ dynamic imports remain a blind spot. Removing one pair rule from Archkeel is an 
 
 `forbidden_dependency` fields are `source`, `target`, `include_type_checking`, optional
 `target_symbol` and optional `allowed_sources`. The analyzer matches import records by exact module
-prefix. A complete scan, fixed source bytes, analyzer digest and Python version make the result
-deterministic. Unresolved dynamic imports remain a blind spot. Importing `sample.cli` from
-`sample.core` is an example violation.
+prefix. `allowed_sources` lists exact source modules, unlike the prefix scopes of
+`forbidden_construct` and `external_dependency_scope`. Closed-world validation counts every
+observed import, including `TYPE_CHECKING` and allowed-source imports, so `allowed_sources` and
+`include_type_checking: false` only fit a rule scoped below a component pair, such as a submodule
+target or a `target_symbol`. A complete scan, fixed source bytes, analyzer digest and Python
+version make the result deterministic. Unresolved dynamic imports remain a blind spot. Importing
+`sample.cli` from `sample.core` is an example violation.
 
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources`, whose
 prefixes exempt owners as in `external_dependency_scope`. Supported constructs are `getattr`,
@@ -77,6 +81,9 @@ integer cross-multiplied ratios and semantic fingerprints.
 - **Blind spots:** a stable count can hide replacement of one finding by another; fingerprints
   cover supported semantic changes, not intent.
 - **Example:** reject a candidate whose unresolved call count rises from 0 to 1.
+
+`coverage_failures` is measured but cannot regress between two comparable observations: an
+incomplete scan produces no measurements, so the check reports UNVERIFIABLE instead.
 
 ## Class C: declarations
 
