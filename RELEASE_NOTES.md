@@ -43,6 +43,24 @@ uvx archkeel --help
 pip install --upgrade archkeel
 ```
 
+## Self-observation
+
+Archkeel's own contract is a decided target: 6 components, each of the 30 ordered component pairs
+decided by the architect, 46 rules in total, none decided by the agent. Component responsibilities
+name the quality goal each boundary protects (AD-17). The analyzer measured its own source at
+0.2.0 and at this release:
+
+| Measurement | 0.2.0 | 0.3.0 | Explanation |
+|---|---:|---:|---|
+| Source files | 43 | 53 | Scanner split into single-purpose collectors; decisions, interfaces and flow view added; `accept` removed |
+| Violations | 0 | 0 | Now including `allowed_dependency`, `interface_boundary` and every open decision |
+| `getattr` calls | 0 | 0 | Still forbidden everywhere |
+| Typing positions | 187 | 46 | Analyzer records share one typed envelope and codec JSON is narrowed at the boundary (AD-2) |
+| Unresolved calls | 593 / 2830 | 630 / 3303 | New calls in the decisions, interface and flow view modules |
+
+The unresolved ratio fell from 20.95% to 19.07%. Two runs of `archkeel report` on the same commit
+write a byte-identical `architecture.json`.
+
 # Archkeel 0.2.0 — Deterministic onboarding
 
 Archkeel 0.2.0 lets a coding agent set up the architecture contract and keeps every decision
