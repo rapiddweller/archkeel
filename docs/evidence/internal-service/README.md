@@ -28,12 +28,12 @@ in the neutral texts.
 | File | What it shows |
 |---|---|
 | [architecture-contract-interview.json](architecture-contract-interview.json) | The architect's target: 13 components, 156 pair decisions and 3 structural rules, all `decided_by: architect` |
-| [report-interview.html](report-interview.html) ([flow](report-interview-flow.png)) | `report` on that target: FAIL, 307 violations |
+| [report-interview.html](report-interview.html) ([flow](report-interview-flow.png)) | `report` on that target: FAIL, 162 violations |
 | [architecture-contract-auto.json](architecture-contract-auto.json) | The blind auto-mode target: the same components and structural rules, 156 pair decisions `decided_by: agent` |
-| [report-auto.html](report-auto.html) ([flow](report-auto-flow.png)) | `report` on that target: FAIL, 342 violations, "156 of 159 rules decided by the agent" |
+| [report-auto.html](report-auto.html) ([flow](report-auto-flow.png)) | `report` on that target: FAIL, 199 violations, "156 of 159 rules decided by the agent" |
 | [decisions-interview-vs-auto.json](decisions-interview-vs-auto.json) | Every pair with the architect's blind decision, the architect's final decision, and the agent's decision with its basis and confidence |
 
-All reports were rendered with Archkeel at `438076b` under Python 3.12.
+All reports were rendered with Archkeel at `8531bdb` under Python 3.12.
 
 ## The target
 
@@ -54,13 +54,14 @@ After that, the architect reviewed the drafted `public` lists:
 |---|---:|---:|
 | Pair decisions | 156 by the architect | 156 by the agent |
 | Allowed / forbidden | 43 / 113 | 39 / 117 |
-| Violations in the first report | 307 | 342 |
+| Violations in the first report | 162 | 199 |
 | `DEP-C03-NO-C09` (use cases import the persistence adapter) | 148 | 148 |
-| `INTERFACE-BOUNDARY` | 149 | 149 |
+| `INTERFACE-BOUNDARY` | 4 | 6 |
 
 Both targets forbid the heaviest observed edge, from use cases to the persistence adapter, at 148
-import sites. Most of the 149 interface violations are the same imports reaching non-public
-persistence modules, so the total counts them twice. Quote the per-rule numbers, not the total.
+import sites. Each rejected import counts once (AD-18): before that decision the interview report
+showed 307 violations, because 145 of its 149 interface violations were the same imports a forbidden
+dependency already rejected.
 
 ## Agreement
 
@@ -92,8 +93,8 @@ agreement rate, because the reference moved after scoring.
   onboarding model wrote the complement of the observed graph and could only pass.
 - Reading the documents first gave the agent a basis it could cite. Its high-confidence decisions
   were its document-based ones.
-- Asking why on a deviation changed five decisions and removed 56 violations without any code
-  change.
+- Asking why on a deviation changed five decisions, among them the second-heaviest disputed edge at
+  43 import sites, without any code change.
 - `decided_by` kept agent decisions countable after the fact.
 - The flow view made the one edge that matters, `c03 → c09`, the widest line on the page.
 
@@ -104,7 +105,7 @@ agreement rate, because the reference moved after scoring.
    confirmed once, and questions only about conflicts and gaps.
 2. **Bulk answers hid contradictions.** Three pair decisions answered "for the whole group"
    contradicted the documents. Only the blind comparison surfaced them.
-3. **Four product defects appeared only on this real run.** All are fixed in 0.3.0:
+3. **Five product defects appeared only on this real run.** All are fixed in 0.3.0:
    - Open decisions showed edges into components with several packages as unobserved: 62 of 620
      import sites. The architect could have forbidden, in bulk, an edge the code uses.
    - The interview's stop condition was "`validate` exits 0". A forbidden observed edge keeps
@@ -114,6 +115,8 @@ agreement rate, because the reference moved after scoring.
      multi-package component, so 2 import sites were missed.
    - The agent-decision count re-read the contract, so a report rendered from `architecture.json`
      alone could not show it.
+   - An import that a forbidden dependency rejected also counted as an interface violation, which
+     nearly doubled the first report's headline.
 4. **Delegated answers were worded by the agent.** Twice the architect answered "whatever is
    consistent". The six decisions derived from the architect's earlier answers were confirmed later,
    but their wording is the agent's.
@@ -126,7 +129,6 @@ agreement rate, because the reference moved after scoring.
   `complete_assignment` reports one violation after the shared kernel split.
 - After a component cut, the marked graph in `docs/architecture/architecture.md` drifts, and no
   command regenerates it.
-- An import that breaks both a forbidden dependency and the interface boundary counts twice.
 - `package_dependency` records cut module names to two dotted segments (see
   [known limits](../../known-limits.md)).
 - The agreement rate is one service measured once. It is not a general accuracy of auto mode.

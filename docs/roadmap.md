@@ -43,7 +43,8 @@ only when its row names repository evidence.
 | A test rejects unquoted Mermaid labels that break the parser, and CI renders every Mermaid block with pinned mermaid-cli (AD-13) | `59a678b`; `tests/test_mermaid.py`; CI run `34937525824` |
 | Every checkable item has a catalogued demo on the shop sample, with real `check` runs for regressions and the protocol, and validation diagnostics carry codes (AD-11, AD-12) | `60f9f4c`; `c46ba7c`; `docs/architecture-demo.md`; `tests/test_architecture_demo.py` |
 | The report headline follows its verdicts instead of the exit code alone (AD-14) | `e383d62`; `tests/test_html_report.py`; `tests/test_terminal.py` |
-| An internal 13-component service was onboarded by interview and, blind, in auto mode: 156 pair decisions each, first reports FAIL with 307 and 342 violations, 89.7% blind agreement; anonymized evidence and findings are published | `044afbc`; `docs/evidence/internal-service/` |
+| An internal 13-component service was onboarded by interview and, blind, in auto mode: 156 pair decisions each, first reports FAIL with 162 and 199 violations, 89.7% blind agreement; anonymized evidence and findings are published | `044afbc`; `docs/evidence/internal-service/` |
+| An import that a forbidden dependency rejects counts once, not again as an interface violation (AD-18) | `f80bf72`; `8531bdb`; `tests/test_analyzer.py` |
 | Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
 | The HTML report draws component flow: edges weighted by import sites, violated edges with their rule ids, a legend and the heaviest connections (AD-10) | `b1fa8df`; `7b2502a`; `tests/test_flow.py`; `tests/test_html_report.py` |
 | Onboarding is a decision interview: `allowed_dependency`, contract 2.1.0, `decision.open` and `decision.conflict`, open decisions with option rules, component-level enforcement (AD-15) | `1951aa0`; `4a8548b`; `540226c`; `4b5936e`; `0740030`; `919f514`; `tests/test_decisions.py`; `tests/test_onboarding.py` |
@@ -66,9 +67,8 @@ only when its row names repository evidence.
   because well-resolved duplicate code was deleted; a ratio-only check would reject this
   improvement. `bbab17c` showed the opposite case for an absolute-only check.
 - Act on the open onboarding findings in `docs/evidence/internal-service/README.md`: assign a
-  package `__init__` exactly, regenerate the marked graph after a component cut, count an import
-  that breaks a dependency rule and the interface boundary once, check `requires-python` before
-  scanning, and measure auto-mode agreement on a second repository.
+  package `__init__` exactly, regenerate the marked graph after a component cut, check
+  `requires-python` before scanning, and measure auto-mode agreement on a second repository.
 - Split `ir/codec.py` along its contract, observation, delta, result and lock seams (AD-17).
 - Add `propose` and `next`.
 - Integrate Archkeel into DataMimic EE.

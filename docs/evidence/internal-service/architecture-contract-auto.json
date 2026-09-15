@@ -17,12 +17,12 @@
       ],
       "public": [
         "svc.c02.dependencies",
-        "svc.c02.n10732.n0417",
-        "svc.c02.n10732.n5807",
-        "svc.c02.n10732.n7680",
-        "svc.c02.n10732.n13019",
-        "svc.c02.n10732.n14261",
-        "svc.c02.n10732.n6675"
+        "svc.c02.n10622.n0414",
+        "svc.c02.n10622.n5741",
+        "svc.c02.n10622.n7600",
+        "svc.c02.n10622.n12890",
+        "svc.c02.n10622.n14119",
+        "svc.c02.n10622.n6601"
       ]
     },
     {
@@ -60,8 +60,8 @@
       ],
       "public": [
         "svc.c05",
-        "svc.c05.n11064",
-        "svc.c05.n11944"
+        "svc.c05.n10953",
+        "svc.c05.n11824"
       ]
     },
     {
@@ -79,8 +79,8 @@
         "docs/architecture/architecture.md"
       ],
       "public": [
-        "svc.c10.n4698",
-        "svc.c10.n6237"
+        "svc.c10.n4651",
+        "svc.c10.n6168"
       ]
     },
     {
@@ -114,9 +114,9 @@
       ],
       "public": [
         "svc.c04",
-        "svc.c04.n9863",
-        "svc.c04.n3795",
-        "svc.c04.n9549"
+        "svc.c04.n9763",
+        "svc.c04.n3757",
+        "svc.c04.n9452"
       ]
     },
     {
@@ -134,7 +134,7 @@
         "docs/architecture/architecture.md"
       ],
       "public": [
-        "svc.c09.n9549"
+        "svc.c09.n9452"
       ]
     },
     {
@@ -152,18 +152,18 @@
         "docs/architecture/architecture.md"
       ],
       "public": [
-        "svc.c03.n2916:T0389",
-        "svc.c03.n2916:T0326",
-        "svc.c03.n7755:T0180",
-        "svc.c03.n12628:T0351",
-        "svc.c03.n8543:T0406",
-        "svc.c03.n7931:T0237",
-        "svc.c03.n8459:T0004",
-        "svc.c03.n1563:T0192",
-        "svc.c03.n11769:T0378",
-        "svc.c03.n8718:T0359",
-        "svc.c03.n9874:T0118",
-        "svc.c03.n8810:T0385"
+        "svc.c03.n2888:T0389",
+        "svc.c03.n2888:T0326",
+        "svc.c03.n7674:T0180",
+        "svc.c03.n12505:T0351",
+        "svc.c03.n8457:T0406",
+        "svc.c03.n7850:T0237",
+        "svc.c03.n8374:T0004",
+        "svc.c03.n1547:T0192",
+        "svc.c03.n11652:T0378",
+        "svc.c03.n8628:T0359",
+        "svc.c03.n9774:T0118",
+        "svc.c03.n8720:T0385"
       ]
     },
     {
@@ -181,8 +181,8 @@
         "docs/architecture/architecture.md"
       ],
       "public": [
-        "svc.shared.application.n6757",
-        "svc.shared.application.n0071"
+        "svc.shared.application.n6683",
+        "svc.shared.application.n0069"
       ]
     },
     {
@@ -190,7 +190,7 @@
       "label": "c06",
       "role": "component",
       "packages": [
-        "svc.shared.n12314",
+        "svc.shared.n12193",
         "svc.shared.c05",
         "svc.shared.errors"
       ],
@@ -202,7 +202,7 @@
         "docs/architecture/architecture.md"
       ],
       "public": [
-        "svc.shared.n12314",
+        "svc.shared.n12193",
         "svc.shared.c05:T0327",
         "svc.shared.errors"
       ]
@@ -212,7 +212,7 @@
       "label": "c08",
       "role": "component",
       "packages": [
-        "svc.shared.n9067"
+        "svc.shared.n8976"
       ],
       "responsibilities": [
         "Shared infrastructure adapters."
@@ -222,7 +222,7 @@
         "docs/architecture/architecture.md"
       ],
       "public": [
-        "svc.shared.n9067.n12314"
+        "svc.shared.n8976.n12193"
       ]
     },
     {
@@ -240,7 +240,7 @@
         "docs/architecture/architecture.md"
       ],
       "public": [
-        "svc.c11.n4164"
+        "svc.c11.n4122"
       ]
     },
     {
@@ -248,7 +248,7 @@
       "label": "c12",
       "role": "component",
       "packages": [
-        "svc.n0951",
+        "svc.n0940",
         "svc.c12"
       ],
       "responsibilities": [
@@ -382,7 +382,7 @@
       ],
       "rationale": "`c03` (application use cases) must not depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.c03",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -447,7 +447,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) may depend on `c05` (domain model); agent decision, basis document, confidence high.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c05",
       "decided_by": "agent"
     },
@@ -459,7 +459,7 @@
       ],
       "rationale": "`c02` (HTTP edge) may depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.c02",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -470,7 +470,7 @@
       ],
       "rationale": "`c09` (persistence adapter) may depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.c09",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -491,7 +491,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) may depend on `c04` (port interfaces); agent decision, basis document, confidence high.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c04",
       "decided_by": "agent"
     },
@@ -502,8 +502,8 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) may depend on `c06` (shared domain types); agent decision, basis judgment, confidence medium.",
-      "source": "svc.n0951",
-      "target": "svc.shared.n12314",
+      "source": "svc.n0940",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -527,7 +527,7 @@
       ],
       "rationale": "`c04` (port interfaces) must not depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.c04",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -585,7 +585,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) may depend on `c03` (application use cases); agent decision, basis document, confidence high.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c03",
       "decided_by": "agent"
     },
@@ -608,7 +608,7 @@
       ],
       "rationale": "`c13` (outbox publisher entry point) may depend on `c12` (background worker entry point); agent decision, basis document, confidence high.",
       "source": "svc.c13",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -619,7 +619,7 @@
       ],
       "rationale": "`c07` (shared application contracts) may depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.shared.application",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -630,7 +630,7 @@
       ],
       "rationale": "`c01` (composition root with settings) may depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.config",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -641,7 +641,7 @@
       ],
       "rationale": "`c01` (composition root with settings) may depend on `c08` (shared infrastructure adapters); agent decision, basis document, confidence high.",
       "source": "svc.config",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -652,7 +652,7 @@
       ],
       "rationale": "`c10` (compute adapter A) may depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.c10",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -685,7 +685,7 @@
       ],
       "rationale": "`c13` (outbox publisher entry point) may depend on `c08` (shared infrastructure adapters); agent decision, basis judgment, confidence medium.",
       "source": "svc.c13",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -721,7 +721,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) may depend on `c01` (composition root with settings); agent decision, basis judgment, confidence medium.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.config",
       "decided_by": "agent"
     },
@@ -732,8 +732,8 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) may depend on `c08` (shared infrastructure adapters); agent decision, basis judgment, confidence medium.",
-      "source": "svc.n0951",
-      "target": "svc.shared.n9067",
+      "source": "svc.n0940",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -811,7 +811,7 @@
       ],
       "rationale": "`c02` (HTTP edge) must not depend on `c08` (shared infrastructure adapters); agent decision, basis judgment, confidence medium.",
       "source": "svc.c02",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -837,7 +837,7 @@
       ],
       "rationale": "`c02` (HTTP edge) must not depend on `c12` (background worker entry point); agent decision, basis principle, confidence low.",
       "source": "svc.c02",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -920,7 +920,7 @@
       ],
       "rationale": "`c01` (composition root with settings) must not depend on `c12` (background worker entry point); agent decision, basis principle, confidence medium.",
       "source": "svc.config",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1037,7 +1037,7 @@
       ],
       "rationale": "`c05` (domain model) must not depend on `c06` (shared domain types); agent decision, basis document, confidence high.",
       "source": "svc.c05",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -1050,7 +1050,7 @@
       ],
       "rationale": "`c05` (domain model) must not depend on `c08` (shared infrastructure adapters); agent decision, basis document, confidence high.",
       "source": "svc.c05",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -1076,7 +1076,7 @@
       ],
       "rationale": "`c05` (domain model) must not depend on `c12` (background worker entry point); agent decision, basis document, confidence high.",
       "source": "svc.c05",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1167,7 +1167,7 @@
       ],
       "rationale": "`c10` (compute adapter A) must not depend on `c08` (shared infrastructure adapters); agent decision, basis principle, confidence low.",
       "source": "svc.c10",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -1193,7 +1193,7 @@
       ],
       "rationale": "`c10` (compute adapter A) must not depend on `c12` (background worker entry point); agent decision, basis principle, confidence low.",
       "source": "svc.c10",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1267,7 +1267,7 @@
       ],
       "rationale": "`c13` (outbox publisher entry point) must not depend on `c06` (shared domain types); agent decision, basis principle, confidence low.",
       "source": "svc.c13",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -1371,7 +1371,7 @@
       ],
       "rationale": "`c04` (port interfaces) must not depend on `c08` (shared infrastructure adapters); agent decision, basis document, confidence high.",
       "source": "svc.c04",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -1397,7 +1397,7 @@
       ],
       "rationale": "`c04` (port interfaces) must not depend on `c12` (background worker entry point); agent decision, basis document, confidence high.",
       "source": "svc.c04",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1486,7 +1486,7 @@
       ],
       "rationale": "`c09` (persistence adapter) must not depend on `c08` (shared infrastructure adapters); agent decision, basis judgment, confidence medium.",
       "source": "svc.c09",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -1512,7 +1512,7 @@
       ],
       "rationale": "`c09` (persistence adapter) must not depend on `c12` (background worker entry point); agent decision, basis principle, confidence medium.",
       "source": "svc.c09",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1564,7 +1564,7 @@
       ],
       "rationale": "`c03` (application use cases) must not depend on `c08` (shared infrastructure adapters); agent decision, basis document, confidence high.",
       "source": "svc.c03",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -1577,7 +1577,7 @@
       ],
       "rationale": "`c03` (application use cases) must not depend on `c12` (background worker entry point); agent decision, basis document, confidence high.",
       "source": "svc.c03",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1694,7 +1694,7 @@
       ],
       "rationale": "`c07` (shared application contracts) must not depend on `c08` (shared infrastructure adapters); agent decision, basis judgment, confidence medium.",
       "source": "svc.shared.application",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -1720,7 +1720,7 @@
       ],
       "rationale": "`c07` (shared application contracts) must not depend on `c12` (background worker entry point); agent decision, basis judgment, confidence medium.",
       "source": "svc.shared.application",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1732,7 +1732,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c02` (HTTP edge); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c02",
       "decided_by": "agent"
     },
@@ -1745,7 +1745,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c01` (composition root with settings); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.config",
       "decided_by": "agent"
     },
@@ -1758,7 +1758,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c05` (domain model); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c05",
       "decided_by": "agent"
     },
@@ -1771,7 +1771,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c10` (compute adapter A); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c10",
       "decided_by": "agent"
     },
@@ -1784,7 +1784,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c13` (outbox publisher entry point); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c13",
       "decided_by": "agent"
     },
@@ -1797,7 +1797,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c04` (port interfaces); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c04",
       "decided_by": "agent"
     },
@@ -1810,7 +1810,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c09` (persistence adapter); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c09",
       "decided_by": "agent"
     },
@@ -1823,7 +1823,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c03` (application use cases); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c03",
       "decided_by": "agent"
     },
@@ -1836,7 +1836,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c07` (shared application contracts); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.shared.application",
       "decided_by": "agent"
     },
@@ -1849,8 +1849,8 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c08` (shared infrastructure adapters); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
-      "target": "svc.shared.n9067",
+      "source": "svc.shared.n12193",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -1862,7 +1862,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c11` (compute adapter B); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
+      "source": "svc.shared.n12193",
       "target": "svc.c11",
       "decided_by": "agent"
     },
@@ -1875,8 +1875,8 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c06` (shared domain types) must not depend on `c12` (background worker entry point); agent decision, basis principle, confidence medium.",
-      "source": "svc.shared.n12314",
-      "target": "svc.n0951",
+      "source": "svc.shared.n12193",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -1888,7 +1888,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c02` (HTTP edge); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c02",
       "decided_by": "agent"
     },
@@ -1901,7 +1901,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c01` (composition root with settings); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.config",
       "decided_by": "agent"
     },
@@ -1914,7 +1914,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c05` (domain model); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c05",
       "decided_by": "agent"
     },
@@ -1927,7 +1927,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c10` (compute adapter A); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c10",
       "decided_by": "agent"
     },
@@ -1940,7 +1940,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c13` (outbox publisher entry point); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c13",
       "decided_by": "agent"
     },
@@ -1953,7 +1953,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c04` (port interfaces); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c04",
       "decided_by": "agent"
     },
@@ -1966,7 +1966,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c09` (persistence adapter); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c09",
       "decided_by": "agent"
     },
@@ -1979,7 +1979,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c03` (application use cases); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c03",
       "decided_by": "agent"
     },
@@ -1992,7 +1992,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c07` (shared application contracts); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.shared.application",
       "decided_by": "agent"
     },
@@ -2005,8 +2005,8 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c06` (shared domain types); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
-      "target": "svc.shared.n12314",
+      "source": "svc.shared.n8976",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -2018,7 +2018,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c11` (compute adapter B); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
+      "source": "svc.shared.n8976",
       "target": "svc.c11",
       "decided_by": "agent"
     },
@@ -2031,8 +2031,8 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c08` (shared infrastructure adapters) must not depend on `c12` (background worker entry point); agent decision, basis judgment, confidence medium.",
-      "source": "svc.shared.n9067",
-      "target": "svc.n0951",
+      "source": "svc.shared.n8976",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -2136,7 +2136,7 @@
       ],
       "rationale": "`c11` (compute adapter B) must not depend on `c06` (shared domain types); agent decision, basis principle, confidence low.",
       "source": "svc.c11",
-      "target": "svc.shared.n12314",
+      "target": "svc.shared.n12193",
       "decided_by": "agent"
     },
     {
@@ -2149,7 +2149,7 @@
       ],
       "rationale": "`c11` (compute adapter B) must not depend on `c08` (shared infrastructure adapters); agent decision, basis principle, confidence low.",
       "source": "svc.c11",
-      "target": "svc.shared.n9067",
+      "target": "svc.shared.n8976",
       "decided_by": "agent"
     },
     {
@@ -2162,7 +2162,7 @@
       ],
       "rationale": "`c11` (compute adapter B) must not depend on `c12` (background worker entry point); agent decision, basis principle, confidence low.",
       "source": "svc.c11",
-      "target": "svc.n0951",
+      "target": "svc.n0940",
       "decided_by": "agent"
     },
     {
@@ -2174,7 +2174,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) must not depend on `c02` (HTTP edge); agent decision, basis principle, confidence low.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c02",
       "decided_by": "agent"
     },
@@ -2187,7 +2187,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) must not depend on `c10` (compute adapter A); agent decision, basis principle, confidence low.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c10",
       "decided_by": "agent"
     },
@@ -2200,7 +2200,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) must not depend on `c13` (outbox publisher entry point); agent decision, basis principle, confidence low.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c13",
       "decided_by": "agent"
     },
@@ -2213,7 +2213,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) must not depend on `c09` (persistence adapter); agent decision, basis principle, confidence low.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c09",
       "decided_by": "agent"
     },
@@ -2226,7 +2226,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) must not depend on `c07` (shared application contracts); agent decision, basis principle, confidence low.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.shared.application",
       "decided_by": "agent"
     },
@@ -2239,7 +2239,7 @@
         "docs/architecture/architecture.md"
       ],
       "rationale": "`c12` (background worker entry point) must not depend on `c11` (compute adapter B); agent decision, basis principle, confidence low.",
-      "source": "svc.n0951",
+      "source": "svc.n0940",
       "target": "svc.c11",
       "decided_by": "agent"
     }

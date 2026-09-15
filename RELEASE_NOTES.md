@@ -17,10 +17,11 @@ from that target.
   ask only about conflicts and gaps, ask why on a deviation) or auto mode (the agent decides from
   documents, then principles, then labeled judgment). Every rule records `decided_by`, and reports
   count the agent decisions the architect has not reviewed.
-- **Decided means enforced.** A `forbidden_dependency` between two components applies to every
-  package of both, so a component that spans several packages is fully enforced.
+- **Decided means enforced, and counted once.** A `forbidden_dependency` between two components
+  applies to every package of both, and an import it rejects is not counted again as an interface
+  violation (AD-18).
 - **Measured on a real service.** A 13-component internal service was onboarded by interview and,
-  blind, in auto mode: 156 pair decisions each, first reports FAIL with 307 and 342 violations, and
+  blind, in auto mode: 156 pair decisions each, first reports FAIL with 162 and 199 violations, and
   the agent matched 140 of the architect's 156 decisions before review. Anonymized evidence and the
   findings that did not work are in `docs/evidence/internal-service/`.
 
@@ -33,7 +34,7 @@ from that target.
 - **`init` output.** `init` writes no dependency rule and returns `open_decisions`.
 - **`accept` removed.** The placeholder command, which always exited 2, is gone until acceptance is
   implemented.
-- **Analyzer version 0.9.0.** Observations from earlier analyzers are not comparable.
+- **Analyzer version 0.10.0.** Observations from earlier analyzers are not comparable.
 
 ## Install
 
