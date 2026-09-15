@@ -5,11 +5,11 @@ imports remain allowed. Every cross-component pair is either observed or forbidd
 
 ## Layers
 
-| Layer | Components | Responsibility |
-|---|---|---|
-| Core | `ir`, `check` | Stable evidence values and deterministic policy evaluation |
-| Adapters | `analyzer`, `host` | Python source observations and GitLab host records |
-| Edge | `cli`, `render` | Composition and presentation |
+| Layer | Components | Responsibility | Quality goal (AD-17) |
+|---|---|---|---|
+| Core | `ir`, `check` | Stable evidence values and deterministic policy evaluation | Deterministic and stable |
+| Adapters | `analyzer`, `host` | Python source observations and GitLab host records | `analyzer` isolated behind its digest; `host` replaceable |
+| Edge | `cli`, `render` | Composition and presentation | `cli` a thin composition root; `render` replaceable |
 
 The CLI is the composition root. It selects concrete analyzer and host adapters, invokes the
 core, writes artifacts and delegates HTML and terminal projection to `render`. Core modules
@@ -244,14 +244,14 @@ has no `accept` component, every component responsibility names its quality goal
 
 | Edge | Reason |
 |---|---|
-| `cli` → `analyzer` | Supply the concrete source analyzer to report and check workflows. |
-| `cli` → `check` | Invoke deterministic report and check services. |
-| `cli` → `host` | Supply the concrete host-record loader to checks. |
-| `cli` → `render` | Project typed results and write presentation artifacts. |
-| `analyzer` → `ir` | Publish observations through the common model and codec boundary. |
-| `check` → `ir` | Compare observations and return typed results. |
-| `host` → `ir` | Construct validated host-record values. |
-| `render` → `ir` | Render typed evidence without importing policy implementations. |
+| `cli` → `analyzer` | Supply the concrete, replaceable source analyzer to report and check workflows; `cli` composes, it does not analyze. |
+| `cli` → `check` | Invoke deterministic and stable report and check services from the composition root. |
+| `cli` → `host` | Supply the concrete, replaceable host-record loader to checks; `cli` composes, it does not fetch. |
+| `cli` → `render` | Project typed results through the replaceable render adapter, keeping `cli` a thin composition root. |
+| `analyzer` → `ir` | Publish observations through the common model and codec boundary, so `analyzer` stays isolated behind its digest. |
+| `check` → `ir` | Compare observations and return typed results without losing determinism or stability. |
+| `host` → `ir` | Construct validated host-record values through the stable evidence model, so `host` stays replaceable behind it. |
+| `render` → `ir` | Render typed evidence without importing policy implementations, so `render` stays replaceable behind the stable model. |
 
 <!-- archkeel-component-graph -->
 ```mermaid

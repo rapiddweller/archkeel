@@ -19,7 +19,10 @@
         "archkeel.ir.model",
         "archkeel.ir.trace"
       ],
-      "responsibilities": ["Immutable observations, measurements, locks and JSON codecs."],
+      "responsibilities": [
+        "The shared evidence model, its codecs, and the pure derivations over them, without I/O, that more than one component needs.",
+        "Quality goal: deterministic and stable."
+      ],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
     },
@@ -38,7 +41,10 @@
         "archkeel.check.validation:invalid_result",
         "archkeel.check.validation:run_validate"
       ],
-      "responsibilities": ["Deterministic deltas, regression checks, expectations and publication-order checks."],
+      "responsibilities": [
+        "Deterministic deltas, regression checks, expectations and publication-order checks.",
+        "Quality goal: deterministic and stable."
+      ],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
     },
@@ -48,7 +54,10 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.cli"],
-      "responsibilities": ["Command arguments and archkeel.toml configuration."],
+      "responsibilities": [
+        "Command arguments and archkeel.toml configuration.",
+        "Quality goal: a thin composition root."
+      ],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
     },
@@ -59,7 +68,10 @@
       "role": "component",
       "packages": ["archkeel.host"],
       "public": ["archkeel.host.gitlab"],
-      "responsibilities": ["GitLab host records with SHA, event and timestamp."],
+      "responsibilities": [
+        "GitLab host records with SHA, event and timestamp.",
+        "Quality goal: replaceable."
+      ],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
     },
@@ -70,7 +82,10 @@
       "role": "component",
       "packages": ["archkeel.analyzer"],
       "public": ["archkeel.analyzer"],
-      "responsibilities": ["Run the bundled Python analyzer and preserve typed diagnostics."],
+      "responsibilities": [
+        "Run the bundled Python analyzer and preserve typed diagnostics.",
+        "Quality goal: isolated; changes independently behind its digest."
+      ],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
     },
@@ -87,7 +102,10 @@
         "archkeel.render.summary:report_summary",
         "archkeel.render.terminal"
       ],
-      "responsibilities": ["Deterministic HTML and terminal projections of typed Archkeel evidence."],
+      "responsibilities": [
+        "Deterministic HTML and terminal projections of typed Archkeel evidence.",
+        "Quality goal: replaceable."
+      ],
       "forbidden_responsibilities": ["Architecture decisions and persistence."],
       "provenance": ["docs/architecture/archkeel.md"]
     }
