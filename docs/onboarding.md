@@ -46,6 +46,14 @@ Install the Archkeel skill for yourself, then onboard this repository:
 | `architecture-contract.json` | Components, `forbidden_dependency` per unobserved pair, `complete_assignment`, `no_component_cycles` when acyclic. | Structure is deterministic; every rule `rationale` needs a human. |
 | `docs/architecture/architecture.md` | Component table and a marked Mermaid graph of observed edges. | Deterministic from the observation. |
 
+`init` also proposes AD-9 `public` entries: a component with inbound cross-component imports
+gets a `pkg.module` entry when the target module declares `__all__` or other components use at
+least half of its public names, and a `pkg.module:Name` entry per used name otherwise. A
+component nobody imports across the boundary gets no `public` key. Whenever any component
+receives a `public` entry, `init` also drafts an `interface_boundary` rule with a `TODO:`
+rationale, the same placeholder convention as the other drafted rules: a human still decides
+why crossing imports must go through the declared interface, not `init`.
+
 ## Determinism
 
 **Deterministic (`init` computes these from the repository, not from judgment):**

@@ -33,6 +33,11 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import NamedTuple
 
+from archkeel.check.onboarding import (
+    interface_entries,
+    module_all_exports,
+    public_top_level_names,
+)
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.model import ArchitectureContract, Observation, Record, RecordData
 
@@ -124,18 +129,8 @@ def _names_per_edge(edges: dict[tuple[str, str], set[str]]) -> dict[str, float |
     return {"median": statistics.median(counts), "max": max(counts)}
 
 
-def _module_all_exports(modules: Iterable[Record]) -> dict[str, bool]:
-    """Map each module's qualified name to whether it declares a non-empty `__all__`."""
-    return {
-        _string(module.data.get("qualified_name"), "qualified_name"): bool(
-            module.data.get("all_exports")
-        )
-        for module in modules
-    }
-
-
 def _raw_counts(crossing: list[Crossing], modules: Iterable[Record]) -> dict[str, int]:
-    module_all_exports = _module_all_exports(modules)
+    all_exports = module_all_exports(modules)
     underscore = type_checking = module_imports = 0
     modules_with_all: set[str] = set()
     for use in crossing:
@@ -146,7 +141,7 @@ def _raw_counts(crossing: list[Crossing], modules: Iterable[Record]) -> dict[str
             type_checking += 1
         if use.symbol in WHOLE_MODULE_SYMBOLS:
             module_imports += 1
-        if module_all_exports.get(use.target_module):
+        if all_exports.get(use.target_module):
             modules_with_all.add(use.target_module)
     return {
         "underscore_crossings": underscore,
@@ -225,27 +220,11 @@ def _edge_symbol_measures(
     }
 
 
-def _public_names(module: str, top_level: dict[tuple[str, str], Record]) -> set[str]:
-    return {
-        name
-        for (owner, name), symbol in top_level.items()
-        if owner == module and symbol.data.get("visibility") == "public_name"
-    }
-
-
-def _module_entry(
-    whole_module: bool, all_exports_nonempty: bool, named_uses: set[str], public_names: set[str]
-) -> bool:
-    if whole_module or all_exports_nonempty:
-        return True
-    return bool(public_names) and 2 * len(named_uses) >= len(public_names)
-
-
 def _component_surface(
     target_label: str,
     crossing: list[Crossing],
-    module_all_exports: dict[str, bool],
-    top_level: dict[tuple[str, str], Record],
+    all_exports: dict[str, bool],
+    public_names_by_module: dict[str, set[str]],
 ) -> dict[str, int]:
     by_module: dict[str, list[str | None]] = {}
     for use in crossing:
@@ -258,10 +237,13 @@ def _component_surface(
         named_uses = {
             symbol for symbol in symbols_used if isinstance(symbol, str) and symbol != "*"
         }
-        public_names = _public_names(module, top_level)
-        all_exports_nonempty = bool(module_all_exports.get(module))
+        public_names = public_names_by_module.get(module, set())
+        all_exports_nonempty = bool(all_exports.get(module))
         symbol_entries += len(named_uses) + (1 if whole_module else 0)
-        if _module_entry(whole_module, all_exports_nonempty, named_uses, public_names):
+        entries = interface_entries(
+            module, named_uses, whole_module, all_exports_nonempty, public_names
+        )
+        if entries == [module]:
             module_level_modules += 1
             module_first_entries += 1
         else:
@@ -274,13 +256,13 @@ def _component_surface(
 
 
 def _surface(
-    crossing: list[Crossing], modules: Iterable[Record], top_level: dict[tuple[str, str], Record]
+    crossing: list[Crossing], modules: Iterable[Record], symbols: Iterable[Record]
 ) -> dict[str, dict[str, int]]:
-    module_all_exports = _module_all_exports(modules)
+    all_exports = module_all_exports(modules)
+    public_names = public_top_level_names(symbols)
     labels = sorted({use.target_label for use in crossing})
     return {
-        label: _component_surface(label, crossing, module_all_exports, top_level)
-        for label in labels
+        label: _component_surface(label, crossing, all_exports, public_names) for label in labels
     }
 
 
@@ -309,7 +291,7 @@ def build_profile(observation: Observation, contract: ArchitectureContract) -> d
         "names_per_edge": _names_per_edge(edges),
         **_raw_counts(crossing, modules),
         **_edge_symbol_measures(edges, top_level, origins),
-        "surface": _surface(crossing, modules, top_level),
+        "surface": _surface(crossing, modules, symbols),
     }
     surface = profile["surface"]
     if not isinstance(surface, dict):

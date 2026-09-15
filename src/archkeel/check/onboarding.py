@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Final
@@ -20,8 +22,10 @@ from archkeel.ir.model import (
     Diagnostic,
     DiagnosticError,
     ForbiddenDependencyRule,
+    InterfaceBoundaryRule,
     NoComponentCyclesRule,
     Observation,
+    Record,
     RunResult,
     in_scope,
 )
@@ -75,6 +79,89 @@ def _has_cycle(labels: tuple[str, ...], edges: frozenset[tuple[str, str]]) -> bo
     return any(visit(label) for label in labels)
 
 
+def interface_entries(
+    module: str,
+    used_names: set[str],
+    whole_module: bool,
+    all_exports: bool,
+    public_names: set[str],
+) -> list[str]:
+    """Propose the AD-9 `public` entries a module's cross-component uses would need."""
+    names = {name for name in used_names if not name.startswith("_")}
+    if whole_module or all_exports or (bool(public_names) and 2 * len(names) >= len(public_names)):
+        return [module]
+    return sorted(f"{module}:{name}" for name in names)
+
+
+def module_all_exports(modules: Iterable[Record]) -> dict[str, bool]:
+    """Map each module's qualified name to whether it declares a non-empty `__all__`."""
+    return {
+        name: bool(module.data.get("all_exports"))
+        for module in modules
+        if isinstance((name := module.data.get("qualified_name")), str)
+    }
+
+
+def public_top_level_names(symbols: Iterable[Record]) -> dict[str, set[str]]:
+    """Group each module's public, non-underscore top-level class and function names."""
+    names: dict[str, set[str]] = {}
+    for symbol in symbols:
+        module = symbol.data.get("module")
+        name = symbol.data.get("name")
+        if (
+            symbol.data.get("parent") is None
+            and symbol.data.get("visibility") == "public_name"
+            and isinstance(module, str)
+            and isinstance(name, str)
+        ):
+            names.setdefault(module, set()).add(name)
+    return names
+
+
+def _crossing_targets(
+    observation: Observation, contract: ArchitectureContract
+) -> dict[str, tuple[str, bool, set[str]]]:
+    """Group cross-component imports by the target module they actually cross (AD-9)."""
+    targets: dict[str, tuple[str, bool, set[str]]] = {}
+    for record in observation.records("imports") or ():
+        source_module = record.data.get("source_module")
+        target_module = record.data.get("target_module")
+        if not isinstance(source_module, str) or not isinstance(target_module, str):
+            continue
+        source = contract.component_for(source_module)
+        target = contract.component_for(target_module)
+        if source is None or target is None or source.label == target.label:
+            continue
+        label, whole_module, names = targets.get(target_module, (target.label, False, set()))
+        symbol = record.data.get("symbol")
+        if symbol in (None, "*"):
+            whole_module = True
+        elif isinstance(symbol, str):
+            names = names | {symbol}
+        targets[target_module] = (label, whole_module, names)
+    return targets
+
+
+def _drafted_public(
+    observation: Observation, contract: ArchitectureContract
+) -> dict[str, tuple[str, ...]]:
+    """Propose each component's AD-9 `public` entries from its inbound crossing imports."""
+    targets = _crossing_targets(observation, contract)
+    all_exports = module_all_exports(observation.records("modules") or ())
+    public_names = public_top_level_names(observation.records("symbols") or ())
+    proposals: dict[str, set[str]] = {}
+    for module, (label, whole_module, names) in targets.items():
+        entries = interface_entries(
+            module,
+            names,
+            whole_module,
+            all_exports.get(module, False),
+            public_names.get(module, set()),
+        )
+        proposals.setdefault(label, set()).update(entries)
+    return {label: tuple(sorted(entries)) for label, entries in proposals.items()}
+
+
 def draft_contract(
     observation: Observation, namespace: str
 ) -> tuple[ArchitectureContract, frozenset[tuple[str, str]]]:
@@ -91,7 +178,7 @@ def draft_contract(
             }
         )
     )
-    components = tuple(
+    draft_components = tuple(
         ContractComponent(
             f"COMP-{_identifier(label)}",
             label,
@@ -103,8 +190,11 @@ def draft_contract(
         )
         for label in labels
     )
-    edges = observed_component_edges(
-        ArchitectureContract(CONTRACT_SCHEMA_VERSION, components, ()), observation
+    scaffold = ArchitectureContract(CONTRACT_SCHEMA_VERSION, draft_components, ())
+    edges = observed_component_edges(scaffold, observation)
+    public = _drafted_public(observation, scaffold)
+    components = tuple(
+        replace(component, public=public.get(component.label)) for component in draft_components
     )
     rules: list[ArchitectureRule] = [
         ForbiddenDependencyRule(
@@ -135,6 +225,15 @@ def draft_contract(
                 "COMPONENT-NO-CYCLES",
                 "no_component_cycles",
                 "TODO: explain why components must stay acyclic.",
+                (DOCUMENT_PATH,),
+            )
+        )
+    if public:
+        rules.append(
+            InterfaceBoundaryRule(
+                "INTERFACE-BOUNDARY",
+                "interface_boundary",
+                "TODO: explain why cross-component imports must use declared interfaces.",
                 (DOCUMENT_PATH,),
             )
         )
