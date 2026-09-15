@@ -89,6 +89,93 @@ def _class_is_frozen(
     return False
 
 
+def _symbol_data(
+    module: ParsedModule,
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    qualname: str,
+    parent: str | None,
+) -> RecordData:
+    data: RecordData = {
+        "qualified_name": qualname,
+        "module": module.module,
+        "package": module.package,
+        "name": node.name,
+        "visibility": "private" if node.name.startswith("_") else "public_name",
+        "declared_in_all": node.name in module.all_exports,
+        "parent": parent,
+        "decorators": decorator_names(node),
+    }
+    if isinstance(node, ast.ClassDef):
+        data.update(
+            {
+                "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
+                "frozen_object": _class_is_frozen(node, module),
+                "symbol_category": "class",
+            }
+        )
+    else:
+        data.update(_function_signature(node))
+        data["symbol_category"] = "method" if parent else "function"
+    return data
+
+
+def _resolve_class_kinds(
+    classes: dict[str, ast.ClassDef],
+    owners: dict[str, ParsedModule],
+    symbol_by_name: dict[str, RawRecord],
+) -> None:
+    known_categories = {
+        "typing.Protocol": "protocol",
+        "typing_extensions.Protocol": "protocol",
+        "enum.Enum": "enum",
+        "enum.IntEnum": "enum",
+        "enum.StrEnum": "enum",
+        "pydantic.BaseModel": "pydantic_model",
+    }
+    changed = True
+    while changed:
+        changed = False
+        for qualname, node in classes.items():
+            item = symbol_by_name[qualname]
+            current = item["data"].get("class_kind")
+            candidates: set[str] = set()
+            for base in node.bases:
+                base_text = annotation_text(base) or ""
+                tail = base_text.rsplit(".", 1)[-1]
+                resolved_base = _resolve_static_name(owners[qualname], base)
+                if resolved_base in known_categories:
+                    candidates.add(known_categories[resolved_base])
+                local_target = f"{owners[qualname].module}.{tail}"
+                resolved_symbol = symbol_by_name.get(resolved_base)
+                local_symbol = symbol_by_name.get(local_target)
+                inherited = (
+                    resolved_symbol["data"].get("class_kind") if resolved_symbol else None
+                ) or (local_symbol["data"].get("class_kind") if local_symbol else None)
+                if inherited:
+                    candidates.add(inherited)
+            if any(
+                _resolve_static_name(
+                    owners[qualname],
+                    decorator.func if isinstance(decorator, ast.Call) else decorator,
+                )
+                in {"dataclasses.dataclass", "pydantic.dataclasses.dataclass"}
+                for decorator in node.decorator_list
+            ):
+                candidates.add("dataclass")
+            class_kind = sorted(candidates)[0] if candidates else "class"
+            if current != class_kind:
+                item["data"]["class_kind"] = class_kind
+                changed = True
+    for qualname, node in classes.items():
+        item = symbol_by_name[qualname]
+        # frozen_object depends on class_kind, which is final only after the fixpoint.
+        item["data"]["frozen_object"] = _class_is_frozen(
+            node,
+            owners[qualname],
+            allow_pydantic=item["data"].get("class_kind") == "pydantic_model",
+        )
+
+
 def collect_symbols(
     modules: Sequence[ParsedModule], evidence: dict[str, RawEvidence]
 ) -> tuple[list[RawRecord], dict[str, ast.AST], dict[str, ParsedModule]]:
@@ -106,28 +193,9 @@ def collect_symbols(
         parent: str | None = None,
     ) -> None:
         evidence_id = add_evidence(evidence, module, node)
-        data: RecordData = {
-            "qualified_name": qualname,
-            "module": module.module,
-            "package": module.package,
-            "name": node.name,
-            "visibility": "private" if node.name.startswith("_") else "public_name",
-            "declared_in_all": node.name in module.all_exports,
-            "parent": parent,
-            "decorators": decorator_names(node),
-        }
+        data = _symbol_data(module, node, qualname, parent)
         if isinstance(node, ast.ClassDef):
-            data.update(
-                {
-                    "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
-                    "frozen_object": _class_is_frozen(node, module),
-                    "symbol_category": "class",
-                }
-            )
             classes[qualname] = node
-        else:
-            data.update(_function_signature(node))
-            data["symbol_category"] = "method" if parent else "function"
         line, _, column = location(node)
         symbols.append(
             classified(
@@ -172,54 +240,8 @@ def collect_symbols(
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 add_symbol(module, node, qualname=f"{module.module}.{node.name}", kind="function")
 
-    known_categories = {
-        "typing.Protocol": "protocol",
-        "typing_extensions.Protocol": "protocol",
-        "enum.Enum": "enum",
-        "enum.IntEnum": "enum",
-        "enum.StrEnum": "enum",
-        "pydantic.BaseModel": "pydantic_model",
+    symbol_by_name: dict[str, RawRecord] = {
+        item["data"]["qualified_name"]: item for item in symbols
     }
-    symbol_by_name = {item["data"]["qualified_name"]: item for item in symbols}
-    changed = True
-    while changed:
-        changed = False
-        for qualname, node in classes.items():
-            item = symbol_by_name[qualname]
-            current = item["data"].get("class_kind")
-            candidates: set[str] = set()
-            for base in node.bases:
-                base_text = annotation_text(base) or ""
-                tail = base_text.rsplit(".", 1)[-1]
-                resolved_base = _resolve_static_name(owners[qualname], base)
-                if resolved_base in known_categories:
-                    candidates.add(known_categories[resolved_base])
-                local_target = f"{owners[qualname].module}.{tail}"
-                resolved_symbol = symbol_by_name.get(resolved_base)
-                local_symbol = symbol_by_name.get(local_target)
-                inherited = (
-                    resolved_symbol["data"].get("class_kind") if resolved_symbol else None
-                ) or (local_symbol["data"].get("class_kind") if local_symbol else None)
-                if inherited:
-                    candidates.add(inherited)
-            if any(
-                _resolve_static_name(
-                    owners[qualname],
-                    decorator.func if isinstance(decorator, ast.Call) else decorator,
-                )
-                in {"dataclasses.dataclass", "pydantic.dataclasses.dataclass"}
-                for decorator in node.decorator_list
-            ):
-                candidates.add("dataclass")
-            class_kind = sorted(candidates)[0] if candidates else "class"
-            if current != class_kind:
-                item["data"]["class_kind"] = class_kind
-                changed = True
-    for qualname, node in classes.items():
-        item = symbol_by_name[qualname]
-        item["data"]["frozen_object"] = _class_is_frozen(
-            node,
-            owners[qualname],
-            allow_pydantic=item["data"].get("class_kind") == "pydantic_model",
-        )
+    _resolve_class_kinds(classes, owners, symbol_by_name)
     return sorted(symbols, key=lambda item: item["id"]), nodes, owners

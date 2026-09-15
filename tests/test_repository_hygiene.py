@@ -46,10 +46,6 @@ ALLOWED_LONG_FUNCTIONS = {
     "sets above it only feed that literal.",
     "src/archkeel/analyzer/embedded/scanner.py::scan_repository": _PENDING
     + "parsing, rule subjects, re-exports, package and module records, coverage.",
-    "src/archkeel/analyzer/embedded/symbols.py::collect_symbols": _PENDING
-    + "symbol data and class kind resolution.",
-    "src/archkeel/analyzer/embedded/typing_signals.py::collect_typing_signals": _PENDING
-    + "type-ignore, dynamic-call and boundary-annotation signals.",
     "src/archkeel/check/delta.py::_compare_records": "Exact, relocated and changed stages share "
     "the unmatched record pools.",
     "src/archkeel/check/delta.py::build_architecture_delta": "Shared, coverage and availability "
