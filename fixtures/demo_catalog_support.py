@@ -26,6 +26,23 @@ HEADER = (
 CLEAN_SHOP_MD = (FIXTURE_DIR / "docs/architecture/shop.md").read_text()
 
 
+# Named after the check_git_order and check_order predicate each scenario keeps or breaks.
+CheckScenario = Literal["ordered", "published_after_candidate", "candidate_changed_expectation"]
+
+
+@dataclass(frozen=True, slots=True)
+class CheckExpectation:
+    """Typed M/B/E/H check-protocol outcome: verdicts and the regressed measurement names."""
+
+    scenario: CheckScenario
+    exit_code: Literal[0, 1]
+    expectation_fulfilled: Literal["PASS", "FAIL"]
+    git_predicate: Literal["PASS", "FAIL"]
+    host_order: Literal["PASS", "FAIL"]
+    regressed_scalars: tuple[str, ...] = ()
+    regressed_dimensions: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True, slots=True)
 class Variant:
     """One catalogued demonstration: an overlay on the clean sample, or cited evidence."""
@@ -39,6 +56,7 @@ class Variant:
     expected_codes: tuple[DiagnosticCode, ...]
     expected_kinds: tuple[DiagnosticKind, ...] = ()
     evidence: str | None = None
+    check: CheckExpectation | None = None
 
 
 def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:
