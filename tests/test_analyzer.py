@@ -190,6 +190,92 @@ def test_class_a_rule_produces_one_traceable_violation(
     assert len(result.observation.records("violations") or ()) == 1
 
 
+def _multi_package_worker() -> dict[str, object]:
+    return {
+        "id": "COMP-WORKER",
+        "label": "worker",
+        "role": "component",
+        "packages": ["sample.orchestrator", "sample.worker"],
+        "responsibilities": [],
+        "forbidden_responsibilities": [],
+        "provenance": ["docs/architecture/sample.md"],
+    }
+
+
+def test_forbidden_dependency_naming_one_package_enforces_the_whole_component(
+    tmp_path: Path,
+) -> None:
+    """A rule whose source and target each exactly name a declared component package
+    decides (ir.decisions) and so enforces the whole ordered pair, not only the two named
+    packages: an import into the target component's other package must violate it too.
+    """
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_multi_package_worker(), _component("outbox")],
+        "rules": [
+            {
+                "id": "DEP-OUTBOX-NO-WORKER",
+                "kind": "forbidden_dependency",
+                "source": "sample.outbox",
+                "target": "sample.orchestrator",
+                "include_type_checking": True,
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/orchestrator.py").write_text("\n")
+    (tmp_path / "sample/worker.py").write_text("\n")
+    # Crosses into "worker" through its second package, never the one the rule names.
+    (tmp_path / "sample/outbox.py").write_text("import sample.worker\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids) for item in violations] == [
+        ("forbidden_dependency", ("DEP-OUTBOX-NO-WORKER",))
+    ]
+
+
+def test_forbidden_dependency_scoped_to_a_submodule_matches_only_that_submodule(
+    tmp_path: Path,
+) -> None:
+    """A target below a whole component package (not an exact package match) keeps
+    matching only that submodule, even on a component that owns several packages.
+    """
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_multi_package_worker(), _component("outbox")],
+        "rules": [
+            {
+                "id": "DEP-OUTBOX-NO-WORKER-IMPL",
+                "kind": "forbidden_dependency",
+                "source": "sample.outbox",
+                "target": "sample.worker.impl",
+                "include_type_checking": True,
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/orchestrator.py").write_text("\n")
+    (tmp_path / "sample/worker").mkdir()
+    (tmp_path / "sample/worker/__init__.py").write_text("\n")
+    (tmp_path / "sample/worker/impl.py").write_text("\n")
+    (tmp_path / "sample/outbox.py").write_text(
+        "import sample.orchestrator\nimport sample.worker.impl\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids) for item in violations] == [
+        ("forbidden_dependency", ("DEP-OUTBOX-NO-WORKER-IMPL",))
+    ]
+
+
 @pytest.mark.parametrize(
     ("core_public", "rule_overrides", "files", "expected_violations"),
     [

@@ -11,7 +11,7 @@ from typing import Any, TypeAlias, TypedDict
 
 from archkeel.ir.model import EvidenceClass
 
-ANALYZER_VERSION = "0.7.0"
+ANALYZER_VERSION = "0.8.0"
 # AD-2: record payloads are open JSON whose shape varies by record kind.
 RecordData: TypeAlias = dict[str, Any]
 

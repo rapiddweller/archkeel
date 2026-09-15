@@ -21,7 +21,10 @@ blind spot. Removing one pair rule from Archkeel is an example violation.
 
 `forbidden_dependency` fields are `source`, `target`, `include_type_checking`, optional
 `target_symbol` and optional `allowed_sources`. The analyzer matches import records by exact module
-prefix. `allowed_sources` lists exact source modules, unlike the prefix scopes of
+prefix, except when `source` and `target` each name a declared component package exactly and
+`target_symbol` is absent: that rule decides the whole component pair (AD-15), so it also enforces
+every package of the source component against every package of the target, not only the named
+ones. `allowed_sources` lists exact source modules, unlike the prefix scopes of
 `forbidden_construct` and `external_dependency_scope`. Closed-world validation counts every
 observed import, including `TYPE_CHECKING` and allowed-source imports, so `allowed_sources` and
 `include_type_checking: false` only fit a rule scoped below a component pair, such as a submodule

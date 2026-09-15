@@ -23,6 +23,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     in_scope,
+    package_owners,
 )
 
 from .graph import strongly_connected_components
@@ -30,19 +31,33 @@ from .records import RawRecord, RecordData, classified, stable_id
 
 
 def _dependency_violations(
-    imports: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+    imports: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    components: tuple[tuple[str, tuple[str, ...]], ...],
 ) -> list[RawRecord]:
+    owners = package_owners(components)
+    packages_by_label = dict(components)
     violations: list[RawRecord] = []
     for rule in rules:
         if not isinstance(rule, ForbiddenDependencyRule):
             continue
-        source = rule.source
-        target = rule.target
+        source_label = owners.get(rule.source)
+        target_label = owners.get(rule.target)
+        # A rule whose source and target each name a declared component package exactly,
+        # with no target_symbol, decides (ir.decisions) and so enforces the whole ordered
+        # component pair: every package of the source component against every package of
+        # the target. A rule scoped to a submodule or a target_symbol keeps module matching.
+        if rule.target_symbol is None and source_label is not None and target_label is not None:
+            sources = packages_by_label[source_label]
+            targets = packages_by_label[target_label]
+        else:
+            sources = (rule.source,)
+            targets = (rule.target,)
         allowed_sources = frozenset(rule.allowed_sources)
         for item in imports:
             data = item["data"]
-            if not in_scope(data["source_module"], source) or not in_scope(
-                data["target_module"], target
+            if not any(in_scope(data["source_module"], package) for package in sources) or not any(
+                in_scope(data["target_module"], package) for package in targets
             ):
                 continue
             if data["source_module"] in allowed_sources:
@@ -361,9 +376,10 @@ def rule_violations(
     contract: ArchitectureContract,
 ) -> list[RawRecord]:
     """Evaluate every declared contract rule and return the sorted violation records."""
+    components = tuple((component.label, component.packages) for component in contract.components)
     return sorted(
         [
-            *_dependency_violations(imports, contract.rules),
+            *_dependency_violations(imports, contract.rules, components),
             *_construct_violations([*typing_signals, *constructs], contract.rules),
             *_external_dependency_violations(imports, contract.rules),
             *_assignment_violations(modules, contract, blank_modules),
