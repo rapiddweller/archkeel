@@ -93,8 +93,8 @@ agreement rate, because the reference moved after scoring.
   onboarding model wrote the complement of the observed graph and could only pass.
 - Reading the documents first gave the agent a basis it could cite. Its high-confidence decisions
   were its document-based ones.
-- Asking why on a deviation changed five decisions, among them the second-heaviest disputed edge at
-  43 import sites, without any code change.
+- Asking why on a deviation changed five decisions, among them the heaviest disputed edge at 43
+  import sites, without any code change.
 - `decided_by` kept agent decisions countable after the fact.
 - The flow view made the one edge that matters, `c03 → c09`, the widest line on the page.
 
