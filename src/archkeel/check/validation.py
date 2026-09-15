@@ -231,13 +231,8 @@ def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, .
     )
 
 
-def reference_diagnostics(
-    root: Path,
-    config: ScanConfig,
-    contract: ArchitectureContract,
-    observation: Observation | None = None,
-) -> tuple[Diagnostic, ...]:
-    """Validate repository-dependent namespace, package and provenance references."""
+def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str]]:
+    """Collect every contract-declared name that must resolve inside the scan namespace."""
     declarations = contract.declarations or ContractDeclarations()
     names: list[tuple[str, str]] = []
     for index, component in enumerate(contract.components):
@@ -274,6 +269,17 @@ def reference_diagnostics(
         (f"/declarations/spot_owners/{index}/owner", owner.owner)
         for index, owner in enumerate(declarations.spot_owners)
     )
+    return names
+
+
+def reference_diagnostics(
+    root: Path,
+    config: ScanConfig,
+    contract: ArchitectureContract,
+    observation: Observation | None = None,
+) -> tuple[Diagnostic, ...]:
+    """Validate repository-dependent namespace, package and provenance references."""
+    names = _namespace_references(contract)
     diagnostics = [
         _diagnostic(
             pointer,

@@ -10,20 +10,26 @@ from tempfile import TemporaryDirectory
 from archkeel.ir.codec import canonical_report_bytes, declaration_paths, decode_json, parse_lock
 from archkeel.ir.digest import package_digest
 from archkeel.ir.host_records import parse_records
-from archkeel.ir.lock import LOCK_PATH, LockError, verify_observation
+from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observation
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import (
     CheckProvenance,
     Diagnostic,
     DiagnosticError,
     Observation,
+    ObservationResult,
     RunResult,
     Verdict,
 )
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .delta import build_architecture_delta
-from .expectation import evaluate_expectation, parse_expectation, sha256_bytes
+from .expectation import (
+    ArchitectureExpectation,
+    evaluate_expectation,
+    parse_expectation,
+    sha256_bytes,
+)
 from .git import (
     GitError,
     changed_paths,
@@ -59,7 +65,7 @@ def materialize_declarations(
         target.write_bytes(read_blob(root, commit, path))
 
 
-def run_check(
+def _authenticate_inputs(
     root: Path,
     *,
     config: ScanConfig,
@@ -68,13 +74,9 @@ def run_check(
     head: str,
     expected_path: str,
     expected_digest: str,
-    branch: str,
     accepted_branch: str,
-    host_records_path: Path | None,
-    environ: Mapping[str, str],
-    host: Host,
-    analyzer: Analyzer,
-) -> RunResult:
+) -> tuple[AcceptedLock, bytes, ArchitectureExpectation]:
+    """Authenticate the accepted lock, contract inputs and signed expectation."""
     if baseline != remote_tip(root, accepted_branch):
         raise GitError("baseline is not the current accepted origin branch tip")
     try:
@@ -107,6 +109,67 @@ def run_check(
     for path in (LOCK_PATH, config.contract):
         if read_blob(root, baseline, path) != read_blob(root, head, path):
             raise LockError(f"candidate changed accepted policy input: {path}")
+    return lock, lock_bytes, expectation
+
+
+def _observe_snapshot(
+    analyzer: Analyzer,
+    root: Path,
+    commit: str,
+    config: ScanConfig,
+    declarations: Path,
+) -> ObservationResult:
+    """Run the analyzer against one materialized git snapshot."""
+    return analyzer(
+        root,
+        roots=config.roots,
+        namespace=config.namespace,
+        contract=config.contract,
+        git_head=commit,
+        dirty=False,
+        contract_root=declarations,
+    )
+
+
+def _incomplete(result: ObservationResult) -> RunResult:
+    """Build the shared exit-2 result for a snapshot that failed to observe."""
+    observation = result.observation
+    return RunResult(
+        "check",
+        2,
+        diagnostics=result.diagnostics,
+        coverage=result.coverage,
+        observation=observation,
+        python_version=observation.python_version if observation is not None else None,
+    )
+
+
+def run_check(
+    root: Path,
+    *,
+    config: ScanConfig,
+    baseline: str,
+    expectation_commit: str,
+    head: str,
+    expected_path: str,
+    expected_digest: str,
+    branch: str,
+    accepted_branch: str,
+    host_records_path: Path | None,
+    environ: Mapping[str, str],
+    host: Host,
+    analyzer: Analyzer,
+) -> RunResult:
+    lock, lock_bytes, expectation = _authenticate_inputs(
+        root,
+        config=config,
+        baseline=baseline,
+        expectation_commit=expectation_commit,
+        head=head,
+        expected_path=expected_path,
+        expected_digest=expected_digest,
+        accepted_branch=accepted_branch,
+    )
 
     git_failures = check_git_order(
         root,
@@ -128,50 +191,22 @@ def run_check(
         declarations = Path(temporary)
         materialize_declarations(root, baseline, config, declarations)
         with materialize_git_snapshot(root, lock.accepted_commit, roots=config.roots) as before:
-            accepted_result = analyzer(
-                before.root,
-                roots=config.roots,
-                namespace=config.namespace,
-                contract=config.contract,
-                git_head=lock.accepted_commit,
-                dirty=False,
-                contract_root=declarations,
+            accepted_result = _observe_snapshot(
+                analyzer, before.root, lock.accepted_commit, config, declarations
             )
         accepted = accepted_result.observation
         if accepted_result.diagnostics or accepted is None:
-            return RunResult(
-                "check",
-                2,
-                diagnostics=accepted_result.diagnostics,
-                coverage=accepted_result.coverage,
-                observation=accepted,
-                python_version=accepted.python_version if accepted is not None else None,
-            )
+            return _incomplete(accepted_result)
         verify_observation(
             lock,
             observation_digest=sha256_bytes(canonical_report_bytes(accepted)),
             measurements=measure_python_ratchets(accepted),
         )
         with materialize_git_snapshot(root, head, roots=config.roots) as after:
-            candidate_result = analyzer(
-                after.root,
-                roots=config.roots,
-                namespace=config.namespace,
-                contract=config.contract,
-                git_head=head,
-                dirty=False,
-                contract_root=declarations,
-            )
+            candidate_result = _observe_snapshot(analyzer, after.root, head, config, declarations)
     candidate = candidate_result.observation
     if candidate_result.diagnostics or candidate is None:
-        return RunResult(
-            "check",
-            2,
-            diagnostics=candidate_result.diagnostics,
-            coverage=candidate_result.coverage,
-            observation=candidate,
-            python_version=candidate.python_version if candidate is not None else None,
-        )
+        return _incomplete(candidate_result)
     inspect_observation(accepted)
     measurements, declared = inspect_observation(candidate)
     delta = build_architecture_delta(

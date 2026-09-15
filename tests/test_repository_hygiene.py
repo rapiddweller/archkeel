@@ -56,9 +56,8 @@ ALLOWED_LONG_FUNCTIONS = {
     "reasons are decided in one place per dimension.",
     "src/archkeel/check/expectation.py::evaluate_expectation": "Raises in declaration order; each "
     "step reads the previous index.",
-    "src/archkeel/check/run.py::run_check": _PENDING
-    + "input authentication, snapshot observation, incomplete results.",
-    "src/archkeel/check/validation.py::reference_diagnostics": _PENDING + "namespace references.",
+    "src/archkeel/check/run.py::run_check": "Sequences authentication, git and host order, both "
+    "snapshots and evaluation; one with-block owns the snapshot lifetimes.",
     "src/archkeel/cli/__init__.py::build_parser": "Declarative argparse setup, one subparser per "
     "command; help text is the length.",
     "src/archkeel/cli/__init__.py::main": "Composition root; one error boundary maps every "
