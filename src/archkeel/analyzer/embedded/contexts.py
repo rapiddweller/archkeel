@@ -81,23 +81,13 @@ def _function_class_owners(tree: ast.Module, module_name: str) -> dict[int, str]
     return owners
 
 
-def collect_contexts(
+def _access_observations(
     modules: Sequence[ParsedModule],
-    symbols: Sequence[RawRecord],
-    symbol_nodes: dict[str, ast.AST],
-    symbol_owners: dict[str, ParsedModule],
-    imports: Sequence[RawRecord],
     calls: Sequence[RawRecord],
-    declared_roots: Sequence[str],
+    roots: set[str],
+    context_names: dict[str, str],
     evidence: dict[str, RawEvidence],
-) -> tuple[list[RawRecord], list[RawRecord]]:
-    class_symbols = [item for item in symbols if item["kind"] == "class"]
-    roots = set(declared_roots)
-    for item in class_symbols:
-        qualified = item["data"]["qualified_name"]
-        if item["data"]["name"].endswith(("Context", "State")):
-            roots.add(qualified)
-    context_names = {name.rsplit(".", 1)[-1]: name for name in sorted(roots)}
+) -> dict[str, dict[str, list[RecordData]]]:
     observations: dict[str, dict[str, list[RecordData]]] = {
         root: {"reads": [], "writes": [], "passes": [], "constructed_by": []} for root in roots
     }
@@ -213,6 +203,255 @@ def collect_contexts(
                                     "evidence_ids": [evidence_id],
                                 }
                             )
+    return observations
+
+
+def _class_fields(
+    root: str,
+    context_node: ast.ClassDef,
+    owner: ParsedModule,
+    frozen: bool,
+    evidence: dict[str, RawEvidence],
+) -> tuple[dict[str, RecordData], list[str]]:
+    fields: dict[str, RecordData] = {}
+    methods: list[str] = []
+    properties: dict[str, bool] = {}
+    assignments_after_init: set[str] = set()
+    mutations: set[str] = set()
+    for child in context_node.body:
+        if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+            annotation = annotation_text(child.annotation)
+            final_binding = bool(
+                annotation
+                and (
+                    annotation in {"Final", "typing.Final"}
+                    or annotation.startswith(("Final[", "typing.Final["))
+                )
+            )
+            referent = (
+                "mutable_container"
+                if annotation
+                and any(
+                    token in annotation
+                    for token in ("list[", "dict[", "set[", "List[", "Dict[", "Set[")
+                )
+                else "UNKNOWN"
+            )
+            fields[child.target.id] = {
+                "name": child.target.id,
+                "annotation": annotation,
+                "binding": "non_reassignable" if final_binding else "UNKNOWN",
+                "referent_mutability": referent,
+                "mutability": "object_immutable" if frozen else "UNKNOWN",
+                "evidence_ids": [add_evidence(evidence, owner, child)],
+            }
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            methods.append(f"{root}.{child.name}")
+            decorator_list = decorator_names(child)
+            if "property" in decorator_list:
+                properties[child.name] = False
+            for decorator in decorator_list:
+                if decorator.endswith(".setter"):
+                    properties[decorator.rsplit(".", 1)[0]] = True
+            for descendant in ast.walk(child):
+                if (
+                    isinstance(descendant, ast.Attribute)
+                    and isinstance(descendant.value, ast.Name)
+                    and descendant.value.id == "self"
+                ):
+                    field_data = fields.setdefault(
+                        descendant.attr,
+                        {
+                            "name": descendant.attr,
+                            "annotation": None,
+                            "binding": "UNKNOWN",
+                            "referent_mutability": "UNKNOWN",
+                            "mutability": "object_immutable" if frozen else "UNKNOWN",
+                            "evidence_ids": [],
+                        },
+                    )
+                    if not field_data["evidence_ids"]:
+                        field_data["evidence_ids"] = [add_evidence(evidence, owner, descendant)]
+                    parent = next(
+                        (
+                            candidate
+                            for candidate in ast.walk(child)
+                            if isinstance(candidate, ast.AnnAssign)
+                            and candidate.target is descendant
+                        ),
+                        None,
+                    )
+                    if isinstance(parent, ast.AnnAssign):
+                        annotation = annotation_text(parent.annotation)
+                        field_data["annotation"] = annotation
+                        field_data["binding"] = (
+                            "non_reassignable"
+                            if annotation
+                            and (
+                                annotation in {"Final", "typing.Final"}
+                                or annotation.startswith(("Final[", "typing.Final["))
+                            )
+                            else field_data["binding"]
+                        )
+                        field_data["referent_mutability"] = (
+                            "mutable_container"
+                            if annotation
+                            and any(
+                                token in annotation
+                                for token in (
+                                    "list[",
+                                    "dict[",
+                                    "set[",
+                                    "List[",
+                                    "Dict[",
+                                    "Set[",
+                                )
+                            )
+                            else field_data["referent_mutability"]
+                        )
+                        field_data["evidence_ids"] = [add_evidence(evidence, owner, parent)]
+                    if isinstance(descendant.ctx, ast.Store) and child.name != "__init__":
+                        assignments_after_init.add(descendant.attr)
+                if isinstance(descendant, ast.Call) and isinstance(descendant.func, ast.Attribute):
+                    receiver = descendant.func.value
+                    if (
+                        isinstance(receiver, ast.Attribute)
+                        and isinstance(receiver.value, ast.Name)
+                        and receiver.value.id == "self"
+                        and descendant.func.attr in _MUTATING_METHODS
+                    ):
+                        mutations.add(receiver.attr)
+    for name, has_setter in properties.items():
+        field_data = fields.setdefault(
+            name,
+            {
+                "name": name,
+                "annotation": None,
+                "binding": "UNKNOWN",
+                "referent_mutability": "UNKNOWN",
+                "mutability": "UNKNOWN",
+                "evidence_ids": [],
+            },
+        )
+        field_data["property_assignment"] = "available" if has_setter else "unavailable"
+    for name in assignments_after_init | mutations:
+        fields[name]["mutability"] = "mutable"
+    return fields, methods
+
+
+def _detail_records(
+    root: str,
+    owner: ParsedModule | None,
+    fields: dict[str, RecordData],
+    accesses: dict[str, list[RecordData]],
+    imports: Sequence[RawRecord],
+) -> tuple[list[RawRecord], dict[str, list[str]]]:
+    detail_records: list[RawRecord] = []
+    detail_ids: dict[str, list[str]] = {
+        "fields": [],
+        "reads": [],
+        "writes": [],
+        "passes": [],
+        "constructed_by": [],
+        "dependencies": [],
+    }
+    for field_data in sorted(fields.values(), key=lambda value: value["name"]):
+        item = classified(
+            item_id=stable_id("CONTEXT-FIELD", root, field_data["name"]),
+            evidence_class=EvidenceClass.FACT,
+            area="contexts_state",
+            kind="context_field",
+            title=f"{root}.{field_data['name']}",
+            subjects=[root, field_data["name"]],
+            evidence_ids=field_data["evidence_ids"],
+            data={"context": root, **field_data},
+        )
+        detail_records.append(item)
+        detail_ids["fields"].append(item["id"])
+    access_kinds = {
+        "reads": "context_read",
+        "writes": "context_write",
+        "passes": "context_pass",
+        "constructed_by": "context_construction",
+    }
+    for category, kind in access_kinds.items():
+        for entry in accesses[category]:
+            call_id = entry.get("call_id")
+            item = classified(
+                item_id=stable_id(
+                    "CONTEXT-ACCESS",
+                    root,
+                    category,
+                    entry.get("source"),
+                    entry.get("field"),
+                    entry.get("path"),
+                    entry.get("target"),
+                    *(entry.get("evidence_ids") or []),
+                ),
+                evidence_class=EvidenceClass.FACT,
+                area="contexts_state",
+                kind=kind,
+                title=(
+                    f"{entry.get('source')} {category.replace('_', ' ')} "
+                    f"{entry.get('path') or entry.get('target') or root}"
+                ),
+                subjects=[root, entry.get("source", ""), entry.get("target", "")],
+                evidence_ids=entry.get("evidence_ids", []),
+                fact_ids=[call_id] if call_id else [],
+                data={"context": root, "category": category, **entry},
+            )
+            detail_records.append(item)
+            detail_ids[category].append(item["id"])
+    dependencies = sorted(
+        {
+            item["data"]["target_module"]
+            for item in imports
+            if owner is not None
+            and item["data"]["source_module"] == owner.module
+            and item["data"]["target_module"] != owner.module
+        }
+    )
+    for dependency in dependencies:
+        import_facts = [
+            item["id"]
+            for item in imports
+            if owner is not None
+            and item["data"]["source_module"] == owner.module
+            and item["data"]["target_module"] == dependency
+        ]
+        item = classified(
+            item_id=stable_id("CONTEXT-DEP", root, dependency),
+            evidence_class=EvidenceClass.FACT,
+            area="contexts_state",
+            kind="context_dependency",
+            title=f"{root} depends on {dependency}",
+            subjects=[root, dependency],
+            fact_ids=import_facts,
+            data={"context": root, "target_module": dependency},
+        )
+        detail_records.append(item)
+        detail_ids["dependencies"].append(item["id"])
+    return detail_records, detail_ids
+
+
+def collect_contexts(
+    modules: Sequence[ParsedModule],
+    symbols: Sequence[RawRecord],
+    symbol_nodes: dict[str, ast.AST],
+    symbol_owners: dict[str, ParsedModule],
+    imports: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
+    declared_roots: Sequence[str],
+    evidence: dict[str, RawEvidence],
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    class_symbols = [item for item in symbols if item["kind"] == "class"]
+    roots = set(declared_roots)
+    for item in class_symbols:
+        qualified = item["data"]["qualified_name"]
+        if item["data"]["name"].endswith(("Context", "State")):
+            roots.add(qualified)
+    context_names = {name.rsplit(".", 1)[-1]: name for name in sorted(roots)}
+    observations = _access_observations(modules, calls, roots, context_names, evidence)
 
     result: list[RawRecord] = []
     all_detail_records: list[RawRecord] = []
@@ -238,219 +477,11 @@ def collect_contexts(
         methods: list[str] = []
         if isinstance(context_node, ast.ClassDef) and owner is not None:
             frozen = bool(symbol and symbol["data"].get("frozen_object"))
-            properties: dict[str, bool] = {}
-            assignments_after_init: set[str] = set()
-            mutations: set[str] = set()
-            for child in context_node.body:
-                if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
-                    annotation = annotation_text(child.annotation)
-                    final_binding = bool(
-                        annotation
-                        and (
-                            annotation in {"Final", "typing.Final"}
-                            or annotation.startswith(("Final[", "typing.Final["))
-                        )
-                    )
-                    referent = (
-                        "mutable_container"
-                        if annotation
-                        and any(
-                            token in annotation
-                            for token in ("list[", "dict[", "set[", "List[", "Dict[", "Set[")
-                        )
-                        else "UNKNOWN"
-                    )
-                    fields[child.target.id] = {
-                        "name": child.target.id,
-                        "annotation": annotation,
-                        "binding": "non_reassignable" if final_binding else "UNKNOWN",
-                        "referent_mutability": referent,
-                        "mutability": "object_immutable" if frozen else "UNKNOWN",
-                        "evidence_ids": [add_evidence(evidence, owner, child)],
-                    }
-                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    methods.append(f"{root}.{child.name}")
-                    decorator_list = decorator_names(child)
-                    if "property" in decorator_list:
-                        properties[child.name] = False
-                    for decorator in decorator_list:
-                        if decorator.endswith(".setter"):
-                            properties[decorator.rsplit(".", 1)[0]] = True
-                    for descendant in ast.walk(child):
-                        if (
-                            isinstance(descendant, ast.Attribute)
-                            and isinstance(descendant.value, ast.Name)
-                            and descendant.value.id == "self"
-                        ):
-                            field_data = fields.setdefault(
-                                descendant.attr,
-                                {
-                                    "name": descendant.attr,
-                                    "annotation": None,
-                                    "binding": "UNKNOWN",
-                                    "referent_mutability": "UNKNOWN",
-                                    "mutability": "object_immutable" if frozen else "UNKNOWN",
-                                    "evidence_ids": [],
-                                },
-                            )
-                            if not field_data["evidence_ids"]:
-                                field_data["evidence_ids"] = [
-                                    add_evidence(evidence, owner, descendant)
-                                ]
-                            parent = next(
-                                (
-                                    candidate
-                                    for candidate in ast.walk(child)
-                                    if isinstance(candidate, ast.AnnAssign)
-                                    and candidate.target is descendant
-                                ),
-                                None,
-                            )
-                            if isinstance(parent, ast.AnnAssign):
-                                annotation = annotation_text(parent.annotation)
-                                field_data["annotation"] = annotation
-                                field_data["binding"] = (
-                                    "non_reassignable"
-                                    if annotation
-                                    and (
-                                        annotation in {"Final", "typing.Final"}
-                                        or annotation.startswith(("Final[", "typing.Final["))
-                                    )
-                                    else field_data["binding"]
-                                )
-                                field_data["referent_mutability"] = (
-                                    "mutable_container"
-                                    if annotation
-                                    and any(
-                                        token in annotation
-                                        for token in (
-                                            "list[",
-                                            "dict[",
-                                            "set[",
-                                            "List[",
-                                            "Dict[",
-                                            "Set[",
-                                        )
-                                    )
-                                    else field_data["referent_mutability"]
-                                )
-                                field_data["evidence_ids"] = [add_evidence(evidence, owner, parent)]
-                            if isinstance(descendant.ctx, ast.Store) and child.name != "__init__":
-                                assignments_after_init.add(descendant.attr)
-                        if isinstance(descendant, ast.Call) and isinstance(
-                            descendant.func, ast.Attribute
-                        ):
-                            receiver = descendant.func.value
-                            if (
-                                isinstance(receiver, ast.Attribute)
-                                and isinstance(receiver.value, ast.Name)
-                                and receiver.value.id == "self"
-                                and descendant.func.attr in _MUTATING_METHODS
-                            ):
-                                mutations.add(receiver.attr)
-            for name, has_setter in properties.items():
-                field_data = fields.setdefault(
-                    name,
-                    {
-                        "name": name,
-                        "annotation": None,
-                        "binding": "UNKNOWN",
-                        "referent_mutability": "UNKNOWN",
-                        "mutability": "UNKNOWN",
-                        "evidence_ids": [],
-                    },
-                )
-                field_data["property_assignment"] = "available" if has_setter else "unavailable"
-                if not has_setter and field_data["referent_mutability"] == "UNKNOWN":
-                    field_data["referent_mutability"] = "UNKNOWN"
-            for name in assignments_after_init | mutations:
-                fields[name]["mutability"] = "mutable"
+            fields, methods = _class_fields(root, context_node, owner, frozen, evidence)
 
-        detail_records: list[RawRecord] = []
-        detail_ids: dict[str, list[str]] = {
-            "fields": [],
-            "reads": [],
-            "writes": [],
-            "passes": [],
-            "constructed_by": [],
-            "dependencies": [],
-        }
-        for field_data in sorted(fields.values(), key=lambda value: value["name"]):
-            item = classified(
-                item_id=stable_id("CONTEXT-FIELD", root, field_data["name"]),
-                evidence_class=EvidenceClass.FACT,
-                area="contexts_state",
-                kind="context_field",
-                title=f"{root}.{field_data['name']}",
-                subjects=[root, field_data["name"]],
-                evidence_ids=field_data["evidence_ids"],
-                data={"context": root, **field_data},
-            )
-            detail_records.append(item)
-            detail_ids["fields"].append(item["id"])
-        access_kinds = {
-            "reads": "context_read",
-            "writes": "context_write",
-            "passes": "context_pass",
-            "constructed_by": "context_construction",
-        }
-        for category, kind in access_kinds.items():
-            for entry in observations[root][category]:
-                call_id = entry.get("call_id")
-                item = classified(
-                    item_id=stable_id(
-                        "CONTEXT-ACCESS",
-                        root,
-                        category,
-                        entry.get("source"),
-                        entry.get("field"),
-                        entry.get("path"),
-                        entry.get("target"),
-                        *(entry.get("evidence_ids") or []),
-                    ),
-                    evidence_class=EvidenceClass.FACT,
-                    area="contexts_state",
-                    kind=kind,
-                    title=(
-                        f"{entry.get('source')} {category.replace('_', ' ')} "
-                        f"{entry.get('path') or entry.get('target') or root}"
-                    ),
-                    subjects=[root, entry.get("source", ""), entry.get("target", "")],
-                    evidence_ids=entry.get("evidence_ids", []),
-                    fact_ids=[call_id] if call_id else [],
-                    data={"context": root, "category": category, **entry},
-                )
-                detail_records.append(item)
-                detail_ids[category].append(item["id"])
-        dependencies = sorted(
-            {
-                item["data"]["target_module"]
-                for item in imports
-                if owner is not None
-                and item["data"]["source_module"] == owner.module
-                and item["data"]["target_module"] != owner.module
-            }
+        detail_records, detail_ids = _detail_records(
+            root, owner, fields, observations[root], imports
         )
-        for dependency in dependencies:
-            import_facts = [
-                item["id"]
-                for item in imports
-                if owner is not None
-                and item["data"]["source_module"] == owner.module
-                and item["data"]["target_module"] == dependency
-            ]
-            item = classified(
-                item_id=stable_id("CONTEXT-DEP", root, dependency),
-                evidence_class=EvidenceClass.FACT,
-                area="contexts_state",
-                kind="context_dependency",
-                title=f"{root} depends on {dependency}",
-                subjects=[root, dependency],
-                fact_ids=import_facts,
-                data={"context": root, "target_module": dependency},
-            )
-            detail_records.append(item)
-            detail_ids["dependencies"].append(item["id"])
 
         detail_records = sorted(
             {item["id"]: item for item in detail_records}.values(), key=lambda item: item["id"]

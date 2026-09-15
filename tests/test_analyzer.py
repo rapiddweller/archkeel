@@ -232,3 +232,62 @@ def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_pat
     assert result.observation.coverage.failures
     assert len(result.diagnostics) == len(failures)
     assert {item.kind for item in result.diagnostics} == {"runtime_mismatch"}
+
+
+def test_context_reads_reflect_walk_order_and_nested_function_duplication(
+    tmp_path: Path,
+) -> None:
+    # Pins two collect_contexts quirks so a refactor cannot silently change them:
+    # (1) `bindings` is mutated while `ast.walk` runs, so a read whose Assign sits
+    #     deeper in the tree than the read (here: the read is shallower, the
+    #     writing Assign is nested two `if`s down) is visited first and, since
+    #     the binding does not exist yet, is never recorded; and
+    # (2) a nested function is walked twice -- once while its outer function is
+    #     walked, once as its own top-level function -- so one source read
+    #     produces two `context_read` records under two different scopes.
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/contexts.py").write_text(
+        "from dataclasses import dataclass\n\n\n@dataclass\nclass FooContext:\n    value: int = 0\n"
+    )
+    (tmp_path / "sample/core.py").write_text(
+        "from sample.contexts import FooContext\n\n\n"
+        "def use() -> None:\n"
+        "    print(ctx.value)\n"
+        "    if True:\n"
+        "        if True:\n"
+        "            ctx = FooContext()\n\n\n"
+        "def outer(ctx: FooContext) -> None:\n"
+        "    def inner(ctx: FooContext) -> None:\n"
+        "        return ctx.value\n\n"
+        "    return inner(ctx)\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    context_evidence = result.observation.records("context_evidence") or ()
+    reads = sorted(
+        (
+            item.data.get("source"),
+            item.data.get("field"),
+            item.data.get("path"),
+            item.data.get("access"),
+        )
+        for item in context_evidence
+        if item.kind == "context_read" and item.data.get("context") == "sample.contexts.FooContext"
+    )
+    assert reads == [
+        ("sample.core.inner", "value", "value", "read"),
+        ("sample.core.outer", "value", "value", "read"),
+    ]
+    fooctx_evidence = [
+        item
+        for item in context_evidence
+        if item.data.get("context") == "sample.contexts.FooContext"
+    ]
+    assert sorted((item.kind, item.data.get("source")) for item in fooctx_evidence) == [
+        ("context_construction", "sample.core.use"),
+        ("context_dependency", None),
+        ("context_field", None),
+        ("context_pass", "sample.core.outer"),
+        ("context_read", "sample.core.inner"),
+        ("context_read", "sample.core.outer"),
+    ]
