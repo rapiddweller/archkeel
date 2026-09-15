@@ -329,6 +329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             )
                         )
                         artifacts.extend((args.output, check_html))
+    # The CLI contract is a JSON result with exit 2, never a bare traceback, for any failure.
     except Exception as error:
         result = (
             invalid_result(subject, error)
