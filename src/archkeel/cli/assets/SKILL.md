@@ -10,28 +10,52 @@ declared contract of components and rules against that observation, and reports 
 per rule. Rules are declared once in `architecture-contract.json`; nothing is enforced by
 convention alone.
 
-## Onboarding (first time in this repository)
+## Onboarding (first time in this repository): a decision interview
+
+The code proposes, the architect decides. Never write a rationale or pick allow/forbid
+yourself; ask, and write down the architect's own words.
 
 1. Run `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]`.
    It detects the Python package, requires an existing Git repository with at least one
    commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one
-   component per top-level subpackage/module, a `forbidden_dependency` rule for every
-   component pair with no import today, plus `complete_assignment` and — only when no
-   component cycle exists — `no_component_cycles`), and
+   component per top-level subpackage/module, plus `complete_assignment` and — only when
+   no component cycle exists — `no_component_cycles`; no dependency rule), and
    `docs/architecture/architecture.md` (component table and Mermaid graph of observed
    edges). It refuses to overwrite existing files without `--force`.
-2. Every generated rule rationale is a placeholder starting with `TODO:`. Run
-   `archkeel validate --json` and read its diagnostics; each one carries a JSON Pointer
-   (e.g. `/rules/3/rationale`) naming exactly what to fix.
-3. Replace every `TODO:` rationale with the real architectural reason for that rule. Do
-   not invent a reason you do not know — ask the component owner.
-4. Check every edge in the Mermaid graph of `docs/architecture/architecture.md` with the
-   owner. Observed edges are allowed; the contract must forbid every other component pair,
-   so do not delete a generated `forbidden_dependency` rule. An unintended edge is a code
-   change: remove the import, then add the `forbidden_dependency` rule for that pair.
-5. Rerun `archkeel validate --json` until it exits 0.
-6. Run `archkeel report` to produce evidence, then commit the three generated files
+2. Confirm the drafted components with the architect as multiple choice: keep, merge,
+   split, or something else. Review each drafted `public` list with them too. Anything you
+   read from repository documentation is a hypothesis with its source path, never the
+   answer.
+3. `init --json` also returns every ordered component pair as an open decision, heaviest
+   observed edge first, each carrying `source`, `target`, `observed`, `import_sites` and
+   `options`: the exact `allowed_dependency` and `forbidden_dependency` rule for that pair,
+   missing only the `rationale`. Work through them with the architect in that order: ask
+   allow, forbid, or something else, with their reason in their own words, then write the
+   chosen option object into `architecture-contract.json` verbatim except for `rationale`.
+   Never hand-build a rule id. Once a component's shape is agreed, offer one decision for
+   all of its remaining unobserved pairs at once.
+4. Every generated rule rationale is a placeholder starting with `TODO:`. Run
+   `archkeel validate --json` and read its diagnostics by `code`, never by parsing message
+   text: a `decision.open` means step 3 is not finished for that pair (`validate --json`
+   carries the same open decisions as `init --json`); a `decision.conflict` or
+   `closed_world.duplicate` means the pair has more than one decision, keep exactly one;
+   a `rationale.placeholder` or `rationale.repeated` needs the architect's real reason.
+5. The interview ends when `validate --json` reports no `decision.open`,
+   `decision.conflict`, `rationale.placeholder`, `rationale.repeated` or
+   `closed_world.duplicate` diagnostic — not when the command exits 0. A `rule.violated`
+   or `closed_world.observed_forbidden` diagnostic is the architecture's own finding, not
+   an interview step: the code still uses an edge the architect just decided against. Show
+   it to the architect with `archkeel report`. They resolve it by changing the code or by a
+   new explicit decision (for example allowing the edge instead); the agent never resolves
+   it by editing or deleting the rule, and never loops `validate --json` waiting for exit 0.
+6. When the architect delegates a choice ("whatever is consistent" or similar), derive it
+   only from their earlier decisions in this interview, never from your own judgment. Label
+   the rationale agent-derived in your summary to the architect and list it for them to
+   confirm before it counts as decided.
+7. Once the interview ends, run `archkeel report` and commit the three generated files
    (`archkeel.toml`, `architecture-contract.json`, `docs/architecture/architecture.md`).
+   A remaining `rule.violated` or `closed_world.observed_forbidden` is follow-up code work,
+   tracked separately from onboarding, not a reason to hold the commit.
 
 ## Daily loop
 
@@ -47,11 +71,13 @@ convention alone.
 
 Class A rules are deterministic PASS/FAIL, evaluated from one observation:
 `forbidden_dependency`, `forbidden_construct`, `external_dependency_scope`,
-`complete_assignment`, `no_component_cycles`. `closed_world` — every component pair is
-observed or forbidden — is an implicit Contract 2.0 invariant, not a rule you declare.
-Class B regression checks compare an accepted observation with a candidate. Class C declarations
-(capabilities, public API, context roots, owners) are recorded and reported, not enforced.
-Class D review claims are planned and not yet implemented.
+`complete_assignment`, `no_component_cycles`. `allowed_dependency` adds no report
+violation; it only decides that a component pair may depend. `closed_world` — every
+ordered component pair is decided, once, by an `allowed_dependency` or a
+`forbidden_dependency` rule — is an implicit Contract 2.1 invariant, not a rule you
+declare. Class B regression checks compare an accepted observation with a candidate.
+Class C declarations (capabilities, public API, context roots, owners) are recorded and
+reported, not enforced. Class D review claims are planned and not yet implemented.
 
 Full field reference and examples:
 https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
