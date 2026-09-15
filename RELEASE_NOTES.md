@@ -1,3 +1,47 @@
+# Archkeel 0.3.0 — The architect owns the target
+
+Archkeel 0.3.0 turns onboarding into decisions about a target architecture. `init` proposes
+components and interfaces but never decides a dependency; the architect decides every component
+pair, directly or by reviewing what an agent decided, and the report draws where the code departs
+from that target.
+
+## Highlights
+
+- **Component flow in the HTML report.** Component cards, edges weighted by import sites, violated
+  edges with the rule they break, undecided edges in their own state, a legend and the heaviest
+  connections. Offline, no external library, derived from `architecture.json` alone.
+- **Onboarding as a decision interview.** Every ordered component pair must be decided once, by an
+  `allowed_dependency` or a `forbidden_dependency` rule with a rationale. `init --json` and
+  `validate --json` list the open decisions heaviest first, each with the exact rule to choose.
+- **Two agent modes.** The packaged skill runs an interview (read ADRs and documents, recommend,
+  ask only about conflicts and gaps, ask why on a deviation) or auto mode (the agent decides from
+  documents, then principles, then labeled judgment). Every rule records `decided_by`, and reports
+  count the agent decisions the architect has not reviewed.
+- **Decided means enforced.** A `forbidden_dependency` between two components applies to every
+  package of both, so a component that spans several packages is fully enforced.
+- **Measured on a real service.** A 13-component internal service was onboarded by interview and,
+  blind, in auto mode: 156 pair decisions each, first reports FAIL with 307 and 342 violations, and
+  the agent matched 140 of the architect's 156 decisions before review. Anonymized evidence and the
+  findings that did not work are in `docs/evidence/internal-service/`.
+
+## Breaking changes
+
+- **Contract 2.1.0.** Adds `allowed_dependency` and a required `decided_by` on every rule. A 2.0.0
+  contract no longer decodes; decide each component pair and set `decided_by`.
+- **Validation codes.** `decision.open` replaces `closed_world.missing`; `decision.conflict` is new.
+  An observed import no longer counts as a decision.
+- **`init` output.** `init` writes no dependency rule and returns `open_decisions`.
+- **`accept` removed.** The placeholder command, which always exited 2, is gone until acceptance is
+  implemented.
+- **Analyzer version 0.9.0.** Observations from earlier analyzers are not comparable.
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
 # Archkeel 0.2.0 — Deterministic onboarding
 
 Archkeel 0.2.0 lets a coding agent set up the architecture contract and keeps every decision

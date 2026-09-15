@@ -31,7 +31,6 @@ only when its row names repository evidence.
 | All class-A rule types are enforced with one violation probe each and applied to Archkeel | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json` |
 | Terminals get a Rich summary with real `--help`; pipes and `--json` keep JSON | `376a3ab`; `tests/test_cli.py`; `tests/test_terminal.py` |
 | `init` drafts a closed contract that reproduces Archkeel's own component rules | `fe5214a`; `tests/test_onboarding.py`; `docs/onboarding.md` |
-| Onboarding works on an internal 13-component service: 119 forbidden pairs, 121 rationale decisions, then `validate` exit 0 | Release-candidate wheel under Python 3.12, archived snapshot; not stored in this repository |
 | `skill install claude\|codex` writes one packaged agent instruction source | `99f5743`; `tests/test_skill.py` |
 | Fixture A leads the README with its report and terminal view | `make demo-screenshots`; `docs/assets/` |
 | CI validates Archkeel's contract and uploads its self-observation | `.github/workflows/ci.yml` |
@@ -44,7 +43,7 @@ only when its row names repository evidence.
 | A test rejects unquoted Mermaid labels that break the parser, and CI renders every Mermaid block with pinned mermaid-cli (AD-13) | `59a678b`; `tests/test_mermaid.py`; CI run `34937525824` |
 | Every checkable item has a catalogued demo on the shop sample, with real `check` runs for regressions and the protocol, and validation diagnostics carry codes (AD-11, AD-12) | `60f9f4c`; `c46ba7c`; `docs/architecture-demo.md`; `tests/test_architecture_demo.py` |
 | The report headline follows its verdicts instead of the exit code alone (AD-14) | `e383d62`; `tests/test_html_report.py`; `tests/test_terminal.py` |
-| An internal 13-component service was onboarded to `validate` exit 0 with the release candidate; anonymized artifacts and findings are published | `docs/evidence/internal-service/` |
+| An internal 13-component service was onboarded by interview and, blind, in auto mode: 156 pair decisions each, first reports FAIL with 307 and 342 violations, 89.7% blind agreement; anonymized evidence and findings are published | `044afbc`; `docs/evidence/internal-service/` |
 | Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
 | The HTML report draws component flow: edges weighted by import sites, violated edges with their rule ids, a legend and the heaviest connections (AD-10) | `b1fa8df`; `7b2502a`; `tests/test_flow.py`; `tests/test_html_report.py` |
 | Onboarding is a decision interview: `allowed_dependency`, contract 2.1.0, `decision.open` and `decision.conflict`, open decisions with option rules, component-level enforcement (AD-15) | `1951aa0`; `4a8548b`; `540226c`; `4b5936e`; `0740030`; `919f514`; `tests/test_decisions.py`; `tests/test_onboarding.py` |
@@ -56,8 +55,8 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
-2. Before tagging 0.3.0, replace `docs/evidence/internal-service/` with the anonymized interview
-   and blind auto-mode evidence, and decide which of its findings block the release.
+2. Before tagging 0.3.0, the owner decides which findings in
+   `docs/evidence/internal-service/README.md` block the release.
 
 ## Later
 
@@ -66,10 +65,10 @@ only when its row names repository evidence.
   `calls_unresolved` from 484 to 466 while `unresolved_ratio` worsened from 19.28% to 19.46%
   because well-resolved duplicate code was deleted; a ratio-only check would reject this
   improvement. `bbab17c` showed the opposite case for an absolute-only check.
-- Act on the onboarding findings in `docs/evidence/internal-service/README.md`: draft
-  `forbidden_construct` rules from observed constructs, check `requires-python` before scanning,
-  validate responsibility cells, allow one rationale per source component, and generate the skill's
-  onboarding steps from `docs/onboarding.md`.
+- Act on the open onboarding findings in `docs/evidence/internal-service/README.md`: assign a
+  package `__init__` exactly, regenerate the marked graph after a component cut, count an import
+  that breaks a dependency rule and the interface boundary once, check `requires-python` before
+  scanning, and measure auto-mode agreement on a second repository.
 - Split `ir/codec.py` along its contract, observation, delta, result and lock seams (AD-17).
 - Add `propose` and `next`.
 - Integrate Archkeel into DataMimic EE.
