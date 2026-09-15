@@ -9,9 +9,12 @@ release-check: check build smoke
 test:
 	$(UV) run --locked python -m pytest -q
 
+LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
+	fixtures/reproduce_milestone1.py fixtures/architecture_demo.py fixtures/demo_catalog_*.py
+
 lint:
-	$(UV) run --locked ruff format --check src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py fixtures/reproduce_milestone1.py
-	$(UV) run --locked ruff check src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py fixtures/reproduce_milestone1.py
+	$(UV) run --locked ruff format --check $(LINT_PATHS)
+	$(UV) run --locked ruff check $(LINT_PATHS)
 
 typecheck:
 	$(UV) run --locked mypy src/archkeel
