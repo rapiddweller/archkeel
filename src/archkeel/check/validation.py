@@ -591,6 +591,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         )
         measurements = None
         declared = "FAIL"
+    decisions = open_decisions(observation)
     if diagnostics:
         return RunResult(
             "validate",
@@ -598,6 +599,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
             diagnostics=_sorted(diagnostics),
             coverage=observation.coverage,
             python_version=observation.python_version,
+            open_decisions=decisions,
         )
     return RunResult(
         "validate",
@@ -608,4 +610,5 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         coverage=observation.coverage,
         python_version=observation.python_version,
         measurements=measurements,
+        open_decisions=decisions,
     )

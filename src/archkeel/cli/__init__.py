@@ -119,8 +119,9 @@ def build_parser() -> _Parser:
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
             "Checks the contract structure, package and provenance references, that every\n"
-            "component pair is observed or forbidden, rule rationales and the marked\n"
-            "component graph. Run it after every contract edit.\n\n"
+            "component pair is decided by one allowed_dependency or forbidden_dependency\n"
+            "rule, rule rationales and the marked component graph. Run it after every\n"
+            "contract edit.\n\n"
             "Examples:\n"
             "  archkeel validate\n"
             "  archkeel validate --json\n\n"
@@ -180,9 +181,9 @@ def build_parser() -> _Parser:
         help="Draft archkeel.toml, a closed contract and its architecture page.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
-            "Observes the only top-level package, proposes one component per subpackage and\n"
-            "forbids every component pair that is not imported today. Every rationale starts\n"
-            "as a TODO, so archkeel validate lists the decisions that remain.\n\n"
+            "Observes the only top-level package and proposes one component per subpackage.\n"
+            "It writes no dependency rule: every ordered component pair is an open decision,\n"
+            "reported by import weight for the architect to allow or forbid.\n\n"
             "Examples:\n"
             "  archkeel init\n"
             "  archkeel init --source lib/shop --namespace shop --json\n\n"

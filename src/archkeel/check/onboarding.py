@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from typing import Final
 
 from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
-from archkeel.ir.decisions import identifier
+from archkeel.ir.decisions import DOCUMENT_PATH, identifier, open_decisions
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
@@ -22,7 +22,6 @@ from archkeel.ir.model import (
     ContractComponent,
     Diagnostic,
     DiagnosticError,
-    ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     Observation,
@@ -37,7 +36,6 @@ from .validation import COMPONENT_GRAPH_MARKER, observed_component_edges
 
 CONFIG_PATH: Final = "archkeel.toml"
 CONTRACT_PATH: Final = "architecture-contract.json"
-DOCUMENT_PATH: Final = "docs/architecture/architecture.md"
 
 
 def detect_source(root: Path) -> tuple[str, str]:
@@ -162,7 +160,11 @@ def _drafted_public(
 def draft_contract(
     observation: Observation, namespace: str
 ) -> tuple[ArchitectureContract, frozenset[tuple[str, str]]]:
-    """Close the component world: forbid every pair the observed imports do not use."""
+    """Propose components and structural rules; every dependency pair stays an open decision.
+
+    AD-15: `init` never decides whether a component pair may depend on another, observed or
+    not. `run_init` derives those open decisions separately, from these drafted components.
+    """
     depth = len(namespace.split("."))
     labels = tuple(
         sorted(
@@ -194,20 +196,6 @@ def draft_contract(
         replace(component, public=public.get(component.label)) for component in draft_components
     )
     rules: list[ArchitectureRule] = [
-        ForbiddenDependencyRule(
-            f"DEP-{identifier(source)}-NO-{identifier(target)}",
-            "forbidden_dependency",
-            f"{namespace}.{source}",
-            f"{namespace}.{target}",
-            True,
-            f"TODO: explain why {source} must not depend on {target}.",
-            (DOCUMENT_PATH,),
-        )
-        for source in labels
-        for target in labels
-        if source != target and (source, target) not in edges
-    ]
-    rules.append(
         CompleteAssignmentRule(
             "ASSIGNMENT-COMPLETE",
             "complete_assignment",
@@ -215,7 +203,7 @@ def draft_contract(
             "TODO: explain why every module needs exactly one owning component.",
             (DOCUMENT_PATH,),
         )
-    )
+    ]
     if not _has_cycle(labels, edges):
         rules.append(
             NoComponentCyclesRule(
@@ -300,6 +288,11 @@ def run_init(
         CONTRACT_PATH: contract_bytes(contract),
         DOCUMENT_PATH: architecture_document(namespace, contract, edges).encode(),
     }
+    # AD-15: init declares no dependency rule, so every ordered pair among the drafted
+    # components is open; pass them in, since no contract has declared them yet.
+    decisions = open_decisions(
+        observed.observation, tuple((c.label, c.packages) for c in contract.components)
+    )
     result = RunResult(
         "init",
         0,
@@ -308,5 +301,6 @@ def run_init(
         coverage=observed.coverage,
         python_version=observed.observation.python_version,
         artifact=CONTRACT_PATH,
+        open_decisions=decisions,
     )
     return result, files

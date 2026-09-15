@@ -63,6 +63,20 @@ def _decision_badge(result: RunResult) -> Badge:
     return Badge("unknown", "?", "UNVERIFIABLE")
 
 
+def _open_decisions_lines(result: RunResult) -> str:
+    """Name the open decisions left, heaviest observed edges first; never their rule JSON."""
+    if not result.open_decisions:
+        return ""
+    header = f"\n\n{len(result.open_decisions)} open decision(s) remain."
+    heaviest = [item for item in result.open_decisions if item.observed][:5]
+    if not heaviest:
+        return header
+    lines = "\n".join(
+        f"  {item.source} -> {item.target}: {item.import_sites} import site(s)" for item in heaviest
+    )
+    return f"{header} Heaviest observed:\n{lines}"
+
+
 def report_summary(result: RunResult) -> Summary:
     """Summarize a report or validate result, which never evaluates an expectation."""
     sentence = {
@@ -108,7 +122,7 @@ def report_summary(result: RunResult) -> Summary:
             expectation_reason,
         ),
     )
-    return Summary(_decision_badge(result), sentence, verdicts, ())
+    return Summary(_decision_badge(result), sentence + _open_decisions_lines(result), verdicts, ())
 
 
 def init_summary(result: RunResult) -> Summary:
@@ -116,6 +130,7 @@ def init_summary(result: RunResult) -> Summary:
     report = report_summary(result)
     sentence = (
         "Draft written. Run archkeel validate to list every decision left."
+        + _open_decisions_lines(result)
         if result.exit_code == 0
         else report.sentence
     )

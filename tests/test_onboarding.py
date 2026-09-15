@@ -4,14 +4,20 @@
 import json
 import shutil
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
+from archkeel.analyzer import observe
 from archkeel.check.onboarding import interface_entries
+from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
 from archkeel.cli import main
-from archkeel.ir.codec import decode_json, parse_contract
+from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
+from archkeel.ir.decisions import open_decisions
 from archkeel.ir.model import (
+    AllowedDependencyRule,
     ArchitectureContract,
     CompleteAssignmentRule,
     ForbiddenDependencyRule,
@@ -19,6 +25,8 @@ from archkeel.ir.model import (
     NoComponentCyclesRule,
     in_scope,
 )
+
+_REAL_RATIONALE = "The owners decided this on purpose."
 
 ROOT = Path(__file__).parents[1]
 
@@ -46,30 +54,22 @@ def _repository(root: Path, packages: tuple[str, ...] = ("archkeel",)) -> Path:
     return root
 
 
-def test_init_reproduces_the_closed_world_of_archkeel_and_validate_lists_the_rationales(
+def _init(root: Path, capsys: pytest.CaptureFixture) -> dict:
+    assert main(["init", "--root", str(root), "--json"]) == 0
+    return json.loads(capsys.readouterr().out)
+
+
+def test_init_drafts_no_dependency_rule_but_still_drafts_structural_rules(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
     root = _repository(tmp_path)
-    assert main(["init", "--root", str(root), "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["artifact"] == "architecture-contract.json"
+    result = _init(root, capsys)
+    assert result["artifact"] == "architecture-contract.json"
 
-    own = _contract(ROOT / "architecture-contract.json")
     draft = _contract(root / "architecture-contract.json")
-    packages = {component.packages[0] for component in own.components}
-    assert {component.packages for component in draft.components} == {
-        component.packages for component in own.components
-    }
-    assert {
-        (rule.source, rule.target)
-        for rule in draft.rules
-        if isinstance(rule, ForbiddenDependencyRule)
-    } == {
-        (rule.source, rule.target)
-        for rule in own.rules
-        if isinstance(rule, ForbiddenDependencyRule)
-        and rule.source in packages
-        and rule.target in packages
-    }
+    assert not any(
+        isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule) for rule in draft.rules
+    )
     assert any(isinstance(rule, CompleteAssignmentRule) for rule in draft.rules)
     assert any(isinstance(rule, NoComponentCyclesRule) for rule in draft.rules)
     assert any(isinstance(rule, InterfaceBoundaryRule) for rule in draft.rules)
@@ -93,20 +93,121 @@ def test_init_reproduces_the_closed_world_of_archkeel_and_validate_lists_the_rat
             assert not (name or module.rsplit(".", 1)[-1]).startswith("_")
             assert any(in_scope(module, package) for package in component.packages)
 
-    assert main(["validate", "--root", str(root), "--json"]) == 2
-    diagnostics = json.loads(capsys.readouterr().out)["diagnostics"]
-    pointers = {item["pointer"] for item in diagnostics}
-    # AD-15: init writes no dependency rule for an observed pair, so every observed edge
-    # stays undecided (decision.open) alongside the drafted rules' placeholder rationales.
-    assert pointers == {f"/rules/{index}/rationale" for index in range(len(draft.rules))} | {
-        "/rules"
-    }
 
-    contract = root / "architecture-contract.json"
-    contract.write_text(contract.read_text().replace("TODO: explain why", "The owners decided"))
-    assert main(["validate", "--root", str(root), "--json"]) == 2
-    remaining = json.loads(capsys.readouterr().out)["diagnostics"]
-    assert remaining and all(item["code"] == "decision.open" for item in remaining)
+def test_init_open_decisions_are_sorted_and_cover_every_ordered_pair_exactly_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+    result = _init(root, capsys)
+    decisions = result["open_decisions"]
+    assert decisions, "archkeel's own components observe each other"
+
+    sites = [item["import_sites"] for item in decisions]
+    assert sites == sorted(sites, reverse=True), "heaviest observed edges must come first"
+
+    draft = _contract(root / "architecture-contract.json")
+    labels = [component.label for component in draft.components]
+    expected_pairs = {
+        (source, target) for source in labels for target in labels if source != target
+    }
+    pairs = [(item["source"], item["target"]) for item in decisions]
+    assert len(pairs) == len(set(pairs)), "every ordered pair appears at most once"
+    assert set(pairs) == expected_pairs, "every ordered pair appears at least once"
+
+    heaviest = decisions[0]
+    assert heaviest["observed"] is (heaviest["import_sites"] > 0)
+
+
+def test_open_decision_options_round_trip_through_parse_contract(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+    result = _init(root, capsys)
+    contract_path = root / "architecture-contract.json"
+    raw = json.loads(contract_path.read_bytes())
+    decision = result["open_decisions"][0]
+
+    for key, rule_type in (
+        ("allowed_dependency", AllowedDependencyRule),
+        ("forbidden_dependency", ForbiddenDependencyRule),
+    ):
+        option = {**decision["options"][key], "rationale": _REAL_RATIONALE}
+        candidate = json.dumps({**raw, "rules": [*raw["rules"], option]}).encode()
+        parsed = parse_contract(decode_json(candidate))
+        added = parsed.rules[-1]
+        assert isinstance(added, rule_type)
+        assert added.id == option["id"]
+        assert added.source == decision["source_package"]
+        assert added.target == decision["target_package"]
+
+
+def test_deciding_every_open_pair_from_init_options_makes_validate_pass(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+    result = _init(root, capsys)
+    contract_path = root / "architecture-contract.json"
+    raw = json.loads(contract_path.read_bytes())
+
+    decisions = [
+        {
+            **item["options"]["allowed_dependency" if item["observed"] else "forbidden_dependency"],
+            "rationale": _REAL_RATIONALE,
+        }
+        for item in result["open_decisions"]
+    ]
+    raw["rules"] = [
+        {**rule, "rationale": _REAL_RATIONALE} if rule["rationale"].startswith("TODO") else rule
+        for rule in raw["rules"]
+    ] + decisions
+    contract_path.write_text(json.dumps(raw, indent=2) + "\n")
+
+    assert main(["validate", "--root", str(root), "--json"]) == 0
+    validated = json.loads(capsys.readouterr().out)
+    assert validated["diagnostics"] == []
+    assert validated["open_decisions"] == []
+
+
+def test_open_decision_import_sites_match_a_ground_truth_count_from_imports(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """The regression from issue: package-level truncation undercounted nested packages.
+
+    `init` drafts no dependency rule, so every ordered pair among Archkeel's own components
+    is an open decision; its `import_sites` must equal the number of raw `imports` records
+    that cross that pair, independently grouped here through the drafted contract's own
+    `component_for`, not through `_component_import_sites` itself.
+    """
+    root = _repository(tmp_path)
+    _init(root, capsys)
+    contract = _contract(root / "architecture-contract.json")
+
+    config = ScanConfig(("src/archkeel",), "archkeel", "architecture-contract.json", "")
+    _, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+
+    ground_truth: Counter[tuple[str, str]] = Counter()
+    for record in observation.records("imports") or ():
+        source_module = record.data.get("source_module")
+        target_module = record.data.get("target_module")
+        if not isinstance(source_module, str) or not isinstance(target_module, str):
+            continue
+        source = contract.component_for(source_module)
+        target = contract.component_for(target_module)
+        if source is not None and target is not None and source != target:
+            ground_truth[(source.label, target.label)] += 1
+
+    labels = [component.label for component in contract.components]
+    expected = {
+        (source, target): ground_truth.get((source, target), 0)
+        for source in labels
+        for target in labels
+        if source != target
+    }
+    decisions = open_decisions(observation)
+    actual = {(item.source, item.target): item.import_sites for item in decisions}
+    assert actual == expected
 
 
 def test_init_never_replaces_existing_files_without_force(
