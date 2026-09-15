@@ -11,7 +11,7 @@ FACT — This diagnosis measures committed sources. It changes no resolver, cont
 | FACT: Input | Immutable source | Producer Python |
 |---|---|---|
 | D-self and Pledge checker | `pledge@f5aaca35d1934e17ef3eb13ae3e1c3180a3a37b8` | 3.11.12 |
-| Repo #2 | `rd-svc-window-cleaning@74b3271133620983bb4be9a766850a2abc06073f` | 3.12.10 |
+| Repo #2 | internal 13-component service at `74b3271133620983bb4be9a766850a2abc06073f` | 3.12.10 |
 | EE producer | `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0` | Same as each report |
 
 FACT — `tools/classify_unresolved.py` at `pledge@19e91a1f00b93ebf7b5b9b8fe535d3869a70e407` emits a summary and the complete call ledger. It checks Python version, source digest, file count, unique call IDs, and exact AST matches. Its SHA-256 is checked before execution below. It is outside the package and `make check`.
@@ -46,8 +46,8 @@ Write the following unchanged 5b configuration to `$WORK/repo2/pledge.toml`:
 
 ```toml
 [scan]
-roots = ["backend"]
-namespace = "backend"
+roots = ["svc"]
+namespace = "svc"
 contract = "docs/architecture/architecture-contract.json"
 ```
 
@@ -138,11 +138,11 @@ FACT — Top five: 226/237 = 95.36%. Remaining forms: `Attribute(Constant)` 5 (2
 
 | FACT: Rank / syntax | Count | Share of unresolved | Quote + file:line at the source SHA |
 |---|---:|---:|---|
-| 1. `Attribute(Call)` | 385 | 38.58% | `value.strip().lower()` — `backend/services/disposition_queries.py:804` |
-| 2. `Attribute(Name)` | 382 | 38.28% | `data.get("p")` — `backend/services/pagination.py:43` |
-| 3. `Attribute(Await)` | 116 | 11.62% | `(await session.execute(order_query)).scalars()` — `backend/services/mobile_sync.py:155` |
-| 4. `Attribute(Attribute)` | 68 | 6.81% | `row.name.lower()` — `backend/services/disposition_queries.py:156` |
-| 5. `Name` | 23 | 2.30% | `callback(message)` — `backend/orchestrator/handlers.py:69` |
+| 1. `Attribute(Call)` | 385 | 38.58% | `value.strip().lower()` — `svc/c03/n8366.py:804` |
+| 2. `Attribute(Name)` | 382 | 38.28% | `data.get("p")` — `svc/c03/n10850.py:43` |
+| 3. `Attribute(Await)` | 116 | 11.62% | `(await n3540.n10594(n3206)).scalars()` — `svc/c03/n8282.py:155` |
+| 4. `Attribute(Attribute)` | 68 | 6.81% | `row.name.lower()` — `svc/c03/n8366.py:156` |
+| 5. `Name` | 23 | 2.30% | `n13587(message)` — `svc/c09/handlers.py:69` |
 
 FACT — Top five: 974/998 = 97.60%. Remaining forms: `Attribute(JoinedStr)` 8 (0.80%); `Attribute(Subscript)` 8 (0.80%); `Attribute(Constant)` 7 (0.70%); `Attribute(Dict)` 1 (0.10%).
 
@@ -177,7 +177,7 @@ FACT — `evaluate_expectation()` unconditionally appends `compare_ratchets()` f
 
 ### Inputs and method
 
-FACT — Checker: `pledge@19236c2ce7319c8e61687a1204b97fd729815e7f`; producer: `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0`; Python 3.12.10 throughout. Repo #2 starts from `main@74b3271133620983bb4be9a766850a2abc06073f`; EE starts from `development@dc7526592073985ed69902b21d6a1c861ac02fa0` (no local `main`). Scan roots/namespaces are `backend` and `datamimic_ee`, respectively.
+FACT — Checker: `pledge@19236c2ce7319c8e61687a1204b97fd729815e7f`; producer: `datamimic-ee@dc7526592073985ed69902b21d6a1c861ac02fa0`; Python 3.12.10 throughout. Repo #2 starts from `main@74b3271133620983bb4be9a766850a2abc06073f`; EE starts from `development@dc7526592073985ed69902b21d6a1c861ac02fa0` (no local `main`). Scan roots/namespaces are `svc` and `datamimic_ee`, respectively.
 
 FACT — Walk `git rev-list --first-parent <start-SHA>`, retain commits with a nonempty `git diff --numstat <SHA>^1 <SHA> -- <scan-root>`, and take at most 20/10. Repo #2 has only 17 qualifying commits among 27 first-parent commits; 16 pairs are comparable. EE supplies all 10 requested pairs. Diff lines below are additions plus deletions for all files under the root, including non-Python files; renames retain Git's detection.
 
@@ -204,23 +204,23 @@ FACT — This measures scalar/ratio rejection only, not the full `pledge check`.
 
 | FACT: SHA | Diff +/− (total) | calls_total before → after | calls_unresolved before → after | Failing checks and values | Commit subject |
 |---|---:|---:|---:|---|---|
-| `74b32711` | +2494/−90 (2584) | 3530 → 4318 | 728 → 998 | calls_unresolved: 728→998; typing_positions: 33→36; unresolved_ratio: 728/3530→998/4318 | Implement operable disposition workflow |
-| `dc0ac35c` | +5969/−303 (6272) | 2007 → 3530 | 363 → 728 | calls_unresolved: 363→728; typing_positions: 26→33; unresolved_ratio: 363/2007→728/3530 | Implement durable operational cleaning workflow |
-| `87109723` | +1444/−63 (1507) | 1598 → 2007 | 249 → 363 | calls_unresolved: 249→363; unresolved_ratio: 249/1598→363/2007 | Implement three-role planning product slice |
-| `6e251257` | +389/−88 (477) | 1499 → 1598 | 205 → 249 | calls_unresolved: 205→249; unresolved_ratio: 205/1499→249/1598 | Initial commit |
-| `165a7611` | +914/−0 (914) | 1253 → 1499 | 171 → 205 | calls_unresolved: 171→205; typing_positions: 25→32; unresolved_ratio: 171/1253→205/1499 | feat: add durable taskiq planning orchestrator |
-| `5688e298` | +487/−23 (510) | 1163 → 1253 | 170 → 171 | calls_unresolved: 170→171; typing_positions: 20→25 | feat: complete api application contracts |
-| `4859da27` | +235/−1 (236) | 1103 → 1163 | 154 → 170 | calls_unresolved: 154→170; typing_positions: 17→20; unresolved_ratio: 154/1103→170/1163 | feat: persist durable process execution state |
-| `e3b506d7` | +46/−0 (46) | 1103 → 1103 | 154 → 154 | none | fix: add durable process state contracts |
-| `10aae8a5` | +83/−35 (118) | 1076 → 1103 | 151 → 154 | calls_unresolved: 151→154 | fix: plan weekly capacity across workdays |
-| `9318f51c` | +228/−13 (241) | 1033 → 1076 | 149 → 151 | calls_unresolved: 149→151 | feat: delegate supported api reads |
-| `23e12d8d` | +851/−0 (851) | 828 → 1033 | 128 → 149 | calls_unresolved: 128→149 | feat: implement planning application services |
-| `266c4442` | +853/−0 (853) | 553 → 828 | 64 → 128 | calls_unresolved: 64→128; typing_positions: 8→17; unresolved_ratio: 64/553→128/828 | feat: implement tenant scoped repositories |
-| `a0400c57` | +508/−0 (508) | 389 → 553 | 29 → 64 | calls_unresolved: 29→64; typing_positions: 7→8; unresolved_ratio: 29/389→64/553 | feat: implement geo matrix and tour solver |
-| `e52d2c77` | +16/−1 (17) | 389 → 389 | 29 → 29 | none | fix: complete planning adapter contracts |
-| `7d17901b` | +25/−4 (29) | 386 → 389 | 29 → 29 | none | fix: persist proposals and link process runs |
-| `462ad498` | +29/−5 (34) | 378 → 386 | 29 → 29 | none | fix: carry planning inputs across ports |
-| `b5ba2765` | +1524/−0 (1524) | UNKNOWN → 378 | UNKNOWN → 29 | UNKNOWN: parent report Exit 2 | feat: freeze planning engine contracts |
+| `74b32711` | +2494/−90 (2584) | 3530 → 4318 | 728 → 998 | calls_unresolved: 728→998; typing_positions: 33→36; unresolved_ratio: 728/3530→998/4318 | withheld |
+| `dc0ac35c` | +5969/−303 (6272) | 2007 → 3530 | 363 → 728 | calls_unresolved: 363→728; typing_positions: 26→33; unresolved_ratio: 363/2007→728/3530 | withheld |
+| `87109723` | +1444/−63 (1507) | 1598 → 2007 | 249 → 363 | calls_unresolved: 249→363; unresolved_ratio: 249/1598→363/2007 | withheld |
+| `6e251257` | +389/−88 (477) | 1499 → 1598 | 205 → 249 | calls_unresolved: 205→249; unresolved_ratio: 205/1499→249/1598 | withheld |
+| `165a7611` | +914/−0 (914) | 1253 → 1499 | 171 → 205 | calls_unresolved: 171→205; typing_positions: 25→32; unresolved_ratio: 171/1253→205/1499 | withheld |
+| `5688e298` | +487/−23 (510) | 1163 → 1253 | 170 → 171 | calls_unresolved: 170→171; typing_positions: 20→25 | withheld |
+| `4859da27` | +235/−1 (236) | 1103 → 1163 | 154 → 170 | calls_unresolved: 154→170; typing_positions: 17→20; unresolved_ratio: 154/1103→170/1163 | withheld |
+| `e3b506d7` | +46/−0 (46) | 1103 → 1103 | 154 → 154 | none | withheld |
+| `10aae8a5` | +83/−35 (118) | 1076 → 1103 | 151 → 154 | calls_unresolved: 151→154 | withheld |
+| `9318f51c` | +228/−13 (241) | 1033 → 1076 | 149 → 151 | calls_unresolved: 149→151 | withheld |
+| `23e12d8d` | +851/−0 (851) | 828 → 1033 | 128 → 149 | calls_unresolved: 128→149 | withheld |
+| `266c4442` | +853/−0 (853) | 553 → 828 | 64 → 128 | calls_unresolved: 64→128; typing_positions: 8→17; unresolved_ratio: 64/553→128/828 | withheld |
+| `a0400c57` | +508/−0 (508) | 389 → 553 | 29 → 64 | calls_unresolved: 29→64; typing_positions: 7→8; unresolved_ratio: 29/389→64/553 | withheld |
+| `e52d2c77` | +16/−1 (17) | 389 → 389 | 29 → 29 | none | withheld |
+| `7d17901b` | +25/−4 (29) | 386 → 389 | 29 → 29 | none | withheld |
+| `462ad498` | +29/−5 (34) | 378 → 386 | 29 → 29 | none | withheld |
+| `b5ba2765` | +1524/−0 (1524) | UNKNOWN → 378 | UNKNOWN → 29 | UNKNOWN: parent report Exit 2 | withheld |
 
 FACT — 12/16 comparable pairs rejected; 1 UNKNOWN pair. Only absolute unresolved: 3; only ratio: 0.
 
@@ -263,51 +263,51 @@ FACT — For each pair, `added - removed == unresolved_after - unresolved_before
 
 | FACT: SHA | Added / removed | Pattern | Count | Target excerpt + file:line at that SHA |
 |---|---:|---|---:|---|
-| `74b32711` | 270 / 0 | `Attribute(Call)` | 115 | `value.strip().lower` — `backend/services/disposition_queries.py:804` |
-| `74b32711` | 270 / 0 | `Attribute(Name)` | 99 | `data.get` — `backend/services/pagination.py:41` |
-| `74b32711` | 270 / 0 | `Attribute(Await)` | 34 | `(await self._session.execute(statement)).scalar_one` — `backend/services/disposition_queries.py:735` |
-| `74b32711` | 270 / 0 | `Attribute(Attribute)` | 18 | `row.name.lower` — `backend/services/disposition_queries.py:156` |
-| `74b32711` | 270 / 0 | `Attribute(Subscript)` | 2 | `addresses[row.objekt_id].lower` — `backend/services/disposition_queries.py:330` |
-| `74b32711` | 270 / 0 | `Name` | 2 | `mapper` — `backend/services/disposition_queries.py:871` |
-| `dc0ac35c` | 425 / 60 | `Attribute(Call)` | 168 | `str(stoerung_id).encode` — `backend/services/disturbance_commands.py:176` |
-| `dc0ac35c` | 425 / 60 | `Attribute(Name)` | 139 | `busy.get` — `backend/services/planning_execution.py:346` |
-| `dc0ac35c` | 425 / 60 | `Attribute(Await)` | 69 | `(await session.execute(order_query)).scalars` — `backend/services/mobile_sync.py:155` |
-| `dc0ac35c` | 425 / 60 | `Attribute(Attribute)` | 36 | `uow.session.add` — `backend/services/customer_portal.py:209` |
-| `dc0ac35c` | 425 / 60 | `Attribute(Constant)` | 5 | `'.'.join` — `backend/main.py:80` |
-| `dc0ac35c` | 425 / 60 | `Attribute(JoinedStr)` | 5 | `f'AWS4{secret_key}'.encode` — `backend/services/uploads.py:164` |
-| `dc0ac35c` | 425 / 60 | `Name` | 2 | `aggregation` — `backend/services/planungslauf.py:233` |
-| `dc0ac35c` | 425 / 60 | `Attribute(Dict)` | 1 | `{…}.get` — `backend/main.py:65` |
-| `87109723` | 114 / 0 | `Attribute(Call)` | 48 | `result.scalars().all` — `backend/repos/repositories.py:131` |
-| `87109723` | 114 / 0 | `Attribute(Attribute)` | 30 | `uow.session.add` — `backend/services/customer_portal.py:169` |
-| `87109723` | 114 / 0 | `Attribute(Name)` | 22 | `router.get` — `backend/api/routers/disposition.py:68` |
-| `87109723` | 114 / 0 | `Attribute(Await)` | 12 | `(await uow.session.execute(select(MandantModel).where(MandantModel.id == mandant))).scalar_one` — `backend/services/customer_portal.py:64` |
-| `87109723` | 114 / 0 | `Attribute(Subscript)` | 1 | `schritte[lauf_id].append` — `backend/repos/repositories.py:401` |
-| `87109723` | 114 / 0 | `Name` | 1 | `callback` — `backend/services/planungslauf.py:358` |
-| `6e251257` | 44 / 0 | `Attribute(Name)` | 20 | `session.add` — `backend/services/mobile_sync.py:168` |
-| `6e251257` | 44 / 0 | `Attribute(Call)` | 14 | `select(TerminModel).where` — `backend/services/mobile_sync.py:61` |
-| `6e251257` | 44 / 0 | `Attribute(Attribute)` | 6 | `uow.session.execute` — `backend/services/mobile_sync.py:53` |
-| `6e251257` | 44 / 0 | `Attribute(Await)` | 3 | `(await session.execute(select(EinsatzModel).w … insatzModel.id).limit(1))).scalar_one_or_none` — `backend/services/mobile_sync.py:149` |
-| `6e251257` | 44 / 0 | `Attribute(Constant)` | 1 | `'\|'.join` — `backend/services/mobile_sync.py:81` |
-| `165a7611` | 34 / 0 | `Name` | 16 | `cls` — `backend/orchestrator/models.py:98` |
-| `165a7611` | 34 / 0 | `Attribute(Name)` | 12 | `values.get` — `backend/orchestrator/models.py:94` |
-| `165a7611` | 34 / 0 | `Attribute(Call)` | 5 | `super().__init__` — `backend/orchestrator/executors.py:384` |
-| `165a7611` | 34 / 0 | `Attribute(Constant)` | 1 | `'\x1f'.join` — `backend/orchestrator/taskiq_adapter.py:136` |
-| `5688e298` | 1 / 0 | `Attribute(Name)` | 1 | `object.__setattr__` — `backend/ports/api_application.py:52` |
-| `4859da27` | 16 / 0 | `Attribute(Call)` | 11 | `select(ProcessStepModel).where` — `backend/repos/repositories.py:434` |
-| `4859da27` | 16 / 0 | `Attribute(Name)` | 5 | `error.strip` — `backend/repos/repositories.py:513` |
-| `10aae8a5` | 4 / 1 | `Attribute(Name)` | 4 | `datum.weekday` — `backend/services/planungslauf.py:102` |
-| `9318f51c` | 2 / 0 | `Attribute(Name)` | 2 | `application.exception_handler` — `backend/main.py:25` |
-| `23e12d8d` | 21 / 0 | `Attribute(Name)` | 14 | `route.sort` — `backend/services/baseline.py:231` |
-| `23e12d8d` | 21 / 0 | `Attribute(Call)` | 3 | `_routen(termine).items` — `backend/services/baseline.py:113` |
-| `23e12d8d` | 21 / 0 | `Attribute(Subscript)` | 3 | `result[termin.datum].append` — `backend/services/baseline.py:175` |
-| `23e12d8d` | 21 / 0 | `Attribute(JoinedStr)` | 1 | `f'{typ.value}\|{datum.isoformat()}\|{ausgeloest_von}'.encode` — `backend/services/stoerung.py:75` |
-| `266c4442` | 64 / 0 | `Attribute(Call)` | 41 | `result.scalars().all` — `backend/repos/repositories.py:83` |
-| `266c4442` | 64 / 0 | `Attribute(Name)` | 22 | `raw.strip` — `backend/repos/mappers.py:69` |
-| `266c4442` | 64 / 0 | `Attribute(Subscript)` | 1 | `objekt_ids[relation.gebiet_id].append` — `backend/repos/repositories.py:129` |
-| `a0400c57` | 35 / 0 | `Attribute(Name)` | 31 | `route.append` — `backend/solver/daily_tour.py:173` |
-| `a0400c57` | 35 / 0 | `Attribute(JoinedStr)` | 2 | `f'{_PROFILE}:{_VERSION}:'.encode` — `backend/geo/matrix.py:97` |
-| `a0400c57` | 35 / 0 | `Attribute(Subscript)` | 1 | `zuordnungen[mitarbeiter_wert].append` — `backend/geo/clustering.py:152` |
-| `a0400c57` | 35 / 0 | `Attribute(Constant)` | 1 | `','.join` — `backend/geo/clustering.py:189` |
+| `74b32711` | 270 / 0 | `Attribute(Call)` | 115 | `value.strip().lower` — `svc/c03/n8366.py:804` |
+| `74b32711` | 270 / 0 | `Attribute(Name)` | 99 | `data.get` — `svc/c03/n10850.py:41` |
+| `74b32711` | 270 / 0 | `Attribute(Await)` | 34 | `(await self._n1097.n10594(statement)).n11915` — `svc/c03/n8366.py:735` |
+| `74b32711` | 270 / 0 | `Attribute(Attribute)` | 18 | `row.name.lower` — `svc/c03/n8366.py:156` |
+| `74b32711` | 270 / 0 | `Attribute(Subscript)` | 2 | `n14273[row.n5549].lower` — `svc/c03/n8366.py:330` |
+| `74b32711` | 270 / 0 | `Name` | 2 | `n2750` — `svc/c03/n8366.py:871` |
+| `dc0ac35c` | 425 / 60 | `Attribute(Call)` | 168 | `str(n3269).encode` — `svc/c03/n7769.py:176` |
+| `dc0ac35c` | 425 / 60 | `Attribute(Name)` | 139 | `n11216.get` — `svc/c03/n8535.py:346` |
+| `dc0ac35c` | 425 / 60 | `Attribute(Await)` | 69 | `(await n3540.n10594(n3206)).scalars` — `svc/c03/n8282.py:155` |
+| `dc0ac35c` | 425 / 60 | `Attribute(Attribute)` | 36 | `n0068.n3540.add` — `svc/c03/n7594.py:209` |
+| `dc0ac35c` | 425 / 60 | `Attribute(Constant)` | 5 | `'.'.join` — `svc/c01.py:80` |
+| `dc0ac35c` | 425 / 60 | `Attribute(JoinedStr)` | 5 | `f'K0065{n5635}'.encode` — `svc/c03/n8625.py:164` |
+| `dc0ac35c` | 425 / 60 | `Name` | 2 | `aggregation` — `svc/c03/n13254.py:233` |
+| `dc0ac35c` | 425 / 60 | `Attribute(Dict)` | 1 | `{…}.get` — `svc/c01.py:65` |
+| `87109723` | 114 / 0 | `Attribute(Call)` | 48 | `result.scalars().all` — `svc/c06/n9342.py:131` |
+| `87109723` | 114 / 0 | `Attribute(Attribute)` | 30 | `n0068.n3540.add` — `svc/c03/n7594.py:169` |
+| `87109723` | 114 / 0 | `Attribute(Name)` | 22 | `n6481.get` — `svc/c02/n10501/n5689.py:68` |
+| `87109723` | 114 / 0 | `Attribute(Await)` | 12 | `(await n0068.n3540.n10594(select(T0004).where(T0004.id == n9181))).n11915` — `svc/c03/n7594.py:64` |
+| `87109723` | 114 / 0 | `Attribute(Subscript)` | 1 | `n9357[n13514].append` — `svc/c06/n9342.py:401` |
+| `87109723` | 114 / 0 | `Name` | 1 | `n13587` — `svc/c03/n13254.py:358` |
+| `6e251257` | 44 / 0 | `Attribute(Name)` | 20 | `n3540.add` — `svc/c03/n8282.py:168` |
+| `6e251257` | 44 / 0 | `Attribute(Call)` | 14 | `select(T0362).where` — `svc/c03/n8282.py:61` |
+| `6e251257` | 44 / 0 | `Attribute(Attribute)` | 6 | `n0068.n3540.n10594` — `svc/c03/n8282.py:53` |
+| `6e251257` | 44 / 0 | `Attribute(Await)` | 3 | `(await n3540.n10594(select(T0297).w … insatzModel.id).n4824(1))).n8898` — `svc/c03/n8282.py:149` |
+| `6e251257` | 44 / 0 | `Attribute(Constant)` | 1 | `'\|'.join` — `svc/c03/n8282.py:81` |
+| `165a7611` | 34 / 0 | `Name` | 16 | `n7378` — `svc/c09/models.py:98` |
+| `165a7611` | 34 / 0 | `Attribute(Name)` | 12 | `values.get` — `svc/c09/models.py:94` |
+| `165a7611` | 34 / 0 | `Attribute(Call)` | 5 | `super().__init__` — `svc/c09/n2436.py:384` |
+| `165a7611` | 34 / 0 | `Attribute(Constant)` | 1 | `'\x1f'.join` — `svc/c09/n6956.py:136` |
+| `5688e298` | 1 / 0 | `Attribute(Name)` | 1 | `object.__n9877` — `svc/c04/n9648.py:52` |
+| `4859da27` | 16 / 0 | `Attribute(Call)` | 11 | `select(T0394).where` — `svc/c06/n9342.py:434` |
+| `4859da27` | 16 / 0 | `Attribute(Name)` | 5 | `error.strip` — `svc/c06/n9342.py:513` |
+| `10aae8a5` | 4 / 1 | `Attribute(Name)` | 4 | `n13749.n7258` — `svc/c03/n13254.py:102` |
+| `9318f51c` | 2 / 0 | `Attribute(Name)` | 2 | `n1704.n7206` — `svc/c01.py:25` |
+| `23e12d8d` | 21 / 0 | `Attribute(Name)` | 14 | `n7719.sort` — `svc/c03/baseline.py:231` |
+| `23e12d8d` | 21 / 0 | `Attribute(Call)` | 3 | `_n1884(n3879).items` — `svc/c03/baseline.py:113` |
+| `23e12d8d` | 21 / 0 | `Attribute(Subscript)` | 3 | `result[n6710.n13749].append` — `svc/c03/baseline.py:175` |
+| `23e12d8d` | 21 / 0 | `Attribute(JoinedStr)` | 1 | `f'{n5056.value}\|{n13749.n7993()}\|{n13066}'.encode` — `svc/c03/n6338.py:75` |
+| `266c4442` | 64 / 0 | `Attribute(Call)` | 41 | `result.scalars().all` — `svc/c06/n9342.py:83` |
+| `266c4442` | 64 / 0 | `Attribute(Name)` | 22 | `raw.strip` — `svc/c06/n1470.py:69` |
+| `266c4442` | 64 / 0 | `Attribute(Subscript)` | 1 | `n10606[n14164.n3316].append` — `svc/c06/n9342.py:129` |
+| `a0400c57` | 35 / 0 | `Attribute(Name)` | 31 | `n7719.append` — `svc/c08/n4089.py:173` |
+| `a0400c57` | 35 / 0 | `Attribute(JoinedStr)` | 2 | `f'{_K0081}:{_K0001}:'.encode` — `svc/c07/n6109.py:97` |
+| `a0400c57` | 35 / 0 | `Attribute(Subscript)` | 1 | `n5599[n12962].append` — `svc/c07/n4610.py:152` |
+| `a0400c57` | 35 / 0 | `Attribute(Constant)` | 1 | `','.join` — `svc/c07/n4610.py:189` |
 
 FACT — Aggregate: 1030 added, 61 removed, net +969. Patterns: `Attribute(Call)` 405; `Attribute(Name)` 371; `Attribute(Await)` 118; `Attribute(Attribute)` 90; `Name` 21; `Attribute(Subscript)` 8; `Attribute(Constant)` 8; `Attribute(JoinedStr)` 8; `Attribute(Dict)` 1.
 
@@ -340,7 +340,7 @@ FACT — Repo #2's UNKNOWN pair stays UNKNOWN under every option. These values a
 
 ### Coverage, failures, and evidence limits
 
-FACT — Repo #2: 23 report invocations, 22 Exit 0, one Exit 2. All 22 valid reports have no Diagnostics; the failed parent is `dd391df2` for candidate `b5ba2765`. Diagnostic: `kind=parse_error`, `subject=pledge.toml` (archive prefix omitted), `unknown_claim="The report result cannot be established: scan root is not a directory: backend"`, `remedy="Repair the reported input or execution failure and retry."` The source and producer were not fixed.
+FACT — Repo #2: 23 report invocations, 22 Exit 0, one Exit 2. All 22 valid reports have no Diagnostics; the failed parent is `dd391df2` for candidate `b5ba2765`. Diagnostic: `kind=parse_error`, `subject=pledge.toml` (archive prefix omitted), `unknown_claim="The report result cannot be established: scan root is not a directory: svc"`, `remedy="Repair the reported input or execution failure and retry."` The source and producer were not fixed.
 
 FACT — EE closure replay: 13 report invocations, all Exit 0, no Diagnostics, retries, or incomplete invocations. The first report took 14.127801 seconds, below 180 seconds; the median was 13.99858525 seconds. [The replay evidence](evidence/5d-ee-replay.json) records every source SHA, start/end timestamp, duration, process/result exit, source/report/result digest, and call count. It pins the checker, producer, and Python version and gives the report command.
 

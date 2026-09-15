@@ -42,6 +42,9 @@ only when its row names repository evidence.
 | Class C judgments are defined, and `assert` and `broad_except` are Class A forbidden constructs with `allowed_sources`, applied to Archkeel (AD-8) | `0b61873`; `b5090ca`; `59fc6cf`; `docs/rules.md`; `architecture-contract.json` |
 | Components declare `public` interfaces; `interface_boundary` enforces them, validation reports drift, `init` drafts them and the report shows component communication with signatures (AD-9) | `289e81f`; `0809021`; `05beddc`; `a2f2427`; `abb8f96`; `f87bc72`; `39c8917`; `docs/evidence/ad9-interface-profile.md` |
 | A test rejects unquoted Mermaid labels that break the parser, and CI renders every Mermaid block with pinned mermaid-cli (AD-13) | `59a678b`; `tests/test_mermaid.py`; CI run `34937525824` |
+| Every checkable item has a catalogued demo on the shop sample, with real `check` runs for regressions and the protocol, and validation diagnostics carry codes (AD-11, AD-12) | `60f9f4c`; `c46ba7c`; `docs/architecture-demo.md`; `tests/test_architecture_demo.py` |
+| The report headline follows its verdicts instead of the exit code alone (AD-14) | `e383d62`; `tests/test_html_report.py`; `tests/test_terminal.py` |
+| An internal 13-component service was onboarded to `validate` exit 0 with the release candidate; anonymized artifacts and findings are published | `docs/evidence/internal-service/` |
 | Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
 
 ## Next
@@ -49,10 +52,8 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
-2. Demonstrate every checkable item on a catalogued sample repository (AD-11), with coded
-   validation diagnostics (AD-12).
-3. Before tagging 0.3.0, onboard the internal 13-component service with the release-candidate
-   wheel until `validate` exits 0, and fix the report headline (AD-14).
+2. Before tagging 0.3.0, have the owner review the agent-drafted rationales of the internal
+   service and decide which findings in `docs/evidence/internal-service/README.md` block the release.
 
 ## Later
 
@@ -61,6 +62,10 @@ only when its row names repository evidence.
   `calls_unresolved` from 484 to 466 while `unresolved_ratio` worsened from 19.28% to 19.46%
   because well-resolved duplicate code was deleted; a ratio-only check would reject this
   improvement. `bbab17c` showed the opposite case for an absolute-only check.
+- Act on the onboarding findings in `docs/evidence/internal-service/README.md`: draft
+  `forbidden_construct` rules from observed constructs, check `requires-python` before scanning,
+  validate responsibility cells, allow one rationale per source component, and generate the skill's
+  onboarding steps from `docs/onboarding.md`.
 - Add `propose` and `next`.
 - Integrate Archkeel into DataMimic EE.
 - Add an interactive review surface and navigable dependency graph.
