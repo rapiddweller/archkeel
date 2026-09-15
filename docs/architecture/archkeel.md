@@ -162,6 +162,17 @@ FAIL, otherwise PASS; `check`, `validate` and `init` keep their headlines, and n
 result field changes. Reason: the shop tour with 11 violations opened with a green PASS above a
 failing rules verdict. Check: the render tests for report, check and init headlines.
 
+**AD-10 The report draws component flow as intent against observation.** The HTML report of
+`report` embeds an interactive flow view: component cards, observed edges weighted by import sites,
+edges that break a rule drawn dashed with the rule id, a threshold that hides weak edges, and an
+inspector for modules and interface names. It is derived from the canonical observation alone, so
+the report stays one self-contained file; the script is a packaged asset with no external library,
+and its data, ordering and output bytes are deterministic. The existing communication table stays as
+the fallback without script. Reason: on the internal service the graph showed the seven edges that
+break its documented intent faster than any table, and a prototype on the shop sample did the same
+for every rule kind. Check: the HTML report tests, `tests/test_determinism.py`, and the shop tour
+report drawing every violated edge.
+
 ## Allowed dependencies
 
 | Edge | Reason |
