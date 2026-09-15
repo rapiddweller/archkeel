@@ -51,6 +51,7 @@ def _diagnostic(item: Diagnostic) -> Panel:
         ("claim", item.unknown_claim),
         ("remedy", item.remedy),
         ("pointer", item.pointer),
+        ("code", item.code),
     ):
         if value:
             fields.add_row(name, Text(value))

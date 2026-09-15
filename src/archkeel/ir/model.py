@@ -366,6 +366,29 @@ DiagnosticKind: TypeAlias = Literal[
     "existing_files",
 ]
 
+# AD-12: sixteen findings shared one kind and differed only in prose.
+DiagnosticCode: TypeAlias = Literal[
+    "closed_world.missing",
+    "closed_world.observed_forbidden",
+    "closed_world.duplicate",
+    "interface.undeclared",
+    "interface.unused",
+    "rationale.placeholder",
+    "rationale.repeated",
+    "graph.count",
+    "graph.drift",
+    "rule.without_subjects",
+    "rule.violated",
+    "reference.namespace",
+    "reference.public_owner",
+    "reference.public_underscore",
+    "reference.provenance",
+    "reference.package_unscanned",
+    "contract.schema_version",
+    "contract.invalid",
+    "observation.incomplete",
+]
+
 
 @dataclass(frozen=True, slots=True)
 class Diagnostic:
@@ -374,6 +397,7 @@ class Diagnostic:
     unknown_claim: str
     remedy: str
     pointer: str | None = None
+    code: DiagnosticCode | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in get_args(DiagnosticKind):
@@ -384,6 +408,12 @@ class Diagnostic:
             raise ValueError("diagnostic remedy must be one line")
         if self.pointer is not None and self.pointer and not self.pointer.startswith("/"):
             raise ValueError("diagnostic pointer must be a JSON Pointer")
+        if self.code is not None and self.code not in get_args(DiagnosticCode):
+            raise ValueError("invalid diagnostic code")
+        if self.kind == "contract_invalid" and self.code is None:
+            raise ValueError("contract_invalid diagnostics require a code")
+        if self.kind != "contract_invalid" and self.code is not None:
+            raise ValueError("only contract_invalid diagnostics carry a code")
 
 
 class DiagnosticError(ValueError):

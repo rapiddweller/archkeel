@@ -22,6 +22,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     ContractDeclarations,
     Diagnostic,
+    DiagnosticCode,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -42,8 +43,10 @@ _PLACEHOLDER_RATIONALE = re.compile(r"(?:todo|tbd|placeholder)(?:\b|:)", re.IGNO
 _GRAPH_EDGE = re.compile(r"\s*([a-z][a-z0-9_]*)\s*-->\s*([a-z][a-z0-9_]*)\s*")
 
 
-def _diagnostic(pointer: str, subject: str, claim: str, remedy: str) -> Diagnostic:
-    return Diagnostic("contract_invalid", subject, claim, remedy, pointer)
+def _diagnostic(
+    code: DiagnosticCode, pointer: str, subject: str, claim: str, remedy: str
+) -> Diagnostic:
+    return Diagnostic("contract_invalid", subject, claim, remedy, pointer, code)
 
 
 def _package_owners(contract: ArchitectureContract) -> dict[str, str]:
@@ -89,6 +92,7 @@ def closed_world_diagnostics(
     forbidden = set(forbidden_items)
     diagnostics = [
         _diagnostic(
+            "closed_world.missing",
             "/rules",
             f"{source} -> {target}",
             "The component pair has neither an observed import nor a forbidden_dependency rule.",
@@ -98,6 +102,7 @@ def closed_world_diagnostics(
     ]
     diagnostics.extend(
         _diagnostic(
+            "closed_world.observed_forbidden",
             "/rules",
             f"{source} -> {target}",
             "An observed component dependency is also forbidden.",
@@ -107,6 +112,7 @@ def closed_world_diagnostics(
     )
     diagnostics.extend(
         _diagnostic(
+            "closed_world.duplicate",
             "/rules",
             f"{source} -> {target}",
             "The component pair has duplicate forbidden_dependency rules.",
@@ -165,6 +171,7 @@ def interface_diagnostics(
             if records:
                 diagnostics.append(
                     _diagnostic(
+                        "interface.undeclared",
                         f"/components/{index}",
                         component.label,
                         "The component receives cross-component imports but declares "
@@ -177,6 +184,7 @@ def interface_diagnostics(
             if not _entry_used(entry, records):
                 diagnostics.append(
                     _diagnostic(
+                        "interface.unused",
                         f"/components/{index}/public/{item}",
                         entry,
                         "No cross-component import reaches this public entry.",
@@ -191,14 +199,18 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
     diagnostics = []
     for index, rule in enumerate(contract.rules):
         rationale = rule.rationale.strip()
+        code: DiagnosticCode
         if _REPEATED_RATIONALE.fullmatch(rationale):
+            code = "rationale.repeated"
             claim = "The rationale repeats the forbidden dependency without explaining why."
         elif _PLACEHOLDER_RATIONALE.match(rationale):
+            code = "rationale.placeholder"
             claim = "The rationale is a placeholder."
         else:
             continue
         diagnostics.append(
             _diagnostic(
+                code,
                 f"/rules/{index}/rationale",
                 rule.id,
                 claim,
@@ -233,6 +245,7 @@ def graph_diagnostics(
     if len(graphs) != 1:
         return (
             _diagnostic(
+                "graph.count",
                 "/components",
                 "architecture component graph",
                 f"Expected one marked Mermaid component graph, found {len(graphs)}.",
@@ -247,6 +260,7 @@ def graph_diagnostics(
     extra = ", ".join(f"{a}->{b}" for a, b in sorted(declared - observed)) or "none"
     return (
         _diagnostic(
+            "graph.drift",
             "/components",
             path,
             "The marked component graph differs from observed imports; "
@@ -359,6 +373,7 @@ def _public_diagnostics(contract: ArchitectureContract) -> list[Diagnostic]:
             if contract.component_for(module) is not component:
                 diagnostics.append(
                     _diagnostic(
+                        "reference.public_owner",
                         pointer,
                         entry,
                         "The public entry's module is not owned by this component.",
@@ -368,6 +383,7 @@ def _public_diagnostics(contract: ArchitectureContract) -> list[Diagnostic]:
             if name.startswith("_"):
                 diagnostics.append(
                     _diagnostic(
+                        "reference.public_underscore",
                         pointer,
                         entry,
                         "Underscore names are never public.",
@@ -387,6 +403,7 @@ def reference_diagnostics(
     names = _namespace_references(contract)
     diagnostics = [
         _diagnostic(
+            "reference.namespace",
             pointer,
             value,
             f"The reference is outside namespace {config.namespace}.",
@@ -405,6 +422,7 @@ def reference_diagnostics(
             if not safe or not target.is_relative_to(repository) or not target.is_file():
                 diagnostics.append(
                     _diagnostic(
+                        "reference.provenance",
                         f"{pointer}/{index}",
                         value,
                         "The provenance file is missing or outside the repository.",
@@ -422,6 +440,7 @@ def reference_diagnostics(
                 if not any(in_scope(module, package) for module in modules):
                     diagnostics.append(
                         _diagnostic(
+                            "reference.package_unscanned",
                             f"/components/{component_index}/packages/{package_index}",
                             package,
                             "The component package has no scanned Python module.",
@@ -449,6 +468,7 @@ def observation_diagnostics(
             for rule_id in record.rule_ids:
                 diagnostics.append(
                     _diagnostic(
+                        "rule.without_subjects",
                         f"/rules/{rule_index.get(rule_id, 0)}",
                         rule_id,
                         "The rule matched no scanned source or target module.",
@@ -459,6 +479,7 @@ def observation_diagnostics(
         rule_id = record.rule_ids[0] if record.rule_ids else record.id
         diagnostics.append(
             _diagnostic(
+                "rule.violated",
                 f"/rules/{rule_index.get(rule_id, 0)}",
                 rule_id,
                 f"The observed code violates the declared rule: {record.title}",
@@ -474,6 +495,7 @@ def invalid_result(subject: str, error: Exception, pointer: str = "") -> RunResu
         2,
         diagnostics=(
             _diagnostic(
+                "contract.invalid",
                 pointer,
                 subject,
                 f"The architecture contract cannot be validated: {error}",
@@ -494,6 +516,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
             2,
             diagnostics=(
                 _diagnostic(
+                    "contract.schema_version",
                     "/schema_version",
                     config.contract,
                     f"Contract schema {error.actual} cannot be validated as "
@@ -528,6 +551,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
     except ValueError as error:
         diagnostics.append(
             _diagnostic(
+                "observation.incomplete",
                 "",
                 "observation",
                 f"The observation is incomplete: {error}",

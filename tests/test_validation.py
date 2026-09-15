@@ -37,6 +37,14 @@ def test_validate_rejects_contract_1_1_with_exact_pointer(tmp_path: Path) -> Non
     )
 
 
+def test_validate_gives_every_contract_invalid_diagnostic_a_code(tmp_path: Path) -> None:
+    broken = (ROOT / "tests/contracts/invalid/wrong-type.json").read_bytes()
+    (tmp_path / "contract.json").write_bytes(broken)
+    result = run_validate(tmp_path, CONFIG, Mock())
+    assert result.diagnostics
+    assert all(item.code == "contract.invalid" for item in result.diagnostics)
+
+
 def test_validate_sorts_namespace_and_provenance_diagnostics(tmp_path: Path) -> None:
     contract = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
     contract["components"][0]["packages"] = ["outside.x"]

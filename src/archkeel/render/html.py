@@ -74,12 +74,14 @@ def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
 
 
 def _diagnostic(item: Diagnostic) -> str:
-    fields = (
+    fields = [
         ("kind", item.kind),
         ("subject", item.subject),
         ("unknown_claim", item.unknown_claim),
         ("remedy", item.remedy),
-    )
+    ]
+    if item.code is not None:
+        fields.append(("code", item.code))
     values = "".join(f"<dt>{name}</dt><dd>{_text(value)}</dd>" for name, value in fields)
     return f'<dl class="diagnostic">{values}</dl>'
 

@@ -1150,7 +1150,7 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         {
             key: value
             for key, value in _raw_object(asdict(diagnostic)).items()
-            if key != "pointer" or value is not None
+            if key not in {"pointer", "code"} or value is not None
         }
         for diagnostic in result.diagnostics
     ]
