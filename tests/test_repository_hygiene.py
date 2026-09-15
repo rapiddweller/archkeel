@@ -88,17 +88,6 @@ def test_tracked_python_files_have_license_header() -> None:
     assert missing == []
 
 
-def test_source_has_no_assert_statements() -> None:
-    # AD-5: invariants belong in constructors; assert vanishes under python -O.
-    hits = [
-        f"{path.relative_to(ROOT)}:{node.lineno}"
-        for path in SOURCES
-        for node in ast.walk(ast.parse(path.read_bytes()))
-        if isinstance(node, ast.Assert)
-    ]
-    assert hits == []
-
-
 def test_long_functions_have_a_named_reason() -> None:
     # AD-6: every long function is listed with its reason, and the list only shrinks.
     long_functions = {

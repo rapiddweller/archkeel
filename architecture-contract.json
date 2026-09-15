@@ -438,6 +438,23 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
+      "id": "CONSTRUCT-NO-ASSERT",
+      "kind": "forbidden_construct",
+      "source": "archkeel",
+      "constructs": ["assert"],
+      "rationale": "Invariants are checked where values are built, because assert statements vanish under python -O.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "CONSTRUCT-NO-BROAD-EXCEPT",
+      "kind": "forbidden_construct",
+      "source": "archkeel",
+      "constructs": ["broad_except"],
+      "allowed_sources": ["archkeel.cli.main"],
+      "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit-2 result.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
       "id": "EXTERNAL-PACKAGING-RUNTIME",
       "kind": "external_dependency_scope",
       "dependency": "packaging",
