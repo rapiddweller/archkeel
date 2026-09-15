@@ -8,9 +8,11 @@ from __future__ import annotations
 import base64
 import html
 import json
+from dataclasses import replace
 from importlib.resources import files
 
 from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.decisions import agent_decisions
 from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
@@ -517,10 +519,14 @@ def render_architecture_html(
     repository: str,
     architecture_href: str,
 ) -> bytes:
-    """Render a report result with its canonical observation artifact."""
+    """Render a report result with its canonical observation artifact.
+
+    Derives the agent-decisions count from these bytes, never from `result`, so a report
+    rendered later from `architecture.json` alone still shows it (AD-16).
+    """
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     return render_html(
-        result,
+        replace(result, agent_decisions=agent_decisions(observation)),
         observation,
         repository=repository,
         architecture_href=architecture_href,

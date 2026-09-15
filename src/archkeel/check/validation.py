@@ -592,7 +592,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         measurements = None
         declared = "FAIL"
     decisions = open_decisions(observation)
-    counts = agent_decisions(contract)
+    counts = agent_decisions(observation)
     if diagnostics:
         return RunResult(
             "validate",

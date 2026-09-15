@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import replace
 from pathlib import Path
 
-from archkeel.ir.codec import canonical_report_bytes, decode_json, parse_contract, result_bytes
+from archkeel.ir.codec import canonical_report_bytes, result_bytes
 from archkeel.ir.decisions import agent_decisions
 from archkeel.ir.model import Diagnostic, DiagnosticError, ObservationResult, RunResult
 
@@ -32,15 +32,6 @@ def unknown_result(command: str, subject: str, error: Exception) -> RunResult:
 
 def render_result(result: RunResult) -> bytes:
     return result_bytes(result)
-
-
-def _agent_decisions(root: Path, config: ScanConfig) -> tuple[int, int] | None:
-    """Read the count the analyzer already validated moments ago; never blocks report (AD-16)."""
-    try:
-        contract = parse_contract(decode_json((root / config.contract).read_bytes()))
-    except (OSError, ValueError):
-        return None
-    return agent_decisions(contract)
 
 
 def observe_repository(
@@ -94,6 +85,6 @@ def run_report(
                 coverage=model.coverage,
                 measurements=measurements,
                 python_version=model.python_version,
-                agent_decisions=_agent_decisions(root, config),
+                agent_decisions=agent_decisions(model),
             )
     return command_result, architecture

@@ -111,6 +111,7 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
         data = {"rationale": rule.rationale}
     else:
         assert_never(rule)
+    data["decided_by"] = rule.decided_by
     return classified(
         item_id=rule.id,
         evidence_class=EvidenceClass.DECLARED_RULE,

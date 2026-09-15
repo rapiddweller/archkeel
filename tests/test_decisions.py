@@ -14,7 +14,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import closed_world_diagnostics
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
-from archkeel.ir.decisions import dependency_rule_ids, open_decisions
+from archkeel.ir.decisions import agent_decisions, dependency_rule_ids, open_decisions
 from archkeel.ir.model import (
     AllowedDependencyRule,
     AnalyzerInfo,
@@ -28,7 +28,7 @@ from archkeel.ir.model import (
     Section,
     SourceInfo,
 )
-from fixtures.demo_catalog_support import contract_without_rule
+from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
 
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
 ROOT = Path(__file__).parents[1]
@@ -142,6 +142,23 @@ def test_validation_and_open_decisions_agree_on_undecided_pairs(tmp_path: Path) 
 
     assert open_subjects == {f"{item.source} -> {item.target}" for item in decisions}
     assert open_subjects == {"store -> model"}
+
+
+def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: Path) -> None:
+    """AD-16: a mixed contract's count comes from the observation, not a second contract read."""
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "architecture-contract.json": contract_rule_field(
+                "DEP-MODEL-NO-STORE", decided_by="agent"
+            )
+        },
+    )
+    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+
+    assert agent_decisions(observation) == (1, 29)
 
 
 def test_open_decisions_counts_import_sites_for_components_with_split_or_nested_packages() -> None:

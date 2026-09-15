@@ -10,12 +10,12 @@ validation and a report rendered later from `architecture.json` bytes share one 
 from __future__ import annotations
 
 from collections import Counter
-from typing import Final
+from typing import Final, get_args, get_type_hints
 
 from .interfaces import component_owners, owner_of
 from .model import (
     AllowedDependencyRule,
-    ArchitectureContract,
+    ArchitectureRule,
     ForbiddenDependencyRule,
     Observation,
     OpenDecision,
@@ -23,6 +23,14 @@ from .model import (
 )
 
 _DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
+
+# Every rule kind the ArchitectureRule union names, read by reflection so a new rule kind
+# is counted here without a second hand-written list (AD-16).
+_RULE_KINDS: Final[frozenset[str]] = frozenset(
+    kind
+    for rule_type in get_args(ArchitectureRule)
+    for kind in get_args(get_type_hints(rule_type)["kind"])
+)
 
 # The provenance every drafted dependency option cites; init writes this file alongside
 # the contract, so the path already exists by the time an architect copies an option in.
@@ -143,11 +151,18 @@ def identifier(label: str) -> str:
     return label.upper().replace("_", "-")
 
 
-def agent_decisions(contract: ArchitectureContract) -> tuple[int, int]:
-    """Count rules `decided_by` the agent against the total, in one place (AD-16)."""
-    total = len(contract.rules)
-    agent = sum(rule.decided_by == "agent" for rule in contract.rules)
-    return agent, total
+def agent_decisions(observation: Observation) -> tuple[int, int]:
+    """Count rule declarations `decided_by` the agent against every rule declaration (AD-16).
+
+    Reads the analyzer's own projected rule declarations, the same evidence `open_decisions`
+    reads, so validation and a report rendered later from `architecture.json` bytes alone
+    share one derivation with no second contract read.
+    """
+    declared_rules = [
+        record for record in observation.records("declarations") or () if record.kind in _RULE_KINDS
+    ]
+    agent = sum(record.data.get("decided_by") == "agent" for record in declared_rules)
+    return agent, len(declared_rules)
 
 
 def dependency_rule_ids(source: str, target: str) -> tuple[str, str]:

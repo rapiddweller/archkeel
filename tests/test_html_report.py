@@ -17,9 +17,10 @@ from archkeel.check.report import run_report
 from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
-from archkeel.render.html import render_check_html, render_html
-from archkeel.render.summary import check_decision_sentence
+from archkeel.render.html import render_architecture_html, render_check_html, render_html
+from archkeel.render.summary import check_decision_sentence, report_summary
 from fixtures.architecture_demo import CATALOG
+from fixtures.demo_catalog_support import contract_rule_field
 
 FAILED_CHECK = RunResult(
     "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
@@ -194,6 +195,32 @@ def test_html_report_reports_no_cross_component_imports() -> None:
 
     assert "Component communication" in page
     assert "No cross-component imports were observed." in page
+
+
+def test_html_report_rendered_from_architecture_json_alone_shows_agent_decisions(
+    tmp_path: Path,
+) -> None:
+    """AD-16: the count comes from architecture.json bytes, never a `RunResult` field, and
+    the terminal summary agrees because both derive it from the same observation."""
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "architecture-contract.json": contract_rule_field(
+                "DEP-MODEL-NO-STORE", decided_by="agent"
+            )
+        },
+    )
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    assert result.agent_decisions == (1, 29)
+    assert "1 of 29 rules decided by the agent" in report_summary(result).sentence
+
+    stripped = replace(result, agent_decisions=None)
+    page = render_architecture_html(
+        stripped, architecture, repository="shop", architecture_href="architecture.json"
+    ).decode()
+
+    assert "1 of 29 rules decided by the agent, awaiting the architect." in page
 
 
 def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:

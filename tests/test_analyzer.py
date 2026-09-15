@@ -127,6 +127,40 @@ def _component(label: str, *, public: list[str] | None = None) -> dict[str, obje
     return component
 
 
+def test_rule_projection_writes_decided_by(tmp_path: Path) -> None:
+    """AD-16: each rule's decided_by reaches its declaration record, not just the contract."""
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("core")],
+        "rules": [
+            {
+                "id": "RULE-ARCHITECT",
+                "kind": "no_component_cycles",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "RULE-AGENT",
+                "kind": "complete_assignment",
+                "source": "sample",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "agent",
+            },
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    declared = {
+        record.id: record.data.get("decided_by")
+        for record in result.observation.records("declarations") or ()
+    }
+    assert declared["RULE-ARCHITECT"] == "architect"
+    assert declared["RULE-AGENT"] == "agent"
+
+
 @pytest.mark.parametrize(
     ("rule", "sources"),
     [
