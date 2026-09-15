@@ -1,0 +1,1406 @@
+[
+ {
+  "source": "c01",
+  "target": "c02",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c01",
+  "target": "c03",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c01",
+  "target": "c04",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c01",
+  "target": "c05",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c01",
+  "target": "c06",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c01",
+  "target": "c07",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c01",
+  "target": "c08",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c01",
+  "target": "c09",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c01",
+  "target": "c10",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c01",
+  "target": "c11",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c01",
+  "target": "c12",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c01",
+  "target": "c13",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c02",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c02",
+  "target": "c03",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c02",
+  "target": "c04",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c02",
+  "target": "c05",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c02",
+  "target": "c06",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c02",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c02",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c02",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c02",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c02",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c02",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c02",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c03",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c04",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c05",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c06",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c07",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c03",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c05",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c06",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c04",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c04",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c06",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c05",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c06",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c04",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c05",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c06",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c04",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c05",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c06",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c07",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c07",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c04",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c05",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c06",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c08",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c04",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c09",
+  "target": "c05",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c09",
+  "target": "c06",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c09",
+  "target": "c07",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c09",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c10",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c04",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c10",
+  "target": "c05",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c10",
+  "target": "c06",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c10",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c10",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c01",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c04",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c11",
+  "target": "c05",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c11",
+  "target": "c06",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c08",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c11",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c12",
+  "target": "c01",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c12",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c12",
+  "target": "c03",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c12",
+  "target": "c04",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c12",
+  "target": "c05",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c12",
+  "target": "c06",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c12",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c12",
+  "target": "c08",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c12",
+  "target": "c09",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c12",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c12",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c12",
+  "target": "c13",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c13",
+  "target": "c01",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c13",
+  "target": "c02",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c13",
+  "target": "c03",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c13",
+  "target": "c04",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c13",
+  "target": "c05",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c13",
+  "target": "c06",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c13",
+  "target": "c07",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c13",
+  "target": "c08",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "judgment",
+  "auto_confidence": "medium"
+ },
+ {
+  "source": "c13",
+  "target": "c09",
+  "architect_blind": "allowed_dependency",
+  "architect_final": "allowed_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ },
+ {
+  "source": "c13",
+  "target": "c10",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c13",
+  "target": "c11",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "forbidden_dependency",
+  "auto_basis": "principle",
+  "auto_confidence": "low"
+ },
+ {
+  "source": "c13",
+  "target": "c12",
+  "architect_blind": "forbidden_dependency",
+  "architect_final": "forbidden_dependency",
+  "auto": "allowed_dependency",
+  "auto_basis": "document",
+  "auto_confidence": "high"
+ }
+]

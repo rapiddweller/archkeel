@@ -1,0 +1,1374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src data:; style-src 'unsafe-inline';
+                 script-src 'unsafe-inline'">
+  <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWwgbWFyazwvdGl0bGU+CiAgPGRlc2MgaWQ9ImRlc2MiPlR3byBjb2RlIGJyYWNrZXRzIGJhbGFuY2VkIGFyb3VuZCBhIGNlbnRyYWwgc3RydWN0dXJhbCBrZWVsLjwvZGVzYz4KICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiM1RUVBRDQiIGQ9Im0xNDggMjggODAgNjB2ODBsLTgwIDYwdi00N2w0MC0zMHYtNDZsLTQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiNDNUY4MkEiIGQ9Ik0xMTIgMTEyaDMydjEwNGwtMTYgMjAtMTYtMjBWMTEyWiIvPgo8L3N2Zz4K" type="image/svg+xml">
+  <title>Archkeel report · internal-service</title>
+  <style>:root {
+  color-scheme: dark;
+  /* Brand */
+  --ck-lime: #c5f82a;
+  --ck-teal: #5eead4;
+  --ck-black: #000000;
+  --ck-surface: #141414;
+  --ck-surface-raised: #1f1f1f;
+  --ck-border: #2a2a28;
+  --ck-text: #e8e8e2;
+  --ck-muted: #8a8a84;
+  /* Functional status colors. Never use these as decoration. */
+  --ck-pass: #c5f82a;
+  --ck-fail: #ff6b6b;
+  --ck-unknown: #f4c95d;
+  --ck-info: #5eead4;
+  --ck-on-status: #0d0d0d;
+  --ck-font-sans: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ck-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+    monospace;
+  --ck-radius: 12px;
+  --ck-space-1: 4px;
+  --ck-space-2: 8px;
+  --ck-space-3: 12px;
+  --ck-space-4: 16px;
+  --ck-space-5: 24px;
+  --ck-space-6: 32px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--ck-black);
+  color: var(--ck-text);
+  font-family: var(--ck-font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+}
+a {
+  color: var(--ck-teal);
+}
+:focus-visible {
+  outline: 2px solid var(--ck-teal);
+  outline-offset: 3px;
+}
+.report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72px;
+  padding: var(--ck-space-4) clamp(20px, 4vw, 56px);
+  border-bottom: 1px solid var(--ck-border);
+  background: var(--ck-black);
+}
+.report-logo {
+  display: block;
+  width: min(260px, 46vw);
+  height: auto;
+}
+.report-logo-light {
+  display: none;
+}
+.report-kind,
+.eyebrow {
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.report-shell {
+  width: min(1180px, calc(100% - 40px));
+  min-width: 0;
+  margin: 0 auto;
+  padding: 48px 0 80px;
+}
+.report-heading {
+  display: grid;
+  gap: var(--ck-space-3);
+  margin-bottom: var(--ck-space-6);
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+h1,
+h2,
+h3 {
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+h1 {
+  max-width: 820px;
+  margin-bottom: 0;
+  font-size: clamp(30px, 5vw, 52px);
+  line-height: 1.08;
+}
+h2 {
+  margin-bottom: var(--ck-space-4);
+  font-size: 22px;
+}
+h3 {
+  margin-bottom: var(--ck-space-2);
+  font-size: 17px;
+}
+.report-meta {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: var(--ck-space-2) var(--ck-space-5);
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+}
+.report-meta strong {
+  color: var(--ck-text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.report-meta span,
+.verdict-card p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.decision-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--ck-space-4);
+  align-items: start;
+  margin: var(--ck-space-6) 0;
+  padding: var(--ck-space-5);
+  border: 1px solid var(--ck-border);
+  border-left: 4px solid var(--decision-color);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+}
+.decision-banner[data-decision="pass"] {
+  --decision-color: var(--ck-pass);
+}
+.decision-banner[data-decision="fail"] {
+  --decision-color: var(--ck-fail);
+}
+.decision-banner[data-decision="unknown"] {
+  --decision-color: var(--ck-unknown);
+}
+.decision-symbol {
+  color: var(--decision-color);
+  font-family: var(--ck-font-mono);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+}
+.decision-banner p {
+  margin-bottom: 0;
+  color: var(--ck-muted);
+}
+.verdict-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ck-space-4);
+}
+.verdict-grid-check {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.verdict-card {
+  position: relative;
+  min-height: 174px;
+  padding: var(--ck-space-5);
+  overflow: hidden;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+}
+.verdict-card::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--verdict-color);
+  content: "";
+}
+.verdict-card[data-verdict="pass"] {
+  --verdict-color: var(--ck-pass);
+}
+.verdict-card[data-verdict="fail"] {
+  --verdict-color: var(--ck-fail);
+}
+.verdict-card[data-verdict="unknown"] {
+  --verdict-color: var(--ck-unknown);
+}
+.verdict-card[data-verdict="info"] {
+  --verdict-color: var(--ck-info);
+}
+.verdict-state {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  margin-bottom: var(--ck-space-4);
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--verdict-color);
+  color: var(--ck-on-status);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+}
+.verdict-card p {
+  margin-bottom: 0;
+  color: var(--ck-muted);
+}
+.verdict-key {
+  display: block;
+  margin: calc(-1 * var(--ck-space-1)) 0 var(--ck-space-3);
+}
+[data-status="pass"] {
+  color: var(--ck-pass);
+}
+[data-status="fail"] {
+  color: var(--ck-fail);
+}
+[data-status="unknown"],
+[data-status="n/a"] {
+  color: var(--ck-unknown);
+}
+.regression-table [data-status="pass"] {
+  color: var(--ck-muted);
+  font-weight: 500;
+}
+.report-section {
+  margin-top: 48px;
+}
+code,
+th {
+  font-family: var(--ck-font-mono);
+}
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--ck-surface);
+}
+th,
+td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ck-border);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  color: var(--ck-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+tbody tr:hover {
+  background: var(--ck-surface-raised);
+}
+code {
+  color: var(--ck-teal);
+  font-size: 0.92em;
+}
+.diagnostic {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--ck-space-2) var(--ck-space-5);
+  padding: var(--ck-space-5);
+  border: 1px solid var(--ck-border);
+  border-left: 3px solid var(--ck-unknown);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+}
+.diagnostic dt {
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+}
+.diagnostic dd {
+  margin: 0;
+  color: var(--ck-text);
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+}
+.diagnostic-list {
+  display: grid;
+  gap: var(--ck-space-3);
+}
+.failure-list {
+  margin: 0 0 var(--ck-space-5);
+  padding-left: 20px;
+}
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.regression-table td.numeric {
+  white-space: nowrap;
+}
+/* AD-10 component flow view. */
+.flow-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ck-space-4);
+  margin-bottom: var(--ck-space-3);
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+}
+.flow-threshold {
+  accent-color: var(--ck-teal);
+}
+.flow-fit {
+  padding: 6px 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 999px;
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.flow-fit:hover {
+  border-color: var(--ck-teal);
+}
+.flow-canvas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--ck-space-4);
+}
+.flow-graph {
+  width: 100%;
+  /* JS sets an inline height sized to the laid-out content (see flow.js panelHeight); this is
+     only the pre-render fallback. */
+  height: 560px;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+  cursor: grab;
+  touch-action: none;
+}
+.flow-inspector {
+  overflow-y: auto;
+  max-height: 860px;
+  padding: var(--ck-space-4);
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+  font-size: 13px;
+}
+.flow-inspector .kicker {
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.flow-inspector h2 {
+  margin: var(--ck-space-1) 0 var(--ck-space-2);
+  font-size: 16px;
+}
+.flow-inspector .kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--ck-space-1) var(--ck-space-3);
+  margin: 0 0 var(--ck-space-3);
+}
+.flow-inspector .kv dt {
+  color: var(--ck-muted);
+}
+.flow-inspector .kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.flow-inspector ul.plain {
+  margin: 0 0 var(--ck-space-3);
+  padding-left: 0;
+  list-style: none;
+}
+.flow-inspector .empty {
+  color: var(--ck-muted);
+}
+.flow-inspector .violation-card {
+  padding: var(--ck-space-2) var(--ck-space-3);
+  border-left: 3px solid var(--ck-fail);
+  background: var(--ck-surface-raised);
+}
+.flow-inspector .group {
+  margin-bottom: var(--ck-space-3);
+}
+.flow-inspector .bars {
+  display: grid;
+  gap: var(--ck-space-2);
+  margin: 0 0 var(--ck-space-3);
+}
+.flow-inspector .bars .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: var(--ck-space-2);
+  align-items: center;
+  padding: 2px 0;
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.flow-inspector .bars .row:hover,
+.flow-inspector .bars .row:focus-visible {
+  color: var(--ck-teal);
+}
+.flow-inspector .bars .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flow-inspector .bars em {
+  color: var(--ck-muted);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.flow-inspector .bars .track {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ck-surface-raised);
+}
+.flow-inspector .bars .track b {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ck-teal);
+}
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ck-space-4);
+  margin-top: var(--ck-space-3);
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+}
+.flow-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ck-space-2);
+}
+.flow-legend-swatch {
+  width: 28px;
+  height: 10px;
+  overflow: visible;
+}
+.flow-legend-hint {
+  margin-left: auto;
+}
+.node .card {
+  fill: var(--ck-surface);
+  stroke: var(--ck-border);
+}
+.node.selected .card {
+  stroke: var(--ck-teal);
+}
+.node.dim {
+  opacity: 0.35;
+}
+.node .tick {
+  fill: var(--ck-border);
+}
+.node .tick.violated {
+  fill: var(--ck-fail);
+}
+/* Type minimums follow docs/report-visual-system.md: 14px body, 12px metadata, 11px machine
+   labels. The card label is body text; the meta line is metadata; chip text is a machine label. */
+.node .label {
+  fill: var(--ck-text);
+  font: 600 14px var(--ck-font-sans);
+}
+.node .meta {
+  fill: var(--ck-muted);
+  font: 12px var(--ck-font-mono);
+}
+.edge .line {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+.edge.conforms .line {
+  stroke: var(--ck-teal);
+}
+.edge.violation .line {
+  stroke: var(--ck-fail);
+  stroke-dasharray: 7 6;
+}
+.edge.undecided .line {
+  stroke: var(--ck-unknown);
+  stroke-dasharray: 2 4;
+}
+.edge .hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16px;
+  cursor: pointer;
+}
+.edge.dim .line {
+  opacity: 0.15;
+}
+.chip rect {
+  fill: var(--ck-surface);
+  stroke: var(--ck-border);
+}
+.chip.violation rect {
+  stroke: var(--ck-fail);
+}
+.chip text {
+  fill: var(--ck-text);
+  font: 11px var(--ck-font-mono);
+}
+.chip.dim {
+  opacity: 0.15;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-viewport {
+    transition: none !important;
+  }
+}
+@media print {
+  .flow-section {
+    display: none;
+  }
+}
+.report-footer {
+  margin-top: 64px;
+  padding-top: var(--ck-space-4);
+  border-top: 1px solid var(--ck-border);
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .report-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ck-space-3);
+  }
+  .report-logo {
+    width: min(210px, 80vw);
+  }
+  .report-shell {
+    width: auto;
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+  .verdict-grid,
+  .diagnostic,
+  .flow-canvas {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  :root {
+    color-scheme: light;
+    --ck-black: #ffffff;
+    --ck-surface: #ffffff;
+    --ck-surface-raised: #f4f4f0;
+    --ck-border: #d8d8d2;
+    --ck-text: #0d0d0d;
+    --ck-muted: #4a4a44;
+    /* Screen teal fails contrast on white paper. */
+    --ck-teal: #0f766e;
+  }
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .report-logo-dark {
+    display: none;
+  }
+  .report-logo-light {
+    display: block;
+  }
+  .report-shell {
+    width: auto;
+    padding: 28px 0;
+  }
+  .verdict-card,
+  .diagnostic,
+  .table-wrap {
+    break-inside: avoid;
+  }
+  /* Paper cannot scroll, so 64-hex fingerprints must wrap inside the page. */
+  td code {
+    overflow-wrap: anywhere;
+  }
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  tbody tr:hover {
+    background: transparent;
+  }
+}
+</style>
+</head>
+<body>
+  <header class="report-header">
+    <img class="report-logo report-logo-dark" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWw8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5BcmNoa2VlbCBsb2dvIGZvciBkYXJrIHJlcG9ydCBoZWFkZXJzLjwvZGVzYz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwKSI+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogICAgPHBhdGggZmlsbD0iIzVFRUFENCIgZD0ibTE0OCAyOCA4MCA2MHY4MGwtODAgNjB2LTQ3bDQwLTMwdi00NmwtNDAtMzBWMjhaIi8+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTEyIDExMmgzMnYxMDRsLTE2IDIwLTE2LTIwVjExMloiLz4KICA8L2c+CiAgPHRleHQgeD0iMjc2IiB5PSIxNzIiIGZvbnQtZmFtaWx5PSJJbnRlciwgdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCAtYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdTZWdvZSBVSScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEyIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iLTQiPgogICAgPHRzcGFuIGZpbGw9IiNFOEU4RTIiPmFyY2g8L3RzcGFuPjx0c3BhbiBmaWxsPSIjQzVGODJBIj5rZWVsPC90c3Bhbj4KICA8L3RleHQ+Cjwvc3ZnPgo=" alt="Archkeel">
+    <img class="report-logo report-logo-light" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWw8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5BcmNoa2VlbCBsb2dvIGZvciBsaWdodCByZXBvcnQgYW5kIFBERiBoZWFkZXJzLjwvZGVzYz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwKSI+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogICAgPHBhdGggZmlsbD0iIzVFRUFENCIgZD0ibTE0OCAyOCA4MCA2MHY4MGwtODAgNjB2LTQ3bDQwLTMwdi00NmwtNDAtMzBWMjhaIi8+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTEyIDExMmgzMnYxMDRsLTE2IDIwLTE2LTIwVjExMloiLz4KICA8L2c+CiAgPHRleHQgeD0iMjc2IiB5PSIxNzIiIGZpbGw9IiMwRDBEMEQiIGZvbnQtZmFtaWx5PSJJbnRlciwgdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCAtYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdTZWdvZSBVSScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEyIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iLTQiPmFyY2hrZWVsPC90ZXh0Pgo8L3N2Zz4K" alt="Archkeel">
+    <span class="report-kind">Architecture evidence report</span>
+  </header>
+  <main class="report-shell">
+    
+    <section class="report-heading">
+      <span class="eyebrow">Repository observation</span>
+      <h1>internal-service</h1>
+      <div class="report-meta">
+        <span>Candidate <strong>0000000000000000000000000000000000000000</strong></span>
+        <span>Source <strong>0000000000000000000000000000000000000000000000000000000000000000</strong></span>
+        <span>Dirty <strong>True</strong></span>
+      </div>
+    </section>
+    <section class="decision-banner" data-decision="fail"
+             aria-label="Decision: FAIL">
+      <span class="decision-symbol" aria-hidden="true">×</span>
+      <div><h2>FAIL</h2><p>342 declared-rule violation(s) found; report records violations without gating (exit code stays 0). Run archkeel check to gate on rule violations.
+
+156 of 159 rules decided by the agent, awaiting the architect.</p></div>
+    </section>
+    <section aria-labelledby="verdicts-heading">
+      <h2 id="verdicts-heading">Independent verdicts</h2>
+      <div class="verdict-grid">
+      <article class="verdict-card" data-verdict="pass">
+        <div class="verdict-state"><span aria-hidden="true">✓</span>PASS</div>
+        <h3>Scan complete</h3>
+        <code class="verdict-key">observation_complete</code>
+        <p>All configured source files were read and parsed.</p>
+      </article>
+      <article class="verdict-card" data-verdict="fail">
+        <div class="verdict-state"><span aria-hidden="true">×</span>FAIL</div>
+        <h3>Rules followed</h3>
+        <code class="verdict-key">declared_rules</code>
+        <p>At least one declared rule was violated.</p>
+      </article>
+      <article class="verdict-card" data-verdict="info">
+        <div class="verdict-state"><span aria-hidden="true">i</span>NOT APPLICABLE</div>
+        <h3>Change as declared</h3>
+        <code class="verdict-key">expectation_fulfilled</code>
+        <p>Report mode does not evaluate a published expectation.</p>
+      </article></div>
+    </section>
+    <section class="report-section">
+      <h2>Check evidence</h2>
+      <h3>Failures</h3><ul class="failure-list"><li>Report mode does not evaluate an expectation; see declared-rule violations below.</li></ul>
+      <h3>Diagnostics</h3><div class="diagnostic-list"><p>None.</p></div>
+    </section>
+    
+    <section class="report-section">
+      <h2>Declared-rule violations</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fingerprint</th><th>Finding</th><th>Subjects</th><th>Evidence</th></tr></thead>
+          <tbody><tr><td><code>VIO-004178n14151</code></td><td>svc.c03.n11769 reaches svc.c09.n1502.n12383 outside its declared interface</td><td><code>svc.c09.n1502.n12383 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-01013n7580</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0391</td><td><code>svc.c09.models.T0391 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-019n12933</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0033</td><td><code>svc.c09.models.T0033 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-01n3017</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0155</td><td><code>svc.c09.models.T0155 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-01n13514</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0285</td><td><code>svc.c09.models.T0285 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-02n0872</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n9144 outside its declared interface</td><td><code>svc.c09.n1502.n9144 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-02n8512</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n4378 outside its declared interface</td><td><code>svc.c09.n1502.n4378 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-034n10300</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n13448</td><td><code>svc.c09.n1502.n13448 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-038830n4572</code></td><td>svc.c12 reaches svc.c03.n9874.K0103 outside its declared interface</td><td><code>svc.c03.n9874.K0103 · svc.c12</code></td><td><code>svc/c12.py:17</code></td></tr><tr><td><code>VIO-045n4687</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0046</td><td><code>svc.c09.models.T0046 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-048581560387194a</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0155 outside its declared interface</td><td><code>svc.c09.models.T0155 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-04n3891</code></td><td>svc.c03.n8459 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n8459 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n8459.py:53</code></td></tr><tr><td><code>VIO-059n14142</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0366 outside its declared interface</td><td><code>svc.c09.models.T0366 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-0648n5669</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0285 outside its declared interface</td><td><code>svc.c09.models.T0285 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-06n3725</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n12383 outside its declared interface</td><td><code>svc.c09.n1502.n12383 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-080088894022653a</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n12383</td><td><code>svc.c09.n1502.n12383 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-097n8293</code></td><td>svc.c03.n11088 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n11088 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n11088.py:12</code></td></tr><tr><td><code>VIO-0n9170</code></td><td>svc.c03.n8810 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n8810</code></td><td><code>svc/c03/n8810.py:18</code></td></tr><tr><td><code>VIO-0n10858</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0355 outside its declared interface</td><td><code>svc.c09.models.T0355 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-0n5193</code></td><td>svc.c03.n7755 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:45</code></td></tr><tr><td><code>VIO-0n8942</code></td><td>svc.c03.n7755 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n7755 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n7755.py:48</code></td></tr><tr><td><code>VIO-0n0547</code></td><td>svc.c03.n12628 reaches svc.c09.n1502.n12330 outside its declared interface</td><td><code>svc.c09.n1502.n12330 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-0n13725</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0352</td><td><code>svc.c09.models.T0352 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-0n10553</code></td><td>svc.c03.n7755 imports forbidden svc.c09.models.T0412</td><td><code>svc.c09.models.T0412 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-0n0968</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0285</td><td><code>svc.c09.models.T0285 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-0n12531</code></td><td>svc.c03.n7755 imports forbidden svc.c09.models.T0211</td><td><code>svc.c09.models.T0211 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-0n12540</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0025 outside its declared interface</td><td><code>svc.c09.models.T0025 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-103357n2704</code></td><td>svc.c03.n12628 imports forbidden svc.c09.n1502.n0251</td><td><code>svc.c09.n1502.n0251 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-10344510485n4880</code></td><td>svc.c03.n7931 reaches svc.c09.models.T0025 outside its declared interface</td><td><code>svc.c09.models.T0025 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-10n1825</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0352 outside its declared interface</td><td><code>svc.c09.models.T0352 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-121n7955</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0133 outside its declared interface</td><td><code>svc.c09.models.T0133 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-12n11080</code></td><td>svc.c04.n3795 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c04.n3795 · svc.shared.c05.T0327</code></td><td><code>svc/c04/n3795.py:10</code></td></tr><tr><td><code>VIO-12n6504</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0233 outside its declared interface</td><td><code>svc.c09.models.T0233 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-140514n12781</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n2299 outside its declared interface</td><td><code>svc.c09.n1502.n2299 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-14n0064</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0133</td><td><code>svc.c09.models.T0133 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-150n1906</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0285</td><td><code>svc.c09.models.T0285 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-153n3786</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0241</td><td><code>svc.c09.models.T0241 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-156n4804</code></td><td>svc.c03.n8459 imports forbidden svc.c09.n1502.n13553</td><td><code>svc.c09.n1502.n13553 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-15n5998</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0416</td><td><code>svc.c09.models.T0416 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-173n9637</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n1935</td><td><code>svc.c09.n1502.n1935 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-191n4217</code></td><td>svc.c03.n8459 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n8459 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n8459.py:54</code></td></tr><tr><td><code>VIO-1n10639</code></td><td>svc.c03.n12628 reaches svc.c09.n1502.n4378 outside its declared interface</td><td><code>svc.c09.n1502.n4378 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-1n11767</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0352 outside its declared interface</td><td><code>svc.c09.models.T0352 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-1n5408</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0355</td><td><code>svc.c09.models.T0355 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-1n0830</code></td><td>svc.c03.n7755 imports forbidden svc.c09.models.T0233</td><td><code>svc.c09.models.T0233 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-1n9788</code></td><td>svc.c13 reaches svc.c03.n9874.K0103 outside its declared interface</td><td><code>svc.c13 · svc.c03.n9874.K0103</code></td><td><code>svc/c13.py:15</code></td></tr><tr><td><code>VIO-1n12344</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0241</td><td><code>svc.c09.models.T0241 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-20828n6503</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0211</td><td><code>svc.c09.models.T0211 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-208n10956</code></td><td>svc.c03.n7931 imports forbidden svc.c09.models.T0233</td><td><code>svc.c09.models.T0233 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-221n5203</code></td><td>svc.c03.n8543 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n8543 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n8543.py:70</code></td></tr><tr><td><code>VIO-2230n6434</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0391 outside its declared interface</td><td><code>svc.c09.models.T0391 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-23167n0044</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0233</td><td><code>svc.c09.models.T0233 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-23n11283</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0416</td><td><code>svc.c09.models.T0416 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-23n11819</code></td><td>svc.c03.n12628 imports forbidden svc.c09.n1502.n8075</td><td><code>svc.c09.n1502.n8075 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-2486n12951</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0241 outside its declared interface</td><td><code>svc.c09.models.T0241 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-24n1062</code></td><td>svc.c03.n7931 imports forbidden svc.c09.models.T0355</td><td><code>svc.c09.models.T0355 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-250n5442</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0412 outside its declared interface</td><td><code>svc.c09.models.T0412 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-25817n14335</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n13553</td><td><code>svc.c09.n1502.n13553 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-25n12474</code></td><td>svc.c03.n12628 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n12628 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n12628.py:39</code></td></tr><tr><td><code>VIO-273n5049</code></td><td>svc.c03.n8718 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:53</code></td></tr><tr><td><code>VIO-27n7990</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n4378</td><td><code>svc.c09.n1502.n4378 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-283n8787</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0233</td><td><code>svc.c09.models.T0233 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-290n9499</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0155</td><td><code>svc.c09.models.T0155 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-292n8053</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0366</td><td><code>svc.c09.models.T0366 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-29n9793</code></td><td>svc.c03.n11769 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n11769 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n11769.py:63</code></td></tr><tr><td><code>VIO-2n6106</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0015 outside its declared interface</td><td><code>svc.c09.models.T0015 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-2n5376</code></td><td>svc.c03.n1563 reaches svc.c09.n1502.n1935 outside its declared interface</td><td><code>svc.c09.n1502.n1935 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-2n9618</code></td><td>svc.c03.n7931 reaches svc.c09.n1502.n1309 outside its declared interface</td><td><code>svc.c09.n1502.n1309 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:23</code></td></tr><tr><td><code>VIO-2n0732</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0355</td><td><code>svc.c09.models.T0355 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-2n9561</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0046 outside its declared interface</td><td><code>svc.c09.models.T0046 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-2n14055</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-2n10710</code></td><td>svc.c03.n8718 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n8718 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n8718.py:59</code></td></tr><tr><td><code>VIO-2n11126</code></td><td>svc.c03.n1563 imports forbidden svc.c09.n1502.n5784</td><td><code>svc.c09.n1502.n5784 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-3176975n5231</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0416 outside its declared interface</td><td><code>svc.c09.models.T0416 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-321n13869</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0325 outside its declared interface</td><td><code>svc.c09.models.T0325 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-32711n10539</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-3276n6609</code></td><td>svc.c03.baseline imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.baseline · svc.shared.c05.T0327</code></td><td><code>svc/c03/baseline.py:12</code></td></tr><tr><td><code>VIO-35429n8412</code></td><td>svc.c03.n1563 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:40</code></td></tr><tr><td><code>VIO-35779486n8221</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0412</td><td><code>svc.c09.models.T0412 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-3608223104n8522</code></td><td>svc.c03.n8718 imports forbidden svc.c09.n9549.T0077</td><td><code>svc.c09.n9549.T0077 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:46</code></td></tr><tr><td><code>VIO-36n4222</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0233</td><td><code>svc.c09.models.T0233 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-37137n9527</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0198 outside its declared interface</td><td><code>svc.c09.models.T0198 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-37265554n5041</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0325</td><td><code>svc.c09.models.T0325 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-37n12732</code></td><td>svc.c03.n1563 reaches svc.c09.n1502.n5784 outside its declared interface</td><td><code>svc.c09.n1502.n5784 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-3804241n9548</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-381n11647</code></td><td>svc.c03.n12628 reaches svc.c09.n1502.n0251 outside its declared interface</td><td><code>svc.c09.n1502.n0251 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-3n2006</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n9571 outside its declared interface</td><td><code>svc.c09.n1502.n9571 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-3n3256</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0292 outside its declared interface</td><td><code>svc.c09.models.T0292 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-3n4877</code></td><td>svc.c03.n7755 reaches svc.c09.models.T0233 outside its declared interface</td><td><code>svc.c09.models.T0233 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-3n11199</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:45</code></td></tr><tr><td><code>VIO-3n2692</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0241 outside its declared interface</td><td><code>svc.c09.models.T0241 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-3n6870</code></td><td>svc.c03.n8459 reaches svc.c09.n1502.n8191 outside its declared interface</td><td><code>svc.c09.n1502.n8191 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-40n2420</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0391 outside its declared interface</td><td><code>svc.c09.models.T0391 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-41133339n6977</code></td><td>svc.c13 reaches svc.c03.n9874.K0054 outside its declared interface</td><td><code>svc.c13 · svc.c03.n9874.K0054</code></td><td><code>svc/c13.py:15</code></td></tr><tr><td><code>VIO-4142n2353</code></td><td>svc.c03.n8543 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n8543 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n8543.py:71</code></td></tr><tr><td><code>VIO-41n6051</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n10466</td><td><code>svc.c09.n1502.n10466 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-42500n3147</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0046</td><td><code>svc.c09.models.T0046 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-425n11361</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0355 outside its declared interface</td><td><code>svc.c09.models.T0355 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-434n0236</code></td><td>svc.c03.n7931 reaches svc.c09.models.T0355 outside its declared interface</td><td><code>svc.c09.models.T0355 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-44408n10339</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-45030263n1341</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0355 outside its declared interface</td><td><code>svc.c09.models.T0355 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-4643n8197</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n13553 outside its declared interface</td><td><code>svc.c09.n1502.n13553 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-48n7976</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n13448 outside its declared interface</td><td><code>svc.c09.n1502.n13448 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-491n0050</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0289 outside its declared interface</td><td><code>svc.c09.models.T0289 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-4n8677</code></td><td>svc.c03.n12628 imports forbidden svc.c09.n1502.n12330</td><td><code>svc.c09.n1502.n12330 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-4n6814</code></td><td>svc.c03.n1563 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:40</code></td></tr><tr><td><code>VIO-4n6903</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-4n14222</code></td><td>svc.c03.n7755 reaches svc.c09.models.T0211 outside its declared interface</td><td><code>svc.c09.models.T0211 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-4n5462</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n9507</td><td><code>svc.c09.n1502.n9507 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-5012n2655</code></td><td>svc.c03.n8810 imports forbidden svc.c09.models.T0233</td><td><code>svc.c09.models.T0233 · svc.c03.n8810</code></td><td><code>svc/c03/n8810.py:17</code></td></tr><tr><td><code>VIO-505n3385</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0122 outside its declared interface</td><td><code>svc.c09.models.T0122 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-50n6163</code></td><td>svc.c03.n8718 imports forbidden svc.c09.n9549.T0254</td><td><code>svc.c09.n9549.T0254 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:46</code></td></tr><tr><td><code>VIO-514n14518</code></td><td>svc.c03.n7931 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n7931 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n7931.py:33</code></td></tr><tr><td><code>VIO-526797n2018</code></td><td>svc.c04.n9549 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c04.n9549 · svc.shared.c05.T0327</code></td><td><code>svc/c04/n9549.py:25</code></td></tr><tr><td><code>VIO-535948n0570</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0046 outside its declared interface</td><td><code>svc.c09.models.T0046 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-538327n6348</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0391</td><td><code>svc.c09.models.T0391 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-547n9230</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0122</td><td><code>svc.c09.models.T0122 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-560n12625</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0015</td><td><code>svc.c09.models.T0015 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-56n9077</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n2299</td><td><code>svc.c09.n1502.n2299 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-579n5201</code></td><td>svc.c03.n8459 reaches svc.c09.n1502.n13448 outside its declared interface</td><td><code>svc.c09.n1502.n13448 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-5961n13988</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0046</td><td><code>svc.c09.models.T0046 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-59n1033</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0285 outside its declared interface</td><td><code>svc.c09.models.T0285 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-59n5324</code></td><td>svc.c03.n1563 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n1563 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n1563.py:42</code></td></tr><tr><td><code>VIO-59n0591</code></td><td>svc.c03.n7755 reaches svc.c09.models.T0046 outside its declared interface</td><td><code>svc.c09.models.T0046 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-5n1917</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0025</td><td><code>svc.c09.models.T0025 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-5n0396</code></td><td>svc.c03.n14091 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n14091 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n14091.py:12</code></td></tr><tr><td><code>VIO-5n9694</code></td><td>svc.c03.n7931 reaches svc.c09.models.T0289 outside its declared interface</td><td><code>svc.c09.models.T0289 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-5n4897</code></td><td>svc.c03.n12628 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:36</code></td></tr><tr><td><code>VIO-5n14073</code></td><td>svc.c03.n11769 reaches svc.c09.n1502.n13448 outside its declared interface</td><td><code>svc.c09.n1502.n13448 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-60546n5799</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0122 outside its declared interface</td><td><code>svc.c09.models.T0122 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-60n11857</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0391 outside its declared interface</td><td><code>svc.c09.models.T0391 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-611n0781</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0205</td><td><code>svc.c09.models.T0205 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-61n11810</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0179</td><td><code>svc.c09.models.T0179 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-6297n6184</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n0251</td><td><code>svc.c09.n1502.n0251 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-63n12397</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n1935 outside its declared interface</td><td><code>svc.c09.n1502.n1935 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-6428n1414</code></td><td>svc.c03.n11769 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n11769 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n11769.py:61</code></td></tr><tr><td><code>VIO-660n5748</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0132 outside its declared interface</td><td><code>svc.c09.models.T0132 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-6650n5635</code></td><td>svc.c03.n9874 reaches svc.c09.models.T0366 outside its declared interface</td><td><code>svc.c09.models.T0366 · svc.c03.n9874</code></td><td><code>svc/c03/n9874.py:13</code></td></tr><tr><td><code>VIO-66772n10220</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0132 outside its declared interface</td><td><code>svc.c09.models.T0132 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-66n13412</code></td><td>svc.c03.n11769 reaches svc.c09.n1502.n9173 outside its declared interface</td><td><code>svc.c09.n1502.n9173 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-67n13207</code></td><td>svc.c03.n12628 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:36</code></td></tr><tr><td><code>VIO-68492n6896</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0046 outside its declared interface</td><td><code>svc.c09.models.T0046 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-68n8702</code></td><td>svc.c03.n8810 reaches svc.c09.models.T0233 outside its declared interface</td><td><code>svc.c09.models.T0233 · svc.c03.n8810</code></td><td><code>svc/c03/n8810.py:17</code></td></tr><tr><td><code>VIO-68n5428</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0211 outside its declared interface</td><td><code>svc.c09.models.T0211 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-6n4916</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0241</td><td><code>svc.c09.models.T0241 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-6n6601</code></td><td>svc.c03.n11769 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:60</code></td></tr><tr><td><code>VIO-6n5971</code></td><td>svc.c03.n7755 imports forbidden svc.c09.models.T0046</td><td><code>svc.c09.models.T0046 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-6n11690</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0033 outside its declared interface</td><td><code>svc.c09.models.T0033 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-6n0029</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0132 outside its declared interface</td><td><code>svc.c09.models.T0132 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-6n8082</code></td><td>svc.c03.n12628 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n12628 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n12628.py:37</code></td></tr><tr><td><code>VIO-6n2593</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-6n8594</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-73340n10251</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0325 outside its declared interface</td><td><code>svc.c09.models.T0325 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-748n0542</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n10455</td><td><code>svc.c09.n1502.n10455 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-74n7167</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0133</td><td><code>svc.c09.models.T0133 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-74n7168</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0211</td><td><code>svc.c09.models.T0211 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-76n10404</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0355</td><td><code>svc.c09.models.T0355 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-771n12029</code></td><td>svc.c03.n8718 imports forbidden svc.c10.n4698.T0138</td><td><code>svc.c10.n4698.T0138 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:26</code></td></tr><tr><td><code>VIO-78317n2316</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0241</td><td><code>svc.c09.models.T0241 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-7n1524</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n0251 outside its declared interface</td><td><code>svc.c09.n1502.n0251 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-7n14185</code></td><td>svc.c03.n7755 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-7n6440</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0033 outside its declared interface</td><td><code>svc.c09.models.T0033 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-7n3907</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n13448</td><td><code>svc.c09.n1502.n13448 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-7n10947</code></td><td>svc.c03.n7931 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:32</code></td></tr><tr><td><code>VIO-7n11123</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0412</td><td><code>svc.c09.models.T0412 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-7n5164</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-7n4957</code></td><td>svc.c03.n7755 reaches svc.c09.models.T0412 outside its declared interface</td><td><code>svc.c09.models.T0412 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-7n7190</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n7353 outside its declared interface</td><td><code>svc.c09.n1502.n7353 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-7n3517</code></td><td>svc.c03.n8718 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n8718 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n8718.py:58</code></td></tr><tr><td><code>VIO-7n10120</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n13553</td><td><code>svc.c09.n1502.n13553 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-84n11946</code></td><td>svc.c03.n8810 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n8810 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n8810.py:20</code></td></tr><tr><td><code>VIO-863n2477</code></td><td>svc.c03.n8810 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n8810</code></td><td><code>svc/c03/n8810.py:18</code></td></tr><tr><td><code>VIO-869n9367</code></td><td>svc.c03.n6474 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n6474 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n6474.py:10</code></td></tr><tr><td><code>VIO-87n9199</code></td><td>svc.c03.n7931 reaches svc.c09.models.T0233 outside its declared interface</td><td><code>svc.c09.models.T0233 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-891690n4942</code></td><td>svc.c03.n13548 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n13548 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n13548.py:39</code></td></tr><tr><td><code>VIO-8967n11961</code></td><td>svc.c03.n8718 imports forbidden svc.c11.n4164.T0314</td><td><code>svc.c03.n8718 · svc.c11.n4164.T0314</code></td><td><code>svc/c03/n8718.py:60</code></td></tr><tr><td><code>VIO-899n1160</code></td><td>svc.c03.n12628 imports forbidden svc.c09.n1502.n13553</td><td><code>svc.c09.n1502.n13553 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-8n13162</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n7353</td><td><code>svc.c09.n1502.n7353 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-8n3857</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0352</td><td><code>svc.c09.models.T0352 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-8n14424</code></td><td>svc.c13 reaches svc.c09.models.T0366 outside its declared interface</td><td><code>svc.c13 · svc.c09.models.T0366</code></td><td><code>svc/c13.py:14</code></td></tr><tr><td><code>VIO-8n5865</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0233 outside its declared interface</td><td><code>svc.c09.models.T0233 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-8n12461</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n10466</td><td><code>svc.c09.n1502.n10466 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-8n11817</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0033</td><td><code>svc.c09.models.T0033 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-8n13879</code></td><td>svc.c04.n9549 imports forbidden svc.shared.application.n6757.T0293</td><td><code>svc.c04.n9549 · svc.shared.application.n6757.T0293</code></td><td><code>svc/c04/n9549.py:24</code></td></tr><tr><td><code>VIO-8n13116</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0366</td><td><code>svc.c09.models.T0366 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-8n9506</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-90n11118</code></td><td>svc.c03.n7931 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n7931 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n7931.py:35</code></td></tr><tr><td><code>VIO-90n12831</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0198</td><td><code>svc.c09.models.T0198 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-923n13445</code></td><td>svc.c03.n7931 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-9241n5008</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0015</td><td><code>svc.c09.models.T0015 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-92n12958</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0355 outside its declared interface</td><td><code>svc.c09.models.T0355 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-92n1465</code></td><td>svc.c03.n7755 imports forbidden svc.c09.models.T0122</td><td><code>svc.c09.models.T0122 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-92n1873</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-93048n4545</code></td><td>svc.c03.n14091 imports forbidden svc.shared.application.n0071.T0182</td><td><code>svc.c03.n14091 · svc.shared.application.n0071.T0182</code></td><td><code>svc/c03/n14091.py:11</code></td></tr><tr><td><code>VIO-93n3538</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0179 outside its declared interface</td><td><code>svc.c09.models.T0179 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-942n3655</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0025</td><td><code>svc.c09.models.T0025 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-943n11612</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0233 outside its declared interface</td><td><code>svc.c09.models.T0233 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-9739n0881</code></td><td>svc.c03.n7755 reaches svc.c09.models.T0122 outside its declared interface</td><td><code>svc.c09.models.T0122 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-98843n2141</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0033</td><td><code>svc.c09.models.T0033 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-9970n5685</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0122 outside its declared interface</td><td><code>svc.c09.models.T0122 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-99n9916</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0015 outside its declared interface</td><td><code>svc.c09.models.T0015 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-99n6442</code></td><td>svc.c03.n14091 imports forbidden svc.shared.application.n6757.T0293</td><td><code>svc.c03.n14091 · svc.shared.application.n6757.T0293</code></td><td><code>svc/c03/n14091.py:10</code></td></tr><tr><td><code>VIO-9n10832</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n5784</td><td><code>svc.c09.n1502.n5784 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-9n12399</code></td><td>svc.c03.n2916 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n2916 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n2916.py:9</code></td></tr><tr><td><code>VIO-9n1981</code></td><td>svc.c03.n8810 reaches svc.c09.models.T0357 outside its declared interface</td><td><code>svc.c09.models.T0357 · svc.c03.n8810</code></td><td><code>svc/c03/n8810.py:17</code></td></tr><tr><td><code>VIO-9n13196</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0241 outside its declared interface</td><td><code>svc.c09.models.T0241 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-9n10526</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0366 outside its declared interface</td><td><code>svc.c09.models.T0366 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-n5596</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0325</td><td><code>svc.c09.models.T0325 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n9070</code></td><td>svc.shared is not owned by exactly one component</td><td><code>svc.shared</code></td><td><code>svc/shared/__init__.py:1</code></td></tr><tr><td><code>VIO-n8736</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0366</td><td><code>svc.c09.models.T0366 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-n4304</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0292</td><td><code>svc.c09.models.T0292 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n0040</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n1032</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0122</td><td><code>svc.c09.models.T0122 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n1926</code></td><td>svc.c03.n9874 imports forbidden svc.c09.models.T0366</td><td><code>svc.c09.models.T0366 · svc.c03.n9874</code></td><td><code>svc/c03/n9874.py:13</code></td></tr><tr><td><code>VIO-n0480</code></td><td>svc.c03.n7755 reaches svc.c09.models.T0003 outside its declared interface</td><td><code>svc.c09.models.T0003 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-n2450</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0198</td><td><code>svc.c09.models.T0198 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n9974</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n5784 outside its declared interface</td><td><code>svc.c09.n1502.n5784 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-n14096</code></td><td>svc.c03.n7931 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n7931 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n7931.py:34</code></td></tr><tr><td><code>VIO-n4811</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n0251 outside its declared interface</td><td><code>svc.c09.n1502.n0251 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-n6378</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n10466 outside its declared interface</td><td><code>svc.c09.n1502.n10466 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-n12654</code></td><td>svc.c03.n1563 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n1563 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n1563.py:41</code></td></tr><tr><td><code>VIO-n5664</code></td><td>svc.c03.n12628 reaches svc.c09.n1502.n13371 outside its declared interface</td><td><code>svc.c09.n1502.n13371 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-n8629</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n9144</td><td><code>svc.c09.n1502.n9144 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-n3739</code></td><td>svc.c03.n12628 reaches svc.c09.n1502.n8075 outside its declared interface</td><td><code>svc.c09.n1502.n8075 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-n12696</code></td><td>svc.c03.n10434 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n10434 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n10434.py:9</code></td></tr><tr><td><code>VIO-n4501</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0133 outside its declared interface</td><td><code>svc.c09.models.T0133 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n1647</code></td><td>svc.c03.n13548 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n13548 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n13548.py:40</code></td></tr><tr><td><code>VIO-n9468</code></td><td>svc.c03.n7931 imports forbidden svc.c09.models.T0241</td><td><code>svc.c09.models.T0241 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-n1606</code></td><td>svc.c03.n14091 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n14091 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n14091.py:13</code></td></tr><tr><td><code>VIO-n7067</code></td><td>svc.c03.n7931 imports forbidden svc.c09.models.T0289</td><td><code>svc.c09.models.T0289 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-n11664</code></td><td>svc.c03.n7755 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n7755 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n7755.py:47</code></td></tr><tr><td><code>VIO-n6326</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0233</td><td><code>svc.c09.models.T0233 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-n12363</code></td><td>svc.c03.n7755 imports forbidden svc.c09.models.T0003</td><td><code>svc.c09.models.T0003 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-n0255</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0122</td><td><code>svc.c09.models.T0122 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n0151</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0292</td><td><code>svc.c09.models.T0292 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n14606</code></td><td>svc.c03.n1563 imports forbidden svc.c09.n1502.n10455</td><td><code>svc.c09.n1502.n10455 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-n5645</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0352 outside its declared interface</td><td><code>svc.c09.models.T0352 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n12865</code></td><td>svc.c03.n7931 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:32</code></td></tr><tr><td><code>VIO-n2430</code></td><td>svc.c03.n8459 imports forbidden svc.c09.n1502.n10455</td><td><code>svc.c09.n1502.n10455 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n10600</code></td><td>svc.c03.n11769 imports forbidden svc.c09.n1502.n13956</td><td><code>svc.c09.n1502.n13956 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-n5325</code></td><td>svc.c03.n12628 imports forbidden svc.c09.n1502.n13371</td><td><code>svc.c09.n1502.n13371 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-n4901</code></td><td>svc.c03.n8810 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n8810</code></td><td><code>svc/c03/n8810.py:17</code></td></tr><tr><td><code>VIO-n6513</code></td><td>svc.c03.n8718 imports forbidden svc.c09.n9549.T0091</td><td><code>svc.c09.n9549.T0091 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:46</code></td></tr><tr><td><code>VIO-n8755</code></td><td>svc.c04.n9863 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c04.n9863 · svc.shared.c05.T0327</code></td><td><code>svc/c04/n9863.py:37</code></td></tr><tr><td><code>VIO-n1430</code></td><td>svc.c03.n8459 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:52</code></td></tr><tr><td><code>VIO-n11837</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0033 outside its declared interface</td><td><code>svc.c09.models.T0033 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n9539</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0355</td><td><code>svc.c09.models.T0355 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-n6546</code></td><td>svc.c03.n12628 imports forbidden svc.c09.n1502.n4378</td><td><code>svc.c09.n1502.n4378 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-n3510</code></td><td>svc.c03.n13548 imports forbidden svc.shared.application.n0071.T0182</td><td><code>svc.c03.n13548 · svc.shared.application.n0071.T0182</code></td><td><code>svc/c03/n13548.py:38</code></td></tr><tr><td><code>VIO-n8606</code></td><td>svc.c03.n12628 reaches svc.c09.n1502.n13553 outside its declared interface</td><td><code>svc.c09.n1502.n13553 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:17</code></td></tr><tr><td><code>VIO-n10647</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0391</td><td><code>svc.c09.models.T0391 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n13319</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0132</td><td><code>svc.c09.models.T0132 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n6850</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0325</td><td><code>svc.c09.models.T0325 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n10475</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0241 outside its declared interface</td><td><code>svc.c09.models.T0241 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n5271</code></td><td>svc.c03.n11769 imports forbidden svc.c09.n1502.n13448</td><td><code>svc.c09.n1502.n13448 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-n4523</code></td><td>svc.c03.n1563 reaches svc.c09.models.T0412 outside its declared interface</td><td><code>svc.c09.models.T0412 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-n9305</code></td><td>svc.c03.n7755 imports forbidden svc.c09.n1502.n0251</td><td><code>svc.c09.n1502.n0251 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-n8825</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n3390</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0416 outside its declared interface</td><td><code>svc.c09.models.T0416 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n8141</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0390</td><td><code>svc.c09.models.T0390 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n0790</code></td><td>svc.c03.n8459 reaches svc.c09.n1502.n4378 outside its declared interface</td><td><code>svc.c09.n1502.n4378 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n4345</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0233 outside its declared interface</td><td><code>svc.c09.models.T0233 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n9155</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0241 outside its declared interface</td><td><code>svc.c09.models.T0241 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n12528</code></td><td>svc.c03.n1563 imports forbidden svc.c09.n1502.n1935</td><td><code>svc.c09.n1502.n1935 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-n5910</code></td><td>svc.c03.n8459 imports forbidden svc.c09.n1502.n8191</td><td><code>svc.c09.n1502.n8191 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n1900</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0155 outside its declared interface</td><td><code>svc.c09.models.T0155 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n10575</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n12383 outside its declared interface</td><td><code>svc.c09.n1502.n12383 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-n4062</code></td><td>svc.c03.n8459 reaches svc.c09.n1502.n13553 outside its declared interface</td><td><code>svc.c09.n1502.n13553 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n3949</code></td><td>svc.c03.n8718 reaches svc.c09.models.T0198 outside its declared interface</td><td><code>svc.c09.models.T0198 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n6388</code></td><td>svc.c03.n1563 reaches svc.c09.n1502.n10455 outside its declared interface</td><td><code>svc.c09.n1502.n10455 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-n3429</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0211 outside its declared interface</td><td><code>svc.c09.models.T0211 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n7553</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0412 outside its declared interface</td><td><code>svc.c09.models.T0412 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n1189</code></td><td>svc.c03.n8718 imports forbidden svc.c09.n9549.T0304</td><td><code>svc.c09.n9549.T0304 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:46</code></td></tr><tr><td><code>VIO-n3565</code></td><td>svc.c03.n12628 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n12628 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n12628.py:38</code></td></tr><tr><td><code>VIO-n3801</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0046 outside its declared interface</td><td><code>svc.c09.models.T0046 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n11435</code></td><td>svc.main reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.main · svc.c09.n0071.T0117</code></td><td><code>svc/main.py:28</code></td></tr><tr><td><code>VIO-n13655</code></td><td>svc.c03.n11769 reaches svc.c09.n1502.n13956 outside its declared interface</td><td><code>svc.c09.n1502.n13956 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-n4236</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0205 outside its declared interface</td><td><code>svc.c09.models.T0205 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n12815</code></td><td>svc.c03.n2916 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n2916 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n2916.py:10</code></td></tr><tr><td><code>VIO-n13061</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0285 outside its declared interface</td><td><code>svc.c09.models.T0285 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n1570</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n13553 outside its declared interface</td><td><code>svc.c09.n1502.n13553 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-n10168</code></td><td>svc.c03.n11769 imports forbidden svc.shared.c05.T0327</td><td><code>svc.c03.n11769 · svc.shared.c05.T0327</code></td><td><code>svc/c03/n11769.py:62</code></td></tr><tr><td><code>VIO-n5503</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0122 outside its declared interface</td><td><code>svc.c09.models.T0122 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n3123</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0241</td><td><code>svc.c09.models.T0241 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-n8617</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n10455 outside its declared interface</td><td><code>svc.c09.n1502.n10455 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-n4460</code></td><td>svc.c03.n11769 imports forbidden svc.c09.n1502.n14402</td><td><code>svc.c09.n1502.n14402 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-n11222</code></td><td>svc.c03.n11769 reaches svc.c09.n1502.n14402 outside its declared interface</td><td><code>svc.c09.n1502.n14402 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-n1740</code></td><td>svc.c03.n7931 imports forbidden svc.c09.models.T0025</td><td><code>svc.c09.models.T0025 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-n12978</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0155</td><td><code>svc.c09.models.T0155 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n9260</code></td><td>svc.c03.n1563 reaches svc.c09.n1502.n10466 outside its declared interface</td><td><code>svc.c09.n1502.n10466 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-n10268</code></td><td>svc.c03.n7755 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n7755 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n7755.py:46</code></td></tr><tr><td><code>VIO-n0963</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0122</td><td><code>svc.c09.models.T0122 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n2152</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0025 outside its declared interface</td><td><code>svc.c09.models.T0025 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n11831</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0325 outside its declared interface</td><td><code>svc.c09.models.T0325 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n1767</code></td><td>svc.c03.n1563 imports forbidden svc.c09.n1502.n10466</td><td><code>svc.c09.n1502.n10466 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:24</code></td></tr><tr><td><code>VIO-n12212</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n9507 outside its declared interface</td><td><code>svc.c09.n1502.n9507 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-n7962</code></td><td>svc.c03.n8718 imports forbidden svc.c10.n6237.T0202</td><td><code>svc.c10.n6237.T0202 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:27</code></td></tr><tr><td><code>VIO-n1232</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0211 outside its declared interface</td><td><code>svc.c09.models.T0211 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n7692</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0366 outside its declared interface</td><td><code>svc.c09.models.T0366 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n6481</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0366</td><td><code>svc.c09.models.T0366 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n4302</code></td><td>svc.c03.n1563 imports forbidden svc.c09.models.T0412</td><td><code>svc.c09.models.T0412 · svc.c03.n1563</code></td><td><code>svc/c03/n1563.py:30</code></td></tr><tr><td><code>VIO-n12192</code></td><td>svc.c03.n11769 imports forbidden svc.c09.n1502.n9173</td><td><code>svc.c09.n1502.n9173 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-n14364</code></td><td>svc.c03.n8810 imports forbidden svc.shared.n12314.T0250</td><td><code>svc.c03.n8810 · svc.shared.n12314.T0250</code></td><td><code>svc/c03/n8810.py:19</code></td></tr><tr><td><code>VIO-n1001</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0046</td><td><code>svc.c09.models.T0046 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n2753</code></td><td>svc.c03.n7931 imports forbidden svc.c09.n1502.n1309</td><td><code>svc.c09.n1502.n1309 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:23</code></td></tr><tr><td><code>VIO-n13539</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0289</td><td><code>svc.c09.models.T0289 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n6958</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0033 outside its declared interface</td><td><code>svc.c09.models.T0033 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n13790</code></td><td>svc.c03.n8459 imports forbidden svc.c09.n1502.n13448</td><td><code>svc.c09.n1502.n13448 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n9009</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0211</td><td><code>svc.c09.models.T0211 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n3925</code></td><td>svc.c03.n7755 reaches svc.c09.n1502.n10466 outside its declared interface</td><td><code>svc.c09.n1502.n10466 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:26</code></td></tr><tr><td><code>VIO-n6692</code></td><td>svc.c03.n8459 imports forbidden svc.c09.n1502.n4378</td><td><code>svc.c09.n1502.n4378 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n0526</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0122</td><td><code>svc.c09.models.T0122 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n14197</code></td><td>svc.c03.n12628 imports forbidden svc.c09.models.T0132</td><td><code>svc.c09.models.T0132 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n8362</code></td><td>svc.c03.n8459 imports forbidden svc.c09.n0071.T0117</td><td><code>svc.c09.n0071.T0117 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:52</code></td></tr><tr><td><code>VIO-n4271</code></td><td>svc.c03.n7931 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-n2836</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n12383</td><td><code>svc.c09.n1502.n12383 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-n3553</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0122 outside its declared interface</td><td><code>svc.c09.models.T0122 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n8815</code></td><td>svc.c03.n11769 reaches svc.c09.models.T0390 outside its declared interface</td><td><code>svc.c09.models.T0390 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n7970</code></td><td>svc.c03.n8543 reaches svc.c09.n1502.n13448 outside its declared interface</td><td><code>svc.c09.n1502.n13448 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-n12020</code></td><td>svc.c03.n8718 imports forbidden svc.c10.n6237.T0264</td><td><code>svc.c10.n6237.T0264 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:27</code></td></tr><tr><td><code>VIO-n10368</code></td><td>svc.c03.n11769 imports forbidden svc.c09.n1502.n12383</td><td><code>svc.c09.n1502.n12383 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:33</code></td></tr><tr><td><code>VIO-n8613</code></td><td>svc.c03.n8459 imports forbidden svc.c09.models.T0033</td><td><code>svc.c09.models.T0033 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n9266</code></td><td>svc.c03.n8459 reaches svc.c09.n1502.n5784 outside its declared interface</td><td><code>svc.c09.n1502.n5784 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n9390</code></td><td>svc.c03.n8718 imports forbidden svc.c09.n9549.T0123</td><td><code>svc.c09.n9549.T0123 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:46</code></td></tr><tr><td><code>VIO-n0449</code></td><td>svc.c03.n7931 reaches svc.c09.models.T0241 outside its declared interface</td><td><code>svc.c09.models.T0241 · svc.c03.n7931</code></td><td><code>svc/c03/n7931.py:24</code></td></tr><tr><td><code>VIO-n9999</code></td><td>svc.c03.n7755 imports forbidden svc.c09.models.T0357</td><td><code>svc.c09.models.T0357 · svc.c03.n7755</code></td><td><code>svc/c03/n7755.py:36</code></td></tr><tr><td><code>VIO-n6039</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0352</td><td><code>svc.c09.models.T0352 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n2248</code></td><td>svc.c03.n8459 reaches svc.c09.models.T0292 outside its declared interface</td><td><code>svc.c09.models.T0292 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:40</code></td></tr><tr><td><code>VIO-n2596</code></td><td>svc.c03.n8543 imports forbidden svc.c09.n1502.n9571</td><td><code>svc.c09.n1502.n9571 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:37</code></td></tr><tr><td><code>VIO-n10677</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0155 outside its declared interface</td><td><code>svc.c09.models.T0155 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n14439</code></td><td>svc.c03.n1563 imports forbidden svc.shared.errors.T0061</td><td><code>svc.c03.n1563 · svc.shared.errors.T0061</code></td><td><code>svc/c03/n1563.py:43</code></td></tr><tr><td><code>VIO-n2826</code></td><td>svc.c12 reaches svc.c03.n9874.K0077 outside its declared interface</td><td><code>svc.c03.n9874.K0077 · svc.c12</code></td><td><code>svc/c12.py:17</code></td></tr><tr><td><code>VIO-n3020</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0211 outside its declared interface</td><td><code>svc.c09.models.T0211 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n11286</code></td><td>svc.c03.n8718 imports forbidden svc.c09.models.T0211</td><td><code>svc.c09.models.T0211 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:28</code></td></tr><tr><td><code>VIO-n6194</code></td><td>svc.c03.n11769 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:60</code></td></tr><tr><td><code>VIO-n3024</code></td><td>svc.c03.n8543 reaches svc.c09.models.T0033 outside its declared interface</td><td><code>svc.c09.models.T0033 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n3819</code></td><td>svc.c03.n8459 imports forbidden svc.c09.n1502.n5784</td><td><code>svc.c09.n1502.n5784 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr><tr><td><code>VIO-n11605</code></td><td>svc.c03.n11769 imports forbidden svc.c09.models.T0132</td><td><code>svc.c09.models.T0132 · svc.c03.n11769</code></td><td><code>svc/c03/n11769.py:40</code></td></tr><tr><td><code>VIO-n11029</code></td><td>svc.c03.n8543 imports forbidden svc.c09.models.T0033</td><td><code>svc.c09.models.T0033 · svc.c03.n8543</code></td><td><code>svc/c03/n8543.py:50</code></td></tr><tr><td><code>VIO-n2169</code></td><td>svc.c03.n8718 reaches svc.c09.n0071.T0117 outside its declared interface</td><td><code>svc.c09.n0071.T0117 · svc.c03.n8718</code></td><td><code>svc/c03/n8718.py:53</code></td></tr><tr><td><code>VIO-n13017</code></td><td>svc.c03.n12628 reaches svc.c09.models.T0366 outside its declared interface</td><td><code>svc.c09.models.T0366 · svc.c03.n12628</code></td><td><code>svc/c03/n12628.py:25</code></td></tr><tr><td><code>VIO-n4193</code></td><td>svc.c03.n8459 reaches svc.c09.n1502.n10455 outside its declared interface</td><td><code>svc.c09.n1502.n10455 · svc.c03.n8459</code></td><td><code>svc/c03/n8459.py:32</code></td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    
+    <section class="report-section flow-section" aria-labelledby="flow-heading">
+      <h2 id="flow-heading">Component flow</h2>
+      <p>Component cards and the observed edges between them, weighted by import sites.
+        Dashed red edges break a declared rule; the label names the rule id. This view needs
+        JavaScript; the table below lists the same crossings for print and no-script use.</p>
+      <div id="flow" class="flow">
+        <div class="flow-toolbar">
+          <label for="flow-threshold-input">Hide edges below
+            <output id="flow-threshold-value" class="flow-threshold-value">≥ 0 import sites</output>
+          </label>
+          <input id="flow-threshold-input" class="flow-threshold" type="range" min="0" value="0">
+          <button type="button" class="flow-fit">Fit</button>
+        </div>
+        <div class="flow-canvas">
+          <svg class="flow-graph" role="group" aria-label="Component flow diagram">
+            <g class="flow-viewport">
+              <g class="flow-edges"></g>
+              <g class="flow-chips"></g>
+              <g class="flow-nodes"></g>
+              <g class="flow-empty"></g>
+            </g>
+          </svg>
+          <aside class="flow-inspector" aria-label="Selection details"></aside>
+        </div>
+        <div class="flow-legend" aria-label="Legend"></div>
+      </div>
+      <script id="flow-data" type="application/json">{"components":[{"label":"c01","modules":["svc.config","svc.main"],"public":["svc.config"]},{"label":"c02","modules":["svc.c02","svc.c02.dependencies","svc.c02.n10732","svc.c02.n10732.n0417","svc.c02.n10732.n13019","svc.c02.n10732.n14261","svc.c02.n10732.n5807","svc.c02.n10732.n6675","svc.c02.n10732.n7680","svc.c02.n14531","svc.c02.n1502"],"public":["svc.c02.dependencies","svc.c02.n10732.n0417","svc.c02.n10732.n5807","svc.c02.n10732.n7680","svc.c02.n10732.n13019","svc.c02.n10732.n14261","svc.c02.n10732.n6675"]},{"label":"c03","modules":["svc.c03","svc.c03.baseline","svc.c03.n10434","svc.c03.n11088","svc.c03.n11769","svc.c03.n12628","svc.c03.n13521","svc.c03.n13548","svc.c03.n14091","svc.c03.n1563","svc.c03.n2916","svc.c03.n6474","svc.c03.n7755","svc.c03.n7931","svc.c03.n8459","svc.c03.n8543","svc.c03.n8718","svc.c03.n8810","svc.c03.n9874"],"public":["svc.c03.n2916:T0389","svc.c03.n2916:T0326","svc.c03.n7755:T0180","svc.c03.n12628:T0351","svc.c03.n8543:T0406","svc.c03.n7931:T0237","svc.c03.n8459:T0004","svc.c03.n1563:T0192","svc.c03.n11769:T0378","svc.c03.n8718:T0359","svc.c03.n9874:T0118","svc.c03.n8810:T0385"]},{"label":"c04","modules":["svc.c04","svc.c04.n3795","svc.c04.n9549","svc.c04.n9863"],"public":["svc.c04","svc.c04.n9863","svc.c04.n3795","svc.c04.n9549"]},{"label":"c05","modules":["svc.c05","svc.c05.models","svc.c05.n11064","svc.c05.n11944"],"public":["svc.c05","svc.c05.n11064","svc.c05.n11944"]},{"label":"c06","modules":["svc.shared.c05","svc.shared.errors","svc.shared.n12314"],"public":["svc.shared.n12314","svc.shared.c05:T0327","svc.shared.errors"]},{"label":"c07","modules":["svc.shared.application","svc.shared.application.n0071","svc.shared.application.n6757"],"public":["svc.shared.application.n6757","svc.shared.application.n0071"]},{"label":"c08","modules":["svc.shared.n9067","svc.shared.n9067.n12314"],"public":["svc.shared.n9067.n12314"]},{"label":"c09","modules":["svc.c09","svc.c09.models","svc.c09.n0071","svc.c09.n1502","svc.c09.n9549"],"public":["svc.c09.n9549"]},{"label":"c10","modules":["svc.c10","svc.c10.n4698","svc.c10.n6237"],"public":["svc.c10.n4698","svc.c10.n6237"]},{"label":"c11","modules":["svc.c11","svc.c11.n4164"],"public":["svc.c11.n4164"]},{"label":"c12","modules":["svc.c12","svc.n0951","svc.n0951.handlers","svc.n0951.models","svc.n0951.n2486","svc.n0951.n7110"],"public":["svc.c12"]},{"label":"c13","modules":["svc.c13"],"public":null}],"edges":[{"import_sites":9,"names":[{"kind":"constant","name":"svc.c02.dependencies","params":[],"returns":""},{"kind":"dataclass","name":"svc.c02.dependencies:T0330","params":[],"returns":""},{"kind":"function","name":"svc.c02.dependencies:n3142","params":["n9125: Annotated[str, T0312(alias='K0030-T0258-ID', n5839=1)]","n11017: Annotated[T0001, T0312(alias='K0030-T0001')]"],"returns":"T0330"},{"kind":"constant","name":"svc.c02.n10732.n0417","params":[],"returns":""},{"kind":"constant","name":"svc.c02.n10732.n13019","params":[],"returns":""},{"kind":"constant","name":"svc.c02.n10732.n14261","params":[],"returns":""},{"kind":"constant","name":"svc.c02.n10732.n5807","params":[],"returns":""},{"kind":"constant","name":"svc.c02.n10732.n6675","params":[],"returns":""},{"kind":"constant","name":"svc.c02.n10732.n7680","params":[],"returns":""}],"rule_ids":[],"source":"c01","state":"conforms","target":"c02"},{"import_sites":11,"names":[{"kind":"class","name":"svc.c03.n11769:T0378","params":[],"returns":""},{"kind":"class","name":"svc.c03.n12628:T0351","params":[],"returns":""},{"kind":"class","name":"svc.c03.n1563:T0192","params":[],"returns":""},{"kind":"class","name":"svc.c03.n2916:T0326","params":[],"returns":""},{"kind":"class","name":"svc.c03.n2916:T0389","params":[],"returns":""},{"kind":"class","name":"svc.c03.n7755:T0180","params":[],"returns":""},{"kind":"class","name":"svc.c03.n7931:T0237","params":[],"returns":""},{"kind":"class","name":"svc.c03.n8459:T0004","params":[],"returns":""},{"kind":"class","name":"svc.c03.n8543:T0406","params":[],"returns":""},{"kind":"class","name":"svc.c03.n8810:T0385","params":[],"returns":""},{"kind":"class","name":"svc.c03.n9874:T0118","params":[],"returns":""}],"rule_ids":[],"source":"c01","state":"conforms","target":"c03"},{"import_sites":1,"names":[{"kind":"class","name":"svc.shared.errors:T0061","params":[],"returns":""}],"rule_ids":[],"source":"c01","state":"conforms","target":"c06"},{"import_sites":1,"names":[{"kind":"class","name":"svc.shared.n9067.n12314:T0381","params":[],"returns":""}],"rule_ids":[],"source":"c01","state":"conforms","target":"c08"},{"import_sites":9,"names":[{"kind":"class","name":"svc.c09.n0071:T0117","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0032","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0058","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0077","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0088","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0091","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0123","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0254","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0304","params":[],"returns":""}],"rule_ids":["INTERFACE-BOUNDARY"],"source":"c01","state":"violation","target":"c09"},{"import_sites":7,"names":[{"kind":"class","name":"svc.c03.n2916:T0326","params":[],"returns":""},{"kind":"class","name":"svc.c03.n2916:T0389","params":[],"returns":""},{"kind":"class","name":"svc.c03.n8543:T0406","params":[],"returns":""},{"kind":"class","name":"svc.c03.n9874:T0118","params":[],"returns":""}],"rule_ids":[],"source":"c02","state":"conforms","target":"c03"},{"import_sites":34,"names":[{"kind":"protocol","name":"svc.c04.n9549:T0115","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0263","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0275","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0297","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0397","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0409","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0047","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0103","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0108","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0150","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0151","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0203","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0238","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0247","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0256","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0257","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0262","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0267","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0278","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0303","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0308","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9863:T0323","params":[],"returns":""}],"rule_ids":[],"source":"c02","state":"conforms","target":"c04"},{"import_sites":43,"names":[{"kind":"enum","name":"svc.c05.n11064:T0001","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0013","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0073","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0074","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0075","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0104","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0114","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0185","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0219","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0224","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0242","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0294","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0318","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0334","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0343","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0368","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0018","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0029","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0070","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0079","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0163","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0171","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0194","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0209","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0210","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0215","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0271","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0273","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0348","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0399","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0418","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0419","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0422","params":[],"returns":""}],"rule_ids":[],"source":"c02","state":"conforms","target":"c05"},{"import_sites":4,"names":[{"kind":"constant","name":"svc.shared.c05:T0327","params":[],"returns":""},{"kind":"class","name":"svc.shared.errors:T0061","params":[],"returns":""}],"rule_ids":[],"source":"c02","state":"conforms","target":"c06"},{"import_sites":33,"names":[{"kind":"dataclass","name":"svc.c04.n3795:T0069","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n3795:T0084","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n3795:T0090","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n3795:T0137","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n3795:T0164","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n3795:T0244","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n3795:T0384","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0106","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0112","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0275","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0297","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0299","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0397","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n9549:T0409","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0020","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0047","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0103","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0108","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0203","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0238","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0247","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0267","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0278","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n9863:T0345","params":[],"returns":""}],"rule_ids":[],"source":"c03","state":"conforms","target":"c04"},{"import_sites":123,"names":[{"kind":"enum","name":"svc.c05.n11064:T0001","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0013","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0073","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0074","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0075","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0104","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0114","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0185","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0219","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0224","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0242","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0294","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0318","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0334","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0343","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0368","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0379","params":[],"returns":""},{"kind":"function","name":"svc.c05.n11944:n10157","params":["n14048: n0805","n1016: T0219","n4833: T0269"],"returns":"tuple[datetime, datetime]"},{"kind":"function","name":"svc.c05.n11944:n14329","params":["current: T0224","target: T0224"],"returns":"T0224"},{"kind":"function","name":"svc.c05.n11944:n9553","params":["current: T0075","target: T0075"],"returns":"T0075"},{"kind":"dataclass","name":"svc.c05:T0018","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0029","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0070","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0074","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0079","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0114","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0158","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0163","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0169","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0171","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0185","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0194","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0209","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0210","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0215","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0258","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0271","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0273","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0276","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0294","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0318","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0348","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0399","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0418","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0422","params":[],"returns":""}],"rule_ids":[],"source":"c03","state":"conforms","target":"c05"},{"import_sites":33,"names":[{"kind":"constant","name":"svc.shared.c05:T0327","params":[],"returns":""},{"kind":"class","name":"svc.shared.errors:T0061","params":[],"returns":""},{"kind":"protocol","name":"svc.shared.n12314:T0250","params":[],"returns":""}],"rule_ids":["DEP-C03-NO-C06"],"source":"c03","state":"violation","target":"c06"},{"import_sites":3,"names":[{"kind":"protocol","name":"svc.shared.application.n0071:T0182","params":[],"returns":""},{"kind":"dataclass","name":"svc.shared.application.n6757:T0293","params":[],"returns":""}],"rule_ids":["DEP-C03-NO-C07"],"source":"c03","state":"violation","target":"c07"},{"import_sites":148,"names":[{"kind":"class","name":"svc.c09.models:T0003","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0015","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0025","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0033","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0046","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0122","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0132","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0133","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0155","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0179","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0198","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0205","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0211","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0233","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0241","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0285","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0289","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0292","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0325","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0352","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0355","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0357","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0366","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0390","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0391","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0412","params":[],"returns":""},{"kind":"class","name":"svc.c09.models:T0416","params":[],"returns":""},{"kind":"class","name":"svc.c09.n0071:T0117","params":[],"returns":""},{"kind":"function","name":"svc.c09.n1502:n0251","params":["model: T0412"],"returns":"T0348"},{"kind":"function","name":"svc.c09.n1502:n10455","params":["model: T0241"],"returns":"T0210"},{"kind":"function","name":"svc.c09.n1502:n10466","params":["model: T0046"],"returns":"T0209"},{"kind":"function","name":"svc.c09.n1502:n12330","params":["value: T0399"],"returns":"T0033"},{"kind":"function","name":"svc.c09.n1502:n12383","params":["model: T0211"],"returns":"T0271"},{"kind":"function","name":"svc.c09.n1502:n1309","params":["value: T0025"],"returns":"T0276"},{"kind":"function","name":"svc.c09.n1502:n13371","params":["model: T0155"],"returns":"T0174"},{"kind":"function","name":"svc.c09.n1502:n13448","params":["model: T0357"],"returns":"T0215"},{"kind":"function","name":"svc.c09.n1502:n13553","params":["model: T0122"],"returns":"T0422"},{"kind":"function","name":"svc.c09.n1502:n13956","params":["value: T0158"],"returns":"T0325"},{"kind":"function","name":"svc.c09.n1502:n14402","params":["model: T0352"],"returns":"T0070"},{"kind":"function","name":"svc.c09.n1502:n1935","params":["value: T0163"],"returns":"T0355"},{"kind":"function","name":"svc.c09.n1502:n2299","params":["value: T0210"],"returns":"T0241"},{"kind":"function","name":"svc.c09.n1502:n4378","params":["model: T0033"],"returns":"T0399"},{"kind":"function","name":"svc.c09.n1502:n5784","params":["model: T0355"],"returns":"T0163"},{"kind":"function","name":"svc.c09.n1502:n7353","params":["model: T0198","n10838: Sequence[Any]"],"returns":"T0171"},{"kind":"function","name":"svc.c09.n1502:n8075","params":["model: T0132"],"returns":"T0190"},{"kind":"function","name":"svc.c09.n1502:n8191","params":["model: T0292"],"returns":"T0419"},{"kind":"function","name":"svc.c09.n1502:n9144","params":["value: T0209"],"returns":"T0046"},{"kind":"function","name":"svc.c09.n1502:n9173","params":["model: T0416"],"returns":"T0273"},{"kind":"function","name":"svc.c09.n1502:n9507","params":["model: T0325"],"returns":"T0158"},{"kind":"function","name":"svc.c09.n1502:n9571","params":["model: T0391"],"returns":"T0029"},{"kind":"class","name":"svc.c09.n9549:T0077","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0091","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0123","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0254","params":[],"returns":""},{"kind":"class","name":"svc.c09.n9549:T0304","params":[],"returns":""}],"rule_ids":["DEP-C03-NO-C09","INTERFACE-BOUNDARY"],"source":"c03","state":"violation","target":"c09"},{"import_sites":3,"names":[{"kind":"class","name":"svc.c10.n4698:T0138","params":[],"returns":""},{"kind":"class","name":"svc.c10.n6237:T0202","params":[],"returns":""},{"kind":"class","name":"svc.c10.n6237:T0264","params":[],"returns":""}],"rule_ids":["DEP-C03-NO-C10"],"source":"c03","state":"violation","target":"c10"},{"import_sites":1,"names":[{"kind":"class","name":"svc.c11.n4164:T0314","params":[],"returns":""}],"rule_ids":["DEP-C03-NO-C11"],"source":"c03","state":"violation","target":"c11"},{"import_sites":44,"names":[{"kind":"enum","name":"svc.c05.n11064:T0013","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0073","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0075","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0219","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0343","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0379","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0018","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0029","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0070","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0074","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0158","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0163","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0169","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0171","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0174","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0190","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0209","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0210","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0215","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0258","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0271","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0273","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0276","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0294","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0348","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0399","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0405","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0418","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0419","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0422","params":[],"returns":""}],"rule_ids":[],"source":"c04","state":"conforms","target":"c05"},{"import_sites":3,"names":[{"kind":"constant","name":"svc.shared.c05:T0327","params":[],"returns":""}],"rule_ids":["DEP-C04-NO-C06"],"source":"c04","state":"violation","target":"c06"},{"import_sites":1,"names":[{"kind":"dataclass","name":"svc.shared.application.n6757:T0293","params":[],"returns":""}],"rule_ids":["DEP-C04-NO-C07"],"source":"c04","state":"violation","target":"c07"},{"import_sites":2,"names":[{"kind":"constant","name":"svc.shared.c05:T0327","params":[],"returns":""}],"rule_ids":[],"source":"c07","state":"conforms","target":"c06"},{"import_sites":57,"names":[{"kind":"enum","name":"svc.c05.n11064:T0001","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0013","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0074","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0075","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0104","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0114","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0185","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0219","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0224","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0242","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0294","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0318","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0334","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0343","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0368","params":[],"returns":""},{"kind":"enum","name":"svc.c05.n11064:T0379","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0018","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0029","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0070","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0079","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0158","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0163","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0171","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0174","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0175","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0190","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0194","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0195","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0209","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0210","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0215","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0271","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0273","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0276","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0287","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0315","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0348","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0399","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0405","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0418","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0419","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0422","params":[],"returns":""}],"rule_ids":[],"source":"c09","state":"conforms","target":"c05"},{"import_sites":4,"names":[{"kind":"constant","name":"svc.shared.c05:T0327","params":[],"returns":""},{"kind":"class","name":"svc.shared.errors:T0061","params":[],"returns":""},{"kind":"protocol","name":"svc.shared.n12314:T0250","params":[],"returns":""}],"rule_ids":[],"source":"c09","state":"conforms","target":"c06"},{"import_sites":3,"names":[{"kind":"dataclass","name":"svc.shared.application.n6757:T0293","params":[],"returns":""}],"rule_ids":[],"source":"c09","state":"conforms","target":"c07"},{"import_sites":3,"names":[{"kind":"dataclass","name":"svc.c04.n3795:T0069","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n3795:T0244","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n3795:T0384","params":[],"returns":""}],"rule_ids":[],"source":"c10","state":"conforms","target":"c04"},{"import_sites":7,"names":[{"kind":"dataclass","name":"svc.c05:T0018","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0169","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0171","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0271","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0399","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0422","params":[],"returns":""}],"rule_ids":[],"source":"c10","state":"conforms","target":"c05"},{"import_sites":1,"names":[{"kind":"constant","name":"svc.shared.c05:T0327","params":[],"returns":""}],"rule_ids":[],"source":"c10","state":"conforms","target":"c06"},{"import_sites":4,"names":[{"kind":"dataclass","name":"svc.c04.n3795:T0164","params":[],"returns":""},{"kind":"protocol","name":"svc.c04.n3795:T0244","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n3795:T0338","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n3795:T0384","params":[],"returns":""}],"rule_ids":[],"source":"c11","state":"conforms","target":"c04"},{"import_sites":3,"names":[{"kind":"enum","name":"svc.c05:T0185","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0215","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0271","params":[],"returns":""}],"rule_ids":[],"source":"c11","state":"conforms","target":"c05"},{"import_sites":1,"names":[{"kind":"class","name":"svc.config:T0184","params":[],"returns":""}],"rule_ids":[],"source":"c12","state":"conforms","target":"c01"},{"import_sites":3,"names":[{"kind":"class","name":"svc.c03.n8718:T0359","params":[],"returns":""},{"kind":"constant","name":"svc.c03.n9874:K0077","params":[],"returns":""},{"kind":"constant","name":"svc.c03.n9874:K0103","params":[],"returns":""}],"rule_ids":["INTERFACE-BOUNDARY"],"source":"c12","state":"violation","target":"c03"},{"import_sites":4,"names":[{"kind":"dataclass","name":"svc.c04.n3795:T0086","params":[],"returns":""},{"kind":"dataclass","name":"svc.c04.n3795:T0396","params":[],"returns":""},{"kind":"protocol","name":"svc.c04:T0106","params":[],"returns":""},{"kind":"protocol","name":"svc.c04:T0134","params":[],"returns":""}],"rule_ids":[],"source":"c12","state":"conforms","target":"c04"},{"import_sites":5,"names":[{"kind":"enum","name":"svc.c05.n11064:T0074","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0029","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0114","params":[],"returns":""},{"kind":"enum","name":"svc.c05:T0379","params":[],"returns":""},{"kind":"dataclass","name":"svc.c05:T0405","params":[],"returns":""}],"rule_ids":[],"source":"c12","state":"conforms","target":"c05"},{"import_sites":4,"names":[{"kind":"constant","name":"svc.shared.c05:T0327","params":[],"returns":""}],"rule_ids":[],"source":"c12","state":"conforms","target":"c06"},{"import_sites":1,"names":[{"kind":"class","name":"svc.shared.n9067.n12314:T0381","params":[],"returns":""}],"rule_ids":[],"source":"c12","state":"conforms","target":"c08"},{"import_sites":1,"names":[{"kind":"class","name":"svc.config:T0184","params":[],"returns":""}],"rule_ids":[],"source":"c13","state":"conforms","target":"c01"},{"import_sites":2,"names":[{"kind":"constant","name":"svc.c03.n9874:K0054","params":[],"returns":""},{"kind":"constant","name":"svc.c03.n9874:K0103","params":[],"returns":""}],"rule_ids":["INTERFACE-BOUNDARY"],"source":"c13","state":"violation","target":"c03"},{"import_sites":1,"names":[{"kind":"class","name":"svc.shared.n9067.n12314:T0381","params":[],"returns":""}],"rule_ids":[],"source":"c13","state":"conforms","target":"c08"},{"import_sites":1,"names":[{"kind":"class","name":"svc.c09.models:T0366","params":[],"returns":""}],"rule_ids":["INTERFACE-BOUNDARY"],"source":"c13","state":"violation","target":"c09"},{"import_sites":2,"names":[{"kind":"function","name":"svc.c12:n13475","params":["payload: str"],"returns":"dict[str, object]"},{"kind":"constant","name":"svc.c12:n14360","params":[],"returns":""}],"rule_ids":[],"source":"c13","state":"conforms","target":"c12"}]}</script>
+      <script>"use strict";
+// AD-10: component flow view. No external library, no CDN, no Math.random/Date/timers -
+// every run over the same embedded data produces the same layout.
+(function () {
+  const root = document.getElementById("flow");
+  const dataNode = document.getElementById("flow-data");
+  if (!root || !dataNode) return;
+  const DATA = JSON.parse(dataNode.textContent);
+  const CARD = { w: 200, h: 92 };
+  const GAP = 34;
+  const ROW_GAP = 150;
+  const PER_ROW = 6;
+  const ROW_STEP = CARD.h + ROW_GAP;
+  const LANE_GAP = 11;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // The one place an EdgeState maps to a human label. Edge and chip elements already take their
+  // color and dash pattern from the CSS class `edge ${state}` / `chip ${state}` (see
+  // archkeel-report.css), so the legend swatches below reuse those same classes instead of a
+  // second, hand-written color/dash list.
+  const EDGE_STATES = [
+    { id: "conforms", label: "Conforms to the contract" },
+    { id: "violation", label: "Violation" },
+    { id: "undecided", label: "Undecided" },
+  ];
+
+  const svg = root.querySelector(".flow-graph");
+  const viewport = root.querySelector(".flow-viewport");
+  const edgeLayer = viewport.querySelector(".flow-edges");
+  const chipLayer = viewport.querySelector(".flow-chips");
+  const nodeLayer = viewport.querySelector(".flow-nodes");
+  const emptyLayer = viewport.querySelector(".flow-empty");
+  const inspector = root.querySelector(".flow-inspector");
+  const legend = root.querySelector(".flow-legend");
+  const thresholdInput = root.querySelector(".flow-threshold");
+  const thresholdValue = root.querySelector(".flow-threshold-value");
+  const fitButton = root.querySelector(".flow-fit");
+
+  // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
+  // already-captured element); the drag/pan state machine below tolerates that silently.
+  function capturePointer(target, event) {
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      /* best-effort; pointermove/pointerup still drive the drag or pan via bubbling */
+    }
+  }
+
+  const esc = (value) =>
+    String(value).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+  function el(tag, attrs, ...children) {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const key in attrs) node.setAttribute(key, attrs[key]);
+    children.forEach((child) => node.appendChild(child));
+    return node;
+  }
+
+  function groupBy(items, keyOf) {
+    const groups = new Map();
+    items.forEach((item) => {
+      const key = keyOf(item);
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(item);
+      else groups.set(key, [item]);
+    });
+    return groups;
+  }
+
+  const componentByLabel = new Map(DATA.components.map((c) => [c.label, c]));
+  const edgeKey = (e) => `${e.source}>${e.target}`;
+  let positions = {};
+  let selected = null;
+  let transform = { x: 0, y: 0, k: 1 };
+
+  function computeRanks() {
+    const rank = new Map(DATA.components.map((c) => [c.label, 0]));
+    // Violated edges are excluded: a declared-rule violation is exactly the evidence that the
+    // pair should not be read as forward architectural flow, so it must not drive layer depth.
+    const forward = DATA.edges.filter((e) => e.state !== "violation");
+    for (let pass = 0; pass < DATA.components.length; pass += 1) {
+      forward.forEach((e) => {
+        rank.set(e.target, Math.max(rank.get(e.target), rank.get(e.source) + 1));
+      });
+    }
+    return rank;
+  }
+
+  function layout() {
+    const rank = computeRanks();
+    const byRank = groupBy(DATA.components, (c) => rank.get(c.label));
+    const ranks = [...byRank.keys()].sort((a, b) => a - b);
+    const next = {};
+    let row = 0;
+    ranks.forEach((r) => {
+      const members = byRank.get(r).map((c) => c.label).sort();
+      for (let start = 0; start < members.length; start += PER_ROW) {
+        const chunk = members.slice(start, start + PER_ROW);
+        const total = chunk.length * CARD.w + (chunk.length - 1) * GAP;
+        chunk.forEach((label, index) => {
+          if (!positions[label]) {
+            next[label] = { x: index * (CARD.w + GAP) - total / 2, y: row * ROW_STEP };
+          }
+        });
+        row += 1;
+      }
+    });
+    positions = { ...next, ...positions };
+    return row;
+  }
+
+  function portX(node, index, count) {
+    const inset = 24;
+    const span = CARD.w - 2 * inset;
+    const at = count === 1 ? span / 2 : (span * index) / (count - 1);
+    return positions[node].x + inset + at;
+  }
+
+  // Lane bucketing (AD-10 revision): every edge between the same two rows used to bend at the
+  // exact same horizontal line, so parallel crossings piled into one unreadable band. Each edge
+  // now gets its own bend line, offset by its position within that row-pair's lane.
+  function laneKey(edge) {
+    return `${positions[edge.source].y}:${positions[edge.target].y}`;
+  }
+
+  function laneOffsetFor(edge, lanes) {
+    const lane = lanes.get(laneKey(edge));
+    const index = lane.indexOf(edge);
+    return (index - (lane.length - 1) / 2) * LANE_GAP;
+  }
+
+  function routeFor(edge, outIndex, inIndex, outCount, inCount, laneOffset) {
+    const sx = portX(edge.source, outIndex, outCount);
+    const tx = portX(edge.target, inIndex, inCount);
+    const sPos = positions[edge.source];
+    const tPos = positions[edge.target];
+    const sameRow = sPos.y === tPos.y;
+    const upward = tPos.y < sPos.y;
+    if (sameRow) {
+      const sy = sPos.y + CARD.h;
+      const drop = sy + 56 + Math.abs(laneOffset) + (laneOffset < 0 ? LANE_GAP / 2 : 0);
+      const dir = Math.sign(tx - sx) || 1;
+      return {
+        d: `M${sx},${sy} V${drop - 8} Q${sx},${drop} ${sx + dir * 8},${drop} H${tx - dir * 8} Q${tx},${drop} ${tx},${drop - 8} V${sy + 6}`,
+        mid: [(sx + tx) / 2, drop],
+      };
+    }
+    const sy = upward ? sPos.y : sPos.y + CARD.h;
+    const ty = upward ? tPos.y + CARD.h : tPos.y;
+    const my = (sy + ty) / 2 + laneOffset;
+    const dir = Math.sign(tx - sx);
+    const vdir = Math.sign(ty - sy) || 1;
+    const r = Math.min(10, Math.abs(tx - sx) / 2);
+    const end = ty - vdir * 6;
+    const d =
+      dir === 0
+        ? `M${sx},${sy} V${end}`
+        : `M${sx},${sy} V${my - vdir * r} Q${sx},${my} ${sx + dir * r},${my} H${tx - dir * r} Q${tx},${my} ${tx},${my + vdir * r} V${end}`;
+    return { d, mid: [(sx + tx) / 2, my] };
+  }
+
+  function weight(edge) {
+    return edge.import_sites;
+  }
+
+  function visibleEdges() {
+    const threshold = Number(thresholdInput.value || 0);
+    return DATA.edges.filter((e) => e.state === "violation" || weight(e) >= threshold);
+  }
+
+  function related(edge) {
+    if (!selected) return true;
+    if (selected.type === "node") return edge.source === selected.label || edge.target === selected.label;
+    return edgeKey(edge) === selected.key;
+  }
+
+  function relatedToSelection(label) {
+    if (!selected) return true;
+    if (selected.type === "node") {
+      return label === selected.label || DATA.edges.some((e) => related(e) && (e.source === label || e.target === label));
+    }
+    const [source, target] = selected.key.split(">");
+    return label === source || label === target;
+  }
+
+  function capturedFocus() {
+    const node = document.activeElement.closest(".node");
+    if (node) return { kind: "node", key: node.getAttribute("data-label") };
+    if (document.activeElement.classList.contains("hit")) {
+      return { kind: "edge", key: document.activeElement.getAttribute("data-key") };
+    }
+    return null;
+  }
+
+  function restoreFocus(focused) {
+    if (!focused) return;
+    const attr = focused.kind === "node" ? "data-label" : "data-key";
+    const selector = `[${attr}="${CSS.escape(focused.key)}"]`;
+    const layer = focused.kind === "node" ? nodeLayer : edgeLayer;
+    const target = layer.querySelector(selector);
+    if (target) target.focus();
+  }
+
+  function render() {
+    // render() replaces every card and edge, which would otherwise silently drop keyboard focus.
+    const focused = capturedFocus();
+    emptyLayer.textContent = "";
+    if (!DATA.components.length) {
+      edgeLayer.textContent = "";
+      nodeLayer.textContent = "";
+      chipLayer.textContent = "";
+      const text = el("text", { x: "0", y: "0", fill: "var(--ck-muted)" });
+      text.textContent = "This observation declares no components.";
+      emptyLayer.appendChild(text);
+      renderInspector([]);
+      return;
+    }
+    const rows = layout();
+    // The panel used to be a fixed height that shrank large graphs to a third of its area (and
+    // their text with it). Sizing it to the laid-out content keeps fit()'s scale close to 1.
+    svg.style.height = `${Math.max(420, Math.min(860, rows * ROW_STEP + 170))}px`;
+    const max = DATA.edges.reduce((acc, e) => Math.max(acc, weight(e)), 1);
+    thresholdInput.max = String(max);
+    if (Number(thresholdInput.value) > max) thresholdInput.value = String(max);
+    thresholdValue.textContent = `≥ ${thresholdInput.value} import sites`;
+    const visible = visibleEdges();
+    const outs = groupBy(visible, (e) => e.source);
+    const ins = groupBy(visible, (e) => e.target);
+    const byX = (key) => (a, b) => positions[a[key]].x - positions[b[key]].x;
+    const lanes = groupBy(visible, laneKey);
+    lanes.forEach((bucket) =>
+      bucket.sort(
+        (a, b) => positions[a.source].x - positions[b.source].x || positions[a.target].x - positions[b.target].x,
+      ),
+    );
+    const routed = visible.map((edge) => {
+      const outList = [...outs.get(edge.source)].sort(byX("target"));
+      const inList = [...ins.get(edge.target)].sort(byX("source"));
+      return {
+        edge,
+        ...routeFor(
+          edge,
+          outList.indexOf(edge),
+          inList.indexOf(edge),
+          outList.length,
+          inList.length,
+          laneOffsetFor(edge, lanes),
+        ),
+      };
+    });
+
+    edgeLayer.textContent = "";
+    routed.forEach((r) => {
+      const line = el("path", {
+        class: "line",
+        d: r.d,
+        "stroke-width": (1.4 + 4.5 * Math.sqrt(weight(r.edge) / max)).toFixed(2),
+      });
+      const title = el("title");
+      title.textContent = `${r.edge.source} → ${r.edge.target}`;
+      const select = () => {
+        selected = { type: "edge", key: edgeKey(r.edge) };
+        render();
+      };
+      const hit = el(
+        "path",
+        {
+          class: "hit",
+          d: r.d,
+          tabindex: "0",
+          role: "button",
+          "aria-label": `${r.edge.source} to ${r.edge.target}, ${weight(r.edge)} import sites`,
+          "data-key": edgeKey(r.edge),
+        },
+        title,
+      );
+      hit.addEventListener("click", (event) => {
+        event.stopPropagation();
+        select();
+      });
+      hit.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          select();
+        }
+      });
+      // The state name is the CSS class directly, so a new state is one new rule in
+      // flow.js's stylesheet hook, not a branch here.
+      const group = el("g", { class: `edge ${r.edge.state}${related(r.edge) ? "" : " dim"}` }, line, hit);
+      edgeLayer.appendChild(group);
+      r.node = line;
+    });
+
+    chipLayer.textContent = "";
+    const cardBoxes = DATA.components.map((c) => ({
+      x: positions[c.label].x - 4,
+      y: positions[c.label].y - 4,
+      w: CARD.w + 8,
+      h: CARD.h + 8,
+    }));
+    const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    const placed = [];
+    const fractions = [0.5, 0.35, 0.65, 0.2, 0.8, 0.12, 0.88];
+    // Violated edges' rule-id chips are placed first and always kept. A conforming edge's plain
+    // weight badge is dropped instead, once every candidate spot on its own line collides, so two
+    // labels never overlap.
+    const byPriority = [...routed].sort((a, b) => (b.edge.state === "violation" ? 1 : 0) - (a.edge.state === "violation" ? 1 : 0));
+    byPriority.forEach((r) => {
+      const extra = r.edge.rule_ids.length > 1 ? ` +${r.edge.rule_ids.length - 1}` : "";
+      const label = r.edge.rule_ids.length ? `${r.edge.rule_ids[0]}${extra}` : String(weight(r.edge));
+      const text = el("text", { "text-anchor": "middle", "dominant-baseline": "central" });
+      text.textContent = label;
+      const rect = el("rect", { rx: "3", height: "18" });
+      const group = el("g", { class: `chip ${r.edge.state}${related(r.edge) ? "" : " dim"}` }, rect, text);
+      chipLayer.appendChild(group);
+      const width = Math.max(24, text.getComputedTextLength() + 12);
+      rect.setAttribute("x", String(-width / 2));
+      rect.setAttribute("y", "-9");
+      rect.setAttribute("width", String(width));
+      const length = r.node.getTotalLength();
+      let best = null;
+      for (const fraction of fractions) {
+        const point = r.node.getPointAtLength(length * fraction);
+        const box = { x: point.x - width / 2 - 3, y: point.y - 12, w: width + 6, h: 24 };
+        if (![...cardBoxes, ...placed].some((other) => overlaps(box, other))) {
+          best = { point, box };
+          break;
+        }
+      }
+      if (!best && r.edge.state !== "violation") {
+        chipLayer.removeChild(group);
+        return;
+      }
+      if (!best) {
+        // A rule id must stay visible even in a tight spot: fall back to the path midpoint
+        // rather than disappearing (this only happens if every one of the seven spots collides).
+        const point = r.node.getPointAtLength(length * 0.5);
+        best = { point, box: { x: point.x - width / 2 - 3, y: point.y - 12, w: width + 6, h: 24 } };
+      }
+      placed.push(best.box);
+      group.setAttribute("transform", `translate(${best.point.x},${best.point.y})`);
+    });
+
+    nodeLayer.textContent = "";
+    DATA.components.forEach((component) => {
+      const pos = positions[component.label];
+      const isSelected = selected && selected.type === "node" && selected.label === component.label;
+      const dim = selected && !isSelected && !relatedToSelection(component.label);
+      const hasViolation = DATA.edges.some(
+        (e) => e.state === "violation" && (e.source === component.label || e.target === component.label),
+      );
+      const card = el("rect", { class: "card", width: String(CARD.w), height: String(CARD.h), rx: "8" });
+      const tick = el("rect", {
+        class: `tick${hasViolation ? " violated" : ""}`,
+        width: "3",
+        height: String(CARD.h - 24),
+        x: "0",
+        y: "12",
+      });
+      const label = el("text", { class: "label", x: "16", y: "30" });
+      label.textContent = component.label;
+      const meta = el("text", { class: "meta", x: "16", y: "56" });
+      meta.textContent = `${component.modules.length} module${component.modules.length === 1 ? "" : "s"} · ${
+        component.public === null ? "no public" : `public ${component.public.length}`
+      }`;
+      const group = el(
+        "g",
+        {
+          class: `node${isSelected ? " selected" : ""}${dim ? " dim" : ""}`,
+          transform: `translate(${pos.x},${pos.y})`,
+          tabindex: "0",
+          role: "button",
+          "aria-label": `${component.label}, ${component.modules.length} modules`,
+          "data-label": component.label,
+        },
+        card,
+        tick,
+        label,
+        meta,
+      );
+      const select = () => {
+        selected = { type: "node", label: component.label };
+        render();
+      };
+      group.addEventListener("click", (event) => {
+        event.stopPropagation();
+        select();
+      });
+      group.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          select();
+        }
+      });
+      // Drag state lives at IIFE scope (dragState), not in this closure: render() rebuilds every
+      // node on each frame, so a per-node variable would reset to null on the very next move.
+      group.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+        capturePointer(svg, event);
+        dragState = { label: component.label, x: event.clientX, y: event.clientY, start: { ...pos } };
+      });
+      nodeLayer.appendChild(group);
+    });
+
+    restoreFocus(focused);
+    renderInspector(visible);
+  }
+
+  function statBlock() {
+    const modules = DATA.components.reduce((acc, c) => acc + c.modules.length, 0);
+    const sites = DATA.edges.reduce((acc, e) => acc + weight(e), 0);
+    const violations = new Set(DATA.edges.flatMap((e) => e.rule_ids)).size;
+    return `<dl class="kv"><dt>Components</dt><dd>${DATA.components.length}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${DATA.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Rules broken</dt><dd>${violations}</dd></dl>`;
+  }
+
+  function topHeaviestEdges(limit) {
+    return [...DATA.edges]
+      .sort(
+        (a, b) => weight(b) - weight(a) || a.source.localeCompare(b.source) || a.target.localeCompare(b.target),
+      )
+      .slice(0, limit);
+  }
+
+  function heaviestBlock() {
+    const top = topHeaviestEdges(5);
+    if (!top.length) return "";
+    const max = weight(top[0]) || 1;
+    const rows = top
+      .map(
+        (e) =>
+          `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}"><span class="name">${esc(e.source)} → ${esc(e.target)}</span><em>${weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
+      )
+      .join("");
+    return `<h3>Heaviest connections</h3><div class="bars">${rows}</div>`;
+  }
+
+  function overview() {
+    return `<div class="kicker">Overview</div><h2>Component flow</h2><p>Select a card to see its modules and declared public interface, or a connector to see the exact names one component uses from another.</p>${statBlock()}${heaviestBlock()}`;
+  }
+
+  function wireHeaviestRows() {
+    inspector.querySelectorAll(".bars .row[data-key]").forEach((row) => {
+      const select = () => {
+        selected = { type: "edge", key: row.getAttribute("data-key") };
+        render();
+      };
+      row.addEventListener("click", select);
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          select();
+        }
+      });
+    });
+  }
+
+  function showOverview() {
+    inspector.innerHTML = overview();
+    wireHeaviestRows();
+  }
+
+  function renderInspector(visible) {
+    if (!selected) {
+      showOverview();
+      return;
+    }
+    if (selected.type === "node") {
+      const component = componentByLabel.get(selected.label);
+      if (!component) {
+        selected = null;
+        showOverview();
+        return;
+      }
+      const uses = DATA.edges.filter((e) => e.source === component.label);
+      const usedBy = DATA.edges.filter((e) => e.target === component.label);
+      inspector.innerHTML = `<div class="kicker">Component</div><h2>${esc(component.label)}</h2>
+        <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd>
+        <dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
+        <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd></dl>
+        <h3>Modules</h3><ul class="plain">${component.modules.map((m) => `<li><code>${esc(m)}</code></li>`).join("") || '<li class="empty">None observed.</li>'}</ul>
+        <h3>Declared public interface</h3>${
+          component.public === null
+            ? '<p class="empty">No public interface declared; every module is reachable.</p>'
+            : `<ul class="plain">${component.public.map((p) => `<li><code>${esc(p)}</code></li>`).join("") || '<li class="empty">Declared empty.</li>'}</ul>`
+        }`;
+      return;
+    }
+    // A heaviest-connections row (any edge, regardless of the threshold slider) can select an
+    // edge the diagram is currently hiding, so fall back to the full edge list before giving up.
+    const edge = visible.find((e) => edgeKey(e) === selected.key) || DATA.edges.find((e) => edgeKey(e) === selected.key);
+    if (!edge) {
+      selected = null;
+      showOverview();
+      return;
+    }
+    const grouped = groupBy(edge.names, (n) => n.name.split(":")[0]);
+    const names = [...grouped.entries()]
+      .map(
+        ([module, items]) =>
+          `<div class="group"><div><code>${esc(module)}</code></div><ul class="plain">${items
+            .map(
+              (n) =>
+                `<li>${esc(n.name.split(":")[1] ?? n.name)} <small>${esc(n.kind)}</small>${
+                  n.returns ? `<br><span class="sig">(${n.params.map(esc).join(", ")}) → ${esc(n.returns)}</span>` : ""
+                }</li>`,
+            )
+            .join("")}</ul></div>`,
+      )
+      .join("");
+    inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(edge.source)} → ${esc(edge.target)}</h2>
+      <dl class="kv"><dt>Import sites</dt><dd>${edge.import_sites}</dd><dt>Interface names</dt><dd>${edge.names.length}</dd></dl>
+      ${
+        edge.rule_ids.length
+          ? `<h3>Broken rules</h3><ul class="plain">${edge.rule_ids.map((r) => `<li class="violation-card"><code>${esc(r)}</code></li>`).join("")}</ul>`
+          : ""
+      }
+      ${edge.names.length ? `<h3>Names used across the boundary</h3>${names}` : ""}`;
+  }
+
+  function legendSwatch(state) {
+    const swatch = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    swatch.setAttribute("class", "flow-legend-swatch");
+    swatch.setAttribute("viewBox", "0 0 28 10");
+    swatch.appendChild(el("g", { class: `edge ${state}` }, el("path", { class: "line", d: "M1,5 H27" })));
+    return swatch;
+  }
+
+  function renderLegend() {
+    if (!legend) return;
+    legend.textContent = "";
+    EDGE_STATES.forEach(({ id, label }) => {
+      const item = document.createElement("span");
+      item.className = "flow-legend-item";
+      item.appendChild(legendSwatch(id));
+      const text = document.createElement("span");
+      text.textContent = label;
+      item.appendChild(text);
+      legend.appendChild(item);
+    });
+    const hint = document.createElement("span");
+    hint.className = "flow-legend-hint";
+    hint.textContent = "Click a card or a line, drag cards, scroll to zoom.";
+    legend.appendChild(hint);
+  }
+
+  function fit(animate) {
+    const bounds = viewport.getBBox();
+    if (!bounds.width || !bounds.height) return;
+    const box = svg.getBoundingClientRect();
+    const scale = Math.min(1.4, 0.9 * Math.min(box.width / bounds.width, box.height / bounds.height));
+    transform = {
+      k: scale,
+      x: box.width / 2 - scale * (bounds.x + bounds.width / 2),
+      y: box.height / 2 - scale * (bounds.y + bounds.height / 2),
+    };
+    applyTransform(animate && !reducedMotion);
+  }
+
+  function applyTransform(animate) {
+    viewport.style.transition = animate ? "transform 250ms ease-out" : "none";
+    viewport.setAttribute("transform", `translate(${transform.x},${transform.y}) scale(${transform.k})`);
+  }
+
+  // Both live at IIFE scope, and both are driven from svg's own listeners (not the node's or
+  // viewport's): render() rebuilds every card and edge, which would drop a listener attached
+  // to one of them mid-drag.
+  let panState = null;
+  let dragState = null;
+  svg.addEventListener("pointerdown", (event) => {
+    if (event.target !== svg) return;
+    panState = { x: event.clientX, y: event.clientY, start: { ...transform } };
+    capturePointer(svg, event);
+  });
+  svg.addEventListener("pointermove", (event) => {
+    if (dragState) {
+      const dx = (event.clientX - dragState.x) / transform.k;
+      const dy = (event.clientY - dragState.y) / transform.k;
+      positions[dragState.label] = { x: dragState.start.x + dx, y: dragState.start.y + dy };
+      render();
+      return;
+    }
+    if (!panState) return;
+    transform = {
+      ...panState.start,
+      x: panState.start.x + (event.clientX - panState.x),
+      y: panState.start.y + (event.clientY - panState.y),
+    };
+    applyTransform(false);
+  });
+  const endPointer = () => {
+    panState = null;
+    dragState = null;
+  };
+  svg.addEventListener("pointerup", endPointer);
+  svg.addEventListener("pointercancel", endPointer);
+  svg.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const cx = event.clientX - rect.left;
+      const cy = event.clientY - rect.top;
+      const factor = Math.exp(-event.deltaY * 0.001);
+      const k = Math.min(2.4, Math.max(0.3, transform.k * factor));
+      const ratio = k / transform.k;
+      transform = {
+        k,
+        x: cx - ratio * (cx - transform.x),
+        y: cy - ratio * (cy - transform.y),
+      };
+      applyTransform(false);
+    },
+    { passive: false },
+  );
+  svg.addEventListener("click", () => {
+    if (!selected) return;
+    selected = null;
+    render();
+  });
+
+  thresholdInput.addEventListener("input", render);
+  fitButton.addEventListener("click", () => fit(true));
+
+  renderLegend();
+  render();
+  fit(false);
+  window.addEventListener("resize", () => fit(false));
+})();
+</script>
+    </section>
+    <section class="report-section"><h2>Component communication</h2><div class="table-wrap"><table><thead><tr><th>Edge</th><th class="numeric">Names</th><th>Interface</th></tr></thead><tbody><tr><td><code>c01 → c02</code></td><td class="numeric">9</td><td><code>svc.c02.dependencies</code> constant<br><code>svc.c02.dependencies:T0330</code> dataclass<br><code>svc.c02.dependencies:n3142</code> function (n9125: Annotated[str, T0312(alias=&#x27;K0030-T0258-ID&#x27;, n5839=1)], n11017: Annotated[T0001, T0312(alias=&#x27;K0030-T0001&#x27;)]) → T0330<br><code>svc.c02.n10732.n0417</code> constant<br><code>svc.c02.n10732.n13019</code> constant<br><code>svc.c02.n10732.n14261</code> constant<br><code>svc.c02.n10732.n5807</code> constant<br><code>svc.c02.n10732.n6675</code> constant<br><code>svc.c02.n10732.n7680</code> constant</td></tr><tr><td><code>c01 → c03</code></td><td class="numeric">11</td><td><code>svc.c03.n11769:T0378</code> class<br><code>svc.c03.n12628:T0351</code> class<br><code>svc.c03.n1563:T0192</code> class<br><code>svc.c03.n2916:T0326</code> class<br><code>svc.c03.n2916:T0389</code> class<br><code>svc.c03.n7755:T0180</code> class<br><code>svc.c03.n7931:T0237</code> class<br><code>svc.c03.n8459:T0004</code> class<br><code>svc.c03.n8543:T0406</code> class<br><code>svc.c03.n8810:T0385</code> class<br><code>svc.c03.n9874:T0118</code> class</td></tr><tr><td><code>c01 → c06</code></td><td class="numeric">1</td><td><code>svc.shared.errors:T0061</code> class</td></tr><tr><td><code>c01 → c08</code></td><td class="numeric">1</td><td><code>svc.shared.n9067.n12314:T0381</code> class</td></tr><tr><td><code>c01 → c09</code></td><td class="numeric">9</td><td><code>svc.c09.n0071:T0117</code> class<br><code>svc.c09.n9549:T0032</code> class<br><code>svc.c09.n9549:T0058</code> class<br><code>svc.c09.n9549:T0077</code> class<br><code>svc.c09.n9549:T0088</code> class<br><code>svc.c09.n9549:T0091</code> class<br><code>svc.c09.n9549:T0123</code> class<br><code>svc.c09.n9549:T0254</code> class<br><code>svc.c09.n9549:T0304</code> class</td></tr><tr><td><code>c02 → c03</code></td><td class="numeric">4</td><td><code>svc.c03.n2916:T0326</code> class<br><code>svc.c03.n2916:T0389</code> class<br><code>svc.c03.n8543:T0406</code> class<br><code>svc.c03.n9874:T0118</code> class</td></tr><tr><td><code>c02 → c04</code></td><td class="numeric">22</td><td><code>svc.c04.n9549:T0115</code> protocol<br><code>svc.c04.n9549:T0263</code> protocol<br><code>svc.c04.n9549:T0275</code> protocol<br><code>svc.c04.n9549:T0297</code> protocol<br><code>svc.c04.n9549:T0397</code> protocol<br><code>svc.c04.n9549:T0409</code> protocol<br><code>svc.c04.n9863:T0047</code> dataclass<br><code>svc.c04.n9863:T0103</code> dataclass<br><code>svc.c04.n9863:T0108</code> dataclass<br><code>svc.c04.n9863:T0150</code> protocol<br><code>svc.c04.n9863:T0151</code> protocol<br><code>svc.c04.n9863:T0203</code> dataclass<br><code>svc.c04.n9863:T0238</code> dataclass<br><code>svc.c04.n9863:T0247</code> dataclass<br><code>svc.c04.n9863:T0256</code> protocol<br><code>svc.c04.n9863:T0257</code> protocol<br><code>svc.c04.n9863:T0262</code> protocol<br><code>svc.c04.n9863:T0267</code> dataclass<br><code>svc.c04.n9863:T0278</code> dataclass<br><code>svc.c04.n9863:T0303</code> protocol<br><code>svc.c04.n9863:T0308</code> protocol<br><code>svc.c04.n9863:T0323</code> protocol</td></tr><tr><td><code>c02 → c05</code></td><td class="numeric">33</td><td><code>svc.c05.n11064:T0001</code> enum<br><code>svc.c05.n11064:T0013</code> enum<br><code>svc.c05.n11064:T0073</code> enum<br><code>svc.c05.n11064:T0074</code> enum<br><code>svc.c05.n11064:T0075</code> enum<br><code>svc.c05.n11064:T0104</code> enum<br><code>svc.c05.n11064:T0114</code> enum<br><code>svc.c05.n11064:T0185</code> enum<br><code>svc.c05.n11064:T0219</code> enum<br><code>svc.c05.n11064:T0224</code> enum<br><code>svc.c05.n11064:T0242</code> enum<br><code>svc.c05.n11064:T0294</code> enum<br><code>svc.c05.n11064:T0318</code> enum<br><code>svc.c05.n11064:T0334</code> enum<br><code>svc.c05.n11064:T0343</code> enum<br><code>svc.c05.n11064:T0368</code> enum<br><code>svc.c05:T0018</code> dataclass<br><code>svc.c05:T0029</code> dataclass<br><code>svc.c05:T0070</code> dataclass<br><code>svc.c05:T0079</code> dataclass<br><code>svc.c05:T0163</code> dataclass<br><code>svc.c05:T0171</code> dataclass<br><code>svc.c05:T0194</code> dataclass<br><code>svc.c05:T0209</code> dataclass<br><code>svc.c05:T0210</code> dataclass<br><code>svc.c05:T0215</code> dataclass<br><code>svc.c05:T0271</code> dataclass<br><code>svc.c05:T0273</code> dataclass<br><code>svc.c05:T0348</code> dataclass<br><code>svc.c05:T0399</code> dataclass<br><code>svc.c05:T0418</code> dataclass<br><code>svc.c05:T0419</code> dataclass<br><code>svc.c05:T0422</code> dataclass</td></tr><tr><td><code>c02 → c06</code></td><td class="numeric">2</td><td><code>svc.shared.c05:T0327</code> constant<br><code>svc.shared.errors:T0061</code> class</td></tr><tr><td><code>c03 → c04</code></td><td class="numeric">24</td><td><code>svc.c04.n3795:T0069</code> dataclass<br><code>svc.c04.n3795:T0084</code> protocol<br><code>svc.c04.n3795:T0090</code> protocol<br><code>svc.c04.n3795:T0137</code> protocol<br><code>svc.c04.n3795:T0164</code> dataclass<br><code>svc.c04.n3795:T0244</code> protocol<br><code>svc.c04.n3795:T0384</code> dataclass<br><code>svc.c04.n9549:T0106</code> protocol<br><code>svc.c04.n9549:T0112</code> protocol<br><code>svc.c04.n9549:T0275</code> protocol<br><code>svc.c04.n9549:T0297</code> protocol<br><code>svc.c04.n9549:T0299</code> protocol<br><code>svc.c04.n9549:T0397</code> protocol<br><code>svc.c04.n9549:T0409</code> protocol<br><code>svc.c04.n9863:T0020</code> dataclass<br><code>svc.c04.n9863:T0047</code> dataclass<br><code>svc.c04.n9863:T0103</code> dataclass<br><code>svc.c04.n9863:T0108</code> dataclass<br><code>svc.c04.n9863:T0203</code> dataclass<br><code>svc.c04.n9863:T0238</code> dataclass<br><code>svc.c04.n9863:T0247</code> dataclass<br><code>svc.c04.n9863:T0267</code> dataclass<br><code>svc.c04.n9863:T0278</code> dataclass<br><code>svc.c04.n9863:T0345</code> dataclass</td></tr><tr><td><code>c03 → c05</code></td><td class="numeric">45</td><td><code>svc.c05.n11064:T0001</code> enum<br><code>svc.c05.n11064:T0013</code> enum<br><code>svc.c05.n11064:T0073</code> enum<br><code>svc.c05.n11064:T0074</code> enum<br><code>svc.c05.n11064:T0075</code> enum<br><code>svc.c05.n11064:T0104</code> enum<br><code>svc.c05.n11064:T0114</code> enum<br><code>svc.c05.n11064:T0185</code> enum<br><code>svc.c05.n11064:T0219</code> enum<br><code>svc.c05.n11064:T0224</code> enum<br><code>svc.c05.n11064:T0242</code> enum<br><code>svc.c05.n11064:T0294</code> enum<br><code>svc.c05.n11064:T0318</code> enum<br><code>svc.c05.n11064:T0334</code> enum<br><code>svc.c05.n11064:T0343</code> enum<br><code>svc.c05.n11064:T0368</code> enum<br><code>svc.c05.n11064:T0379</code> enum<br><code>svc.c05.n11944:n10157</code> function (n14048: n0805, n1016: T0219, n4833: T0269) → tuple[datetime, datetime]<br><code>svc.c05.n11944:n14329</code> function (current: T0224, target: T0224) → T0224<br><code>svc.c05.n11944:n9553</code> function (current: T0075, target: T0075) → T0075<br><code>svc.c05:T0018</code> dataclass<br><code>svc.c05:T0029</code> dataclass<br><code>svc.c05:T0070</code> dataclass<br><code>svc.c05:T0074</code> enum<br><code>svc.c05:T0079</code> dataclass<br><code>svc.c05:T0114</code> enum<br><code>svc.c05:T0158</code> dataclass<br><code>svc.c05:T0163</code> dataclass<br><code>svc.c05:T0169</code> dataclass<br><code>svc.c05:T0171</code> dataclass<br><code>svc.c05:T0185</code> enum<br><code>svc.c05:T0194</code> dataclass<br><code>svc.c05:T0209</code> dataclass<br><code>svc.c05:T0210</code> dataclass<br><code>svc.c05:T0215</code> dataclass<br><code>svc.c05:T0258</code> dataclass<br><code>svc.c05:T0271</code> dataclass<br><code>svc.c05:T0273</code> dataclass<br><code>svc.c05:T0276</code> dataclass<br><code>svc.c05:T0294</code> enum<br><code>svc.c05:T0318</code> enum<br><code>svc.c05:T0348</code> dataclass<br><code>svc.c05:T0399</code> dataclass<br><code>svc.c05:T0418</code> dataclass<br><code>svc.c05:T0422</code> dataclass</td></tr><tr><td><code>c03 → c06</code></td><td class="numeric">3</td><td><code>svc.shared.c05:T0327</code> constant<br><code>svc.shared.errors:T0061</code> class<br><code>svc.shared.n12314:T0250</code> protocol</td></tr><tr><td><code>c03 → c07</code></td><td class="numeric">2</td><td><code>svc.shared.application.n0071:T0182</code> protocol<br><code>svc.shared.application.n6757:T0293</code> dataclass</td></tr><tr><td><code>c03 → c09</code></td><td class="numeric">55</td><td><code>svc.c09.models:T0003</code> class<br><code>svc.c09.models:T0015</code> class<br><code>svc.c09.models:T0025</code> class<br><code>svc.c09.models:T0033</code> class<br><code>svc.c09.models:T0046</code> class<br><code>svc.c09.models:T0122</code> class<br><code>svc.c09.models:T0132</code> class<br><code>svc.c09.models:T0133</code> class<br><code>svc.c09.models:T0155</code> class<br><code>svc.c09.models:T0179</code> class<br><code>svc.c09.models:T0198</code> class<br><code>svc.c09.models:T0205</code> class<br><code>svc.c09.models:T0211</code> class<br><code>svc.c09.models:T0233</code> class<br><code>svc.c09.models:T0241</code> class<br><code>svc.c09.models:T0285</code> class<br><code>svc.c09.models:T0289</code> class<br><code>svc.c09.models:T0292</code> class<br><code>svc.c09.models:T0325</code> class<br><code>svc.c09.models:T0352</code> class<br><code>svc.c09.models:T0355</code> class<br><code>svc.c09.models:T0357</code> class<br><code>svc.c09.models:T0366</code> class<br><code>svc.c09.models:T0390</code> class<br><code>svc.c09.models:T0391</code> class<br><code>svc.c09.models:T0412</code> class<br><code>svc.c09.models:T0416</code> class<br><code>svc.c09.n0071:T0117</code> class<br><code>svc.c09.n1502:n0251</code> function (model: T0412) → T0348<br><code>svc.c09.n1502:n10455</code> function (model: T0241) → T0210<br><code>svc.c09.n1502:n10466</code> function (model: T0046) → T0209<br><code>svc.c09.n1502:n12330</code> function (value: T0399) → T0033<br><code>svc.c09.n1502:n12383</code> function (model: T0211) → T0271<br><code>svc.c09.n1502:n1309</code> function (value: T0025) → T0276<br><code>svc.c09.n1502:n13371</code> function (model: T0155) → T0174<br><code>svc.c09.n1502:n13448</code> function (model: T0357) → T0215<br><code>svc.c09.n1502:n13553</code> function (model: T0122) → T0422<br><code>svc.c09.n1502:n13956</code> function (value: T0158) → T0325<br><code>svc.c09.n1502:n14402</code> function (model: T0352) → T0070<br><code>svc.c09.n1502:n1935</code> function (value: T0163) → T0355<br><code>svc.c09.n1502:n2299</code> function (value: T0210) → T0241<br><code>svc.c09.n1502:n4378</code> function (model: T0033) → T0399<br><code>svc.c09.n1502:n5784</code> function (model: T0355) → T0163<br><code>svc.c09.n1502:n7353</code> function (model: T0198, n10838: Sequence[Any]) → T0171<br><code>svc.c09.n1502:n8075</code> function (model: T0132) → T0190<br><code>svc.c09.n1502:n8191</code> function (model: T0292) → T0419<br><code>svc.c09.n1502:n9144</code> function (value: T0209) → T0046<br><code>svc.c09.n1502:n9173</code> function (model: T0416) → T0273<br><code>svc.c09.n1502:n9507</code> function (model: T0325) → T0158<br><code>svc.c09.n1502:n9571</code> function (model: T0391) → T0029<br><code>svc.c09.n9549:T0077</code> class<br><code>svc.c09.n9549:T0091</code> class<br><code>svc.c09.n9549:T0123</code> class<br><code>svc.c09.n9549:T0254</code> class<br><code>svc.c09.n9549:T0304</code> class</td></tr><tr><td><code>c03 → c10</code></td><td class="numeric">3</td><td><code>svc.c10.n4698:T0138</code> class<br><code>svc.c10.n6237:T0202</code> class<br><code>svc.c10.n6237:T0264</code> class</td></tr><tr><td><code>c03 → c11</code></td><td class="numeric">1</td><td><code>svc.c11.n4164:T0314</code> class</td></tr><tr><td><code>c04 → c05</code></td><td class="numeric">30</td><td><code>svc.c05.n11064:T0013</code> enum<br><code>svc.c05.n11064:T0073</code> enum<br><code>svc.c05.n11064:T0075</code> enum<br><code>svc.c05.n11064:T0219</code> enum<br><code>svc.c05.n11064:T0343</code> enum<br><code>svc.c05.n11064:T0379</code> enum<br><code>svc.c05:T0018</code> dataclass<br><code>svc.c05:T0029</code> dataclass<br><code>svc.c05:T0070</code> dataclass<br><code>svc.c05:T0074</code> enum<br><code>svc.c05:T0158</code> dataclass<br><code>svc.c05:T0163</code> dataclass<br><code>svc.c05:T0169</code> dataclass<br><code>svc.c05:T0171</code> dataclass<br><code>svc.c05:T0174</code> dataclass<br><code>svc.c05:T0190</code> dataclass<br><code>svc.c05:T0209</code> dataclass<br><code>svc.c05:T0210</code> dataclass<br><code>svc.c05:T0215</code> dataclass<br><code>svc.c05:T0258</code> dataclass<br><code>svc.c05:T0271</code> dataclass<br><code>svc.c05:T0273</code> dataclass<br><code>svc.c05:T0276</code> dataclass<br><code>svc.c05:T0294</code> enum<br><code>svc.c05:T0348</code> dataclass<br><code>svc.c05:T0399</code> dataclass<br><code>svc.c05:T0405</code> dataclass<br><code>svc.c05:T0418</code> dataclass<br><code>svc.c05:T0419</code> dataclass<br><code>svc.c05:T0422</code> dataclass</td></tr><tr><td><code>c04 → c06</code></td><td class="numeric">1</td><td><code>svc.shared.c05:T0327</code> constant</td></tr><tr><td><code>c04 → c07</code></td><td class="numeric">1</td><td><code>svc.shared.application.n6757:T0293</code> dataclass</td></tr><tr><td><code>c07 → c06</code></td><td class="numeric">1</td><td><code>svc.shared.c05:T0327</code> constant</td></tr><tr><td><code>c09 → c05</code></td><td class="numeric">42</td><td><code>svc.c05.n11064:T0001</code> enum<br><code>svc.c05.n11064:T0013</code> enum<br><code>svc.c05.n11064:T0074</code> enum<br><code>svc.c05.n11064:T0075</code> enum<br><code>svc.c05.n11064:T0104</code> enum<br><code>svc.c05.n11064:T0114</code> enum<br><code>svc.c05.n11064:T0185</code> enum<br><code>svc.c05.n11064:T0219</code> enum<br><code>svc.c05.n11064:T0224</code> enum<br><code>svc.c05.n11064:T0242</code> enum<br><code>svc.c05.n11064:T0294</code> enum<br><code>svc.c05.n11064:T0318</code> enum<br><code>svc.c05.n11064:T0334</code> enum<br><code>svc.c05.n11064:T0343</code> enum<br><code>svc.c05.n11064:T0368</code> enum<br><code>svc.c05.n11064:T0379</code> enum<br><code>svc.c05:T0018</code> dataclass<br><code>svc.c05:T0029</code> dataclass<br><code>svc.c05:T0070</code> dataclass<br><code>svc.c05:T0079</code> dataclass<br><code>svc.c05:T0158</code> dataclass<br><code>svc.c05:T0163</code> dataclass<br><code>svc.c05:T0171</code> dataclass<br><code>svc.c05:T0174</code> dataclass<br><code>svc.c05:T0175</code> dataclass<br><code>svc.c05:T0190</code> dataclass<br><code>svc.c05:T0194</code> dataclass<br><code>svc.c05:T0195</code> dataclass<br><code>svc.c05:T0209</code> dataclass<br><code>svc.c05:T0210</code> dataclass<br><code>svc.c05:T0215</code> dataclass<br><code>svc.c05:T0271</code> dataclass<br><code>svc.c05:T0273</code> dataclass<br><code>svc.c05:T0276</code> dataclass<br><code>svc.c05:T0287</code> dataclass<br><code>svc.c05:T0315</code> dataclass<br><code>svc.c05:T0348</code> dataclass<br><code>svc.c05:T0399</code> dataclass<br><code>svc.c05:T0405</code> dataclass<br><code>svc.c05:T0418</code> dataclass<br><code>svc.c05:T0419</code> dataclass<br><code>svc.c05:T0422</code> dataclass</td></tr><tr><td><code>c09 → c06</code></td><td class="numeric">3</td><td><code>svc.shared.c05:T0327</code> constant<br><code>svc.shared.errors:T0061</code> class<br><code>svc.shared.n12314:T0250</code> protocol</td></tr><tr><td><code>c09 → c07</code></td><td class="numeric">1</td><td><code>svc.shared.application.n6757:T0293</code> dataclass</td></tr><tr><td><code>c10 → c04</code></td><td class="numeric">3</td><td><code>svc.c04.n3795:T0069</code> dataclass<br><code>svc.c04.n3795:T0244</code> protocol<br><code>svc.c04.n3795:T0384</code> dataclass</td></tr><tr><td><code>c10 → c05</code></td><td class="numeric">6</td><td><code>svc.c05:T0018</code> dataclass<br><code>svc.c05:T0169</code> dataclass<br><code>svc.c05:T0171</code> dataclass<br><code>svc.c05:T0271</code> dataclass<br><code>svc.c05:T0399</code> dataclass<br><code>svc.c05:T0422</code> dataclass</td></tr><tr><td><code>c10 → c06</code></td><td class="numeric">1</td><td><code>svc.shared.c05:T0327</code> constant</td></tr><tr><td><code>c11 → c04</code></td><td class="numeric">4</td><td><code>svc.c04.n3795:T0164</code> dataclass<br><code>svc.c04.n3795:T0244</code> protocol<br><code>svc.c04.n3795:T0338</code> dataclass<br><code>svc.c04.n3795:T0384</code> dataclass</td></tr><tr><td><code>c11 → c05</code></td><td class="numeric">3</td><td><code>svc.c05:T0185</code> enum<br><code>svc.c05:T0215</code> dataclass<br><code>svc.c05:T0271</code> dataclass</td></tr><tr><td><code>c12 → c01</code></td><td class="numeric">1</td><td><code>svc.config:T0184</code> class</td></tr><tr><td><code>c12 → c03</code></td><td class="numeric">3</td><td><code>svc.c03.n8718:T0359</code> class<br><code>svc.c03.n9874:K0077</code> constant<br><code>svc.c03.n9874:K0103</code> constant</td></tr><tr><td><code>c12 → c04</code></td><td class="numeric">4</td><td><code>svc.c04.n3795:T0086</code> dataclass<br><code>svc.c04.n3795:T0396</code> dataclass<br><code>svc.c04:T0106</code> protocol<br><code>svc.c04:T0134</code> protocol</td></tr><tr><td><code>c12 → c05</code></td><td class="numeric">5</td><td><code>svc.c05.n11064:T0074</code> enum<br><code>svc.c05:T0029</code> dataclass<br><code>svc.c05:T0114</code> enum<br><code>svc.c05:T0379</code> enum<br><code>svc.c05:T0405</code> dataclass</td></tr><tr><td><code>c12 → c06</code></td><td class="numeric">1</td><td><code>svc.shared.c05:T0327</code> constant</td></tr><tr><td><code>c12 → c08</code></td><td class="numeric">1</td><td><code>svc.shared.n9067.n12314:T0381</code> class</td></tr><tr><td><code>c13 → c01</code></td><td class="numeric">1</td><td><code>svc.config:T0184</code> class</td></tr><tr><td><code>c13 → c03</code></td><td class="numeric">2</td><td><code>svc.c03.n9874:K0054</code> constant<br><code>svc.c03.n9874:K0103</code> constant</td></tr><tr><td><code>c13 → c08</code></td><td class="numeric">1</td><td><code>svc.shared.n9067.n12314:T0381</code> class</td></tr><tr><td><code>c13 → c09</code></td><td class="numeric">1</td><td><code>svc.c09.models:T0366</code> class</td></tr><tr><td><code>c13 → c12</code></td><td class="numeric">2</td><td><code>svc.c12:n13475</code> function (payload: str) → dict[str, object]<br><code>svc.c12:n14360</code> constant</td></tr></tbody></table></div></section>
+    
+    <section class="report-section">
+      <h2>Known unknowns</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fingerprint</th><th>Finding</th><th>Subjects</th><th>Evidence</th></tr></thead>
+          <tbody><tr><td><code>UNKNOWN-CONTEXT-DATAFLOW</code></td><td>Context read/write topology excludes unproven dynamic aliases</td><td><code></code></td><td><code></code></td></tr><tr><td><code>UNKNOWN-PYTHON-DYNAMIC-CALLS</code></td><td>Python dynamic behavior prevents a complete call graph</td><td><code>svc</code></td><td><code></code></td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="report-section"><h2>Measurements</h2><div class="table-wrap"><table><thead><tr><th>Measurement</th><th class="numeric">Value</th></tr></thead><tbody><tr><td><code>violations</code></td><td class="numeric">342</td></tr><tr><td><code>cycle_edges</code></td><td class="numeric">0</td></tr><tr><td><code>private_crossings</code></td><td class="numeric">0</td></tr><tr><td><code>typing_positions</code></td><td class="numeric">36</td></tr><tr><td><code>calls_unresolved</code></td><td class="numeric">998</td></tr><tr><td><code>coverage_failures</code></td><td class="numeric">0</td></tr><tr><td><code>calls_total</code></td><td class="numeric">4318</td></tr><tr><td><code>unresolved_ratio</code></td><td class="numeric">998/4318</td></tr></tbody></table></div></section>
+    <section class="report-section"><h2>Coverage</h2><div class="table-wrap"><table><thead><tr><th>Coverage dimension</th><th class="numeric">Evidence</th></tr></thead><tbody><tr><td>Status</td><td class="numeric"><code>PASS</code></td></tr><tr><td>Rules coverage</td><td class="numeric"><code>PASS</code></td></tr><tr><td>Files discovered</td><td class="numeric"><code>67</code></td></tr><tr><td>Files read</td><td class="numeric"><code>67</code></td></tr><tr><td>Files parsed</td><td class="numeric"><code>67</code></td></tr><tr><td>AST coverage</td><td class="numeric"><code>67/67</code></td></tr><tr><td>Calls resolved</td><td class="numeric"><code>2940/4318 (68.09%)</code></td></tr><tr><td>Calls partially resolved</td><td class="numeric"><code>380</code></td></tr><tr><td>Calls unresolved</td><td class="numeric"><code>998</code></td></tr></tbody></table></div></section>
+    <section class="report-section">
+      <h2>Complete ArchitectureIR inventory</h2>
+      <p><a href="architecture.json">Open canonical architecture.json</a>. The JSON remains the source for complete records and evidence.</p>
+      <div class="table-wrap"><table><thead><tr><th>ArchitectureIR section</th><th class="numeric">Records</th></tr></thead><tbody><tr><td><code>metrics</code></td><td class="numeric">16</td></tr><tr><td><code>declarations</code></td><td class="numeric">172</td></tr><tr><td><code>scope_observations</code></td><td class="numeric">14</td></tr><tr><td><code>packages</code></td><td class="numeric">14</td></tr><tr><td><code>modules</code></td><td class="numeric">67</td></tr><tr><td><code>symbols</code></td><td class="numeric">868</td></tr><tr><td><code>imports</code></td><td class="numeric">1396</td></tr><tr><td><code>dependency_edges</code></td><td class="numeric">291</td></tr><tr><td><code>transitive_paths</code></td><td class="numeric">17</td></tr><tr><td><code>path_observations</code></td><td class="numeric">0</td></tr><tr><td><code>cycles</code></td><td class="numeric">0</td></tr><tr><td><code>calls</code></td><td class="numeric">4318</td></tr><tr><td><code>typing_signals</code></td><td class="numeric">36</td></tr><tr><td><code>constructs</code></td><td class="numeric">23</td></tr><tr><td><code>contexts</code></td><td class="numeric">1</td></tr><tr><td><code>context_evidence</code></td><td class="numeric">56</td></tr><tr><td><code>violations</code></td><td class="numeric">342</td></tr><tr><td><code>unknowns</code></td><td class="numeric">2</td></tr></tbody></table></div>
+    </section>
+    <section class="report-section">
+      <h2>Reproduction metadata</h2>
+      <div class="table-wrap"><table><tbody><tr><th>Command</th><td><code>report</code></td></tr><tr><th>Exit code</th><td><code>0</code></td></tr><tr><th>Analyzer</th><td><code>archkeel-python-analyzer 0.9.0</code></td></tr><tr><th>Analyzer digest</th><td><code>f3a246fc9668f09e38d558cc3cf0b11c040c2197487676f249d0153b49c03e2f</code></td></tr><tr><th>Python</th><td><code>3.12.10</code></td></tr><tr><th>Contract</th><td><code>architecture-contract.json</code></td></tr><tr><th>Contract digest</th><td><code>0000000000000000000000000000000000000000000000000000000000000000</code></td></tr></tbody></table></div>
+    </section>
+
+    <footer class="report-footer">Archkeel · deterministic architecture evidence</footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,2239 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-C02",
+      "label": "c02",
+      "role": "component",
+      "packages": [
+        "svc.c02"
+      ],
+      "responsibilities": [
+        "HTTP edge."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c02.dependencies",
+        "svc.c02.n10732.n0417",
+        "svc.c02.n10732.n5807",
+        "svc.c02.n10732.n7680",
+        "svc.c02.n10732.n13019",
+        "svc.c02.n10732.n14261",
+        "svc.c02.n10732.n6675"
+      ]
+    },
+    {
+      "id": "COMP-C01",
+      "label": "c01",
+      "role": "component",
+      "packages": [
+        "svc.main",
+        "svc.config"
+      ],
+      "responsibilities": [
+        "Composition root with settings."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.config"
+      ]
+    },
+    {
+      "id": "COMP-C05",
+      "label": "c05",
+      "role": "component",
+      "packages": [
+        "svc.c05"
+      ],
+      "responsibilities": [
+        "Domain model."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c05",
+        "svc.c05.n11064",
+        "svc.c05.n11944"
+      ]
+    },
+    {
+      "id": "COMP-C10",
+      "label": "c10",
+      "role": "component",
+      "packages": [
+        "svc.c10"
+      ],
+      "responsibilities": [
+        "Compute adapter A."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c10.n4698",
+        "svc.c10.n6237"
+      ]
+    },
+    {
+      "id": "COMP-C13",
+      "label": "c13",
+      "role": "component",
+      "packages": [
+        "svc.c13"
+      ],
+      "responsibilities": [
+        "Outbox publisher entry point."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ]
+    },
+    {
+      "id": "COMP-C04",
+      "label": "c04",
+      "role": "component",
+      "packages": [
+        "svc.c04"
+      ],
+      "responsibilities": [
+        "Port interfaces."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c04",
+        "svc.c04.n9863",
+        "svc.c04.n3795",
+        "svc.c04.n9549"
+      ]
+    },
+    {
+      "id": "COMP-C09",
+      "label": "c09",
+      "role": "component",
+      "packages": [
+        "svc.c09"
+      ],
+      "responsibilities": [
+        "Persistence adapter."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c09.n9549"
+      ]
+    },
+    {
+      "id": "COMP-C03",
+      "label": "c03",
+      "role": "component",
+      "packages": [
+        "svc.c03"
+      ],
+      "responsibilities": [
+        "Application use cases."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c03.n2916:T0389",
+        "svc.c03.n2916:T0326",
+        "svc.c03.n7755:T0180",
+        "svc.c03.n12628:T0351",
+        "svc.c03.n8543:T0406",
+        "svc.c03.n7931:T0237",
+        "svc.c03.n8459:T0004",
+        "svc.c03.n1563:T0192",
+        "svc.c03.n11769:T0378",
+        "svc.c03.n8718:T0359",
+        "svc.c03.n9874:T0118",
+        "svc.c03.n8810:T0385"
+      ]
+    },
+    {
+      "id": "COMP-C07",
+      "label": "c07",
+      "role": "component",
+      "packages": [
+        "svc.shared.application"
+      ],
+      "responsibilities": [
+        "Shared application contracts."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.shared.application.n6757",
+        "svc.shared.application.n0071"
+      ]
+    },
+    {
+      "id": "COMP-C06",
+      "label": "c06",
+      "role": "component",
+      "packages": [
+        "svc.shared.n12314",
+        "svc.shared.c05",
+        "svc.shared.errors"
+      ],
+      "responsibilities": [
+        "Shared domain types."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.shared.n12314",
+        "svc.shared.c05:T0327",
+        "svc.shared.errors"
+      ]
+    },
+    {
+      "id": "COMP-C08",
+      "label": "c08",
+      "role": "component",
+      "packages": [
+        "svc.shared.n9067"
+      ],
+      "responsibilities": [
+        "Shared infrastructure adapters."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.shared.n9067.n12314"
+      ]
+    },
+    {
+      "id": "COMP-C11",
+      "label": "c11",
+      "role": "component",
+      "packages": [
+        "svc.c11"
+      ],
+      "responsibilities": [
+        "Compute adapter B."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c11.n4164"
+      ]
+    },
+    {
+      "id": "COMP-C12",
+      "label": "c12",
+      "role": "component",
+      "packages": [
+        "svc.n0951",
+        "svc.c12"
+      ],
+      "responsibilities": [
+        "Background worker entry point."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c12"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "svc",
+      "rationale": "Every module has one owning component that answers for its dependencies and its interface.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Dependencies point inward toward the domain and ports, so each layer can change without the layers above it.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Use cases are reached through ports and declared services, so adapter details stay behind the boundary.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "include_type_checking": true,
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C03-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) may depend on `c05` (domain model); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C09-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) may depend on `c05` (domain model); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C04-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) may depend on `c05` (domain model); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C10-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) may depend on `c05` (domain model); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C12-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) may depend on `c05` (domain model); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C11-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) may depend on `c05` (domain model); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C02-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) may depend on `c05` (domain model); architect decision, citing docs/architecture.md.",
+      "source": "svc.c02",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C02-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) may depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C03-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) may depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C11-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) may depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C10-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) may depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C12-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) may depend on `c04` (port interfaces); architect decision, citing docs/architecture.md.",
+      "source": "svc.n0951",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C02-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) may depend on `c06` (shared domain types); architect decision, citing docs/adr/ADR-002.",
+      "source": "svc.c02",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C12-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) may depend on `c06` (shared domain types); architect decision, citing docs/adr/ADR-002.",
+      "source": "svc.n0951",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c06` (shared domain types); architect decision, citing docs/adr/ADR-002.",
+      "source": "svc.config",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C03-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) may depend on `c06` (shared domain types); architect decision, citing docs/architecture.md.",
+      "source": "svc.c03",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C09-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) may depend on `c06` (shared domain types); architect decision, citing docs/architecture.md.",
+      "source": "svc.c09",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C04-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) may depend on `c06` (shared domain types); architect decision, citing docs/architecture.md.",
+      "source": "svc.c04",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C07-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) may depend on `c06` (shared domain types); architect decision, citing docs/architecture.md.",
+      "source": "svc.shared.application",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C10-ALLOWS-C06",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) may depend on `c06` (shared domain types); architect decision, citing docs/architecture.md.",
+      "source": "svc.c10",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C03",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c03` (application use cases); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C02",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C09",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C08",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.config",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C02-ALLOWS-C03",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) may depend on `c03` (application use cases); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C09-ALLOWS-C07",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) may depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C03-ALLOWS-C07",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) may depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c07` (shared application contracts); architect decision, citing docs/architecture.md.",
+      "source": "svc.c04",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C13-ALLOWS-C09",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) may depend on `c09` (persistence adapter); architect decision, citing docs/architecture.md.",
+      "source": "svc.c13",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C13-ALLOWS-C08",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) may depend on `c08` (shared infrastructure adapters); architect decision, citing docs/architecture.md.",
+      "source": "svc.c13",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C12-ALLOWS-C03",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) may depend on `c03` (application use cases); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C12-ALLOWS-C01",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) may depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C12-ALLOWS-C08",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) may depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C13-ALLOWS-C01",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) may depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C13-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C13-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C02-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c02` (HTTP edge) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c02",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c05` (domain model); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C10",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C13",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C07",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.config",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C11",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.config",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C01-ALLOWS-C12",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c01` (composition root with settings) may depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.config",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C04",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C06",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c06` (shared domain types); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C05-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c05` (domain model) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c05",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C10-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c10` (compute adapter A) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c10",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C13-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C13-ALLOWS-C05",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) may depend on `c05` (domain model); architect decision, citing docs/architecture.md.",
+      "source": "svc.c13",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C13-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C13-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) may depend on `c04` (port interfaces); architect decision, citing docs/architecture.md.",
+      "source": "svc.c13",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C13-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C13-NO-C06",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) must not depend on `c06` (shared domain types); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C13-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c13` (outbox publisher entry point) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.c13",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C04-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c04` (port interfaces) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c04",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-C09-ALLOWS-C04",
+      "kind": "allowed_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) may depend on `c04` (port interfaces); architect decision, citing docs/architecture.md.",
+      "source": "svc.c09",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C09-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c09` (persistence adapter) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c09",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C03-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c03` (application use cases) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c03",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C05",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c05` (domain model); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C04",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C07-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c07` (shared application contracts) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.shared.application",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C05",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c05` (domain model); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C04",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C06-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c06` (shared domain types) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.shared.n12314",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C05",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c05` (domain model); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c05",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C04",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c04` (port interfaces); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c04",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C06",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c06` (shared domain types); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C08-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c08` (shared infrastructure adapters) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.shared.n9067",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C01",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c01` (composition root with settings); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.config",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C03",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c03` (application use cases); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.c03",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C06",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c06` (shared domain types); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.shared.n12314",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C08",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c08` (shared infrastructure adapters); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.shared.n9067",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C11-NO-C12",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c11` (compute adapter B) must not depend on `c12` (background worker entry point); architect decision.",
+      "source": "svc.c11",
+      "target": "svc.n0951",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C12-NO-C02",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) must not depend on `c02` (HTTP edge); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.c02",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C12-NO-C10",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) must not depend on `c10` (compute adapter A); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.c10",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C12-NO-C13",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) must not depend on `c13` (outbox publisher entry point); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.c13",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C12-NO-C09",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) must not depend on `c09` (persistence adapter); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.c09",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C12-NO-C07",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) must not depend on `c07` (shared application contracts); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.shared.application",
+      "decided_by": "architect"
+    },
+    {
+      "allowed_sources": [],
+      "id": "DEP-C12-NO-C11",
+      "include_type_checking": true,
+      "kind": "forbidden_dependency",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "rationale": "`c12` (background worker entry point) must not depend on `c11` (compute adapter B); architect decision.",
+      "source": "svc.n0951",
+      "target": "svc.c11",
+      "decided_by": "architect"
+    }
+  ]
+}
