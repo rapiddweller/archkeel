@@ -67,8 +67,8 @@ change. Check: `tests/test_self.py`.
 checks that dependency in `__post_init__`, for example `ObservationResult` (no diagnostics means
 a complete observation) and `RatchetObservations` (measurements exist exactly when the status
 is `SUPPORTED`). Consumers narrow with ordinary control flow. Reason: `assert` disappears
-under `python -O` and hides the invariant from its owner. Check: `tests/test_repository_hygiene.py` rejects `assert`
-statements in `src/`.
+under `python -O` and hides the invariant from its owner. Check:
+`tests/test_repository_hygiene.py` rejects `assert` statements in `src/`.
 
 **AD-6 A function has one responsibility.** A function longer than 80 lines, counted from `def`
 to its last line with nested functions included, needs a named reason. Reasons live in
