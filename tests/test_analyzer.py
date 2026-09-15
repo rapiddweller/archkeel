@@ -313,6 +313,141 @@ def test_forbidden_dependency_scoped_to_a_submodule_matches_only_that_submodule(
     ]
 
 
+def test_forbidden_dependency_supersedes_interface_boundary_on_the_same_import(
+    tmp_path: Path,
+) -> None:
+    """AD-18: an import already rejected by forbidden_dependency is reported once, as
+    that violation; interface_boundary does not also report it.
+    """
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("core", public=["sample.core:allowed"]), _component("cli")],
+        "rules": [
+            {
+                "id": "DEP-CLI-NO-CORE",
+                "kind": "forbidden_dependency",
+                "source": "sample.cli",
+                "target": "sample.core",
+                "include_type_checking": True,
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "INTERFACE",
+                "kind": "interface_boundary",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text("allowed = 1\nother = 2\n")
+    # Breaks both rules: forbidden_dependency (cli -> core) and interface_boundary (other
+    # is not declared public).
+    (tmp_path / "sample/cli.py").write_text("from sample.core import other\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids) for item in violations] == [
+        ("forbidden_dependency", ("DEP-CLI-NO-CORE",))
+    ]
+
+
+def test_interface_boundary_still_fires_on_an_allowed_pair_that_misses_the_interface(
+    tmp_path: Path,
+) -> None:
+    """AD-18 only supersedes an import a forbidden_dependency rule rejects; an import on
+    a pair the architect has allowed, and that misses the declared interface, still
+    violates interface_boundary.
+    """
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("core", public=["sample.core:allowed"]), _component("cli")],
+        "rules": [
+            {
+                "id": "DEP-CLI-ALLOWS-CORE",
+                "kind": "allowed_dependency",
+                "source": "sample.cli",
+                "target": "sample.core",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "INTERFACE",
+                "kind": "interface_boundary",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text("allowed = 1\nother = 2\n")
+    (tmp_path / "sample/cli.py").write_text("from sample.core import other\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids) for item in violations] == [
+        ("interface_boundary", ("INTERFACE",))
+    ]
+
+
+def test_scoped_forbidden_dependency_supersedes_only_the_imports_it_rejects(
+    tmp_path: Path,
+) -> None:
+    """A target_symbol-scoped forbidden_dependency rule supersedes interface_boundary
+    only on the import it rejects; a sibling import it does not reject still violates
+    interface_boundary.
+    """
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("core", public=["sample.core:allowed"]), _component("cli")],
+        "rules": [
+            {
+                "id": "DEP-CLI-NO-CORE-HIDDEN-HELPER",
+                "kind": "forbidden_dependency",
+                "source": "sample.cli",
+                "target": "sample.core.impl",
+                "target_symbol": "hidden_helper",
+                "include_type_checking": True,
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "INTERFACE",
+                "kind": "interface_boundary",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core").mkdir()
+    (tmp_path / "sample/core/__init__.py").write_text("allowed = 1\nother = 2\n")
+    (tmp_path / "sample/core/impl.py").write_text("hidden_helper = 3\n")
+    (tmp_path / "sample/cli").mkdir()
+    # Rejected by the scoped forbidden_dependency rule; superseded, no interface finding.
+    (tmp_path / "sample/cli/a.py").write_text("from sample.core.impl import hidden_helper\n")
+    # Not in scope for the forbidden rule (targets sample.core, not sample.core.impl); the
+    # interface violation still fires.
+    (tmp_path / "sample/cli/b.py").write_text("from sample.core import other\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert sorted((item.kind, item.rule_ids) for item in violations) == [
+        ("forbidden_dependency", ("DEP-CLI-NO-CORE-HIDDEN-HELPER",)),
+        ("interface_boundary", ("INTERFACE",)),
+    ]
+
+
 @pytest.mark.parametrize(
     ("core_public", "rule_overrides", "files", "expected_violations"),
     [

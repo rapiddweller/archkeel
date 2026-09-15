@@ -73,8 +73,10 @@ holds `pkg.module` entries, which make every non-underscore name of that module 
 `__all__` when the module declares one, and `pkg.module:Name` entries, which make exactly one name
 public. It matches every cross-component import whose target component declares `public` and
 reports a violation unless the imported name, directly or through its re-export chain, resolves to
-a declared name; underscore names never qualify. A complete scan, fixed source bytes and analyzer
-digest make the result deterministic. An empty `__all__` reads the same as no `__all__` at all,
+a declared name; underscore names never qualify. An import a `forbidden_dependency` rule already
+rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). A
+complete scan, fixed source bytes and analyzer digest make the result deterministic. An empty
+`__all__` reads the same as no `__all__` at all,
 aliasing during a re-export is not resolved, and `from pkg import submodule` is matched as the
 name `pkg:submodule` rather than the module `pkg.submodule`; these remain blind spots.
 Importing `sample.core.impl`

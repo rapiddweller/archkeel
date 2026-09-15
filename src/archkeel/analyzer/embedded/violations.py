@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import Final, assert_never
 
 from archkeel.ir.model import (
@@ -30,14 +30,18 @@ from .graph import strongly_connected_components
 from .records import RawRecord, RecordData, classified, stable_id
 
 
-def _dependency_violations(
+def _forbidden_dependency_matches(
     imports: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
     components: tuple[tuple[str, tuple[str, ...]], ...],
-) -> list[RawRecord]:
+) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord]]:
+    """Yield each (rule, import) pair a forbidden_dependency rule rejects.
+
+    AD-18: interface_boundary reuses this to skip an import a forbidden rule already
+    rejects, instead of a second matcher that could drift from this one (SPOT).
+    """
     owners = package_owners(components)
     packages_by_label = dict(components)
-    violations: list[RawRecord] = []
     for rule in rules:
         if not isinstance(rule, ForbiddenDependencyRule):
             continue
@@ -66,26 +70,35 @@ def _dependency_violations(
                 continue
             if data["under_type_checking"] and not rule.include_type_checking:
                 continue
-            target_name = ".".join(filter(None, (data["target_module"], data["symbol"])))
-            violations.append(
-                classified(
-                    item_id=stable_id("VIO", rule.id, item["id"]),
-                    evidence_class=EvidenceClass.VIOLATION,
-                    area="dependency_violations",
-                    kind="forbidden_dependency",
-                    title=f"{data['source_module']} imports forbidden {target_name}",
-                    subjects=[data["source_module"], target_name],
-                    evidence_ids=item["evidence_ids"],
-                    rule_ids=[rule.id],
-                    fact_ids=[item["id"]],
-                    data={
-                        "source_module": data["source_module"],
-                        "target_module": data["target_module"],
-                        "symbol": data["symbol"],
-                        "under_type_checking": data["under_type_checking"],
-                    },
-                )
+            yield rule, item
+
+
+def _dependency_violations(
+    matches: Iterator[tuple[ForbiddenDependencyRule, RawRecord]],
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
+    for rule, item in matches:
+        data = item["data"]
+        target_name = ".".join(filter(None, (data["target_module"], data["symbol"])))
+        violations.append(
+            classified(
+                item_id=stable_id("VIO", rule.id, item["id"]),
+                evidence_class=EvidenceClass.VIOLATION,
+                area="dependency_violations",
+                kind="forbidden_dependency",
+                title=f"{data['source_module']} imports forbidden {target_name}",
+                subjects=[data["source_module"], target_name],
+                evidence_ids=item["evidence_ids"],
+                rule_ids=[rule.id],
+                fact_ids=[item["id"]],
+                data={
+                    "source_module": data["source_module"],
+                    "target_module": data["target_module"],
+                    "symbol": data["symbol"],
+                    "under_type_checking": data["under_type_checking"],
+                },
             )
+        )
     return sorted(violations, key=lambda item: item["id"])
 
 
@@ -272,7 +285,10 @@ def _interface_allows(
 
 
 def _interface_violations(
-    imports: Sequence[RawRecord], contract: ArchitectureContract, modules: Sequence[RawRecord]
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    forbidden_rejected_ids: frozenset[str],
 ) -> list[RawRecord]:
     rules = [rule for rule in contract.rules if isinstance(rule, InterfaceBoundaryRule)]
     if not rules:
@@ -292,6 +308,9 @@ def _interface_violations(
                 or source == target
                 or target.public is None
                 or (data["under_type_checking"] and not rule.include_type_checking)
+                # AD-18: a forbidden edge has no legitimate interface to reach, so it is
+                # reported once, as the forbidden_dependency violation.
+                or item["id"] in forbidden_rejected_ids
                 or _interface_allows(data, target, exports_by_module)
             ):
                 continue
@@ -377,14 +396,16 @@ def rule_violations(
 ) -> list[RawRecord]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
+    forbidden_matches = list(_forbidden_dependency_matches(imports, contract.rules, components))
+    forbidden_rejected_ids = frozenset(item["id"] for _, item in forbidden_matches)
     return sorted(
         [
-            *_dependency_violations(imports, contract.rules, components),
+            *_dependency_violations(iter(forbidden_matches)),
             *_construct_violations([*typing_signals, *constructs], contract.rules),
             *_external_dependency_violations(imports, contract.rules),
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),
-            *_interface_violations(imports, contract, modules),
+            *_interface_violations(imports, contract, modules, forbidden_rejected_ids),
         ],
         key=lambda item: item["id"],
     )
