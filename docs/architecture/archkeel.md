@@ -173,6 +173,15 @@ break its documented intent faster than any table, and a prototype on the shop s
 for every rule kind. Check: the HTML report tests, `tests/test_determinism.py`, and the shop tour
 report drawing every violated edge.
 
+**AD-15 `init` never approves an observed edge.** `init` drafts one `forbidden_dependency` rule with
+a `TODO:` rationale for every ordered component pair, observed or not. An observed pair therefore
+starts as a violation, and the owner decides it: keep the rule and change the code, or delete the
+rule to allow the edge. `validate` blocks until every drafted rationale is replaced. Reason: drafting
+rules only for unobserved pairs made the first report pass by construction; on the internal service,
+rules taken from its own architecture document made 7 observed edges fail at 200 import sites.
+Check: an onboarding test proves that every ordered pair has a drafted rule, and the first report
+after `init` on the shop sample fails on every observed edge.
+
 ## Allowed dependencies
 
 | Edge | Reason |
