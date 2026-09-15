@@ -60,7 +60,7 @@ def test_record_data_cannot_have_ambiguous_keys() -> None:
         RecordData((("key", 1), ("key", 2)))
 
 
-@pytest.mark.parametrize("command", ["report", "check", "accept"])
+@pytest.mark.parametrize("command", ["report", "check"])
 def test_exit_two_cannot_exist_without_diagnostic(command: str) -> None:
     with pytest.raises(ValueError, match="exit 2 requires"):
         RunResult(command, 2)

@@ -13,23 +13,6 @@ from archkeel.cli import main
 ROOT = Path(__file__).parents[1]
 
 
-@pytest.mark.parametrize("entry", ["installed", "module"])
-def test_accept_remains_unknown_at_both_entrypoints(entry: str) -> None:
-    command = (
-        [str(Path(sys.executable).with_name("archkeel"))]
-        if entry == "installed"
-        else [sys.executable, "-m", "archkeel.cli"]
-    )
-    result = subprocess.run(
-        [*command, "accept"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 2
-    assert json.loads(result.stdout)["diagnostics"]
-    assert json.loads(result.stdout)["expectation_fulfilled"] == "UNKNOWN"
-
-
 def test_check_requires_explicit_inputs(capsys: pytest.CaptureFixture) -> None:
     assert main(["check"]) == 2
     assert (
@@ -56,7 +39,7 @@ def test_skill_install_writes_the_packaged_instructions(
     assert "archkeel validate --json" in path.read_text()
 
 
-@pytest.mark.parametrize("command", ["init", "report", "validate", "check", "skill", "accept"])
+@pytest.mark.parametrize("command", ["init", "report", "validate", "check", "skill"])
 def test_every_command_help_explains_purpose_and_exit_codes(command: str) -> None:
     result = subprocess.run(
         [sys.executable, "-m", "archkeel.cli", command, "--help"],
@@ -66,7 +49,7 @@ def test_every_command_help_explains_purpose_and_exit_codes(command: str) -> Non
     )
     assert result.returncode == 0
     assert "Exit codes:" in result.stdout
-    assert command == "accept" or "Example" in result.stdout
+    assert "Example" in result.stdout
 
 
 def test_no_arguments_prints_the_command_overview(capsys: pytest.CaptureFixture) -> None:

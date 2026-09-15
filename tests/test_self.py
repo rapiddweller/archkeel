@@ -178,10 +178,10 @@ def test_rationale_check_detects_a_repeated_rule() -> None:
 
 def test_graph_check_detects_a_missing_edge(self_observation: Observation) -> None:
     documents = tuple(
-        (path, content.replace("    cli --> accept\n", ""))
+        (path, content.replace("    cli --> render\n", ""))
         for path, content in _architecture_documents()
     )
     diagnostic = graph_diagnostics(_contract(), self_observation, documents)[0]
     assert diagnostic.pointer == "/components"
-    assert "cli->accept" in diagnostic.unknown_claim
+    assert "cli->render" in diagnostic.unknown_claim
     assert COMPONENT_GRAPH_MARKER in _architecture_documents()[0][1]

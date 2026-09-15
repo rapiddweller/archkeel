@@ -9,7 +9,7 @@ imports remain allowed. Every cross-component pair is either observed or forbidd
 |---|---|---|
 | Core | `ir`, `check` | Stable evidence values and deterministic policy evaluation |
 | Adapters | `analyzer`, `host` | Python source observations and GitLab host records |
-| Edge | `cli`, `render`, `accept` | Composition, presentation and accepted-state entry points |
+| Edge | `cli`, `render` | Composition and presentation |
 
 The CLI is the composition root. It selects concrete analyzer and host adapters, invokes the
 core, writes artifacts and delegates HTML and terminal projection to `render`. Core modules
@@ -244,12 +244,10 @@ has no `accept` component, every component responsibility names its quality goal
 
 | Edge | Reason |
 |---|---|
-| `cli` → `accept` | Dispatch the acceptance command from the composition root. |
 | `cli` → `analyzer` | Supply the concrete source analyzer to report and check workflows. |
 | `cli` → `check` | Invoke deterministic report and check services. |
 | `cli` → `host` | Supply the concrete host-record loader to checks. |
 | `cli` → `render` | Project typed results and write presentation artifacts. |
-| `accept` → `ir` | Return typed command results through shared IR values. |
 | `analyzer` → `ir` | Publish observations through the common model and codec boundary. |
 | `check` → `ir` | Compare observations and return typed results. |
 | `host` → `ir` | Construct validated host-record values. |
@@ -258,12 +256,10 @@ has no `accept` component, every component responsibility names its quality goal
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
-    cli --> accept
     cli --> analyzer
     cli --> check
     cli --> host
     cli --> render
-    accept --> ir
     analyzer --> ir
     check --> ir
     host --> ir

@@ -332,7 +332,6 @@ Archkeel is deliberately strict about what it can prove:
 - **Precommitment:** publication order is proven; private editing order is not.
 - **Analyzer runtime:** Archkeel's Python must be at least the target
   repository's Python.
-- **Acceptance:** `accept` is a placeholder and returns exit `2`.
 - **Onboarding:** `init` detects one top-level package; other layouts need `--source` and
   `--namespace`. It cannot know why a boundary exists, so every rationale stays a decision.
 

@@ -43,17 +43,6 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
-      "id": "COMP-ACCEPT",
-      "label": "accept",
-      "capability_id": "CAP-ARCHKEEL",
-      "role": "component",
-      "packages": ["archkeel.accept"],
-      "public": ["archkeel.accept"],
-      "responsibilities": ["CI acceptance entry point; currently an explicit unavailable result."],
-      "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"]
-    },
-    {
       "id": "COMP-CLI",
       "label": "cli",
       "capability_id": "CAP-ARCHKEEL",
@@ -132,16 +121,6 @@
       "decided_by": "architect"
     },
     {
-      "id": "DEP-IR-NO-ACCEPT",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.ir",
-      "target": "archkeel.accept",
-      "include_type_checking": true,
-      "rationale": "Lock and observation types remain independent of acceptance orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
       "id": "DEP-IR-NO-CLI",
       "kind": "forbidden_dependency",
       "source": "archkeel.ir",
@@ -168,16 +147,6 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "The shared evidence model remains independent of Python source analysis.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-CHECK-NO-ACCEPT",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.check",
-      "target": "archkeel.accept",
-      "include_type_checking": true,
-      "rationale": "Policy evaluation must not create or mutate accepted state.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },
@@ -212,46 +181,6 @@
       "decided_by": "architect"
     },
     {
-      "id": "DEP-ACCEPT-NO-CHECK",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.accept",
-      "target": "archkeel.check",
-      "include_type_checking": true,
-      "rationale": "Acceptance remains separate from deterministic policy evaluation.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ACCEPT-NO-CLI",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.accept",
-      "target": "archkeel.cli",
-      "include_type_checking": true,
-      "rationale": "Acceptance state remains usable without command-line orchestration.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ACCEPT-NO-HOST",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.accept",
-      "target": "archkeel.host",
-      "include_type_checking": true,
-      "rationale": "Acceptance stores opaque approval references instead of host-specific data.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ACCEPT-NO-ANALYZER",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.accept",
-      "target": "archkeel.analyzer",
-      "include_type_checking": true,
-      "rationale": "Acceptance must not trigger source analysis.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
       "id": "DEP-CLI-NO-IR",
       "kind": "forbidden_dependency",
       "source": "archkeel.cli",
@@ -268,16 +197,6 @@
       "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "Host adapters collect evidence while check owns policy interpretation.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-HOST-NO-ACCEPT",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.host",
-      "target": "archkeel.accept",
-      "include_type_checking": true,
-      "rationale": "Host adapters collect approval evidence but never persist accepted state.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },
@@ -308,16 +227,6 @@
       "target": "archkeel.check",
       "include_type_checking": true,
       "rationale": "The analyzer produces observations without evaluating policy.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-ACCEPT",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.accept",
-      "include_type_checking": true,
-      "rationale": "Source analysis must not create or mutate accepted state.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },
@@ -432,16 +341,6 @@
       "decided_by": "architect"
     },
     {
-      "id": "DEP-ACCEPT-NO-RENDER",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.accept",
-      "target": "archkeel.render",
-      "include_type_checking": true,
-      "rationale": "Acceptance remains independent of presentation.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
       "id": "DEP-HOST-NO-RENDER",
       "kind": "forbidden_dependency",
       "source": "archkeel.host",
@@ -472,16 +371,6 @@
       "decided_by": "architect"
     },
     {
-      "id": "DEP-RENDER-NO-ACCEPT",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.render",
-      "target": "archkeel.accept",
-      "include_type_checking": true,
-      "rationale": "Rendering does not own acceptance.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
       "id": "DEP-RENDER-NO-CLI",
       "kind": "forbidden_dependency",
       "source": "archkeel.render",
@@ -508,15 +397,6 @@
       "target": "archkeel.analyzer",
       "include_type_checking": true,
       "rationale": "Rendering consumes IR values rather than analyzer implementations.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-CLI-ALLOWS-ACCEPT",
-      "kind": "allowed_dependency",
-      "source": "archkeel.cli",
-      "target": "archkeel.accept",
-      "rationale": "Dispatch the acceptance command from the composition root.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },
@@ -553,15 +433,6 @@
       "source": "archkeel.cli",
       "target": "archkeel.render",
       "rationale": "Project typed results and write presentation artifacts.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ACCEPT-ALLOWS-IR",
-      "kind": "allowed_dependency",
-      "source": "archkeel.accept",
-      "target": "archkeel.ir",
-      "rationale": "Return typed command results through shared IR values.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },

@@ -16,7 +16,6 @@ from typing import Final, NoReturn
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-from ..accept import unavailable
 from ..analyzer import observe
 from ..check.onboarding import run_init
 from ..check.report import render_result, run_report, unknown_result
@@ -218,12 +217,6 @@ def build_parser() -> _Parser:
     skill.add_argument("agent", choices=["claude", "codex"], help="Coding agent to instruct.")
     _observing(skill, None)
 
-    commands.add_parser(
-        "accept",
-        help="Accept a candidate (not available in this release).",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description="Always returns an unverifiable result.\n\nExit codes:\n  2  always",
-    )
     return parser
 
 
@@ -248,88 +241,83 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else json.dumps({"command": "skill", "exit_code": 0, "path": str(path)})
             )
             return 0
-        if command == "accept":
-            result = unavailable()
-        else:
-            root = args.root.resolve()
-            subject = str(root / "archkeel.toml")
-            with progress(f"archkeel {command}: observing {root.name}"):
-                if command == "init":
-                    subject = str(root)
-                    result, files = run_init(
-                        root,
-                        source=args.source,
-                        namespace=args.namespace,
-                        force=args.force,
-                        analyzer=observe,
+        root = args.root.resolve()
+        subject = str(root / "archkeel.toml")
+        with progress(f"archkeel {command}: observing {root.name}"):
+            if command == "init":
+                subject = str(root)
+                result, files = run_init(
+                    root,
+                    source=args.source,
+                    namespace=args.namespace,
+                    force=args.force,
+                    analyzer=observe,
+                )
+                for relative, payload in files.items():
+                    target = root / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(payload)
+                    artifacts.append(target)
+            elif command == "report":
+                config = load_config(root)
+                subject = str(root)
+                result, architecture = run_report(root, config=config, analyzer=observe)
+                if architecture is not None:
+                    artifact = args.output or root / "test-artifacts/architecture/architecture.json"
+                    artifact.parent.mkdir(parents=True, exist_ok=True)
+                    artifact.write_bytes(architecture)
+                    resolved = artifact.resolve()
+                    result = replace(
+                        result,
+                        artifact=(
+                            str(resolved.relative_to(root))
+                            if resolved.is_relative_to(root)
+                            else str(resolved)
+                        ),
                     )
-                    for relative, payload in files.items():
-                        target = root / relative
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(payload)
-                        artifacts.append(target)
-                elif command == "report":
-                    config = load_config(root)
-                    subject = str(root)
-                    result, architecture = run_report(root, config=config, analyzer=observe)
-                    if architecture is not None:
-                        artifact = (
-                            args.output or root / "test-artifacts/architecture/architecture.json"
-                        )
-                        artifact.parent.mkdir(parents=True, exist_ok=True)
-                        artifact.write_bytes(architecture)
-                        resolved = artifact.resolve()
-                        result = replace(
+                    report_html = html_path(artifact, "report")
+                    report_html.write_bytes(
+                        render_architecture_html(
                             result,
-                            artifact=(
-                                str(resolved.relative_to(root))
-                                if resolved.is_relative_to(root)
-                                else str(resolved)
-                            ),
+                            architecture,
+                            repository=root.name,
+                            architecture_href=artifact.name,
                         )
-                        report_html = html_path(artifact, "report")
-                        report_html.write_bytes(
-                            render_architecture_html(
-                                result,
-                                architecture,
-                                repository=root.name,
-                                architecture_href=artifact.name,
-                            )
-                        )
-                        artifacts.extend((artifact, report_html))
-                elif command == "validate":
-                    config = load_config(root)
-                    result = run_validate(root, config, observe)
-                else:
-                    config = load_check_config(root, args.baseline, args.head)
-                    subject = "check inputs"
-                    result = run_check(
-                        root,
-                        config=config,
-                        baseline=args.baseline,
-                        expectation_commit=args.expectation_commit,
-                        head=args.head,
-                        expected_path=args.expected,
-                        expected_digest=args.expected_digest,
-                        branch=args.branch,
-                        accepted_branch=args.accepted_branch,
-                        host_records_path=args.host_records,
-                        environ=os.environ,
-                        host=load_gitlab_records,
-                        analyzer=observe,
                     )
-                    if args.output:
-                        args.output.parent.mkdir(parents=True, exist_ok=True)
-                        args.output.write_bytes(render_result(result))
-                        check_html = html_path(args.output, "check")
-                        check_html.write_bytes(
-                            render_check_html(
-                                result,
-                                repository=root.name,
-                                result_href=args.output.name,
-                            )
+                    artifacts.extend((artifact, report_html))
+            elif command == "validate":
+                config = load_config(root)
+                result = run_validate(root, config, observe)
+            else:
+                config = load_check_config(root, args.baseline, args.head)
+                subject = "check inputs"
+                result = run_check(
+                    root,
+                    config=config,
+                    baseline=args.baseline,
+                    expectation_commit=args.expectation_commit,
+                    head=args.head,
+                    expected_path=args.expected,
+                    expected_digest=args.expected_digest,
+                    branch=args.branch,
+                    accepted_branch=args.accepted_branch,
+                    host_records_path=args.host_records,
+                    environ=os.environ,
+                    host=load_gitlab_records,
+                    analyzer=observe,
+                )
+                if args.output:
+                    args.output.parent.mkdir(parents=True, exist_ok=True)
+                    args.output.write_bytes(render_result(result))
+                    check_html = html_path(args.output, "check")
+                    check_html.write_bytes(
+                        render_check_html(
+                            result,
+                            repository=root.name,
+                            result_href=args.output.name,
                         )
-                        artifacts.extend((args.output, check_html))
+                    )
+                    artifacts.extend((args.output, check_html))
     # The CLI contract is a JSON result with exit 2, never a bare traceback, for any failure.
     except Exception as error:
         result = (
