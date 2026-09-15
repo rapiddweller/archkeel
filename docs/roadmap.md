@@ -69,6 +69,7 @@ only when its row names repository evidence.
   `forbidden_construct` rules from observed constructs, check `requires-python` before scanning,
   validate responsibility cells, allow one rationale per source component, and generate the skill's
   onboarding steps from `docs/onboarding.md`.
+- Split `ir/codec.py` along its contract, observation, delta, result and lock seams (AD-17).
 - Add `propose` and `next`.
 - Integrate Archkeel into DataMimic EE.
 - Add an interactive review surface and navigable dependency graph.
