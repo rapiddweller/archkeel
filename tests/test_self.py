@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.check.onboarding import draft_contract
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     closed_world_diagnostics,
@@ -22,11 +23,13 @@ from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contrac
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import (
     ArchitectureContract,
-    ContractDeclarations,
     ForbiddenDependencyRule,
     Observation,
     in_scope,
 )
+
+# AD-4: the analyzer's public IR API is exactly these two modules.
+ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec"})
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
@@ -99,8 +102,6 @@ def test_self_contract_covers_modules_and_analyzer_interface(
     self_observation: Observation,
 ) -> None:
     contract = _contract()
-    declarations = contract.declarations or ContractDeclarations()
-    public_api = set(declarations.public_api)
     forbidden_ir = {
         rule.target
         for rule in contract.rules
@@ -109,14 +110,23 @@ def test_self_contract_covers_modules_and_analyzer_interface(
     for module in self_observation.records("modules") or ():
         name = module.data.get("qualified_name")
         assert isinstance(name, str)
-        if name.startswith("archkeel.ir.") and name not in public_api:
+        if name.startswith("archkeel.ir.") and name not in ANALYZER_PUBLIC_IR:
             assert any(in_scope(name, prefix) for prefix in forbidden_ir), name
     for record in self_observation.records("imports") or ():
         source = record.data.get("source_module")
         target = record.data.get("target_module")
         assert isinstance(source, str) and isinstance(target, str)
         if in_scope(source, "archkeel.analyzer") and in_scope(target, "archkeel.ir"):
-            assert target in public_api, (source, target)
+            assert target in ANALYZER_PUBLIC_IR, (source, target)
+
+
+def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
+    """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard)."""
+    contract = _contract()
+    drafted, _ = draft_contract(self_observation, "archkeel")
+    actual = {component.label: component.public for component in contract.components}
+    proposed = {component.label: component.public for component in drafted.components}
+    assert actual == proposed
 
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:

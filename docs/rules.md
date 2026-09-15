@@ -82,6 +82,8 @@ integer cross-multiplied ratios and semantic fingerprints.
 
 Fields under `declarations` preserve capabilities, review scopes, public interfaces, commands,
 context roots, paths and owners. Archkeel decodes and reports them but does not enforce them.
+`public_api` is superseded by the component `public` field and its `interface_boundary` rule
+(AD-9); it stays valid but new contracts should declare `public` per component instead.
 
 - **Measurement:** none; declaration records mirror the contract.
 - **Determinism:** decoding is deterministic for a valid Contract 2.0 document.

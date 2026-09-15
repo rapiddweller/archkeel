@@ -8,6 +8,16 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.ir"],
+      "public": [
+        "archkeel.ir.codec",
+        "archkeel.ir.digest",
+        "archkeel.ir.host_records",
+        "archkeel.ir.interfaces",
+        "archkeel.ir.lock",
+        "archkeel.ir.measurements",
+        "archkeel.ir.model",
+        "archkeel.ir.trace"
+      ],
       "responsibilities": ["Immutable observations, measurements, locks and JSON codecs."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
@@ -18,6 +28,15 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.check"],
+      "public": [
+        "archkeel.check.git:read_blob",
+        "archkeel.check.onboarding:run_init",
+        "archkeel.check.ports:ScanConfig",
+        "archkeel.check.report",
+        "archkeel.check.run:run_check",
+        "archkeel.check.validation:invalid_result",
+        "archkeel.check.validation:run_validate"
+      ],
       "responsibilities": ["Deterministic deltas, regression checks, expectations and publication-order checks."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
@@ -28,6 +47,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.accept"],
+      "public": ["archkeel.accept"],
       "responsibilities": ["CI acceptance entry point; currently an explicit unavailable result."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
@@ -48,6 +68,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.host"],
+      "public": ["archkeel.host.gitlab"],
       "responsibilities": ["GitLab host records with SHA, event and timestamp."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
@@ -58,6 +79,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.analyzer"],
+      "public": ["archkeel.analyzer"],
       "responsibilities": ["Run the bundled Python analyzer and preserve typed diagnostics."],
       "forbidden_responsibilities": [],
       "provenance": ["docs/architecture/archkeel.md"]
@@ -68,6 +90,13 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.render"],
+      "public": [
+        "archkeel.render.html",
+        "archkeel.render.summary:check_summary",
+        "archkeel.render.summary:init_summary",
+        "archkeel.render.summary:report_summary",
+        "archkeel.render.terminal"
+      ],
       "responsibilities": ["Deterministic HTML and terminal projections of typed Archkeel evidence."],
       "forbidden_responsibilities": ["Architecture decisions and persistence."],
       "provenance": ["docs/architecture/archkeel.md"]
@@ -84,11 +113,6 @@
       }
     ],
     "review_scopes": [],
-    "public_api": [
-      "archkeel.ir.model",
-      "archkeel.ir.codec"
-    ],
-    "public_api_provenance": ["docs/architecture/archkeel.md"],
     "public_commands": [],
     "context_roots": [],
     "context_roots_provenance": ["docs/architecture/archkeel.md"],
@@ -498,6 +522,12 @@
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",
       "provenance": ["docs/architecture/archkeel.md"]
     }
   ]
