@@ -10,8 +10,8 @@ test:
 	$(UV) run --locked python -m pytest -q
 
 lint:
-	$(UV) run --locked ruff format --check src tests tools/terminal_svg.py tools/interface_profile.py fixtures/reproduce_milestone1.py
-	$(UV) run --locked ruff check src tests tools/terminal_svg.py tools/interface_profile.py fixtures/reproduce_milestone1.py
+	$(UV) run --locked ruff format --check src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py fixtures/reproduce_milestone1.py
+	$(UV) run --locked ruff check src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py fixtures/reproduce_milestone1.py
 
 typecheck:
 	$(UV) run --locked mypy src/archkeel

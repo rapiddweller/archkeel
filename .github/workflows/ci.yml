@@ -49,3 +49,35 @@ jobs:
           name: archkeel-self-observation
           path: test-artifacts/architecture/
           if-no-files-found: error
+
+  mermaid:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Extract Mermaid blocks
+        run: python3 tools/mermaid_blocks.py --write "$RUNNER_TEMP/mermaid"
+
+      - name: Render every Mermaid block with mermaid-cli
+        run: |
+          set -u
+          puppeteer_config="$RUNNER_TEMP/puppeteer-config.json"
+          printf '{"args": ["--no-sandbox"]}\n' > "$puppeteer_config"
+          fail=0
+          for mmd in "$RUNNER_TEMP"/mermaid/*.mmd; do
+            number=$(basename "$mmd" .mmd)
+            location=$(awk -F'\t' -v n="$number" '$1 == n { print $2 }' "$RUNNER_TEMP/mermaid/index.txt")
+            if ! npx --yes @mermaid-js/mermaid-cli@11.17.0 -p "$puppeteer_config" -i "$mmd" -o "$mmd.svg"; then
+              echo "::error::$location: mermaid-cli failed to render this block"
+              fail=1
+            fi
+          done
+          exit "$fail"
