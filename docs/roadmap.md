@@ -52,8 +52,8 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
-2. Before tagging 0.3.0, ship the component flow in the HTML report (AD-10) and onboarding as a
-   decision interview (AD-15).
+2. Before tagging 0.3.0, ship the component flow in the HTML report (AD-10), onboarding as a
+   decision interview (AD-15), and the interview and auto modes with `decided_by` (AD-16).
 3. Then repeat the internal service onboarding as an interview with the owner as architect, replace
    the agent-drafted rationales in `docs/evidence/internal-service/` with the owner's decisions, and
    decide which findings in its README block the release.
