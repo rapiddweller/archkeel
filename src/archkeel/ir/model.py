@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, TypeAlias, get_args
@@ -299,6 +300,18 @@ def in_scope(name: str, scope: str) -> bool:
     return name == scope or name.startswith(f"{scope}.")
 
 
+def package_owners(components: Iterable[tuple[str, tuple[str, ...]]]) -> dict[str, str]:
+    """Map each declared package to its owning component label, by exact match.
+
+    Exact match only: a rule whose `source` and `target` each name a package this way
+    decides (`ir.decisions`) or enforces (the analyzer's forbidden-dependency matching) the
+    whole ordered component pair, every package of one component against every package of
+    the other. A rule scoped to a submodule or a `target_symbol` narrows the rule instead,
+    and is unaffected by this mapping.
+    """
+    return {package: label for label, packages in components for package in packages}
+
+
 @dataclass(frozen=True, slots=True)
 class ContractDeclarations:
     capabilities: tuple[ContractCapability, ...] = ()
@@ -563,6 +576,25 @@ class CheckProvenance:
 
 
 @dataclass(frozen=True, slots=True)
+class OpenDecision:
+    """AD-15: one ordered component pair neither allowed nor forbidden by the contract.
+
+    `forbidden_option` and `allowed_option` are the exact rules `init --json` and
+    `validate --json` offer for this pair; only their `rationale` still needs the
+    architect's words.
+    """
+
+    source: str
+    target: str
+    source_package: str
+    target_package: str
+    observed: bool
+    import_sites: int
+    forbidden_option: ForbiddenDependencyRule
+    allowed_option: AllowedDependencyRule
+
+
+@dataclass(frozen=True, slots=True)
 class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
@@ -581,6 +613,7 @@ class RunResult:
     failures: tuple[str, ...] = ()
     delta: ArchitectureDelta | None = None
     provenance: CheckProvenance | None = None
+    open_decisions: tuple[OpenDecision, ...] = ()
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

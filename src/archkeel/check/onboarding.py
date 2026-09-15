@@ -13,6 +13,7 @@ from tempfile import TemporaryDirectory
 from typing import Final
 
 from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
+from archkeel.ir.decisions import identifier
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
@@ -54,10 +55,6 @@ def detect_source(root: Path) -> tuple[str, str]:
             )
         )
     return packages[0].relative_to(root).as_posix(), packages[0].name
-
-
-def _identifier(label: str) -> str:
-    return label.upper().replace("_", "-")
 
 
 def _has_cycle(labels: tuple[str, ...], edges: frozenset[tuple[str, str]]) -> bool:
@@ -180,7 +177,7 @@ def draft_contract(
     )
     draft_components = tuple(
         ContractComponent(
-            f"COMP-{_identifier(label)}",
+            f"COMP-{identifier(label)}",
             label,
             ComponentRole.COMPONENT,
             (f"{namespace}.{label}",),
@@ -198,7 +195,7 @@ def draft_contract(
     )
     rules: list[ArchitectureRule] = [
         ForbiddenDependencyRule(
-            f"DEP-{_identifier(source)}-NO-{_identifier(target)}",
+            f"DEP-{identifier(source)}-NO-{identifier(target)}",
             "forbidden_dependency",
             f"{namespace}.{source}",
             f"{namespace}.{target}",

@@ -51,6 +51,7 @@ from archkeel.ir.model import (
     JsonValue,
     NoComponentCyclesRule,
     Observation,
+    OpenDecision,
     Projection,
     RatchetObservations,
     Record,
@@ -1162,6 +1163,25 @@ def _parse_delta_unknown(raw: RawJson) -> DeltaUnknown:
     )
 
 
+def _rule_payload(rule: ArchitectureRule) -> dict[str, RawJson]:
+    return {key: value for key, value in _raw_object(asdict(rule)).items() if value is not None}
+
+
+def _open_decision_payload(decision: OpenDecision) -> dict[str, RawJson]:
+    return {
+        "source": decision.source,
+        "target": decision.target,
+        "source_package": decision.source_package,
+        "target_package": decision.target_package,
+        "observed": decision.observed,
+        "import_sites": decision.import_sites,
+        "options": {
+            "allowed_dependency": _rule_payload(decision.allowed_option),
+            "forbidden_dependency": _rule_payload(decision.forbidden_option),
+        },
+    }
+
+
 def result_payload(result: RunResult) -> dict[str, RawJson]:
     payload = _raw_object(asdict(result))
     payload["diagnostics"] = [
@@ -1171,6 +1191,9 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
             if key not in {"pointer", "code"} or value is not None
         }
         for diagnostic in result.diagnostics
+    ]
+    payload["open_decisions"] = [
+        _open_decision_payload(decision) for decision in result.open_decisions
     ]
     if result.observation is not None:
         payload["observation"] = observation_payload(result.observation)
