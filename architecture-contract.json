@@ -340,6 +340,15 @@
       "provenance": ["docs/architecture/archkeel.md"]
     },
     {
+      "id": "DEP-ANALYZER-NO-IR-INTERFACES",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir.interfaces",
+      "include_type_checking": true,
+      "rationale": "Component communication is derived from observations by render, not built by the analyzer that only observes source.",
+      "provenance": ["docs/architecture/archkeel.md"]
+    },
+    {
       "id": "DEP-IR-NO-RENDER",
       "kind": "forbidden_dependency",
       "source": "archkeel.ir",
