@@ -12,7 +12,7 @@ The mark combines two code brackets with a central keel. The brackets represent
 the observed code structure. The keel represents the locked architecture that
 keeps the candidate aligned.
 
-Use the logo as follows:
+Use the logo as follows (paths relative to `src/archkeel/render/`):
 
 | Context | Asset |
 | --- | --- |
@@ -126,15 +126,18 @@ kind · subject · unknown_claim · remedy
 The remedy is actionable and comes last. Diagnostics use the unknown color
 unless the check has already classified them as a failure.
 
-### Architecture graph
+### Component flow
 
-- Components: near-black cards with subtle borders.
-- Accepted edges: lime.
-- Candidate or declared edges: teal.
-- Rejected edges: red and dashed, with a textual violation code.
-- Unknown edges: amber dotted line.
-- Straight right-angle connectors only. No gradients, glow, shadows, or
-  decorative icons.
+- Component cards: near-black with subtle borders, naming the component, its module count and
+  its declared public entries.
+- Edges carry their import sites; a conforming edge is solid teal, a violated edge is dashed red
+  with a chip naming the rule id.
+- Right-angle connectors routed in lanes per row pair; labels never overlap, and a weight badge
+  gives way to a rule chip.
+- The legend is drawn from the same edge states that style the graph, and the overview lists the
+  five heaviest connections.
+- Without script, the component communication table is the fallback.
+- No gradients, glow, shadows or decorative icons.
 
 ## Shared report geometry
 
