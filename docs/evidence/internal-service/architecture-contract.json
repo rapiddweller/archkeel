@@ -1,0 +1,1693 @@
+{
+  "schema_version": "2.0.0",
+  "components": [
+    {
+      "id": "COMP-C02",
+      "label": "c02",
+      "role": "component",
+      "packages": [
+        "svc.c02"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c02.dependencies",
+        "svc.c02.n10501.n0410",
+        "svc.c02.n10501.n5689",
+        "svc.c02.n10501.n7521",
+        "svc.c02.n10501.n12735",
+        "svc.c02.n10501.n13954",
+        "svc.c02.n10501.n6531"
+      ]
+    },
+    {
+      "id": "COMP-C13",
+      "label": "c13",
+      "role": "component",
+      "packages": [
+        "svc.c13"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c13"
+      ]
+    },
+    {
+      "id": "COMP-C05",
+      "label": "c05",
+      "role": "component",
+      "packages": [
+        "svc.c05"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c05",
+        "svc.c05.n10827",
+        "svc.c05.n11681"
+      ]
+    },
+    {
+      "id": "COMP-C07",
+      "label": "c07",
+      "role": "component",
+      "packages": [
+        "svc.c07"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c07.n4610",
+        "svc.c07.n6109"
+      ]
+    },
+    {
+      "id": "COMP-C01",
+      "label": "c01",
+      "role": "component",
+      "packages": [
+        "svc.c01"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ]
+    },
+    {
+      "id": "COMP-C09",
+      "label": "c09",
+      "role": "component",
+      "packages": [
+        "svc.c09"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c09.n6956:n12137"
+      ]
+    },
+    {
+      "id": "COMP-C11",
+      "label": "c11",
+      "role": "component",
+      "packages": [
+        "svc.c11"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ]
+    },
+    {
+      "id": "COMP-C04",
+      "label": "c04",
+      "role": "component",
+      "packages": [
+        "svc.c04"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c04",
+        "svc.c04.n9648",
+        "svc.c04.n3725",
+        "svc.c04.n9342"
+      ]
+    },
+    {
+      "id": "COMP-C06",
+      "label": "c06",
+      "role": "component",
+      "packages": [
+        "svc.c06"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c06.n1470",
+        "svc.c06.models",
+        "svc.c06.n9342",
+        "svc.c06.n0068"
+      ]
+    },
+    {
+      "id": "COMP-C03",
+      "label": "c03",
+      "role": "component",
+      "packages": [
+        "svc.c03"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c03.n2859",
+        "svc.c03.n7594",
+        "svc.c03.n12355",
+        "svc.c03.n8366:T0409",
+        "svc.c03.n7769",
+        "svc.c03.n8282",
+        "svc.c03.n1529",
+        "svc.c03.n11512",
+        "svc.c03.n8535",
+        "svc.c03.n9659",
+        "svc.c03.n8625"
+      ]
+    },
+    {
+      "id": "COMP-C12",
+      "label": "c12",
+      "role": "component",
+      "packages": [
+        "svc.c12"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c12.n1704.n6612",
+        "svc.c12.n1704.n0068",
+        "svc.c12.n12047",
+        "svc.c12.c05:T0333",
+        "svc.c12.errors",
+        "svc.c12.n8878.n12047"
+      ]
+    },
+    {
+      "id": "COMP-C08",
+      "label": "c08",
+      "role": "component",
+      "packages": [
+        "svc.c08"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c08.n4089"
+      ]
+    },
+    {
+      "id": "COMP-C10",
+      "label": "c10",
+      "role": "component",
+      "packages": [
+        "svc.c10"
+      ],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "public": [
+        "svc.c10"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "DEP-C02-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C02-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C02-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C02-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C02-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C02-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C02-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C02-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c02",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c02` is the HTTP edge with routers and request dependency wiring, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C05",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c05",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c05`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C04",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c04",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c04`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C12",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c12",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c12`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C13-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c13",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c13` is the settings surface, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C04",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c04",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c04`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C12",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c12",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c12`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C05-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c05",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c05` is the domain model with plain objects, enums and invariants, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C07-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c07",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c07` is the compute adapter A, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C01-NO-C05",
+      "kind": "forbidden_dependency",
+      "source": "svc.c01",
+      "target": "svc.c05",
+      "include_type_checking": true,
+      "rationale": "`c01` is the HTTP composition root, so it must not depend on `c05`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C01-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c01",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c01` is the HTTP composition root, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C01-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c01",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c01` is the HTTP composition root, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C01-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c01",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c01` is the HTTP composition root, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C01-NO-C04",
+      "kind": "forbidden_dependency",
+      "source": "svc.c01",
+      "target": "svc.c04",
+      "include_type_checking": true,
+      "rationale": "`c01` is the HTTP composition root, so it must not depend on `c04`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C01-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c01",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c01` is the HTTP composition root, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C01-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c01",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c01` is the HTTP composition root, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C09-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c09",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c09` is the pipeline executor adapters, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C11-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c11",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c11` is the outbox publisher process entry point, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C11-NO-C05",
+      "kind": "forbidden_dependency",
+      "source": "svc.c11",
+      "target": "svc.c05",
+      "include_type_checking": true,
+      "rationale": "`c11` is the outbox publisher process entry point, so it must not depend on `c05`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C11-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c11",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c11` is the outbox publisher process entry point, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C11-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c11",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c11` is the outbox publisher process entry point, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C11-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c11",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c11` is the outbox publisher process entry point, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C11-NO-C04",
+      "kind": "forbidden_dependency",
+      "source": "svc.c11",
+      "target": "svc.c04",
+      "include_type_checking": true,
+      "rationale": "`c11` is the outbox publisher process entry point, so it must not depend on `c04`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C11-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c11",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c11` is the outbox publisher process entry point, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C04-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c04",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c04` is the port interfaces that adapters implement, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C04",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c04",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c04`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C06-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c06",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c06` is the persistence adapter, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C03-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c03",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c03` is the application layer implementing the command and query ports, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C03-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c03",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c03` is the application layer implementing the command and query ports, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C03-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c03",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c03` is the application layer implementing the command and query ports, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C03-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c03",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c03` is the application layer implementing the command and query ports, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C03-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c03",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c03` is the application layer implementing the command and query ports, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C03-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c03",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c03` is the application layer implementing the command and query ports, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C05",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c05",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c05`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C04",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c04",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c04`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C12-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c12",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c12` is the shared kernel with clock, errors and identifier types, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C13",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c13",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c13`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C09",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c09",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c09`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C03",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c03",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c03`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C12",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c12",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c12`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C08-NO-C10",
+      "kind": "forbidden_dependency",
+      "source": "svc.c08",
+      "target": "svc.c10",
+      "include_type_checking": true,
+      "rationale": "`c08` is the compute adapter B, so it must not depend on `c10`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C10-NO-C02",
+      "kind": "forbidden_dependency",
+      "source": "svc.c10",
+      "target": "svc.c02",
+      "include_type_checking": true,
+      "rationale": "`c10` is the background worker process entry point, so it must not depend on `c02`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C10-NO-C07",
+      "kind": "forbidden_dependency",
+      "source": "svc.c10",
+      "target": "svc.c07",
+      "include_type_checking": true,
+      "rationale": "`c10` is the background worker process entry point, so it must not depend on `c07`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C10-NO-C01",
+      "kind": "forbidden_dependency",
+      "source": "svc.c10",
+      "target": "svc.c01",
+      "include_type_checking": true,
+      "rationale": "`c10` is the background worker process entry point, so it must not depend on `c01`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C10-NO-C11",
+      "kind": "forbidden_dependency",
+      "source": "svc.c10",
+      "target": "svc.c11",
+      "include_type_checking": true,
+      "rationale": "`c10` is the background worker process entry point, so it must not depend on `c11`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C10-NO-C04",
+      "kind": "forbidden_dependency",
+      "source": "svc.c10",
+      "target": "svc.c04",
+      "include_type_checking": true,
+      "rationale": "`c10` is the background worker process entry point, so it must not depend on `c04`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C10-NO-C06",
+      "kind": "forbidden_dependency",
+      "source": "svc.c10",
+      "target": "svc.c06",
+      "include_type_checking": true,
+      "rationale": "`c10` is the background worker process entry point, so it must not depend on `c06`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "DEP-C10-NO-C08",
+      "kind": "forbidden_dependency",
+      "source": "svc.c10",
+      "target": "svc.c08",
+      "include_type_checking": true,
+      "rationale": "`c10` is the background worker process entry point, so it must not depend on `c08`.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "allowed_sources": []
+    },
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "svc",
+      "rationale": "Every module belongs to exactly one component, or the closed world is unverifiable.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ]
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Imports follow one direction so components can be tested and changed independently.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ]
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Cross-component imports resolve to declared public names, so internals can change safely.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "include_type_checking": true
+    }
+  ]
+}
