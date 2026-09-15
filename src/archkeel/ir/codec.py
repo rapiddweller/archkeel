@@ -63,6 +63,9 @@ from archkeel.ir.model import (
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
+_PUBLIC_ENTRY = re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?::[A-Za-z_][A-Za-z0-9_]*)?$"
+)
 RawJson: TypeAlias = str | int | float | bool | None | Sequence["RawJson"] | Mapping[str, "RawJson"]
 
 _MISSING_VALUE = object()
@@ -719,11 +722,17 @@ def _parse_capability(raw: RawJson, label: str) -> ContractCapability:
     return ContractCapability(item_id, name, title, order, provenance)
 
 
+def _public_entry(value: str, label: str) -> str:
+    if _PUBLIC_ENTRY.fullmatch(value) is None:
+        raise ValueError(f"{label} must be pkg.module or pkg.module:Name")
+    return value
+
+
 def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
-        {"capability_id"},
+        {"capability_id", "public"},
         label,
     )
     try:
@@ -731,6 +740,15 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     except ValueError as exc:
         raise ValueError(f"{label}.role is invalid") from exc
     capability = item.get("capability_id")
+    public_raw = item.get("public")
+    public = (
+        tuple(
+            _public_entry(value, f"{label}.public[{index}]")
+            for index, value in enumerate(_contract_strings(public_raw, f"{label}.public"))
+        )
+        if public_raw is not None
+        else None
+    )
     return ContractComponent(
         item_id,
         _nonempty(item["label"], f"{label}.label"),
@@ -742,6 +760,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         ),
         provenance,
         _nonempty(capability, f"{label}.capability_id") if capability is not None else None,
+        public,
     )
 
 

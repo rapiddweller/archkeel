@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
+from test_analyzer import _component
+
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import reference_diagnostics, run_validate
@@ -58,3 +60,52 @@ def test_reference_check_rejects_a_component_without_scanned_modules() -> None:
     )
     diagnostics = reference_diagnostics(ROOT, CONFIG, contract, observation)
     assert any(item.pointer == "/components/0/packages/0" for item in diagnostics)
+
+
+def test_public_entry_outside_namespace_is_a_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [_component("core", public=["other.module"])],
+            "rules": [],
+        }
+    )
+    diagnostics = reference_diagnostics(ROOT, CONFIG, contract)
+    assert any(
+        item.pointer == "/components/0/public/0" and "outside namespace" in item.unknown_claim
+        for item in diagnostics
+    )
+
+
+def test_public_entry_owned_by_another_component_is_a_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [
+                _component("core", public=["sample.cli"]),
+                _component("cli"),
+            ],
+            "rules": [],
+        }
+    )
+    diagnostics = reference_diagnostics(ROOT, CONFIG, contract)
+    assert any(
+        item.pointer == "/components/0/public/0"
+        and "not owned by this component" in item.unknown_claim
+        for item in diagnostics
+    )
+
+
+def test_public_entry_with_underscore_name_is_a_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.0.0",
+            "components": [_component("core", public=["sample.core:_Hidden"])],
+            "rules": [],
+        }
+    )
+    diagnostics = reference_diagnostics(ROOT, CONFIG, contract)
+    assert any(
+        item.pointer == "/components/0/public/0" and "Underscore" in item.unknown_claim
+        for item in diagnostics
+    )

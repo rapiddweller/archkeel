@@ -240,6 +240,11 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
             (f"/components/{index}/packages/{item}", value)
             for item, value in enumerate(component.packages)
         )
+        if component.public is not None:
+            names.extend(
+                (f"/components/{index}/public/{item}", value.split(":", 1)[0])
+                for item, value in enumerate(component.public)
+            )
     for index, rule in enumerate(contract.rules):
         if isinstance(
             rule, ForbiddenDependencyRule | ForbiddenConstructRule | CompleteAssignmentRule
@@ -272,6 +277,36 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
     return names
 
 
+def _public_diagnostics(contract: ArchitectureContract) -> list[Diagnostic]:
+    """Require each public entry to be owned by its component and never underscore-named."""
+    diagnostics = []
+    for index, component in enumerate(contract.components):
+        if component.public is None:
+            continue
+        for item, entry in enumerate(component.public):
+            module, _, name = entry.partition(":")
+            pointer = f"/components/{index}/public/{item}"
+            if contract.component_for(module) is not component:
+                diagnostics.append(
+                    _diagnostic(
+                        pointer,
+                        entry,
+                        "The public entry's module is not owned by this component.",
+                        "Move the entry to its owning component or correct the module.",
+                    )
+                )
+            if name.startswith("_"):
+                diagnostics.append(
+                    _diagnostic(
+                        pointer,
+                        entry,
+                        "Underscore names are never public.",
+                        "Remove the entry or expose a non-underscore name.",
+                    )
+                )
+    return diagnostics
+
+
 def reference_diagnostics(
     root: Path,
     config: ScanConfig,
@@ -290,6 +325,7 @@ def reference_diagnostics(
         for pointer, value in names
         if not in_scope(value, config.namespace)
     ]
+    diagnostics.extend(_public_diagnostics(contract))
     repository = root.resolve()
     for pointer, values in _provenance(contract):
         for index, value in enumerate(values):

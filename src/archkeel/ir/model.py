@@ -161,6 +161,7 @@ class ContractComponent:
     forbidden_responsibilities: tuple[str, ...]
     provenance: tuple[str, ...]
     capability_id: str | None = None
+    public: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -32,7 +32,11 @@
         "responsibilities": {"$ref": "#/$defs/strings"},
         "forbidden_responsibilities": {"$ref": "#/$defs/strings"},
         "provenance": {"$ref": "#/$defs/provenance"},
-        "capability_id": {"$ref": "#/$defs/nonEmpty"}
+        "capability_id": {"$ref": "#/$defs/nonEmpty"},
+        "public": {"type": "array", "uniqueItems": true, "items": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"
+        }}
       }
     },
     "forbiddenDependency": {

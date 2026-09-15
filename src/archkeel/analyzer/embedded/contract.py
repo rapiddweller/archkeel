@@ -133,6 +133,9 @@ def project_declarations(contract: ArchitectureContract) -> list[RawRecord]:
                         if component.capability_id
                         else {}
                     ),
+                    **(
+                        {"public": sorted(component.public)} if component.public is not None else {}
+                    ),
                     "role": component.role.value,
                     "responsibilities": sorted(component.responsibilities),
                     "forbidden_responsibilities": sorted(component.forbidden_responsibilities),

@@ -112,8 +112,8 @@ def test_forbidden_construct_produces_a_violation_and_contract_pointer(tmp_path:
     assert any(item.pointer == "/rules/0" for item in diagnostics)
 
 
-def _component(label: str) -> dict[str, object]:
-    return {
+def _component(label: str, *, public: list[str] | None = None) -> dict[str, object]:
+    component: dict[str, object] = {
         "id": f"COMP-{label.upper()}",
         "label": label,
         "role": "component",
@@ -122,6 +122,9 @@ def _component(label: str) -> dict[str, object]:
         "forbidden_responsibilities": [],
         "provenance": ["docs/architecture/sample.md"],
     }
+    if public is not None:
+        component["public"] = public
+    return component
 
 
 @pytest.mark.parametrize(
