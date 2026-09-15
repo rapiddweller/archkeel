@@ -23,6 +23,14 @@ It catches two failure modes that finding-only diffs miss:
   the graph became blinder.
 
 <p>
+  <img src="docs/assets/archkeel-intent-vs-observed.png" alt="Intent versus observed for the shop sample: the contract holds on the clean sample on the left, eleven rule violations appear on the right" width="1000">
+</p>
+
+<sub>Preview of the planned component flow view (AD-10). Both panels are derived from the contract and
+the scan of <code>fixtures/F-architecture</code>: lime edges match the contract, teal edges are scoped
+by module rules, and red dashed edges break the named rule.</sub>
+
+<p>
   <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
 </p>
 
