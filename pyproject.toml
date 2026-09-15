@@ -86,6 +86,8 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Tests import repository tools such as tools/interface_profile.py.
+pythonpath = ["."]
 addopts = "-p no:cacheprovider"
 
 [tool.ruff]
