@@ -1,0 +1,79 @@
+[
+  {
+    "id": "DEP-C03-NO-C06",
+    "kind": "forbidden_dependency",
+    "source": "svc.c03",
+    "target": "svc.c06",
+    "include_type_checking": true,
+    "rationale": "Documented intent: `c03` depends only on the components its architecture document lists, so not on `c06`.",
+    "provenance": [
+      "docs/architecture/architecture.md"
+    ]
+  },
+  {
+    "id": "DEP-C03-NO-C07",
+    "kind": "forbidden_dependency",
+    "source": "svc.c03",
+    "target": "svc.c07",
+    "include_type_checking": true,
+    "rationale": "Documented intent: `c03` depends only on the components its architecture document lists, so not on `c07`.",
+    "provenance": [
+      "docs/architecture/architecture.md"
+    ]
+  },
+  {
+    "id": "DEP-C03-NO-C08",
+    "kind": "forbidden_dependency",
+    "source": "svc.c03",
+    "target": "svc.c08",
+    "include_type_checking": true,
+    "rationale": "Documented intent: `c03` depends only on the components its architecture document lists, so not on `c08`.",
+    "provenance": [
+      "docs/architecture/architecture.md"
+    ]
+  },
+  {
+    "id": "DEP-C03-NO-C12",
+    "kind": "forbidden_dependency",
+    "source": "svc.c03",
+    "target": "svc.c12",
+    "include_type_checking": true,
+    "rationale": "Documented intent: `c03` depends only on the components its architecture document lists, so not on `c12`.",
+    "provenance": [
+      "docs/architecture/architecture.md"
+    ]
+  },
+  {
+    "id": "DEP-C04-NO-C12",
+    "kind": "forbidden_dependency",
+    "source": "svc.c04",
+    "target": "svc.c12",
+    "include_type_checking": true,
+    "rationale": "Documented intent: `c04` depends only on the components its architecture document lists, so not on `c12`.",
+    "provenance": [
+      "docs/architecture/architecture.md"
+    ]
+  },
+  {
+    "id": "DEP-C06-NO-C12",
+    "kind": "forbidden_dependency",
+    "source": "svc.c06",
+    "target": "svc.c12",
+    "include_type_checking": true,
+    "rationale": "Documented intent: `c06` depends only on the components its architecture document lists, so not on `c12`.",
+    "provenance": [
+      "docs/architecture/architecture.md"
+    ]
+  },
+  {
+    "id": "DEP-C07-NO-C12",
+    "kind": "forbidden_dependency",
+    "source": "svc.c07",
+    "target": "svc.c12",
+    "include_type_checking": true,
+    "rationale": "Documented intent: `c07` depends only on the components its architecture document lists, so not on `c12`.",
+    "provenance": [
+      "docs/architecture/architecture.md"
+    ]
+  }
+]

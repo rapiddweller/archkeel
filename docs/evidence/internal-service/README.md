@@ -22,8 +22,10 @@ reviewed by hand. The digests cannot be reproduced from this page.
 | [report-onboarded.html](report-onboarded.html) ([preview](report-onboarded.png)) | `report` on the onboarded contract: PASS, no violations |
 | [proposed-rules.json](proposed-rules.json) | Two `forbidden_construct` rules proposed from observed constructs, not yet accepted by the owner |
 | [report-proposed-rules.html](report-proposed-rules.html) ([preview](report-proposed-rules.png)) | `report` with the proposed rules: FAIL, 17 violations |
+| [documented-intent-rules.json](documented-intent-rules.json) | Seven `forbidden_dependency` rules taken from the service's own architecture document |
+| [report-documented-intent.html](report-documented-intent.html) ([preview](report-documented-intent.png)) | `report` with the documented intent: FAIL, 200 violating import sites on 7 component edges |
 
-Both reports were rendered with Archkeel at `c46ba7c`, after the report headline fix (AD-14). The
+All reports were rendered with Archkeel at `c46ba7c`, after the report headline fix (AD-14). The
 onboarding itself ran with the release-candidate wheel built at `2d825f9`.
 
 ## The run in numbers
@@ -60,7 +62,10 @@ review of those drafts is still open.
 2. **The contract encodes the code, not the documented intent.** The service's own architecture
    document says the application layer knows only the domain and the ports. The code also imports the
    persistence adapter and both compute adapters, which a later design decision explains. The agent
-   found this by reading prose; Archkeel only froze the observed edges.
+   found this by reading prose; Archkeel only froze the observed edges. Written as seven
+   `forbidden_dependency` rules, that document's dependency list makes the first run fail: 7 observed
+   edges are forbidden (`closed_world.observed_forbidden`) and 200 import sites violate them. The
+   checker was never the gap; the rules only carry intent when someone other than `init` writes them.
 3. **119 pair rationales carry 14 ideas.** The drafts are one statement about the source component
    plus "so it must not depend on `<target>`". `validate` rejects repeated rationales, but the target
    suffix makes every text distinct. The format forces repetition, and the check measures form, not

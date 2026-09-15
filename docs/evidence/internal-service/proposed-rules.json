@@ -19,10 +19,10 @@
       "broad_except"
     ],
     "allowed_sources": [
-      "svc.c09.n2436",
-      "svc.c03.n8535",
-      "svc.c03.n13254",
-      "svc.c03.n13790"
+      "svc.c09.n2473",
+      "svc.c03.n8654",
+      "svc.c03.n13444",
+      "svc.c03.n13985"
     ],
     "rationale": "Proposed: only pipeline and service boundaries that must record every failure may catch all exceptions.",
     "provenance": [
