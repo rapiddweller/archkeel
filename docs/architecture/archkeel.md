@@ -187,7 +187,7 @@ undecided observed edges as their own edge state from the same derivation. The s
 an interviewer: it asks the architect multiple-choice questions with a custom answer, heaviest edges
 first, offers a single decision for all unobserved pairs of a component, marks anything read from
 documentation as a hypothesis with its source, and never answers itself. Contract 2.1.0 adds the rule
-kind; 2.0.0 contracts still decode and report their observed edges as open decisions. Reason: `init`
+kind and replaces 2.0.0 without a decode path, because breaking changes are allowed before 1.0. Reason: `init`
 wrote the complement of the observed graph, so the first report passed by construction, while rules
 taken from the internal service's own architecture document made 7 observed edges fail at 200 import
 sites. Check: `init` drafts no dependency rule, every undecided pair yields `decision.open`, a
