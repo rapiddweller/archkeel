@@ -78,3 +78,18 @@ def test_codex_raises_on_unmatched_start_marker(tmp_path: Path) -> None:
     agents.write_text("<!-- archkeel:start -->\nbroken\n", encoding="utf-8")
     with pytest.raises(ValueError, match="archkeel:start"):
         install_skill(tmp_path, "codex")
+
+
+def test_skill_covers_interview_and_auto_mode() -> None:
+    """AD-16: the skill must name both onboarding modes, not just the interview."""
+    body = ASSET.read_text(encoding="utf-8")
+    assert "Interview mode" in body
+    assert "Auto mode" in body
+    assert 'decided_by: "architect"' in body
+    assert 'decided_by: "agent"' in body
+
+
+def test_skill_asks_why_on_a_deviation_from_its_recommendation() -> None:
+    """AD-16: interview mode asks why before writing a rule against its own recommendation."""
+    body = ASSET.read_text(encoding="utf-8")
+    assert "ask why before writing the rule" in body

@@ -10,52 +10,93 @@ declared contract of components and rules against that observation, and reports 
 per rule. Rules are declared once in `architecture-contract.json`; nothing is enforced by
 convention alone.
 
-## Onboarding (first time in this repository): a decision interview
+## Onboarding (first time in this repository): a target, not a description
 
-The code proposes, the architect decides. Never write a rationale or pick allow/forbid
-yourself; ask, and write down the architect's own words.
+`architecture-contract.json` is the target architecture — where the system should be, not
+where the code already is. `archkeel report` measures the code's distance from that target
+as violations. The architect owns the target and chooses how deep to review it today; you
+support them with best practice, evidence from the repository, and the architect's quality
+goals for this codebase (which components must scale, stay easy to change, or are
+performance-critical). Read those goals from ADRs and architecture documents first; ask the
+architect only when a goal is unknown and would change your recommendation. Every
+recommendation and every rationale you write cites the goal it rests on. There is no
+contract field for a quality goal: it lives in the rationale, in your own words, next to the
+rule it justifies.
 
-1. Run `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]`.
-   It detects the Python package, requires an existing Git repository with at least one
-   commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one
-   component per top-level subpackage/module, plus `complete_assignment` and — only when
-   no component cycle exists — `no_component_cycles`; no dependency rule), and
-   `docs/architecture/architecture.md` (component table and Mermaid graph of observed
-   edges). It refuses to overwrite existing files without `--force`.
-2. Confirm the drafted components with the architect as multiple choice: keep, merge,
-   split, or something else. Review each drafted `public` list with them too. Anything you
+Run `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once,
+first. It detects the Python package, requires an existing Git repository with at least one
+commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
+per top-level subpackage/module, plus `complete_assignment` and — only when no component
+cycle exists — `no_component_cycles`; no dependency rule), and
+`docs/architecture/architecture.md` (component table and Mermaid graph of observed edges).
+Every rule `init` drafts carries `decided_by: "agent"` as a placeholder you must resolve, not
+an answer. It refuses to overwrite existing files without `--force`.
+
+Then pick one of two modes. The architect chooses; do not choose for them.
+
+### Interview mode: the architect decides, you ask
+
+Never write a rationale or pick allow/forbid yourself; ask, and write down the architect's
+own words as the `rationale`, with `decided_by: "architect"`.
+
+1. Read the repository's ADRs and architecture documents before touching the contract.
+2. Propose the overall picture — components, layers and the allowed directions between them
+   — with `path:line` evidence for each claim, and confirm it with the architect once, not
+   component by component. Review each drafted `public` list with them too. Anything you
    read from repository documentation is a hypothesis with its source path, never the
-   answer.
-3. `init --json` also returns every ordered component pair as an open decision, heaviest
-   observed edge first, each carrying `source`, `target`, `observed`, `import_sites` and
-   `options`: the exact `allowed_dependency` and `forbidden_dependency` rule for that pair,
-   missing only the `rationale`. Work through them with the architect in that order: ask
-   allow, forbid, or something else, with their reason in their own words, then write the
-   chosen option object into `architecture-contract.json` verbatim except for `rationale`.
-   Never hand-build a rule id. Once a component's shape is agreed, offer one decision for
-   all of its remaining unobserved pairs at once.
-4. Every generated rule rationale is a placeholder starting with `TODO:`. Run
-   `archkeel validate --json` and read its diagnostics by `code`, never by parsing message
-   text: a `decision.open` means step 3 is not finished for that pair (`validate --json`
-   carries the same open decisions as `init --json`); a `decision.conflict` or
-   `closed_world.duplicate` means the pair has more than one decision, keep exactly one;
-   a `rationale.placeholder` or `rationale.repeated` needs the architect's real reason.
-5. The interview ends when `validate --json` reports no `decision.open`,
-   `decision.conflict`, `rationale.placeholder`, `rationale.repeated` or
-   `closed_world.duplicate` diagnostic — not when the command exits 0. A `rule.violated`
-   or `closed_world.observed_forbidden` diagnostic is the architecture's own finding, not
-   an interview step: the code still uses an edge the architect just decided against. Show
-   it to the architect with `archkeel report`. They resolve it by changing the code or by a
-   new explicit decision (for example allowing the edge instead); the agent never resolves
-   it by editing or deleting the rule, and never loops `validate --json` waiting for exit 0.
+   answer, until they confirm it.
+3. After that confirmation, ask only about conflicts (the code contradicts a document) and
+   gaps (the documents are silent). Each question names the recommended option first, with
+   its evidence. `init --json` returns every ordered component pair as an open decision,
+   heaviest observed edge first, each carrying `source`, `target`, `observed`,
+   `import_sites` and `options`: the exact `allowed_dependency` and `forbidden_dependency`
+   rule for that pair, missing only the `rationale` (`validate --json` carries the same open
+   decisions). Batch everything consistent with the confirmed picture into one confirmation
+   instead of asking pair by pair; never hand-build a rule id, write the chosen option
+   object verbatim except for `rationale` and `decided_by`.
+4. When the architect chooses against your recommendation, ask why before writing the rule.
+   Always ask when the choice contradicts a document, an earlier decision in this interview,
+   or the code you observed. Write their answer as the `rationale`.
+5. Run `archkeel validate --json` and read its diagnostics by `code`, never by parsing
+   message text: a `decision.open` means step 3 is not finished for that pair; a
+   `decision.conflict` or `closed_world.duplicate` means the pair has more than one
+   decision, keep exactly one; a `rationale.placeholder` or `rationale.repeated` needs the
+   architect's real reason.
 6. When the architect delegates a choice ("whatever is consistent" or similar), derive it
    only from their earlier decisions in this interview, never from your own judgment. Label
    the rationale agent-derived in your summary to the architect and list it for them to
    confirm before it counts as decided.
-7. Once the interview ends, run `archkeel report` and commit the three generated files
-   (`archkeel.toml`, `architecture-contract.json`, `docs/architecture/architecture.md`).
-   A remaining `rule.violated` or `closed_world.observed_forbidden` is follow-up code work,
-   tracked separately from onboarding, not a reason to hold the commit.
+
+### Auto mode: the agent decides every open decision
+
+1. Decide every open decision yourself, in this evidence order: documents first, then the
+   layer principles the architect already confirmed or the documents state, then your own
+   judgment, labeled as judgment in the rationale.
+2. Never treat an observed edge as permission: code importing across a boundary today is not
+   evidence the boundary should allow it.
+3. Write every rule you decide with `decided_by: "agent"`.
+4. End with a summary of your decisions grouped by evidence basis (document, layer
+   principle, judgment) and name the lowest-confidence decisions first, for the architect to
+   review.
+
+A later interview on an auto-mode contract asks the architect only about rules with
+`decided_by: "agent"`; an `architect`-decided rule is already closed and is not reopened.
+
+### Ending onboarding, either mode
+
+The interview (or the auto-mode pass) ends when `validate --json` reports no
+`decision.open`, `decision.conflict`, `rationale.placeholder`, `rationale.repeated` or
+`closed_world.duplicate` diagnostic — not when the command exits 0. A `rule.violated` or
+`closed_world.observed_forbidden` diagnostic is the architecture's own finding, not an
+onboarding step: the code still uses an edge just decided against. Show it to the architect
+with `archkeel report`. They resolve it by changing the code or by a new explicit decision
+(for example allowing the edge instead); the agent never resolves it by editing or deleting
+the rule, and never loops `validate --json` waiting for exit 0.
+
+Once it ends, run `archkeel report` and commit the three generated files (`archkeel.toml`,
+`architecture-contract.json`, `docs/architecture/architecture.md`). A remaining
+`rule.violated` or `closed_world.observed_forbidden` is follow-up code work, tracked
+separately from onboarding, not a reason to hold the commit.
 
 ## Daily loop
 
@@ -66,6 +107,9 @@ yourself; ask, and write down the architect's own words.
 - Never weaken or delete a rule just to make a violation disappear, unless the component
   owner explicitly approves the change to the contract. A silently loosened rule hides the
   next real violation.
+- `validate --json` and `report --json` report `agent_decisions` as `[agent, total]`; a
+  nonzero first value means an auto-mode contract still awaits an architect interview on
+  those rules.
 
 ## Rule catalog (summary)
 

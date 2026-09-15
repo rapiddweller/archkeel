@@ -1,12 +1,33 @@
 # Onboarding a repository with Archkeel
 
-Archkeel observes your Python imports and checks them against a contract you own. `archkeel
-init` writes a first draft of that contract from what the code already does; a human (or a
-coding agent, guided by a human) still has to decide what each rule means and whether each
-observed import is intentional. This page is the loop for doing that once, and the prompt to
-hand a coding agent to run it.
+`architecture-contract.json` is the target architecture: where the system should be, not a
+description of where the code already is. `archkeel report` measures the code's distance
+from that target as violations. The architect owns the target and chooses how deep to
+review it now; the agent supports with best practice, evidence from the repository, and the
+architect's quality goals for this codebase — which components must scale, stay easy to
+change, or are performance-critical. The agent reads those goals from ADRs and architecture
+documents first, and asks the architect only when a goal is unknown and would change a
+recommendation; every recommendation and rationale it writes cites the goal it rests on.
+There is no contract field for a quality goal — it lives in the rationale, next to the rule
+it justifies.
 
-## The onboarding loop
+`archkeel init` writes a first draft of the contract's structure from what the code already
+does, deciding no dependency; every rule it drafts carries `decided_by: "agent"` as a
+placeholder, not an answer. From there, the architect picks one of two modes:
+
+- **Interview mode** — the agent asks, the architect decides. Every decision the architect
+  makes is written `decided_by: "architect"`. Best for a first pass on a repository whose
+  boundaries matter enough to review now.
+- **Auto mode** — the agent decides every open decision itself, from documents and
+  confirmed layer principles first, judgment last, and writes `decided_by: "agent"`. Best
+  for a fast first target; a later interview can revisit only the agent's decisions.
+
+This page is the loop for interview mode, and the prompt to hand a coding agent to run it.
+Auto mode runs the same commands without the human back-and-forth: the agent fills every
+open decision itself, in the evidence order above, and ends with a summary of its decisions
+by basis (document, layer principle, judgment) with the lowest-confidence ones named first.
+
+## The onboarding loop (interview mode)
 
 ```mermaid
 flowchart TD
@@ -29,16 +50,26 @@ Install the Archkeel skill for yourself, then onboard this repository:
 1. Run `uvx archkeel skill install claude` (or `codex`, matching yourself).
 2. Run `uvx archkeel init --json`. It drafts components and `public` interfaces and decides
    no dependency rule; every ordered component pair is `init --json`'s open decision for you
-   to ask me about.
-3. Confirm the drafted components with me: keep, merge, split, or something else.
-4. Review each drafted `public` list with me.
-5. Work through the open decisions with me, heaviest observed edge first. For each: ask
+   to ask me about. Every drafted rule carries `decided_by: "agent"` as a placeholder.
+3. Read this repository's ADRs and architecture documents before proposing anything.
+   Propose the overall picture — components, layers, and the allowed directions between them
+   — with `path:line` evidence for each claim, and ask me to confirm the whole picture once,
+   not component by component. Review each drafted `public` list with me too. Anything you
+   read from documentation is a hypothesis with its source, never the answer, until I
+   confirm it.
+4. After I confirm the picture, ask only about conflicts (the code contradicts a document)
+   and gaps (the documents are silent). Each question names your recommended option first,
+   with its evidence. Work through the open decisions heaviest observed edge first: ask
    allow, forbid, or something else, with my reason in my own words, then write the exact
    rule object from that decision's JSON `options` into architecture-contract.json with my
-   reason. Never invent a reason, and never pick allow or forbid yourself. Offer me one
-   decision for every remaining unobserved pair of a component once we agree on its shape.
+   reason and `"decided_by": "architect"`. Never invent a reason, and never pick allow or
+   forbid yourself. Batch everything consistent with the confirmed picture into one
+   confirmation instead of asking pair by pair.
+5. When I choose against your recommendation, ask why before writing the rule. Always ask
+   when my choice contradicts a document, an earlier decision in this interview, or the code
+   you observed. Write my answer as the rationale.
 6. Run `uvx archkeel validate --json` and read every diagnostic by its `code`, never by its
-   message text: `decision.open` needs an allow or forbid decision from me (back to step 5);
+   message text: `decision.open` needs an allow or forbid decision from me (back to step 4);
    `decision.conflict` or `closed_world.duplicate` means the pair has more than one decision,
    keep exactly one; `rationale.placeholder` or `rationale.repeated` needs the real reason in
    my words.
@@ -57,14 +88,16 @@ Install the Archkeel skill for yourself, then onboard this repository:
 ```
 
 AD-15 makes onboarding a decision interview: `init` proposes components and interfaces, never a
-dependency rule; the code proposes, the architect decides.
+dependency rule; the code proposes, the architect decides. AD-16 adds auto mode alongside it,
+and `decided_by` on every rule so a later interview can find exactly the decisions the agent
+made without the architect.
 
 ## What gets written
 
 | File | Content | Who decides the content |
 |---|---|---|
 | `archkeel.toml` | Scan roots, namespace, contract path. | Deterministic from detection. |
-| `architecture-contract.json` | Components, `complete_assignment`, `no_component_cycles` when acyclic, `interface_boundary` when any component has a `public` list. No `allowed_dependency` or `forbidden_dependency`: every component pair stays an open decision. | Structure is deterministic; every rule `rationale`, and every pair's allow/forbid decision, needs a human. |
+| `architecture-contract.json` | Components, `complete_assignment`, `no_component_cycles` when acyclic, `interface_boundary` when any component has a `public` list. No `allowed_dependency` or `forbidden_dependency`: every component pair stays an open decision. Every drafted rule carries `decided_by: "agent"`. | Structure is deterministic; every rule `rationale`, every pair's allow/forbid decision, and who decided it, needs a human — either directly (interview mode) or by reviewing the agent's summary later (auto mode). |
 | `docs/architecture/architecture.md` | Component table and a marked Mermaid graph of observed edges. | Deterministic from the observation. |
 
 `init` also proposes AD-9 `public` entries: a component with inbound cross-component imports
@@ -99,6 +132,13 @@ The interview ends when `validate --json` reports none of `decision.open`,
 rule to reach it. A `rule.violated` or `closed_world.observed_forbidden` diagnostic after
 that point is the architecture's own finding, shown with `archkeel report`, not an
 onboarding step.
+
+**Auto mode's evidence discipline (an agent must still not guess):** documents first, then
+the layer principles the architect already confirmed or the documents state, then judgment
+labeled as judgment in the rationale — never "the code already does this, so it is allowed."
+`validate --json` and `report --json` carry `agent_decisions: [agent, total]`; a nonzero
+first value means rules an interview has not yet reviewed, and the terminal and HTML
+summaries say so as "N of M rules decided by the agent, awaiting the architect."
 
 Every ordered component pair is a decision, made exactly once, by one `allowed_dependency`
 rule or one `forbidden_dependency` rule with the architect's rationale; `validate` reports an
