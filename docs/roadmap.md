@@ -45,6 +45,12 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
+2. Measure determinism in CI: repeated reports under perturbed hash seeds, paths, working
+   directories and locales must produce byte-identical artifacts (AD-7).
+3. Document Class C judgment checks, which never gate, and add `assert` and `broad_except` as
+   Class A forbidden constructs usable by every contract.
+4. Decide component interfaces: public and private parts per component, derived by `init`,
+   enforced for cross-component imports and shown as labeled communication edges.
 
 ## Later
 
