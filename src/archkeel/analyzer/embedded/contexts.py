@@ -206,6 +206,21 @@ def _access_observations(
     return observations
 
 
+def _annotation_binding(annotation: str | None) -> tuple[str | None, str | None]:
+    """Classify Final and mutable-container annotations shared by class and self.x fields."""
+    if not annotation:
+        return None, None
+    is_final = annotation in {"Final", "typing.Final"} or annotation.startswith(
+        ("Final[", "typing.Final[")
+    )
+    is_container = any(
+        token in annotation for token in ("list[", "dict[", "set[", "List[", "Dict[", "Set[")
+    )
+    binding = "non_reassignable" if is_final else None
+    referent = "mutable_container" if is_container else None
+    return binding, referent
+
+
 def _class_fields(
     root: str,
     context_node: ast.ClassDef,
@@ -221,27 +236,12 @@ def _class_fields(
     for child in context_node.body:
         if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
             annotation = annotation_text(child.annotation)
-            final_binding = bool(
-                annotation
-                and (
-                    annotation in {"Final", "typing.Final"}
-                    or annotation.startswith(("Final[", "typing.Final["))
-                )
-            )
-            referent = (
-                "mutable_container"
-                if annotation
-                and any(
-                    token in annotation
-                    for token in ("list[", "dict[", "set[", "List[", "Dict[", "Set[")
-                )
-                else "UNKNOWN"
-            )
+            binding, referent = _annotation_binding(annotation)
             fields[child.target.id] = {
                 "name": child.target.id,
                 "annotation": annotation,
-                "binding": "non_reassignable" if final_binding else "UNKNOWN",
-                "referent_mutability": referent,
+                "binding": binding or "UNKNOWN",
+                "referent_mutability": referent or "UNKNOWN",
                 "mutability": "object_immutable" if frozen else "UNKNOWN",
                 "evidence_ids": [add_evidence(evidence, owner, child)],
             }
@@ -284,30 +284,10 @@ def _class_fields(
                     if isinstance(parent, ast.AnnAssign):
                         annotation = annotation_text(parent.annotation)
                         field_data["annotation"] = annotation
-                        field_data["binding"] = (
-                            "non_reassignable"
-                            if annotation
-                            and (
-                                annotation in {"Final", "typing.Final"}
-                                or annotation.startswith(("Final[", "typing.Final["))
-                            )
-                            else field_data["binding"]
-                        )
+                        binding, referent = _annotation_binding(annotation)
+                        field_data["binding"] = binding or field_data["binding"]
                         field_data["referent_mutability"] = (
-                            "mutable_container"
-                            if annotation
-                            and any(
-                                token in annotation
-                                for token in (
-                                    "list[",
-                                    "dict[",
-                                    "set[",
-                                    "List[",
-                                    "Dict[",
-                                    "Set[",
-                                )
-                            )
-                            else field_data["referent_mutability"]
+                            referent or field_data["referent_mutability"]
                         )
                         field_data["evidence_ids"] = [add_evidence(evidence, owner, parent)]
                     if isinstance(descendant.ctx, ast.Store) and child.name != "__init__":
@@ -339,41 +319,34 @@ def _class_fields(
     return fields, methods
 
 
-def _detail_records(
-    root: str,
-    owner: ParsedModule | None,
-    fields: dict[str, RecordData],
-    accesses: dict[str, list[RecordData]],
-    imports: Sequence[RawRecord],
-) -> tuple[list[RawRecord], dict[str, list[str]]]:
-    detail_records: list[RawRecord] = []
-    detail_ids: dict[str, list[str]] = {
-        "fields": [],
-        "reads": [],
-        "writes": [],
-        "passes": [],
-        "constructed_by": [],
-        "dependencies": [],
-    }
+def _field_detail_records(root: str, fields: dict[str, RecordData]) -> list[RawRecord]:
+    records: list[RawRecord] = []
     for field_data in sorted(fields.values(), key=lambda value: value["name"]):
-        item = classified(
-            item_id=stable_id("CONTEXT-FIELD", root, field_data["name"]),
-            evidence_class=EvidenceClass.FACT,
-            area="contexts_state",
-            kind="context_field",
-            title=f"{root}.{field_data['name']}",
-            subjects=[root, field_data["name"]],
-            evidence_ids=field_data["evidence_ids"],
-            data={"context": root, **field_data},
+        records.append(
+            classified(
+                item_id=stable_id("CONTEXT-FIELD", root, field_data["name"]),
+                evidence_class=EvidenceClass.FACT,
+                area="contexts_state",
+                kind="context_field",
+                title=f"{root}.{field_data['name']}",
+                subjects=[root, field_data["name"]],
+                evidence_ids=field_data["evidence_ids"],
+                data={"context": root, **field_data},
+            )
         )
-        detail_records.append(item)
-        detail_ids["fields"].append(item["id"])
+    return records
+
+
+def _access_detail_records(
+    root: str, accesses: dict[str, list[RecordData]]
+) -> list[tuple[str, RawRecord]]:
     access_kinds = {
         "reads": "context_read",
         "writes": "context_write",
         "passes": "context_pass",
         "constructed_by": "context_construction",
     }
+    records: list[tuple[str, RawRecord]] = []
     for category, kind in access_kinds.items():
         for entry in accesses[category]:
             call_id = entry.get("call_id")
@@ -400,8 +373,13 @@ def _detail_records(
                 fact_ids=[call_id] if call_id else [],
                 data={"context": root, "category": category, **entry},
             )
-            detail_records.append(item)
-            detail_ids[category].append(item["id"])
+            records.append((category, item))
+    return records
+
+
+def _dependency_detail_records(
+    root: str, owner: ParsedModule | None, imports: Sequence[RawRecord]
+) -> list[RawRecord]:
     dependencies = sorted(
         {
             item["data"]["target_module"]
@@ -411,6 +389,7 @@ def _detail_records(
             and item["data"]["target_module"] != owner.module
         }
     )
+    records: list[RawRecord] = []
     for dependency in dependencies:
         import_facts = [
             item["id"]
@@ -419,18 +398,46 @@ def _detail_records(
             and item["data"]["source_module"] == owner.module
             and item["data"]["target_module"] == dependency
         ]
-        item = classified(
-            item_id=stable_id("CONTEXT-DEP", root, dependency),
-            evidence_class=EvidenceClass.FACT,
-            area="contexts_state",
-            kind="context_dependency",
-            title=f"{root} depends on {dependency}",
-            subjects=[root, dependency],
-            fact_ids=import_facts,
-            data={"context": root, "target_module": dependency},
+        records.append(
+            classified(
+                item_id=stable_id("CONTEXT-DEP", root, dependency),
+                evidence_class=EvidenceClass.FACT,
+                area="contexts_state",
+                kind="context_dependency",
+                title=f"{root} depends on {dependency}",
+                subjects=[root, dependency],
+                fact_ids=import_facts,
+                data={"context": root, "target_module": dependency},
+            )
         )
+    return records
+
+
+def _detail_records(
+    root: str,
+    owner: ParsedModule | None,
+    fields: dict[str, RecordData],
+    accesses: dict[str, list[RecordData]],
+    imports: Sequence[RawRecord],
+) -> tuple[list[RawRecord], dict[str, list[str]]]:
+    detail_records: list[RawRecord] = []
+    detail_ids: dict[str, list[str]] = {
+        "fields": [],
+        "reads": [],
+        "writes": [],
+        "passes": [],
+        "constructed_by": [],
+        "dependencies": [],
+    }
+    field_records = _field_detail_records(root, fields)
+    detail_records.extend(field_records)
+    detail_ids["fields"] = [item["id"] for item in field_records]
+    for category, item in _access_detail_records(root, accesses):
         detail_records.append(item)
-        detail_ids["dependencies"].append(item["id"])
+        detail_ids[category].append(item["id"])
+    dependency_records = _dependency_detail_records(root, owner, imports)
+    detail_records.extend(dependency_records)
+    detail_ids["dependencies"] = [item["id"] for item in dependency_records]
     return detail_records, detail_ids
 
 
