@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,7 +16,7 @@ from archkeel.ir.model import (
     EvidenceClass,
 )
 
-from .calls import CallCollector
+from .calls import collect_calls
 from .contexts import collect_contexts
 from .dependencies import (
     aggregate_edges,
@@ -26,10 +25,10 @@ from .dependencies import (
     declared_path_observations,
     module_records,
     package_records,
+    transitive_path_records,
 )
-from .graph import transitive_paths
-from .imports import ImportCollector, literal_all_exports, resolve_reexports
-from .records import RawEvidence, RawRecord, classified, stable_id
+from .imports import collect_imports, resolve_reexports
+from .records import RawEvidence, RawRecord, classified
 from .source import ParsedModule, add_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
@@ -113,6 +112,41 @@ def _coverage(
     }
 
 
+def _analysis_limits(
+    calls: Sequence[RawRecord], declarations: ContractDeclarations, namespace: str
+) -> list[RawRecord]:
+    """Build the two UNKNOWN records naming the scanner's structural analysis limits."""
+    return [
+        classified(
+            item_id="UNKNOWN-PYTHON-DYNAMIC-CALLS",
+            evidence_class=EvidenceClass.UNKNOWN,
+            area="call_hierarchy",
+            kind="dynamic_call_limit",
+            title="Python dynamic behavior prevents a complete call graph",
+            subjects=[namespace],
+            data={
+                "unresolved_calls": sum(
+                    1 for call in calls if call["data"]["status"] == "unresolved"
+                )
+            },
+        ),
+        classified(
+            item_id="UNKNOWN-CONTEXT-DATAFLOW",
+            evidence_class=EvidenceClass.UNKNOWN,
+            area="contexts_state",
+            kind="context_alias_limit",
+            title="Context read/write topology excludes unproven dynamic aliases",
+            subjects=sorted(declarations.context_roots),
+            data={
+                "reason": (
+                    "The scanner follows direct annotations, constructor bindings, "
+                    "and self-field access only"
+                )
+            },
+        ),
+    ]
+
+
 def scan_repository(
     root: Path,
     contract: ArchitectureContract,
@@ -136,31 +170,14 @@ def scan_repository(
     module_evidence = {
         module.module: add_evidence(evidence, module, module.tree) for module in parsed
     }
-    imports: list[RawRecord] = []
-    for module in parsed:
-        module.all_exports = literal_all_exports(module.tree)
-        collector = ImportCollector(module, module_names, evidence, namespace=namespace)
-        collector.visit(module.tree)
-        imports.extend(collector.items)
-    imports.sort(key=lambda item: item["id"])
+    imports = collect_imports(parsed, module_names, evidence, namespace=namespace)
 
     # Exports exist only after the import loop, and re-exports must resolve before symbols.
     exports_by_module = {module.module: module.all_exports for module in parsed}
     resolve_reexports(imports, exports_by_module)
 
     symbols, symbol_nodes, symbol_owners = collect_symbols(parsed, evidence)
-    symbol_names = {item["data"]["qualified_name"] for item in symbols}
-    by_tail: dict[str, list[str]] = defaultdict(list)
-    for name in sorted(symbol_names):
-        by_tail[name.rsplit(".", 1)[-1]].append(name)
-
-    calls: list[RawRecord] = []
-    symbol_evidence = {item["data"]["qualified_name"]: item["evidence_ids"] for item in symbols}
-    for module in parsed:
-        call_collector = CallCollector(module, symbol_names, by_tail, symbol_evidence, evidence)
-        call_collector.visit(module.tree)
-        calls.extend(call_collector.items)
-    calls.sort(key=lambda item: item["id"])
+    calls = collect_calls(parsed, symbols, evidence)
 
     typing_signals = collect_typing_signals(parsed, calls, symbols, imports, evidence)
     declarations = contract.declarations or ContractDeclarations()
@@ -194,22 +211,7 @@ def scan_repository(
         coverage_failures=failures,
     )
 
-    transitive_records = [
-        classified(
-            item_id=stable_id("PATH", "package", *path),
-            evidence_class=EvidenceClass.FACT,
-            area="package_topology",
-            kind="transitive_package_dependency",
-            title=" → ".join(path),
-            subjects=path,
-            fact_ids=[
-                stable_id("EDGE", "package", source, target)
-                for source, target in zip(path, path[1:], strict=False)
-            ],
-            data={"level": "package", "source": path[0], "target": path[-1], "path": path},
-        )
-        for path in transitive_paths(packages, package_edge_pairs)
-    ]
+    transitive_records = transitive_path_records(packages, package_edge_pairs)
     cycles = sorted(
         [
             *cycle_records(
@@ -235,37 +237,7 @@ def scan_repository(
         contract=contract,
     )
 
-    unknowns = [
-        classified(
-            item_id="UNKNOWN-PYTHON-DYNAMIC-CALLS",
-            evidence_class=EvidenceClass.UNKNOWN,
-            area="call_hierarchy",
-            kind="dynamic_call_limit",
-            title="Python dynamic behavior prevents a complete call graph",
-            subjects=[namespace],
-            data={
-                "unresolved_calls": sum(
-                    1 for call in calls if call["data"]["status"] == "unresolved"
-                )
-            },
-        ),
-        classified(
-            item_id="UNKNOWN-CONTEXT-DATAFLOW",
-            evidence_class=EvidenceClass.UNKNOWN,
-            area="contexts_state",
-            kind="context_alias_limit",
-            title="Context read/write topology excludes unproven dynamic aliases",
-            subjects=sorted(declarations.context_roots),
-            data={
-                "reason": (
-                    "The scanner follows direct annotations, constructor bindings, "
-                    "and self-field access only"
-                )
-            },
-        ),
-        *failures,
-        *rule_failures,
-    ]
+    unknowns = [*_analysis_limits(calls, declarations, namespace), *failures, *rule_failures]
 
     coverage = _coverage(
         paths=paths,

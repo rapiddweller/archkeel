@@ -143,6 +143,24 @@ class ImportCollector(ast.NodeVisitor):
         )
 
 
+def collect_imports(
+    parsed: Sequence[ParsedModule],
+    module_names: set[str],
+    evidence: dict[str, RawEvidence],
+    *,
+    namespace: str,
+) -> list[RawRecord]:
+    """Run the import collector over every module and return its records sorted by id."""
+    imports: list[RawRecord] = []
+    for module in parsed:
+        module.all_exports = literal_all_exports(module.tree)
+        collector = ImportCollector(module, module_names, evidence, namespace=namespace)
+        collector.visit(module.tree)
+        imports.extend(collector.items)
+    imports.sort(key=lambda item: item["id"])
+    return imports
+
+
 def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str, set[str]]) -> None:
     """Follow re-export chains in place so each import records its origin definition."""
     reexports: dict[str, str] = {}

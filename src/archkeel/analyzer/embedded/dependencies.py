@@ -10,7 +10,7 @@ from collections.abc import Iterable, Sequence
 
 from archkeel.ir.model import ContractComponent, ContractPath, EvidenceClass, in_scope
 
-from .graph import condensation_ranks, strongly_connected_components
+from .graph import condensation_ranks, strongly_connected_components, transitive_paths
 from .records import RawRecord, classified, stable_id
 from .source import ParsedModule
 
@@ -140,6 +140,29 @@ def module_records(
         )
         for module in parsed
     ]
+
+
+def transitive_path_records(
+    packages: Sequence[str], package_edge_pairs: Sequence[tuple[str, str]]
+) -> list[RawRecord]:
+    """Build one FACT record per transitive package path, sorted by id."""
+    records = [
+        classified(
+            item_id=stable_id("PATH", "package", *path),
+            evidence_class=EvidenceClass.FACT,
+            area="package_topology",
+            kind="transitive_package_dependency",
+            title=" → ".join(path),
+            subjects=path,
+            fact_ids=[
+                stable_id("EDGE", "package", source, target)
+                for source, target in zip(path, path[1:], strict=False)
+            ],
+            data={"level": "package", "source": path[0], "target": path[-1], "path": path},
+        )
+        for path in transitive_paths(packages, package_edge_pairs)
+    ]
+    return sorted(records, key=lambda item: item["id"])
 
 
 def cycle_records(
@@ -334,16 +357,25 @@ def component_scope_observations(
         )
         return sorted(observations, key=lambda item: item["id"])
 
+    observations.extend(_unassigned_scope_records(module_by_name, assigned_modules))
+    return sorted(observations, key=lambda item: item["id"])
+
+
+def _unassigned_scope_records(
+    module_by_name: dict[str, RawRecord], assigned_modules: set[str]
+) -> list[RawRecord]:
+    """Build UNKNOWN records for modules under a top-level scope no component claims."""
     unassigned_by_scope: dict[str, list[str]] = defaultdict(list)
     for name in sorted(module_by_name):
         scope = _top_level_scope(name)
         if scope is not None and name not in assigned_modules:
             unassigned_by_scope[scope].append(name)
 
+    records: list[RawRecord] = []
     for scope, names in sorted(unassigned_by_scope.items()):
         module_facts = [module_by_name[name] for name in names]
         scope_modules = sorted(name for name in module_by_name if in_scope(name, scope))
-        observations.append(
+        records.append(
             classified(
                 item_id=stable_id("UNKNOWN-SCOPE", scope),
                 evidence_class=EvidenceClass.UNKNOWN,
@@ -365,4 +397,4 @@ def component_scope_observations(
                 },
             )
         )
-    return sorted(observations, key=lambda item: item["id"])
+    return records

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import ast
 import builtins
+from collections import defaultdict
+from collections.abc import Sequence
 
 from archkeel.ir.model import EvidenceClass
 
@@ -159,3 +161,24 @@ class CallCollector(ast.NodeVisitor):
                 )
             return "unresolved", [], "dynamic attribute receiver", 0
         return "unresolved", [], "call target is a dynamic expression", 0
+
+
+def collect_calls(
+    parsed: Sequence[ParsedModule],
+    symbols: Sequence[RawRecord],
+    evidence: dict[str, RawEvidence],
+) -> list[RawRecord]:
+    """Index known symbols, run the call collector over every module and sort by id."""
+    symbol_names = {item["data"]["qualified_name"] for item in symbols}
+    by_tail: dict[str, list[str]] = defaultdict(list)
+    for name in sorted(symbol_names):
+        by_tail[name.rsplit(".", 1)[-1]].append(name)
+    symbol_evidence = {item["data"]["qualified_name"]: item["evidence_ids"] for item in symbols}
+
+    calls: list[RawRecord] = []
+    for module in parsed:
+        call_collector = CallCollector(module, symbol_names, by_tail, symbol_evidence, evidence)
+        call_collector.visit(module.tree)
+        calls.extend(call_collector.items)
+    calls.sort(key=lambda item: item["id"])
+    return calls
