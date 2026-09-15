@@ -40,6 +40,7 @@ only when its row names repository evidence.
 | Architecture decisions AD-1 to AD-6 are recorded. AD-1, AD-2, AD-4, AD-5 and AD-6 have tests or type checks; AD-3 comparability is enforced by digest, and its version label is reviewed by hand. Long functions fell from 20 to 16, each with a named reason | `docs/architecture/archkeel.md`; `bb5c401`; `dc28681`; `04344b6`; `67b8b62`; `13c61c1`; `tests/test_analyzer.py`; `tests/test_repository_hygiene.py` |
 | Report bytes are measured as independent of hash seed, clone path, working directory, time zone and locale (AD-7) | `f392702`; `tests/test_determinism.py`; CI run `34921160319` |
 | Class C judgments are defined, and `assert` and `broad_except` are Class A forbidden constructs with `allowed_sources`, applied to Archkeel (AD-8) | `0b61873`; `b5090ca`; `59fc6cf`; `docs/rules.md`; `architecture-contract.json` |
+| Components declare `public` interfaces; `interface_boundary` enforces them, validation reports drift, `init` drafts them and the report shows component communication with signatures (AD-9) | `289e81f`; `0809021`; `05beddc`; `a2f2427`; `abb8f96`; `f87bc72`; `39c8917`; `docs/evidence/ad9-interface-profile.md` |
 | Printed reports keep fingerprints inside the page | `make demo`, then Chrome headless `--print-to-pdf` of cases A, B and C |
 
 ## Next
@@ -47,8 +48,6 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
-2. Implement component interfaces (AD-9): public and private parts per component, derived by
-   `init`, enforced for cross-component imports and shown as a communication table in the report.
 
 ## Later
 
