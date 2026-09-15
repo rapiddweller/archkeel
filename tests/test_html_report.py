@@ -20,7 +20,7 @@ from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
 from archkeel.render.html import render_architecture_html, render_check_html, render_html
 from archkeel.render.summary import check_decision_sentence, report_summary
 from fixtures.architecture_demo import CATALOG
-from fixtures.demo_catalog_support import contract_rule_field
+from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
 
 FAILED_CHECK = RunResult(
     "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
@@ -264,6 +264,31 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
     assert "ASSIGNMENT-COMPLETE" not in set().union(*violated)
     assert "EXTERNAL-JSON-STORE" not in set().union(*violated)
     assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
+
+
+def test_html_report_flow_view_marks_an_undecided_edge(tmp_path: Path) -> None:
+    """AD-15: an observed pair whose allowed rule is removed shows as undecided in the payload."""
+    variant = next(item for item in CATALOG if item.id == "tour")
+    files = {
+        **dict(variant.files),
+        "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-MODEL"),
+    }
+    root = _prepare_repo(tmp_path, files)
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    page = render_html(
+        result, observation, repository="shop", architecture_href="architecture.json"
+    ).decode()
+
+    data_start = page.index('id="flow-data"')
+    payload = json.loads(
+        page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
+    )
+    edge = next(
+        edge for edge in payload["edges"] if edge["source"] == "app" and edge["target"] == "model"
+    )
+    assert edge["state"] == "undecided"
 
 
 def test_html_report_flow_view_clean_sample_has_no_violated_edges(tmp_path: Path) -> None:

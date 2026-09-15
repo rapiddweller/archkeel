@@ -9,12 +9,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal
 
+from archkeel.ir.decisions import open_decisions
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.model import Observation, Record
 
-# AD-15 will add "undecided" (an observed edge with neither an allowed nor a forbidden rule);
-# it arrives as a new EdgeState value, not a restructure of FlowEdge.
-EdgeState = Literal["conforms", "violation"]
+EdgeState = Literal["conforms", "violation", "undecided"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,10 +131,19 @@ def build_flow(observation: Observation) -> FlowData:
         for pair in _violated_pairs(violation, components):
             if pair in edge_totals:
                 edge_rules[pair].update(violation.rule_ids)
+    undecided_pairs = {
+        (item.source, item.target) for item in open_decisions(observation, components)
+    }
 
     flow_edges = []
     for (source, target), count in sorted(edge_totals.items()):
         rule_ids = tuple(sorted(edge_rules.get((source, target), ())))
-        state: EdgeState = "violation" if rule_ids else "conforms"
+        state: EdgeState
+        if rule_ids:
+            state = "violation"
+        elif (source, target) in undecided_pairs:
+            state = "undecided"
+        else:
+            state = "conforms"
         flow_edges.append(FlowEdge(source, target, count, rule_ids, state))
     return FlowData(flow_components, tuple(flow_edges))

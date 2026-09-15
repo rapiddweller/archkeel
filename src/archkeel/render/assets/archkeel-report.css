@@ -506,6 +506,10 @@ code {
   stroke: var(--ck-fail);
   stroke-dasharray: 7 6;
 }
+.edge.undecided .line {
+  stroke: var(--ck-unknown);
+  stroke-dasharray: 2 4;
+}
 .edge .hit {
   fill: none;
   stroke: transparent;

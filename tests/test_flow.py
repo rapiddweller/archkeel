@@ -13,6 +13,7 @@ from archkeel.check.report import run_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.render.flow import FlowEdge, build_flow
 from fixtures.architecture_demo import CATALOG
+from fixtures.demo_catalog_support import contract_without_rule
 
 _TOUR = next(variant for variant in CATALOG if variant.id == "tour")
 _CLEAN = next(variant for variant in CATALOG if variant.id == "clean")
@@ -86,6 +87,35 @@ def test_flow_clean_sample_has_no_violated_edges(tmp_path: Path) -> None:
 
     assert flow.edges
     assert all(edge.rule_ids == () for edge in flow.edges)
+
+
+def test_flow_marks_an_observed_edge_undecided_when_its_allowed_rule_is_removed(
+    tmp_path: Path,
+) -> None:
+    """AD-15: an observed pair with neither an allowed nor a forbidden rule is undecided,
+    from the same `open_decisions` derivation as validation's `decision.open` diagnostic."""
+    files = {
+        **dict(_TOUR.files),
+        "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-MODEL"),
+    }
+    flow = build_flow(_observation(tmp_path, files))
+
+    edge = next(edge for edge in flow.edges if (edge.source, edge.target) == ("app", "model"))
+    assert edge.state == "undecided"
+    assert edge.rule_ids == ()
+
+
+def test_flow_keeps_violation_state_for_an_edge_that_is_also_undecided(tmp_path: Path) -> None:
+    """A rule violation always outranks an undecided pair on the same edge."""
+    files = {
+        **dict(_TOUR.files),
+        "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-STORE"),
+    }
+    flow = build_flow(_observation(tmp_path, files))
+
+    edge = next(edge for edge in flow.edges if (edge.source, edge.target) == ("app", "store"))
+    assert edge.state == "violation"
+    assert edge.rule_ids == ("DEP-APP-NO-STORE-SQLITE",)
 
 
 def test_flow_edge_is_a_frozen_dataclass_value() -> None:

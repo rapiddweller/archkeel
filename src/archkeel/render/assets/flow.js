@@ -17,10 +17,11 @@
   // The one place an EdgeState maps to a human label. Edge and chip elements already take their
   // color and dash pattern from the CSS class `edge ${state}` / `chip ${state}` (see
   // archkeel-report.css), so the legend swatches below reuse those same classes instead of a
-  // second, hand-written color/dash list. A future third state (AD-15) is one new entry here.
+  // second, hand-written color/dash list.
   const EDGE_STATES = [
     { id: "conforms", label: "Conforms to the contract" },
     { id: "violation", label: "Violation" },
+    { id: "undecided", label: "Undecided" },
   ];
 
   const svg = root.querySelector(".flow-graph");
@@ -283,8 +284,8 @@
           select();
         }
       });
-      // The state name is the CSS class directly, so a future third state (AD-15) is one new
-      // rule in flow.js's stylesheet hook, not a branch here.
+      // The state name is the CSS class directly, so a new state is one new rule in
+      // flow.js's stylesheet hook, not a branch here.
       const group = el("g", { class: `edge ${r.edge.state}${related(r.edge) ? "" : " dim"}` }, line, hit);
       edgeLayer.appendChild(group);
       r.node = line;
