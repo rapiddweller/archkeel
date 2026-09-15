@@ -127,9 +127,12 @@ five-component sample repository with a closed contract, `public` interfaces, a 
 graph and every Class A rule kind declared; `validate` and `report` on it are clean. One catalog
 in `fixtures/architecture_demo.py` lists named variants, each a mapping of repository-relative
 files to new content applied over a copy of the clean tree, together with the exact violations and
-diagnostic codes it must produce. Regression checks and the check protocol stay demonstrated by
-demo cases A, B and C; the catalog lists them with their evidence and marks items that cannot be
-demonstrated, such as `coverage_failures`, as tested only. A generated catalog table in
+diagnostic codes it must produce. The catalog opens with a showcase section: its `tour` variant
+makes every Class A rule kind fire in one run and is the default demo view. Variants live in flat
+modules grouped by rule family. Regression checks and the check protocol get demos of their own,
+in which `check` compares the clean sample as accepted baseline with a violating candidate; items
+that cannot be demonstrated, such as `coverage_failures`, are marked as tested only. A generated
+catalog table in
 `docs/architecture-demo.md` is compared with the catalog. Reason: a user must be able to see
 each rule fire on one readable repository, not only in unit tests. Check:
 `tests/test_architecture_demo.py` enumerates rule kinds, construct values, diagnostic codes and
@@ -139,9 +142,17 @@ findings differ from the catalog, or when the clean sample reports anything.
 **AD-12 Validation diagnostics carry a code.** Every `contract_invalid` diagnostic has a stable
 `code` from one `DiagnosticCode` literal, such as `closed_world.missing`, `interface.unused` or
 `rule.violated`; the constructor rejects a `contract_invalid` diagnostic without one, and result
-JSON emits the code next to the pointer. Reason: sixteen different findings shared one kind and
+JSON emits the code next to the pointer. Diagnostics the analyzer reports before validation, such
+as `rule_without_subjects`, keep their kind without a code, and a code no path can produce is
+removed. Reason: sixteen different findings shared one kind and
 differed only in prose, so tests and agents had to match free text. Check: the constructor, and
 the catalog test in AD-11 compares codes instead of messages.
+
+**AD-13 Mermaid diagrams are checked before GitHub renders them.** One tool extracts every fenced
+Mermaid block in tracked Markdown; a repository test rejects node labels with unquoted characters
+that break the parser, and CI renders every block with the official Mermaid command-line renderer
+at one pinned version. Reason: GitHub showed a parse error instead of the onboarding flow, and no
+local check noticed. Check: `tests/test_mermaid.py` and the CI render step.
 
 ## Allowed dependencies
 
