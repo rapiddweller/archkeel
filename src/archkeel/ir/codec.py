@@ -77,6 +77,21 @@ _TOP_LEVEL = {
 }
 _RECORD_KEYS = set(RECORD_FIELDS)
 _EVIDENCE_KEYS = set(EVIDENCE_FIELDS)
+_COVERAGE_KEYS = {
+    "status",
+    "files_discovered",
+    "files_read",
+    "files_parsed",
+    "calls_analyzed",
+    "calls_resolved",
+    "calls_partially_resolved",
+    "calls_unresolved",
+    "ast_coverage_percent",
+    "call_resolution_percent",
+    "failures",
+    "rules",
+}
+_COVERAGE_REQUIRED_KEYS = _COVERAGE_KEYS - {"rules"}
 CONTRACT_SCHEMA_VERSION: Final = "2.0.0"
 
 
@@ -204,55 +219,9 @@ def parse_observation(raw: object) -> Observation:
     dirty_value: bool | Literal["unknown"] = (
         True if dirty is True else False if dirty is False else "unknown"
     )
-    coverage_keys = {
-        "status",
-        "files_discovered",
-        "files_read",
-        "files_parsed",
-        "calls_analyzed",
-        "calls_resolved",
-        "calls_partially_resolved",
-        "calls_unresolved",
-        "ast_coverage_percent",
-        "call_resolution_percent",
-        "failures",
-        "rules",
-    }
-    if set(coverage) - coverage_keys or not {
-        "status",
-        "files_discovered",
-        "files_read",
-        "files_parsed",
-        "calls_analyzed",
-        "calls_resolved",
-        "calls_partially_resolved",
-        "calls_unresolved",
-        "ast_coverage_percent",
-        "call_resolution_percent",
-        "failures",
-    }.issubset(coverage):
-        raise ValueError("coverage fields mismatch")
-    status = coverage["status"]
-    rules = coverage.get("rules")
-    if not _is_verdict(status):
-        raise ValueError("coverage status/rules invalid")
-    if rules is not None and not _is_verdict(rules):
-        raise ValueError("coverage status/rules invalid")
-    counts = (
-        "files_discovered",
-        "files_read",
-        "files_parsed",
-        "calls_analyzed",
-        "calls_resolved",
-        "calls_partially_resolved",
-        "calls_unresolved",
-    )
-    count_values = {k: _count(coverage[k], f"coverage.{k}") for k in counts}
-    ast_coverage_percent = _percent(coverage["ast_coverage_percent"], "coverage")
-    call_resolution_percent = _percent(coverage["call_resolution_percent"], "coverage")
-    failures_raw = coverage["failures"]
+    coverage_value = _parse_coverage(coverage)
     evidence_raw = item["evidence"]
-    if not isinstance(failures_raw, list) or not isinstance(evidence_raw, list):
+    if not isinstance(evidence_raw, list):
         raise ValueError("coverage.failures and evidence must be arrays")
     sections = tuple(
         Section(name, tuple(parse_record(value, f"{name}[]") for value in section_items))
@@ -275,19 +244,46 @@ def parse_observation(raw: object) -> Observation:
         contract=ContractInfo(
             *(_string(contract[k], f"contract.{k}") for k in ("schema_version", "digest", "path"))
         ),
-        coverage=Coverage(
-            status=status,
-            **count_values,
-            ast_coverage_percent=ast_coverage_percent,
-            call_resolution_percent=call_resolution_percent,
-            failures=tuple(parse_record(v, "coverage.failures[]") for v in failures_raw),
-            rules=rules,
-        ),
+        coverage=coverage_value,
         sections=sections,
         evidence=tuple(parse_evidence(value, "evidence[]") for value in evidence_raw),
         python_version=_python_version(item["python_version"])
         if "python_version" in item
         else None,
+    )
+
+
+def _parse_coverage(coverage: dict[str, RawJson]) -> Coverage:
+    if set(coverage) - _COVERAGE_KEYS or not _COVERAGE_REQUIRED_KEYS.issubset(coverage):
+        raise ValueError("coverage fields mismatch")
+    status = coverage["status"]
+    rules = coverage.get("rules")
+    if not _is_verdict(status):
+        raise ValueError("coverage status/rules invalid")
+    if rules is not None and not _is_verdict(rules):
+        raise ValueError("coverage status/rules invalid")
+    counts = (
+        "files_discovered",
+        "files_read",
+        "files_parsed",
+        "calls_analyzed",
+        "calls_resolved",
+        "calls_partially_resolved",
+        "calls_unresolved",
+    )
+    count_values = {k: _count(coverage[k], f"coverage.{k}") for k in counts}
+    ast_coverage_percent = _percent(coverage["ast_coverage_percent"], "coverage")
+    call_resolution_percent = _percent(coverage["call_resolution_percent"], "coverage")
+    failures_raw = coverage["failures"]
+    if not isinstance(failures_raw, list):
+        raise ValueError("coverage.failures and evidence must be arrays")
+    return Coverage(
+        status=status,
+        **count_values,
+        ast_coverage_percent=ast_coverage_percent,
+        call_resolution_percent=call_resolution_percent,
+        failures=tuple(parse_record(v, "coverage.failures[]") for v in failures_raw),
+        rules=rules,
     )
 
 
@@ -942,21 +938,6 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         {"checker_digest", "analyzer_digest", "contract_digest", "baseline_digest", "head_digest"},
         "delta.provenance",
     )
-
-    def summary(value: object, label: str) -> SnapshotSummary:
-        x = _object(value, label)
-        if set(x) - {"python_version"} != {"git_head", "source_digest", "coverage_status"}:
-            raise ValueError(f"{label} fields mismatch")
-        coverage_status = x["coverage_status"]
-        if not _is_verdict(coverage_status):
-            raise ValueError(f"{label}.coverage_status invalid")
-        return SnapshotSummary(
-            _string(x["git_head"], f"{label}.git_head"),
-            _string(x["source_digest"], f"{label}.source_digest"),
-            coverage_status,
-            _python_version(x["python_version"]) if "python_version" in x else None,
-        )
-
     c = _exact(item["contract"], {"schema_version", "digest", "path"}, "delta.contract")
     cv = _exact(
         item["coverage"],
@@ -973,95 +954,19 @@ def parse_delta(raw: object) -> ArchitectureDelta:
     if not _is_verdict(head_status):
         raise ValueError("delta coverage status invalid")
     dimensions_raw = _object(item["dimensions"], "delta.dimensions")
-    dimensions_list: list[DimensionDelta] = []
-    for name, raw_dimension in sorted(dimensions_raw.items()):
-        dimension = _exact(
-            raw_dimension,
-            {"status", "before_count", "after_count", "added", "removed", "relocated", "changed"},
-            f"dimensions.{name}",
-        )
-        status = dimension["status"]
-        if not _is_comparison_status(status):
-            raise ValueError(f"dimensions.{name}.status invalid")
-        dimensions_list.append(
-            DimensionDelta(
-                name,
-                status,
-                _count(dimension["before_count"], f"dimensions.{name}.before_count"),
-                _count(dimension["after_count"], f"dimensions.{name}.after_count"),
-                _strings(dimension["added"], f"dimensions.{name}.added"),
-                _strings(dimension["removed"], f"dimensions.{name}.removed"),
-                _strings(dimension["relocated"], f"dimensions.{name}.relocated"),
-                _strings(dimension["changed"], f"dimensions.{name}.changed"),
-            )
-        )
-    dimensions = tuple(dimensions_list)
-    ratchet_raw = _object(item["ratchets"], "delta.ratchets")
-    if ratchet_raw.get("status") == "SUPPORTED":
-        if set(ratchet_raw) != {"status", "baseline", "head"}:
-            raise ValueError("supported regression check fields mismatch")
-        ratchets = RatchetObservations(
-            "SUPPORTED",
-            parse_measurements(ratchet_raw["baseline"], "ratchets.baseline"),
-            parse_measurements(ratchet_raw["head"], "ratchets.head"),
-        )
-    elif ratchet_raw.get("status") == "UNKNOWN":
-        if set(ratchet_raw) != {"status", "reason"}:
-            raise ValueError("unknown regression check fields mismatch")
-        ratchets = RatchetObservations(
-            "UNKNOWN", reason=_string(ratchet_raw.get("reason"), "ratchets.reason")
-        )
-    else:
-        raise ValueError("delta.ratchets status invalid")
+    dimensions = tuple(
+        _parse_dimension(name, raw_dimension)
+        for name, raw_dimension in sorted(dimensions_raw.items())
+    )
+    ratchets = _parse_ratchets(item["ratchets"])
     semantic_changes_raw = item["semantic_changes"]
     unknowns_raw = item["unknowns"]
     if not isinstance(semantic_changes_raw, list) or not isinstance(unknowns_raw, list):
         raise ValueError("semantic_changes and unknowns must be arrays")
-    changes = []
-    for index, value in enumerate(semantic_changes_raw):
-        x = _object(value, f"semantic_changes[{index}]")
-        required = {
-            "dimension",
-            "change",
-            "fingerprint",
-            "before_count",
-            "after_count",
-            "before",
-            "after",
-        }
-        optional = {"before_fingerprints", "after_fingerprints"}
-        if set(x) - required - optional or not required.issubset(x):
-            raise ValueError(f"semantic_changes[{index}] fields mismatch")
-        changes.append(
-            SemanticChange(
-                _string(x["dimension"], "dimension"),
-                _string(x["change"], "change"),
-                _string(x["fingerprint"], "fingerprint"),
-                _count(x["before_count"], "before_count"),
-                _count(x["after_count"], "after_count"),
-                _projection(x["before"], "before") if x["before"] is not None else None,
-                _projection(x["after"], "after") if x["after"] is not None else None,
-                _strings(x["before_fingerprints"], "before_fingerprints")
-                if "before_fingerprints" in x
-                else None,
-                _strings(x["after_fingerprints"], "after_fingerprints")
-                if "after_fingerprints" in x
-                else None,
-            )
-        )
-    unknowns_list: list[DeltaUnknown] = []
-    for value in unknowns_raw:
-        unknown = _exact(value, {"id", "dimension", "reason", "evidence_class"}, "unknown")
-        if unknown["evidence_class"] != "UNKNOWN":
-            raise ValueError("unknown.evidence_class invalid")
-        unknowns_list.append(
-            DeltaUnknown(
-                _string(unknown["id"], "unknown.id"),
-                _string(unknown["dimension"], "unknown.dimension"),
-                _string(unknown["reason"], "unknown.reason"),
-            )
-        )
-    unknowns = tuple(unknowns_list)
+    changes = tuple(
+        _parse_semantic_change(value, index) for index, value in enumerate(semantic_changes_raw)
+    )
+    unknowns = tuple(_parse_delta_unknown(value) for value in unknowns_raw)
     return ArchitectureDelta(
         _string(item["schema_version"], "schema_version"),
         AnalyzerInfo(
@@ -1081,8 +986,8 @@ def parse_delta(raw: object) -> ArchitectureDelta:
                 )
             )
         ),
-        summary(item["baseline"], "delta.baseline"),
-        summary(item["head"], "delta.head"),
+        _parse_snapshot_summary(item["baseline"], "delta.baseline"),
+        _parse_snapshot_summary(item["head"], "delta.head"),
         ContractInfo(
             _string(c["schema_version"], "contract.schema_version"),
             _string(c["digest"], "contract.digest"),
@@ -1097,8 +1002,106 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         ),
         dimensions,
         ratchets,
-        tuple(changes),
+        changes,
         unknowns,
+    )
+
+
+def _parse_snapshot_summary(raw: RawJson, label: str) -> SnapshotSummary:
+    x = _object(raw, label)
+    if set(x) - {"python_version"} != {"git_head", "source_digest", "coverage_status"}:
+        raise ValueError(f"{label} fields mismatch")
+    coverage_status = x["coverage_status"]
+    if not _is_verdict(coverage_status):
+        raise ValueError(f"{label}.coverage_status invalid")
+    return SnapshotSummary(
+        _string(x["git_head"], f"{label}.git_head"),
+        _string(x["source_digest"], f"{label}.source_digest"),
+        coverage_status,
+        _python_version(x["python_version"]) if "python_version" in x else None,
+    )
+
+
+def _parse_dimension(name: str, raw: RawJson) -> DimensionDelta:
+    label = f"dimensions.{name}"
+    dimension = _exact(
+        raw,
+        {"status", "before_count", "after_count", "added", "removed", "relocated", "changed"},
+        label,
+    )
+    status = dimension["status"]
+    if not _is_comparison_status(status):
+        raise ValueError(f"{label}.status invalid")
+    return DimensionDelta(
+        name,
+        status,
+        _count(dimension["before_count"], f"{label}.before_count"),
+        _count(dimension["after_count"], f"{label}.after_count"),
+        _strings(dimension["added"], f"{label}.added"),
+        _strings(dimension["removed"], f"{label}.removed"),
+        _strings(dimension["relocated"], f"{label}.relocated"),
+        _strings(dimension["changed"], f"{label}.changed"),
+    )
+
+
+def _parse_ratchets(raw: object) -> RatchetObservations:
+    ratchet_raw = _object(raw, "delta.ratchets")
+    if ratchet_raw.get("status") == "SUPPORTED":
+        if set(ratchet_raw) != {"status", "baseline", "head"}:
+            raise ValueError("supported regression check fields mismatch")
+        return RatchetObservations(
+            "SUPPORTED",
+            parse_measurements(ratchet_raw["baseline"], "ratchets.baseline"),
+            parse_measurements(ratchet_raw["head"], "ratchets.head"),
+        )
+    if ratchet_raw.get("status") == "UNKNOWN":
+        if set(ratchet_raw) != {"status", "reason"}:
+            raise ValueError("unknown regression check fields mismatch")
+        return RatchetObservations(
+            "UNKNOWN", reason=_string(ratchet_raw.get("reason"), "ratchets.reason")
+        )
+    raise ValueError("delta.ratchets status invalid")
+
+
+def _parse_semantic_change(raw: RawJson, index: int) -> SemanticChange:
+    x = _object(raw, f"semantic_changes[{index}]")
+    required = {
+        "dimension",
+        "change",
+        "fingerprint",
+        "before_count",
+        "after_count",
+        "before",
+        "after",
+    }
+    optional = {"before_fingerprints", "after_fingerprints"}
+    if set(x) - required - optional or not required.issubset(x):
+        raise ValueError(f"semantic_changes[{index}] fields mismatch")
+    return SemanticChange(
+        _string(x["dimension"], "dimension"),
+        _string(x["change"], "change"),
+        _string(x["fingerprint"], "fingerprint"),
+        _count(x["before_count"], "before_count"),
+        _count(x["after_count"], "after_count"),
+        _projection(x["before"], "before") if x["before"] is not None else None,
+        _projection(x["after"], "after") if x["after"] is not None else None,
+        _strings(x["before_fingerprints"], "before_fingerprints")
+        if "before_fingerprints" in x
+        else None,
+        _strings(x["after_fingerprints"], "after_fingerprints")
+        if "after_fingerprints" in x
+        else None,
+    )
+
+
+def _parse_delta_unknown(raw: RawJson) -> DeltaUnknown:
+    unknown = _exact(raw, {"id", "dimension", "reason", "evidence_class"}, "unknown")
+    if unknown["evidence_class"] != "UNKNOWN":
+        raise ValueError("unknown.evidence_class invalid")
+    return DeltaUnknown(
+        _string(unknown["id"], "unknown.id"),
+        _string(unknown["dimension"], "unknown.dimension"),
+        _string(unknown["reason"], "unknown.reason"),
     )
 
 

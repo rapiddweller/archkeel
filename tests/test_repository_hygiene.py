@@ -62,9 +62,8 @@ ALLOWED_LONG_FUNCTIONS = {
     "sentinel rows.",
     "src/archkeel/ir/codec.py::parse_contract": "Field lists plus one parser per kind; the "
     "duplicate-id check spans all groups.",
-    "src/archkeel/ir/codec.py::parse_delta": _PENDING
-    + "snapshot summary, dimension, ratchets, semantic change, unknown.",
-    "src/archkeel/ir/codec.py::parse_observation": _PENDING + "coverage parsing.",
+    "src/archkeel/ir/codec.py::parse_delta": "Checks the delta envelope in wire order and "
+    "assembles five named part parsers into one value.",
     "src/archkeel/render/html.py::render_html": "One template with its bindings.",
 }
 
