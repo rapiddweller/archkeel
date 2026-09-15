@@ -18,6 +18,7 @@ from archkeel.ir.model import (
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    InterfaceBoundaryRule,
 )
 
 from .records import RawRecord, RecordData, classified
@@ -85,6 +86,16 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             [rule.source],
         )
         data = {"source": rule.source, "rationale": rule.rationale}
+    elif isinstance(rule, InterfaceBoundaryRule):
+        area, title, subjects = (
+            "api_surface",
+            "Cross-component imports must reach the target's declared public interface",
+            [],
+        )
+        data = {
+            "include_type_checking": rule.include_type_checking,
+            "rationale": rule.rationale,
+        }
     else:
         area, title, subjects = "cycles", "Component dependencies form no cycle", []
         data = {"rationale": rule.rationale}

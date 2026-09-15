@@ -13,17 +13,19 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     CompleteAssignmentRule,
+    ContractComponent,
     EvidenceClass,
     ExternalDependencyScopeRule,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    InterfaceBoundaryRule,
     NoComponentCyclesRule,
     in_scope,
 )
 
 from .graph import strongly_connected_components
-from .records import RawRecord, classified, stable_id
+from .records import RawRecord, RecordData, classified, stable_id
 
 
 def _dependency_violations(
@@ -231,13 +233,84 @@ def _component_cycle_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _interface_allows(
+    data: RecordData, target: ContractComponent, exports_by_module: dict[str, frozenset[str]]
+) -> bool:
+    """Decide whether one cross-component import reaches the target's declared interface."""
+    public = target.public
+    if public is None:
+        return True
+    symbol = data["symbol"]
+    if symbol is None:
+        return data["target_module"] in public
+    if symbol.startswith("_"):
+        return False
+    for entry in data["reexport_chain"]:
+        module, _, name = entry.rpartition(".")
+        if f"{module}:{name}" in public:
+            return True
+        exports = exports_by_module.get(module)
+        if module in public and (not exports or name in exports):
+            return True
+    return False
+
+
+def _interface_violations(
+    imports: Sequence[RawRecord], contract: ArchitectureContract, modules: Sequence[RawRecord]
+) -> list[RawRecord]:
+    rules = [rule for rule in contract.rules if isinstance(rule, InterfaceBoundaryRule)]
+    if not rules:
+        return []
+    exports_by_module = {
+        item["data"]["qualified_name"]: frozenset(item["data"]["all_exports"]) for item in modules
+    }
+    violations: list[RawRecord] = []
+    for rule in rules:
+        for item in imports:
+            data = item["data"]
+            source = contract.component_for(data["source_module"])
+            target = contract.component_for(data["target_module"])
+            if (
+                source is None
+                or target is None
+                or source == target
+                or target.public is None
+                or (data["under_type_checking"] and not rule.include_type_checking)
+                or _interface_allows(data, target, exports_by_module)
+            ):
+                continue
+            target_name = ".".join(filter(None, (data["target_module"], data["symbol"])))
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="api_surface",
+                    kind="interface_boundary",
+                    title=f"{data['source_module']} reaches {target_name} "
+                    "outside its declared interface",
+                    subjects=[data["source_module"], target_name],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "source_module": data["source_module"],
+                        "target_module": data["target_module"],
+                        "symbol": data["symbol"],
+                        "source_component": source.label,
+                        "target_component": target.label,
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     """Name the module selectors whose absence would make a rule vacuous."""
     if isinstance(rule, ForbiddenDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
         return {"allowed_sources": rule.allowed_sources}
-    if isinstance(rule, NoComponentCyclesRule):
+    if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule):
         return {}
     return {"source": (rule.source,)}
 
@@ -292,6 +365,7 @@ def rule_violations(
             *_external_dependency_violations(imports, contract.rules),
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),
+            *_interface_violations(imports, contract, modules),
         ],
         key=lambda item: item["id"],
     )

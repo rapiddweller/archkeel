@@ -190,6 +190,105 @@ def test_class_a_rule_produces_one_traceable_violation(
     assert len(result.observation.records("violations") or ()) == 1
 
 
+@pytest.mark.parametrize(
+    ("core_public", "rule_overrides", "files", "expected_violations"),
+    [
+        (
+            ["sample.core"],
+            {},
+            {
+                "sample/core.py": "_hidden = 1\n",
+                "sample/cli.py": "from sample.core import _hidden\n",
+            },
+            1,
+        ),
+        (
+            ["sample.core:allowed"],
+            {},
+            {
+                "sample/core.py": "allowed = 1\nother = 2\n",
+                "sample/cli.py": "from sample.core import other\n",
+            },
+            1,
+        ),
+        (
+            ["sample.core:allowed"],
+            {},
+            {
+                "sample/core.py": "allowed = 1\n",
+                "sample/cli.py": "import sample.core\n",
+            },
+            1,
+        ),
+        (
+            ["sample.core.impl:Widget"],
+            {},
+            {
+                "sample/core/__init__.py": "from .impl import Widget\n",
+                "sample/core/impl.py": "class Widget:\n    pass\n",
+                "sample/cli.py": "from sample.core import Widget\n",
+            },
+            0,
+        ),
+        (
+            ["sample.core:allowed"],
+            {"include_type_checking": False},
+            {
+                "sample/core.py": "allowed = 1\nother = 2\n",
+                "sample/cli.py": (
+                    "from typing import TYPE_CHECKING\n"
+                    "if TYPE_CHECKING:\n"
+                    "    from sample.core import other\n"
+                ),
+            },
+            0,
+        ),
+        (
+            ["sample.core"],
+            {},
+            {
+                "sample/core.py": '__all__ = ["a"]\na = 1\nb = 2\n',
+                "sample/cli.py": "from sample.core import b\n",
+            },
+            1,
+        ),
+    ],
+)
+def test_interface_boundary_rule_matches_the_declared_public_interface(
+    tmp_path: Path,
+    core_public: list[str],
+    rule_overrides: dict[str, object],
+    files: dict[str, str],
+    expected_violations: int,
+) -> None:
+    contract = {
+        "schema_version": "2.0.0",
+        "components": [_component("core", public=core_public), _component("cli")],
+        "rules": [
+            {
+                "id": "INTERFACE",
+                "kind": "interface_boundary",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                **rule_overrides,
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    for relative_path, text in files.items():
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = [
+        item
+        for item in result.observation.records("violations") or ()
+        if item.kind == "interface_boundary"
+    ]
+    assert len(violations) == expected_violations
+
+
 @pytest.mark.parametrize("cause", ["missing_tool", "timeout", "parse_error"])
 def test_execution_failure_has_structured_diagnostic(tmp_path: Path, cause: str) -> None:
     if cause == "missing_tool":

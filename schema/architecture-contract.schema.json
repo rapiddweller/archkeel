@@ -12,7 +12,7 @@
     "rules": {"type": "array", "uniqueItems": true, "items": {"oneOf": [
       {"$ref": "#/$defs/forbiddenDependency"}, {"$ref": "#/$defs/forbiddenConstruct"},
       {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
-      {"$ref": "#/$defs/noComponentCycles"}
+      {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"}
     ]}},
     "declarations": {"$ref": "#/$defs/declarations"}
   },
@@ -105,6 +105,18 @@
         "kind": {"const": "no_component_cycles"},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "interfaceBoundary": {
+      "type": "object",
+      "required": ["id", "kind", "rationale", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "interface_boundary"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "include_type_checking": {"type": "boolean"}
       }
     },
     "declarations": {

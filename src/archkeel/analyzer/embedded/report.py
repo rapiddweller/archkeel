@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.model import SCHEMA_VERSION, EvidenceClass
+from archkeel.ir.model import SCHEMA_VERSION, ArchitectureContract, EvidenceClass
 
 from .contract import load_contract, project_declarations
 from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified, stable_id
@@ -36,7 +36,7 @@ def _metric(
     )
 
 
-def _metrics(scan: ScanResult) -> list[RawRecord]:
+def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord]:
     dependency_violations = [
         item for item in scan.violations if item["kind"] == "forbidden_dependency"
     ]
@@ -74,6 +74,20 @@ def _metrics(scan: ScanResult) -> list[RawRecord]:
     violation_fact_ids = sorted(
         {fact_id for item in scan.violations for fact_id in item["fact_ids"]}
     )
+    interface_usage = [
+        (item, source, target)
+        for item in scan.imports
+        if (source := contract.component_for(item["data"]["source_module"])) is not None
+        and (target := contract.component_for(item["data"]["target_module"])) is not None
+        and source != target
+    ]
+    interface_surface = {
+        (
+            target.label,
+            ".".join(filter(None, (item["data"]["target_module"], item["data"]["symbol"]))),
+        )
+        for item, _, target in interface_usage
+    }
     return sorted(
         [
             _metric(
@@ -190,6 +204,13 @@ def _metrics(scan: ScanResult) -> list[RawRecord]:
                 "calls",
                 fact_ids=[item["id"] for item in resolved_calls],
             ),
+            _metric(
+                "interface_surface",
+                "Interface surface",
+                len(interface_surface),
+                "api",
+                fact_ids=[item["id"] for item, _, _ in interface_usage],
+            ),
         ],
         key=lambda item: item["id"],
     )
@@ -251,7 +272,7 @@ def analyze_snapshot(
             "path": contract_file.relative_to(declarations_root).as_posix(),
         },
         "coverage": scan.coverage,
-        "metrics": _metrics(scan),
+        "metrics": _metrics(scan, contract),
         "declarations": project_declarations(contract),
         "scope_observations": scan.scope_observations,
         "packages": scan.packages,

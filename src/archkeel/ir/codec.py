@@ -46,6 +46,7 @@ from archkeel.ir.model import (
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    InterfaceBoundaryRule,
     JsonValue,
     NoComponentCyclesRule,
     Observation,
@@ -893,12 +894,29 @@ def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRul
     )
 
 
+def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "rationale"}, {"include_type_checking"}, label
+    )
+    include = item.get("include_type_checking", True)
+    if not isinstance(include, bool):
+        raise ValueError(f"{label}.include_type_checking must be a boolean")
+    return InterfaceBoundaryRule(
+        item_id,
+        "interface_boundary",
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        include,
+    )
+
+
 _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "forbidden_dependency": _parse_forbidden_dependency,
     "forbidden_construct": _parse_forbidden_construct,
     "external_dependency_scope": _parse_external_dependency_scope,
     "complete_assignment": _parse_complete_assignment,
     "no_component_cycles": _parse_no_component_cycles,
+    "interface_boundary": _parse_interface_boundary,
 }
 
 

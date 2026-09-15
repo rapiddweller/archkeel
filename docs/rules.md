@@ -52,6 +52,20 @@ more members. A complete scan and exact package assignment make the result deter
 between unowned modules are invisible; combine it with `complete_assignment`. Importing
 `sample.cli` from `sample.core` while `sample.cli` imports `sample.core` is an example violation.
 
+`interface_boundary` has the optional field `include_type_checking` (default `true`) and no
+selector fields; it applies wherever a component declares `public`. A component's `public` list
+holds `pkg.module` entries, which make every non-underscore name of that module public, or its
+`__all__` when the module declares one, and `pkg.module:Name` entries, which make exactly one name
+public. It matches every cross-component import whose target component declares `public` and
+reports a violation unless the imported name, directly or through its re-export chain, resolves to
+a declared name; underscore names never qualify. A complete scan, fixed source bytes and analyzer
+digest make the result deterministic. An empty `__all__` reads the same as no `__all__` at all,
+aliasing during a re-export is not resolved, and `from pkg import submodule` is matched as the
+name `pkg:submodule` rather than the module `pkg.submodule`; these remain blind spots.
+Importing `sample.core.impl`
+directly from `sample.cli` when `core` declares only `sample.core` as public is an example
+violation.
+
 ## Class B: regression checks
 
 Regression checks compare accepted and candidate observations. They include scalar counts,

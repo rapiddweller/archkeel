@@ -262,12 +262,22 @@ class NoComponentCyclesRule:
     provenance: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class InterfaceBoundaryRule:
+    id: str
+    kind: Literal["interface_boundary"]
+    rationale: str
+    provenance: tuple[str, ...]
+    include_type_checking: bool = True
+
+
 ArchitectureRule: TypeAlias = (
     ForbiddenDependencyRule
     | ForbiddenConstructRule
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
     | NoComponentCyclesRule
+    | InterfaceBoundaryRule
 )
 
 

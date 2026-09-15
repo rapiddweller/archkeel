@@ -1,0 +1,32 @@
+{
+  "schema_version": "2.0.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "public": ["sample.core"]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "role": "component",
+      "packages": ["sample.cli"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "INTERFACE",
+      "kind": "interface_boundary",
+      "rationale": "Cross-component imports must reach a declared public interface.",
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ]
+}
