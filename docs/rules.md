@@ -71,6 +71,12 @@ context roots, paths and owners. Archkeel decodes and reports them but does not 
 - **Blind spots:** Archkeel makes no claim that code follows a declaration.
 - **Example:** record `sample.api` as the intended public interface.
 
+A class-C entry records a judgment: a responsibility, an intended interface, a path or an owner
+that a person decided. Archkeel stores and reports it verbatim and never evaluates it, so it can
+neither pass nor fail a check. A judgment that needs testing becomes a class-D claim bound to an
+evidence digest, and its outcome stays HYPOTHESIS, never PASS or FAIL. A judgment that reduces to
+a fact visible in one observation belongs in class A instead.
+
 ## Class D: review claims
 
 Class D is planned. It will bind a review verdict to an evidence digest and retain the verdict as

@@ -78,6 +78,31 @@ Reason: 80 lines is what a reviewer can hold at once, and an explicit list keeps
 functions visible instead of exempting them silently. Check: the test fails on an unlisted long
 function and on a listed function that is no longer long, so the list only shrinks.
 
+**AD-7 Determinism is measured, not assumed.** The inputs of one observation are source bytes at a
+commit, contract bytes, the installed Archkeel (analyzer and checker digests), `archkeel.toml`,
+the Python version and the repository directory name. Everything else is environment, and the
+emitted bytes must not depend on it. Three `report` runs on two clones with different parent
+paths, working directories, `PYTHONHASHSEED`, `TZ` and `LC_ALL`, plus one verbatim repeat, must
+produce byte-identical `architecture.json`, HTML report and stdout JSON without normalization. A
+field that would need normalization is a violation of this decision, not a probe adjustment.
+Reason: determinism is Archkeel's core promise, so it needs evidence like any other claim. Limit:
+equal bytes on one machine and Python build do not prove equality across Python versions,
+operating systems or inputs the probe does not vary. Check: `tests/test_determinism.py`, proven
+by an unsorted record subject list and an absolute source path, each of which fails it.
+
+**AD-8 Statement constructs are Class A rules.** `forbidden_construct` gains the constructs
+`assert` and `broad_except` and an optional `allowed_sources` list with prefix scope, as in
+`external_dependency_scope`. A broad handler is a bare `except:` or one that catches `Exception` or
+`BaseException`, alone, in a tuple or as `builtins.Exception`; `except Exception: raise` counts,
+because re-raising is intent and belongs to review, while a justified boundary is named in
+`allowed_sources`. Aliases and shadowed names are blind spots. The records live in their own
+`constructs` section, not in `typing_signals`, because every typing signal counts as a typing
+position in the regression checks. Contract `schema_version` stays 2.0.0: a wider enum and an
+optional key make no valid contract invalid, and older Archkeel versions fail closed with exit 2.
+Reason: both constructs are facts of one observation, so a person should not have to judge them.
+Check: one violation probe per construct in `tests/test_analyzer.py`, and Archkeel's own contract
+forbids both with the CLI error boundary as the single allowed broad handler.
+
 ## Allowed dependencies
 
 | Edge | Reason |
