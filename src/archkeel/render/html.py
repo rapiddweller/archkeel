@@ -15,6 +15,7 @@ from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
 
+from .flow import FlowData, build_flow
 from .summary import (
     Comparison,
     VerdictRow,
@@ -60,7 +61,8 @@ def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+        content="default-src 'none'; img-src data:; style-src 'unsafe-inline';
+                 script-src 'unsafe-inline'">
   <link rel="icon" href="{mark}" type="image/svg+xml">
   <title>{_text(title)} · {_text(repository)}</title>
   <style>{css}</style>
@@ -158,6 +160,81 @@ def _interfaces_section(observation: Observation) -> str:
             f"<tbody>{rows}</tbody></table></div>"
         )
     return f'<section class="report-section"><h2>Component communication</h2>{body}</section>'
+
+
+def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
+    names_by_pair = {
+        (edge.source, edge.target): edge.names for edge in interface_edges(observation)
+    }
+    return {
+        "components": [
+            {
+                "label": component.label,
+                "modules": list(component.modules),
+                "public": list(component.public) if component.public is not None else None,
+            }
+            for component in flow.components
+        ],
+        "edges": [
+            {
+                "source": edge.source,
+                "target": edge.target,
+                "import_sites": edge.import_sites,
+                "rule_ids": list(edge.rule_ids),
+                "state": edge.state,
+                "names": [
+                    {
+                        "name": name.name,
+                        "kind": name.kind,
+                        "params": list(name.parameters),
+                        "returns": name.returns,
+                    }
+                    for name in names_by_pair.get((edge.source, edge.target), ())
+                ],
+            }
+            for edge in flow.edges
+        ],
+    }
+
+
+def _flow_section(observation: Observation) -> str:
+    """Render the AD-10 component flow view: an SVG diagram plus its canonical JSON data."""
+    flow = build_flow(observation)
+    # Canonical, sorted-key JSON keeps report bytes deterministic; `<` is escaped because this
+    # value is embedded inside a <script> element, where a literal "</script" would close it.
+    payload = json.dumps(_flow_payload(observation, flow), sort_keys=True, separators=(",", ":"))
+    payload = payload.replace("<", "\\u003c")
+    script = _asset("flow.js").decode("utf-8")
+    return f"""
+    <section class="report-section flow-section" aria-labelledby="flow-heading">
+      <h2 id="flow-heading">Component flow</h2>
+      <p>Component cards and the observed edges between them, weighted by import sites.
+        Dashed red edges break a declared rule; the label names the rule id. This view needs
+        JavaScript; the table below lists the same crossings for print and no-script use.</p>
+      <div id="flow" class="flow">
+        <div class="flow-toolbar">
+          <label for="flow-threshold-input">Hide edges below
+            <output id="flow-threshold-value" class="flow-threshold-value">≥ 0 import sites</output>
+          </label>
+          <input id="flow-threshold-input" class="flow-threshold" type="range" min="0" value="0">
+          <button type="button" class="flow-fit">Fit</button>
+        </div>
+        <div class="flow-canvas">
+          <svg class="flow-graph" role="group" aria-label="Component flow diagram">
+            <g class="flow-viewport">
+              <g class="flow-edges"></g>
+              <g class="flow-chips"></g>
+              <g class="flow-nodes"></g>
+              <g class="flow-empty"></g>
+            </g>
+          </svg>
+          <aside class="flow-inspector" aria-label="Selection details"></aside>
+        </div>
+        <div class="flow-legend" aria-label="Legend"></div>
+      </div>
+      <script id="flow-data" type="application/json">{payload}</script>
+      <script>{script}</script>
+    </section>"""
 
 
 def _measurements(measurements: Measurements | None) -> str:
@@ -283,6 +360,7 @@ def render_html(
     unknowns_html = (
         _findings("Known unknowns", unknowns or (), observation) if observation is not None else ""
     )
+    flow_html = _flow_section(observation) if observation is not None else ""
     communication_html = _interfaces_section(observation) if observation is not None else ""
     measurements_html = _measurements(result.measurements)
     coverage_html = _coverage(observation)
@@ -318,6 +396,7 @@ def render_html(
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
     {violations_html}
+    {flow_html}
     {communication_html}
     {unknowns_html}
     <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>

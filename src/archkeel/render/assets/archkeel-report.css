@@ -311,6 +311,234 @@ code {
 .regression-table td.numeric {
   white-space: nowrap;
 }
+/* AD-10 component flow view. */
+.flow-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ck-space-4);
+  margin-bottom: var(--ck-space-3);
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+}
+.flow-threshold {
+  accent-color: var(--ck-teal);
+}
+.flow-fit {
+  padding: 6px 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 999px;
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.flow-fit:hover {
+  border-color: var(--ck-teal);
+}
+.flow-canvas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--ck-space-4);
+}
+.flow-graph {
+  width: 100%;
+  /* JS sets an inline height sized to the laid-out content (see flow.js panelHeight); this is
+     only the pre-render fallback. */
+  height: 560px;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+  cursor: grab;
+  touch-action: none;
+}
+.flow-inspector {
+  overflow-y: auto;
+  max-height: 860px;
+  padding: var(--ck-space-4);
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+  font-size: 13px;
+}
+.flow-inspector .kicker {
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.flow-inspector h2 {
+  margin: var(--ck-space-1) 0 var(--ck-space-2);
+  font-size: 16px;
+}
+.flow-inspector .kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--ck-space-1) var(--ck-space-3);
+  margin: 0 0 var(--ck-space-3);
+}
+.flow-inspector .kv dt {
+  color: var(--ck-muted);
+}
+.flow-inspector .kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.flow-inspector ul.plain {
+  margin: 0 0 var(--ck-space-3);
+  padding-left: 0;
+  list-style: none;
+}
+.flow-inspector .empty {
+  color: var(--ck-muted);
+}
+.flow-inspector .violation-card {
+  padding: var(--ck-space-2) var(--ck-space-3);
+  border-left: 3px solid var(--ck-fail);
+  background: var(--ck-surface-raised);
+}
+.flow-inspector .group {
+  margin-bottom: var(--ck-space-3);
+}
+.flow-inspector .bars {
+  display: grid;
+  gap: var(--ck-space-2);
+  margin: 0 0 var(--ck-space-3);
+}
+.flow-inspector .bars .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: var(--ck-space-2);
+  align-items: center;
+  padding: 2px 0;
+  font-family: var(--ck-font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.flow-inspector .bars .row:hover,
+.flow-inspector .bars .row:focus-visible {
+  color: var(--ck-teal);
+}
+.flow-inspector .bars .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flow-inspector .bars em {
+  color: var(--ck-muted);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.flow-inspector .bars .track {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ck-surface-raised);
+}
+.flow-inspector .bars .track b {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ck-teal);
+}
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ck-space-4);
+  margin-top: var(--ck-space-3);
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+}
+.flow-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ck-space-2);
+}
+.flow-legend-swatch {
+  width: 28px;
+  height: 10px;
+  overflow: visible;
+}
+.flow-legend-hint {
+  margin-left: auto;
+}
+.node .card {
+  fill: var(--ck-surface);
+  stroke: var(--ck-border);
+}
+.node.selected .card {
+  stroke: var(--ck-teal);
+}
+.node.dim {
+  opacity: 0.35;
+}
+.node .tick {
+  fill: var(--ck-border);
+}
+.node .tick.violated {
+  fill: var(--ck-fail);
+}
+/* Type minimums follow docs/report-visual-system.md: 14px body, 12px metadata, 11px machine
+   labels. The card label is body text; the meta line is metadata; chip text is a machine label. */
+.node .label {
+  fill: var(--ck-text);
+  font: 600 14px var(--ck-font-sans);
+}
+.node .meta {
+  fill: var(--ck-muted);
+  font: 12px var(--ck-font-mono);
+}
+.edge .line {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+.edge.conforms .line {
+  stroke: var(--ck-teal);
+}
+.edge.violation .line {
+  stroke: var(--ck-fail);
+  stroke-dasharray: 7 6;
+}
+.edge .hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16px;
+  cursor: pointer;
+}
+.edge.dim .line {
+  opacity: 0.15;
+}
+.chip rect {
+  fill: var(--ck-surface);
+  stroke: var(--ck-border);
+}
+.chip.violation rect {
+  stroke: var(--ck-fail);
+}
+.chip text {
+  fill: var(--ck-text);
+  font: 11px var(--ck-font-mono);
+}
+.chip.dim {
+  opacity: 0.15;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-viewport {
+    transition: none !important;
+  }
+}
+@media print {
+  .flow-section {
+    display: none;
+  }
+}
 .report-footer {
   margin-top: 64px;
   padding-top: var(--ck-space-4);
@@ -334,7 +562,8 @@ code {
     margin-left: 20px;
   }
   .verdict-grid,
-  .diagnostic {
+  .diagnostic,
+  .flow-canvas {
     grid-template-columns: 1fr;
   }
 }

@@ -1,20 +1,25 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+import json
 from dataclasses import replace
 from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
+from test_architecture_demo import CONFIG, _prepare_repo
 from test_delta import _model
 from test_expectation import _delta_payload
 from test_interfaces import _declaration, _import_record, _symbol_record
 
-from archkeel.ir.codec import parse_delta, parse_observation
+from archkeel.analyzer import observe
+from archkeel.check.report import run_report
+from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
 from archkeel.render.html import render_check_html, render_html
 from archkeel.render.summary import check_decision_sentence
+from fixtures.architecture_demo import CATALOG
 
 FAILED_CHECK = RunResult(
     "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
@@ -174,6 +179,62 @@ def test_html_report_reports_no_cross_component_imports() -> None:
 
     assert "Component communication" in page
     assert "No cross-component imports were observed." in page
+
+
+def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    return render_html(
+        result, observation, repository="shop", architecture_href="architecture.json"
+    ).decode()
+
+
+# Every rule id AD-10's flow view must attach to an edge in the "tour" sample (see
+# tests/test_flow.py, which derives this set from the same fixture's violations directly).
+_TOUR_FLOW_RULE_IDS = (
+    "COMPONENT-NO-CYCLES",
+    "DEP-APP-NO-STORE-SQLITE",
+    "DEP-MODEL-NO-RENDER",
+    "DEP-RENDER-NO-STORE",
+    "DEP-STORE-NO-MONEY",
+    "INTERFACE-BOUNDARY",
+)
+
+
+def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "tour")
+
+    assert 'id="flow"' in page
+    assert 'id="flow-data"' in page
+    data_start = page.index('id="flow-data"')
+    payload = json.loads(
+        page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
+    )
+
+    violated = {
+        tuple(edge["rule_ids"]) for edge in payload["edges"] if edge["state"] == "violation"
+    }
+    assert set().union(*violated) == set(_TOUR_FLOW_RULE_IDS)
+    # A single-subject or unowned-target rule never names a component pair (see test_flow.py).
+    assert "ASSIGNMENT-COMPLETE" not in set().union(*violated)
+    assert "EXTERNAL-JSON-STORE" not in set().union(*violated)
+    assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
+
+
+def test_html_report_flow_view_clean_sample_has_no_violated_edges(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "clean")
+
+    data_start = page.index('id="flow-data"')
+    payload = json.loads(
+        page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
+    )
+
+    assert payload["edges"]
+    assert all(edge["state"] == "conforms" for edge in payload["edges"])
+    assert all(edge["rule_ids"] == [] for edge in payload["edges"])
 
 
 def test_html_report_never_styles_missing_evidence_as_pass() -> None:
