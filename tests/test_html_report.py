@@ -321,7 +321,7 @@ def test_html_report_never_styles_missing_evidence_as_pass() -> None:
     ).decode()
 
     assert 'data-decision="unknown"' in page
-    assert "UNVERIFIABLE" in page
+    assert "NOT CHECKED" in page
     assert "unknown_claim" in page and "Install Git and retry." in page
     assert 'data-decision="pass"' not in page.split("</style>", 1)[1]
 
@@ -407,8 +407,8 @@ def test_check_html_never_styles_unverifiable_as_pass() -> None:
     )
     assert check_decision_sentence(result) in page
     assert 'data-decision="unknown"' in page
-    assert "UNVERIFIABLE" in page
-    assert "Scan completeness is unverifiable." in page
+    assert "NOT CHECKED" in page
+    assert "The scan could not be completed." in page
     assert "unknown_claim" in page and "Install Git and retry." in page
     assert 'data-decision="pass"' not in page.split("</style>", 1)[1]
 

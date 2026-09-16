@@ -100,7 +100,7 @@ and mechanically checkable.
 
 The HTML report is designed for a reviewer making a merge decision:
 
-- **Decision first.** `PASS`, `REJECT`, or `UNVERIFIABLE` and one sentence explaining it are
+- **Decision first.** `PASS`, `REJECT`, or `NOT CHECKED` and one sentence explaining it are
   visible before details, in the HTML report and in the terminal.
 - **No blended score.** Scan completeness, contract compliance, expectation matching, Git order
   and publication order remain separate verdicts.

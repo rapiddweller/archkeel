@@ -50,11 +50,11 @@ less than 10% of a page.
 | --- | --- | --- | --- |
 | `PASS` | `#C5F82A` | `✓` | The claim was checked and holds |
 | `FAIL` | `#FF6B6B` | `×` | The claim was checked and rejected |
-| `UNVERIFIABLE` | `#F4C95D` | `?` | Required evidence is missing or invalid |
+| `NOT CHECKED` | `#F4C95D` | `?` | Nothing was checked; evidence is missing or invalid |
 | `INFO` | `#5EEAD4` | `i` | Context that does not change the verdict |
 
 Never communicate a verdict through color alone. Always render the symbol,
-verdict word, and one-sentence reason. `UNVERIFIABLE` must never inherit pass
+verdict word, and one-sentence reason. `NOT CHECKED` must never inherit pass
 styling.
 
 ## State mapping

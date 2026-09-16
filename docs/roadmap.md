@@ -26,7 +26,7 @@ only when its row names repository evidence.
 | The core receives analyzer and host adapters from the CLI | `53a0d22`; `tests/test_self.py` |
 | The analyzer package and active architecture documentation use one name | `2fa6ffd`; `tests/test_analyzer.py` |
 | The component contract is closed and its graph matches observed imports | `tests/test_self.py`; `docs/architecture/archkeel.md`; `make check` |
-| PASS, FAIL and UNVERIFIABLE check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
+| PASS, FAIL and NOT CHECKED check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
 | Contract 2.0 has one typed model, JSON Schema and deterministic validation | `schema/architecture-contract.schema.json`; `tests/test_contract_model.py`; `tests/test_validation.py` |
 | All class-A rule types are enforced with one violation probe each and applied to Archkeel | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json` |
 | Terminals get a Rich summary with real `--help`; pipes and `--json` keep JSON | `376a3ab`; `tests/test_cli.py`; `tests/test_terminal.py` |
@@ -57,6 +57,14 @@ only when its row names repository evidence.
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
+2. Title each validation panel with its own code instead of `contract_invalid`, and group the
+   panels by code with a count, so a first run does not present fifteen identical-looking boxes
+   (AD-19). Evidence: one `validate` run on the shop sample with a removed decision prints 15
+   panels, all titled `contract_invalid`, covering graph drift, rule violations and the open
+   decision.
+3. Replace internal vocabulary in the HTML report labels: `Complete ArchitectureIR inventory`,
+   `Canonical result`, `Reproduction metadata`, `Coverage dimension`, `Fingerprint` and
+   `Publication order evidence` name concepts a reader has to look up (AD-19).
 
 ## Later
 

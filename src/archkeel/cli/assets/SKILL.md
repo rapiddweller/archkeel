@@ -128,12 +128,12 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
 
 ## Exit codes
 
-- `init`: 0 draft written, 2 unverifiable (with a diagnostic).
+- `init`: 0 draft written, 2 not checked (with a diagnostic).
 - `validate`: 0 contract valid for this repository, 2 invalid (diagnostics with JSON
   Pointers).
-- `report`: 0 observation complete (a rule violation is a FAIL verdict), 2 unverifiable.
+- `report`: 0 observation complete (a rule violation is a FAIL verdict), 2 not checked.
 - `skill install claude|codex`: 0 instructions written, 2 the target file could not be updated.
-- `check`: 0 merge, 1 reject, 2 unverifiable.
+- `check`: 0 merge, 1 reject, 2 not checked.
 
 ## JSON output
 

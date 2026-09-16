@@ -157,7 +157,7 @@ local check noticed. Check: `tests/test_mermaid.py` and the CI render step.
 
 **AD-14 The report headline follows its verdicts, never the exit code alone.** `report` exits 0
 whenever its observation is complete, so the exit code cannot say whether rules hold. The terminal
-and HTML headline come from one summary: UNVERIFIABLE on exit 2, FAIL when `declared_rules` is
+and HTML headline come from one summary: NOT CHECKED on exit 2, FAIL when `declared_rules` is
 FAIL, otherwise PASS; `check`, `validate` and `init` keep their headlines, and no exit code or
 result field changes. Reason: the shop tour with 11 violations opened with a green PASS above a
 failing rules verdict. Check: the render tests for report, check and init headlines.
@@ -250,6 +250,19 @@ use-case-to-persistence imports, so the first report counted them twice and infl
 Check: a probe whose import breaks both rules yields exactly one violation, the forbidden
 dependency; an import on an allowed pair that misses the declared interface still violates
 `interface_boundary`; and the internal service evidence reports each import once.
+
+**AD-19 Words for people are plain; identifiers for machines stay stable.** The verdict word on
+exit 2 is `NOT CHECKED`, not `UNVERIFIABLE`, and its sentence says that nothing was checked and
+what is missing. Each unknown verdict names the step that could not run. `decision.open` states in
+one sentence how many import sites use the pair and that no rule decides it. Exit codes, verdict
+values, diagnostic codes and every JSON key stay as they are, so scripts, the skill and the schema
+do not move. Reason: on a first run the tool's opening sentences were "Required evidence is missing
+or invalid; no pass decision was made" and "The component pair is not observed at 0 import site(s)
+and is undecided", which a reader takes as a judgment about the code instead of a missing
+precondition. Check: the render and validation tests assert the new sentences, while the result and
+contract tests keep asserting the unchanged keys and codes. Two wording findings stay open and are
+tracked in the roadmap: every validation panel is titled `contract_invalid` although its code is
+specific, and the HTML report labels sections with internal vocabulary such as `ArchitectureIR`.
 
 ## Allowed dependencies
 

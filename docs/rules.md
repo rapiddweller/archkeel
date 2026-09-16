@@ -96,7 +96,7 @@ integer cross-multiplied ratios and semantic fingerprints.
 - **Example:** reject a candidate whose unresolved call count rises from 0 to 1.
 
 `coverage_failures` is measured but cannot regress between two comparable observations: an
-incomplete scan produces no measurements, so the check reports UNVERIFIABLE instead.
+incomplete scan produces no measurements, so the check reports NOT CHECKED instead.
 
 ## Class C: declarations
 

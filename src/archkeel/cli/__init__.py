@@ -102,7 +102,7 @@ def build_parser() -> _Parser:
             "  archkeel report --output build/architecture.json --json\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
-            "  2  unverifiable: configuration, tool or source evidence is missing\n\n"
+            "  2  not checked: configuration, tool or source evidence is missing\n\n"
             f"Rules: {_DOCS}/rules.md"
         ),
     )
@@ -146,7 +146,7 @@ def build_parser() -> _Parser:
             "Exit codes:\n"
             "  0  merge: all five verdicts passed\n"
             "  1  reject: a rule, regression check or order predicate failed\n"
-            "  2  unverifiable: required evidence is missing or invalid\n\n"
+            "  2  not checked: required evidence is missing or invalid\n\n"
             f"Protocol: {_DOCS}/reference.md#git-predicate"
         ),
     )
@@ -188,7 +188,7 @@ def build_parser() -> _Parser:
             "  archkeel init --source lib/shop --namespace shop --json\n\n"
             "Exit codes:\n"
             "  0  draft written\n"
-            "  2  unverifiable: no single package, existing files or incomplete observation\n\n"
+            "  2  not checked: no single package, existing files or incomplete observation\n\n"
             f"Onboarding: {_DOCS}/onboarding.md"
         ),
     )

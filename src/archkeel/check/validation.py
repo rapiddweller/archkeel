@@ -108,11 +108,11 @@ def _open_decision_diagnostics(observation: Observation) -> list[Diagnostic]:
             "decision.open",
             "/rules",
             f"{decision.source} -> {decision.target}",
-            f"The component pair is {'observed' if decision.observed else 'not observed'} at "
-            f"{decision.import_sites} import site(s) and is undecided: no allowed_dependency or "
-            "forbidden_dependency rule covers it.",
-            "Decide the pair with an allowed_dependency or forbidden_dependency rule "
-            "and rationale.",
+            f"{decision.import_sites} import site(s) use this pair, and no rule decides it."
+            if decision.observed
+            else "No import uses this pair today, and no rule decides it.",
+            "Allow or forbid the pair: add an allowed_dependency or forbidden_dependency rule "
+            "with a rationale.",
         )
         for decision in open_decisions(observation)
     ]

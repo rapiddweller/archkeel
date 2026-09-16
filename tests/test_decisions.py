@@ -143,6 +143,13 @@ def test_validation_and_open_decisions_agree_on_undecided_pairs(tmp_path: Path) 
     assert open_subjects == {f"{item.source} -> {item.target}" for item in decisions}
     assert open_subjects == {"store -> model"}
 
+    open_decision = next(item for item in diagnostics if item.code == "decision.open")
+    assert open_decision.unknown_claim == "1 import site(s) use this pair, and no rule decides it."
+    assert open_decision.remedy == (
+        "Allow or forbid the pair: add an allowed_dependency or forbidden_dependency rule "
+        "with a rationale."
+    )
+
 
 def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: Path) -> None:
     """AD-16: a mixed contract's count comes from the observation, not a second contract read."""

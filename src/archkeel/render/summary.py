@@ -45,7 +45,7 @@ def badge(value: str) -> Badge:
         return Badge("fail", "×", "FAIL")
     if value == "n/a":
         return Badge("info", "i", "NOT APPLICABLE")
-    return Badge("unknown", "?", "UNVERIFIABLE")
+    return Badge("unknown", "?", "NOT CHECKED")
 
 
 def report_violates_rules(result: RunResult) -> bool:
@@ -60,7 +60,7 @@ def _decision_badge(result: RunResult) -> Badge:
         return Badge("pass", "✓", "PASS")
     if result.exit_code == 1:
         return Badge("fail", "×", "REJECT")
-    return Badge("unknown", "?", "UNVERIFIABLE")
+    return Badge("unknown", "?", "NOT CHECKED")
 
 
 def _agent_decisions_line(result: RunResult) -> str:
@@ -90,7 +90,7 @@ def report_summary(result: RunResult) -> Summary:
     sentence = {
         0: "All requested deterministic checks completed.",
         1: "One or more deterministic checks rejected the candidate.",
-        2: "Required evidence is missing or invalid; no pass decision was made.",
+        2: "Nothing was checked: the evidence needed for a decision is missing or invalid.",
     }[result.exit_code]
     if report_violates_rules(result):
         found = (
@@ -187,11 +187,11 @@ def _check_verdict_reason(
 ) -> str:
     if value == "UNKNOWN":
         return {
-            "observation_complete": "Scan completeness is unverifiable.",
-            "declared_rules": "Rule evaluation is unverifiable.",
-            "expectation_fulfilled": "Expectation evidence is unverifiable.",
-            "git_predicate": "Git ordering is unverifiable.",
-            "host_order": "Publication timing is unverifiable.",
+            "observation_complete": "The scan could not be completed.",
+            "declared_rules": "The rules could not be evaluated.",
+            "expectation_fulfilled": "The declared change could not be checked.",
+            "git_predicate": "The commit order could not be established.",
+            "host_order": "The publication time could not be established.",
         }[key]
     if value == "FAIL":
         failed = sum(status == "FAIL" for *_, status in comparisons)
