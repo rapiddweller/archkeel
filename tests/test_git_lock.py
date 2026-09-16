@@ -86,7 +86,7 @@ def test_git_order_rejects_extra_expectation_change_and_wrong_parent(tmp_path: P
 
 
 def test_git_order_rejects_expectation_mutation_at_candidate(tmp_path: Path) -> None:
-    root, baseline, expectation, head = _repo(tmp_path)
+    root, baseline, expectation, _head = _repo(tmp_path)
     (root / "expectation.json").write_text('{"expected": "mutated"}\n', encoding="utf-8")
     _git(root, "add", "expectation.json")
     _git(root, "commit", "-q", "-m", "mutate expectation")

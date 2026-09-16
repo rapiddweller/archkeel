@@ -99,7 +99,12 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+select = ["E", "F", "I", "UP", "B", "ARG", "RUF059"]
+
+[tool.ruff.lint.per-file-ignores]
+# A double must match the signature it replaces, including arguments it ignores.
+"tests/*" = ["ARG"]
+"fixtures/*" = ["ARG"]
 
 [tool.mypy]
 python_version = "3.11"
