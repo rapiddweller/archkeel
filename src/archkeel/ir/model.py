@@ -329,6 +329,16 @@ ArchitectureRule: TypeAlias = (
 )
 
 
+def text_value(value: object) -> str:
+    """Read a string out of open record data, or the empty string when it is not one.
+
+    Record payloads are open JSON (AD-2), so every derivation that reads a field needs
+    this same narrowing. It lives here because `ir.model` is the declared owner of record
+    shapes, and because three derivations had each written it out separately.
+    """
+    return value if isinstance(value, str) else ""
+
+
 def in_scope(name: str, scope: str) -> bool:
     """Match a qualified name against a dotted prefix without partial segments."""
     return name == scope or name.startswith(f"{scope}.")

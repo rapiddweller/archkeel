@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .model import ComparisonStatus, Observation
+from .model import ComparisonStatus, Observation, text_value
 
 _FUNCTION_KINDS = frozenset({"function", "method"})
 
@@ -43,10 +43,6 @@ class BindingReads:
             raise ValueError("an unsupported claim names no binding")
 
 
-def _text(value: object) -> str:
-    return value if isinstance(value, str) else ""
-
-
 def unread_bindings(observation: Observation) -> BindingReads:
     """Return the bindings nothing reads, or UNKNOWN when the signal is missing."""
     records = observation.records("bindings")
@@ -59,10 +55,10 @@ def unread_bindings(observation: Observation) -> BindingReads:
         sorted(
             (
                 UnreadBinding(
-                    owner=_text(record.data.get("owner")),
-                    name=_text(record.data.get("name")),
-                    binding=_text(record.data.get("binding")),
-                    module=_text(record.data.get("module")),
+                    owner=text_value(record.data.get("owner")),
+                    name=text_value(record.data.get("name")),
+                    binding=text_value(record.data.get("binding")),
+                    module=text_value(record.data.get("module")),
                 )
                 for record in records
             ),

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .model import ComparisonStatus, Observation, Record
+from .model import ComparisonStatus, Observation, Record, text_value
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +41,6 @@ class SymbolReferences:
             raise ValueError("an unsupported claim names no symbols")
 
 
-def _text(value: object) -> str:
-    return value if isinstance(value, str) else ""
-
-
 def _referenced(observation: Observation) -> set[str]:
     names: set[str] = set()
     for section in ("calls", "references"):
@@ -53,8 +49,8 @@ def _referenced(observation: Observation) -> set[str]:
             if isinstance(targets, tuple | list):
                 names.update(target for target in targets if isinstance(target, str))
     for record in observation.records("imports") or ():
-        module = _text(record.data.get("target_module"))
-        symbol = _text(record.data.get("symbol"))
+        module = text_value(record.data.get("target_module"))
+        symbol = text_value(record.data.get("symbol"))
         if module:
             names.add(f"{module}.{symbol}" if symbol else module)
     return names
@@ -62,13 +58,13 @@ def _referenced(observation: Observation) -> set[str]:
 
 def _is_exempt(symbol: Record, classes: dict[str, Record]) -> bool:
     """Runtime dispatch and declared interfaces are used without naming the symbol."""
-    name = _text(symbol.data.get("qualified_name"))
+    name = text_value(symbol.data.get("qualified_name"))
     leaf = name.rsplit(".", 1)[-1]
     if leaf.startswith("__") and leaf.endswith("__"):
         return True
     if symbol.data.get("declared_in_all"):
         return True
-    owner = classes.get(_text(symbol.data.get("parent")))
+    owner = classes.get(text_value(symbol.data.get("parent")))
     return bool(owner and owner.data.get("bases"))
 
 
@@ -80,13 +76,13 @@ def unreferenced_symbols(observation: Observation) -> SymbolReferences:
     classes = {
         name: record
         for record in symbols
-        if (name := _text(record.data.get("qualified_name"))) and record.kind == "class"
+        if (name := text_value(record.data.get("qualified_name"))) and record.kind == "class"
     }
     referenced = _referenced(observation)
     candidates: list[UnreferencedSymbol] = []
     exempt = 0
     for record in symbols:
-        name = _text(record.data.get("qualified_name"))
+        name = text_value(record.data.get("qualified_name"))
         if not name or name in referenced:
             continue
         if _is_exempt(record, classes):
@@ -96,8 +92,8 @@ def unreferenced_symbols(observation: Observation) -> SymbolReferences:
             UnreferencedSymbol(
                 name=name,
                 kind=record.kind,
-                visibility=_text(record.data.get("visibility")),
-                module=_text(record.data.get("module")),
+                visibility=text_value(record.data.get("visibility")),
+                module=text_value(record.data.get("module")),
             )
         )
     return SymbolReferences(

@@ -387,8 +387,9 @@ write twice, and a pair of empty `Protocol` methods measures zero. A docstring i
 shape, for the reason `body_is_empty` already ignores it — one sentence of prose must not disguise
 a copy. Above the threshold every group is a real repetition, several of them owed to this
 repository's own agent: two collectors whose `__init__` and `visit_ClassDef` match line for line,
-two rule parsers that differ only in the kind they name, and one `_text` helper standing three
-times in `ir`. A claim that names its author is working. Check: the shop sample declares
+two rule parsers that differ only in the kind they name, and one record-field reader standing three
+times in `ir`, since merged into `ir.model.text_value`. A claim that names its author is working,
+and what it names gets fixed. Check: the shop sample declares
 `shop.model` the owner of order arithmetic, and the tour places a copy of `Order.total` in
 `shop.app`, which the claim names at 29 nodes.
 

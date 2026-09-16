@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from .interfaces import component_owners, owner_of
-from .model import Observation
+from .model import Observation, text_value
 
 StructureLevel: TypeAlias = Literal["component", "package"]
 
@@ -35,10 +35,6 @@ class StructureMetric:
     unresolved: int
 
 
-def _name(value: object) -> str | None:
-    return value if isinstance(value, str) else None
-
-
 def _count(value: object) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else 1
 
@@ -47,7 +43,7 @@ def _module_names(observation: Observation) -> tuple[str, ...]:
     return tuple(
         name
         for record in observation.records("modules") or ()
-        if (name := _name(record.data.get("qualified_name"))) is not None
+        if (name := text_value(record.data.get("qualified_name")))
     )
 
 
@@ -56,9 +52,9 @@ def _module_edges(observation: Observation) -> tuple[tuple[str, str, int], ...]:
     for record in observation.records("dependency_edges") or ():
         if record.data.get("level") != "module":
             continue
-        source = _name(record.data.get("source"))
-        target = _name(record.data.get("target"))
-        if source is not None and target is not None:
+        source = text_value(record.data.get("source"))
+        target = text_value(record.data.get("target"))
+        if source and target:
             edges.append((source, target, _count(record.data.get("count"))))
     return tuple(edges)
 
@@ -67,8 +63,8 @@ def _calls_by_module(observation: Observation) -> tuple[Counter[str], Counter[st
     total: Counter[str] = Counter()
     unresolved: Counter[str] = Counter()
     for record in observation.records("calls") or ():
-        module = _name(record.data.get("source_module"))
-        if module is None:
+        module = text_value(record.data.get("source_module"))
+        if not module:
             continue
         total[module] += 1
         if record.data.get("status") == "unresolved":
