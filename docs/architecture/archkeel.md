@@ -317,8 +317,9 @@ structure without proving relations. Check: the opened view renders from `archit
 
 **AD-25 Peers are isolated by one rule, not by n·(n-1) prohibitions.** The rule kind
 `sibling_isolation` names a set of modules or packages as peers: they may reach shared modules and
-may be reached from outside, but no member may import another member. Archkeel declares its eight
-analyzer collectors as such a set. Reason: AD-1 keeps the collectors flat and single-purpose behind
+may be reached from outside, but no member may import another member. Archkeel declares every one
+of its analyzer collectors as such a set, and a hygiene test fails when a collector module exists
+that the set does not name, because a peer nobody declared is a peer nobody isolates. Reason: AD-1 keeps the collectors flat and single-purpose behind
 one orchestrator, and the measurement confirms the intended shape, with `records` imported twelve
 times and importing nothing, `source` imported eight times, `scanner` importing ten modules, and no
 import at all between two collectors. Nothing held that invariant, and expressing it with the

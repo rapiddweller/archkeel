@@ -605,6 +605,7 @@
       "id": "COLLECTORS-ISOLATED",
       "kind": "sibling_isolation",
       "members": [
+        "archkeel.analyzer.embedded.bindings",
         "archkeel.analyzer.embedded.calls",
         "archkeel.analyzer.embedded.constructs",
         "archkeel.analyzer.embedded.contexts",

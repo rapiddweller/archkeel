@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import ast
+import json
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
@@ -100,6 +101,37 @@ def test_long_functions_have_a_named_reason() -> None:
     }
     assert sorted(long_functions - ALLOWED_LONG_FUNCTIONS.keys()) == []
     assert sorted(ALLOWED_LONG_FUNCTIONS.keys() - long_functions) == []
+
+
+def test_every_analyzer_collector_is_a_declared_peer() -> None:
+    """AD-25: a peer the contract never names is a peer nothing isolates.
+
+    One-directional by design: every module defining a `collect_*` entry point must be
+    declared, while a declared member need not follow that naming — `violations` exposes
+    `rule_violations`. The second assertion catches a member left behind by a rename.
+    """
+    contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
+    declared = {
+        member
+        for rule in contract["rules"]
+        if rule["kind"] == "sibling_isolation"
+        for member in rule["members"]
+    }
+    collectors = {
+        f"archkeel.analyzer.embedded.{path.stem}"
+        for path in (ROOT / "src/archkeel/analyzer/embedded").glob("*.py")
+        if any(
+            isinstance(node, ast.FunctionDef) and node.name.startswith("collect_")
+            for node in ast.parse(path.read_bytes()).body
+        )
+    }
+
+    assert sorted(collectors - declared) == []
+    assert [
+        member
+        for member in sorted(declared)
+        if not (ROOT / f"src/{member.replace('.', '/')}.py").is_file()
+    ] == []
 
 
 def test_tracked_text_has_no_local_absolute_paths() -> None:
