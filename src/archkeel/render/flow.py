@@ -6,12 +6,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.interfaces import component_owners, owner_of
-from archkeel.ir.model import Observation, Record
+from archkeel.ir.model import Observation, Record, text_value
 
 EdgeState = Literal["conforms", "violation", "undecided"]
 
@@ -23,6 +23,34 @@ class FlowInnerEdge:
     source: str
     target: str
     import_sites: int
+
+
+@dataclass(frozen=True, slots=True)
+class FlowSymbol:
+    """One top-level function or class of a module, with the methods it owns (AD-24a)."""
+
+    name: str
+    kind: str
+    visibility: str
+    members: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class FlowSymbolEdge:
+    """One call or reference between two top-level symbols of the same module."""
+
+    source: str
+    target: str
+
+
+@dataclass(frozen=True, slots=True)
+class FlowModule:
+    """What one module holds, and the names that cross its edge in either direction."""
+
+    symbols: tuple[FlowSymbol, ...]
+    edges: tuple[FlowSymbolEdge, ...]
+    exports: tuple[str, ...] = ()
+    imports: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +74,7 @@ class FlowEdge:
 class FlowData:
     components: tuple[FlowComponent, ...]
     edges: tuple[FlowEdge, ...]
+    modules: dict[str, FlowModule] = field(default_factory=dict)
 
 
 def _public_interface(record: Record) -> tuple[str, ...] | None:
@@ -106,6 +135,104 @@ def _inner_edges(
     return {
         owner: sorted(edges, key=lambda item: (item.source, item.target))
         for owner, edges in grouped.items()
+    }
+
+
+def _module_symbols(
+    observation: Observation,
+) -> tuple[dict[str, list[FlowSymbol]], dict[str, str]]:
+    """Return each module's top-level symbols, and the card every symbol belongs to.
+
+    A method is a line inside the card of the class that owns it, never a card of its own,
+    so the second return value folds any qualified name onto the card that shows it.
+    """
+    cards: dict[str, list[FlowSymbol]] = defaultdict(list)
+    members: dict[str, list[str]] = defaultdict(list)
+    owner_card: dict[str, str] = {}
+    for record in observation.records("symbols") or ():
+        qualified = text_value(record.data.get("qualified_name"))
+        module = text_value(record.data.get("module"))
+        if not qualified or not module:
+            continue
+        parent = text_value(record.data.get("parent"))
+        if parent:
+            members[parent].append(text_value(record.data.get("name")))
+            owner_card[qualified] = parent
+            continue
+        owner_card[qualified] = qualified
+        cards[module].append(
+            FlowSymbol(
+                name=qualified,
+                kind=text_value(record.data.get("symbol_category")),
+                visibility=text_value(record.data.get("visibility")),
+            )
+        )
+    return {
+        module: sorted(
+            (
+                replace(symbol, members=tuple(sorted(members.get(symbol.name, ()))))
+                for symbol in symbols
+            ),
+            key=lambda item: item.name,
+        )
+        for module, symbols in cards.items()
+    }, owner_card
+
+
+def _symbol_edges(
+    observation: Observation, owner_card: dict[str, str], module_of: dict[str, str]
+) -> dict[str, list[FlowSymbolEdge]]:
+    """Group every call and reference that stays inside one module, by that module."""
+    found: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    for section in ("calls", "references"):
+        for record in observation.records(section) or ():
+            source = owner_card.get(text_value(record.data.get("source_scope")))
+            targets = record.data.get("targets")
+            if source is None or not isinstance(targets, tuple | list):
+                continue
+            module = module_of.get(source)
+            for value in targets:
+                target = owner_card.get(text_value(value))
+                if target is not None and target != source and module_of.get(target) == module:
+                    found[module or ""].add((source, target))
+    return {
+        module: [FlowSymbolEdge(source, target) for source, target in sorted(pairs)]
+        for module, pairs in found.items()
+    }
+
+
+def _crossing_names(observation: Observation) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Name what each module publishes outward and what it reaches for, from imports alone."""
+    exports: dict[str, set[str]] = defaultdict(set)
+    imports: dict[str, set[str]] = defaultdict(set)
+    for record in observation.records("imports") or ():
+        source = text_value(record.data.get("source_module"))
+        target = text_value(record.data.get("target_module"))
+        symbol = text_value(record.data.get("symbol"))
+        if not source or not target or source == target:
+            continue
+        crossing = f"{target}:{symbol}" if symbol else target
+        imports[source].add(crossing)
+        exports[target].add(symbol or target)
+    return exports, imports
+
+
+def _modules_inside(observation: Observation) -> dict[str, FlowModule]:
+    """Build the third level: what each module holds and what crosses its edge (AD-24a)."""
+    symbols, owner_card = _module_symbols(observation)
+    module_of = {
+        card: module for module, items in symbols.items() for card in (s.name for s in items)
+    }
+    edges = _symbol_edges(observation, owner_card, module_of)
+    exports, imports = _crossing_names(observation)
+    return {
+        module: FlowModule(
+            symbols=tuple(items),
+            edges=tuple(edges.get(module, ())),
+            exports=tuple(sorted(exports.get(module, ()))),
+            imports=tuple(sorted(imports.get(module, ()))),
+        )
+        for module, items in symbols.items()
     }
 
 
@@ -179,4 +306,4 @@ def build_flow(observation: Observation) -> FlowData:
         else:
             state = "conforms"
         flow_edges.append(FlowEdge(source, target, count, rule_ids, state))
-    return FlowData(flow_components, tuple(flow_edges))
+    return FlowData(flow_components, tuple(flow_edges), _modules_inside(observation))

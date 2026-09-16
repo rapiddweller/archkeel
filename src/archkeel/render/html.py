@@ -168,6 +168,11 @@ def _interfaces_section(observation: Observation) -> str:
     return f'<section class="report-section"><h2>Component communication</h2>{body}</section>'
 
 
+def _within(qualified: str, module: str) -> str:
+    """Drop the module prefix a payload key already carries."""
+    return qualified[len(module) + 1 :] if qualified.startswith(f"{module}.") else qualified
+
+
 def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
     names_by_pair = {
         (edge.source, edge.target): edge.names for edge in interface_edges(observation)
@@ -208,6 +213,28 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
             }
             for edge in flow.edges
         ],
+        # Symbol names are stored relative to the module that keys them: the prefix is already
+        # the key, and repeating it on 466 cards and both ends of 596 edges tripled the payload.
+        "modules": {
+            name: {
+                "symbols": [
+                    {
+                        "name": _within(symbol.name, name),
+                        "kind": symbol.kind,
+                        "visibility": symbol.visibility,
+                        "members": list(symbol.members),
+                    }
+                    for symbol in module.symbols
+                ],
+                "edges": [
+                    {"source": _within(edge.source, name), "target": _within(edge.target, name)}
+                    for edge in module.edges
+                ],
+                "exports": list(module.exports),
+                "imports": list(module.imports),
+            }
+            for name, module in sorted(flow.modules.items())
+        },
     }
 
 

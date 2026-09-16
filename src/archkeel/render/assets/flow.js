@@ -71,9 +71,12 @@
   const componentByLabel = new Map(DATA.components.map((c) => [c.label, c]));
 
   // AD-24: inside a component nothing is decided, so every inner edge is drawn as observed.
+  // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
+  // shape, because layout, ranking, routing and the inspector all consume that shape.
   function level() {
     if (!opened) return { components: DATA.components, edges: DATA.edges };
-    const component = componentByLabel.get(opened);
+    if (opened.module) return moduleLevel(opened.module);
+    const component = componentByLabel.get(opened.component);
     // Name a module relative to the package its component owns, so the package __init__ and
     // its submodules read the same way: `store` and `repository`, not `shop.store` and
     // `store.repository`.
@@ -92,12 +95,40 @@
         label: module,
         display: short(module),
         modules: [],
+        openable: Boolean((DATA.modules || {})[module]),
         public: isPublic(module) ? [module] : null,
       })),
       edges: (component.inner_edges || []).map((edge) => ({
         source: edge.source,
         target: edge.target,
         import_sites: edge.import_sites,
+        rule_ids: [],
+        state: "undecided",
+        names: [],
+      })),
+    };
+  }
+  // The declared names a module publishes outward, kept for the inspector on level three.
+  function moduleLevel(name) {
+    const inside = (DATA.modules || {})[name] || { symbols: [], edges: [] };
+    const exported = new Set(inside.exports || []);
+    return {
+      components: inside.symbols.map((symbol) => ({
+        label: symbol.name,
+        display: symbol.name,
+        kind: symbol.kind,
+        members: symbol.members || [],
+        modules: [],
+        openable: false,
+        // A symbol another module imports is this module's interface outward.
+        public: exported.has(symbol.name) ? [symbol.name] : null,
+      })),
+      // One edge per pair: a call and a reference between the same two symbols say the same
+      // thing here, which is that one uses the other.
+      edges: inside.edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        import_sites: 1,
         rule_ids: [],
         state: "undecided",
         names: [],
@@ -248,7 +279,9 @@
       nodeLayer.textContent = "";
       chipLayer.textContent = "";
       const text = el("text", { x: "0", y: "0", fill: "var(--ck-muted)" });
-      text.textContent = opened ? `${opened} holds no module.` : "This observation declares no components.";
+      text.textContent = opened
+        ? `${opened.module || opened.component} holds nothing to show.`
+        : "This observation declares no components.";
       emptyLayer.appendChild(text);
       renderInspector([]);
       return;
@@ -399,9 +432,11 @@
       label.textContent = component.display || component.label;
       const meta = el("text", { class: "meta", x: "16", y: "56" });
       meta.textContent = opened
-        ? component.public === null
-          ? "internal"
-          : "public"
+        ? opened.module
+          ? `${component.kind}${component.members.length ? ` · ${component.members.length} method${component.members.length === 1 ? "" : "s"}` : ""}${component.public === null ? "" : " · used outside"}`
+          : component.public === null
+            ? "internal"
+            : "public"
         : `${component.modules.length} module${component.modules.length === 1 ? "" : "s"} · ${
             component.public === null ? "no public" : `public ${component.public.length}`
           }`;
@@ -421,8 +456,10 @@
         meta,
       );
       const select = () => {
-        // AD-24: the first click traces a card, the second opens the component behind it.
-        if (!opened && selected && selected.type === "node" && selected.label === component.label) {
+        // AD-24: the first click traces a card, the second opens what is behind it. A card is
+        // openable while a deeper level exists: components always, modules that hold symbols.
+        const openable = opened ? component.openable : true;
+        if (openable && selected && selected.type === "node" && selected.label === component.label) {
           enter(component.label);
           return;
         }
@@ -456,6 +493,11 @@
   function statBlock() {
     const view = level();
     const sites = view.edges.reduce((acc, e) => acc + weight(e), 0);
+    if (opened && opened.module) {
+      const inside = (DATA.modules || {})[opened.module] || {};
+      const methods = view.components.reduce((acc, c) => acc + (c.members || []).length, 0);
+      return `<dl class="kv"><dt>Symbols</dt><dd>${view.components.length}</dd><dt>Methods</dt><dd>${methods}</dd><dt>Uses inside</dt><dd>${view.edges.length}</dd><dt>Used from outside</dt><dd>${(inside.exports || []).length}</dd><dt>Reaches outward</dt><dd>${(inside.imports || []).length}</dd></dl>`;
+    }
     if (opened) {
       return `<dl class="kv"><dt>Modules</dt><dd>${view.components.length}</dd><dt>Imports inside</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd></dl>`;
     }
@@ -486,8 +528,13 @@
   }
 
   function overview() {
+    if (opened && opened.module) {
+      const inside = (DATA.modules || {})[opened.module] || {};
+      const reaches = (inside.imports || []).slice(0, 12).map((name) => `<li><code>${esc(name)}</code></li>`).join("");
+      return `<div class="kicker">Inside</div><h2>${esc(opened.module)}</h2><p>The functions and classes it declares and the calls and references between them; methods are listed on the card of the class that owns them. A card marked public is imported by another module (AD-24a). Press Escape or use Back to leave.</p>${statBlock()}${reaches ? `<h3>Reaches outward</h3><ul class="names">${reaches}</ul>` : ""}`;
+    }
     if (opened) {
-      return `<div class="kicker">Inside</div><h2>${esc(opened)}</h2><p>Its modules and the imports between them, observed and undecided: no rule applies inside a component (AD-24). Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
+      return `<div class="kicker">Inside</div><h2>${esc(opened.component)}</h2><p>Its modules and the imports between them, observed and undecided: no rule applies inside a component (AD-24). Click a module again to open it. Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
     }
     return `<div class="kicker">Overview</div><h2>Component flow</h2><p>Select a card to see its modules and declared public interface, click it again to open it, or select a connector to see the exact names one component uses from another.</p>${statBlock()}${heaviestBlock()}`;
   }
@@ -519,7 +566,11 @@
       return;
     }
     if (selected.type === "node") {
-      const component = componentByLabel.get(selected.label);
+      // Resolve the card inside the level on screen. componentByLabel holds the six declared
+      // components and nothing else, so below the top level every selection failed to resolve
+      // and was cleared on the very next render - which is why a second click never found one
+      // to compare against, and no module could be opened (AD-24a).
+      const component = level().components.find((c) => c.label === selected.label);
       if (!component) {
         selected = null;
         showOverview();
@@ -527,10 +578,25 @@
       }
       const uses = level().edges.filter((e) => e.source === component.label);
       const usedBy = level().edges.filter((e) => e.target === component.label);
+      const relations = `<dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
+        <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd>`;
+      if (opened && opened.module) {
+        inspector.innerHTML = `<div class="kicker">Symbol</div><h2>${esc(component.label)}</h2>
+          <dl class="kv"><dt>Kind</dt><dd>${esc(component.kind || "symbol")}</dd>
+          <dt>Outside</dt><dd>${component.public === null ? "not imported elsewhere" : "imported by another module"}</dd>
+          ${relations}</dl>
+          ${(component.members || []).length ? `<h3>Methods</h3><ul class="plain">${component.members.map((m) => `<li><code>${esc(m)}</code></li>`).join("")}</ul>` : ""}`;
+        return;
+      }
+      if (opened) {
+        inspector.innerHTML = `<div class="kicker">Module</div><h2>${esc(component.label)}</h2>
+          <dl class="kv">${relations}</dl>
+          <p>${component.openable ? "Click it again to see the functions and classes inside it." : "Nothing declared inside it to open."}</p>`;
+        return;
+      }
       inspector.innerHTML = `<div class="kicker">Component</div><h2>${esc(component.label)}</h2>
         <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd>
-        <dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
-        <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd></dl>
+        ${relations}</dl>
         <h3>Modules</h3><ul class="plain">${component.modules.map((m) => `<li><code>${esc(m)}</code></li>`).join("") || '<li class="empty">None observed.</li>'}</ul>
         <h3>Declared public interface</h3>${
           component.public === null
@@ -673,21 +739,25 @@
   });
 
   function enter(label) {
-    opened = label;
+    opened = opened ? { component: opened.component, module: label } : { component: label };
     selected = null;
     positions = {};
     backButton.hidden = false;
-    backButton.textContent = `Back to components (${label})`;
+    backButton.textContent = opened.module
+      ? `Back to ${opened.component}`
+      : "Back to components";
     render();
     fit(false);
   }
 
+  // One step back per press: a module returns to its component, a component to the overview.
   function leave() {
     if (!opened) return;
-    opened = null;
+    opened = opened.module ? { component: opened.component } : null;
     selected = null;
     positions = {};
-    backButton.hidden = true;
+    backButton.hidden = opened === null;
+    if (opened) backButton.textContent = "Back to components";
     render();
     fit(false);
   }
