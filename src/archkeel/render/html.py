@@ -13,7 +13,7 @@ from importlib.resources import files
 
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.decisions import agent_decisions, open_decisions
+from archkeel.ir.decisions import agent_decisions, all_open_decisions
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
@@ -744,7 +744,7 @@ def render_architecture_html(
         replace(
             result,
             agent_decisions=agent_decisions(observation),
-            open_decisions=open_decisions(observation),
+            open_decisions=all_open_decisions(observation),
         ),
         observation,
         repository=repository,

@@ -277,6 +277,18 @@ class CompleteAssignmentRule:
 
 
 @dataclass(frozen=True, slots=True)
+class CompleteInnerDecisionsRule:
+    """AD-31: inside this component every observed module pair must be decided."""
+
+    id: str
+    kind: Literal["complete_inner_decisions"]
+    component: str
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+
+
+@dataclass(frozen=True, slots=True)
 class CompleteExternalScopeRule:
     id: str
     kind: Literal["complete_external_scope"]
@@ -323,6 +335,7 @@ ArchitectureRule: TypeAlias = (
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
     | CompleteExternalScopeRule
+    | CompleteInnerDecisionsRule
     | NoComponentCyclesRule
     | InterfaceBoundaryRule
     | SiblingIsolationRule

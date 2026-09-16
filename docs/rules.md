@@ -62,6 +62,16 @@ observation records, so a version change can move a module into or out of the ex
 Relative imports are internal by construction and are never counted. Importing `helpers` with no
 rule naming it is an example violation.
 
+`complete_inner_decisions` has the field `component`, a component label. Every module pair the
+analyzer observed inside that component must be decided by an `allowed_dependency` or
+`forbidden_dependency` rule naming both modules. A pair no rule names is an open decision, not a
+violation: the contract owes an answer rather than the code owing a fix (AD-31). Only observed
+pairs count, never the product of the modules, so a pair nobody imports needs no decision. Without
+the rule nothing inside a component is decided, so no repository inherits the work by upgrading.
+A `component` that matches no declared component asks for nothing and remains a blind spot.
+Opting in a `store` component whose three inner imports are undecided is an example of three open
+decisions.
+
 `external_dependency_scope` fields are `dependency` (a top-level import name) and
 `allowed_sources`. It matches import records whose target is the dependency or one of its
 submodules, including `TYPE_CHECKING` imports. Fixed source bytes and analyzer digest make the

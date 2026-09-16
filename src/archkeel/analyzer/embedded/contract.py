@@ -16,6 +16,7 @@ from archkeel.ir.model import (
     ArchitectureRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
+    CompleteInnerDecisionsRule,
     ContractDeclarations,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -105,6 +106,13 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             [rule.source],
         )
         data = {"source": rule.source, "rationale": rule.rationale}
+    elif isinstance(rule, CompleteInnerDecisionsRule):
+        area, title, subjects = (
+            "components",
+            f"Every observed module pair inside {rule.component} is decided",
+            [rule.component],
+        )
+        data = {"component": rule.component, "rationale": rule.rationale}
     elif isinstance(rule, InterfaceBoundaryRule):
         area, title, subjects = (
             "api_surface",

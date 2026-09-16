@@ -16,6 +16,7 @@ from archkeel.ir.model import (
     ArchitectureRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
+    CompleteInnerDecisionsRule,
     ContractComponent,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -397,7 +398,10 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
         return {"allowed_sources": rule.allowed_sources}
-    if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule):
+    # complete_inner_decisions names a component label, not a module path. Returning it here
+    # would have rule_subject_failures match it against scanned module names and call every
+    # such rule vacuous; whether the component exists is the validator's question.
+    if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule | CompleteInnerDecisionsRule):
         return {}
     if isinstance(rule, SiblingIsolationRule):
         return {"members": rule.members}
