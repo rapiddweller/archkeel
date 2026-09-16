@@ -23,6 +23,7 @@
     "cycles",
     "calls",
     "references",
+    "bindings",
     "typing_signals",
     "constructs",
     "contexts",
@@ -771,6 +772,65 @@
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[ab][0-9]+|rc[0-9]+)?$",
       "description": "Actual producer Python version. Historical observations may omit it; comparison requires a known equal version."
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "owner",
+                  "module",
+                  "name",
+                  "binding"
+                ],
+                "properties": {
+                  "owner": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "binding": {
+                    "enum": [
+                      "parameter",
+                      "local"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
     },
     "references": {
       "type": "array",

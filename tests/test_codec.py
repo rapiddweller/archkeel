@@ -63,6 +63,7 @@ def raw_observation():
                 "cycles",
                 "calls",
                 "references",
+                "bindings",
                 "typing_signals",
                 "constructs",
                 "contexts",

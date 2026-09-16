@@ -30,6 +30,7 @@ CLASSIFIED_SECTIONS = (
     "cycles",
     "calls",
     "references",
+    "bindings",
     "typing_signals",
     "constructs",
     "contexts",

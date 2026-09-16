@@ -285,6 +285,7 @@ def analyze_snapshot(
         "cycles": scan.cycles,
         "calls": scan.calls,
         "references": scan.references,
+        "bindings": scan.bindings,
         "typing_signals": scan.typing_signals,
         "constructs": scan.constructs,
         "contexts": scan.contexts,

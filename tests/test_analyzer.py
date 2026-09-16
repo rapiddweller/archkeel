@@ -790,3 +790,35 @@ def test_a_function_used_only_as_a_value_is_recorded_as_a_reference(tmp_path: Pa
     assert "sample.core.handler" in targets
     calls = result.observation.records("calls") or ()
     assert not [item for item in calls if "sample.core.handler" in (item.data.get("targets") or [])]
+
+
+def test_a_binding_the_body_never_reads_is_recorded(tmp_path: Path) -> None:
+    """AD-26: a dead binding is settled in one scope, so the function's own tree answers it.
+
+    The expected set also states the exemptions, by leaving them out: `_reserved` carries
+    Python's own mark for a deliberately unused name, `self` is bound by the call convention,
+    and `Child.handle` must keep the signature it overrides.
+    """
+    contract = {"schema_version": "2.1.0", "components": [_component("core")], "rules": []}
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "def summarise(amount: int, currency: str, _reserved: int) -> str:\n"
+        '    label = "total"\n'
+        "    spare = amount * 2\n"
+        '    return f"{label}: {amount}"\n\n\n'
+        "class Base:\n"
+        "    def handle(self, value: int) -> int:\n"
+        "        return value\n\n\n"
+        "class Child(Base):\n"
+        "    def handle(self, value: int) -> int:\n"
+        "        return 0\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+
+    bindings = result.observation.records("bindings") or ()
+    assert {(item.kind, item.data.get("name")) for item in bindings} == {
+        ("unused_parameter", "currency"),
+        ("unused_local", "spare"),
+    }

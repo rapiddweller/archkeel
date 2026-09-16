@@ -16,6 +16,7 @@ from archkeel.ir.model import (
     EvidenceClass,
 )
 
+from .bindings import collect_bindings
 from .calls import collect_calls
 from .constructs import collect_constructs
 from .contexts import collect_contexts
@@ -57,6 +58,7 @@ class ScanResult:
     cycles: list[RawRecord]
     calls: list[RawRecord]
     references: list[RawRecord]
+    bindings: list[RawRecord]
     typing_signals: list[RawRecord]
     constructs: list[RawRecord]
     contexts: list[RawRecord]
@@ -185,6 +187,7 @@ def scan_repository(
     symbol_index = build_symbol_index(symbols)
     calls = collect_calls(parsed, symbol_index, evidence)
     references = collect_references(parsed, symbol_index, evidence)
+    bindings = collect_bindings(parsed, evidence)
 
     typing_signals = collect_typing_signals(parsed, calls, symbols, imports, evidence)
     constructs = collect_constructs(parsed, evidence)
@@ -272,6 +275,7 @@ def scan_repository(
         cycles=cycles,
         calls=calls,
         references=references,
+        bindings=bindings,
         typing_signals=typing_signals,
         constructs=constructs,
         contexts=contexts,
