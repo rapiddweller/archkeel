@@ -514,6 +514,7 @@
         capturePointer(svg, event);
         dragState = {
           label: component.label,
+          pointerType: event.pointerType,
           x: event.clientX,
           y: event.clientY,
           start: { ...pos },
@@ -741,9 +742,14 @@
   });
   svg.addEventListener("pointermove", (event) => {
     if (dragState) {
-      const dx = (event.clientX - dragState.x) / transform.k;
-      const dy = (event.clientY - dragState.y) / transform.k;
-      dragState.moved = Math.max(dragState.moved, Math.abs(dx) + Math.abs(dy));
+      const screenX = event.clientX - dragState.x;
+      const screenY = event.clientY - dragState.y;
+      // The card moves in diagram units, but the tap threshold is a distance the hand makes,
+      // so it is measured on screen. Dividing by the zoom turned an 8px wobble into 20 units
+      // at scale 0.63 and rejected every touch as a drag.
+      dragState.moved = Math.max(dragState.moved, Math.hypot(screenX, screenY));
+      const dx = screenX / transform.k;
+      const dy = screenY / transform.k;
       positions[dragState.label] = { x: dragState.start.x + dx, y: dragState.start.y + dy };
       render();
       return;
@@ -756,16 +762,26 @@
     };
     applyTransform(false);
   });
-  // A press that never moved is a tap, not a drag: three pixels of slack for an unsteady hand.
-  const TAP_SLACK = 3;
+  // A press that barely moved is a tap, not a drag. A mouse sits still, a finger never does:
+  // three pixels rejected every touch as a drag, which left the lower levels unreachable on a
+  // phone. The slack follows the pointer that made the press.
+  const TAP_SLACK = { mouse: 3, pen: 6, touch: 12 };
   const endPointer = () => {
-    const tapped = dragState && dragState.moved <= TAP_SLACK ? dragState.label : null;
+    // The kind is read from the press that started the gesture, not from the release: one
+    // source for one fact, and pointer capture can hand the release a different shape.
+    const slack = dragState ? (TAP_SLACK[dragState.pointerType] ?? TAP_SLACK.touch) : 0;
+    const tapped = dragState && dragState.moved <= slack ? dragState.label : null;
     panState = null;
     dragState = null;
     if (tapped !== null) selectCard(tapped);
   };
+  // A cancelled pointer is the browser taking the gesture away, never a tap: only forget it.
+  const cancelPointer = () => {
+    panState = null;
+    dragState = null;
+  };
   svg.addEventListener("pointerup", endPointer);
-  svg.addEventListener("pointercancel", endPointer);
+  svg.addEventListener("pointercancel", cancelPointer);
   svg.addEventListener(
     "wheel",
     (event) => {
