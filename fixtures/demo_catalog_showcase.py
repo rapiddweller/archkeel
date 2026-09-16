@@ -54,8 +54,9 @@ _TOUR_APP_ORDERS = HEADER + (
     "def describe_connection(connection: Connection) -> str:\n"
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     '    return f"connection to {connection.path}"\n\n\n'
-    "def touch_store(connection: object) -> str:\n"
+    "def touch_store(connection: object, retries: int) -> str:\n"
     '    """A stray runtime reach into the store internals, for the showcase tour."""\n'
+    "    attempts = 0\n"
     "    vacuum(connection)\n"
     '    write_payload(Path(getattr(connection, "path")), {"order_id": "probe", "lines": []})\n'
     '    return json.dumps({"touched": True})\n'

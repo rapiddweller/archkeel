@@ -343,7 +343,13 @@ outside the scan scope are all invisible to a call graph. The same run listed 8 
 imports, and all 8 were package `__init__` files, an entry point or a subprocess target. A claim
 whose candidates are wrong every time teaches readers to skip the section, which costs more than the
 missing claim. Check: a derivation without its signal returns UNKNOWN, and a probe whose function is
-referenced only as a value yields no candidate.
+referenced only as a value yields no candidate. The claim set grows the same way: `unread
+binding` is the second claim, and its signal is the `bindings` section, which records a parameter
+or local no expression in its own function reads. That question is settled inside one scope, so
+the claim is supported wherever the analyzer ran; what it cannot observe is how many bindings the
+collector set aside, so it reports the functions it examined as its denominator instead of
+inventing that number. On Archkeel itself it names nothing, because `ARG` and `RUF059` reject such
+a binding at lint time: a claim that stays empty on a clean repository is working, not missing.
 
 **AD-27 A type escape hatch is decided, not merely observed.** The analyzer has recorded `Any` in
 an annotation as a typing signal since the first release, but no rule kind named it, so the

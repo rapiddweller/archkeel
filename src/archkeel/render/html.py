@@ -11,6 +11,7 @@ import json
 from dataclasses import replace
 from importlib.resources import files
 
+from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
 from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
@@ -572,13 +573,42 @@ def _claim_body(claim: SymbolReferences, observation: Observation) -> str:
 """
 
 
+def _binding_claim_body(claim: BindingReads) -> str:
+    if claim.status == "UNKNOWN":
+        return (
+            "<p>Not available: this observation carries no binding signal, so nothing here can "
+            "say which parameter or local its own function never reads.</p>"
+        )
+    if not claim.candidates:
+        return (
+            f"<p>None: across {claim.functions} functions and methods, every parameter and local "
+            "is read where it is bound.</p>"
+        )
+    rows = "".join(
+        f"<tr><td><code>{_text(item.owner)}</code></td><td><code>{_text(item.name)}</code></td>"
+        f"<td>{_text(item.binding)}</td></tr>"
+        for item in claim.candidates
+    )
+    return f"""
+      <p>{len(claim.candidates)} bindings across {claim.functions} functions and methods are never
+      read where they are bound. A name with a leading underscore, <code>self</code>,
+      <code>cls</code> and the parameters of an override or an empty stub are set aside, so these
+      are candidates for review, never a verdict.</p>
+      <table class="data-table"><thead><tr><th>Function</th><th>Name</th><th>Binding</th></tr>
+      </thead><tbody>{rows}</tbody></table>
+"""
+
+
 def _claims(observation: Observation) -> str:
-    """AD-26: one Class D claim, shown with its support and never turned into a verdict."""
-    claim = unreferenced_symbols(observation)
+    """AD-26: every Class D claim, shown with its support and never turned into a verdict."""
     return f"""
     <section class="report-section">
       <h2>Review claim: symbols nobody references</h2>
-      {_claim_body(claim, observation)}
+      {_claim_body(unreferenced_symbols(observation), observation)}
+    </section>
+    <section class="report-section">
+      <h2>Review claim: bindings nobody reads</h2>
+      {_binding_claim_body(unread_bindings(observation))}
     </section>
 """
 

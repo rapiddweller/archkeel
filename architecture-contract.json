@@ -9,6 +9,7 @@
       "role": "component",
       "packages": ["archkeel.ir"],
       "public": [
+        "archkeel.ir.bindings",
         "archkeel.ir.codec",
         "archkeel.ir.decisions",
         "archkeel.ir.digest",
@@ -267,6 +268,16 @@
       "target": "archkeel.host",
       "include_type_checking": true,
       "rationale": "Source analysis remains independent of repository-host APIs.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-ANALYZER-NO-IR-BINDINGS",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir.bindings",
+      "include_type_checking": true,
+      "rationale": "The analyzer records the binding signal; the claim built from those records belongs to the reader, so the two never depend on each other.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },

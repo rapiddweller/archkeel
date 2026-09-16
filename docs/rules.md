@@ -149,6 +149,23 @@ subclass, which the runtime dispatches without naming them.
 - **Example:** on Archkeel itself the signal removed four of six candidates that a call graph alone
   had reported, and the remainder are public API used only by tests.
 
+`unread binding` is the second claim. Its signal is the `bindings` section, which records every
+parameter or local that no expression in its own function reads. Nothing is resolved across
+modules, so the claim is supported wherever the analyzer ran. It sets aside a name with a leading
+underscore, which is Python's own mark for a deliberately unused binding, `self` and `cls`, and
+the parameters of a method that overrides another or fills an empty stub, because something other
+than the body chose them.
+
+- **Measurement:** candidates, and the functions examined beside them. The bindings set aside are
+  not counted, because the signal records only what it names.
+- **Determinism:** the candidate list is deterministic for one observation; it never becomes a
+  verdict or an exit code.
+- **Blind spots:** a name bound by an import inside the function, by `except ... as` or by a
+  `match` pattern is not recorded, and a read through `locals()` is invisible.
+- **Example:** on Archkeel itself the claim names nothing, because `ARG` and `RUF059` already
+  reject such a binding at lint time; the demo tour carries one unread parameter and one
+  unread local.
+
 ## Migrating from 1.1.0
 
 Contract 2.0 keeps `components` and `rules` at the top level. Move every class-C declaration
