@@ -135,6 +135,21 @@
       })),
     };
   }
+  // AD-24: the first tap traces a card, the second opens what is behind it. A card is openable
+  // while a deeper level exists: components always, modules that hold symbols. One function for
+  // mouse, touch and keyboard, so the three can never drift apart.
+  function selectCard(label) {
+    const card = level().components.find((c) => c.label === label);
+    if (!card) return;
+    const openable = opened ? card.openable : true;
+    if (openable && selected && selected.type === "node" && selected.label === label) {
+      enter(label);
+      return;
+    }
+    selected = { type: "node", label };
+    render();
+  }
+
   const edgeKey = (e) => `${e.source}>${e.target}`;
   let positions = {};
   let opened = null;
@@ -455,25 +470,13 @@
         label,
         meta,
       );
-      const select = () => {
-        // AD-24: the first click traces a card, the second opens what is behind it. A card is
-        // openable while a deeper level exists: components always, modules that hold symbols.
-        const openable = opened ? component.openable : true;
-        if (openable && selected && selected.type === "node" && selected.label === component.label) {
-          enter(component.label);
-          return;
-        }
-        selected = { type: "node", label: component.label };
-        render();
-      };
-      group.addEventListener("click", (event) => {
-        event.stopPropagation();
-        select();
-      });
+      // A card's own click never fires for a mouse: its pointerdown captures the pointer on the
+      // svg, and the capture retargets the click there too. Mouse taps therefore arrive through
+      // endPointer below, and every path funnels into selectCard so all three behave alike.
       group.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          select();
+          selectCard(component.label);
         }
       });
       // Drag state lives at IIFE scope (dragState), not in this closure: render() rebuilds every
@@ -481,7 +484,13 @@
       group.addEventListener("pointerdown", (event) => {
         event.stopPropagation();
         capturePointer(svg, event);
-        dragState = { label: component.label, x: event.clientX, y: event.clientY, start: { ...pos } };
+        dragState = {
+          label: component.label,
+          x: event.clientX,
+          y: event.clientY,
+          start: { ...pos },
+          moved: 0,
+        };
       });
       nodeLayer.appendChild(group);
     });
@@ -695,6 +704,7 @@
     if (dragState) {
       const dx = (event.clientX - dragState.x) / transform.k;
       const dy = (event.clientY - dragState.y) / transform.k;
+      dragState.moved = Math.max(dragState.moved, Math.abs(dx) + Math.abs(dy));
       positions[dragState.label] = { x: dragState.start.x + dx, y: dragState.start.y + dy };
       render();
       return;
@@ -707,9 +717,13 @@
     };
     applyTransform(false);
   });
+  // A press that never moved is a tap, not a drag: three pixels of slack for an unsteady hand.
+  const TAP_SLACK = 3;
   const endPointer = () => {
+    const tapped = dragState && dragState.moved <= TAP_SLACK ? dragState.label : null;
     panState = null;
     dragState = null;
+    if (tapped !== null) selectCard(tapped);
   };
   svg.addEventListener("pointerup", endPointer);
   svg.addEventListener("pointercancel", endPointer);
