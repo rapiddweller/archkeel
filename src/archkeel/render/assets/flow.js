@@ -801,8 +801,17 @@
     },
     { passive: false },
   );
-  svg.addEventListener("click", () => {
+  // Clearing belongs to the background alone. A tap on a card is handled in endPointer, and
+  // the browser then sends the click along anyway; since the card no longer carries a click
+  // handler to stop it, that click reached this one and wiped the selection the tap had just
+  // made. The first tap appeared to work and every following one did nothing.
+  svg.addEventListener("click", (event) => {
     if (!selected) return;
+    const path = event.composedPath ? event.composedPath() : [];
+    const onCard = path.some(
+      (node) => node.classList && (node.classList.contains("node") || node.classList.contains("hit")),
+    );
+    if (onCard) return;
     selected = null;
     render();
   });
