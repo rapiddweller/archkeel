@@ -746,3 +746,47 @@ def test_sibling_isolation_reports_a_peer_import_but_not_a_shared_one(tmp_path: 
     assert [(item.kind, item.rule_ids) for item in violations] == [
         ("sibling_isolation", ("SIBLINGS",))
     ]
+
+
+def test_a_function_used_only_as_a_value_is_recorded_as_a_reference(tmp_path: Path) -> None:
+    """AD-26: a call graph cannot see a function handed to a dict; the reference signal can."""
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("core"), _component("cli")],
+        "rules": [
+            {
+                "id": "DEP-CLI-ALLOWS-CORE",
+                "kind": "allowed_dependency",
+                "source": "sample.cli",
+                "target": "sample.core",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "DEP-CORE-NO-CLI",
+                "kind": "forbidden_dependency",
+                "source": "sample.core",
+                "target": "sample.cli",
+                "include_type_checking": True,
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text("def handler() -> int:\n    return 1\n")
+    # The handler is never called here; it is put into a table, which no call site names.
+    (tmp_path / "sample/cli.py").write_text(
+        'from sample.core import handler\n\nHANDLERS = {"a": handler}\n'
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+
+    references = result.observation.records("references") or ()
+    targets = {target for record in references for target in (record.data.get("targets") or [])}
+    assert "sample.core.handler" in targets
+    calls = result.observation.records("calls") or ()
+    assert not [item for item in calls if "sample.core.handler" in (item.data.get("targets") or [])]

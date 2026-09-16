@@ -29,6 +29,7 @@ CLASSIFIED_SECTIONS = (
     "path_observations",
     "cycles",
     "calls",
+    "references",
     "typing_signals",
     "constructs",
     "contexts",

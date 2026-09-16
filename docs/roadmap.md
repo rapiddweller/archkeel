@@ -54,6 +54,7 @@ only when its row names repository evidence.
 | One `sibling_isolation` rule isolates a set of peers instead of n*(n-1) prohibitions, applied to the eight analyzer collectors (AD-25) | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json`; `docs/architecture-demo.md` |
 | A report whose contract still leaves pairs undecided reads FAIL and names them, instead of passing on an empty target (AD-23) | `src/archkeel/render/summary.py`; `tests/test_terminal.py` |
 | `ir` derives modules, inner edges, fan-in, fan-out and unresolved calls per component and per package, and `report` shows them without gating on them (AD-21) | `src/archkeel/ir/structure.py`; `tests/test_structure.py`; `docs/architecture/archkeel.md` |
+| The analyzer records non-call uses of a symbol, so a function handed to a table counts as used; a quality claim without its signal stays UNKNOWN (AD-26) | `src/archkeel/analyzer/embedded/references.py`; `src/archkeel/analyzer/embedded/resolve.py`; `tests/test_analyzer.py` |
 
 ## Next
 

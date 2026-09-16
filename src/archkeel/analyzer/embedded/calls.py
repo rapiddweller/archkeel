@@ -7,42 +7,27 @@ from __future__ import annotations
 
 import ast
 import builtins
-from collections import defaultdict
 from collections.abc import Sequence
 
 from archkeel.ir.model import EvidenceClass
 
 from .records import RawEvidence, RawRecord, classified, stable_id
+from .resolve import SymbolIndex, resolve_name
 from .source import ParsedModule, add_evidence, annotation_text, location
 
 _BUILTINS = frozenset(dir(builtins))
-
-
-def _dotted_expression(node: ast.AST) -> str | None:
-    parts: list[str] = []
-    current = node
-    while isinstance(current, ast.Attribute):
-        parts.append(current.attr)
-        current = current.value
-    if isinstance(current, ast.Name):
-        parts.append(current.id)
-        return ".".join(reversed(parts))
-    return None
 
 
 class CallCollector(ast.NodeVisitor):
     def __init__(
         self,
         module: ParsedModule,
-        symbol_names: set[str],
-        method_names: dict[str, list[str]],
-        symbol_evidence: dict[str, list[str]],
+        index: SymbolIndex,
         evidence: dict[str, RawEvidence],
     ) -> None:
         self.module = module
-        self.symbol_names = symbol_names
-        self.method_names = method_names
-        self.symbol_evidence = symbol_evidence
+        self.index = index
+        self.symbol_evidence = index.evidence
         self.evidence = evidence
         self.items: list[RawRecord] = []
         self.class_stack: list[str] = []
@@ -69,7 +54,9 @@ class CallCollector(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         expression = annotation_text(node.func) or "<unparseable>"
-        status, targets, reason, candidate_count = self._resolve(node.func)
+        status, targets, reason, candidate_count = resolve_name(
+            node.func, module=self.module, index=self.index, class_stack=self.class_stack
+        )
         target_evidence_ids = sorted(
             {
                 evidence_id
@@ -110,74 +97,16 @@ class CallCollector(ast.NodeVisitor):
         )
         self.generic_visit(node)
 
-    def _resolve(self, func: ast.AST) -> tuple[str, list[str], str, int]:
-        if isinstance(func, ast.Name):
-            local = f"{self.module.module}.{func.id}"
-            if local in self.symbol_names:
-                return "resolved", [local], "module-local symbol", 1
-            binding = self.module.aliases.get(func.id)
-            if binding:
-                return "resolved", [binding.target], f"imported {binding.kind} binding", 1
-            if func.id in _BUILTINS:
-                return "resolved", [f"builtins.{func.id}"], "Python builtin", 1
-            candidates = self.method_names.get(func.id, [])
-            if candidates:
-                return (
-                    "partially_resolved",
-                    candidates[:5],
-                    "name matches internal symbols without a proven binding",
-                    len(candidates),
-                )
-            return "unresolved", [], "name has no statically indexed binding", 0
-
-        dotted = _dotted_expression(func)
-        if dotted:
-            parts = dotted.split(".")
-            binding = self.module.aliases.get(parts[0])
-            if binding:
-                target = ".".join([binding.target, *parts[1:]])
-                return "resolved", [target], f"attribute of imported {binding.kind} binding", 1
-            if parts[0] == "self" and self.class_stack:
-                target = f"{self.class_stack[-1]}.{'.'.join(parts[1:])}"
-                if target in self.symbol_names:
-                    return "resolved", [target], "method on current class", 1
-                return (
-                    "partially_resolved",
-                    [target],
-                    "current-class attribute without indexed method target",
-                    1,
-                )
-            local_class = f"{self.module.module}.{parts[0]}"
-            target = f"{local_class}.{'.'.join(parts[1:])}"
-            if target in self.symbol_names:
-                return "resolved", [target], "class-qualified local method", 1
-            candidates = self.method_names.get(parts[-1], [])
-            if candidates:
-                return (
-                    "partially_resolved",
-                    candidates[:5],
-                    "dynamic receiver with matching internal methods",
-                    len(candidates),
-                )
-            return "unresolved", [], "dynamic attribute receiver", 0
-        return "unresolved", [], "call target is a dynamic expression", 0
-
 
 def collect_calls(
     parsed: Sequence[ParsedModule],
-    symbols: Sequence[RawRecord],
+    index: SymbolIndex,
     evidence: dict[str, RawEvidence],
 ) -> list[RawRecord]:
-    """Index known symbols, run the call collector over every module and sort by id."""
-    symbol_names = {item["data"]["qualified_name"] for item in symbols}
-    by_tail: dict[str, list[str]] = defaultdict(list)
-    for name in sorted(symbol_names):
-        by_tail[name.rsplit(".", 1)[-1]].append(name)
-    symbol_evidence = {item["data"]["qualified_name"]: item["evidence_ids"] for item in symbols}
-
+    """Run the call collector over every module and sort the records by id."""
     calls: list[RawRecord] = []
     for module in parsed:
-        call_collector = CallCollector(module, symbol_names, by_tail, symbol_evidence, evidence)
+        call_collector = CallCollector(module, index, evidence)
         call_collector.visit(module.tree)
         calls.extend(call_collector.items)
     calls.sort(key=lambda item: item["id"])

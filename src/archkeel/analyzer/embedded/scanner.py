@@ -30,6 +30,8 @@ from .dependencies import (
 )
 from .imports import collect_imports, resolve_reexports
 from .records import RawEvidence, RawRecord, classified
+from .references import collect_references
+from .resolve import build_symbol_index
 from .source import ParsedModule, add_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
@@ -54,6 +56,7 @@ class ScanResult:
     path_observations: list[RawRecord]
     cycles: list[RawRecord]
     calls: list[RawRecord]
+    references: list[RawRecord]
     typing_signals: list[RawRecord]
     constructs: list[RawRecord]
     contexts: list[RawRecord]
@@ -179,7 +182,9 @@ def scan_repository(
     resolve_reexports(imports, exports_by_module)
 
     symbols, symbol_nodes, symbol_owners = collect_symbols(parsed, evidence)
-    calls = collect_calls(parsed, symbols, evidence)
+    symbol_index = build_symbol_index(symbols)
+    calls = collect_calls(parsed, symbol_index, evidence)
+    references = collect_references(parsed, symbol_index, evidence)
 
     typing_signals = collect_typing_signals(parsed, calls, symbols, imports, evidence)
     constructs = collect_constructs(parsed, evidence)
@@ -266,6 +271,7 @@ def scan_repository(
         path_observations=path_observations,
         cycles=cycles,
         calls=calls,
+        references=references,
         typing_signals=typing_signals,
         constructs=constructs,
         contexts=contexts,

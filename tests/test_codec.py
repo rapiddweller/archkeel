@@ -62,6 +62,7 @@ def raw_observation():
                 "path_observations",
                 "cycles",
                 "calls",
+                "references",
                 "typing_signals",
                 "constructs",
                 "contexts",

@@ -463,6 +463,9 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     record_fields = _strings(encoding["record_fields"], "record_fields")
     section_data_fields = _object(encoding["section_data_fields"], "section_data_fields")
     for section in CLASSIFIED_SECTIONS:
+        if section not in section_data_fields:
+            # An observation from an analyzer that predates this section: fail closed (AD-3).
+            raise ValueError(f"observation has no section {section}")
         data_fields = _strings(section_data_fields[section], f"section_data_fields.{section}")
         encoded_rows = encoded.get(section, [])
         if not isinstance(encoded_rows, list):

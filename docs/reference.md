@@ -22,6 +22,12 @@ use `parse_error` after a compatible runtime check. Git snapshots carry their ow
 Delta comparison requires the same known full Python version; otherwise `incomparable_runtime`
 returns exit 2. Historical observations without runtime provenance remain readable, not comparable.
 
+The observation carries a `references` section beside `calls`: every use of a scanned symbol
+that is not a call, such as a function put into a table, passed as an argument or read as a
+property, with the symbols it resolves to (AD-26). Call metrics stay untouched, because coverage
+counts the `calls` section alone. An observation written before a section existed no longer
+decodes and fails closed with the missing section named (AD-3).
+
 The checker hashes its installed Python package separately from the analyzer digest.
 Delta schema 1.2.0 and expectation schema 1.2.0 bind `checker_digest`;
 the evaluator verifies the running package.

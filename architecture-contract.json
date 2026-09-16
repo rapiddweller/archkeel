@@ -580,6 +580,7 @@
         "archkeel.analyzer.embedded.contexts",
         "archkeel.analyzer.embedded.dependencies",
         "archkeel.analyzer.embedded.imports",
+        "archkeel.analyzer.embedded.references",
         "archkeel.analyzer.embedded.symbols",
         "archkeel.analyzer.embedded.typing_signals",
         "archkeel.analyzer.embedded.violations"
