@@ -16,6 +16,7 @@ from archkeel.ir.decisions import agent_decisions, open_decisions
 from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
+from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.structure import StructureMetric, structure_metrics
 
 from .flow import FlowData, build_flow
@@ -368,6 +369,7 @@ def render_html(
     measurements_html = _measurements(result.measurements)
     coverage_html = _coverage(observation)
     structure_html = _structure(observation) if observation is not None else ""
+    claims_html = _claims(observation) if observation is not None else ""
     inventory_html = _section_inventory(observation)
     metadata_html = _metadata(result, observation)
     raw_link = (
@@ -406,6 +408,7 @@ def render_html(
     <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
     <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
     {structure_html}
+    {claims_html}
     <section class="report-section">
       <h2>Complete ArchitectureIR inventory</h2>
       <p>{raw_link}. The JSON remains the source for complete records and evidence.</p>
@@ -525,6 +528,49 @@ def _structure_row(metric: StructureMetric) -> str:
         f'<td class="numeric">{metric.fan_out}</td>'
         f'<td class="numeric">{_text(share)}</td></tr>'
     )
+
+
+def _claim_body(claim: SymbolReferences, observation: Observation) -> str:
+    if claim.status == "UNKNOWN":
+        return (
+            "<p>Not available: this observation carries no reference signal, so a call graph "
+            "alone would report every symbol that is only handed to a table as unreferenced.</p>"
+        )
+    coverage = observation.coverage
+    share = (
+        f"{coverage.calls_unresolved} of {coverage.calls_analyzed} calls stay unresolved"
+        if coverage.calls_analyzed
+        else "no calls analyzed"
+    )
+    if not claim.candidates:
+        return (
+            f"<p>None: every one of {claim.symbols} symbols is named somewhere, and "
+            f"{claim.exempt} were set aside as runtime dispatch or declared interface. {share}.</p>"
+        )
+    rows = "".join(
+        f"<tr><td><code>{_text(item.name)}</code></td><td>{_text(item.kind)}</td>"
+        f"<td>{_text(item.visibility)}</td></tr>"
+        for item in claim.candidates
+    )
+    return f"""
+      <p>{len(claim.candidates)} of {claim.symbols} symbols are named by no call, reference or
+      import inside the scan scope; {claim.exempt} were set aside as runtime dispatch or declared
+      interface. A consumer outside the scan scope, such as a test, is invisible here, and {share},
+      so these are candidates for review, never a verdict.</p>
+      <table class="data-table"><thead><tr><th>Symbol</th><th>Kind</th><th>Visibility</th></tr>
+      </thead><tbody>{rows}</tbody></table>
+"""
+
+
+def _claims(observation: Observation) -> str:
+    """AD-26: one Class D claim, shown with its support and never turned into a verdict."""
+    claim = unreferenced_symbols(observation)
+    return f"""
+    <section class="report-section">
+      <h2>Review claim: symbols nobody references</h2>
+      {_claim_body(claim, observation)}
+    </section>
+"""
 
 
 def _structure(observation: Observation) -> str:

@@ -17,6 +17,7 @@
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
         "archkeel.ir.model",
+        "archkeel.ir.references",
         "archkeel.ir.structure",
         "archkeel.ir.trace"
       ],
@@ -326,6 +327,16 @@
       "target": "archkeel.ir.interfaces",
       "include_type_checking": true,
       "rationale": "Component communication is derived from observations by render, not built by the analyzer that only observes source.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-ANALYZER-NO-IR-REFERENCES",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir.references",
+      "include_type_checking": true,
+      "rationale": "Unreferenced symbols are derived from a finished observation by the report, not decided by the analyzer that only records the reference signal (AD-26).",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },

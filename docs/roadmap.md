@@ -55,6 +55,7 @@ only when its row names repository evidence.
 | A report whose contract still leaves pairs undecided reads FAIL and names them, instead of passing on an empty target (AD-23) | `src/archkeel/render/summary.py`; `tests/test_terminal.py` |
 | `ir` derives modules, inner edges, fan-in, fan-out and unresolved calls per component and per package, and `report` shows them without gating on them (AD-21) | `src/archkeel/ir/structure.py`; `tests/test_structure.py`; `docs/architecture/archkeel.md` |
 | The analyzer records non-call uses of a symbol, so a function handed to a table counts as used; a quality claim without its signal stays UNKNOWN (AD-26) | `src/archkeel/analyzer/embedded/references.py`; `src/archkeel/analyzer/embedded/resolve.py`; `tests/test_analyzer.py` |
+| The first Class D claim names the symbols nothing references, with its exemptions and the unresolved-call share beside it, and reports UNKNOWN without its signal (AD-26) | `src/archkeel/ir/references.py`; `tests/test_references.py`; `docs/rules.md` |
 
 ## Next
 

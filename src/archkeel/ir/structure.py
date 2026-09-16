@@ -13,9 +13,12 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+from typing import Literal, TypeAlias
 
 from .interfaces import component_owners, owner_of
 from .model import Observation
+
+StructureLevel: TypeAlias = Literal["component", "package"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,7 +26,7 @@ class StructureMetric:
     """One scope measured: its modules, the edges inside it and the calls it makes."""
 
     scope: str
-    level: str
+    level: StructureLevel
     modules: int
     inner_edges: int
     fan_in: int
@@ -74,7 +77,7 @@ def _calls_by_module(observation: Observation) -> tuple[Counter[str], Counter[st
 
 
 def _aggregate(
-    level: str,
+    level: StructureLevel,
     scope_of: dict[str, str],
     edges: tuple[tuple[str, str, int], ...],
     calls: Counter[str],

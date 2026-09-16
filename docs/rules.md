@@ -127,13 +127,25 @@ a fact visible in one observation belongs in class A instead.
 
 ## Class D: review claims
 
-Class D is planned. It will bind a review verdict to an evidence digest and retain the verdict as
-a hypothesis rather than a deterministic gate.
+Class D names what one observation suggests and a person decides. A claim is a triple: a signal the
+analyzer records, a pure derivation in `ir`, and a report section without a verdict (AD-26). A claim
+whose signal is missing reports UNKNOWN and lists nothing, so an analyzer that cannot produce the
+signal costs the other claims nothing.
 
-- **Measurement:** none implemented.
-- **Determinism:** the evidence package can be stable; the review judgment cannot.
-- **Blind spots:** reviewer context, model behavior and ambiguous responsibilities.
-- **Example:** review whether a component responsibility is coherent.
+`unreferenced symbol` is the first claim. Its signal is the `references` section, which records
+every use of a scanned symbol that is not a call: a function put into a table, passed as an
+argument, or read as a property. The derivation names each symbol that no call, reference or import
+inside the scan scope mentions, after setting aside dunder names, `__all__` entries and methods of a
+subclass, which the runtime dispatches without naming them.
+
+- **Measurement:** candidates, symbols examined, symbols set aside, and the unresolved-call share
+  beside them.
+- **Determinism:** the candidate list is deterministic for one observation; whether a candidate is
+  truly dead is not, and never becomes a verdict or an exit code.
+- **Blind spots:** a consumer outside the scan scope, such as a test, is invisible; so is a name
+  reached through a string, a registry or a plugin entry point.
+- **Example:** on Archkeel itself the signal removed four of six candidates that a call graph alone
+  had reported, and the remainder are public API used only by tests.
 
 ## Migrating from 1.1.0
 
