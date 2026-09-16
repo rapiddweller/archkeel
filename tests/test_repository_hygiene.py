@@ -39,6 +39,8 @@ ALLOWED_LONG_FUNCTIONS = {
     "bindings while it scans accesses; separate passes would change which reads count.",
     "src/archkeel/analyzer/embedded/contexts.py::_class_fields": "One walk per method body "
     "threads fields, properties, post-init assignments and mutations together.",
+    "src/archkeel/analyzer/embedded/contract.py::_rule_declaration": "One classified record per "
+    "rule kind; the branches share nothing but the envelope below them.",
     "src/archkeel/analyzer/embedded/contract.py::project_declarations": "One classified record "
     "per declaration kind; nothing is shared between them.",
     "src/archkeel/analyzer/embedded/report.py::_metrics": "One literal of metric records; the "

@@ -59,6 +59,7 @@ from archkeel.ir.model import (
     RunResult,
     Section,
     SemanticChange,
+    SiblingIsolationRule,
     SnapshotSummary,
     SourceInfo,
     Verdict,
@@ -953,6 +954,27 @@ def _parse_interface_boundary(raw: RawJson, label: str) -> InterfaceBoundaryRule
     )
 
 
+def _parse_sibling_isolation(raw: RawJson, label: str) -> SiblingIsolationRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "members", "rationale", "decided_by"}, {"include_type_checking"}, label
+    )
+    members = _contract_strings(item["members"], f"{label}.members", required=True)
+    if len(members) < 2:
+        raise ValueError(f"{label}.members must name at least two peers")
+    include = item.get("include_type_checking", True)
+    if not isinstance(include, bool):
+        raise ValueError(f"{label}.include_type_checking must be a boolean")
+    return SiblingIsolationRule(
+        item_id,
+        "sibling_isolation",
+        members,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        include,
+    )
+
+
 _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "forbidden_dependency": _parse_forbidden_dependency,
     "allowed_dependency": _parse_allowed_dependency,
@@ -961,6 +983,7 @@ _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "complete_assignment": _parse_complete_assignment,
     "no_component_cycles": _parse_no_component_cycles,
     "interface_boundary": _parse_interface_boundary,
+    "sibling_isolation": _parse_sibling_isolation,
 }
 
 

@@ -22,6 +22,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
+    SiblingIsolationRule,
     in_scope,
     package_owners,
 )
@@ -347,6 +348,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {"allowed_sources": rule.allowed_sources}
     if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule):
         return {}
+    if isinstance(rule, SiblingIsolationRule):
+        return {"members": rule.members}
     if isinstance(rule, ForbiddenConstructRule | CompleteAssignmentRule):
         return {"source": (rule.source,)}
     assert_never(rule)
@@ -385,6 +388,47 @@ def rule_subject_failures(
     return rule_failures
 
 
+def _sibling_violations(
+    imports: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    """AD-25: peers of one declared set reach shared modules, never each other."""
+    violations: list[RawRecord] = []
+    for rule in rules:
+        if not isinstance(rule, SiblingIsolationRule):
+            continue
+        for item in imports:
+            data = item["data"]
+            source = next(
+                (member for member in rule.members if in_scope(data["source_module"], member)), None
+            )
+            target = next(
+                (member for member in rule.members if in_scope(data["target_module"], member)), None
+            )
+            if source is None or target is None or source == target:
+                continue
+            if data["under_type_checking"] and not rule.include_type_checking:
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="dependency_violations",
+                    kind="sibling_isolation",
+                    title=f"{data['source_module']} imports its peer {data['target_module']}",
+                    subjects=[data["source_module"], data["target_module"]],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "source_module": data["source_module"],
+                        "target_module": data["target_module"],
+                        "source": source,
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def rule_violations(
     *,
     imports: Sequence[RawRecord],
@@ -406,6 +450,7 @@ def rule_violations(
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),
             *_interface_violations(imports, contract, modules, forbidden_rejected_ids),
+            *_sibling_violations(imports, contract.rules),
         ],
         key=lambda item: item["id"],
     )

@@ -34,6 +34,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | closed_world:duplicate | class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated | architecture-contract.json |
+| class_a | sibling_isolation:peer import | class-a-sibling-isolation | validate/report run | STORE-PEERS-ISOLATED | rule.violated | architecture-contract.json, shop/store/sqlite.py |
 | class_a | interface_boundary:underscore | class-a-interface-boundary-underscore | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:undeclared symbol | class-a-interface-boundary-undeclared-symbol | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:whole-module import | class-a-interface-boundary-whole-module | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/maintenance_report.py |

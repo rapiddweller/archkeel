@@ -291,6 +291,17 @@ class InterfaceBoundaryRule:
     include_type_checking: bool = True
 
 
+@dataclass(frozen=True, slots=True)
+class SiblingIsolationRule:
+    id: str
+    kind: Literal["sibling_isolation"]
+    members: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+    include_type_checking: bool = True
+
+
 ArchitectureRule: TypeAlias = (
     ForbiddenDependencyRule
     | AllowedDependencyRule
@@ -299,6 +310,7 @@ ArchitectureRule: TypeAlias = (
     | CompleteAssignmentRule
     | NoComponentCyclesRule
     | InterfaceBoundaryRule
+    | SiblingIsolationRule
 )
 
 

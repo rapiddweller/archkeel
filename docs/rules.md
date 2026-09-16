@@ -83,6 +83,15 @@ Importing `sample.core.impl`
 directly from `sample.cli` when `core` declares only `sample.core` as public is an example
 violation.
 
+`sibling_isolation` has the field `members`, at least two dotted prefixes, and the optional
+`include_type_checking` (default `true`). Peers reach shared modules and are reached from outside,
+but never each other: the analyzer reports every import whose source and target lie in two
+different members. One rule replaces the n*(n-1) `forbidden_dependency` rules the same intent would
+otherwise need, and it stays inside a component, where no component pair decision applies. A
+complete scan and fixed source bytes make the result deterministic; dynamic imports remain a blind
+spot. Archkeel applies it to the eight analyzer collectors (AD-1, AD-25). Importing
+`sample.core.first` from `sample.core.second` when both are members is an example violation.
+
 ## Class B: regression checks
 
 Regression checks compare accepted and candidate observations. They include scalar counts,

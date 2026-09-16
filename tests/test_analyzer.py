@@ -714,3 +714,35 @@ def test_context_reads_reflect_walk_order_and_nested_function_duplication(
         ("context_read", "sample.core.inner"),
         ("context_read", "sample.core.outer"),
     ]
+
+
+def test_sibling_isolation_reports_a_peer_import_but_not_a_shared_one(tmp_path: Path) -> None:
+    """AD-25: peers of one set reach shared modules, never each other."""
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("core")],
+        "rules": [
+            {
+                "id": "SIBLINGS",
+                "kind": "sibling_isolation",
+                "members": ["sample.core.first", "sample.core.second"],
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    (tmp_path / "sample/core/shared.py").write_text("VALUE = 1\n")
+    # Allowed: a peer reaches a shared module that is not a member.
+    (tmp_path / "sample/core/first.py").write_text("from sample.core.shared import VALUE\n")
+    # Violation: one peer imports the other.
+    (tmp_path / "sample/core/second.py").write_text("from sample.core.first import VALUE\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids) for item in violations] == [
+        ("sibling_isolation", ("SIBLINGS",))
+    ]

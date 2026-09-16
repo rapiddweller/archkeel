@@ -315,6 +315,22 @@ inside is AD-20 and costs a contract of its own. Limit: a further step into a mo
 `symbols` and `calls`, and about one call in five stays unresolved, so such a view would show
 structure without proving relations. Check: the opened view renders from `architecture.json` alone.
 
+**AD-25 Peers are isolated by one rule, not by n·(n-1) prohibitions.** The rule kind
+`sibling_isolation` names a set of modules or packages as peers: they may reach shared modules and
+may be reached from outside, but no member may import another member. Archkeel declares its eight
+analyzer collectors as such a set. Reason: AD-1 keeps the collectors flat and single-purpose behind
+one orchestrator, and the measurement confirms the intended shape, with `records` imported twelve
+times and importing nothing, `source` imported eight times, `scanner` importing ten modules, and no
+import at all between two collectors. Nothing held that invariant, and expressing it with the
+existing means would have taken 56 `forbidden_dependency` rules between eight peers. The kind is
+general: plugins, adapters, feature slices and strategy implementations all share the constraint
+that siblings communicate through shared foundations instead of through each other. Contract
+`schema_version` stays 2.1.0, because a new rule kind makes no valid contract invalid and older
+Archkeel versions fail closed (AD-8); the analyzer version rises because the same input can now
+yield new records (AD-3). Check: a probe where one peer imports another yields exactly one
+violation while an import of a shared module yields none, and Archkeel's own contract carries the
+rule.
+
 ## Allowed dependencies
 
 | Edge | Reason |

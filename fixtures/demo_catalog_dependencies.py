@@ -259,6 +259,46 @@ _DECISION_CONFLICT = Variant(
     expected_codes=("closed_world.observed_forbidden", "decision.conflict", "rule.violated"),
 )
 
+_SIBLING_ISOLATION = Variant(
+    id="class-a-sibling-isolation",
+    section="class_a",
+    item="sibling_isolation:peer import",
+    summary="shop.store.sqlite imports its peer shop.store.repository. Both are declared peers "
+    "of one set, and peers reach shared modules, never each other (AD-25).",
+    files={
+        "architecture-contract.json": contract_with_rule(
+            {
+                "id": "STORE-PEERS-ISOLATED",
+                "kind": "sibling_isolation",
+                "members": ["shop.store.repository", "shop.store.sqlite"],
+                "rationale": "Persistence and maintenance are peers behind the store's entry "
+                "point, so neither reaches into the other.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            }
+        ),
+        "shop/store/sqlite.py": HEADER
+        + (
+            '"""A maintenance-only view of the JSON store, kept out of ordinary order use '
+            'cases."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from dataclasses import dataclass\n"
+            "from pathlib import Path\n\n"
+            "from shop.store.repository import OrderRepository\n\n"
+            "_OWNER = OrderRepository.__name__\n\n\n"
+            "@dataclass(frozen=True, slots=True)\n"
+            "class Connection:\n"
+            "    path: Path\n\n\n"
+            "def vacuum(connection: Connection) -> None:\n"
+            '    """Remove empty leftover order files from the store directory."""\n'
+            '    for candidate in connection.path.glob("*.json"):\n'
+            "        if candidate.stat().st_size == 0:\n"
+            "            candidate.unlink()\n"
+        ),
+    },
+    expected_violations=("STORE-PEERS-ISOLATED",),
+    expected_codes=("rule.violated",),
+)
 VARIANTS: tuple[Variant, ...] = (
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,
@@ -271,4 +311,5 @@ VARIANTS: tuple[Variant, ...] = (
     _CLOSED_WORLD_DUPLICATE,
     _ALLOWED_DEPENDENCY_DUPLICATE,
     _DECISION_CONFLICT,
+    _SIBLING_ISOLATION,
 )

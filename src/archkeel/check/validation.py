@@ -34,6 +34,7 @@ from archkeel.ir.model import (
     Observation,
     RecordData,
     RunResult,
+    SiblingIsolationRule,
     in_scope,
 )
 
@@ -379,6 +380,10 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
             names.append((f"/rules/{index}/source", rule.source))
         if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
             names.append((f"/rules/{index}/target", rule.target))
+        if isinstance(rule, SiblingIsolationRule):
+            names.extend(
+                (f"/rules/{index}/members/{item}", value) for item, value in enumerate(rule.members)
+            )
         if isinstance(rule, ForbiddenDependencyRule | ExternalDependencyScopeRule):
             names.extend(
                 (f"/rules/{index}/allowed_sources/{item}", value)

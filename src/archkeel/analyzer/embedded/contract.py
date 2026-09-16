@@ -22,6 +22,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
+    SiblingIsolationRule,
 )
 
 from .records import RawRecord, RecordData, classified
@@ -101,6 +102,16 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "api_surface",
             "Cross-component imports must reach the target's declared public interface",
             [],
+        )
+        data = {
+            "include_type_checking": rule.include_type_checking,
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, SiblingIsolationRule):
+        area, title, subjects = (
+            "dependency_violations",
+            f"{len(rule.members)} peers must not import each other",
+            list(rule.members),
         )
         data = {
             "include_type_checking": rule.include_type_checking,

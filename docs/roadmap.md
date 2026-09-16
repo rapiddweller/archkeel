@@ -50,6 +50,7 @@ only when its row names repository evidence.
 | Onboarding is a decision interview: `allowed_dependency`, contract 2.1.0, `decision.open` and `decision.conflict`, open decisions with option rules, component-level enforcement (AD-15) | `1951aa0`; `4a8548b`; `540226c`; `4b5936e`; `0740030`; `919f514`; `tests/test_decisions.py`; `tests/test_onboarding.py` |
 | Every rule records `decided_by`; the skill runs an interview or auto mode, and reports count agent decisions (AD-16) | `52be155`; `819981a`; `c7baf9c` |
 | Archkeel's contract names its quality goals, `ir` holds pure derivations, and the `accept` placeholder is gone (AD-17) | `0212447`; `e7d5178` |
+| One `sibling_isolation` rule isolates a set of peers instead of n*(n-1) prohibitions, applied to the eight analyzer collectors (AD-25) | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json`; `docs/architecture-demo.md` |
 | Release 0.3.0 is published on PyPI | tag `0.3.0` at `47dcd7f`; release run `34986034441`; [PyPI release](https://pypi.org/project/archkeel/0.3.0/) |
 
 ## Next

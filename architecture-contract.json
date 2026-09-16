@@ -561,6 +561,23 @@
       "decided_by": "architect"
     },
     {
+      "id": "COLLECTORS-ISOLATED",
+      "kind": "sibling_isolation",
+      "members": [
+        "archkeel.analyzer.embedded.calls",
+        "archkeel.analyzer.embedded.constructs",
+        "archkeel.analyzer.embedded.contexts",
+        "archkeel.analyzer.embedded.dependencies",
+        "archkeel.analyzer.embedded.imports",
+        "archkeel.analyzer.embedded.symbols",
+        "archkeel.analyzer.embedded.typing_signals",
+        "archkeel.analyzer.embedded.violations"
+      ],
+      "rationale": "Collectors are peers behind one scanner (AD-1): each reads parsed sources and writes records, so a collector importing another would create an order between them that the scanner no longer controls.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
       "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",

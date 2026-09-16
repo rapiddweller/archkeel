@@ -13,7 +13,8 @@
       {"$ref": "#/$defs/forbiddenDependency"}, {"$ref": "#/$defs/allowedDependency"},
       {"$ref": "#/$defs/forbiddenConstruct"},
       {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
-      {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"}
+      {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"},
+      {"$ref": "#/$defs/siblingIsolation"}
     ]}},
     "declarations": {"$ref": "#/$defs/declarations"}
   },
@@ -135,6 +136,20 @@
       "properties": {
         "id": {"$ref": "#/$defs/nonEmpty"},
         "kind": {"const": "interface_boundary"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "decided_by": {"$ref": "#/$defs/decidedBy"},
+        "include_type_checking": {"type": "boolean"}
+      }
+    },
+    "siblingIsolation": {
+      "type": "object",
+      "required": ["id", "kind", "members", "rationale", "provenance", "decided_by"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "sibling_isolation"},
+        "members": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"},
