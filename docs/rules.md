@@ -39,10 +39,12 @@ on `sample.cli` when no code observes that edge is valid; it simply decides the 
 
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources`, whose
 prefixes exempt owners as in `external_dependency_scope`. Supported constructs are `getattr`,
-`hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `assert` and `broad_except`. It
-matches typing-signal records from direct AST calls and type-ignore comments, and construct records
-from `assert` statements and `except` handlers with no type or with `Exception` or `BaseException`,
-alone, in a tuple or as `builtins.Exception`; `except Exception: raise` counts. Fixed source bytes,
+`hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `any_annotation`, `assert` and
+`broad_except`. It matches typing-signal records from direct AST calls, type-ignore comments and
+`Any` in a parameter, return or variable annotation, and construct records from `assert` statements
+and `except` handlers with no type or with `Exception` or `BaseException`, alone, in a tuple or as
+`builtins.Exception`; `except Exception: raise` counts. One record is one violation, so an
+annotation repeated across a serialisation boundary reports once per position. Fixed source bytes,
 analyzer digest and Python version make the result deterministic. Aliasing first, such as
 `f = getattr; f(value, name)` or `E = Exception; except E:`, is not resolved and remains a blind
 spot. Calling `eval()` below the configured source is an example violation.

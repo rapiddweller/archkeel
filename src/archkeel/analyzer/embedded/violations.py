@@ -111,6 +111,7 @@ _CONSTRUCT_SIGNALS: Final = {
     "exec_call": ForbiddenConstructKind.EXEC,
     "dynamic_import": ForbiddenConstructKind.DYNAMIC_IMPORT,
     "type_ignore": ForbiddenConstructKind.TYPE_IGNORE,
+    "any_annotation": ForbiddenConstructKind.ANY_ANNOTATION,
     "assert_statement": ForbiddenConstructKind.ASSERT,
     "broad_except": ForbiddenConstructKind.BROAD_EXCEPT,
 }

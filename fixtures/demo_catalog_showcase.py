@@ -142,9 +142,11 @@ _TOUR = Variant(
     "render->store pair, a store->Money target_symbol violation, an app->store.sqlite "
     "runtime reach, an app->json scope violation, a cli->render underscore reach, a "
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
-    "assert and an eval in shop.model, an allowed_sources-scoped broad except, and an "
-    "unassigned module. Real run: 11 rule ids and, at validate time, the same 11 "
-    "rule.violated diagnostics plus 2 closed_world.observed_forbidden pairs (model->render, "
+    "assert and an eval in shop.model, Any in the shop.model serialisation boundary, an "
+    "allowed_sources-scoped broad except, and an "
+    "unassigned module. Real run: 12 rule ids and, at validate time, 15 rule.violated "
+    "diagnostics, because CONSTRUCT-NO-ANY fires once per annotation and the serialisation "
+    "boundary carries four, plus 2 closed_world.observed_forbidden pairs (model->render, "
     "render->store) and 1 graph.drift, since the marked graph never declared either edge.",
     files={
         "shop/render/text.py": _TOUR_RENDER_TEXT,
@@ -158,6 +160,10 @@ _TOUR = Variant(
     expected_violations=(
         "ASSIGNMENT-COMPLETE",
         "COMPONENT-NO-CYCLES",
+        "CONSTRUCT-NO-ANY",
+        "CONSTRUCT-NO-ANY",
+        "CONSTRUCT-NO-ANY",
+        "CONSTRUCT-NO-ANY",
         "CONSTRUCT-NO-ASSERT",
         "CONSTRUCT-NO-BROAD-EXCEPT",
         "CONSTRUCT-NO-DYNAMIC",
@@ -172,6 +178,10 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",

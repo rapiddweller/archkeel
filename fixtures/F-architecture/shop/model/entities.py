@@ -6,9 +6,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TypedDict
 
 __all__ = ["Order", "Line", "Money"]
+
+
+class LinePayload(TypedDict):
+    """The serialised shape of one order line."""
+
+    description: str
+    quantity: int
+    unit_price: int
+
+
+class OrderPayload(TypedDict):
+    """The serialised shape of one order."""
+
+    order_id: str
+    lines: list[LinePayload]
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +61,7 @@ class Line:
     def total(self) -> Money:
         return self.unit_price * self.quantity
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> LinePayload:
         return {
             "description": self.description,
             "quantity": self.quantity,
@@ -54,11 +69,11 @@ class Line:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> Line:
+    def from_dict(cls, payload: LinePayload) -> Line:
         return cls(
-            description=str(payload["description"]),
-            quantity=int(payload["quantity"]),
-            unit_price=Money(int(payload["unit_price"])),
+            description=payload["description"],
+            quantity=payload["quantity"],
+            unit_price=Money(payload["unit_price"]),
         )
 
 
@@ -73,10 +88,10 @@ class Order:
             result = result + line.total()
         return result
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> OrderPayload:
         return {"order_id": self.order_id, "lines": [line.to_dict() for line in self.lines]}
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> Order:
+    def from_dict(cls, payload: OrderPayload) -> Order:
         lines = tuple(Line.from_dict(item) for item in payload["lines"])
-        return cls(order_id=str(payload["order_id"]), lines=lines)
+        return cls(order_id=payload["order_id"], lines=lines)

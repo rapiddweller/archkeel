@@ -336,6 +336,15 @@
       "decided_by": "architect"
     },
     {
+      "id": "CONSTRUCT-NO-ANY",
+      "kind": "forbidden_construct",
+      "source": "shop",
+      "constructs": ["any_annotation"],
+      "rationale": "A value that crosses a module boundary carries a type the reader can follow; Any hides exactly what the boundary exists to state.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "CONSTRUCT-NO-ASSERT",
       "kind": "forbidden_construct",
       "source": "shop",

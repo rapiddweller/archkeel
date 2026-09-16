@@ -82,7 +82,7 @@
         "kind": {"const": "forbidden_construct"},
         "source": {"$ref": "#/$defs/nonEmpty"},
         "constructs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {
-          "enum": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "assert", "broad_except"]
+          "enum": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "any_annotation", "assert", "broad_except"]
         }},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},

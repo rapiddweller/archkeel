@@ -65,6 +65,14 @@ _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
         '    value: int = "oops"  # type: ignore\n'
         "    del value\n"
     ),
+    ForbiddenConstructKind.ANY_ANNOTATION: HEADER
+    + (
+        '"""Any-annotation probe for the architecture demo."""\n\n'
+        "from __future__ import annotations\n\n"
+        "from typing import Any\n\n\n"
+        "def widen(value: Any) -> str:\n"
+        "    return str(value)\n"
+    ),
     ForbiddenConstructKind.ASSERT: HEADER
     + (
         '"""Assert probe for the architecture demo."""\n\n'
@@ -90,6 +98,8 @@ _CONSTRUCT_RULE: dict[ForbiddenConstructKind, str] = {
         if kind is ForbiddenConstructKind.ASSERT
         else "CONSTRUCT-NO-BROAD-EXCEPT"
         if kind is ForbiddenConstructKind.BROAD_EXCEPT
+        else "CONSTRUCT-NO-ANY"
+        if kind is ForbiddenConstructKind.ANY_ANNOTATION
         else "CONSTRUCT-NO-DYNAMIC"
     )
     for kind in ForbiddenConstructKind

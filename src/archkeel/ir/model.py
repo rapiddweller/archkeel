@@ -236,6 +236,7 @@ class ForbiddenConstructKind(StrEnum):
     EXEC = "exec"
     DYNAMIC_IMPORT = "dynamic_import"
     TYPE_IGNORE = "type_ignore"
+    ANY_ANNOTATION = "any_annotation"
     ASSERT = "assert"
     BROAD_EXCEPT = "broad_except"
 
