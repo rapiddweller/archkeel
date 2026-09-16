@@ -121,3 +121,17 @@ def test_flow_keeps_violation_state_for_an_edge_that_is_also_undecided(tmp_path:
 def test_flow_edge_is_a_frozen_dataclass_value() -> None:
     edge = FlowEdge("a", "b", 1, (), "conforms")
     assert edge == FlowEdge("a", "b", 1, (), "conforms")
+
+
+def test_flow_carries_the_imports_inside_one_component(tmp_path: Path) -> None:
+    """AD-24: the inside of a component is observed and travels with the view, undecided."""
+    flow = build_flow(_observation(tmp_path, dict(_TOUR.files)))
+    store = next(component for component in flow.components if component.label == "store")
+
+    inner = {(edge.source, edge.target) for edge in store.inner_edges}
+    assert ("shop.store", "shop.store.repository") in inner
+    # Every inner edge stays inside the component; a crossing edge belongs to flow.edges.
+    assert all(source in store.modules and target in store.modules for source, target in inner)
+    assert all(edge.import_sites > 0 for edge in store.inner_edges)
+    crossing = {(edge.source, edge.target) for edge in flow.edges}
+    assert not inner & crossing

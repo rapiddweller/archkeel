@@ -35,6 +35,7 @@
   const thresholdInput = root.querySelector(".flow-threshold");
   const thresholdValue = root.querySelector(".flow-threshold-value");
   const fitButton = root.querySelector(".flow-fit");
+  const backButton = root.querySelector(".flow-back");
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
   // already-captured element); the drag/pan state machine below tolerates that silently.
@@ -68,17 +69,54 @@
   }
 
   const componentByLabel = new Map(DATA.components.map((c) => [c.label, c]));
+
+  // AD-24: inside a component nothing is decided, so every inner edge is drawn as observed.
+  function level() {
+    if (!opened) return { components: DATA.components, edges: DATA.edges };
+    const component = componentByLabel.get(opened);
+    // Name a module relative to the package its component owns, so the package __init__ and
+    // its submodules read the same way: `store` and `repository`, not `shop.store` and
+    // `store.repository`.
+    const prefix = component.modules.reduce(
+      (acc, name) => (acc === null ? name : acc.split(".").filter((part, index) => name.split(".")[index] === part).join(".")),
+      null,
+    );
+    const short = (name) => {
+      if (!prefix || name === prefix) return name.split(".").pop() || name;
+      return name.startsWith(`${prefix}.`) ? name.slice(prefix.length + 1) : name;
+    };
+    const isPublic = (name) =>
+      component.public !== null && component.public.some((entry) => entry.split(":")[0] === name);
+    return {
+      components: component.modules.map((module) => ({
+        label: module,
+        display: short(module),
+        modules: [],
+        public: isPublic(module) ? [module] : null,
+      })),
+      edges: (component.inner_edges || []).map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        import_sites: edge.import_sites,
+        rule_ids: [],
+        state: "undecided",
+        names: [],
+      })),
+    };
+  }
   const edgeKey = (e) => `${e.source}>${e.target}`;
   let positions = {};
+  let opened = null;
   let selected = null;
   let transform = { x: 0, y: 0, k: 1 };
 
   function computeRanks() {
-    const rank = new Map(DATA.components.map((c) => [c.label, 0]));
+    const view = level();
+    const rank = new Map(view.components.map((c) => [c.label, 0]));
     // Violated edges are excluded: a declared-rule violation is exactly the evidence that the
     // pair should not be read as forward architectural flow, so it must not drive layer depth.
-    const forward = DATA.edges.filter((e) => e.state !== "violation");
-    for (let pass = 0; pass < DATA.components.length; pass += 1) {
+    const forward = view.edges.filter((e) => e.state !== "violation");
+    for (let pass = 0; pass < view.components.length; pass += 1) {
       forward.forEach((e) => {
         rank.set(e.target, Math.max(rank.get(e.target), rank.get(e.source) + 1));
       });
@@ -88,7 +126,7 @@
 
   function layout() {
     const rank = computeRanks();
-    const byRank = groupBy(DATA.components, (c) => rank.get(c.label));
+    const byRank = groupBy(level().components, (c) => rank.get(c.label));
     const ranks = [...byRank.keys()].sort((a, b) => a - b);
     const next = {};
     let row = 0;
@@ -165,7 +203,7 @@
 
   function visibleEdges() {
     const threshold = Number(thresholdInput.value || 0);
-    return DATA.edges.filter((e) => e.state === "violation" || weight(e) >= threshold);
+    return level().edges.filter((e) => e.state === "violation" || weight(e) >= threshold);
   }
 
   function related(edge) {
@@ -177,7 +215,7 @@
   function relatedToSelection(label) {
     if (!selected) return true;
     if (selected.type === "node") {
-      return label === selected.label || DATA.edges.some((e) => related(e) && (e.source === label || e.target === label));
+      return label === selected.label || level().edges.some((e) => related(e) && (e.source === label || e.target === label));
     }
     const [source, target] = selected.key.split(">");
     return label === source || label === target;
@@ -205,12 +243,12 @@
     // render() replaces every card and edge, which would otherwise silently drop keyboard focus.
     const focused = capturedFocus();
     emptyLayer.textContent = "";
-    if (!DATA.components.length) {
+    if (!level().components.length) {
       edgeLayer.textContent = "";
       nodeLayer.textContent = "";
       chipLayer.textContent = "";
       const text = el("text", { x: "0", y: "0", fill: "var(--ck-muted)" });
-      text.textContent = "This observation declares no components.";
+      text.textContent = opened ? `${opened} holds no module.` : "This observation declares no components.";
       emptyLayer.appendChild(text);
       renderInspector([]);
       return;
@@ -219,7 +257,7 @@
     // The panel used to be a fixed height that shrank large graphs to a third of its area (and
     // their text with it). Sizing it to the laid-out content keeps fit()'s scale close to 1.
     svg.style.height = `${Math.max(420, Math.min(860, rows * ROW_STEP + 170))}px`;
-    const max = DATA.edges.reduce((acc, e) => Math.max(acc, weight(e)), 1);
+    const max = level().edges.reduce((acc, e) => Math.max(acc, weight(e)), 1);
     thresholdInput.max = String(max);
     if (Number(thresholdInput.value) > max) thresholdInput.value = String(max);
     thresholdValue.textContent = `≥ ${thresholdInput.value} import sites`;
@@ -292,7 +330,7 @@
     });
 
     chipLayer.textContent = "";
-    const cardBoxes = DATA.components.map((c) => ({
+    const cardBoxes = level().components.map((c) => ({
       x: positions[c.label].x - 4,
       y: positions[c.label].y - 4,
       w: CARD.w + 8,
@@ -342,11 +380,11 @@
     });
 
     nodeLayer.textContent = "";
-    DATA.components.forEach((component) => {
+    level().components.forEach((component) => {
       const pos = positions[component.label];
       const isSelected = selected && selected.type === "node" && selected.label === component.label;
       const dim = selected && !isSelected && !relatedToSelection(component.label);
-      const hasViolation = DATA.edges.some(
+      const hasViolation = level().edges.some(
         (e) => e.state === "violation" && (e.source === component.label || e.target === component.label),
       );
       const card = el("rect", { class: "card", width: String(CARD.w), height: String(CARD.h), rx: "8" });
@@ -358,11 +396,15 @@
         y: "12",
       });
       const label = el("text", { class: "label", x: "16", y: "30" });
-      label.textContent = component.label;
+      label.textContent = component.display || component.label;
       const meta = el("text", { class: "meta", x: "16", y: "56" });
-      meta.textContent = `${component.modules.length} module${component.modules.length === 1 ? "" : "s"} · ${
-        component.public === null ? "no public" : `public ${component.public.length}`
-      }`;
+      meta.textContent = opened
+        ? component.public === null
+          ? "internal"
+          : "public"
+        : `${component.modules.length} module${component.modules.length === 1 ? "" : "s"} · ${
+            component.public === null ? "no public" : `public ${component.public.length}`
+          }`;
       const group = el(
         "g",
         {
@@ -379,6 +421,11 @@
         meta,
       );
       const select = () => {
+        // AD-24: the first click traces a card, the second opens the component behind it.
+        if (!opened && selected && selected.type === "node" && selected.label === component.label) {
+          enter(component.label);
+          return;
+        }
         selected = { type: "node", label: component.label };
         render();
       };
@@ -407,14 +454,18 @@
   }
 
   function statBlock() {
-    const modules = DATA.components.reduce((acc, c) => acc + c.modules.length, 0);
-    const sites = DATA.edges.reduce((acc, e) => acc + weight(e), 0);
-    const violations = new Set(DATA.edges.flatMap((e) => e.rule_ids)).size;
-    return `<dl class="kv"><dt>Components</dt><dd>${DATA.components.length}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${DATA.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Rules broken</dt><dd>${violations}</dd></dl>`;
+    const view = level();
+    const sites = view.edges.reduce((acc, e) => acc + weight(e), 0);
+    if (opened) {
+      return `<dl class="kv"><dt>Modules</dt><dd>${view.components.length}</dd><dt>Imports inside</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd></dl>`;
+    }
+    const modules = view.components.reduce((acc, c) => acc + c.modules.length, 0);
+    const violations = new Set(view.edges.flatMap((e) => e.rule_ids)).size;
+    return `<dl class="kv"><dt>Components</dt><dd>${view.components.length}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Rules broken</dt><dd>${violations}</dd></dl>`;
   }
 
   function topHeaviestEdges(limit) {
-    return [...DATA.edges]
+    return [...level().edges]
       .sort(
         (a, b) => weight(b) - weight(a) || a.source.localeCompare(b.source) || a.target.localeCompare(b.target),
       )
@@ -435,7 +486,10 @@
   }
 
   function overview() {
-    return `<div class="kicker">Overview</div><h2>Component flow</h2><p>Select a card to see its modules and declared public interface, or a connector to see the exact names one component uses from another.</p>${statBlock()}${heaviestBlock()}`;
+    if (opened) {
+      return `<div class="kicker">Inside</div><h2>${esc(opened)}</h2><p>Its modules and the imports between them, observed and undecided: no rule applies inside a component (AD-24). Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
+    }
+    return `<div class="kicker">Overview</div><h2>Component flow</h2><p>Select a card to see its modules and declared public interface, click it again to open it, or select a connector to see the exact names one component uses from another.</p>${statBlock()}${heaviestBlock()}`;
   }
 
   function wireHeaviestRows() {
@@ -471,8 +525,8 @@
         showOverview();
         return;
       }
-      const uses = DATA.edges.filter((e) => e.source === component.label);
-      const usedBy = DATA.edges.filter((e) => e.target === component.label);
+      const uses = level().edges.filter((e) => e.source === component.label);
+      const usedBy = level().edges.filter((e) => e.target === component.label);
       inspector.innerHTML = `<div class="kicker">Component</div><h2>${esc(component.label)}</h2>
         <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd>
         <dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
@@ -487,7 +541,7 @@
     }
     // A heaviest-connections row (any edge, regardless of the threshold slider) can select an
     // edge the diagram is currently hiding, so fall back to the full edge list before giving up.
-    const edge = visible.find((e) => edgeKey(e) === selected.key) || DATA.edges.find((e) => edgeKey(e) === selected.key);
+    const edge = visible.find((e) => edgeKey(e) === selected.key) || level().edges.find((e) => edgeKey(e) === selected.key);
     if (!edge) {
       selected = null;
       showOverview();
@@ -616,6 +670,31 @@
     if (!selected) return;
     selected = null;
     render();
+  });
+
+  function enter(label) {
+    opened = label;
+    selected = null;
+    positions = {};
+    backButton.hidden = false;
+    backButton.textContent = `Back to components (${label})`;
+    render();
+    fit(false);
+  }
+
+  function leave() {
+    if (!opened) return;
+    opened = null;
+    selected = null;
+    positions = {};
+    backButton.hidden = true;
+    render();
+    fit(false);
+  }
+
+  backButton.addEventListener("click", leave);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") leave();
   });
 
   thresholdInput.addEventListener("input", render);

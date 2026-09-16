@@ -56,6 +56,7 @@ only when its row names repository evidence.
 | `ir` derives modules, inner edges, fan-in, fan-out and unresolved calls per component and per package, and `report` shows them without gating on them (AD-21) | `src/archkeel/ir/structure.py`; `tests/test_structure.py`; `docs/architecture/archkeel.md` |
 | The analyzer records non-call uses of a symbol, so a function handed to a table counts as used; a quality claim without its signal stays UNKNOWN (AD-26) | `src/archkeel/analyzer/embedded/references.py`; `src/archkeel/analyzer/embedded/resolve.py`; `tests/test_analyzer.py` |
 | The first Class D claim names the symbols nothing references, with its exemptions and the unresolved-call share beside it, and reports UNKNOWN without its signal (AD-26) | `src/archkeel/ir/references.py`; `tests/test_references.py`; `docs/rules.md` |
+| The flow view opens a component and draws its modules and the imports between them, observed and undecided, from the same observation and no contract field (AD-24) | `src/archkeel/render/flow.py`; `src/archkeel/render/assets/flow.js`; `tests/test_flow.py` |
 
 ## Next
 

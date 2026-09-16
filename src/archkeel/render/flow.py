@@ -17,10 +17,20 @@ EdgeState = Literal["conforms", "violation", "undecided"]
 
 
 @dataclass(frozen=True, slots=True)
+class FlowInnerEdge:
+    """One import between two modules of the same component: observed, never decided."""
+
+    source: str
+    target: str
+    import_sites: int
+
+
+@dataclass(frozen=True, slots=True)
 class FlowComponent:
     label: str
     modules: tuple[str, ...]
     public: tuple[str, ...] | None
+    inner_edges: tuple[FlowInnerEdge, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +88,27 @@ def _component_edges(
     return totals
 
 
+def _inner_edges(
+    observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
+) -> dict[str, list[FlowInnerEdge]]:
+    """Group the module edges that stay inside one component (AD-24), by that component."""
+    grouped: dict[str, list[FlowInnerEdge]] = defaultdict(list)
+    for edge in observation.records("dependency_edges") or ():
+        if edge.data.get("level") != "module":
+            continue
+        source, target, count = (edge.data.get(key) for key in ("source", "target", "count"))
+        if not isinstance(source, str) or not isinstance(target, str) or not isinstance(count, int):
+            continue
+        owner = owner_of(source, components)
+        if owner is None or owner != owner_of(target, components):
+            continue
+        grouped[owner].append(FlowInnerEdge(source, target, count))
+    return {
+        owner: sorted(edges, key=lambda item: (item.source, item.target))
+        for owner, edges in grouped.items()
+    }
+
+
 def _violated_pairs(
     violation: Record, components: tuple[tuple[str, tuple[str, ...]], ...]
 ) -> tuple[tuple[str, str], ...]:
@@ -111,6 +142,7 @@ def build_flow(observation: Observation) -> FlowData:
     ]
     components = component_owners(observation)
     modules_by_owner = _modules_by_owner(observation, components)
+    inner_by_owner = _inner_edges(observation, components)
     flow_components = tuple(
         sorted(
             (
@@ -118,6 +150,7 @@ def build_flow(observation: Observation) -> FlowData:
                     label=record.title,
                     modules=tuple(sorted(modules_by_owner.get(record.title, ()))),
                     public=_public_interface(record),
+                    inner_edges=tuple(inner_by_owner.get(record.title, ())),
                 )
                 for record in declared
             ),

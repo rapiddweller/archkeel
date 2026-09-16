@@ -176,6 +176,14 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
                 "label": component.label,
                 "modules": list(component.modules),
                 "public": list(component.public) if component.public is not None else None,
+                "inner_edges": [
+                    {
+                        "source": inner.source,
+                        "target": inner.target,
+                        "import_sites": inner.import_sites,
+                    }
+                    for inner in component.inner_edges
+                ],
             }
             for component in flow.components
         ],
@@ -221,6 +229,7 @@ def _flow_section(observation: Observation) -> str:
             <output id="flow-threshold-value" class="flow-threshold-value">≥ 0 import sites</output>
           </label>
           <input id="flow-threshold-input" class="flow-threshold" type="range" min="0" value="0">
+          <button type="button" class="flow-back" hidden>Back to components</button>
           <button type="button" class="flow-fit">Fit</button>
         </div>
         <div class="flow-canvas">
