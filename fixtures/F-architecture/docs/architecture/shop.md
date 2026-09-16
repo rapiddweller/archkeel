@@ -15,7 +15,9 @@ Every cross-component pair is either observed or forbidden.
 
 Inside `store`, `shop.store.backend` owns the JSON file format so `shop.store.repository` keeps a
 stable persistence API above it. The seam is internal: no rule decides a pair inside one component
-(AD-24), and the package depth is what the report's drill-down walks.
+(AD-24), and the package depth is what the report's drill-down walks. From outside, the backend is
+out of reach: `DEP-APP-NO-STORE-BACKEND` scopes a prohibition to that subpackage, one level below
+the `app` → `store` edge the contract otherwise allows.
 
 ## Allowed dependencies
 

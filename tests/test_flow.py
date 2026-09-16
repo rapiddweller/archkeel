@@ -25,7 +25,7 @@ _CLEAN = next(variant for variant in CATALOG if variant.id == "clean")
 # external dependency, never a component pair, so they never attach to an edge.
 _TOUR_EDGES = {
     ("app", "model"): (3, ()),
-    ("app", "store"): (5, ("DEP-APP-NO-STORE-SQLITE",)),
+    ("app", "store"): (6, ("DEP-APP-NO-STORE-BACKEND", "DEP-APP-NO-STORE-SQLITE")),
     ("cli", "app"): (1, ()),
     ("cli", "render"): (2, ("INTERFACE-BOUNDARY",)),
     ("model", "render"): (1, ("COMPONENT-NO-CYCLES", "DEP-MODEL-NO-RENDER")),
@@ -70,6 +70,7 @@ def test_flow_violated_edges_carry_only_pair_scoped_rule_ids(tmp_path: Path) -> 
     violated_rule_ids = {rule_id for edge in flow.edges for rule_id in edge.rule_ids}
     assert violated_rule_ids == {
         "COMPONENT-NO-CYCLES",
+        "DEP-APP-NO-STORE-BACKEND",
         "DEP-APP-NO-STORE-SQLITE",
         "DEP-MODEL-NO-RENDER",
         "DEP-RENDER-NO-STORE",
@@ -115,7 +116,7 @@ def test_flow_keeps_violation_state_for_an_edge_that_is_also_undecided(tmp_path:
 
     edge = next(edge for edge in flow.edges if (edge.source, edge.target) == ("app", "store"))
     assert edge.state == "violation"
-    assert edge.rule_ids == ("DEP-APP-NO-STORE-SQLITE",)
+    assert edge.rule_ids == ("DEP-APP-NO-STORE-BACKEND", "DEP-APP-NO-STORE-SQLITE")
 
 
 def test_flow_edge_is_a_frozen_dataclass_value() -> None:

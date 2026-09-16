@@ -212,15 +212,15 @@ def test_html_report_rendered_from_architecture_json_alone_shows_agent_decisions
     )
     result, architecture = run_report(root, config=CONFIG, analyzer=observe)
     assert architecture is not None
-    assert result.agent_decisions == (1, 30)
-    assert "1 of 30 rules decided by the agent" in report_summary(result).sentence
+    assert result.agent_decisions == (1, 31)
+    assert "1 of 31 rules decided by the agent" in report_summary(result).sentence
 
     stripped = replace(result, agent_decisions=None)
     page = render_architecture_html(
         stripped, architecture, repository="shop", architecture_href="architecture.json"
     ).decode()
 
-    assert "1 of 30 rules decided by the agent, awaiting the architect." in page
+    assert "1 of 31 rules decided by the agent, awaiting the architect." in page
 
 
 def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:
@@ -238,6 +238,7 @@ def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:
 # tests/test_flow.py, which derives this set from the same fixture's violations directly).
 _TOUR_FLOW_RULE_IDS = (
     "COMPONENT-NO-CYCLES",
+    "DEP-APP-NO-STORE-BACKEND",
     "DEP-APP-NO-STORE-SQLITE",
     "DEP-MODEL-NO-RENDER",
     "DEP-RENDER-NO-STORE",

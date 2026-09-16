@@ -262,6 +262,16 @@
       "decided_by": "architect"
     },
     {
+      "id": "DEP-APP-NO-STORE-BACKEND",
+      "kind": "forbidden_dependency",
+      "source": "shop.app",
+      "target": "shop.store.backend",
+      "include_type_checking": true,
+      "rationale": "The file layout behind the repository is the store's own business; use cases reach persistence through OrderRepository, never through its backend.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "DEP-STORE-NO-MONEY",
       "kind": "forbidden_dependency",
       "source": "shop.store",

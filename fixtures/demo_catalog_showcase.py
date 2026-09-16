@@ -33,6 +33,7 @@ _TOUR_APP_ORDERS = HEADER + (
     "from typing import TYPE_CHECKING\n\n"
     "from shop.model.entities import Line, Money, Order\n"
     "from shop.store import OrderRepository\n"
+    "from shop.store.backend.files import write_payload\n"
     "from shop.store.sqlite import vacuum\n\n"
     "if TYPE_CHECKING:\n"
     "    from shop.store.sqlite import Connection\n\n\n"
@@ -54,8 +55,9 @@ _TOUR_APP_ORDERS = HEADER + (
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     '    return f"connection to {connection.path}"\n\n\n'
     "def touch_store(connection: object) -> str:\n"
-    '    """A stray runtime reach into shop.store.sqlite, for the showcase tour."""\n'
+    '    """A stray runtime reach into the store internals, for the showcase tour."""\n'
     "    vacuum(connection)\n"
+    '    write_payload(Path(getattr(connection, "path")), {"order_id": "probe", "lines": []})\n'
     '    return json.dumps({"touched": True})\n'
 )
 _TOUR_MODEL_ENTITIES = HEADER + (
@@ -149,12 +151,14 @@ _TOUR = Variant(
     item="tour",
     summary="Every Class A rule kind fires at least once in a single run: a forbidden "
     "render->store pair, a store->Money target_symbol violation, an app->store.sqlite "
-    "runtime reach, an app->json scope violation, a cli->render underscore reach, a "
+    "runtime reach, an app->store.backend reach one package level deeper, an app->json "
+    "scope violation, a cli->render underscore reach, a "
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
-    "assert and an eval in shop.model, Any in the shop.model serialisation boundary, an "
+    "assert, an eval and a getattr, Any in the shop.model serialisation boundary, an "
     "allowed_sources-scoped broad except, and an "
-    "unassigned module. Real run: 12 rule ids and, at validate time, the same 12 "
-    "rule.violated diagnostics plus 2 closed_world.observed_forbidden pairs (model->render, "
+    "unassigned module. Real run: 13 rule ids and 14 violations, since CONSTRUCT-NO-DYNAMIC "
+    "answers both the eval and the getattr; at validate time the same 14 rule.violated "
+    "diagnostics plus 2 closed_world.observed_forbidden pairs (model->render, "
     "render->store) and 1 graph.drift, since the marked graph never declared either edge.",
     files={
         "shop/render/text.py": _TOUR_RENDER_TEXT,
@@ -172,6 +176,8 @@ _TOUR = Variant(
         "CONSTRUCT-NO-ASSERT",
         "CONSTRUCT-NO-BROAD-EXCEPT",
         "CONSTRUCT-NO-DYNAMIC",
+        "CONSTRUCT-NO-DYNAMIC",
+        "DEP-APP-NO-STORE-BACKEND",
         "DEP-APP-NO-STORE-SQLITE",
         "DEP-MODEL-NO-RENDER",
         "DEP-RENDER-NO-STORE",
@@ -183,6 +189,8 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
