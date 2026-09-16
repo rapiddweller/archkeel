@@ -145,7 +145,10 @@ subclass, which the runtime dispatches without naming them.
 - **Determinism:** the candidate list is deterministic for one observation; whether a candidate is
   truly dead is not, and never becomes a verdict or an exit code.
 - **Blind spots:** a consumer outside the scan scope, such as a test, is invisible; so is a name
-  reached through a string, a registry or a plugin entry point.
+  reached through a string, a registry or a plugin entry point. The resolver limits in
+  `known-limits.md` reach the claim as false candidates: a method invoked on a call result, as in
+  `Repository(root).save(...)`, names nothing the claim can see. That is why the unresolved-call
+  share is printed beside the candidates — it is the size of that blind spot.
 - **Example:** on Archkeel itself the signal removed four of six candidates that a call graph alone
   had reported, and the remainder are public API used only by tests.
 
