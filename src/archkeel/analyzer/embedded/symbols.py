@@ -6,11 +6,12 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass
+from archkeel.ir.model import EvidenceClass, stable_id
 
-from .records import RawEvidence, RawRecord, RecordData, classified, stable_id
+from .records import RawEvidence, RawRecord, RecordData, classified
 from .source import ParsedModule, add_evidence, annotation_text, decorator_names, location
 
 
@@ -48,6 +49,23 @@ def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordD
         "returns": annotation_text(node.returns),
         "async": isinstance(node, ast.AsyncFunctionDef),
     }
+
+
+def _shape(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[str, int]:
+    """Digest the body's node types in walk order, dropping every name and literal value.
+
+    Two functions share a shape when they have the same structure, so a renamed copy still
+    matches its original (AD-30). Operators are node types of their own, so `a + b` and
+    `a * b` stay apart. How small a shape may be before it carries no information is the
+    derivation's decision, which is why the node count travels with the digest.
+    """
+    body = node.body
+    # A docstring documents the logic instead of being part of it, exactly as body_is_empty
+    # reads it: counting it would let one sentence of prose disguise a copy.
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        body = body[1:]
+    kinds = [type(child).__name__ for statement in body for child in ast.walk(statement)]
+    return hashlib.sha256("\n".join(kinds).encode()).hexdigest()[:16], len(kinds)
 
 
 def _class_is_frozen(
@@ -116,6 +134,9 @@ def _symbol_data(
     else:
         data.update(_function_signature(node))
         data["symbol_category"] = "method" if parent else "function"
+        shape, shape_nodes = _shape(node)
+        data["shape"] = shape
+        data["shape_nodes"] = shape_nodes
     return data
 
 

@@ -11,9 +11,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from archkeel.ir.model import EvidenceClass
+from archkeel.ir.model import EvidenceClass, stable_id
 
-from .records import RawEvidence, RawRecord, classified, stable_id
+from .records import RawEvidence, RawRecord, classified
 
 
 def location(node: ast.AST) -> tuple[int, int, int]:

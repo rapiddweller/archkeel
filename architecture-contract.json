@@ -13,6 +13,7 @@
         "archkeel.ir.codec",
         "archkeel.ir.decisions",
         "archkeel.ir.digest",
+        "archkeel.ir.duplication",
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
         "archkeel.ir.lock",
@@ -128,7 +129,15 @@
     "context_roots": [],
     "context_roots_provenance": ["docs/architecture/archkeel.md"],
     "paths": [],
-    "spot_owners": []
+    "spot_owners": [
+      {
+        "id": "OWNER-IR-MODEL",
+        "label": "Contract and observation vocabulary",
+        "owner": "archkeel.ir.model",
+        "responsibility": "Rule kinds, record shapes and scope matching stay the single source of truth every component reads.",
+        "provenance": ["docs/architecture/archkeel.md"]
+      }
+    ]
   },
   "rules": [
     {
@@ -278,6 +287,16 @@
       "target": "archkeel.ir.bindings",
       "include_type_checking": true,
       "rationale": "The analyzer records the binding signal; the claim built from those records belongs to the reader, so the two never depend on each other.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-ANALYZER-NO-IR-DUPLICATION",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir.duplication",
+      "include_type_checking": true,
+      "rationale": "The analyzer records the shape signal; the claim built from those shapes belongs to the reader, so the two never depend on each other.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },

@@ -9,9 +9,9 @@ import ast
 import importlib.util
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass, in_scope
+from archkeel.ir.model import EvidenceClass, in_scope, stable_id
 
-from .records import RawEvidence, RawRecord, classified, stable_id
+from .records import RawEvidence, RawRecord, classified
 from .source import AliasBinding, ParsedModule, add_evidence, location, package_for
 
 

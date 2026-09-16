@@ -8,10 +8,10 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 
-from archkeel.ir.model import ContractComponent, ContractPath, EvidenceClass, in_scope
+from archkeel.ir.model import ContractComponent, ContractPath, EvidenceClass, in_scope, stable_id
 
 from .graph import condensation_ranks, strongly_connected_components, transitive_paths
-from .records import RawRecord, classified, stable_id
+from .records import RawRecord, classified
 from .source import ParsedModule
 
 

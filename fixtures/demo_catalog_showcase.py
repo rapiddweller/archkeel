@@ -54,6 +54,12 @@ _TOUR_APP_ORDERS = HEADER + (
     "def describe_connection(connection: Connection) -> str:\n"
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     '    return f"connection to {connection.path}"\n\n\n'
+    "def restate_total(order: Order) -> Money:\n"
+    '    """A second home for the arithmetic shop.model is declared to own (AD-30)."""\n'
+    "    running = Money(0)\n"
+    "    for entry in order.lines:\n"
+    "        running = running + entry.total()\n"
+    "    return running\n\n\n"
     "def touch_store(connection: object, retries: int) -> str:\n"
     '    """A stray runtime reach into the store internals, for the showcase tour."""\n'
     "    attempts = 0\n"

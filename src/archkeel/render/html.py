@@ -14,6 +14,7 @@ from importlib.resources import files
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
+from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
@@ -599,6 +600,38 @@ def _binding_claim_body(claim: BindingReads) -> str:
 """
 
 
+def _repetition_claim_body(claim: OwnedLogic) -> str:
+    if claim.status == "UNKNOWN":
+        return (
+            "<p>Not available: this observation carries no shape signal, so nothing here can say "
+            "which function repeats another.</p>"
+        )
+    if not claim.owners:
+        return (
+            f"<p>Not claimed: no spot_owner is declared, so none of the {claim.functions} "
+            "functions and methods has an owner to repeat.</p>"
+        )
+    if not claim.candidates:
+        return (
+            f"<p>None: across {claim.functions} functions and methods, nothing outside the "
+            f"{claim.owners} declared owners repeats the structure of anything inside them.</p>"
+        )
+    rows = "".join(
+        f"<tr><td><code>{_text(item.outside)}</code></td><td><code>{_text(item.inside)}</code></td>"
+        f"<td><code>{_text(item.owner)}</code></td>"
+        f'<td class="numeric">{item.shape_nodes}</td></tr>'
+        for item in claim.candidates
+    )
+    return f"""
+      <p>{len(claim.candidates)} functions outside a declared owner have the same structure as a
+      function inside it, names and literals aside. Only exact structural twins of at least
+      {MINIMUM_SHAPE_NODES} nodes count, so a shape the language forces is not reported. What the
+      repetition means is the architect's to decide, never a verdict.</p>
+      <table class="data-table"><thead><tr><th>Outside</th><th>Repeats</th><th>Declared owner</th>
+      <th class="numeric">Nodes</th></tr></thead><tbody>{rows}</tbody></table>
+"""
+
+
 def _claims(observation: Observation) -> str:
     """AD-26: every Class D claim, shown with its support and never turned into a verdict."""
     return f"""
@@ -609,6 +642,10 @@ def _claims(observation: Observation) -> str:
     <section class="report-section">
       <h2>Review claim: bindings nobody reads</h2>
       {_binding_claim_body(unread_bindings(observation))}
+    </section>
+    <section class="report-section">
+      <h2>Review claim: logic repeated outside its owner</h2>
+      {_repetition_claim_body(repeated_logic(observation))}
     </section>
 """
 

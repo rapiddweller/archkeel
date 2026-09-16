@@ -11,7 +11,7 @@ from typing import Any, TypeAlias, TypedDict
 
 from archkeel.ir.model import EvidenceClass
 
-ANALYZER_VERSION = "0.16.0"
+ANALYZER_VERSION = "0.17.0"
 # AD-2: record payloads are open JSON whose shape varies by record kind.
 RecordData: TypeAlias = dict[str, Any]
 
@@ -41,11 +41,6 @@ class RawEvidence(TypedDict):
     end_line: int
     column: int
     excerpt: str
-
-
-def stable_id(prefix: str, *parts: object) -> str:
-    payload = "\x1f".join(str(part) for part in parts).encode("utf-8")
-    return f"{prefix}-{hashlib.sha256(payload).hexdigest()[:16]}"
 
 
 def analyzer_code_digest() -> str:

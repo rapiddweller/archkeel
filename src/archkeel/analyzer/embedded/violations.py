@@ -27,10 +27,11 @@ from archkeel.ir.model import (
     SiblingIsolationRule,
     in_scope,
     package_owners,
+    stable_id,
 )
 
 from .graph import strongly_connected_components
-from .records import RawRecord, RecordData, classified, stable_id
+from .records import RawRecord, RecordData, classified
 
 
 def _forbidden_dependency_matches(

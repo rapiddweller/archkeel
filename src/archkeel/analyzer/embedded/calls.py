@@ -9,9 +9,9 @@ import ast
 import builtins
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass
+from archkeel.ir.model import EvidenceClass, stable_id
 
-from .records import RawEvidence, RawRecord, classified, stable_id
+from .records import RawEvidence, RawRecord, classified
 from .resolve import SymbolIndex, resolve_name
 from .source import ParsedModule, add_evidence, annotation_text, location
 

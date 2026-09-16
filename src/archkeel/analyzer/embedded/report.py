@@ -8,10 +8,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.model import SCHEMA_VERSION, ArchitectureContract, EvidenceClass
+from archkeel.ir.model import SCHEMA_VERSION, ArchitectureContract, EvidenceClass, stable_id
 
 from .contract import load_contract, project_declarations
-from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified, stable_id
+from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified
 from .scanner import ScanResult, scan_repository
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")

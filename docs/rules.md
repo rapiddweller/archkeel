@@ -182,6 +182,23 @@ than the body chose them.
   reject such a binding at lint time; the demo tour carries one unread parameter and one
   unread local.
 
+`repeated logic` is the third claim, and the only one that reads a class-C declaration. Its signal
+is the `shape` each function and method symbol carries: the node types of the body in walk order,
+hashed, with names, literal values and the docstring left out, so a renamed or re-documented copy
+still matches its original. The derivation groups functions by shape and, for every declared
+`spot_owner`, names each function outside the owner whose shape matches one inside it.
+
+- **Measurement:** candidates, the declared owners examined, and the functions compared.
+- **Determinism:** the shape is an exact digest, not a similarity score, so the candidate list is
+  the same on every machine; it never becomes a verdict or an exit code.
+- **Blind spots:** a copy that changed one operator or split a loop has a different shape and is
+  invisible. Only exact structural twins of at least ten nodes count, a floor measured so that
+  shapes the language forces — `ast.NodeVisitor` demanding two visit methods, an empty `Protocol`
+  method — are not reported as repetition (AD-30).
+- **Example:** the shop tour copies `Order.total` into `shop.app`, which the claim names against
+  the declared owner `shop.model`; without a declared `spot_owner` the claim reports nothing,
+  because no architect decided anything for it to contradict.
+
 ## Migrating from 1.1.0
 
 Contract 2.0 keeps `components` and `rules` at the top level. Move every class-C declaration
