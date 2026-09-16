@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from shop.model.entities import Order
+from shop.store.backend import read_payload, write_payload
 
 
 class OrderRepository:
@@ -16,10 +16,10 @@ class OrderRepository:
         self._root = root
 
     def save(self, order: Order) -> None:
-        self._path(order.order_id).write_text(json.dumps(order.to_dict()))
+        write_payload(self._path(order.order_id), order.to_dict())
 
     def load(self, order_id: str) -> Order:
-        return Order.from_dict(json.loads(self._path(order_id).read_text()))
+        return Order.from_dict(read_payload(self._path(order_id)))
 
     def _path(self, order_id: str) -> Path:
         return self._root / f"{order_id}.json"

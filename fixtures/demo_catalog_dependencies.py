@@ -255,8 +255,13 @@ _DECISION_CONFLICT = Variant(
             }
         )
     },
-    expected_violations=("DEP-STORE-NO-MODEL-CONFLICT",),
-    expected_codes=("closed_world.observed_forbidden", "decision.conflict", "rule.violated"),
+    expected_violations=("DEP-STORE-NO-MODEL-CONFLICT", "DEP-STORE-NO-MODEL-CONFLICT"),
+    expected_codes=(
+        "closed_world.observed_forbidden",
+        "decision.conflict",
+        "rule.violated",
+        "rule.violated",
+    ),
 )
 
 _SIBLING_ISOLATION = Variant(

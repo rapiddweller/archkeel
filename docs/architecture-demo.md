@@ -11,7 +11,7 @@ run shows many violations together; every other row isolates one item.
 
 | Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |
 |---|---|---|---|---|---|---|
-| showcase | tour | tour | validate/report run | ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ASSERT, CONSTRUCT-NO-BROAD-EXCEPT, CONSTRUCT-NO-DYNAMIC, DEP-APP-NO-STORE-SQLITE, DEP-MODEL-NO-RENDER, DEP-RENDER-NO-STORE, DEP-STORE-NO-MONEY, EXTERNAL-JSON-STORE, INTERFACE-BOUNDARY | closed_world.observed_forbidden, closed_world.observed_forbidden, graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/extra.py, shop/model/entities.py, shop/render/text.py, shop/store/repository.py |
+| showcase | tour | tour | validate/report run | ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ASSERT, CONSTRUCT-NO-BROAD-EXCEPT, CONSTRUCT-NO-DYNAMIC, DEP-APP-NO-STORE-SQLITE, DEP-MODEL-NO-RENDER, DEP-RENDER-NO-STORE, DEP-STORE-NO-MONEY, EXTERNAL-JSON-STORE, INTERFACE-BOUNDARY | closed_world.observed_forbidden, closed_world.observed_forbidden, graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/extra.py, shop/model/entities.py, shop/render/text.py, shop/store/repository.py |
 | clean | shop sample | clean | validate/report run | - | - | clean sample |
 | class_a | forbidden_construct:getattr | class-a-construct-getattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_getattr.py |
 | class_a | forbidden_construct:hasattr | class-a-construct-hasattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_hasattr.py |
@@ -34,7 +34,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |
 | class_a | closed_world:duplicate | class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
-| class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated | architecture-contract.json |
+| class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated, rule.violated | architecture-contract.json |
 | class_a | sibling_isolation:peer import | class-a-sibling-isolation | validate/report run | STORE-PEERS-ISOLATED | rule.violated | architecture-contract.json, shop/store/sqlite.py |
 | class_a | interface_boundary:underscore | class-a-interface-boundary-underscore | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:undeclared symbol | class-a-interface-boundary-undeclared-symbol | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
@@ -56,7 +56,7 @@ run shows many violations together; every other row isolates one item.
 | validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
 | validation | rule_without_subjects | validation-rule-without-subjects | validate/report run | - | - | architecture-contract.json |
 | validation | parse_error | validation-parse-error | validate/report run | - | - | shop/model/broken_syntax.py |
-| validation | scope_empty | validation-scope-empty | validate/report run | - | - | architecture-contract.json, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/model/entities.py, shop/render/text.py, shop/store/__init__.py, shop/store/repository.py, shop/store/sqlite.py |
+| validation | scope_empty | validation-scope-empty | validate/report run | - | - | architecture-contract.json, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/model/entities.py, shop/render/text.py, shop/store/__init__.py, shop/store/backend/__init__.py, shop/store/backend/files.py, shop/store/repository.py, shop/store/sqlite.py |
 | validation | runtime_mismatch | validation-runtime-mismatch | validate/report run | - | - | pyproject.toml |
 | validation | missing_tool | validation-missing-tool | tested only | - | - | tests/test_analyzer.py |
 | validation | timeout | validation-timeout | tested only | - | - | tests/test_analyzer.py |

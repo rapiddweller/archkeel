@@ -13,6 +13,10 @@ Every cross-component pair is either observed or forbidden.
 | render | `shop.render` | Text projection of an order |
 | cli | `shop.cli` | Argument parsing and composition |
 
+Inside `store`, `shop.store.backend` owns the JSON file format so `shop.store.repository` keeps a
+stable persistence API above it. The seam is internal: no rule decides a pair inside one component
+(AD-24), and the package depth is what the report's drill-down walks.
+
 ## Allowed dependencies
 
 | Edge | Reason |

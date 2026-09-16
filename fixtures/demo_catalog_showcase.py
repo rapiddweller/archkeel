@@ -62,8 +62,17 @@ _TOUR_MODEL_ENTITIES = HEADER + (
     '"""Order and Line value types with Money arithmetic."""\n\n'
     "from __future__ import annotations\n\n"
     "from dataclasses import dataclass\n"
-    "from typing import Any\n\n"
-    '__all__ = ["Order", "Line", "Money"]\n\n\n'
+    "from typing import Any, TypedDict\n\n"
+    '__all__ = ["Order", "Line", "Money", "OrderPayload", "LinePayload"]\n\n\n'
+    "class LinePayload(TypedDict):\n"
+    '    """The serialised shape of one order line."""\n\n'
+    "    description: str\n"
+    "    quantity: int\n"
+    "    unit_price: int\n\n\n"
+    "class OrderPayload(TypedDict):\n"
+    '    """The serialised shape of one order."""\n\n'
+    "    order_id: str\n"
+    "    lines: list[LinePayload]\n\n\n"
     "@dataclass(frozen=True, slots=True)\n"
     "class Money:\n"
     '    """An amount in integer cents."""\n\n'
@@ -87,18 +96,18 @@ _TOUR_MODEL_ENTITIES = HEADER + (
     "    unit_price: Money\n\n"
     "    def total(self) -> Money:\n"
     "        return self.unit_price * self.quantity\n\n"
-    "    def to_dict(self) -> dict[str, Any]:\n"
+    "    def to_dict(self) -> LinePayload:\n"
     "        return {\n"
     '            "description": self.description,\n'
     '            "quantity": self.quantity,\n'
     '            "unit_price": self.unit_price.cents,\n'
     "        }\n\n"
     "    @classmethod\n"
-    "    def from_dict(cls, payload: dict[str, Any]) -> Line:\n"
+    "    def from_dict(cls, payload: LinePayload) -> Line:\n"
     "        return cls(\n"
-    '            description=str(payload["description"]),\n'
-    '            quantity=int(payload["quantity"]),\n'
-    '            unit_price=Money(int(payload["unit_price"])),\n'
+    '            description=payload["description"],\n'
+    '            quantity=payload["quantity"],\n'
+    '            unit_price=Money(payload["unit_price"]),\n'
     "        )\n\n\n"
     "@dataclass(frozen=True, slots=True)\n"
     "class Order:\n"
@@ -109,19 +118,19 @@ _TOUR_MODEL_ENTITIES = HEADER + (
     "        for line in self.lines:\n"
     "            result = result + line.total()\n"
     "        return result\n\n"
-    "    def to_dict(self) -> dict[str, Any]:\n"
+    "    def to_dict(self) -> OrderPayload:\n"
     '        return {"order_id": self.order_id, "lines": [line.to_dict() for line in '
     "self.lines]}\n\n"
     "    @classmethod\n"
-    "    def from_dict(cls, payload: dict[str, Any]) -> Order:\n"
+    "    def from_dict(cls, payload: OrderPayload) -> Order:\n"
     '        lines = tuple(Line.from_dict(item) for item in payload["lines"])\n'
-    '        return cls(order_id=str(payload["order_id"]), lines=lines)\n\n\n'
-    "def audit_total(order: Order) -> str:\n"
-    '    """Assert/eval probe plus a function-local render import, for the showcase tour."""\n'
+    '        return cls(order_id=payload["order_id"], lines=lines)\n\n\n'
+    "def audit_total(order: Order, options: Any) -> str:\n"
+    '    """Assert/eval probe, an Any parameter and a local render import, for the tour."""\n'
     '    assert order.lines, "orders must have at least one line"\n'
     '    doubled = eval("1 + 1")\n'
     "    from shop.render.text import render_order\n\n"
-    '    return f"{render_order(order)} (audit factor {doubled})"\n'
+    '    return f"{render_order(order)} (audit {doubled} of {options})"\n'
 )
 _TOUR_APP_MAINTENANCE = HEADER + (
     '"""Maintenance use case: compact the store, the one allowed runtime path to '
@@ -144,9 +153,8 @@ _TOUR = Variant(
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
     "assert and an eval in shop.model, Any in the shop.model serialisation boundary, an "
     "allowed_sources-scoped broad except, and an "
-    "unassigned module. Real run: 12 rule ids and, at validate time, 15 rule.violated "
-    "diagnostics, because CONSTRUCT-NO-ANY fires once per annotation and the serialisation "
-    "boundary carries four, plus 2 closed_world.observed_forbidden pairs (model->render, "
+    "unassigned module. Real run: 12 rule ids and, at validate time, the same 12 "
+    "rule.violated diagnostics plus 2 closed_world.observed_forbidden pairs (model->render, "
     "render->store) and 1 graph.drift, since the marked graph never declared either edge.",
     files={
         "shop/render/text.py": _TOUR_RENDER_TEXT,
@@ -160,9 +168,6 @@ _TOUR = Variant(
     expected_violations=(
         "ASSIGNMENT-COMPLETE",
         "COMPONENT-NO-CYCLES",
-        "CONSTRUCT-NO-ANY",
-        "CONSTRUCT-NO-ANY",
-        "CONSTRUCT-NO-ANY",
         "CONSTRUCT-NO-ANY",
         "CONSTRUCT-NO-ASSERT",
         "CONSTRUCT-NO-BROAD-EXCEPT",
@@ -178,9 +183,6 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
-        "rule.violated",
-        "rule.violated",
-        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",

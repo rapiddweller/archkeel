@@ -228,6 +228,8 @@ _SHOP_PY_FILES = (
     "shop/model/entities.py",
     "shop/render/text.py",
     "shop/store/__init__.py",
+    "shop/store/backend/__init__.py",
+    "shop/store/backend/files.py",
     "shop/store/repository.py",
     "shop/store/sqlite.py",
 )

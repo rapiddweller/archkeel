@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypedDict
 
-__all__ = ["Order", "Line", "Money"]
+__all__ = ["Order", "Line", "Money", "OrderPayload", "LinePayload"]
 
 
 class LinePayload(TypedDict):
