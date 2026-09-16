@@ -65,9 +65,30 @@ only when its row names repository evidence.
 3. Replace internal vocabulary in the HTML report labels: `Complete ArchitectureIR inventory`,
    `Canonical result`, `Reproduction metadata`, `Coverage dimension`, `Fingerprint` and
    `Publication order evidence` name concepts a reader has to look up (AD-19).
+4. Derive module count, inner edges, fan-in, fan-out and unresolved-call share per component and
+   per package in `ir`, and show them in `report` without gating on them (AD-21). Evidence: across
+   50 self-reports since 0.2.0 the global unresolved ratio improved four times while one component
+   got worse; at 0.3.0 the per-component share runs from 8.4% (`ir`) to 41.8% (`cli`).
+5. Name the open decisions in the report headline instead of letting an undecided contract read
+   PASS (AD-23). Evidence: a drafted second level reported exit 0 and zero violations while 132
+   pairs were undecided.
+6. Open a component in the flow view and draw its modules and their imports from the same
+   observation (AD-24). Evidence: 74 of the 142 observed module edges lie inside one component and
+   are never shown.
+7. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
+   without the JSON that the two snapshots were comparable at all.
 
 ## Later
 
+- Tie two levels together (AD-20): a contract field that names the contract describing a
+  component's inside, the measured number reported upward, and the two checks that both levels
+  declare the same `public` interface and that nothing inside imports what the level above forbids.
+  Evidence: a second level on `src/archkeel/check` drafted 12 sub-components and 132 open decisions
+  with today's commands and no model change.
+- Make the analyzer a process port with a language profile and prove it with a second analyzer
+  (AD-22). Six places still assume Python: the import in the CLI, the namespace pattern in the
+  configuration, the `public` and dependency patterns in the schema, the construct enum and the
+  runtime gate.
 - Decide the regression policy, implement `accept`, add a GitHub host adapter and consider
   renaming the `ratchets` schema field to `regression_checks`. Evidence: `5a07aed` reduced
   `calls_unresolved` from 484 to 466 while `unresolved_ratio` worsened from 19.28% to 19.46%

@@ -264,6 +264,57 @@ contract tests keep asserting the unchanged keys and codes. Two wording findings
 tracked in the roadmap: every validation panel is titled `contract_invalid` although its code is
 specific, and the HTML report labels sections with internal vocabulary such as `ArchitectureIR`.
 
+**AD-20 A level is its own contract, never a nesting inside one contract.** Depth is unlimited and
+always optional: a component's inside is described by its own `archkeel.toml` with its own scan
+scope and its own contract, and the component model gains no parent or child field. Levels are tied
+together by three things only: a contract field that names the contract describing a component's
+inside, one measured number reported upward for that component, and two checks, namely that both
+levels declare the same `public` interface for it and that nothing inside imports what the level
+above forbids. `init` never opens a second level by itself. Reason: a second level on `check` drafted
+12 sub-components and asked for 132 decisions, four times the 30 pairs of the whole top level,
+because closed-world coverage applies per level; nesting inside one contract would multiply that set
+and would need a precedence rule between levels. The mechanics already work without a model change:
+the same commands run on a scope of `src/archkeel/check`, where sibling components appear as external
+packages. Check: the two consistency checks, and a test that `init` on a repository with a contract
+proposes no second level.
+
+**AD-21 Structure measurements are derivations, never gates.** `ir` derives, from modules and
+module-level edges alone, the module count, inner edges, fan-in, fan-out and unresolved-call share
+per component and per package; `report` shows them. No verdict, no rule and no exit code depends on
+them, and the same holds for any number a view computes about its own drawing. Reason: the global
+unresolved ratio hides a local blind spot. Across 50 self-reports since 0.2.0 the global ratio
+improved four times while one component got worse, and the spread at 0.3.0 runs from 8.4% in `ir` to
+41.8% in `cli` around a global 19.1%. Making such a number a gate would contradict the roadmap's own
+exclusion of a total score and would invite refactoring for the sake of a figure. Check: the derived
+numbers sum to the observation's totals, and `ir` stays free of I/O (AD-17).
+
+**AD-22 The analyzer is a process port with a language profile.** The analyzer is chosen by
+configuration and may be any executable that writes a canonical observation to stdout; the core
+validates it against `schema/architecture-ir-common.schema.json` plus the profile of its language.
+Language-specific constructs leave the contract's fixed enum and become capabilities the analyzer
+declares, `python_version` becomes a general runtime field, and the Python core stays as it is.
+Reason: the boundary already exists as the `Analyzer` protocol and as two schemas, one common and one
+named a Python profile; only six places still assume Python, namely the import in the CLI, the
+namespace pattern in the configuration, the `public` and dependency patterns in the schema, the
+construct enum and the runtime gate. Comparability keeps hanging on the analyzer digest (AD-3), which
+is per analyzer and needs no change. Check: a second analyzer produces a valid observation and its
+own self-fixture, and contract validation rejects a construct the analyzer does not declare.
+
+**AD-23 The report headline follows open decisions as well.** A `report` whose contract still has
+open decisions must not read PASS: the headline names them, the way AD-14 makes it name violated
+rules. Reason: on a freshly drafted second level, `report` exited 0 with zero violations and said
+nothing about 132 undecided pairs, so a contract that decides nothing looked finished. Check: a
+render test for a report whose contract leaves one pair undecided.
+
+**AD-24 The report opens a component without requiring a decision.** The flow view may open a
+component and show its modules and the imports between them, derived from the same observation and
+from no contract field. Inside a component nothing is decided, so those edges are drawn as observed,
+never as conforming. Reason: the data is already measured and never shown: 142 module edges, 74 of
+them inside a single component, with full module names. Looking inside costs nothing, while deciding
+inside is AD-20 and costs a contract of its own. Limit: a further step into a module can only use
+`symbols` and `calls`, and about one call in five stays unresolved, so such a view would show
+structure without proving relations. Check: the opened view renders from `architecture.json` alone.
+
 ## Allowed dependencies
 
 | Edge | Reason |
