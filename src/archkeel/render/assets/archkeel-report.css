@@ -504,6 +504,9 @@ code {
 .flow-arrow.undecided path {
   fill: var(--ck-unknown);
 }
+.flow-arrow.observed path {
+  fill: var(--ck-muted);
+}
 .edge .line {
   fill: none;
   stroke-linecap: round;
@@ -512,15 +515,22 @@ code {
 .edge.conforms .line {
   stroke: var(--ck-teal);
 }
+/* The dash pattern is set per edge in flow.js, as a multiple of that edge's own width. */
 .edge.violation .line {
   stroke: var(--ck-fail);
-  stroke-dasharray: 7 6;
 }
 .edge.undecided .line {
   stroke: var(--ck-unknown);
-  stroke-dasharray: 2 4;
+}
+/* Observed, not undecided: nothing is owed here, so it must not borrow the warning colour. */
+.edge.observed .line {
+  stroke: var(--ck-muted);
+  opacity: 0.6;
 }
 .edge .line {
+  marker-end: url(#flow-arrow-observed);
+}
+.edge.undecided .line {
   marker-end: url(#flow-arrow-undecided);
 }
 .edge.conforms .line {
@@ -529,13 +539,17 @@ code {
 .edge.violation .line {
   marker-end: url(#flow-arrow-violation);
 }
-/* The pulse travels source to target, so the direction is visible without reading labels. */
+/* The pulse travels source to target, so the direction is visible without reading labels.
+   It must stay a light riding on the line, never a lump crawling over it: a fixed hairline
+   width, so a heavy edge does not grow a fat caterpillar, and short gaps so the eye reads
+   motion rather than single blobs. */
 .edge .pulse {
   fill: none;
   stroke-linecap: round;
-  stroke-width: 2.5px;
-  stroke-dasharray: 3 26;
-  animation: flow-pulse 2.4s linear infinite;
+  stroke-width: 1.25px;
+  stroke-dasharray: 1 13;
+  opacity: 0.9;
+  animation: flow-pulse 1.8s linear infinite;
 }
 .edge.conforms .pulse {
   stroke: var(--ck-teal);
@@ -546,9 +560,12 @@ code {
 .edge.undecided .pulse {
   stroke: var(--ck-unknown);
 }
+.edge.observed .pulse {
+  stroke: var(--ck-muted);
+}
 @keyframes flow-pulse {
   from {
-    stroke-dashoffset: 29;
+    stroke-dashoffset: 14;
   }
   to {
     stroke-dashoffset: 0;

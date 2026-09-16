@@ -134,7 +134,8 @@ def test_flow_carries_the_imports_inside_one_component(tmp_path: Path) -> None:
     # Every inner edge stays inside the component; a crossing edge belongs to flow.edges.
     assert all(source in store.modules and target in store.modules for source, target in inner)
     assert all(edge.import_sites > 0 for edge in store.inner_edges)
-    assert all(edge.state == "undecided" and edge.rule_ids == () for edge in store.inner_edges)
+    # AD-24b: observed, not undecided - no decision is owed for a pair inside one component.
+    assert all(edge.state == "observed" and edge.rule_ids == () for edge in store.inner_edges)
     crossing = {(edge.source, edge.target) for edge in flow.edges}
     assert not inner & crossing
 

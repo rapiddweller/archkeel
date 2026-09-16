@@ -13,7 +13,7 @@ from archkeel.ir.decisions import open_decisions
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.model import Observation, Record, text_value
 
-EdgeState = Literal["conforms", "violation", "undecided"]
+EdgeState = Literal["conforms", "violation", "undecided", "observed"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,16 +21,20 @@ class FlowInnerEdge:
     """One import between two modules of the same component.
 
     Inside a component no rule decides a pair by default (AD-24), so an inner edge is
-    undecided unless a rule speaks about those two modules directly - `sibling_isolation`
+    `observed` unless a rule speaks about those two modules directly - `sibling_isolation`
     over peers, or a dependency rule scoped below the component. Reporting every inner edge
     as undecided hid those verdicts, which is why the state travels with the edge.
+
+    `observed` is not `undecided`: at component level undecided means a decision is owed and
+    `validate` reports it, while here none is expected and validate demands none. Sharing one
+    colour claimed 90 open decisions this repository does not have.
     """
 
     source: str
     target: str
     import_sites: int
     rule_ids: tuple[str, ...] = ()
-    state: EdgeState = "undecided"
+    state: EdgeState = "observed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,7 +161,7 @@ def _inner_edges(
         if owner is None or owner != owner_of(target, components):
             continue
         rule_ids = pair_rules.get((source, target), ())
-        state: EdgeState = "violation" if rule_ids else "undecided"
+        state: EdgeState = "violation" if rule_ids else "observed"
         grouped[owner].append(FlowInnerEdge(source, target, count, rule_ids, state))
     return {
         owner: sorted(edges, key=lambda item: (item.source, item.target))

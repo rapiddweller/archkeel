@@ -21,7 +21,8 @@
   const EDGE_STATES = [
     { id: "conforms", label: "Conforms to the contract" },
     { id: "violation", label: "Violation" },
-    { id: "undecided", label: "Undecided" },
+    { id: "undecided", label: "Undecided: a decision is owed" },
+    { id: "observed", label: "Observed inside a component: no decision expected (AD-24)" },
   ];
 
   const svg = root.querySelector(".flow-graph");
@@ -105,7 +106,7 @@
         target: edge.target,
         import_sites: edge.import_sites,
         rule_ids: edge.rule_ids || [],
-        state: edge.state || "undecided",
+        state: edge.state || "observed",
         names: [],
       })),
     };
@@ -132,7 +133,7 @@
         target: edge.target,
         import_sites: 1,
         rule_ids: [],
-        state: "undecided",
+        state: "observed",
         names: [],
       })),
     };
@@ -249,6 +250,16 @@
     return edge.import_sites;
   }
 
+  // Dash lengths are multiples of the line's own width, never absolute pixels: a violation
+  // reads as long strokes, an undecided pair as fine dots, at every weight. A conforming edge
+  // stays solid, which is what makes the other two legible as exceptions.
+  const DASH_RATIOS = { violation: [2.4, 1.8], undecided: [0.55, 1.5], observed: [1.6, 1.4] };
+  function dashFor(state, width) {
+    const ratio = DASH_RATIOS[state];
+    if (!ratio) return {};
+    return { "stroke-dasharray": ratio.map((part) => (part * width).toFixed(2)).join(" ") };
+  }
+
   function visibleEdges() {
     const threshold = Number(thresholdInput.value || 0);
     return level().edges.filter((e) => e.state === "violation" || weight(e) >= threshold);
@@ -339,10 +350,15 @@
 
     edgeLayer.textContent = "";
     routed.forEach((r) => {
+      // A dash pattern in absolute pixels turns to blocks once the line outgrows it: at 5.9px
+      // wide, a 2px dash is a third of its own thickness. Both patterns scale with the width
+      // so the ratio - and with it the meaning each pattern carries - stays constant.
+      const width = 1.4 + 4.5 * Math.sqrt(weight(r.edge) / max);
       const line = el("path", {
         class: "line",
         d: r.d,
-        "stroke-width": (1.4 + 4.5 * Math.sqrt(weight(r.edge) / max)).toFixed(2),
+        "stroke-width": width.toFixed(2),
+        ...dashFor(r.edge.state, width),
       });
       const title = el("title");
       title.textContent = `${r.edge.source} → ${r.edge.target}`;
@@ -555,7 +571,7 @@
       return `<div class="kicker">Inside</div><h2>${esc(opened.module)}</h2><p>The functions and classes it declares and the calls and references between them; methods are listed on the card of the class that owns them. A card marked public is imported by another module (AD-24a). Press Escape or use Back to leave.</p>${statBlock()}${reaches ? `<h3>Reaches outward</h3><ul class="names">${reaches}</ul>` : ""}`;
     }
     if (opened) {
-      return `<div class="kicker">Inside</div><h2>${esc(opened.component)}</h2><p>Its modules and the imports between them, observed and undecided: no rule applies inside a component (AD-24). Click a module again to open it. Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
+      return `<div class="kicker">Inside</div><h2>${esc(opened.component)}</h2><p>Its modules and the imports between them. An edge here is observed, not undecided: no decision is owed inside a component (AD-24b), so these carry no warning colour. A rule scoped below the component still decides its pair, and that edge turns red. Click a module again to open it. Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
     }
     return `<div class="kicker">Overview</div><h2>Component flow</h2><p>Select a card to see its modules and declared public interface, click it again to open it, or select a connector to see the exact names one component uses from another.</p>${statBlock()}${heaviestBlock()}`;
   }
@@ -662,7 +678,16 @@
     const swatch = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     swatch.setAttribute("class", "flow-legend-swatch");
     swatch.setAttribute("viewBox", "0 0 28 10");
-    swatch.appendChild(el("g", { class: `edge ${state}` }, el("path", { class: "line", d: "M1,5 H27" })));
+    // The swatch draws the same ratio the diagram does, at the width it is drawn here, so the
+    // legend keeps explaining the pattern the reader actually sees.
+    const width = 2;
+    swatch.appendChild(
+      el(
+        "g",
+        { class: `edge ${state}` },
+        el("path", { class: "line", d: "M1,5 H27", "stroke-width": String(width), ...dashFor(state, width) }),
+      ),
+    );
     return swatch;
   }
 

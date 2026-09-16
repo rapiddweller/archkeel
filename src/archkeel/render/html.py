@@ -251,9 +251,12 @@ def _flow_section(observation: Observation) -> str:
     return f"""
     <section class="report-section flow-section" aria-labelledby="flow-heading">
       <h2 id="flow-heading">Component flow</h2>
-      <p>Component cards and the observed edges between them, weighted by import sites.
-        Dashed red edges break a declared rule; the label names the rule id. This view needs
-        JavaScript; the table below lists the same crossings for print and no-script use.</p>
+      <p>Component cards and the observed edges between them, weighted by import sites. An
+        arrow and a travelling pulse run from the importer to the imported. Red breaks a
+        declared rule and the label names it; teal conforms; amber is undecided, a decision
+        the contract still owes; grey is observed inside a component, where none is owed
+        (AD-24b). This view needs JavaScript; the table below lists the same crossings for
+        print and no-script use.</p>
       <div id="flow" class="flow">
         <div class="flow-toolbar">
           <label for="flow-threshold-input">Hide edges below
@@ -267,20 +270,28 @@ def _flow_section(observation: Observation) -> str:
         <div class="flow-canvas">
           <svg class="flow-graph" role="group" aria-label="Component flow diagram">
             <defs>
+              <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
+                   line: a heavy edge grew a 26px head, a light one 8px, so the size read as
+                   weight instead of direction. userSpaceOnUse keeps every head the same. -->
               <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8"
-                      refX="7" refY="4" markerWidth="7" markerHeight="7"
-                      orient="auto-start-reverse">
-                <path d="M0,0 L8,4 L0,8 z"></path>
+                      refX="6" refY="4" markerWidth="8" markerHeight="8"
+                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
               </marker>
               <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8"
-                      refX="7" refY="4" markerWidth="7" markerHeight="7"
-                      orient="auto-start-reverse">
-                <path d="M0,0 L8,4 L0,8 z"></path>
+                      refX="6" refY="4" markerWidth="8" markerHeight="8"
+                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
               </marker>
               <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8"
-                      refX="7" refY="4" markerWidth="7" markerHeight="7"
-                      orient="auto-start-reverse">
-                <path d="M0,0 L8,4 L0,8 z"></path>
+                      refX="6" refY="4" markerWidth="8" markerHeight="8"
+                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+              </marker>
+              <marker id="flow-arrow-observed" class="flow-arrow observed" viewBox="0 0 8 8"
+                      refX="6" refY="4" markerWidth="8" markerHeight="8"
+                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
               </marker>
             </defs>
             <g class="flow-viewport">
