@@ -698,7 +698,13 @@
   });
 
   thresholdInput.addEventListener("input", render);
-  fitButton.addEventListener("click", () => fit(true));
+  // Fit used to move the camera only, which left a hand-dragged card where it was and offered
+  // no way back to the computed arrangement.
+  fitButton.addEventListener("click", () => {
+    positions = {};
+    render();
+    fit(true);
+  });
 
   renderLegend();
   render();

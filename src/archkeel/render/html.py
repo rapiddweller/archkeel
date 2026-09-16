@@ -230,7 +230,8 @@ def _flow_section(observation: Observation) -> str:
           </label>
           <input id="flow-threshold-input" class="flow-threshold" type="range" min="0" value="0">
           <button type="button" class="flow-back" hidden>Back to components</button>
-          <button type="button" class="flow-fit">Fit</button>
+          <button type="button" class="flow-fit"
+            title="Lay the cards out again and fit them into view">Arrange</button>
         </div>
         <div class="flow-canvas">
           <svg class="flow-graph" role="group" aria-label="Component flow diagram">
