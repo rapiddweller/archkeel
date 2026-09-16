@@ -73,6 +73,13 @@ _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
         "def widen(value: Any) -> str:\n"
         "    return str(value)\n"
     ),
+    ForbiddenConstructKind.PLACEHOLDER_BODY: HEADER
+    + (
+        '"""Placeholder-body probe for the architecture demo."""\n\n'
+        "from __future__ import annotations\n\n\n"
+        "def apply_discount(amount: int) -> int:\n"
+        "    pass\n"
+    ),
     ForbiddenConstructKind.ASSERT: HEADER
     + (
         '"""Assert probe for the architecture demo."""\n\n'
@@ -100,6 +107,8 @@ _CONSTRUCT_RULE: dict[ForbiddenConstructKind, str] = {
         if kind is ForbiddenConstructKind.BROAD_EXCEPT
         else "CONSTRUCT-NO-ANY"
         if kind is ForbiddenConstructKind.ANY_ANNOTATION
+        else "CONSTRUCT-NO-PLACEHOLDER"
+        if kind is ForbiddenConstructKind.PLACEHOLDER_BODY
         else "CONSTRUCT-NO-DYNAMIC"
     )
     for kind in ForbiddenConstructKind

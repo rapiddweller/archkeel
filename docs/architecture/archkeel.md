@@ -363,6 +363,19 @@ contract that needs it scopes it with `allowed_sources` and records why, rather 
 rule. Check: the shop sample declares no `Any` and passes; the tour overlay declares one and
 fails with `CONSTRUCT-NO-ANY`.
 
+**AD-29 A function that does nothing is a claim, not a stub.** An agent that writes a function
+whose body is `pass`, `...` or a lone `raise NotImplementedError` has reported progress it did not
+make, and every caller downstream is written against a promise. `placeholder_body` joins
+`ForbiddenConstructKind` as one kind rather than three, because the three spellings state the same
+thing and the spelling belongs in the record, not in the contract. Emptiness is legitimate exactly
+where it is the interface: a method carrying `@abstractmethod` or `@overload`, and a method of a
+class that has a base, where a protocol declares the shape and an override may deliberately do
+nothing. The predicate that decides emptiness now lives in `source.py`, which both collectors
+already import, instead of being written twice — collectors are peers that never import each other
+(AD-25), and a third module for six lines would be machinery for its own sake. Check: Archkeel
+declares the rule for itself and stays green, because its only two empty bodies are `Protocol`
+methods; a probe with a bare `pass` fails.
+
 **AD-28 An undeclared external dependency is a hole, not a detail.** `external_dependency_scope`
 limits a dependency the contract already names, so nothing ever decided an import the contract
 never mentions: a module importing `helpers`, or a package that does not exist at all, passed with

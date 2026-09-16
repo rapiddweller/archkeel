@@ -21,6 +21,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | forbidden_construct:dynamic_import | class-a-construct-dynamic_import | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_dynamic_import.py |
 | class_a | forbidden_construct:type_ignore | class-a-construct-type_ignore | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_type_ignore.py |
 | class_a | forbidden_construct:any_annotation | class-a-construct-any_annotation | validate/report run | CONSTRUCT-NO-ANY | rule.violated | shop/model/probe_any_annotation.py |
+| class_a | forbidden_construct:placeholder_body | class-a-construct-placeholder_body | validate/report run | CONSTRUCT-NO-PLACEHOLDER | rule.violated | shop/model/probe_placeholder_body.py |
 | class_a | forbidden_construct:assert | class-a-construct-assert | validate/report run | CONSTRUCT-NO-ASSERT | rule.violated | shop/model/probe_assert.py |
 | class_a | forbidden_construct:broad_except | class-a-construct-broad_except | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | shop/model/probe_broad_except.py |
 | class_a | forbidden_construct:broad_except (allowed source) | class-a-broad-except-allowed | validate/report run | - | - | shop/cli/main.py |

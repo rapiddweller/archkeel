@@ -355,6 +355,15 @@
       "decided_by": "architect"
     },
     {
+      "id": "CONSTRUCT-NO-PLACEHOLDER",
+      "kind": "forbidden_construct",
+      "source": "shop",
+      "constructs": ["placeholder_body"],
+      "rationale": "A function whose body is pass, ellipsis or a lone NotImplementedError reports capability it does not have, and its callers are written against that promise.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "CONSTRUCT-NO-ASSERT",
       "kind": "forbidden_construct",
       "source": "shop",

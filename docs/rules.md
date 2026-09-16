@@ -39,8 +39,11 @@ on `sample.cli` when no code observes that edge is valid; it simply decides the 
 
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources`, whose
 prefixes exempt owners as in `external_dependency_scope`. Supported constructs are `getattr`,
-`hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `any_annotation`, `assert` and
-`broad_except`. It matches typing-signal records from direct AST calls, type-ignore comments and
+`hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `any_annotation`,
+`placeholder_body`, `assert` and `broad_except`. `placeholder_body` covers a function body that is
+only `pass`, `...` or a lone `raise NotImplementedError`, and exempts a method carrying
+`@abstractmethod` or `@overload` and a method of a class that has a base, where emptiness is the
+interface rather than a missing implementation (AD-29). It matches typing-signal records from direct AST calls, type-ignore comments and
 `Any` in a parameter, return or variable annotation, and construct records from `assert` statements
 and `except` handlers with no type or with `Exception` or `BaseException`, alone, in a tuple or as
 `builtins.Exception`; `except Exception: raise` counts. One record is one violation, so an

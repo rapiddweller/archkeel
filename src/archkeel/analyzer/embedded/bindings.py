@@ -16,7 +16,7 @@ from collections.abc import Iterator, Sequence
 from archkeel.ir.model import EvidenceClass
 
 from .records import RawEvidence, RawRecord, classified, stable_id
-from .source import ParsedModule, add_evidence, location
+from .source import ParsedModule, add_evidence, body_is_empty, location
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
@@ -64,18 +64,12 @@ def _local_names(node: FunctionNode) -> set[str]:
     }
 
 
-def _body_is_empty(node: FunctionNode) -> bool:
-    """A protocol, overload or abstract stub binds parameters it cannot read."""
-    return all(
-        isinstance(statement, ast.Pass)
-        or (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant))
-        for statement in node.body
-    )
-
-
 def _signature_is_fixed(node: FunctionNode, *, inherits: bool) -> bool:
-    """True where something other than the body chooses the parameters."""
-    return inherits or bool(node.decorator_list) or _body_is_empty(node)
+    """True where something other than the body chooses the parameters.
+
+    A protocol, overload or abstract stub binds parameters it cannot read.
+    """
+    return inherits or bool(node.decorator_list) or body_is_empty(node)
 
 
 def _is_deliberate(name: str) -> bool:

@@ -85,6 +85,19 @@ def decorator_names(node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
     return sorted(names)
 
 
+def body_is_empty(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """True when nothing but a docstring, `pass` or `...` stands in the body.
+
+    Collectors are peers that never import each other (AD-25), so the predicate the binding
+    collector and the construct collector both need lives here, where both may reach it.
+    """
+    return all(
+        isinstance(statement, ast.Pass)
+        or (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant))
+        for statement in node.body
+    )
+
+
 def module_for(path: Path, *, root: Path, namespace: str) -> str:
     rel = path.relative_to(root).with_suffix("")
     parts = list(rel.parts)

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Statement construct collection: assert statements and broad except handlers."""
+"""Statement construct collection: assert statements, broad except handlers, empty bodies."""
 
 from __future__ import annotations
 
@@ -11,9 +11,32 @@ from collections.abc import Sequence
 from archkeel.ir.model import EvidenceClass
 
 from .records import RawEvidence, RawRecord, RecordData, classified, stable_id
-from .source import ParsedModule, add_evidence, location
+from .source import ParsedModule, add_evidence, body_is_empty, decorator_names, location
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
+# A stub carrying one of these declares a shape; emptiness is its interface, not a gap (AD-29).
+_STUB_DECORATORS = frozenset(
+    {
+        "abstractmethod",
+        "abstractproperty",
+        "abstractclassmethod",
+        "abstractstaticmethod",
+        "overload",
+    }
+)
+
+
+def _raises_not_implemented(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    body = [
+        statement
+        for statement in node.body
+        if not (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant))
+    ]
+    return (
+        len(body) == 1
+        and isinstance(body[0], ast.Raise)
+        and "NotImplementedError" in ast.unparse(body[0])
+    )
 
 
 def _is_broad_type(node: ast.AST) -> bool:
@@ -43,14 +66,33 @@ class ConstructCollector(ast.NodeVisitor):
         self.evidence = evidence
         self.items: list[RawRecord] = []
         self.scope_stack: list[str] = [module.module]
+        self.inherits_stack: list[bool] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
+        self.inherits_stack.append(bool(node.bases))
         self.generic_visit(node)
+        self.inherits_stack.pop()
         self.scope_stack.pop()
+
+    def _placeholder_form(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
+        """Name what the body holds instead of an implementation, or nothing when it is one."""
+        if _STUB_DECORATORS.intersection(decorator_names(node)):
+            return None
+        # A class with a base declares a shape its members may leave empty on purpose.
+        if self.inherits_stack and self.inherits_stack[-1]:
+            return None
+        if body_is_empty(node):
+            return "empty"
+        return "not_implemented" if _raises_not_implemented(node) else None
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
+        form = self._placeholder_form(node)
+        if form is not None:
+            self._record(
+                node, kind="placeholder_body", construct="placeholder_body", handled=None, form=form
+            )
         self.generic_visit(node)
         self.scope_stack.pop()
 
@@ -71,7 +113,13 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _record(
-        self, node: ast.AST, *, kind: str, construct: str, handled: list[str] | None
+        self,
+        node: ast.AST,
+        *,
+        kind: str,
+        construct: str,
+        handled: list[str] | None,
+        form: str | None = None,
     ) -> None:
         owner = self.scope_stack[-1]
         line, _, column = location(node)
@@ -79,6 +127,8 @@ class ConstructCollector(ast.NodeVisitor):
         data: RecordData = {"owner": owner, "construct": construct}
         if handled is not None:
             data["handled"] = handled
+        if form is not None:
+            data["form"] = form
         self.items.append(
             classified(
                 item_id=stable_id("CONSTRUCT", self.module.rel_path, line, column, kind),
