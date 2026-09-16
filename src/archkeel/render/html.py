@@ -12,10 +12,11 @@ from dataclasses import replace
 from importlib.resources import files
 
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.decisions import agent_decisions
+from archkeel.ir.decisions import agent_decisions, open_decisions
 from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
+from archkeel.ir.structure import StructureMetric, structure_metrics
 
 from .flow import FlowData, build_flow
 from .summary import (
@@ -366,6 +367,7 @@ def render_html(
     communication_html = _interfaces_section(observation) if observation is not None else ""
     measurements_html = _measurements(result.measurements)
     coverage_html = _coverage(observation)
+    structure_html = _structure(observation) if observation is not None else ""
     inventory_html = _section_inventory(observation)
     metadata_html = _metadata(result, observation)
     raw_link = (
@@ -403,6 +405,7 @@ def render_html(
     {unknowns_html}
     <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
     <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
+    {structure_html}
     <section class="report-section">
       <h2>Complete ArchitectureIR inventory</h2>
       <p>{raw_link}. The JSON remains the source for complete records and evidence.</p>
@@ -512,6 +515,37 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     )
 
 
+def _structure_row(metric: StructureMetric) -> str:
+    share = f"{metric.unresolved} of {metric.calls}" if metric.calls else "no calls"
+    return (
+        f"<tr><td><code>{_text(metric.scope)}</code></td><td>{_text(metric.level)}</td>"
+        f'<td class="numeric">{metric.modules}</td>'
+        f'<td class="numeric">{metric.inner_edges}</td>'
+        f'<td class="numeric">{metric.fan_in}</td>'
+        f'<td class="numeric">{metric.fan_out}</td>'
+        f'<td class="numeric">{_text(share)}</td></tr>'
+    )
+
+
+def _structure(observation: Observation) -> str:
+    """AD-21: size and coupling per scope, shown and never gated on."""
+    metrics = structure_metrics(observation)
+    if not metrics:
+        return ""
+    rows = "".join(_structure_row(metric) for metric in metrics)
+    return f"""
+    <section class="report-section">
+      <h2>Size and coupling</h2>
+      <p>Measured per component and per package: how many modules a scope holds, how many
+      imports stay inside it, how many cross its edge, and how many of its calls the analyzer
+      could not resolve. These numbers are shown, never gated on.</p>
+      <table class="data-table"><thead><tr><th>Scope</th><th>Level</th><th>Modules</th>
+      <th>Inside</th><th>Incoming</th><th>Outgoing</th><th>Unresolved calls</th></tr></thead>
+      <tbody>{rows}</tbody></table>
+    </section>
+"""
+
+
 def render_architecture_html(
     result: RunResult,
     architecture_json: bytes,
@@ -521,12 +555,17 @@ def render_architecture_html(
 ) -> bytes:
     """Render a report result with its canonical observation artifact.
 
-    Derives the agent-decisions count from these bytes, never from `result`, so a report
-    rendered later from `architecture.json` alone still shows it (AD-16).
+    Derives the agent-decisions count and the open decisions from these bytes, never from
+    `result`, so a report rendered later from `architecture.json` alone still shows both
+    (AD-16, AD-23).
     """
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     return render_html(
-        replace(result, agent_decisions=agent_decisions(observation)),
+        replace(
+            result,
+            agent_decisions=agent_decisions(observation),
+            open_decisions=open_decisions(observation),
+        ),
         observation,
         repository=repository,
         architecture_href=architecture_href,

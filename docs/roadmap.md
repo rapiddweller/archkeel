@@ -52,6 +52,8 @@ only when its row names repository evidence.
 | Archkeel's contract names its quality goals, `ir` holds pure derivations, and the `accept` placeholder is gone (AD-17) | `0212447`; `e7d5178` |
 | Release 0.3.0 is published on PyPI | tag `0.3.0` at `47dcd7f`; release run `34986034441`; [PyPI release](https://pypi.org/project/archkeel/0.3.0/) |
 | One `sibling_isolation` rule isolates a set of peers instead of n*(n-1) prohibitions, applied to the eight analyzer collectors (AD-25) | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json`; `docs/architecture-demo.md` |
+| A report whose contract still leaves pairs undecided reads FAIL and names them, instead of passing on an empty target (AD-23) | `src/archkeel/render/summary.py`; `tests/test_terminal.py` |
+| `ir` derives modules, inner edges, fan-in, fan-out and unresolved calls per component and per package, and `report` shows them without gating on them (AD-21) | `src/archkeel/ir/structure.py`; `tests/test_structure.py`; `docs/architecture/archkeel.md` |
 
 ## Next
 
@@ -66,17 +68,10 @@ only when its row names repository evidence.
 3. Replace internal vocabulary in the HTML report labels: `Complete ArchitectureIR inventory`,
    `Canonical result`, `Reproduction metadata`, `Coverage dimension`, `Fingerprint` and
    `Publication order evidence` name concepts a reader has to look up (AD-19).
-4. Derive module count, inner edges, fan-in, fan-out and unresolved-call share per component and
-   per package in `ir`, and show them in `report` without gating on them (AD-21). Evidence: across
-   50 self-reports since 0.2.0 the global unresolved ratio improved four times while one component
-   got worse; at 0.3.0 the per-component share runs from 8.4% (`ir`) to 41.8% (`cli`).
-5. Name the open decisions in the report headline instead of letting an undecided contract read
-   PASS (AD-23). Evidence: a drafted second level reported exit 0 and zero violations while 132
-   pairs were undecided.
-6. Open a component in the flow view and draw its modules and their imports from the same
+4. Open a component in the flow view and draw its modules and their imports from the same
    observation (AD-24). Evidence: 74 of the 142 observed module edges lie inside one component and
    are never shown.
-7. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
+5. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
    without the JSON that the two snapshots were comparable at all.
 
 ## Later

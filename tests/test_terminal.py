@@ -10,7 +10,14 @@ from test_html_report import FAILED_CHECK
 
 from archkeel.ir.codec import parse_delta
 from archkeel.ir.measurements import Measurements, RatchetScalars
-from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
+from archkeel.ir.model import (
+    AllowedDependencyRule,
+    Diagnostic,
+    ForbiddenDependencyRule,
+    OpenDecision,
+    RatchetObservations,
+    RunResult,
+)
 from archkeel.render.summary import Summary, check_summary, init_summary, report_summary
 from archkeel.render.terminal import print_result
 
@@ -119,3 +126,45 @@ def test_terminal_view_names_agent_decisions_awaiting_the_architect() -> None:
 def test_terminal_view_omits_the_agent_decisions_line_when_none_remain() -> None:
     result = RunResult("report", 0, "PASS", "PASS", "n/a", agent_decisions=(0, 10))
     assert "decided by the agent" not in report_summary(result).sentence
+
+
+_OPEN_PAIR = OpenDecision(
+    source="core",
+    target="cli",
+    source_package="sample.core",
+    target_package="sample.cli",
+    observed=True,
+    import_sites=3,
+    forbidden_option=ForbiddenDependencyRule(
+        id="DEP-CORE-NO-CLI",
+        kind="forbidden_dependency",
+        source="sample.core",
+        target="sample.cli",
+        include_type_checking=True,
+        rationale="Decide this pair.",
+        provenance=("docs/architecture/sample.md",),
+        decided_by="architect",
+    ),
+    allowed_option=AllowedDependencyRule(
+        id="DEP-CORE-ALLOWS-CLI",
+        kind="allowed_dependency",
+        source="sample.core",
+        target="sample.cli",
+        rationale="Decide this pair.",
+        provenance=("docs/architecture/sample.md",),
+        decided_by="architect",
+    ),
+)
+
+
+def test_report_headline_fails_while_the_target_still_has_open_decisions() -> None:
+    """AD-23: a target that decides nothing must not read PASS, even with zero violations."""
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", open_decisions=(_OPEN_PAIR,))
+    summary = report_summary(result)
+
+    assert result.exit_code == 0
+    assert summary.decision.label == "FAIL"
+    assert summary.decision.state == "fail"
+    assert "The declared target is incomplete" in summary.sentence
+    assert "1 open decision(s) remain" in summary.sentence
+    assert "core -> cli: 3 import site(s)" in summary.sentence

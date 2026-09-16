@@ -53,8 +53,13 @@ def report_violates_rules(result: RunResult) -> bool:
     return result.command == "report" and result.exit_code == 0 and result.declared_rules == "FAIL"
 
 
+def report_lacks_decisions(result: RunResult) -> bool:
+    """Whether a completed report rests on a target that leaves pairs undecided (AD-23)."""
+    return result.command == "report" and result.exit_code == 0 and bool(result.open_decisions)
+
+
 def _decision_badge(result: RunResult) -> Badge:
-    if report_violates_rules(result):
+    if report_violates_rules(result) or report_lacks_decisions(result):
         return badge("FAIL")
     if result.exit_code == 0:
         return Badge("pass", "✓", "PASS")
@@ -101,6 +106,12 @@ def report_summary(result: RunResult) -> Summary:
         sentence = (
             f"{found}; report records violations without gating (exit code stays 0). "
             "Run archkeel check to gate on rule violations."
+        )
+    elif report_lacks_decisions(result):
+        # AD-23: a target that decides nothing cannot be met, so the headline must not pass.
+        sentence = (
+            "The declared target is incomplete, so this report cannot pass. "
+            "Run archkeel validate for the worklist."
         )
     observation_reason = (
         "All configured source files were read and parsed."
