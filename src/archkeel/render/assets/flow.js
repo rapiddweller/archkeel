@@ -98,12 +98,14 @@
         openable: Boolean((DATA.modules || {})[module]),
         public: isPublic(module) ? [module] : null,
       })),
+      // A rule scoped below the component decides an inner pair, and sibling_isolation
+      // decides peers: the verdict comes from the observation, it is not assumed here.
       edges: (component.inner_edges || []).map((edge) => ({
         source: edge.source,
         target: edge.target,
         import_sites: edge.import_sites,
-        rule_ids: [],
-        state: "undecided",
+        rule_ids: edge.rule_ids || [],
+        state: edge.state || "undecided",
         names: [],
       })),
     };
@@ -372,7 +374,17 @@
       });
       // The state name is the CSS class directly, so a new state is one new rule in
       // flow.js's stylesheet hook, not a branch here.
-      const group = el("g", { class: `edge ${r.edge.state}${related(r.edge) ? "" : " dim"}` }, line, hit);
+      // A second, thin path carries the flow pulse. The base line keeps its dash pattern,
+      // which is what tells a violation from an undecided pair - animating that pattern
+      // would destroy the distinction the legend promises.
+      const pulse = el("path", { class: "pulse", d: r.d });
+      const group = el(
+        "g",
+        { class: `edge ${r.edge.state}${related(r.edge) ? "" : " dim"}` },
+        line,
+        pulse,
+        hit,
+      );
       edgeLayer.appendChild(group);
       r.node = line;
     });
@@ -668,7 +680,9 @@
     });
     const hint = document.createElement("span");
     hint.className = "flow-legend-hint";
-    hint.textContent = "Click a card or a line, drag cards, scroll to zoom.";
+    hint.textContent =
+      "Arrow and pulse run from the importer to the imported. " +
+      "Click a card or a line, click a card again to open it, drag cards, scroll to zoom.";
     legend.appendChild(hint);
   }
 

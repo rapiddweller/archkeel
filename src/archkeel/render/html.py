@@ -188,6 +188,8 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
                         "source": inner.source,
                         "target": inner.target,
                         "import_sites": inner.import_sites,
+                        "rule_ids": list(inner.rule_ids),
+                        "state": inner.state,
                     }
                     for inner in component.inner_edges
                 ],
@@ -264,6 +266,23 @@ def _flow_section(observation: Observation) -> str:
         </div>
         <div class="flow-canvas">
           <svg class="flow-graph" role="group" aria-label="Component flow diagram">
+            <defs>
+              <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8"
+                      refX="7" refY="4" markerWidth="7" markerHeight="7"
+                      orient="auto-start-reverse">
+                <path d="M0,0 L8,4 L0,8 z"></path>
+              </marker>
+              <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8"
+                      refX="7" refY="4" markerWidth="7" markerHeight="7"
+                      orient="auto-start-reverse">
+                <path d="M0,0 L8,4 L0,8 z"></path>
+              </marker>
+              <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8"
+                      refX="7" refY="4" markerWidth="7" markerHeight="7"
+                      orient="auto-start-reverse">
+                <path d="M0,0 L8,4 L0,8 z"></path>
+              </marker>
+            </defs>
             <g class="flow-viewport">
               <g class="flow-edges"></g>
               <g class="flow-chips"></g>

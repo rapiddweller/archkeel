@@ -18,11 +18,19 @@ EdgeState = Literal["conforms", "violation", "undecided"]
 
 @dataclass(frozen=True, slots=True)
 class FlowInnerEdge:
-    """One import between two modules of the same component: observed, never decided."""
+    """One import between two modules of the same component.
+
+    Inside a component no rule decides a pair by default (AD-24), so an inner edge is
+    undecided unless a rule speaks about those two modules directly - `sibling_isolation`
+    over peers, or a dependency rule scoped below the component. Reporting every inner edge
+    as undecided hid those verdicts, which is why the state travels with the edge.
+    """
 
     source: str
     target: str
     import_sites: int
+    rule_ids: tuple[str, ...] = ()
+    state: EdgeState = "undecided"
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,11 +125,28 @@ def _component_edges(
     return totals
 
 
+def _module_pair_rules(observation: Observation) -> dict[tuple[str, str], tuple[str, ...]]:
+    """Map each violated module pair to its rule ids.
+
+    Every violation that names two modules carries them as `source_module` and
+    `target_module`, whatever its kind, so one lookup serves sibling isolation and the
+    dependency rules alike instead of a branch per kind.
+    """
+    found: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for violation in observation.records("violations") or ():
+        source = text_value(violation.data.get("source_module"))
+        target = text_value(violation.data.get("target_module"))
+        if source and target:
+            found[(source, target)].update(violation.rule_ids)
+    return {pair: tuple(sorted(ids)) for pair, ids in found.items()}
+
+
 def _inner_edges(
     observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
 ) -> dict[str, list[FlowInnerEdge]]:
     """Group the module edges that stay inside one component (AD-24), by that component."""
     grouped: dict[str, list[FlowInnerEdge]] = defaultdict(list)
+    pair_rules = _module_pair_rules(observation)
     for edge in observation.records("dependency_edges") or ():
         if edge.data.get("level") != "module":
             continue
@@ -131,7 +156,9 @@ def _inner_edges(
         owner = owner_of(source, components)
         if owner is None or owner != owner_of(target, components):
             continue
-        grouped[owner].append(FlowInnerEdge(source, target, count))
+        rule_ids = pair_rules.get((source, target), ())
+        state: EdgeState = "violation" if rule_ids else "undecided"
+        grouped[owner].append(FlowInnerEdge(source, target, count, rule_ids, state))
     return {
         owner: sorted(edges, key=lambda item: (item.source, item.target))
         for owner, edges in grouped.items()

@@ -125,7 +125,7 @@ def test_flow_edge_is_a_frozen_dataclass_value() -> None:
 
 
 def test_flow_carries_the_imports_inside_one_component(tmp_path: Path) -> None:
-    """AD-24: the inside of a component is observed and travels with the view, undecided."""
+    """AD-24: the inside of a component is observed, and undecided while no rule names it."""
     flow = build_flow(_observation(tmp_path, dict(_TOUR.files)))
     store = next(component for component in flow.components if component.label == "store")
 
@@ -134,5 +134,24 @@ def test_flow_carries_the_imports_inside_one_component(tmp_path: Path) -> None:
     # Every inner edge stays inside the component; a crossing edge belongs to flow.edges.
     assert all(source in store.modules and target in store.modules for source, target in inner)
     assert all(edge.import_sites > 0 for edge in store.inner_edges)
+    assert all(edge.state == "undecided" and edge.rule_ids == () for edge in store.inner_edges)
     crossing = {(edge.source, edge.target) for edge in flow.edges}
     assert not inner & crossing
+
+
+def test_an_inner_edge_a_rule_names_carries_its_verdict(tmp_path: Path) -> None:
+    """A rule scoped below the component decides an inner pair, and the view must show it.
+
+    Reporting every inner edge as undecided hid `sibling_isolation` entirely: the peers it
+    forbids live inside one component, so its verdict appears nowhere else in the view.
+    """
+    variant = next(item for item in CATALOG if item.id == "class-a-sibling-isolation")
+    flow = build_flow(_observation(tmp_path, dict(variant.files)))
+    store = next(component for component in flow.components if component.label == "store")
+
+    violated = [edge for edge in store.inner_edges if edge.state == "violation"]
+    assert [(edge.source, edge.target, edge.rule_ids) for edge in violated] == [
+        ("shop.store.sqlite", "shop.store.repository", ("STORE-PEERS-ISOLATED",))
+    ]
+    # Everything the rule does not name stays undecided, exactly as before.
+    assert all(edge.rule_ids == () for edge in store.inner_edges if edge not in violated)

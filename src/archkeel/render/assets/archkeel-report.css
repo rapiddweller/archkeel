@@ -494,6 +494,16 @@ code {
   fill: var(--ck-muted);
   font: 12px var(--ck-font-mono);
 }
+/* A marker does not inherit its line's stroke, so each state names its own colour. */
+.flow-arrow.conforms path {
+  fill: var(--ck-teal);
+}
+.flow-arrow.violation path {
+  fill: var(--ck-fail);
+}
+.flow-arrow.undecided path {
+  fill: var(--ck-unknown);
+}
 .edge .line {
   fill: none;
   stroke-linecap: round;
@@ -510,13 +520,48 @@ code {
   stroke: var(--ck-unknown);
   stroke-dasharray: 2 4;
 }
+.edge .line {
+  marker-end: url(#flow-arrow-undecided);
+}
+.edge.conforms .line {
+  marker-end: url(#flow-arrow-conforms);
+}
+.edge.violation .line {
+  marker-end: url(#flow-arrow-violation);
+}
+/* The pulse travels source to target, so the direction is visible without reading labels. */
+.edge .pulse {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 2.5px;
+  stroke-dasharray: 3 26;
+  animation: flow-pulse 2.4s linear infinite;
+}
+.edge.conforms .pulse {
+  stroke: var(--ck-teal);
+}
+.edge.violation .pulse {
+  stroke: var(--ck-fail);
+}
+.edge.undecided .pulse {
+  stroke: var(--ck-unknown);
+}
+@keyframes flow-pulse {
+  from {
+    stroke-dashoffset: 29;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
 .edge .hit {
   fill: none;
   stroke: transparent;
   stroke-width: 16px;
   cursor: pointer;
 }
-.edge.dim .line {
+.edge.dim .line,
+.edge.dim .pulse {
   opacity: 0.15;
 }
 .chip rect {
@@ -536,6 +581,9 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .flow-viewport {
     transition: none !important;
+  }
+  .edge .pulse {
+    animation: none !important;
   }
 }
 @media print {
