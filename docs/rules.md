@@ -49,6 +49,16 @@ analyzer digest and Python version make the result deterministic. Aliasing first
 `f = getattr; f(value, name)` or `E = Exception; except E:`, is not resolved and remains a blind
 spot. Calling `eval()` below the configured source is an example violation.
 
+`complete_external_scope` fields are `source` and `rationale`. Every import below `source` whose
+target is neither a scanned module nor part of the standard library must be covered by an
+`external_dependency_scope` rule; an import no rule names is a violation naming the importing
+module. It closes for dependencies what `complete_assignment` closes for modules, so a package the
+contract never mentions — including one that does not exist anywhere — stops passing silently
+(AD-28). The standard library is read from the analyzer's own Python version, which the
+observation records, so a version change can move a module into or out of the exempt set.
+Relative imports are internal by construction and are never counted. Importing `helpers` with no
+rule naming it is an example violation.
+
 `external_dependency_scope` fields are `dependency` (a top-level import name) and
 `allowed_sources`. It matches import records whose target is the dependency or one of its
 submodules, including `TYPE_CHECKING` imports. Fixed source bytes and analyzer digest make the

@@ -15,6 +15,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     CompleteAssignmentRule,
+    CompleteExternalScopeRule,
     ContractDeclarations,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -94,6 +95,13 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
         area, title, subjects = (
             "components",
             f"Every module in {rule.source} belongs to one component",
+            [rule.source],
+        )
+        data = {"source": rule.source, "rationale": rule.rationale}
+    elif isinstance(rule, CompleteExternalScopeRule):
+        area, title, subjects = (
+            "dependencies",
+            f"Every dependency {rule.source} imports is declared",
             [rule.source],
         )
         data = {"source": rule.source, "rationale": rule.rationale}

@@ -304,7 +304,28 @@ _SIBLING_ISOLATION = Variant(
     expected_violations=("STORE-PEERS-ISOLATED",),
     expected_codes=("rule.violated",),
 )
+_COMPLETE_EXTERNAL_SCOPE = Variant(
+    id="class-a-complete-external-scope",
+    section="class_a",
+    item="complete_external_scope",
+    summary="A new shop.app module imports shop_analytics, a package no rule declares and no "
+    "index carries, which EXTERNAL-COMPLETE reports as an undecided dependency (AD-28).",
+    files={
+        "shop/app/analytics.py": HEADER
+        + (
+            '"""Reporting use case that reaches for an undeclared package."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop_analytics import track\n\n\n"
+            "def report(total: int) -> str:\n"
+            "    track(total)\n"
+            '    return f"reported {total}"\n'
+        )
+    },
+    expected_violations=("EXTERNAL-COMPLETE",),
+    expected_codes=("rule.violated",),
+)
 VARIANTS: tuple[Variant, ...] = (
+    _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,
     _FORBIDDEN_DEPENDENCY_TYPE_CHECKING,

@@ -276,6 +276,16 @@ class CompleteAssignmentRule:
 
 
 @dataclass(frozen=True, slots=True)
+class CompleteExternalScopeRule:
+    id: str
+    kind: Literal["complete_external_scope"]
+    source: str
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+
+
+@dataclass(frozen=True, slots=True)
 class NoComponentCyclesRule:
     id: str
     kind: Literal["no_component_cycles"]
@@ -311,6 +321,7 @@ ArchitectureRule: TypeAlias = (
     | ForbiddenConstructRule
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
+    | CompleteExternalScopeRule
     | NoComponentCyclesRule
     | InterfaceBoundaryRule
     | SiblingIsolationRule

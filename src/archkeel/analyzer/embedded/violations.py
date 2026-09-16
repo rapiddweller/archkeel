@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from typing import Final, assert_never
@@ -14,6 +15,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     CompleteAssignmentRule,
+    CompleteExternalScopeRule,
     ContractComponent,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -187,6 +189,52 @@ def _external_dependency_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+_STANDARD_LIBRARY: Final = frozenset(sys.stdlib_module_names) | frozenset(sys.builtin_module_names)
+
+
+def _external_completeness_violations(
+    imports: Sequence[RawRecord], modules: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    """AD-28: an import no rule names is undecided, not harmless."""
+    declared = tuple(rule for rule in rules if isinstance(rule, ExternalDependencyScopeRule))
+    internal_roots = {str(item["data"]["qualified_name"]).split(".")[0] for item in modules}
+    violations: list[RawRecord] = []
+    for rule in rules:
+        if not isinstance(rule, CompleteExternalScopeRule):
+            continue
+        for item in imports:
+            data = item["data"]
+            target = data["target_module"]
+            # A relative import resolves inside the scanned tree, so it is never external.
+            if data["relative_level"] or not in_scope(data["source_module"], rule.source):
+                continue
+            root = target.split(".")[0]
+            if root in internal_roots or root in _STANDARD_LIBRARY:
+                continue
+            if any(in_scope(target, declared.dependency) for declared in declared):
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="dependency_violations",
+                    kind=rule.kind,
+                    title=f"{data['source_module']} imports undeclared {root}",
+                    subjects=[data["source_module"], target],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "source": rule.source,
+                        "source_module": data["source_module"],
+                        "target_module": target,
+                        "dependency": root,
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def _assignment_violations(
     modules: Sequence[RawRecord], contract: ArchitectureContract, blank: frozenset[str]
 ) -> list[RawRecord]:
@@ -351,7 +399,9 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {}
     if isinstance(rule, SiblingIsolationRule):
         return {"members": rule.members}
-    if isinstance(rule, ForbiddenConstructRule | CompleteAssignmentRule):
+    if isinstance(
+        rule, ForbiddenConstructRule | CompleteAssignmentRule | CompleteExternalScopeRule
+    ):
         return {"source": (rule.source,)}
     assert_never(rule)
 
@@ -448,6 +498,7 @@ def rule_violations(
             *_dependency_violations(iter(forbidden_matches)),
             *_construct_violations([*typing_signals, *constructs], contract.rules),
             *_external_dependency_violations(imports, contract.rules),
+            *_external_completeness_violations(imports, modules, contract.rules),
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),
             *_interface_violations(imports, contract, modules, forbidden_rejected_ids),

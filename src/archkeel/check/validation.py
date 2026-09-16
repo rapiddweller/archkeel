@@ -24,6 +24,7 @@ from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
     CompleteAssignmentRule,
+    CompleteExternalScopeRule,
     ContractDeclarations,
     Diagnostic,
     DiagnosticCode,
@@ -375,7 +376,8 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
             ForbiddenDependencyRule
             | AllowedDependencyRule
             | ForbiddenConstructRule
-            | CompleteAssignmentRule,
+            | CompleteAssignmentRule
+            | CompleteExternalScopeRule,
         ):
             names.append((f"/rules/{index}/source", rule.source))
         if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):

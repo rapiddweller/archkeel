@@ -13,6 +13,7 @@
       {"$ref": "#/$defs/forbiddenDependency"}, {"$ref": "#/$defs/allowedDependency"},
       {"$ref": "#/$defs/forbiddenConstruct"},
       {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
+      {"$ref": "#/$defs/completeExternalScope"},
       {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"},
       {"$ref": "#/$defs/siblingIsolation"}
     ]}},
@@ -88,6 +89,19 @@
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"},
         "allowed_sources": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "completeExternalScope": {
+      "type": "object",
+      "required": ["id", "kind", "source", "rationale", "provenance", "decided_by"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "complete_external_scope"},
+        "source": {"$ref": "#/$defs/nonEmpty"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "decided_by": {"$ref": "#/$defs/decidedBy"}
       }
     },
     "externalDependencyScope": {

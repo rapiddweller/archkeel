@@ -552,6 +552,14 @@
       "decided_by": "architect"
     },
     {
+      "id": "EXTERNAL-COMPLETE",
+      "kind": "complete_external_scope",
+      "source": "archkeel",
+      "rationale": "A dependency no rule names is a dependency nobody chose, and a package that does not exist looks exactly the same from inside the code.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "EXTERNAL-PACKAGING-RUNTIME",
       "kind": "external_dependency_scope",
       "dependency": "packaging",
