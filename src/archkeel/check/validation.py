@@ -19,7 +19,7 @@ from archkeel.ir.codec import (
     decode_json,
     parse_contract,
 )
-from archkeel.ir.decisions import agent_decisions, all_open_decisions
+from archkeel.ir.decisions import agent_decisions, open_decisions
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -121,7 +121,7 @@ def _open_decision_diagnostics(observation: Observation) -> list[Diagnostic]:
             "Allow or forbid the pair: add an allowed_dependency or forbidden_dependency rule "
             "with a rationale.",
         )
-        for decision in all_open_decisions(observation)
+        for decision in open_decisions(observation)
     ]
 
 
@@ -624,7 +624,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         )
         measurements = None
         declared = "FAIL"
-    decisions = all_open_decisions(observation)
+    decisions = open_decisions(observation)
     counts = agent_decisions(observation)
     if diagnostics:
         return RunResult(

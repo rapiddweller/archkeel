@@ -16,7 +16,6 @@ from archkeel.ir.model import (
     ArchitectureRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
-    CompleteInnerDecisionsRule,
     CompleteRequiresRule,
     ContractDeclarations,
     EvidenceClass,
@@ -107,13 +106,6 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             [rule.source],
         )
         data = {"source": rule.source, "rationale": rule.rationale}
-    elif isinstance(rule, CompleteInnerDecisionsRule):
-        area, title, subjects = (
-            "components",
-            f"Every observed module pair inside {rule.component} is decided",
-            [rule.component],
-        )
-        data = {"component": rule.component, "rationale": rule.rationale}
     elif isinstance(rule, CompleteRequiresRule):
         area, title, subjects = (
             "components",

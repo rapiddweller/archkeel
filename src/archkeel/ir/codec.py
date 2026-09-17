@@ -27,7 +27,6 @@ from archkeel.ir.model import (
     ComparisonStatus,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
-    CompleteInnerDecisionsRule,
     CompleteRequiresRule,
     ComponentRole,
     ContractCapability,
@@ -965,20 +964,6 @@ def _parse_complete_external_scope(raw: RawJson, label: str) -> CompleteExternal
     )
 
 
-def _parse_complete_inner_decisions(raw: RawJson, label: str) -> CompleteInnerDecisionsRule:
-    item, item_id, provenance = _contract_record(
-        raw, {"kind", "component", "rationale", "decided_by"}, set(), label
-    )
-    return CompleteInnerDecisionsRule(
-        item_id,
-        "complete_inner_decisions",
-        _nonempty(item["component"], f"{label}.component"),
-        _nonempty(item["rationale"], f"{label}.rationale"),
-        provenance,
-        _decided_by(item["decided_by"], f"{label}.decided_by"),
-    )
-
-
 def _parse_complete_requires(raw: RawJson, label: str) -> CompleteRequiresRule:
     item, item_id, provenance = _contract_record(
         raw, {"kind", "rationale", "decided_by"}, {"include_type_checking"}, label
@@ -1054,7 +1039,6 @@ _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "external_dependency_scope": _parse_external_dependency_scope,
     "complete_assignment": _parse_complete_assignment,
     "complete_external_scope": _parse_complete_external_scope,
-    "complete_inner_decisions": _parse_complete_inner_decisions,
     "complete_requires": _parse_complete_requires,
     "no_component_cycles": _parse_no_component_cycles,
     "interface_boundary": _parse_interface_boundary,

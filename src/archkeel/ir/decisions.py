@@ -126,114 +126,6 @@ def requires_declared(observation: Observation) -> bool:
     )
 
 
-def inner_opt_ins(observation: Observation) -> frozenset[str]:
-    """Components whose inside an architect chose to govern (AD-31)."""
-    return frozenset(
-        component
-        for record in observation.records("declarations") or ()
-        if record.kind == "complete_inner_decisions"
-        and isinstance(component := record.data.get("component"), str)
-    )
-
-
-def decided_module_pairs(observation: Observation) -> set[tuple[str, str]]:
-    """Module pairs a dependency rule names directly, by exact module scope."""
-    decided: set[tuple[str, str]] = set()
-    for record in observation.records("declarations") or ():
-        if record.kind not in _DECIDING_KINDS:
-            continue
-        source = record.data.get("source")
-        target = record.data.get("target")
-        if isinstance(source, str) and isinstance(target, str):
-            decided.add((source, target))
-    return decided
-
-
-def _observed_inner_pairs(
-    observation: Observation,
-    components: tuple[tuple[str, tuple[str, ...]], ...],
-    opted: frozenset[str],
-) -> dict[tuple[str, str], int]:
-    """Observed module pairs inside an opted-in component, with their import-site weight.
-
-    Observed pairs only, never the product of the modules: `analyzer` holds 21 modules, so
-    the product is 420 pairs against 46 observed ones, and a pair nobody imports needs no
-    decision (AD-31).
-    """
-    found: dict[tuple[str, str], int] = {}
-    for record in observation.records("dependency_edges") or ():
-        if record.kind != "module_dependency":
-            continue
-        source = record.data.get("source")
-        target = record.data.get("target")
-        count = record.data.get("count")
-        if not isinstance(source, str) or not isinstance(target, str):
-            continue
-        owner = owner_of(source, components)
-        if owner is None or owner not in opted or owner != owner_of(target, components):
-            continue
-        found[(source, target)] = count if isinstance(count, int) else 0
-    return found
-
-
-def _inner_open_decision(source: str, target: str, import_sites: int) -> OpenDecision:
-    forbidden_id, allowed_id = dependency_rule_ids(source, target)
-    return OpenDecision(
-        source,
-        target,
-        source,
-        target,
-        True,
-        import_sites,
-        ForbiddenDependencyRule(
-            forbidden_id,
-            "forbidden_dependency",
-            source,
-            target,
-            True,
-            _PLACEHOLDER_RATIONALE,
-            (DOCUMENT_PATH,),
-            "agent",
-        ),
-        AllowedDependencyRule(
-            allowed_id,
-            "allowed_dependency",
-            source,
-            target,
-            _PLACEHOLDER_RATIONALE,
-            (DOCUMENT_PATH,),
-            "agent",
-        ),
-    )
-
-
-def open_inner_decisions(
-    observation: Observation,
-    components: tuple[tuple[str, tuple[str, ...]], ...] | None = None,
-) -> tuple[OpenDecision, ...]:
-    """Derive undecided module pairs inside components that opted in (AD-31).
-
-    Empty unless a `complete_inner_decisions` rule names a component, so no repository
-    inherits this work by upgrading.
-    """
-    opted = inner_opt_ins(observation)
-    if not opted:
-        return ()
-    resolved = component_owners(observation) if components is None else components
-    decided = decided_module_pairs(observation)
-    observed = _observed_inner_pairs(observation, resolved, opted)
-    return tuple(
-        sorted(
-            (
-                _inner_open_decision(source, target, sites)
-                for (source, target), sites in observed.items()
-                if (source, target) not in decided
-            ),
-            key=lambda item: (-item.import_sites, item.source, item.target),
-        )
-    )
-
-
 def open_decisions(
     observation: Observation,
     components: tuple[tuple[str, tuple[str, ...]], ...] | None = None,
@@ -265,15 +157,6 @@ def open_decisions(
             key=lambda item: (-item.import_sites, item.source, item.target),
         )
     )
-
-
-def all_open_decisions(observation: Observation) -> tuple[OpenDecision, ...]:
-    """Every decision the contract still owes: between components (AD-15) and inside one (AD-31).
-
-    One owner for the complete set, so `validate`'s diagnostics, its JSON array, `report` and a
-    report rendered later from `architecture.json` bytes cannot disagree about what is open.
-    """
-    return (*open_decisions(observation), *open_inner_decisions(observation))
 
 
 def identifier(label: str) -> str:

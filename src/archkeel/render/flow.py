@@ -9,7 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
-from archkeel.ir.decisions import decided_module_pairs, inner_opt_ins, open_decisions
+from archkeel.ir.decisions import open_decisions
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.model import Observation, Record, text_value
 
@@ -151,8 +151,6 @@ def _inner_edges(
     """Group the module edges that stay inside one component (AD-24), by that component."""
     grouped: dict[str, list[FlowInnerEdge]] = defaultdict(list)
     pair_rules = _module_pair_rules(observation)
-    opted = inner_opt_ins(observation)
-    decided = decided_module_pairs(observation)
     for edge in observation.records("dependency_edges") or ():
         if edge.data.get("level") != "module":
             continue
@@ -163,14 +161,7 @@ def _inner_edges(
         if owner is None or owner != owner_of(target, components):
             continue
         rule_ids = pair_rules.get((source, target), ())
-        # AD-31: inside a component that opted in a decision is owed again, so an undecided
-        # pair there is `undecided`, not the neutral `observed` of AD-24b.
-        if rule_ids:
-            state: EdgeState = "violation"
-        elif (source, target) in decided or owner not in opted:
-            state = "observed"
-        else:
-            state = "undecided"
+        state: EdgeState = "violation" if rule_ids else "observed"
         grouped[owner].append(FlowInnerEdge(source, target, count, rule_ids, state))
     return {
         owner: sorted(edges, key=lambda item: (item.source, item.target))

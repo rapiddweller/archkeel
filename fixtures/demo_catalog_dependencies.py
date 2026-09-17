@@ -419,33 +419,9 @@ _COMPLETE_REQUIRES_TYPE_CHECKING = Variant(
     expected_violations=("REQUIRES-COMPLETE",) * 4,
     expected_codes=("rule.violated",) * 4,
 )
-_COMPLETE_INNER_DECISIONS = Variant(
-    id="class-a-complete-inner-decisions",
-    section="class_a",
-    item="complete_inner_decisions",
-    summary="The store component opts in to deciding its inside, so each of its three observed "
-    "module pairs stops being merely observed and becomes an open decision the contract owes "
-    "(AD-31).",
-    files={
-        "architecture-contract.json": contract_with_rule(
-            {
-                "id": "STORE-INSIDE-DECIDED",
-                "kind": "complete_inner_decisions",
-                "component": "store",
-                "rationale": "Persistence is large enough that its internal seams are worth "
-                "deciding rather than observing.",
-                "provenance": ["docs/architecture/shop.md"],
-                "decided_by": "architect",
-            }
-        )
-    },
-    expected_violations=(),
-    expected_codes=("decision.open", "decision.open", "decision.open"),
-)
 VARIANTS: tuple[Variant, ...] = (
     _COMPLETE_REQUIRES,
     _COMPLETE_REQUIRES_TYPE_CHECKING,
-    _COMPLETE_INNER_DECISIONS,
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,

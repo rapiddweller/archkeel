@@ -306,7 +306,8 @@ rules. Reason: on a freshly drafted second level, `report` exited 0 with zero vi
 nothing about 132 undecided pairs, so a contract that decides nothing looked finished. Check: a
 render test for a report whose contract leaves one pair undecided.
 
-**AD-31 Deciding inside a component is opt-in, and only for pairs that exist.** AD-24 leaves the
+**AD-31 Deciding inside a component is opt-in, and only for pairs that exist.** Superseded by
+AD-33; the rule kind it introduced never left this repository. AD-24 leaves the
 inside of a component undecided by design, which is right until an architect wants to govern it.
 `complete_inner_decisions` names one component and demands that every observed module pair inside
 it be decided; without the rule nothing changes, so no repository inherits the work by upgrading.
@@ -487,6 +488,28 @@ older Archkeel versions fail closed (AD-8). Check: a shop probe whose `render` c
 and a malformed `requires` entry, and `init` on a fresh repository drafts no `requires` list.
 Archkeel's own contract adopts the rule in a step of its own; until it does it still decides its 30
 pairs one by one, so the 8 entries above are what that step owes, not what the repository has.
+
+**AD-33 A component's inside is a level, not a list of pairs.** AD-31 governed the inside by
+demanding a decision for every observed module pair there, which is the enumerate-every-pair model
+AD-32 abolished one level up. It is retired and `complete_inner_decisions` is removed rather than
+deprecated, because it was drafted and released in no version: the tags stop at 0.3.0 and no
+contract outside this repository can carry it. One thing survives it, and the log is the only place
+that argument lives: the expected set is the pairs the analyzer observed, never the product of the
+modules, since `analyzer` holds 21 modules whose product is 420 pairs against 46 observed ones.
+`requires` inherits that principle. The inside is governed instead the way AD-20 already decided, by
+its own scan scope and its own contract, with its own components, their own `requires`, and one
+`public` both levels declare alike. That became affordable only with AD-32: a second level on
+`check` drafts 12 sub-components, which is 132 ordered pairs under AD-15 but 23 `requires` entries,
+and on `ir` 13 sub-components, 156 pairs against 15 entries. An inside can outgrow the whole top
+level, which holds 6 components and 8 edges, so leaving it ungoverned by default hides the larger
+half of the system. The report therefore names a component whose inside would draft more
+sub-components than the contract has components, or more edges between them than it has component
+edges. Which of the two measures is chosen does not matter here, because they agree: `check` at
+12 and 23 and `ir` at 13 and 15 are larger than 6 and 8, while `analyzer` at 3 and 1 is smaller.
+Depth itself stays optional (AD-20): the report states that an inside is large, and the architect
+decides whether to open it, because naming a size is evidence while opening a level is intent.
+Check: no schema or model carries `complete_inner_decisions`, and the report names `check` and `ir`
+as larger than the top level while staying silent about `analyzer`.
 
 ## Allowed dependencies
 
