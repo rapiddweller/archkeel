@@ -575,9 +575,10 @@ verdict table and the exit code are unchanged, and `archkeel validate --json` ca
 counts.
 
 **AD-36 A rule the inside declares is recorded and carried, so the verdict it produces survives
-every command.** Three things follow from it. The inside contract's rules are projected beside its
-sub-components, each under `<parent>:<rule id>` the way a sub-component already is, and the
-violations the inside produces are re-pointed at those ids. A projected rule carries the
+every command.** Three things follow from it. An inside contract is renamed once as it is loaded,
+each of its rules under `<parent>:<rule id>` the way a sub-component already is, so the projected
+declaration, the violation and the id that violation is filed under are all built from the name
+they will be read by, rather than corrected afterwards. A projected rule carries the
 `parent_id` of the component holding it, and the derivations that decide *this* level's pairs,
 `requires_declared` and `_decided_component_pairs`, skip a record that carries one, while
 `agent_decisions` counts it: whose decision a rule is and which level it governs are two different
@@ -594,10 +595,12 @@ verdict travels in; it did not, and `check` never saw the level at all, because
 `materialize_declarations` copied the contract and its provenance documents and nothing else, so
 both snapshots observed the level above while the lock had been written over both and could never
 be verified again. Neither showed, because the only declared inside in existence was Archkeel's own
-`check`, which satisfies its `complete_requires` and whose lock no demo rebuilds. Three cheaper ways
-were rejected. Projecting the inner rules under their bare ids needs no re-pointing, but an inner
-rule named like an outer one then becomes a duplicate record id, which fails the whole observation
-instead of the contract that caused it. Splitting the parent off the rule id where a derivation
+`check`, which satisfies its `complete_requires` and whose lock no demo rebuilds. Four cheaper ways
+were rejected. Projecting the inner rules under their bare ids renames nothing, but an inner rule
+named like an outer one then becomes a duplicate record id, which fails the whole observation
+instead of the contract that caused it. Renaming the ids on the records and the violations after
+they are built leaves the one fact in two places to be kept in step, and the violation's own
+`stable_id` still collides. Splitting the parent off the rule id where a derivation
 needs to know the level decides behaviour from a name, which is what `parent_id` exists to avoid.
 Letting `trace_valid_violations` accept a violation whose rule is missing would silence every broken
 evidence chain, which is the only thing that check is for. Limit: every inner rule is recorded,

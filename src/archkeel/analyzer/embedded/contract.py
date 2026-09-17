@@ -154,36 +154,21 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
     )
 
 
-def inside_rule_id(parent: str, rule_id: str) -> str:
-    """Name an inside's rule under the component holding it (AD-36).
-
-    Public because the violations that rule produces are re-pointed at this id, and two
-    spellings of it would let a violation reference a rule nobody declared.
-    """
-    return f"{parent}:{rule_id}"
-
-
 def project_inside_declarations(parent: str, contract: ArchitectureContract) -> list[RawRecord]:
     """Project one component's inside contract as declarations of a kind of its own (AD-34).
 
     The kind differs from `component_responsibility` because `component_owners` returns every
     record carrying that kind: sharing it would let two levels claim one module, and `owner_of`
-    answers None wherever two components claim the same one. Rules keep their own kinds and are
-    renamed instead, because a level's rule is judged by the code that judges the level above
-    (AD-36).
+    answers None wherever two components claim the same one. Rules keep their own kinds, and
+    carry the parent instead, because the level above judges them with the same rule code
+    (AD-36); the contract reaches here already named for its level.
     """
-    rules: list[RawRecord] = []
-    for rule in contract.rules:
-        record = _rule_declaration(rule)
-        # The parent id marks which level the rule decides; a reader that split the id instead
-        # would decide behaviour from a name (AD-36).
-        rules.append(
-            {
-                **record,
-                "id": inside_rule_id(parent, rule.id),
-                "data": {**record["data"], "parent_id": parent},
-            }
-        )
+    rules: list[RawRecord] = [
+        # The parent id says which level a rule decides; a reader that split it back off the
+        # rule id would decide behaviour from a name (AD-36).
+        {**record, "data": {**record["data"], "parent_id": parent}}
+        for record in map(_rule_declaration, contract.rules)
+    ]
     return rules + [
         classified(
             item_id=f"{parent}:{component.id}",

@@ -145,7 +145,10 @@ Once the architect decides:
 `report` evaluates `complete_requires` a second time against the inside, over the imports the
 outer scan already collected, so a crossing between two sub-components that no `requires` entry
 covers is a violation like any other, and the flow view opens that component into its
-sub-components before its modules.
+sub-components before its modules. Such a finding names the rule as `<component>:<rule id>`,
+for example `store:STORE-REQUIRES-COMPLETE`: the id you will find in the inside contract is the
+part after the colon, and the part before it is the component that names that contract. Fix it
+in the inside contract, never by adding a rule above.
 
 Three limits hold today: the inside has no `archkeel.toml`, so it cannot be validated as a
 level of its own; of its rules only `complete_requires` is evaluated, and an
