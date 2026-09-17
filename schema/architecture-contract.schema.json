@@ -46,6 +46,7 @@
         "provenance": {"$ref": "#/$defs/provenance"},
         "capability_id": {"$ref": "#/$defs/nonEmpty"},
         "requires": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/requiredComponent"}},
+        "inside": {"$ref": "#/$defs/nonEmpty"},
         "public": {"type": "array", "uniqueItems": true, "items": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"

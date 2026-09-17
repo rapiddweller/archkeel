@@ -165,6 +165,9 @@ class ContractComponent:
     provenance: tuple[str, ...]
     capability_id: str | None = None
     requires: tuple[RequiredComponent, ...] | None = None
+    # AD-20: the contract describing this component's inside, as a repository-relative path.
+    # A reference to a file, never a parent or child link: the levels stay separate contracts.
+    inside: str | None = None
     public: tuple[str, ...] | None = None
 
 

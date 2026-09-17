@@ -760,7 +760,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
-        {"capability_id", "public", "requires"},
+        {"capability_id", "inside", "public", "requires"},
         label,
     )
     try:
@@ -788,6 +788,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         if requires_raw is not None
         else None
     )
+    inside = item.get("inside")
     return ContractComponent(
         item_id,
         _nonempty(item["label"], f"{label}.label"),
@@ -800,6 +801,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         provenance,
         _nonempty(capability, f"{label}.capability_id") if capability is not None else None,
         requires,
+        _nonempty(inside, f"{label}.inside") if inside is not None else None,
         public,
     )
 
