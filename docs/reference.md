@@ -99,6 +99,8 @@ Historical evidence and reproduction commands retain the names from their pinned
 
 `make fixtures` reproduces A, B and C from `fixtures/A-dispatch`, `fixtures/B-posthoc` and
 `fixtures/C-valid`. `fixtures/F-architecture` is the shop sample behind the demo catalog (AD-11).
+It carries two levels: the top contract at its root, and the one `COMP-STORE` names for its inside
+at `shop/store/architecture-contract.json` (AD-20).
 
 Every ordered component pair is decided by one `allowed_dependency` or `forbidden_dependency`
 rule (AD-15). D-self also checks that

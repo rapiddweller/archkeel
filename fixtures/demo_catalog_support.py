@@ -119,15 +119,15 @@ def contract_component_field_appended(label: str, field: str, value: object) -> 
     return _dump_contract(contract)
 
 
-def contract_component_field_set(label: str, field: str, value: object) -> str:
-    """Clean contract JSON with one scalar component field set by label.
+def inside_requires_replaced(label: str, entries: list[dict[str, str]]) -> str:
+    """The clean `shop.store` inside contract with one sub-component's `requires` replaced.
 
-    The appending helper above needs the field to exist and to be a list; a scalar such as
-    `inside` (AD-20) has neither property on the clean sample.
+    Its own helper because the inside is a second file: a variant that changed both contracts
+    would otherwise have to chain two helpers, and every helper here starts from the clean one.
     """
-    contract = _clean_contract()
+    contract = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
     component = next(item for item in contract["components"] if item["label"] == label)
-    component[field] = value
+    component["requires"] = entries
     return _dump_contract(contract)
 
 

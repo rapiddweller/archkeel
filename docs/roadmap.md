@@ -60,6 +60,8 @@ only when its row names repository evidence.
 | Two levels are tied together (AD-20): a component names the contract describing its inside, the report names an inside larger than its own level, and two checks hold both levels to one public surface and to the prohibitions above; Archkeel's own `check` declares three sub-components where `init` would have drafted twelve | `4195e43`; `2e951c0`; `0625af3`; `src/archkeel/check/architecture-contract.json` |
 | A declared inside is recorded in the observation under a kind of its own, derived in `ir`, judged by the rule code that judges the level above, and drawn as a level of the flow view: opening `check` shows `entry`, `foundation` and `policy` with their crossings at 21, 6 and 2 import sites, beside the one module no sub-component owns (AD-34) | `34fb7dd`; `e366f1c`; `7d825f2`; `26e4ba4`; `9bc30af`; `src/archkeel/ir/levels.py`; `tests/test_levels.py` |
 | Every review claim is counted where the command answers, not only where the page is opened: `report` and `validate` print the counts in the terminal and carry them under `claims` in `--json`, with `null` for a missing signal (AD-35) | `src/archkeel/ir/decisions.py`; `src/archkeel/render/summary.py`; `tests/test_terminal.py`; `docs/rules.md` |
+| An inside's rules are recorded under the component holding them, its violations name them there instead of being dropped by the evidence trace, the pair derivations above stay untouched by them, and a `check` snapshot carries the inside contracts the lock was written over (AD-36) | `src/archkeel/analyzer/embedded/contract.py`; `src/archkeel/ir/codec.py`; `tests/test_snapshot.py`; `tests/test_analyzer.py` |
+| The shop sample demonstrates both levels end to end: `store` declares an inside of four sub-components crossing at 3, 2 and 2 import sites, both levels pass on the clean sample, and four catalogued variants produce the inner `complete_requires` violation, both AD-20 checks and the missing-contract diagnostic | `fixtures/F-architecture/shop/store/architecture-contract.json`; `docs/architecture-demo.md`; `fixtures/F-architecture/docs/architecture/shop.md` |
 
 ## Next
 
@@ -82,14 +84,16 @@ only when its row names repository evidence.
 
 ## Later
 
-- Let a second level run on its own (AD-20): an inside is recorded, derived, judged and drawn
-  from the outer run (AD-34), but it still has no `archkeel.toml` of its own, so
-  `validate --root src/archkeel/check` cannot evaluate it as a level in its own right. Of its
-  rules only `complete_requires` is evaluated, against the imports the outer scan collected; a
-  rule kind the inside declares beyond that, and an `external_dependency_scope` in particular,
-  is not compared against the level above. One level down is recorded, so an inside declared
-  within an inside is not drawn. Evidence: `init` on that scope drafts 12 sub-components and 132
-  open decisions, one component per module, where the three decided layers need 6.
+- Let a second level run on its own (AD-20): an inside is recorded, derived, judged, drawn and
+  carried through `check` from the outer run (AD-34, AD-36), but it still has no `archkeel.toml`
+  of its own, so `validate --root src/archkeel/check` cannot evaluate it as a level in its own
+  right. Of its rules only `complete_requires` is evaluated, against the imports the outer scan
+  collected; every other kind it declares is recorded and shown but never enforced, an
+  `external_dependency_scope` in particular, which is also not compared against the level above.
+  An inside contract's own provenance documents are not materialized for `check`, because no
+  command reads them. One level down is recorded, so an inside declared within an inside is not
+  drawn. Evidence: `init` on that scope drafts 12 sub-components and 132 open decisions, one
+  component per module, where the three decided layers need 6.
 - Make the analyzer a process port with a language profile and prove it with a second analyzer
   (AD-22). Six places still assume Python: the import in the CLI, the namespace pattern in the
   configuration, the `public` and dependency patterns in the schema, the construct enum and the

@@ -31,7 +31,7 @@ _TOUR_EDGES = {
     ("model", "render"): (1, ("COMPONENT-NO-CYCLES", "DEP-MODEL-NO-RENDER")),
     ("render", "model"): (1, ("COMPONENT-NO-CYCLES",)),
     ("render", "store"): (1, ("COMPONENT-NO-CYCLES", "DEP-RENDER-NO-STORE")),
-    ("store", "model"): (3, ("COMPONENT-NO-CYCLES", "DEP-STORE-NO-MONEY")),
+    ("store", "model"): (4, ("COMPONENT-NO-CYCLES", "DEP-STORE-NO-MONEY")),
 }
 
 

@@ -128,6 +128,24 @@ make demo
 `make demo-screenshots OUTPUT=<directory>` also captures each HTML report as PNG and each
 terminal view as SVG.
 
+`fixtures/F-architecture` is the two-level shop sample behind the demo catalog. Run
+`archkeel validate --root fixtures/F-architecture` and `archkeel report --root
+fixtures/F-architecture` on it: the top level holds five components, and `store` declares a
+contract for its inside with four sub-components — `api`, `repository`, `codec` and `backend` —
+whose crossings its `requires` entries cover at 3, 2 and 2 import sites. Both levels pass. Every
+violation the tool can find has a catalogued variant that produces it, listed in
+[docs/architecture-demo.md](https://github.com/rapiddweller/archkeel/blob/main/docs/architecture-demo.md).
+
+<p>
+  <img src="docs/assets/archkeel-shop-components.png" alt="Component flow of the clean shop sample: five components, all six edges teal" width="480">
+  <img src="docs/assets/archkeel-shop-store-inside.png" alt="The store component opened into its declared inside: api, repository, codec and backend, plus the module no sub-component owns" width="480">
+</p>
+
+<sub>Left: the five components of the shop sample. Right: clicking <code>store</code> twice opens
+the level its own contract declares (AD-34) — four sub-components, the three crossings their
+<code>requires</code> entries cover, and <code>shop.store</code>, the module no sub-component owns,
+carried rather than dropped.</sub>
+
 ## Onboard your project
 
 Requirements: Python 3.11+ and a Git repository with at least one commit.

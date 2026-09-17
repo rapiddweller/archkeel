@@ -19,6 +19,7 @@ from fixtures.demo_catalog_support import (
     contract_with_requires,
     contract_with_rule,
     contract_without_rule,
+    inside_requires_replaced,
 )
 
 _FORBIDDEN_DEPENDENCY_PAIR = Variant(
@@ -239,8 +240,9 @@ _DECISION_CONFLICT = Variant(
     section="class_a",
     item="decision:conflict",
     summary="A new forbidden_dependency rule targets shop.store -> shop.model, the same "
-    "observed pair DEP-STORE-ALLOWS-MODEL already allows: a rule.violated, an "
-    "observed-yet-forbidden closed-world pair, and an allowed/forbidden decision.conflict.",
+    "observed pair DEP-STORE-ALLOWS-MODEL already allows: three rule.violated findings, one "
+    "per imported entity, an observed-yet-forbidden closed-world pair, and an allowed/forbidden "
+    "decision.conflict.",
     files={
         "architecture-contract.json": contract_with_rule(
             {
@@ -256,10 +258,15 @@ _DECISION_CONFLICT = Variant(
             }
         )
     },
-    expected_violations=("DEP-STORE-NO-MODEL-CONFLICT", "DEP-STORE-NO-MODEL-CONFLICT"),
+    expected_violations=(
+        "DEP-STORE-NO-MODEL-CONFLICT",
+        "DEP-STORE-NO-MODEL-CONFLICT",
+        "DEP-STORE-NO-MODEL-CONFLICT",
+    ),
     expected_codes=(
         "closed_world.observed_forbidden",
         "decision.conflict",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
     ),
@@ -270,8 +277,19 @@ _SIBLING_ISOLATION = Variant(
     section="class_a",
     item="sibling_isolation:peer import",
     summary="shop.store.sqlite imports its peer shop.store.repository. Both are declared peers "
-    "of one set, and peers reach shared modules, never each other (AD-25).",
+    "of one set, and peers reach shared modules, never each other (AD-25). The inside contract "
+    "grants api that same edge, so the level below stays silent and this row shows one rule.",
     files={
+        "shop/store/architecture-contract.json": inside_requires_replaced(
+            "api",
+            [
+                {
+                    "component": "repository",
+                    "rationale": "A deliberately granted peer edge, so the architecture demo's "
+                    "sibling_isolation row reports the outer rule alone.",
+                }
+            ],
+        ),
         "architecture-contract.json": contract_with_rule(
             {
                 "id": "STORE-PEERS-ISOLATED",
@@ -304,6 +322,34 @@ _SIBLING_ISOLATION = Variant(
     },
     expected_violations=("STORE-PEERS-ISOLATED",),
     expected_codes=("rule.violated",),
+)
+_INSIDE_COMPLETE_REQUIRES = Variant(
+    id="class-a-complete-requires-inside",
+    section="class_a",
+    item="complete_requires:inside",
+    summary="store's inside contract drops repository's requires entry for backend, leaving the "
+    "three imports of order_path, read_document and write_document uncovered. The rule fires "
+    "inside the level and reports under store:STORE-REQUIRES-COMPLETE, the id the inside's own "
+    "rule is recorded as (AD-36).",
+    files={
+        "shop/store/architecture-contract.json": inside_requires_replaced(
+            "repository",
+            [
+                {
+                    "component": "codec",
+                    "rationale": "Turning an order into bytes and back is a format decision the "
+                    "persistence API delegates, so the format can change without the API "
+                    "changing.",
+                }
+            ],
+        )
+    },
+    expected_violations=(
+        "store:STORE-REQUIRES-COMPLETE",
+        "store:STORE-REQUIRES-COMPLETE",
+        "store:STORE-REQUIRES-COMPLETE",
+    ),
+    expected_codes=("rule.violated", "rule.violated", "rule.violated"),
 )
 _COMPLETE_EXTERNAL_SCOPE = Variant(
     id="class-a-complete-external-scope",
@@ -422,6 +468,7 @@ _COMPLETE_REQUIRES_TYPE_CHECKING = Variant(
 VARIANTS: tuple[Variant, ...] = (
     _COMPLETE_REQUIRES,
     _COMPLETE_REQUIRES_TYPE_CHECKING,
+    _INSIDE_COMPLETE_REQUIRES,
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,

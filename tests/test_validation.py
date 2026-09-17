@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from test_analyzer import _component
+from test_architecture_demo import CONFIG as SHOP_CONFIG
+from test_architecture_demo import _prepare_repo
 from test_delta import _model, _record
 
 from archkeel.analyzer import observe
@@ -18,6 +20,7 @@ from archkeel.check.validation import (
 )
 from archkeel.cli.config import load_config
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
+from fixtures.architecture_demo import CATALOG
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
@@ -256,3 +259,16 @@ def test_no_interface_rule_means_neither_diagnostic() -> None:
         _model(git_head="a" * 40, imports=[_cross_import("sample.core")])
     )
     assert interface_diagnostics(contract, observation) == ()
+
+
+def test_a_violated_inside_rule_points_at_the_component_that_declares_the_level(
+    tmp_path: Path,
+) -> None:
+    """AD-36: the rule is in no `rules` array here, so `/rules/0` would blame another rule."""
+    variant = next(item for item in CATALOG if item.id == "class-a-complete-requires-inside")
+    root = _prepare_repo(tmp_path, dict(variant.files))
+
+    diagnostics = run_validate(root, SHOP_CONFIG, observe).diagnostics
+
+    assert {item.pointer for item in diagnostics} == {"/components/1/inside"}
+    assert {item.subject for item in diagnostics} == {"store:STORE-REQUIRES-COMPLETE"}

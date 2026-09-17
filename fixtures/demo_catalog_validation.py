@@ -11,7 +11,6 @@ from fixtures.demo_catalog_support import (
     HEADER,
     Variant,
     contract_component_field_appended,
-    contract_component_field_set,
     contract_rule_field,
     contract_rule_provenance_appended,
     contract_top_field,
@@ -182,12 +181,10 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         id="validation-inside-public-mismatch",
         section="validation",
         item="inside.public_mismatch",
-        summary="COMP-STORE names a contract for its inside whose sub-component offers a "
-        "different public surface than the level above declares for store (AD-20).",
+        summary="The contract COMP-STORE names for its inside is replaced by one whose single "
+        "sub-component offers a different public surface than the level above declares for "
+        "store (AD-20).",
         files={
-            "architecture-contract.json": contract_component_field_set(
-                "store", "inside", "shop/store/architecture-contract.json"
-            ),
             "shop/store/architecture-contract.json": inside_contract(
                 ["shop.store.repository:Ledger"]
             ),
@@ -199,12 +196,10 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         id="validation-inside-forbidden-import",
         section="validation",
         item="inside.forbidden_import",
-        summary="COMP-STORE's inside repeats its public surface exactly, so only the second "
-        "AD-20 check fires: the inside allows shop.render, which DEP-STORE-NO-RENDER forbids.",
+        summary="The replacement inside contract repeats store's public surface exactly, so only "
+        "the second AD-20 check fires: the inside allows shop.render, which DEP-STORE-NO-RENDER "
+        "forbids.",
         files={
-            "architecture-contract.json": contract_component_field_set(
-                "store", "inside", "shop/store/architecture-contract.json"
-            ),
             "shop/store/architecture-contract.json": inside_contract(
                 [
                     "shop.store.repository:OrderRepository",
@@ -216,6 +211,17 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         },
         expected_violations=(),
         expected_codes=("inside.forbidden_import",),
+    ),
+    Variant(
+        id="validation-inside-contract-missing",
+        section="validation",
+        item="contract.invalid:inside",
+        summary="The contract COMP-STORE names for its inside is deleted. The observation "
+        "carries the level or none of it, so report stays silent and validate alone answers, "
+        "with contract.invalid at /components/1/inside (AD-20).",
+        files={"shop/store/architecture-contract.json": None},
+        expected_violations=(),
+        expected_codes=("contract.invalid",),
     ),
 )
 
@@ -271,6 +277,8 @@ _SHOP_PY_FILES = (
     "shop/store/__init__.py",
     "shop/store/backend/__init__.py",
     "shop/store/backend/files.py",
+    "shop/store/backend/paths.py",
+    "shop/store/codec.py",
     "shop/store/repository.py",
     "shop/store/sqlite.py",
 )

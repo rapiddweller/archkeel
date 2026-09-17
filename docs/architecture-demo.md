@@ -27,6 +27,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | forbidden_construct:broad_except (allowed source) | class-a-broad-except-allowed | validate/report run | - | - | shop/cli/main.py |
 | class_a | complete_requires | class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | architecture-contract.json |
 | class_a | complete_requires:include_type_checking | class-a-complete-requires-type-checking | validate/report run | REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json |
+| class_a | complete_requires:inside | class-a-complete-requires-inside | validate/report run | store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated | shop/store/architecture-contract.json |
 | class_a | complete_external_scope | class-a-complete-external-scope | validate/report run | EXTERNAL-COMPLETE | rule.violated | shop/app/analytics.py |
 | class_a | forbidden_dependency:pair | class-a-forbidden-dependency-pair | validate/report run | DEP-RENDER-NO-STORE | closed_world.observed_forbidden, graph.drift, rule.violated | shop/render/text.py |
 | class_a | forbidden_dependency:target_symbol | class-a-forbidden-dependency-target-symbol | validate/report run | DEP-STORE-NO-MONEY | rule.violated | shop/store/repository.py |
@@ -38,8 +39,8 @@ run shows many violations together; every other row isolates one item.
 | class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |
 | class_a | closed_world:duplicate | class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
-| class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated, rule.violated | architecture-contract.json |
-| class_a | sibling_isolation:peer import | class-a-sibling-isolation | validate/report run | STORE-PEERS-ISOLATED | rule.violated | architecture-contract.json, shop/store/sqlite.py |
+| class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated, rule.violated, rule.violated | architecture-contract.json |
+| class_a | sibling_isolation:peer import | class-a-sibling-isolation | validate/report run | STORE-PEERS-ISOLATED | rule.violated | architecture-contract.json, shop/store/architecture-contract.json, shop/store/sqlite.py |
 | class_a | interface_boundary:underscore | class-a-interface-boundary-underscore | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:undeclared symbol | class-a-interface-boundary-undeclared-symbol | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:whole-module import | class-a-interface-boundary-whole-module | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/maintenance_report.py |
@@ -58,11 +59,12 @@ run shows many violations together; every other row isolates one item.
 | validation | contract.schema_version | validation-contract-schema-version | validate/report run | - | contract.schema_version | architecture-contract.json |
 | validation | contract.invalid | validation-contract-invalid | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
-| validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | architecture-contract.json, shop/store/architecture-contract.json |
-| validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | architecture-contract.json, shop/store/architecture-contract.json |
+| validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | shop/store/architecture-contract.json |
+| validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | shop/store/architecture-contract.json |
+| validation | contract.invalid:inside | validation-inside-contract-missing | validate/report run | - | contract.invalid | shop/store/architecture-contract.json |
 | validation | rule_without_subjects | validation-rule-without-subjects | validate/report run | - | - | architecture-contract.json |
 | validation | parse_error | validation-parse-error | validate/report run | - | - | shop/model/broken_syntax.py |
-| validation | scope_empty | validation-scope-empty | validate/report run | - | - | architecture-contract.json, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/model/entities.py, shop/render/text.py, shop/store/__init__.py, shop/store/backend/__init__.py, shop/store/backend/files.py, shop/store/repository.py, shop/store/sqlite.py |
+| validation | scope_empty | validation-scope-empty | validate/report run | - | - | architecture-contract.json, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/model/entities.py, shop/render/text.py, shop/store/__init__.py, shop/store/backend/__init__.py, shop/store/backend/files.py, shop/store/backend/paths.py, shop/store/codec.py, shop/store/repository.py, shop/store/sqlite.py |
 | validation | runtime_mismatch | validation-runtime-mismatch | validate/report run | - | - | pyproject.toml |
 | validation | missing_tool | validation-missing-tool | tested only | - | - | tests/test_analyzer.py |
 | validation | timeout | validation-timeout | tested only | - | - | tests/test_analyzer.py |

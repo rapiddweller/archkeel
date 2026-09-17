@@ -1,0 +1,71 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-STORE-API",
+      "label": "api",
+      "role": "component",
+      "packages": ["shop.store.sqlite"],
+      "responsibilities": ["Housekeeping on a whole store directory, for the maintenance use case."],
+      "forbidden_responsibilities": ["Saving or loading a single order, and knowing the document format."],
+      "provenance": ["docs/architecture/shop.md"],
+      "requires": [
+        {
+          "component": "backend",
+          "rationale": "Compaction walks the stored files and deletes them, which is the only knowledge of the directory layout it is allowed to hold."
+        }
+      ],
+      "public": ["shop.store.sqlite:Connection", "shop.store.sqlite:vacuum"]
+    },
+    {
+      "id": "COMP-STORE-BACKEND",
+      "label": "backend",
+      "role": "component",
+      "packages": ["shop.store.backend"],
+      "responsibilities": ["Where a document lives, how it is named, and how it is read and replaced."],
+      "forbidden_responsibilities": ["Interpreting what a document contains, and knowing about orders at all."],
+      "provenance": ["docs/architecture/shop.md"],
+      "public": []
+    },
+    {
+      "id": "COMP-STORE-CODEC",
+      "label": "codec",
+      "role": "component",
+      "packages": ["shop.store.codec"],
+      "responsibilities": ["The stored document format and the version stamped into it."],
+      "forbidden_responsibilities": ["Touching the filesystem, and deciding where a document is written."],
+      "provenance": ["docs/architecture/shop.md"],
+      "public": []
+    },
+    {
+      "id": "COMP-STORE-REPOSITORY",
+      "label": "repository",
+      "role": "component",
+      "packages": ["shop.store.repository"],
+      "responsibilities": ["The order-facing persistence API the rest of the shop is written against."],
+      "forbidden_responsibilities": ["Formatting a document itself, and reaching the filesystem without the backend."],
+      "provenance": ["docs/architecture/shop.md"],
+      "requires": [
+        {
+          "component": "backend",
+          "rationale": "An order is stored somewhere, and the place it is stored is settled in one module rather than at every call site."
+        },
+        {
+          "component": "codec",
+          "rationale": "Turning an order into bytes and back is a format decision the persistence API delegates, so the format can change without the API changing."
+        }
+      ],
+      "public": ["shop.store.repository:OrderRepository"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "STORE-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Inside the store the same principle holds as above it: an import nobody asked for is an accident, so each part names what it needs and absence refuses the rest.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

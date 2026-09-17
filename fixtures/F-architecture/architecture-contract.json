@@ -19,6 +19,7 @@
       "capability_id": "CAP-SHOP",
       "role": "component",
       "packages": ["shop.store"],
+      "inside": "shop/store/architecture-contract.json",
       "public": [
         "shop.store.repository:OrderRepository",
         "shop.store.sqlite:vacuum",

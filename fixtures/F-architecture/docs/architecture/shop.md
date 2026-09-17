@@ -13,11 +13,44 @@ Every cross-component pair is either observed or forbidden.
 | render | `shop.render` | Text projection of an order |
 | cli | `shop.cli` | Argument parsing and composition |
 
-Inside `store`, `shop.store.backend` owns the JSON file format so `shop.store.repository` keeps a
-stable persistence API above it. The seam is internal: no rule decides a pair inside one component
-(AD-24), and the package depth is what the report's drill-down walks. From outside, the backend is
-out of reach: `DEP-APP-NO-STORE-BACKEND` scopes a prohibition to that subpackage, one level below
-the `app` → `store` edge the contract otherwise allows.
+From outside, the backend of `store` is out of reach: `DEP-APP-NO-STORE-BACKEND` scopes a
+prohibition to that subpackage, one level below the `app` → `store` edge the contract otherwise
+allows.
+
+## Inside store
+
+`store` holds seven modules, more than this level has components, so the report names it as larger
+than the level above it (AD-33) and it is opened as a level of its own.
+[Its contract](../../shop/store/architecture-contract.json) is a second file, named by `inside` on
+`COMP-STORE`; the two levels declare one and the same public surface, and the union of what the
+sub-components offer is exactly what `store` offers.
+
+| Sub-component | Package | Responsibility |
+|---|---|---|
+| api | `shop.store.sqlite` | Housekeeping on a whole store directory |
+| repository | `shop.store.repository` | The order-facing persistence API |
+| codec | `shop.store.codec` | The document format and its version |
+| backend | `shop.store.backend` | Where a document lives, and how it is read and replaced |
+
+`shop.store` itself belongs to no sub-component. It is carried rather than dropped: a module that
+vanished between two levels is what this tool exists to prevent.
+
+Pairs are decided here by `requires` alone, so absence forbids (AD-32); `STORE-REQUIRES-COMPLETE`
+is what makes that checkable, and a crossing no entry covers is a violation naming the importing
+module.
+
+| Crossing | Import sites | Reason |
+|---|---:|---|
+| `repository` → `backend` | 3 | An order is stored somewhere, and the place is settled in one module. |
+| `repository` → `codec` | 2 | Bytes are a format decision the persistence API delegates. |
+| `api` → `backend` | 2 | Compaction walks the stored files and deletes them. |
+
+```mermaid
+flowchart LR
+    repository --> codec
+    repository --> backend
+    api --> backend
+```
 
 ## Allowed dependencies
 
