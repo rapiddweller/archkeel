@@ -10,12 +10,52 @@ from test_delta import _model, _record
 
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import interface_diagnostics, reference_diagnostics, run_validate
+from archkeel.check.validation import (
+    inside_diagnostics,
+    interface_diagnostics,
+    reference_diagnostics,
+    run_validate,
+)
 from archkeel.cli.config import load_config
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
+
+
+def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> None:
+    """AD-32 decides pairs by absence, so absence has to reach the inside as a prohibition.
+
+    Archkeel's own top level holds no `forbidden_dependency` for check, so a check that reads
+    only those rules would pass anything the inside granted itself.
+    """
+    outer = json.loads((ROOT / "architecture-contract.json").read_text())
+    inner = json.loads((ROOT / "src/archkeel/check/architecture-contract.json").read_text())
+    root = tmp_path / "repository"
+    inside = root / "src/archkeel/check/architecture-contract.json"
+    inside.parent.mkdir(parents=True)
+    (root / "architecture-contract.json").write_text(json.dumps(outer))
+    inside.write_text(json.dumps(inner))
+
+    assert inside_diagnostics(root, parse_contract(outer)) == ()
+
+    inner["rules"].append(
+        {
+            "id": "DEP-ENTRY-ALLOWS-RENDER",
+            "kind": "allowed_dependency",
+            "source": "archkeel.check.run",
+            "target": "archkeel.render",
+            "rationale": "The inside grants an edge the level above never named in requires.",
+            "provenance": ["docs/architecture/archkeel.md"],
+            "decided_by": "architect",
+        }
+    )
+    inside.write_text(json.dumps(inner))
+
+    diagnostics = inside_diagnostics(root, parse_contract(outer))
+
+    assert [item.code for item in diagnostics] == ["inside.forbidden_import"]
+    assert "REQUIRES-COMPLETE" in diagnostics[0].unknown_claim
 
 
 def test_validate_accepts_archkeel_self_contract() -> None:

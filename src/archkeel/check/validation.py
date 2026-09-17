@@ -25,6 +25,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
+    CompleteRequiresRule,
     ContractDeclarations,
     Diagnostic,
     DiagnosticCode,
@@ -602,6 +603,26 @@ def _forbidden_targets(
     ]
 
 
+def _denied_by_absence(
+    contract: ArchitectureContract, label: str, required: frozenset[str], target: str
+) -> str | None:
+    """The `complete_requires` rule refusing an edge the component never asked for (AD-32).
+
+    Absence decides only where such a rule is in force, and only for a target another
+    component owns: a target inside the component itself is no component edge at all, and one
+    no component owns belongs to the external scope rules instead. Without this, a level whose
+    pairs are decided by absence - which is how this repository decides them - would let its
+    inside grant anything, because there is no `forbidden_dependency` left to contradict.
+    """
+    rule = next((item for item in contract.rules if isinstance(item, CompleteRequiresRule)), None)
+    if rule is None:
+        return None
+    owner = contract.component_for(target)
+    if owner is None or owner.label == label or owner.label in required:
+        return None
+    return rule.id
+
+
 def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
     """AD-20: hold a component and the contract describing its inside to each other.
 
@@ -655,10 +676,14 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
                 )
             )
         denied = _forbidden_targets(contract, component.packages)
+        required = frozenset(entry.component for entry in component.requires or ())
         for rule in inner.rules:
             if not isinstance(rule, AllowedDependencyRule):
                 continue
             blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
+            absent = _denied_by_absence(contract, component.label, required, rule.target)
+            if absent is not None:
+                blocked.append(absent)
             if blocked:
                 diagnostics.append(
                     _diagnostic(
