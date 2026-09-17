@@ -9,7 +9,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import replace
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import TypeVar
 
 from archkeel.ir.codec import (
@@ -37,6 +37,7 @@ from archkeel.ir.model import (
     RecordData,
     RunResult,
     SiblingIsolationRule,
+    contract_relative_path,
     in_scope,
 )
 
@@ -474,13 +475,15 @@ def repository_file(repository: Path, value: str) -> Path | None:
     """Resolve a contract-declared repository path, or None when it is unsafe or missing.
 
     Every path a contract names is attacker-adjacent input: it may escape the repository
-    with `..`, with an absolute path or with a Windows separator. One resolver keeps that
-    judgement in a single place, so a second caller cannot be more permissive than the first.
+    with `..`, with an absolute path or with a Windows separator. That judgement now lives in
+    `ir` so the analyzer applies the same one without importing `check` (AD-34); what stays
+    here is the filesystem check, which `ir` may not perform (AD-17).
     """
-    relative = PurePosixPath(value)
-    safe = not relative.is_absolute() and ".." not in relative.parts and "\\" not in value
-    target = (repository / value).resolve()
-    if not safe or not target.is_relative_to(repository) or not target.is_file():
+    relative = contract_relative_path(value)
+    if relative is None:
+        return None
+    target = (repository / relative).resolve()
+    if not target.is_relative_to(repository) or not target.is_file():
         return None
     return target
 

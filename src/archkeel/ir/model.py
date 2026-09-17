@@ -9,6 +9,7 @@ import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import PurePosixPath
 from typing import Literal, TypeAlias, get_args
 
 from .measurements import Measurements
@@ -177,6 +178,20 @@ class RequiredComponent:
 
     component: str
     rationale: str
+
+
+def contract_relative_path(value: str) -> PurePosixPath | None:
+    """Return a contract-declared repository path, or None when it leaves the repository.
+
+    Every path a contract names is attacker-adjacent input: it may escape with `..`, with an
+    absolute path or with a Windows separator. The judgement stays pure so the analyzer and
+    `check` can share it while neither may import the other (AD-34); each caller adds its own
+    filesystem check, which keeps `ir` free of I/O (AD-17).
+    """
+    relative = PurePosixPath(value)
+    if relative.is_absolute() or ".." in relative.parts or "\\" in value:
+        return None
+    return relative
 
 
 @dataclass(frozen=True, slots=True)

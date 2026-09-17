@@ -5,16 +5,67 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.model import SCHEMA_VERSION, ArchitectureContract, EvidenceClass, stable_id
+from archkeel.ir.codec import ContractVersionError
+from archkeel.ir.model import (
+    SCHEMA_VERSION,
+    ArchitectureContract,
+    EvidenceClass,
+    contract_relative_path,
+    stable_id,
+)
 
-from .contract import load_contract, project_declarations
+from .contract import (
+    ContractError,
+    load_contract,
+    project_declarations,
+    project_inside_declarations,
+)
 from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified
 from .scanner import ScanResult, scan_repository
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
+
+
+def _inside_levels(root: Path, contract: ArchitectureContract) -> tuple[list[RawRecord], list[str]]:
+    """Load each declared inside contract, project it, and collect its digest (AD-34).
+
+    A path that leaves the repository, a missing file and an unreadable contract are skipped
+    rather than reported: `validate` owns that verdict and emits `contract.invalid`, so an
+    observation carries a whole level or none of it.
+    """
+    records: list[RawRecord] = []
+    digests: list[str] = []
+    for component in contract.components:
+        if component.inside is None:
+            continue
+        relative = contract_relative_path(component.inside)
+        if relative is None:
+            continue
+        target = (root / relative).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
+            continue
+        try:
+            inner, digest = load_contract(target)
+        except (ContractError, ContractVersionError):
+            continue
+        records.extend(project_inside_declarations(component.label, inner))
+        digests.append(digest)
+    return records, digests
+
+
+def _contract_tree_digest(digest: str, inside_digests: list[str]) -> str:
+    """Fold the inside contracts into the contract digest (AD-34).
+
+    Comparability hangs on this value: unfolded, an edit to a level's own contract would change
+    the picture while `delta` still called two observations comparable.
+    """
+    if not inside_digests:
+        return digest
+    return hashlib.sha256("".join([digest, *inside_digests]).encode()).hexdigest()
 
 
 def _metric(
@@ -234,6 +285,7 @@ def analyze_snapshot(
     if not contract_file.is_absolute():
         contract_file = declarations_root / contract_file
     contract, contract_digest = load_contract(contract_file)
+    inside_records, inside_digests = _inside_levels(declarations_root, contract)
     scan = scan_repository(
         source_root, contract, source_paths=source_paths, roots=roots, namespace=namespace
     )
@@ -268,12 +320,12 @@ def analyze_snapshot(
         },
         "contract": {
             "schema_version": contract.schema_version,
-            "digest": contract_digest,
+            "digest": _contract_tree_digest(contract_digest, inside_digests),
             "path": contract_file.relative_to(declarations_root).as_posix(),
         },
         "coverage": scan.coverage,
         "metrics": _metrics(scan, contract),
-        "declarations": project_declarations(contract),
+        "declarations": [*project_declarations(contract), *inside_records],
         "scope_observations": scan.scope_observations,
         "packages": scan.packages,
         "modules": scan.modules,

@@ -15,6 +15,7 @@ from archkeel.analyzer.embedded.constructs import collect_constructs
 from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import Coverage, Diagnostic, Observation
 from archkeel.ir.trace import trace_valid_violations
 
@@ -159,6 +160,73 @@ def test_rule_projection_writes_decided_by(tmp_path: Path) -> None:
     }
     assert declared["RULE-ARCHITECT"] == "architect"
     assert declared["RULE-AGENT"] == "agent"
+
+
+def _inside_component(label: str, requires: list[str]) -> dict[str, object]:
+    return {
+        "id": f"COMP-{label.upper()}",
+        "label": label,
+        "role": "component",
+        "packages": [f"sample.core.{label}"],
+        "responsibilities": [],
+        "forbidden_responsibilities": [],
+        "provenance": ["docs/architecture/sample.md"],
+        "requires": [
+            {"component": name, "rationale": "Probe."} for name in requires
+        ],
+    }
+
+
+def _with_inside(tmp_path: Path, inside: str) -> None:
+    outer = {
+        "schema_version": "2.1.0",
+        "components": [_component("core") | {"inside": inside}],
+        "rules": [],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(outer))
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _inside_component("a", ["b"]),
+                    _inside_component("b", []),
+                ],
+                "rules": [],
+            }
+        )
+    )
+
+
+def test_a_declared_inside_becomes_a_level_of_its_own(tmp_path: Path) -> None:
+    """AD-34: the inside reaches the observation under a kind no existing reader consumes."""
+    _with_inside(tmp_path, "inner.json")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    records = {
+        record.id: record
+        for record in result.observation.records("declarations") or ()
+        if record.kind == "inside_component_responsibility"
+    }
+    assert sorted(records) == ["core:COMP-A", "core:COMP-B"]
+    assert records["core:COMP-A"].data.get("parent_id") == "core"
+    assert records["core:COMP-A"].data.get("requires") == ("b",)
+    assert records["core:COMP-A"].subjects == ("sample.core.a",)
+    # The landmine AD-34 names: a shared kind would let two levels claim one module, and
+    # `owner_of` answers None wherever two components claim the same one.
+    assert component_owners(result.observation) == (("core", ("sample.core",)),)
+
+
+def test_an_inside_that_leaves_the_repository_is_not_recorded(tmp_path: Path) -> None:
+    """A contract path is attacker-adjacent input, so the analyzer reads none that escapes."""
+    _with_inside(tmp_path, "../inner.json")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert not [
+        record
+        for record in result.observation.records("declarations") or ()
+        if record.kind == "inside_component_responsibility"
+    ]
 
 
 @pytest.mark.parametrize(

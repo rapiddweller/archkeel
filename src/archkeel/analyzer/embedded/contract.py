@@ -154,6 +154,32 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
     )
 
 
+def project_inside_declarations(parent: str, contract: ArchitectureContract) -> list[RawRecord]:
+    """Project one component's inside contract as declarations of a kind of its own (AD-34).
+
+    The kind differs from `component_responsibility` because `component_owners` returns every
+    record carrying that kind: sharing it would let two levels claim one module, and `owner_of`
+    answers None wherever two components claim the same one.
+    """
+    return [
+        classified(
+            item_id=f"{parent}:{component.id}",
+            evidence_class=EvidenceClass.DECLARED_RULE,
+            area="components",
+            kind="inside_component_responsibility",
+            title=component.label,
+            subjects=list(component.packages),
+            provenance=list(component.provenance),
+            data={
+                "parent_id": parent,
+                "requires": sorted(entry.component for entry in component.requires or ()),
+                **({"public": sorted(component.public)} if component.public is not None else {}),
+            },
+        )
+        for component in contract.components
+    ]
+
+
 def project_declarations(contract: ArchitectureContract) -> list[RawRecord]:
     """Project the contract into classified records consumed by JSON and HTML."""
     declarations = contract.declarations or ContractDeclarations()
