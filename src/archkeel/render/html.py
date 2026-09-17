@@ -26,7 +26,7 @@ from archkeel.ir.structure import (
     structure_metrics,
 )
 
-from .flow import FlowData, build_flow
+from .flow import FlowData, FlowInnerEdge, FlowInside, build_flow
 from .summary import (
     Comparison,
     VerdictRow,
@@ -178,6 +178,47 @@ def _within(qualified: str, module: str) -> str:
     return qualified[len(module) + 1 :] if qualified.startswith(f"{module}.") else qualified
 
 
+def _inner_edge_payload(edges: tuple[FlowInnerEdge, ...]) -> list[dict[str, object]]:
+    return [
+        {
+            "source": edge.source,
+            "target": edge.target,
+            "import_sites": edge.import_sites,
+            "rule_ids": list(edge.rule_ids),
+            "state": edge.state,
+        }
+        for edge in edges
+    ]
+
+
+def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
+    """Serialise a declared inside the way `level()` consumes it, or None when none exists."""
+    if inside is None:
+        return None
+    return {
+        "components": [
+            {
+                "label": card.label,
+                "modules": list(card.modules),
+                "public": list(card.public) if card.public is not None else None,
+                "inner_edges": _inner_edge_payload(card.inner_edges),
+            }
+            for card in inside.components
+        ],
+        "edges": [
+            {
+                "source": edge.source,
+                "target": edge.target,
+                "import_sites": edge.import_sites,
+                "rule_ids": list(edge.rule_ids),
+                "state": edge.state,
+            }
+            for edge in inside.edges
+        ],
+        "unassigned": list(inside.unassigned),
+    }
+
+
 def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
     names_by_pair = {
         (edge.source, edge.target): edge.names for edge in interface_edges(observation)
@@ -188,16 +229,8 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
                 "label": component.label,
                 "modules": list(component.modules),
                 "public": list(component.public) if component.public is not None else None,
-                "inner_edges": [
-                    {
-                        "source": inner.source,
-                        "target": inner.target,
-                        "import_sites": inner.import_sites,
-                        "rule_ids": list(inner.rule_ids),
-                        "state": inner.state,
-                    }
-                    for inner in component.inner_edges
-                ],
+                "inner_edges": _inner_edge_payload(component.inner_edges),
+                "inside": _inside_payload(component.inside),
             }
             for component in flow.components
         ],

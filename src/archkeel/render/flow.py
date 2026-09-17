@@ -11,6 +11,7 @@ from typing import Literal
 
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import Observation, Record, text_value
 
 EdgeState = Literal["conforms", "violation", "undecided", "observed"]
@@ -66,11 +67,26 @@ class FlowModule:
 
 
 @dataclass(frozen=True, slots=True)
+class FlowInside:
+    """A component's declared inside, drawn as a level of its own (AD-34).
+
+    It keeps the shape `level()` already consumes, cards and edges, because layout, ranking,
+    routing and the inspector all read that shape and a level inventing its own would rewrite
+    them (AD-24a). `unassigned` names the modules no sub-component owns.
+    """
+
+    components: tuple[FlowComponent, ...]
+    edges: tuple[FlowEdge, ...]
+    unassigned: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class FlowComponent:
     label: str
     modules: tuple[str, ...]
     public: tuple[str, ...] | None
     inner_edges: tuple[FlowInnerEdge, ...] = ()
+    inside: FlowInside | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,6 +307,39 @@ def _violated_pairs(
     return ((source, target),)
 
 
+def _inside_views(observation: Observation) -> dict[str, FlowInside]:
+    """Draw each declared inside as its own level, by the parent component that holds it.
+
+    The verdict is read where every other edge reads it, from the violation records: a crossing
+    the inside contract forbids carries the rule that forbids it, and there is no `undecided`,
+    because inside a declared level absence decides (AD-32, AD-34).
+    """
+    views: dict[str, FlowInside] = {}
+    for level in inside_levels(observation):
+        components = tuple((item.label, item.packages) for item in level.components)
+        inner_by_owner = _inner_edges(observation, components)
+        pair_rules: dict[tuple[str, str], set[str]] = defaultdict(set)
+        for violation in observation.records("violations") or ():
+            for pair in _violated_pairs(violation, components):
+                pair_rules[pair].update(violation.rule_ids)
+        cards = tuple(
+            FlowComponent(
+                label=item.label,
+                modules=item.modules,
+                public=item.public,
+                inner_edges=tuple(inner_by_owner.get(item.label, ())),
+            )
+            for item in level.components
+        )
+        edges = []
+        for edge in level.edges:
+            rule_ids = tuple(sorted(pair_rules.get((edge.source, edge.target), ())))
+            state: EdgeState = "violation" if rule_ids else "conforms"
+            edges.append(FlowEdge(edge.source, edge.target, edge.import_sites, rule_ids, state))
+        views[level.parent] = FlowInside(cards, tuple(edges), level.unassigned)
+    return views
+
+
 def build_flow(observation: Observation) -> FlowData:
     """Return the component flow view derived from one observation alone (AD-10)."""
     declared = [
@@ -301,6 +350,7 @@ def build_flow(observation: Observation) -> FlowData:
     components = component_owners(observation)
     modules_by_owner = _modules_by_owner(observation, components)
     inner_by_owner = _inner_edges(observation, components)
+    inside_by_owner = _inside_views(observation)
     flow_components = tuple(
         sorted(
             (
@@ -309,6 +359,7 @@ def build_flow(observation: Observation) -> FlowData:
                     modules=tuple(sorted(modules_by_owner.get(record.title, ()))),
                     public=_public_interface(record),
                     inner_edges=tuple(inner_by_owner.get(record.title, ())),
+                    inside=inside_by_owner.get(record.title),
                 )
                 for record in declared
             ),

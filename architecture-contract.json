@@ -16,6 +16,7 @@
         "archkeel.ir.duplication",
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
+        "archkeel.ir.levels:inside_levels",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
         "archkeel.ir.model",

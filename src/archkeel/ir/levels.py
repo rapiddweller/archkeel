@@ -25,9 +25,15 @@ from .structure import module_edges
 
 @dataclass(frozen=True, slots=True)
 class InsideComponent:
-    """One sub-component of a declared inside, holding the modules the observation places in it."""
+    """One sub-component of a declared inside, holding the modules the observation places in it.
+
+    `packages` is what the contract declared; `modules` is what the observation found in them.
+    Both travel, because a reader matching modules to owners needs the declared scopes, not the
+    names that happened to match.
+    """
 
     label: str
+    packages: tuple[str, ...]
     modules: tuple[str, ...]
     public: tuple[str, ...] | None
 
@@ -124,7 +130,12 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
         components = tuple(
             sorted(
                 (
-                    InsideComponent(record.title, tuple(owned[record.title]), _public(record))
+                    InsideComponent(
+                        record.title,
+                        record.subjects,
+                        tuple(owned[record.title]),
+                        _public(record),
+                    )
                     for record in records
                 ),
                 key=lambda item: item.label,
