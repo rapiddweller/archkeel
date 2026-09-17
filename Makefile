@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: check test lint typecheck fixtures demo demo-screenshots build smoke release-check
+.PHONY: check test lint typecheck fixtures demo demo-onboarding demo-screenshots build smoke release-check
 check: lint typecheck test
 
 release-check: check build smoke
@@ -10,7 +10,8 @@ test:
 	$(UV) run --locked python -m pytest -q
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
-	fixtures/reproduce_milestone1.py fixtures/architecture_demo.py fixtures/demo_catalog_*.py
+	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
+	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
 
 lint:
 	$(UV) run --locked ruff format --check $(LINT_PATHS)
@@ -24,6 +25,9 @@ fixtures:
 
 demo:
 	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary
+
+demo-onboarding:
+	@$(UV) run --locked python -m fixtures.reproduce_onboarding
 
 demo-screenshots:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }

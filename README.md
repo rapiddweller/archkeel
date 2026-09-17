@@ -39,6 +39,63 @@ break the named rule, and dotted amber edges are still undecided.</sub>
 
 Implemented and planned work is tracked in the [roadmap](https://github.com/rapiddweller/archkeel/blob/main/docs/roadmap.md).
 
+## What it does, on one sample
+
+Everything below runs on `fixtures/F-architecture`, a small shop with five components where
+`store` is large enough to need an architecture of its own. `make demo-onboarding` replays the
+whole loop in about a second, and a test pins every number on this page to what the commands
+actually answer.
+
+### 1. The agent drafts the target. It does not decide it.
+
+`archkeel init` observes the packages and the imports, drafts one component per subpackage with
+its `public` interface, and decides **no** dependency. The 20 ordered component pairs come back
+as open decisions, heaviest first, each with the exact rule to choose from. `validate` then
+refuses that draft — a contract nobody decided is not a target, and the gate stays shut until
+the architect answers.
+
+That is the split the whole tool rests on: **the agent does the reading, the architect does the
+deciding, and the file records which is which.** Every rule carries `decided_by`, so a later
+report counts what an agent decided and no human has reviewed.
+
+<p>
+  <img src="docs/assets/archkeel-shop-onboarding.svg" alt="The onboarding loop: init drafts five components and twenty open decisions, validate refuses the draft, the decided contract passes, the report names store as larger than its level, init drafts the inside, and a crossing inside that level is caught" width="860">
+</p>
+
+### 2. A component that outgrows its level gets one of its own
+
+The report names `store`: 7 modules where the whole level has 5 components. That is a claim,
+never a verdict — a reason to ask, not permission to split. When the architect does open it,
+`init` at the narrower scope drafts 4 sub-components and 12 more pair questions; the architect
+settles them with 3 `requires` entries, because absence forbids. The two levels are then held
+to one public surface, and the flow view opens the component into them.
+
+<p>
+  <img src="docs/assets/archkeel-shop-components.png" alt="Component flow of the clean shop sample: five components, all six edges teal" width="430">
+  <img src="docs/assets/archkeel-shop-store-inside.png" alt="The store component opened into its declared inside: api, repository, codec and backend, plus the module no sub-component owns" width="430">
+</p>
+
+<sub>Left: the five components. Right: <code>store</code> opened into the level its own contract
+declares — <code>api</code>, <code>repository</code>, <code>codec</code>, <code>backend</code>, and
+<code>shop.store</code>, the module no sub-component owns, carried rather than dropped.</sub>
+
+### 3. The gate names the boundary, the level and the fix
+
+When an agent then imports across a boundary the architect closed, the finding is not a lint
+warning. It names the rule, the level that holds it and the importing module:
+
+<p>
+  <img src="docs/assets/archkeel-shop-inside-violation.svg" alt="archkeel validate reporting three rule.violated diagnostics under store:STORE-REQUIRES-COMPLETE, each naming that repository imports backend without requiring it" width="760">
+</p>
+
+### What each side gets out of it
+
+| | |
+|---|---|
+| **For the architect** | The target is a file you own, not a description of the code. The distance between the two is measured, not argued. You decide once per pair and see every decision an agent made on your behalf. |
+| **For the agent** | A boundary it can read before it writes, and a refusal it can act on: the rule id, the level that declares it, the importing module, and the contract to change. No taste, no review latency, no guessing which of ten findings matters. |
+| **For the review** | Two failure modes a finding diff cannot see: architecture that changed without being declared, and a scan that got blinder so the result only looks clean. |
+
 ## Why Archkeel
 
 An agent can keep tests green and introduce no new architecture finding while
@@ -128,23 +185,18 @@ make demo
 `make demo-screenshots OUTPUT=<directory>` also captures each HTML report as PNG and each
 terminal view as SVG.
 
-`fixtures/F-architecture` is the two-level shop sample behind the demo catalog. Run
-`archkeel validate --root fixtures/F-architecture` and `archkeel report --root
-fixtures/F-architecture` on it: the top level holds five components, and `store` declares a
-contract for its inside with four sub-components — `api`, `repository`, `codec` and `backend` —
-whose crossings its `requires` entries cover at 3, 2 and 2 import sites. Both levels pass. Every
-violation the tool can find has a catalogued variant that produces it, listed in
+`make demo-onboarding` replays the loop from [What it does, on one sample](#what-it-does-on-one-sample)
+on the two-level shop: what `init` drafts, what `validate` refuses, what the architect decides,
+and what the gate says when an agent crosses a boundary inside the level.
+
+```bash
+make demo-onboarding
+archkeel validate --root fixtures/F-architecture   # exit 0, both levels
+archkeel report   --root fixtures/F-architecture   # PASS, 0 violations
+```
+
+Every violation the tool can find has a catalogued variant that produces it, listed in
 [docs/architecture-demo.md](https://github.com/rapiddweller/archkeel/blob/main/docs/architecture-demo.md).
-
-<p>
-  <img src="docs/assets/archkeel-shop-components.png" alt="Component flow of the clean shop sample: five components, all six edges teal" width="480">
-  <img src="docs/assets/archkeel-shop-store-inside.png" alt="The store component opened into its declared inside: api, repository, codec and backend, plus the module no sub-component owns" width="480">
-</p>
-
-<sub>Left: the five components of the shop sample. Right: clicking <code>store</code> twice opens
-the level its own contract declares (AD-34) — four sub-components, the three crossings their
-<code>requires</code> entries cover, and <code>shop.store</code>, the module no sub-component owns,
-carried rather than dropped.</sub>
 
 ## Onboard your project
 

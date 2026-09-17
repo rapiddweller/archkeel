@@ -27,6 +27,13 @@ Auto mode runs the same commands without the human back-and-forth: the agent fil
 open decision itself, in the evidence order above, and ends with a summary of its decisions
 by basis (document, layer principle, judgment) with the lowest-confidence ones named first.
 
+`make demo-onboarding` runs the loop end to end on the two-level shop sample in
+`fixtures/F-architecture`, one real command per step: what `init` drafts, why `validate`
+refuses that draft, what the architect answers, how the report asks for a second level, and
+what the gate says when a later edit crosses a boundary inside it. No agent runs there and
+none is simulated; the decisions are this repository's committed ones, replayed, and a test
+holds every printed number to what the commands answer.
+
 ## The onboarding loop (interview mode)
 
 ```mermaid
