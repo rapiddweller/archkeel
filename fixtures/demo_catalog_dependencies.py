@@ -373,6 +373,52 @@ _COMPLETE_REQUIRES = Variant(
     expected_violations=("REQUIRES-COMPLETE",),
     expected_codes=("rule.violated",),
 )
+_COMPLETE_REQUIRES_TYPE_CHECKING = Variant(
+    id="class-a-complete-requires-type-checking",
+    section="class_a",
+    item="complete_requires:include_type_checking",
+    summary="app no longer requires store, so its four imports of that component are uncovered; "
+    "include_type_checking false exempts the one sitting under TYPE_CHECKING, so three remain "
+    "beside render's uncovered import of model.",
+    files={
+        "architecture-contract.json": contract_with_requires(
+            {
+                "store": [
+                    {
+                        "component": "model",
+                        "rationale": "Persistence stores the domain's own entities.",
+                    }
+                ],
+                "app": [
+                    {
+                        "component": "model",
+                        "rationale": "Application services operate on domain entities directly.",
+                    }
+                ],
+                "cli": [
+                    {
+                        "component": "app",
+                        "rationale": "The composition root invokes application services.",
+                    },
+                    {
+                        "component": "render",
+                        "rationale": "The composition root hands typed results to the renderer.",
+                    },
+                ],
+            },
+            {
+                "id": "REQUIRES-COMPLETE",
+                "kind": "complete_requires",
+                "include_type_checking": False,
+                "rationale": "A type-only edge is a compile-time detail, not a runtime dependency.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            },
+        )
+    },
+    expected_violations=("REQUIRES-COMPLETE",) * 4,
+    expected_codes=("rule.violated",) * 4,
+)
 _COMPLETE_INNER_DECISIONS = Variant(
     id="class-a-complete-inner-decisions",
     section="class_a",
@@ -398,6 +444,7 @@ _COMPLETE_INNER_DECISIONS = Variant(
 )
 VARIANTS: tuple[Variant, ...] = (
     _COMPLETE_REQUIRES,
+    _COMPLETE_REQUIRES_TYPE_CHECKING,
     _COMPLETE_INNER_DECISIONS,
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,

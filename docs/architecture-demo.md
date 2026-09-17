@@ -26,6 +26,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | forbidden_construct:broad_except | class-a-construct-broad_except | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | shop/model/probe_broad_except.py |
 | class_a | forbidden_construct:broad_except (allowed source) | class-a-broad-except-allowed | validate/report run | - | - | shop/cli/main.py |
 | class_a | complete_requires | class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | architecture-contract.json |
+| class_a | complete_requires:include_type_checking | class-a-complete-requires-type-checking | validate/report run | REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json |
 | class_a | complete_inner_decisions | class-a-complete-inner-decisions | validate/report run | - | decision.open, decision.open, decision.open | architecture-contract.json |
 | class_a | complete_external_scope | class-a-complete-external-scope | validate/report run | EXTERNAL-COMPLETE | rule.violated | shop/app/analytics.py |
 | class_a | forbidden_dependency:pair | class-a-forbidden-dependency-pair | validate/report run | DEP-RENDER-NO-STORE | closed_world.observed_forbidden, graph.drift, rule.violated | shop/render/text.py |
