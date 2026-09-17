@@ -137,7 +137,7 @@ def _names_the_large_component(root: Path) -> Step:
     observation = parse_observation(decode_canonical_model(json.loads(artifact)))
     claims = review_claims(observation)
     return Step(
-        "The report names what is too large to leave closed",
+        "The report names an oversized component",
         "archkeel report",
         f"{claims.oversized_components} component larger than its own level",
         (
@@ -153,7 +153,7 @@ def _drafts_the_inside(root: Path) -> Step:
     inner = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_bytes())
     requires = sum(len(item.get("requires", ())) for item in inner["components"])
     return Step(
-        "The agent drafts the inside, the architect settles it",
+        "The agent drafts the inside",
         "archkeel init --source shop/store --namespace shop.store",
         f"{components} sub-components, {open_decisions} open decisions",
         (
@@ -180,7 +180,7 @@ def _catches_the_agent(workspace: Path) -> Step:
     violations = trace_valid_violations(observation)
     rules = sorted({item.rule_ids[0] for item in violations if item.rule_ids})
     return Step(
-        "An agent crosses a boundary inside the level",
+        "An agent crosses a closed boundary",
         "archkeel report",
         f"FAIL, {len(violations)} violations: {', '.join(rules)}",
         (

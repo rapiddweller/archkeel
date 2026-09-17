@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: check test lint typecheck fixtures demo demo-onboarding demo-screenshots build smoke release-check
+.PHONY: check test lint typecheck fixtures demo demo-onboarding loop-figure demo-screenshots build smoke release-check
 check: lint typecheck test
 
 release-check: check build smoke
@@ -10,6 +10,7 @@ test:
 	$(UV) run --locked python -m pytest -q
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
+	tools/onboarding_svg.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
 
@@ -28,6 +29,10 @@ demo:
 
 demo-onboarding:
 	@$(UV) run --locked python -m fixtures.reproduce_onboarding
+
+# The figure is derived from the run above, so a test compares it with a fresh render.
+loop-figure:
+	@$(UV) run --locked python -m tools.onboarding_svg docs/assets/archkeel-onboarding-loop.svg
 
 demo-screenshots:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }

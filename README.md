@@ -59,8 +59,12 @@ deciding, and the file records which is which.** Every rule carries `decided_by`
 report counts what an agent decided and no human has reviewed.
 
 <p>
-  <img src="docs/assets/archkeel-shop-onboarding.svg" alt="The onboarding loop: init drafts five components and twenty open decisions, validate refuses the draft, the decided contract passes, the report names store as larger than its level, init drafts the inside, and a crossing inside that level is caught" width="860">
+  <img src="docs/assets/archkeel-onboarding-loop.svg" alt="Swimlane diagram of the onboarding loop across three lanes: the agent drafts five components and twenty open decisions, Archkeel refuses the draft with twenty decision.open, the architect decides every pair, the report names one oversized component, the agent drafts the inside, and Archkeel fails a crossing inside that level" width="980">
 </p>
+
+<sub>Drawn from the run itself, not by hand: a test renders the figure again from the same
+values and compares it byte for byte, so a picture that disagrees with the tool is a failing
+test. <code>make demo-onboarding</code> prints the same six steps with the reasoning under each.</sub>
 
 ### 2. A component that outgrows its level gets one of its own
 
@@ -403,8 +407,10 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
   a card of its own.
 
 `make check` reobserves the repository and compares it with
-[fixtures/D-self](https://github.com/rapiddweller/archkeel/blob/main/fixtures/D-self/result.json);
-CI also runs `archkeel validate` and uploads the self-observation.
+[fixtures/D-self](https://github.com/rapiddweller/archkeel/tree/main/fixtures/D-self): the
+canonical model in `architecture.json`, the digests in `provenance.json`, and the verdicts
+`report` printed in `result.json`. CI also runs `archkeel validate` and uploads the
+self-observation.
 
 ## Current boundaries
 

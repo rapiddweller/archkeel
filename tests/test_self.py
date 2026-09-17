@@ -6,7 +6,7 @@
 import json
 import subprocess
 import sys
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 
@@ -45,8 +45,16 @@ def _architecture_documents() -> tuple[tuple[str, str], ...]:
     return tuple((str(path.relative_to(ROOT)), path.read_text()) for path in paths)
 
 
+@dataclass(frozen=True, slots=True)
+class SelfRun:
+    """One `archkeel report` on this repository: the model it wrote and the result it printed."""
+
+    observation: Observation
+    result: str
+
+
 @pytest.fixture(scope="module")
-def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
+def self_run(tmp_path_factory: pytest.TempPathFactory) -> SelfRun:
     output = tmp_path_factory.mktemp("self-report") / "architecture.json"
     run = subprocess.run(
         [
@@ -68,7 +76,28 @@ def self_observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
     assert result["diagnostics"] == []
     assert result["observation_complete"] == result["declared_rules"] == "PASS"
     assert result["expectation_fulfilled"] == "n/a"
-    return parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    return SelfRun(observation, run.stdout)
+
+
+@pytest.fixture(scope="module")
+def self_observation(self_run: SelfRun) -> Observation:
+    return self_run.observation
+
+
+def test_self_result_matches_the_saved_run(self_run: SelfRun) -> None:
+    """The saved result is what the command printed, or it is decoration that drifts.
+
+    It carried `agent_decisions [0, 24]` and 60 files for several releases while the
+    repository had moved on, because nothing read it and the README linked it as evidence.
+    `artifact` is dropped from both sides: it records where one run was told to write, which
+    is the caller's argument, not a property of this repository.
+    """
+    saved = json.loads((FIXTURE / "result.json").read_bytes())
+    observed = json.loads(self_run.result)
+    assert saved.pop("artifact") == "fixtures/D-self/architecture.json"
+    assert observed.pop("artifact")
+    assert saved == observed
 
 
 def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Observation) -> None:
