@@ -171,9 +171,7 @@ def _inside_component(label: str, requires: list[str]) -> dict[str, object]:
         "responsibilities": [],
         "forbidden_responsibilities": [],
         "provenance": ["docs/architecture/sample.md"],
-        "requires": [
-            {"component": name, "rationale": "Probe."} for name in requires
-        ],
+        "requires": [{"component": name, "rationale": "Probe."} for name in requires],
     }
 
 
