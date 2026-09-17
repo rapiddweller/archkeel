@@ -34,12 +34,17 @@ class InsideComponent:
 
 @dataclass(frozen=True, slots=True)
 class InsideEdge:
-    """One ordered pair of sub-components that the observed module imports cross."""
+    """One ordered pair of sub-components that the observed module imports cross.
+
+    It carries no verdict. The analyzer evaluates the inside contract's `complete_requires`
+    and records an uncovered crossing as a violation like any other, so the view reads the
+    verdict where every other edge's verdict lives. A second boolean here would be a second
+    source for one judgement, free to disagree with the exit code.
+    """
 
     source: str
     target: str
     import_sites: int
-    covered: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,10 +113,6 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
     levels: list[InsideLevel] = []
     for parent, records in sorted(grouped.items()):
         inner = tuple((record.title, record.subjects) for record in records)
-        requires = {
-            record.title: frozenset(_string_tuple(record.data.get("requires")))
-            for record in records
-        }
         owned: dict[str, list[str]] = defaultdict(list)
         unassigned: list[str] = []
         for module in sorted(name for name in names if owner_of(name, outer) == parent):
@@ -130,7 +131,7 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
             )
         )
         edges = tuple(
-            InsideEdge(source, target, count, target in requires[source])
+            InsideEdge(source, target, count)
             for (source, target), count in sorted(_crossings(observation, inner).items())
         )
         levels.append(InsideLevel(parent, components, edges, tuple(unassigned)))

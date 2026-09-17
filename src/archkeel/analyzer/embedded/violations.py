@@ -486,10 +486,16 @@ def _sibling_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
-def _requires_violations(
+def requires_violations(
     imports: Sequence[RawRecord], contract: ArchitectureContract
 ) -> list[RawRecord]:
-    """AD-32: a cross-component import no `requires` entry of the source covers is a violation."""
+    """AD-32: a cross-component import no `requires` entry of the source covers is a violation.
+
+    Public because a declared inside is evaluated by the same function against its own
+    contract (AD-34). It reads finished import records, so the second level costs no second
+    scan, and an import whose modules the inner contract does not own is skipped by
+    `component_for` the way any out-of-scope import is.
+    """
     rules = [rule for rule in contract.rules if isinstance(rule, CompleteRequiresRule)]
     if not rules:
         return []
@@ -548,7 +554,7 @@ def rule_violations(
             *_construct_violations([*typing_signals, *constructs], contract.rules),
             *_external_dependency_violations(imports, contract.rules),
             *_external_completeness_violations(imports, modules, contract.rules),
-            *_requires_violations(imports, contract),
+            *requires_violations(imports, contract),
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),
             *_interface_violations(imports, contract, modules, forbidden_rejected_ids),

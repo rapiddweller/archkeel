@@ -26,11 +26,14 @@ from .contract import (
 )
 from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified
 from .scanner import ScanResult, scan_repository
+from .violations import requires_violations
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
 
-def _inside_levels(root: Path, contract: ArchitectureContract) -> tuple[list[RawRecord], list[str]]:
+def _inside_levels(
+    root: Path, contract: ArchitectureContract
+) -> tuple[list[RawRecord], list[str], list[ArchitectureContract]]:
     """Load each declared inside contract, project it, and collect its digest (AD-34).
 
     A path that leaves the repository, a missing file and an unreadable contract are skipped
@@ -39,6 +42,7 @@ def _inside_levels(root: Path, contract: ArchitectureContract) -> tuple[list[Raw
     """
     records: list[RawRecord] = []
     digests: list[str] = []
+    contracts: list[ArchitectureContract] = []
     for component in contract.components:
         if component.inside is None:
             continue
@@ -54,7 +58,8 @@ def _inside_levels(root: Path, contract: ArchitectureContract) -> tuple[list[Raw
             continue
         records.extend(project_inside_declarations(component.label, inner))
         digests.append(digest)
-    return records, digests
+        contracts.append(inner)
+    return records, digests, contracts
 
 
 def _contract_tree_digest(digest: str, inside_digests: list[str]) -> str:
@@ -66,6 +71,29 @@ def _contract_tree_digest(digest: str, inside_digests: list[str]) -> str:
     if not inside_digests:
         return digest
     return hashlib.sha256("".join([digest, *inside_digests]).encode()).hexdigest()
+
+
+def _add_inside_violations(scan: ScanResult, contracts: list[ArchitectureContract]) -> None:
+    """Evaluate each inside contract's rules against the imports already collected (AD-34).
+
+    The same rule code as the level above. It reads finished import records, so a second level
+    costs no second scan, and its verdict reaches both the view and the exit code through the
+    records every other verdict travels in.
+    """
+    for inner in contracts:
+        scan.violations.extend(requires_violations(scan.imports, inner))
+    scan.violations.sort(key=lambda item: item["id"])
+
+
+def _contract_source(
+    source_root: Path, contract_root: Path | None, contract_path: Path | None
+) -> tuple[Path, Path]:
+    """Return the root that declared paths are relative to, and the contract file itself."""
+    declarations_root = (contract_root or source_root).resolve()
+    contract_file = contract_path or declarations_root / DEFAULT_CONTRACT
+    if not contract_file.is_absolute():
+        contract_file = declarations_root / contract_file
+    return declarations_root, contract_file
 
 
 def _metric(
@@ -280,15 +308,13 @@ def analyze_snapshot(
 ) -> tuple[dict[str, Any], int]:
     """Analyze explicit source bytes and metadata without consulting Git."""
     source_root = source_root.resolve()
-    declarations_root = (contract_root or source_root).resolve()
-    contract_file = contract_path or declarations_root / DEFAULT_CONTRACT
-    if not contract_file.is_absolute():
-        contract_file = declarations_root / contract_file
+    declarations_root, contract_file = _contract_source(source_root, contract_root, contract_path)
     contract, contract_digest = load_contract(contract_file)
-    inside_records, inside_digests = _inside_levels(declarations_root, contract)
+    inside_records, inside_digests, inside_contracts = _inside_levels(declarations_root, contract)
     scan = scan_repository(
         source_root, contract, source_paths=source_paths, roots=roots, namespace=namespace
     )
+    _add_inside_violations(scan, inside_contracts)
     if git_head == "unknown" or dirty == "unknown":
         git_failure = classified(
             item_id="UNKNOWN-GIT-REVISION",

@@ -36,12 +36,6 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
     ]
 
 
-def test_every_crossing_edge_of_check_is_covered_by_a_requires_entry() -> None:
-    """`requires` names all three crossings, so none of them is a prohibition by absence (AD-32)."""
-    level = inside_levels(_self_observation())[0]
-    assert [edge.covered for edge in level.edges] == [True, True, True]
-
-
 def test_a_module_no_sub_component_owns_is_carried_not_dropped() -> None:
     """The package __init__ belongs to no layer; a module that vanished between two levels
     would be the one thing this tool exists to prevent."""
@@ -67,8 +61,8 @@ def _declaration(identifier: str, kind: str, title: str, subjects: list[str], **
     }
 
 
-def _uncovered_model() -> dict[str, Any]:
-    """One inside whose source sub-component requires nothing, so its one crossing is uncovered."""
+def _two_sub_components_model() -> dict[str, Any]:
+    """An inside of two sub-components with one module import running between them."""
     return _model(
         git_head="a" * 40,
         declarations=[
@@ -109,12 +103,13 @@ def _uncovered_model() -> dict[str, Any]:
     )
 
 
-def test_a_crossing_no_requires_entry_names_is_uncovered() -> None:
-    """Absence forbids (AD-32), so green must mean covered and never merely unopposed."""
-    level = inside_levels(parse_observation(_uncovered_model()))[0]
-    assert [
-        (edge.source, edge.target, edge.import_sites, edge.covered) for edge in level.edges
-    ] == [("a", "b", 3, False)]
+def test_module_imports_between_two_sub_components_become_one_crossing() -> None:
+    """The derivation reports structure only; whether the crossing is allowed is a violation
+    record the analyzer writes, so no verdict is restated here."""
+    level = inside_levels(parse_observation(_two_sub_components_model()))[0]
+    assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
+        ("a", "b", 3)
+    ]
 
 
 def test_an_observation_without_a_declared_inside_has_no_level() -> None:

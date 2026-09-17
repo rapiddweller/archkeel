@@ -175,7 +175,7 @@ def _inside_component(label: str, requires: list[str]) -> dict[str, object]:
     }
 
 
-def _with_inside(tmp_path: Path, inside: str) -> None:
+def _with_inside(tmp_path: Path, inside: str, *, inner_rules: list[object] | None = None) -> None:
     outer = {
         "schema_version": "2.1.0",
         "components": [_component("core") | {"inside": inside}],
@@ -190,10 +190,54 @@ def _with_inside(tmp_path: Path, inside: str) -> None:
                     _inside_component("a", ["b"]),
                     _inside_component("b", []),
                 ],
-                "rules": [],
+                "rules": inner_rules or [],
             }
         )
     )
+
+
+_INNER_REQUIRES_RULE = {
+    "id": "REQUIRES-COMPLETE",
+    "kind": "complete_requires",
+    "rationale": "Probe.",
+    "provenance": ["docs/architecture/sample.md"],
+    "decided_by": "architect",
+}
+
+
+def test_an_inside_crossing_no_requires_entry_covers_becomes_a_violation(tmp_path: Path) -> None:
+    """AD-34: the inside is evaluated by the same rule code, so its verdict travels in the
+    records every other verdict travels in, and reaches both the view and the exit code."""
+    _with_inside(tmp_path, "inner.json", inner_rules=[_INNER_REQUIRES_RULE])
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    # b requires nothing, so its import of a is the crossing absence forbids (AD-32).
+    (tmp_path / "sample/core/a.py").write_text("V = 1\n")
+    (tmp_path / "sample/core/b.py").write_text("import sample.core.a\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = [
+        record
+        for record in result.observation.records("violations") or ()
+        if record.kind == "complete_requires"
+    ]
+    assert [item.rule_ids for item in violations] == [("REQUIRES-COMPLETE",)]
+    assert violations[0].data.get("source_module") == "sample.core.b"
+    assert violations[0].data.get("target_module") == "sample.core.a"
+
+
+def test_an_inside_without_its_rule_decides_nothing(tmp_path: Path) -> None:
+    """Without the rule nothing changes: no repository inherits this work by upgrading (AD-32)."""
+    _with_inside(tmp_path, "inner.json")
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    (tmp_path / "sample/core/a.py").write_text("V = 1\n")
+    (tmp_path / "sample/core/b.py").write_text("import sample.core.a\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert result.observation.records("violations") == ()
 
 
 def test_a_declared_inside_becomes_a_level_of_its_own(tmp_path: Path) -> None:
