@@ -69,7 +69,10 @@ absence forbids, the way `complete_assignment` makes an unassigned module a viol
 question (AD-32). `TYPE_CHECKING` imports count unless `include_type_checking` is false. Without the
 rule nothing changes, so a contract that never adopts it keeps deciding pairs one by one. A
 `requires` entry naming a component that does not exist covers nothing and remains a blind spot. A
-`render` component that imports `model` without requiring it is an example violation.
+`render` component that imports `model` without requiring it is an example violation. The same
+rule kind is evaluated a second time against a component's declared inside, over the imports the
+outer scan already collected, so a crossing between two sub-components that no `requires` entry
+covers is a violation of the inside's own rule (AD-34).
 
 `external_dependency_scope` fields are `dependency` (a top-level import name) and
 `allowed_sources`. It matches import records whose target is the dependency or one of its
@@ -212,9 +215,9 @@ still matches its original. The derivation groups functions by shape and, for ev
 against itself. Its signals are the `modules` and `dependency_edges` sections, the same ones the
 size table reads, and the derivation reuses that table rather than counting a second time. A
 component is named when it holds more modules than the contract has components, or more edges among
-its own modules than the contract has edges between components. Inside a component no decision is
-owed (AD-24), so silence there could mean small or merely unexamined; the claim removes that
-ambiguity without turning it into a verdict.
+its own modules than the contract has edges between components. Where the component declares no
+inside, no decision is owed there (AD-24), so silence could mean small or merely unexamined; the
+claim removes that ambiguity without turning it into a verdict.
 
 - **Measurement:** the components named, beside the top level's own component and edge counts, so
   a reader can check every comparison.
@@ -223,7 +226,8 @@ ambiguity without turning it into a verdict.
 - **Blind spots:** the claim measures what a component holds, not how tangled it is — a component
   of many independent modules is named alongside one that is genuinely knotted. It says nothing
   about what a second level would find, because that needs a second scan at a narrower scope,
-  which one observation cannot supply (AD-10). Missing either signal reports UNKNOWN, because a
+  which one observation cannot supply (AD-10); an inside a component has already declared is a
+  different matter, recorded, judged and drawn from this same observation (AD-34). Missing either signal reports UNKNOWN, because a
   comparison against zero component edges would name every component.
 - **Example:** on Archkeel itself the top level holds 6 components and 8 edges, and the claim names
   `analyzer` (21 modules, 46 inner edges), `check` (13 and 23) and `ir` (14 and 15), while `cli`,
