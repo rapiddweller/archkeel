@@ -145,23 +145,29 @@ def test_component_graph_matches_observed_edges(self_observation: Observation) -
 def test_closed_world_check_detects_a_conflicting_rule(self_observation: Observation) -> None:
     """closed_world_diagnostics reads decisions from the live contract, not just observation."""
     contract = _contract()
-    rule = next(
-        item
-        for item in contract.rules
-        if isinstance(item, ForbiddenDependencyRule)
-        and item.source == "archkeel.ir"
-        and item.target == "archkeel.check"
+    # AD-32 moved every component pair into `requires`, so no rule in the live contract decides
+    # one any more. The probe states both decisions itself, for a pair that really exists.
+    provenance = contract.components[0].provenance
+    forbidden = ForbiddenDependencyRule(
+        "DEP-IR-NO-CHECK-PROBE",
+        "forbidden_dependency",
+        "archkeel.ir",
+        "archkeel.check",
+        True,
+        "Conflict probe.",
+        provenance,
+        "architect",
     )
     conflict = AllowedDependencyRule(
         "DEP-IR-ALLOWS-CHECK-PROBE",
         "allowed_dependency",
-        rule.source,
-        rule.target,
+        "archkeel.ir",
+        "archkeel.check",
         "Conflict probe.",
-        rule.provenance,
+        provenance,
         "architect",
     )
-    broken = replace(contract, rules=(*contract.rules, conflict))
+    broken = replace(contract, rules=(*contract.rules, forbidden, conflict))
     diagnostics = closed_world_diagnostics(broken, self_observation)
     assert diagnostics and diagnostics[0].code == "decision.conflict"
     assert diagnostics[0].pointer == "/rules"
@@ -169,11 +175,16 @@ def test_closed_world_check_detects_a_conflicting_rule(self_observation: Observa
 
 def test_rationale_check_detects_a_repeated_rule() -> None:
     contract = _contract()
-    rule = contract.rules[0]
-    assert isinstance(rule, ForbiddenDependencyRule)
+    # Position is incidental, so find the first forbidden rule wherever AD-32 left it.
+    index, rule = next(
+        (position, item)
+        for position, item in enumerate(contract.rules)
+        if isinstance(item, ForbiddenDependencyRule)
+    )
     repeated = replace(rule, rationale=f"{rule.source} does not depend on {rule.target}.")
-    broken = replace(contract, rules=(repeated, *contract.rules[1:]))
-    assert rationale_diagnostics(broken)[0].pointer == "/rules/0/rationale"
+    rules = (*contract.rules[:index], repeated, *contract.rules[index + 1 :])
+    broken = replace(contract, rules=rules)
+    assert rationale_diagnostics(broken)[0].pointer == f"/rules/{index}/rationale"
 
 
 def test_graph_check_detects_a_missing_edge(self_observation: Observation) -> None:
