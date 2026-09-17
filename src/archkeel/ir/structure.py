@@ -51,7 +51,12 @@ def _module_names(observation: Observation) -> tuple[str, ...]:
     )
 
 
-def _module_edges(observation: Observation) -> tuple[tuple[str, str, int], ...]:
+def module_edges(observation: Observation) -> tuple[tuple[str, str, int], ...]:
+    """Return every observed module-level edge as source, target and import sites.
+
+    Public because the inside level derives from the same edges (AD-34): one reader keeps
+    the two levels measuring the same thing.
+    """
     edges: list[tuple[str, str, int]] = []
     for record in observation.records("dependency_edges") or ():
         if record.data.get("level") != "module":
@@ -122,7 +127,7 @@ def structure_metrics(observation: Observation) -> tuple[StructureMetric, ...]:
     """Measure every declared component and every observed package of one observation."""
     components = component_owners(observation)
     names = _module_names(observation)
-    edges = _module_edges(observation)
+    edges = module_edges(observation)
     calls, unresolved = _calls_by_module(observation)
     by_component = {
         module: owner for module in names if (owner := owner_of(module, components)) is not None
@@ -165,7 +170,7 @@ def _component_edge_count(
     return len(
         {
             (source_owner, target_owner)
-            for source, target, _ in _module_edges(observation)
+            for source, target, _ in module_edges(observation)
             if (source_owner := owner_of(source, components)) is not None
             and (target_owner := owner_of(target, components)) is not None
             and source_owner != target_owner

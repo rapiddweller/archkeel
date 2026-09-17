@@ -301,6 +301,16 @@
       "decided_by": "architect"
     },
     {
+      "id": "DEP-ANALYZER-NO-IR-LEVELS",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.analyzer",
+      "target": "archkeel.ir.levels",
+      "include_type_checking": true,
+      "rationale": "The analyzer records a declared inside; the level derived from those records belongs to the reader, so the two never depend on each other (AD-34).",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "CONSTRUCT-NO-DYNAMIC",
       "kind": "forbidden_construct",
       "source": "archkeel",
