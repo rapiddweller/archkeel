@@ -208,6 +208,28 @@ still matches its original. The derivation groups functions by shape and, for ev
   the declared owner `shop.model`; without a declared `spot_owner` the claim reports nothing,
   because no architect decided anything for it to contradict.
 
+`component larger than its level` is the fourth claim, and the only one that measures the contract
+against itself. Its signals are the `modules` and `dependency_edges` sections, the same ones the
+size table reads, and the derivation reuses that table rather than counting a second time. A
+component is named when it holds more modules than the contract has components, or more edges among
+its own modules than the contract has edges between components. Inside a component no decision is
+owed (AD-24), so silence there could mean small or merely unexamined; the claim removes that
+ambiguity without turning it into a verdict.
+
+- **Measurement:** the components named, beside the top level's own component and edge counts, so
+  a reader can check every comparison.
+- **Determinism:** both quantities come from one observation and one derivation, so the claim and
+  the size table can never disagree; it never becomes a verdict or an exit code.
+- **Blind spots:** the claim measures what a component holds, not how tangled it is — a component
+  of many independent modules is named alongside one that is genuinely knotted. It says nothing
+  about what a second level would find, because that needs a second scan at a narrower scope,
+  which one observation cannot supply (AD-10). Missing either signal reports UNKNOWN, because a
+  comparison against zero component edges would name every component.
+- **Example:** on Archkeel itself the top level holds 6 components and 8 edges, and the claim names
+  `analyzer` (21 modules, 46 inner edges), `check` (13 and 23) and `ir` (14 and 15), while `cli`,
+  `render` and `host` stay below on both. Opening a level for one of them is `archkeel init
+  --source <path> --namespace <package>`, which drafts that inside as a contract of its own (AD-20).
+
 ## Migrating from 1.1.0
 
 Contract 2.0 keeps `components` and `rules` at the top level. Move every class-C declaration

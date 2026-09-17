@@ -92,3 +92,4 @@ run shows many violations together; every other row isolates one item.
 | class_c | ContractDeclarations.paths | class-c-paths | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.spot_owners | class-c-spot-owners | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_d | review_claims | class-d-review-claims | tested only | - | - | docs/rules.md |
+| class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |

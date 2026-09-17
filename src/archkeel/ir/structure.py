@@ -7,6 +7,10 @@ Report-only by decision: no verdict, no rule and no exit code reads these number
 answer where the code is dense and where the analyzer sees least, which a global ratio
 hides. The derivation reads modules, module-level edges and call records, so a report
 rendered later from `architecture.json` bytes alone produces the same table.
+
+The same measurements carry the AD-33 claim at the end of this file, which names a
+component whose inside outgrows the level holding it. Deriving both here keeps one
+source for a component's size, so the claim and the table cannot disagree.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from .interfaces import component_owners, owner_of
-from .model import Observation, text_value
+from .model import ComparisonStatus, Observation, text_value
 
 StructureLevel: TypeAlias = Literal["component", "package"]
 
@@ -127,3 +131,62 @@ def structure_metrics(observation: Observation) -> tuple[StructureMetric, ...]:
     return _aggregate("component", by_component, edges, calls, unresolved) + _aggregate(
         "package", by_package, edges, calls, unresolved
     )
+
+
+@dataclass(frozen=True, slots=True)
+class OversizedInside:
+    """One component that holds more than the level containing it (AD-33)."""
+
+    scope: str
+    modules: int
+    inner_edges: int
+
+
+@dataclass(frozen=True, slots=True)
+class InsideSizes:
+    """The claim: the top level's own size, and the components whose inside exceeds it."""
+
+    status: ComparisonStatus
+    components: int = 0
+    component_edges: int = 0
+    candidates: tuple[OversizedInside, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.status == "UNKNOWN" and (
+            self.components or self.component_edges or self.candidates
+        ):
+            raise ValueError("an unsupported claim names no component")
+
+
+def _component_edge_count(
+    observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
+) -> int:
+    """Count the ordered component pairs the observed module edges cross."""
+    return len(
+        {
+            (source_owner, target_owner)
+            for source, target, _ in _module_edges(observation)
+            if (source_owner := owner_of(source, components)) is not None
+            and (target_owner := owner_of(target, components)) is not None
+            and source_owner != target_owner
+        }
+    )
+
+
+def oversized_insides(observation: Observation) -> InsideSizes:
+    """Name each component whose inside outgrows the top level, or UNKNOWN (AD-33).
+
+    Both signals gate the claim: without dependency edges the comparison would measure
+    against zero component edges and call every component with one inner edge large.
+    """
+    if observation.records("modules") is None or observation.records("dependency_edges") is None:
+        return InsideSizes("UNKNOWN")
+    components = component_owners(observation)
+    edges = _component_edge_count(observation, components)
+    candidates = tuple(
+        OversizedInside(metric.scope, metric.modules, metric.inner_edges)
+        for metric in structure_metrics(observation)
+        if metric.level == "component"
+        and (metric.modules > len(components) or metric.inner_edges > edges)
+    )
+    return InsideSizes("SUPPORTED", len(components), edges, candidates)

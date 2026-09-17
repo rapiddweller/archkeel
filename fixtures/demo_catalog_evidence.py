@@ -97,6 +97,18 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         expected_codes=(),
         evidence="docs/rules.md",
     ),
+    Variant(
+        id="class-d-oversized-inside",
+        section="class_d",
+        item="oversized_inside",
+        summary="A component larger than its own level is named in the report and never gated "
+        "on, so no overlay changes the clean sample's findings; the claim is measured on "
+        "Archkeel itself, where it names analyzer, check and ir.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="docs/rules.md",
+    ),
 )
 
 VARIANTS: tuple[Variant, ...] = (

@@ -19,7 +19,12 @@ from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
-from archkeel.ir.structure import StructureMetric, structure_metrics
+from archkeel.ir.structure import (
+    InsideSizes,
+    StructureMetric,
+    oversized_insides,
+    structure_metrics,
+)
 
 from .flow import FlowData, build_flow
 from .summary import (
@@ -689,12 +694,41 @@ def _repetition_claim_body(claim: OwnedLogic) -> str:
 """
 
 
+def _inside_claim_body(claim: InsideSizes) -> str:
+    if claim.status == "UNKNOWN":
+        return (
+            "<p>UNKNOWN: this observation records no modules or no dependency edges, so no "
+            "inside can be measured against the level that holds it.</p>"
+        )
+    scale = (
+        f"The top level holds {claim.components} components and {claim.component_edges} edges "
+        "between them."
+    )
+    if not claim.candidates:
+        return f"<p>None: no component holds more than the level containing it. {scale}</p>"
+    rows = "".join(
+        f"<tr><td>{_text(item.scope)}</td><td>{item.modules}</td><td>{item.inner_edges}</td></tr>"
+        for item in claim.candidates
+    )
+    return f"""
+      <p>{len(claim.candidates)} components hold more modules than the contract has components,
+      or more edges among their modules than it has component edges. {scale} Naming a size is
+      evidence; giving one of them a level of its own is a decision (AD-20, AD-33).</p>
+      <table class="data-table"><thead><tr><th>Component</th><th>Modules</th>
+      <th>Edges inside</th></tr></thead><tbody>{rows}</tbody></table>
+"""
+
+
 def _claims(observation: Observation) -> str:
     """AD-26: every Class D claim, shown with its support and never turned into a verdict."""
     return f"""
     <section class="report-section">
       <h2>Review claim: symbols nobody references</h2>
       {_claim_body(unreferenced_symbols(observation), observation)}
+    </section>
+    <section class="report-section">
+      <h2>Review claim: components larger than their level</h2>
+      {_inside_claim_body(oversized_insides(observation))}
     </section>
     <section class="report-section">
       <h2>Review claim: bindings nobody reads</h2>
