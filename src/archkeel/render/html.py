@@ -256,12 +256,13 @@ def _flow_section(observation: Observation) -> str:
     return f"""
     <section class="report-section flow-section" aria-labelledby="flow-heading">
       <h2 id="flow-heading">Component flow</h2>
-      <p>Component cards and the observed edges between them, weighted by import sites. An
-        arrow and a travelling pulse run from the importer to the imported. Red breaks a
-        declared rule and the label names it; teal conforms; amber is undecided, a decision
-        the contract still owes; grey is observed inside a component, where none is owed
-        (AD-24b). This view needs JavaScript; the table below lists the same crossings for
-        print and no-script use.</p>
+      <p>Component cards and the observed edges between them. Every edge is drawn at one
+        width and carries a label: the rule it breaks, or the number of import sites that
+        cross it. An arrow and a travelling pulse run from the importer to the imported. Red
+        breaks a declared rule and the label names it; teal conforms; amber is undecided, a
+        decision the contract still owes; grey is observed inside a component, where none is
+        owed (AD-24b). This view needs JavaScript; the table below lists the same crossings
+        for print and no-script use.</p>
       <div id="flow" class="flow">
         <div class="flow-toolbar">
           <label for="flow-threshold-input">Hide edges below

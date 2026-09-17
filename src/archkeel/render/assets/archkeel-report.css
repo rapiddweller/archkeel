@@ -522,10 +522,12 @@ code {
 .edge.undecided .line {
   stroke: var(--ck-unknown);
 }
-/* Observed, not undecided: nothing is owed here, so it must not borrow the warning colour. */
+/* Observed, not undecided: nothing is owed here, so it must not borrow the warning colour.
+   It stays muted for that reason, but not faint - inside a component every edge is observed,
+   and a whole view at 0.6 read as switched off rather than as nothing-to-decide. */
 .edge.observed .line {
   stroke: var(--ck-muted);
-  opacity: 0.6;
+  opacity: 0.8;
 }
 .edge .line {
   marker-end: url(#flow-arrow-observed);
@@ -560,8 +562,10 @@ code {
 .edge.undecided .pulse {
   stroke: var(--ck-unknown);
 }
+/* The pulse must out-shine the line it rides, or it is invisible: a muted pulse on a muted
+   line is the one combination where the motion disappears, which is exactly the inner view. */
 .edge.observed .pulse {
-  stroke: var(--ck-muted);
+  stroke: var(--ck-text);
 }
 @keyframes flow-pulse {
   from {

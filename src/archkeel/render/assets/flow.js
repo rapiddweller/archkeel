@@ -350,10 +350,12 @@
 
     edgeLayer.textContent = "";
     routed.forEach((r) => {
-      // A dash pattern in absolute pixels turns to blocks once the line outgrows it: at 5.9px
-      // wide, a 2px dash is a third of its own thickness. Both patterns scale with the width
-      // so the ratio - and with it the meaning each pattern carries - stays constant.
-      const width = 1.4 + 4.5 * Math.sqrt(weight(r.edge) / max);
+      // One width for every edge. Weight is written on the line as a number instead, which a
+      // reader can compare exactly rather than by eye, and which keeps every arrow head the
+      // same size: a head scaled by its line reads as weight where it should read as
+      // direction. The dash pattern still scales with this width, so each state keeps its
+      // ratio and the meaning the legend promises.
+      const width = 2;
       const line = el("path", {
         class: "line",
         d: r.d,
@@ -415,9 +417,9 @@
     const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
     const placed = [];
     const fractions = [0.5, 0.35, 0.65, 0.2, 0.8, 0.12, 0.88];
-    // Violated edges' rule-id chips are placed first and always kept. A conforming edge's plain
-    // weight badge is dropped instead, once every candidate spot on its own line collides, so two
-    // labels never overlap.
+    // Violated edges' rule-id chips are placed first, so they win the roomiest spots; a plain
+    // weight badge takes what is left. Every label is kept either way - the number is the only
+    // place weight is shown now, so dropping one would hide a measurement rather than tidy it.
     const byPriority = [...routed].sort((a, b) => (b.edge.state === "violation" ? 1 : 0) - (a.edge.state === "violation" ? 1 : 0));
     byPriority.forEach((r) => {
       const extra = r.edge.rule_ids.length > 1 ? ` +${r.edge.rule_ids.length - 1}` : "";
@@ -441,13 +443,11 @@
           break;
         }
       }
-      if (!best && r.edge.state !== "violation") {
-        chipLayer.removeChild(group);
-        return;
-      }
       if (!best) {
-        // A rule id must stay visible even in a tight spot: fall back to the path midpoint
-        // rather than disappearing (this only happens if every one of the seven spots collides).
+        // Every label stays visible in a tight spot: fall back to the path midpoint rather
+        // than disappearing. Weight is no longer drawn into the line, so a dropped number is
+        // a number the reader cannot recover - and inside a component, where every edge is
+        // observed and the spots are crowded, dropping was the common case, not the rare one.
         const point = r.node.getPointAtLength(length * 0.5);
         best = { point, box: { x: point.x - width / 2 - 3, y: point.y - 12, w: width + 6, h: 24 } };
       }
