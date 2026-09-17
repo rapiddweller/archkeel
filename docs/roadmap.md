@@ -57,6 +57,7 @@ only when its row names repository evidence.
 | The analyzer records non-call uses of a symbol, so a function handed to a table counts as used; a quality claim without its signal stays UNKNOWN (AD-26) | `src/archkeel/analyzer/embedded/references.py`; `src/archkeel/analyzer/embedded/resolve.py`; `tests/test_analyzer.py` |
 | The first Class D claim names the symbols nothing references, with its exemptions and the unresolved-call share beside it, and reports UNKNOWN without its signal (AD-26) | `src/archkeel/ir/references.py`; `tests/test_references.py`; `docs/rules.md` |
 | The flow view opens a component and draws its modules and the imports between them, observed and undecided, from the same observation and no contract field (AD-24) | `src/archkeel/render/flow.py`; `src/archkeel/render/assets/flow.js`; `tests/test_flow.py` |
+| Two levels are tied together (AD-20): a component names the contract describing its inside, the report names an inside larger than its own level, and two checks hold both levels to one public surface and to the prohibitions above; Archkeel's own `check` declares three sub-components where `init` would have drafted twelve | `4195e43`; `2e951c0`; `0625af3`; `src/archkeel/check/architecture-contract.json` |
 
 ## Next
 
@@ -79,11 +80,12 @@ only when its row names repository evidence.
 
 ## Later
 
-- Tie two levels together (AD-20): a contract field that names the contract describing a
-  component's inside, the measured number reported upward, and the two checks that both levels
-  declare the same `public` interface and that nothing inside imports what the level above forbids.
-  Evidence: a second level on `src/archkeel/check` drafted 12 sub-components and 132 open decisions
-  with today's commands and no model change.
+- Let a second level run on its own (AD-20): an inside now has a contract and two checks against
+  the level above, but no `archkeel.toml` of its own, so `validate --root src/archkeel/check`
+  cannot evaluate it as a level and its own rules are declared without being enforced. An
+  `external_dependency_scope` declared inside is also not compared against the level above yet.
+  Evidence: `init` on that scope drafts 12 sub-components and 132 open decisions, one component
+  per module, where the three decided layers need 6.
 - Make the analyzer a process port with a language profile and prove it with a second analyzer
   (AD-22). Six places still assume Python: the import in the CLI, the namespace pattern in the
   configuration, the `public` and dependency patterns in the schema, the construct enum and the

@@ -1,0 +1,97 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-ENTRY",
+      "label": "entry",
+      "role": "component",
+      "packages": [
+        "archkeel.check.onboarding",
+        "archkeel.check.run",
+        "archkeel.check.report",
+        "archkeel.check.validation"
+      ],
+      "responsibilities": [
+        "Answer one command: observe the repository, then decide what the answer is."
+      ],
+      "forbidden_responsibilities": [
+        "Holding a rule threshold or a comparison policy of its own."
+      ],
+      "provenance": ["docs/architecture/archkeel.md"],
+      "requires": [
+        {
+          "component": "policy",
+          "rationale": "An entry point asks what an observation means; the judgement itself is decided elsewhere so a second entry cannot answer differently."
+        },
+        {
+          "component": "foundation",
+          "rationale": "Reading the repository, its Git objects and its Python profile is shared machinery, and an entry point that reimplemented it would drift from the others."
+        }
+      ],
+      "public": [
+        "archkeel.check.onboarding:run_init",
+        "archkeel.check.report",
+        "archkeel.check.run:run_check",
+        "archkeel.check.validation:invalid_result",
+        "archkeel.check.validation:run_validate"
+      ]
+    },
+    {
+      "id": "COMP-POLICY",
+      "label": "policy",
+      "role": "component",
+      "packages": [
+        "archkeel.check.expectation",
+        "archkeel.check.delta",
+        "archkeel.check.ratchets"
+      ],
+      "responsibilities": [
+        "Turn two observations into a verdict: what was expected, what changed, what may not get worse."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the repository or deciding which command the user ran."
+      ],
+      "provenance": ["docs/architecture/archkeel.md"],
+      "requires": [
+        {
+          "component": "foundation",
+          "rationale": "A verdict is measured against recorded state, so policy reads snapshots and the runtime profile and never gathers them itself."
+        }
+      ],
+      "public": []
+    },
+    {
+      "id": "COMP-FOUNDATION",
+      "label": "foundation",
+      "role": "component",
+      "packages": [
+        "archkeel.check.ports",
+        "archkeel.check.snapshot",
+        "archkeel.check.git",
+        "archkeel.check.python_profile",
+        "archkeel.check.ordering"
+      ],
+      "responsibilities": [
+        "Reach the outside world - files, Git objects, the analyzer port, the runtime - and record what it says."
+      ],
+      "forbidden_responsibilities": [
+        "Judging what it read, or knowing which command asked for it."
+      ],
+      "provenance": ["docs/architecture/archkeel.md"],
+      "public": [
+        "archkeel.check.git:read_blob",
+        "archkeel.check.ports:ScanConfig"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Inside a component the same principle holds as above it: an import nobody asked for is an accident, so each part names what it needs and absence refuses the rest.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

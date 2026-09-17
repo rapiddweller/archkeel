@@ -42,6 +42,7 @@
           "rationale": "Compare observations and return typed results."
         }
       ],
+      "inside": "src/archkeel/check/architecture-contract.json",
       "public": [
         "archkeel.check.git:read_blob",
         "archkeel.check.onboarding:run_init",
