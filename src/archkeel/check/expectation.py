@@ -10,10 +10,8 @@ import hmac
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Final
 
-from archkeel.ir.codec import decode_json
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import ArchitectureDelta, Projection
 
@@ -90,27 +88,6 @@ class _CycleIdentity:
 def sha256_bytes(payload: bytes) -> str:
     """Return the lowercase SHA-256 digest used for immutable input locks."""
     return hashlib.sha256(payload).hexdigest()
-
-
-def load_expectation(path: Path, *, expected_digest: str) -> ArchitectureExpectation:
-    """Load a digest-locked expectation and validate its deliberately fixed schema."""
-    if not _SHA256.fullmatch(expected_digest):
-        raise ExpectationError("expected digest must be a lowercase SHA-256 hex value")
-    try:
-        payload = path.read_bytes()
-    except OSError as exc:
-        raise ExpectationError(f"cannot read architecture expectation: {exc}") from exc
-    actual_digest = sha256_bytes(payload)
-    if not hmac.compare_digest(actual_digest, expected_digest):
-        raise ExpectationError(
-            "architecture expectation digest mismatch: "
-            f"expected {expected_digest}, got {actual_digest}"
-        )
-    try:
-        raw = decode_json(payload)
-    except (UnicodeError, ValueError) as exc:
-        raise ExpectationError(f"invalid architecture expectation JSON: {exc}") from exc
-    return parse_expectation(raw)
 
 
 def parse_expectation(raw: object) -> ArchitectureExpectation:

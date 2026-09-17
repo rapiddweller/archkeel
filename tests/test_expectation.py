@@ -10,8 +10,6 @@
 from __future__ import annotations
 
 import copy
-import json
-from pathlib import Path
 
 import pytest
 
@@ -22,9 +20,7 @@ from archkeel.check.expectation import (
     GUARDRAIL_KEYS,
     ExpectationError,
     evaluate_expectation,
-    load_expectation,
     parse_expectation,
-    sha256_bytes,
 )
 from archkeel.check.expectation import SUPPORTED_DIMENSIONS as EXPECTATION_DIMENSIONS
 from archkeel.ir.codec import parse_delta
@@ -199,19 +195,6 @@ def test_expectation_rejects_generic_fields_and_invalid_counts() -> None:
     changes[0]["before_count"] = True
     with pytest.raises(ExpectationError, match="non-negative integer"):
         parse_expectation(invalid_count)
-
-
-def test_expectation_file_is_locked_to_exact_bytes(tmp_path: Path) -> None:
-    path = tmp_path / "expectation.json"
-    payload = (json.dumps(_expectation_payload(), sort_keys=True) + "\n").encode()
-    path.write_bytes(payload)
-
-    assert (
-        load_expectation(path, expected_digest=sha256_bytes(payload)).baseline_digest
-        == BASELINE_DIGEST
-    )
-    with pytest.raises(ExpectationError, match="digest mismatch"):
-        load_expectation(path, expected_digest="f" * 64)
 
 
 def test_expected_semantic_fingerprint_and_guardrails_pass() -> None:

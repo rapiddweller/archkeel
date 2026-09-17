@@ -15,9 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .model import ComparisonStatus, Observation, text_value
-
-_FUNCTION_KINDS = frozenset({"function", "method"})
+from .model import FUNCTION_KINDS, ComparisonStatus, Observation, text_value
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +47,7 @@ def unread_bindings(observation: Observation) -> BindingReads:
     if records is None:
         return BindingReads("UNKNOWN")
     functions = sum(
-        1 for record in observation.records("symbols") or () if record.kind in _FUNCTION_KINDS
+        1 for record in observation.records("symbols") or () if record.kind in FUNCTION_KINDS
     )
     candidates = tuple(
         sorted(

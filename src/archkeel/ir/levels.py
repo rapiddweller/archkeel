@@ -78,17 +78,13 @@ def _declared_insides(observation: Observation) -> dict[str, list[Record]]:
     return grouped
 
 
-def _string_tuple(value: object) -> tuple[str, ...]:
-    # The codec turns a written list into a tuple, so a list never reaches this reader.
-    if not isinstance(value, tuple):
-        return ()
-    return tuple(item for item in value if isinstance(item, str))
-
-
 def _public(record: Record) -> tuple[str, ...] | None:
     """An undeclared interface is None; a declared but empty one is an empty tuple."""
+    # The codec turns a written list into a tuple, so a list never reaches this reader.
     value = record.data.get("public")
-    return _string_tuple(value) if isinstance(value, tuple) else None
+    if not isinstance(value, tuple):
+        return None
+    return tuple(item for item in value if isinstance(item, str))
 
 
 def _crossings(

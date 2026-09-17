@@ -369,6 +369,11 @@ ArchitectureRule: TypeAlias = (
 )
 
 
+# The symbol kinds that carry a signature. One set, because a record's `kind` and its
+# older `symbol_category` field hold the same three values and two copies may drift apart.
+FUNCTION_KINDS = frozenset({"function", "method"})
+
+
 def text_value(value: object) -> str:
     """Read a string out of open record data, or the empty string when it is not one.
 
@@ -377,6 +382,15 @@ def text_value(value: object) -> str:
     shapes, and because three derivations had each written it out separately.
     """
     return value if isinstance(value, str) else ""
+
+
+def int_value(value: object, *, default: int = 0) -> int:
+    """Read a whole number out of open record data, or `default` when it is not one.
+
+    `bool` is an `int` in Python, so a narrowing that forgets it turns a flag into a count
+    without ever failing; two derivations had each written this out separately.
+    """
+    return value if isinstance(value, int) and not isinstance(value, bool) else default
 
 
 def in_scope(name: str, scope: str) -> bool:

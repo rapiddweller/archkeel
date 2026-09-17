@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from .interfaces import component_owners, owner_of
-from .model import ComparisonStatus, Observation, text_value
+from .model import ComparisonStatus, Observation, int_value, text_value
 
 StructureLevel: TypeAlias = Literal["component", "package"]
 
@@ -37,10 +37,6 @@ class StructureMetric:
     fan_out: int
     calls: int
     unresolved: int
-
-
-def _count(value: object) -> int:
-    return value if isinstance(value, int) and not isinstance(value, bool) else 1
 
 
 def _module_names(observation: Observation) -> tuple[str, ...]:
@@ -64,7 +60,7 @@ def module_edges(observation: Observation) -> tuple[tuple[str, str, int], ...]:
         source = text_value(record.data.get("source"))
         target = text_value(record.data.get("target"))
         if source and target:
-            edges.append((source, target, _count(record.data.get("count"))))
+            edges.append((source, target, int_value(record.data.get("count"), default=1)))
     return tuple(edges)
 
 

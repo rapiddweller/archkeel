@@ -16,9 +16,8 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .model import ComparisonStatus, Observation, in_scope, text_value
+from .model import FUNCTION_KINDS, ComparisonStatus, Observation, in_scope, int_value, text_value
 
-_FUNCTION_CATEGORIES = frozenset({"function", "method"})
 # Measured on Archkeel: below ten nodes the twins are shapes Python forces, not copies. The
 # eight-node group is visit_FunctionDef/visit_AsyncFunctionDef, which ast.NodeVisitor makes
 # every collector write twice, and the two-node group is a pair of empty Protocol methods.
@@ -50,10 +49,6 @@ class OwnedLogic:
             raise ValueError("an unsupported claim names no repetition")
 
 
-def _count(value: object) -> int:
-    return value if isinstance(value, int) and not isinstance(value, bool) else 0
-
-
 def _owners(observation: Observation) -> tuple[tuple[str, str], ...]:
     """Read every declared SPOT owner as (owner, responsibility) from the observation."""
     return tuple(
@@ -68,14 +63,14 @@ def _shapes(observation: Observation) -> dict[tuple[str, int], list[str]] | None
     grouped: dict[tuple[str, int], list[str]] = defaultdict(list)
     seen_shape = False
     for record in observation.records("symbols") or ():
-        if record.data.get("symbol_category") not in _FUNCTION_CATEGORIES:
+        if record.kind not in FUNCTION_KINDS:
             continue
         shape = text_value(record.data.get("shape"))
         name = text_value(record.data.get("qualified_name"))
         if not shape or not name:
             continue
         seen_shape = True
-        grouped[(shape, _count(record.data.get("shape_nodes")))].append(name)
+        grouped[(shape, int_value(record.data.get("shape_nodes")))].append(name)
     return dict(grouped) if seen_shape else None
 
 

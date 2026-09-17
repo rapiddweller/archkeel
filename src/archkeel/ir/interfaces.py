@@ -7,9 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .model import Observation, Record, RecordData, in_scope
+from .model import FUNCTION_KINDS, Observation, Record, RecordData, in_scope
 
-_FUNCTION_KINDS = frozenset({"function", "method"})
 _CLASS_KINDS = frozenset({"dataclass", "protocol", "enum"})
 
 
@@ -91,7 +90,7 @@ def _interface_name(item: Record, symbols_by_name: dict[str, Record]) -> Interfa
     if resolved is None:
         return InterfaceName(name, "constant", (), "")
     kind = _symbol_kind(resolved)
-    if kind not in _FUNCTION_KINDS:
+    if kind not in FUNCTION_KINDS:
         return InterfaceName(name, kind, (), "")
     parameters, returns = _signature(resolved)
     return InterfaceName(name, kind, parameters, returns)
