@@ -164,7 +164,16 @@ class ContractComponent:
     forbidden_responsibilities: tuple[str, ...]
     provenance: tuple[str, ...]
     capability_id: str | None = None
+    requires: tuple[RequiredComponent, ...] | None = None
     public: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RequiredComponent:
+    """One component its owner may import, carrying the architect's reason for the edge (AD-32)."""
+
+    component: str
+    rationale: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,6 +286,18 @@ class CompleteAssignmentRule:
 
 
 @dataclass(frozen=True, slots=True)
+class CompleteRequiresRule:
+    """AD-32: a cross-component import no `requires` entry covers is a violation."""
+
+    id: str
+    kind: Literal["complete_requires"]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+    include_type_checking: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class CompleteInnerDecisionsRule:
     """AD-31: inside this component every observed module pair must be decided."""
 
@@ -336,6 +357,7 @@ ArchitectureRule: TypeAlias = (
     | CompleteAssignmentRule
     | CompleteExternalScopeRule
     | CompleteInnerDecisionsRule
+    | CompleteRequiresRule
     | NoComponentCyclesRule
     | InterfaceBoundaryRule
     | SiblingIsolationRule

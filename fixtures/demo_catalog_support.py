@@ -119,6 +119,23 @@ def contract_component_field_appended(label: str, field: str, value: object) -> 
     return _dump_contract(contract)
 
 
+def contract_with_requires(
+    requires: dict[str, list[dict[str, str]]], rule: dict[str, object]
+) -> str:
+    """Clean contract JSON with a `requires` list per named component and one extra rule.
+
+    The two travel together because every helper here starts from the clean contract and
+    returns finished JSON, so a variant cannot chain two of them (AD-32).
+    """
+    contract = _clean_contract()
+    for component in contract["components"]:
+        entries = requires.get(component["label"])
+        if entries is not None:
+            component["requires"] = entries
+    contract["rules"].append(rule)
+    return _dump_contract(contract)
+
+
 def contract_without_component_field(label: str, field: str) -> str:
     """Clean contract JSON with one component field removed by label."""
     contract = _clean_contract()

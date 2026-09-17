@@ -72,6 +72,15 @@ A `component` that matches no declared component asks for nothing and remains a 
 Opting in a `store` component whose three inner imports are undecided is an example of three open
 decisions.
 
+`complete_requires` has no selector fields. Every import that crosses from one component to another
+must be covered by a `requires` entry of the importing component, and an import no entry covers is a
+violation naming the importing module. A component pair absent from the list is decided, not open:
+absence forbids, the way `complete_assignment` makes an unassigned module a violation rather than a
+question (AD-32). `TYPE_CHECKING` imports count unless `include_type_checking` is false. Without the
+rule nothing changes, so a contract that never adopts it keeps deciding pairs one by one. A
+`requires` entry naming a component that does not exist covers nothing and remains a blind spot. A
+`render` component that imports `model` without requiring it is an example violation.
+
 `external_dependency_scope` fields are `dependency` (a top-level import name) and
 `allowed_sources`. It matches import records whose target is the dependency or one of its
 submodules, including `TYPE_CHECKING` imports. Fixed source bytes and analyzer digest make the

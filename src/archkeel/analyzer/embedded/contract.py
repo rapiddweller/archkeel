@@ -17,6 +17,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteInnerDecisionsRule,
+    CompleteRequiresRule,
     ContractDeclarations,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -113,6 +114,16 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             [rule.component],
         )
         data = {"component": rule.component, "rationale": rule.rationale}
+    elif isinstance(rule, CompleteRequiresRule):
+        area, title, subjects = (
+            "components",
+            "Every cross-component import is covered by the source's requires list",
+            [],
+        )
+        data = {
+            "include_type_checking": rule.include_type_checking,
+            "rationale": rule.rationale,
+        }
     elif isinstance(rule, InterfaceBoundaryRule):
         area, title, subjects = (
             "api_surface",

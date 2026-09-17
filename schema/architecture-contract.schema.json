@@ -14,6 +14,7 @@
       {"$ref": "#/$defs/forbiddenConstruct"},
       {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
       {"$ref": "#/$defs/completeExternalScope"}, {"$ref": "#/$defs/completeInnerDecisions"},
+      {"$ref": "#/$defs/completeRequires"},
       {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"},
       {"$ref": "#/$defs/siblingIsolation"}
     ]}},
@@ -23,6 +24,15 @@
     "nonEmpty": {"type": "string", "pattern": "\\S"},
     "strings": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
     "provenance": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+    "requiredComponent": {
+      "type": "object",
+      "required": ["component", "rationale"],
+      "additionalProperties": false,
+      "properties": {
+        "component": {"$ref": "#/$defs/nonEmpty"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"}
+      }
+    },
     "component": {
       "type": "object",
       "required": ["id", "label", "role", "packages", "responsibilities", "forbidden_responsibilities", "provenance"],
@@ -36,6 +46,7 @@
         "forbidden_responsibilities": {"$ref": "#/$defs/strings"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "capability_id": {"$ref": "#/$defs/nonEmpty"},
+        "requires": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/requiredComponent"}},
         "public": {"type": "array", "uniqueItems": true, "items": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"
@@ -102,6 +113,19 @@
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"}
+      }
+    },
+    "completeRequires": {
+      "type": "object",
+      "required": ["id", "kind", "rationale", "provenance", "decided_by"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "complete_requires"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "decided_by": {"$ref": "#/$defs/decidedBy"},
+        "include_type_checking": {"type": "boolean"}
       }
     },
     "completeExternalScope": {

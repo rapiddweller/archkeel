@@ -17,6 +17,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteInnerDecisionsRule,
+    CompleteRequiresRule,
     ContractComponent,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -401,7 +402,14 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     # complete_inner_decisions names a component label, not a module path. Returning it here
     # would have rule_subject_failures match it against scanned module names and call every
     # such rule vacuous; whether the component exists is the validator's question.
-    if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule | CompleteInnerDecisionsRule):
+    # complete_requires selects nothing either: it speaks about every cross-component import.
+    if isinstance(
+        rule,
+        NoComponentCyclesRule
+        | InterfaceBoundaryRule
+        | CompleteInnerDecisionsRule
+        | CompleteRequiresRule,
+    ):
         return {}
     if isinstance(rule, SiblingIsolationRule):
         return {"members": rule.members}
@@ -486,6 +494,49 @@ def _sibling_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _requires_violations(
+    imports: Sequence[RawRecord], contract: ArchitectureContract
+) -> list[RawRecord]:
+    """AD-32: a cross-component import no `requires` entry of the source covers is a violation."""
+    rules = [rule for rule in contract.rules if isinstance(rule, CompleteRequiresRule)]
+    if not rules:
+        return []
+    violations: list[RawRecord] = []
+    for rule in rules:
+        for item in imports:
+            data = item["data"]
+            source = contract.component_for(data["source_module"])
+            target = contract.component_for(data["target_module"])
+            if (
+                source is None
+                or target is None
+                or source == target
+                or (data["under_type_checking"] and not rule.include_type_checking)
+                or any(entry.component == target.label for entry in source.requires or ())
+            ):
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="dependency_violations",
+                    kind=rule.kind,
+                    title=f"{source.label} imports {target.label} without requiring it",
+                    subjects=[data["source_module"], data["target_module"]],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "source_module": data["source_module"],
+                        "target_module": data["target_module"],
+                        "source_component": source.label,
+                        "target_component": target.label,
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def rule_violations(
     *,
     imports: Sequence[RawRecord],
@@ -505,6 +556,7 @@ def rule_violations(
             *_construct_violations([*typing_signals, *constructs], contract.rules),
             *_external_dependency_violations(imports, contract.rules),
             *_external_completeness_violations(imports, modules, contract.rules),
+            *_requires_violations(imports, contract),
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),
             *_interface_violations(imports, contract, modules, forbidden_rejected_ids),

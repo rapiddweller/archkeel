@@ -1,0 +1,16 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "role": "component",
+      "packages": ["sample.cli"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "requires": [{"component": "core"}]
+    }
+  ],
+  "rules": []
+}

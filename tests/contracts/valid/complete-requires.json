@@ -1,0 +1,39 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "public": ["sample.core"]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "role": "component",
+      "packages": ["sample.cli"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "requires": [
+        {
+          "component": "core",
+          "rationale": "The composition root builds its work from the core model."
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "A cross-component import the source never asked for is an accident.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ from fixtures.demo_catalog_support import (
     Variant,
     contract_rule_field,
     contract_rule_replaced,
+    contract_with_requires,
     contract_with_rule,
     contract_without_rule,
 )
@@ -324,6 +325,54 @@ _COMPLETE_EXTERNAL_SCOPE = Variant(
     expected_violations=("EXTERNAL-COMPLETE",),
     expected_codes=("rule.violated",),
 )
+_COMPLETE_REQUIRES = Variant(
+    id="class-a-complete-requires",
+    section="class_a",
+    item="complete_requires",
+    summary="Every component but render declares what it requires, so render's single import of "
+    "shop.model is the one cross-component edge nobody asked for (AD-32).",
+    files={
+        "architecture-contract.json": contract_with_requires(
+            {
+                "store": [
+                    {
+                        "component": "model",
+                        "rationale": "Persistence stores the domain's own entities.",
+                    }
+                ],
+                "app": [
+                    {
+                        "component": "model",
+                        "rationale": "Application services operate on domain entities directly.",
+                    },
+                    {
+                        "component": "store",
+                        "rationale": "Application services read and write through the repository.",
+                    },
+                ],
+                "cli": [
+                    {
+                        "component": "app",
+                        "rationale": "The composition root invokes application services.",
+                    },
+                    {
+                        "component": "render",
+                        "rationale": "The composition root hands typed results to the renderer.",
+                    },
+                ],
+            },
+            {
+                "id": "REQUIRES-COMPLETE",
+                "kind": "complete_requires",
+                "rationale": "A cross-component import the source never asked for is an accident.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            },
+        )
+    },
+    expected_violations=("REQUIRES-COMPLETE",),
+    expected_codes=("rule.violated",),
+)
 _COMPLETE_INNER_DECISIONS = Variant(
     id="class-a-complete-inner-decisions",
     section="class_a",
@@ -348,6 +397,7 @@ _COMPLETE_INNER_DECISIONS = Variant(
     expected_codes=("decision.open", "decision.open", "decision.open"),
 )
 VARIANTS: tuple[Variant, ...] = (
+    _COMPLETE_REQUIRES,
     _COMPLETE_INNER_DECISIONS,
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,

@@ -28,6 +28,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteInnerDecisionsRule,
+    CompleteRequiresRule,
     ComponentRole,
     ContractCapability,
     ContractCommand,
@@ -58,6 +59,7 @@ from archkeel.ir.model import (
     RatchetObservations,
     Record,
     RecordData,
+    RequiredComponent,
     RunResult,
     Section,
     SemanticChange,
@@ -747,11 +749,19 @@ def _public_entry(value: str, label: str) -> str:
     return value
 
 
+def _required_component(raw: RawJson, label: str) -> RequiredComponent:
+    item = _contract_fields(raw, {"component", "rationale"}, set(), label)
+    return RequiredComponent(
+        _nonempty(item["component"], f"{label}.component"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+    )
+
+
 def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
-        {"capability_id", "public"},
+        {"capability_id", "public", "requires"},
         label,
     )
     try:
@@ -768,6 +778,17 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         if public_raw is not None
         else None
     )
+    requires_raw = item.get("requires")
+    if requires_raw is not None and not isinstance(requires_raw, list):
+        raise ValueError(f"{label}.requires must be a list")
+    requires = (
+        tuple(
+            _required_component(value, f"{label}.requires[{index}]")
+            for index, value in enumerate(requires_raw)
+        )
+        if requires_raw is not None
+        else None
+    )
     return ContractComponent(
         item_id,
         _nonempty(item["label"], f"{label}.label"),
@@ -779,6 +800,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         ),
         provenance,
         _nonempty(capability, f"{label}.capability_id") if capability is not None else None,
+        requires,
         public,
     )
 
@@ -957,6 +979,23 @@ def _parse_complete_inner_decisions(raw: RawJson, label: str) -> CompleteInnerDe
     )
 
 
+def _parse_complete_requires(raw: RawJson, label: str) -> CompleteRequiresRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "rationale", "decided_by"}, {"include_type_checking"}, label
+    )
+    include = item.get("include_type_checking", True)
+    if not isinstance(include, bool):
+        raise ValueError(f"{label}.include_type_checking must be a boolean")
+    return CompleteRequiresRule(
+        item_id,
+        "complete_requires",
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        include,
+    )
+
+
 def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRule:
     item, item_id, provenance = _contract_record(
         raw, {"kind", "rationale", "decided_by"}, set(), label
@@ -1016,6 +1055,7 @@ _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "complete_assignment": _parse_complete_assignment,
     "complete_external_scope": _parse_complete_external_scope,
     "complete_inner_decisions": _parse_complete_inner_decisions,
+    "complete_requires": _parse_complete_requires,
     "no_component_cycles": _parse_no_component_cycles,
     "interface_boundary": _parse_interface_boundary,
     "sibling_isolation": _parse_sibling_isolation,
