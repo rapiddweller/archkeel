@@ -239,7 +239,7 @@ claim removes that ambiguity without turning it into a verdict.
   different matter, recorded, judged and drawn from this same observation (AD-34). Missing either signal reports UNKNOWN, because a
   comparison against zero component edges would name every component.
 - **Example:** on Archkeel itself the top level holds 6 components and 8 edges, and the claim names
-  `analyzer` (21 modules, 46 inner edges), `check` (13 and 23) and `ir` (14 and 15), while `cli`,
+  `analyzer` (21 modules, 47 inner edges), `check` (13 and 23) and `ir` (15 and 22), while `cli`,
   `render` and `host` stay below on both. Opening a level for one of them is `archkeel init
   --source <path> --namespace <package>`, which drafts that inside as a contract of its own (AD-20).
 

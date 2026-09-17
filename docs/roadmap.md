@@ -77,10 +77,7 @@ only when its row names repository evidence.
 3. Replace internal vocabulary in the HTML report labels: `Complete ArchitectureIR inventory`,
    `Canonical result`, `Reproduction metadata`, `Coverage dimension`, `Fingerprint` and
    `Publication order evidence` name concepts a reader has to look up (AD-19).
-4. Open a component in the flow view and draw its modules and their imports from the same
-   observation (AD-24). Evidence: 74 of the 142 observed module edges lie inside one component and
-   are never shown.
-5. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
+4. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
    without the JSON that the two snapshots were comparable at all.
 
 ## Later

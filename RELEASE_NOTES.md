@@ -1,3 +1,78 @@
+# Archkeel 0.4.0 — A component names what it needs, and what is inside it
+
+0.3.0 made every ordered component pair a decision. That is n·(n-1) rules, and the cost is not the
+top level but the next one: a second level on `check` drafted 132 of them. 0.4.0 replaces the
+enumeration with a list. A component names the components it requires, and absence forbids the
+rest; Archkeel's own contract fell from 46 rules deciding 30 pairs to 25 rules and 8 entries. On
+that footing a component can describe its inside in a contract of its own, and the tool records it,
+judges it, draws it and carries it through `check`.
+
+## Highlights
+
+- **A second level that runs end to end.** A component names the contract describing its inside;
+  the observation records it, `ir` derives it, the same rule code judges it, the flow view opens
+  the component into its sub-components and then into their modules, and a `check` snapshot
+  carries both contracts so the lock stays verifiable (AD-20, AD-33, AD-34, AD-36).
+- **`requires` instead of pair-by-pair prohibitions.** `complete_requires` makes the list
+  checkable: a cross-component import no entry covers is a violation naming the importing module.
+  Absence decides, so no pair is ever open where the rule is in force (AD-32).
+- **The flow view opens.** Components, then the modules inside one, then the symbols inside one
+  module. Every edge is drawn at one width with its import sites written on it, carries its
+  direction and its verdict, and can be dragged, tapped or reached by keyboard (AD-10, AD-24).
+- **Four review claims, counted where the command answers.** Symbols nothing references, bindings
+  nobody reads, logic repeated outside its declared owner, and a component holding more than the
+  whole level holds. Claims, never verdicts: no exit code depends on them. The terminal prints the
+  counts and `--json` carries them, so an agent sees a claim without opening the page
+  (AD-26, AD-30, AD-33, AD-35).
+- **New rule kinds.** `sibling_isolation` isolates a set of peers with one rule instead of n·(n-1)
+  prohibitions (AD-25); `complete_external_scope` fails a dependency no rule declares (AD-28);
+  `any_annotation` (AD-27) and `placeholder_body` (AD-29) join the forbidden constructs.
+- **A two-level sample you can run.** `make demo-onboarding` replays the whole loop on
+  `fixtures/F-architecture` in about a second, one real command per step, from what `init` drafts
+  to what the gate says when an agent crosses a boundary inside the level. A test holds every
+  printed number, and the README figure, to what the commands answer.
+
+## Breaking changes
+
+- **Analyzer version 0.18.0.** Observations written by an earlier analyzer are not comparable, and
+  `delta` refuses them rather than comparing across versions (AD-3).
+- **A report whose target is still undecided reads FAIL.** It used to pass on an empty target, which
+  reported a contract nobody had finished as a clean one (AD-23).
+- **An inside's rules are recorded as `<component>:<rule id>`**, and its findings name them there.
+  Only a contract that declares `inside` is affected; the id inside that contract file is
+  unchanged (AD-36).
+- **`ExpectationResult.passed` is removed.** Read `failures` instead: it answered the same question
+  and no shipped command asked it.
+- **Contract `schema_version` stays 2.1.0.** `requires` and `inside` are optional properties and a
+  new rule kind makes no valid contract invalid, so a 0.3.0 contract needs no migration (AD-8).
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
+## Self-observation
+
+Archkeel's own contract is a decided target: 6 components, 8 `requires` entries and one
+`complete_requires` rule where 30 pair rules used to stand, 25 rules in total, none decided by the
+agent. `check` describes its inside in a contract of its own, with 3 sub-components whose
+crossings carry 21, 6 and 2 import sites. The analyzer measured its own source at 0.3.0 and at
+this release:
+
+| Measurement | 0.3.0 | 0.4.0 | Explanation |
+|---|---:|---:|---|
+| Source files | 53 | 61 | Levels, claims, structure metrics and the duplication and binding collectors |
+| Contract rules | 46 | 25 | 30 pair decisions became 8 `requires` entries under one rule (AD-32) |
+| Violations | 0 | 0 | Now including `complete_requires` at both levels |
+| `getattr` calls | 0 | 0 | Still forbidden everywhere |
+| Typing positions | 46 | 48 | Two added with the level derivation; the 0.3.0 narrowing holds |
+| Unresolved calls | 630 / 3303 | 703 / 3982 | New calls in the levels, claims and flow modules |
+
+The unresolved ratio fell from 19.07% to 17.65%. Two runs of `archkeel report` on the same commit
+write a byte-identical `architecture.json`.
+
 # Archkeel 0.3.0 — The architect owns the target
 
 Archkeel 0.3.0 turns onboarding into decisions about a target architecture. `init` proposes

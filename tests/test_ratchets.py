@@ -107,7 +107,6 @@ def test_unresolved_count_and_ratio_are_independent_exact_ratchets(
     assert delta["ratchets"]["baseline"]["resolution"] == ("measured" if before_t else "n/a")
     assert delta["ratchets"]["head"]["resolution"] == ("measured" if after_t else "n/a")
     result = _evaluate(delta)
-    assert result.passed is (not failures)
     assert len(result.failures) == len(failures)
     for name in failures:
         assert any(f"regression check failed in {name}:" in failure for failure in result.failures)

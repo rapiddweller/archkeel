@@ -497,8 +497,8 @@ component that forbids no existing one and a new rule kind makes no valid contra
 older Archkeel versions fail closed (AD-8). Check: a shop probe whose `render` component imports
 `model` without requiring it yields exactly one violation, the contract corpus pins both the rule
 and a malformed `requires` entry, and `init` on a fresh repository drafts no `requires` list.
-Archkeel's own contract adopts the rule in a step of its own; until it does it still decides its 30
-pairs one by one, so the 8 entries above are what that step owes, not what the repository has.
+Archkeel's own contract adopted the rule in a step of its own: it now carries the 8 entries above,
+one `complete_requires` rule and 25 rules in total, where the 30 pair rules used to be.
 
 **AD-33 A component's inside is a level, not a list of pairs.** AD-31 governed the inside by
 demanding a decision for every observed module pair there, which is the enumerate-every-pair model
@@ -518,8 +518,8 @@ has components, or more edges among those modules than it has component edges. B
 already in the observation, which is what makes the trigger legal: AD-10 binds the view to one
 observation, and what a second level *would* draft is not derivable from it, because drafting needs
 a second scan at a narrower scope. Which of the two quantities is chosen does not matter, because
-on this repository they agree on every component: `analyzer` at 21 and 46, `check` at 13 and 23 and
-`ir` at 14 and 15 stand against 6 and 8, while `cli` at 4 and 3, `render` at 5 and 3 and `host` at
+on this repository they agree on every component: `analyzer` at 21 and 47, `check` at 13 and 23 and
+`ir` at 15 and 22 stand against 6 and 8, while `cli` at 4 and 3, `render` at 5 and 3 and `host` at
 2 and 0 stay below. The draft-based reading would have called `analyzer` small on the strength of
 3 drafted sub-components, which measures how a package happens to be cut rather than what it holds.
 Depth itself stays optional (AD-20): the report states that an inside is large, and the architect
@@ -570,7 +570,7 @@ in the terminal buries the three verdicts the command exists to deliver under fo
 candidates. Limit: counts only, so the terminal never names a symbol; a named list reads like a
 worklist, and the detail belongs where the evidence is. Consumers of the result JSON see one new
 field, which no schema version announces because the result payload carries none. Check:
-`archkeel report` on Archkeel prints 2 unreferenced, 3 oversized, 0 unread and 0 repeated, the
+`archkeel report` on Archkeel prints 1 unreferenced, 3 oversized, 0 unread and 0 repeated, the
 verdict table and the exit code are unchanged, and `archkeel validate --json` carries the same four
 counts.
 

@@ -145,17 +145,13 @@ def render(steps: tuple[Step, ...]) -> str:
     return "\n".join(parts) + "\n"
 
 
-def onboarding_svg() -> str:
-    """Render the loop from one real run; the temporary repository never outlives it."""
-    with TemporaryDirectory(prefix="archkeel-onboarding-svg-") as temporary:
-        return render(run_onboarding_demo(Path(temporary)))
-
-
 def main(argv: list[str]) -> int:
+    """Render the loop from one real run; the temporary repository never outlives it."""
     if len(argv) != 1:
         print("usage: python -m tools.onboarding_svg <output.svg>", file=sys.stderr)
         return 2
-    Path(argv[0]).write_text(onboarding_svg())
+    with TemporaryDirectory(prefix="archkeel-onboarding-svg-") as temporary:
+        Path(argv[0]).write_text(render(run_onboarding_demo(Path(temporary))))
     print(f"Wrote {argv[0]}")
     return 0
 

@@ -202,7 +202,6 @@ def test_expected_semantic_fingerprint_and_guardrails_pass() -> None:
         _typed_delta(_delta_payload()), parse_expectation(_expectation_payload())
     )
 
-    assert result.passed is True
     assert result.failures == ()
 
 
@@ -219,7 +218,6 @@ def test_missing_fingerprint_and_guardrail_regression_are_governance_failures() 
 
     result = evaluate_expectation(_typed_delta(delta), parse_expectation(_expectation_payload()))
 
-    assert result.passed is False
     assert result.failures == (
         "guardrail regression in cycles: 1->2",
         f"missing expected violations removed fingerprint {FINGERPRINT}",
@@ -323,7 +321,7 @@ def test_cycle_guardrail_accepts_strict_same_level_scc_contraction() -> None:
 
     result = evaluate_expectation(_typed_delta(delta), parse_expectation(_expectation_payload()))
 
-    assert result.passed is True
+    assert result.failures == ()
 
 
 @pytest.mark.parametrize(

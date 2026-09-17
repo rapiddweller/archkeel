@@ -170,7 +170,7 @@ The HTML report is designed for a reviewer making a merge decision:
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
 - **Claims are named, never gated on.** `report` and `validate` print what the four review
-  claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
+  claims found — on Archkeel itself 1 unreferenced symbol, 3 components larger than their
   level, 0 unread bindings, 0 repetitions — in the terminal and under `claims` in `--json`,
   while the HTML report lists the candidates. None of it reaches an exit code.
 

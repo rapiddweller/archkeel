@@ -72,10 +72,6 @@ class ExpectationResult:
 
     failures: tuple[str, ...]
 
-    @property
-    def passed(self) -> bool:
-        return not self.failures
-
 
 @dataclass(frozen=True, slots=True)
 class _CycleIdentity:
