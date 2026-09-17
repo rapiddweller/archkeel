@@ -469,6 +469,21 @@ def _public_diagnostics(contract: ArchitectureContract) -> list[Diagnostic]:
     return diagnostics
 
 
+def repository_file(repository: Path, value: str) -> Path | None:
+    """Resolve a contract-declared repository path, or None when it is unsafe or missing.
+
+    Every path a contract names is attacker-adjacent input: it may escape the repository
+    with `..`, with an absolute path or with a Windows separator. One resolver keeps that
+    judgement in a single place, so a second caller cannot be more permissive than the first.
+    """
+    relative = PurePosixPath(value)
+    safe = not relative.is_absolute() and ".." not in relative.parts and "\\" not in value
+    target = (repository / value).resolve()
+    if not safe or not target.is_relative_to(repository) or not target.is_file():
+        return None
+    return target
+
+
 def reference_diagnostics(
     root: Path,
     config: ScanConfig,
@@ -492,10 +507,7 @@ def reference_diagnostics(
     repository = root.resolve()
     for pointer, values in _provenance(contract):
         for index, value in enumerate(values):
-            relative = PurePosixPath(value)
-            target = (repository / value).resolve()
-            safe = not relative.is_absolute() and ".." not in relative.parts and "\\" not in value
-            if not safe or not target.is_relative_to(repository) or not target.is_file():
+            if repository_file(repository, value) is None:
                 diagnostics.append(
                     _diagnostic(
                         "reference.provenance",
@@ -569,6 +581,98 @@ def invalid_result(subject: str, error: Exception, pointer: str = "") -> RunResu
     )
 
 
+def _inside_public(inner: ArchitectureContract) -> frozenset[str]:
+    """The inside's public surface: what its own components offer, taken together."""
+    return frozenset(entry for item in inner.components for entry in (item.public or ()))
+
+
+def _forbidden_targets(
+    contract: ArchitectureContract, packages: tuple[str, ...]
+) -> list[tuple[str, str]]:
+    """Each rule id and target the level above forbids a component, by any of its packages.
+
+    The id travels with the target because the diagnostic exists to point at a decision, and
+    a reader cannot find the decision from the target alone.
+    """
+    return [
+        (rule.id, rule.target)
+        for rule in contract.rules
+        if isinstance(rule, ForbiddenDependencyRule)
+        and any(in_scope(rule.source, package) for package in packages)
+    ]
+
+
+def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
+    """AD-20: hold a component and the contract describing its inside to each other.
+
+    Two checks, and only two: the levels must agree on the component's public surface, and
+    the inside must not grant itself what the level above denies the component. Grants are
+    read from the inside's `allowed_dependency` rules; an `external_dependency_scope` there
+    is not yet compared, which stays a blind spot.
+    """
+    repository = root.resolve()
+    diagnostics: list[Diagnostic] = []
+    for index, component in enumerate(contract.components):
+        if component.inside is None:
+            continue
+        pointer = f"/components/{index}/inside"
+        target = repository_file(repository, component.inside)
+        if target is None:
+            diagnostics.append(
+                _diagnostic(
+                    "contract.invalid",
+                    pointer,
+                    component.inside,
+                    "The contract describing this inside is missing or outside the repository.",
+                    "Reference an existing repository-relative contract, or drop `inside`.",
+                )
+            )
+            continue
+        try:
+            inner = parse_contract(decode_json(target.read_bytes()))
+        except (OSError, ValueError, ContractVersionError) as error:
+            diagnostics.append(
+                _diagnostic(
+                    "contract.invalid",
+                    pointer,
+                    component.inside,
+                    f"The contract describing this inside cannot be read: {error}",
+                    "Repair the inside contract so `validate` accepts it on its own.",
+                )
+            )
+            continue
+        declared = frozenset(component.public or ())
+        inside = _inside_public(inner)
+        if declared != inside:
+            diagnostics.append(
+                _diagnostic(
+                    "inside.public_mismatch",
+                    pointer,
+                    component.label,
+                    f"The level above declares {sorted(declared)} public for this component "
+                    f"while its inside declares {sorted(inside)}.",
+                    "Declare one public surface and repeat it in both contracts.",
+                )
+            )
+        denied = _forbidden_targets(contract, component.packages)
+        for rule in inner.rules:
+            if not isinstance(rule, AllowedDependencyRule):
+                continue
+            blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
+            if blocked:
+                diagnostics.append(
+                    _diagnostic(
+                        "inside.forbidden_import",
+                        pointer,
+                        f"{component.label} -> {rule.target}",
+                        f"The inside allows {rule.target}, which {', '.join(sorted(blocked))} "
+                        f"forbids {component.label} at the level above.",
+                        "Remove the grant inside, or decide the pair differently above.",
+                    )
+                )
+    return _sorted(diagnostics)
+
+
 def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResult:
     """Validate contract structure, repository references and observed architecture."""
     contract_path = root / config.contract
@@ -610,6 +714,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         (path, (root / path).read_text()) for path in contract_provenance_paths(contract)
     )
     diagnostics.extend(observation_diagnostics(contract, observation, documents))
+    diagnostics.extend(inside_diagnostics(root, contract))
     try:
         measurements, declared = inspect_observation(observation)
     except ValueError as error:

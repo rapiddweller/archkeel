@@ -11,12 +11,14 @@ from fixtures.demo_catalog_support import (
     HEADER,
     Variant,
     contract_component_field_appended,
+    contract_component_field_set,
     contract_rule_field,
     contract_rule_provenance_appended,
     contract_top_field,
     contract_with_rule,
     contract_without_component_field,
     contract_without_top_field,
+    inside_contract,
 )
 
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
@@ -175,6 +177,45 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         evidence="tests/test_trace.py",
+    ),
+    Variant(
+        id="validation-inside-public-mismatch",
+        section="validation",
+        item="inside.public_mismatch",
+        summary="COMP-STORE names a contract for its inside whose sub-component offers a "
+        "different public surface than the level above declares for store (AD-20).",
+        files={
+            "architecture-contract.json": contract_component_field_set(
+                "store", "inside", "shop/store/architecture-contract.json"
+            ),
+            "shop/store/architecture-contract.json": inside_contract(
+                ["shop.store.repository:Ledger"]
+            ),
+        },
+        expected_violations=(),
+        expected_codes=("inside.public_mismatch",),
+    ),
+    Variant(
+        id="validation-inside-forbidden-import",
+        section="validation",
+        item="inside.forbidden_import",
+        summary="COMP-STORE's inside repeats its public surface exactly, so only the second "
+        "AD-20 check fires: the inside allows shop.render, which DEP-STORE-NO-RENDER forbids.",
+        files={
+            "architecture-contract.json": contract_component_field_set(
+                "store", "inside", "shop/store/architecture-contract.json"
+            ),
+            "shop/store/architecture-contract.json": inside_contract(
+                [
+                    "shop.store.repository:OrderRepository",
+                    "shop.store.sqlite:vacuum",
+                    "shop.store.sqlite:Connection",
+                ],
+                "shop.render",
+            ),
+        },
+        expected_violations=(),
+        expected_codes=("inside.forbidden_import",),
     ),
 )
 

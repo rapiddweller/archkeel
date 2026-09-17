@@ -119,6 +119,58 @@ def contract_component_field_appended(label: str, field: str, value: object) -> 
     return _dump_contract(contract)
 
 
+def contract_component_field_set(label: str, field: str, value: object) -> str:
+    """Clean contract JSON with one scalar component field set by label.
+
+    The appending helper above needs the field to exist and to be a list; a scalar such as
+    `inside` (AD-20) has neither property on the clean sample.
+    """
+    contract = _clean_contract()
+    component = next(item for item in contract["components"] if item["label"] == label)
+    component[field] = value
+    return _dump_contract(contract)
+
+
+def inside_contract(public: list[str], allowed_target: str | None = None) -> str:
+    """A contract describing shop.store's inside, for the AD-20 level checks.
+
+    One sub-component over `shop.store.repository`: `public` is the surface the inside
+    declares, which the level above must declare identically, and `allowed_target` an edge
+    the inside grants itself, which the level above may forbid to store.
+    """
+    rules: list[dict[str, object]] = []
+    if allowed_target is not None:
+        rules.append(
+            {
+                "id": "DEP-REPOSITORY-ALLOWS-RENDER",
+                "kind": "allowed_dependency",
+                "source": "shop.store.repository",
+                "target": allowed_target,
+                "rationale": "The inside grants an edge the level above denies to store.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            }
+        )
+    return _dump_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                {
+                    "id": "COMP-REPOSITORY",
+                    "label": "repository",
+                    "role": "component",
+                    "packages": ["shop.store.repository"],
+                    "responsibilities": [],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/shop.md"],
+                    "public": public,
+                }
+            ],
+            "rules": rules,
+        }
+    )
+
+
 def contract_with_requires(
     requires: dict[str, list[dict[str, str]]], rule: dict[str, object]
 ) -> str:

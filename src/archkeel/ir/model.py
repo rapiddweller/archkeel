@@ -482,6 +482,8 @@ DiagnosticCode: TypeAlias = Literal[
     "contract.schema_version",
     "contract.invalid",
     "observation.incomplete",
+    "inside.public_mismatch",
+    "inside.forbidden_import",
 ]
 
 

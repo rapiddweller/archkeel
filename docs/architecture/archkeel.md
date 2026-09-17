@@ -281,8 +281,10 @@ above forbids. `init` never opens a second level by itself. Reason: a second lev
 because closed-world coverage applies per level; nesting inside one contract would multiply that set
 and would need a precedence rule between levels. The mechanics already work without a model change:
 the same commands run on a scope of `src/archkeel/check`, where sibling components appear as external
-packages. Check: the two consistency checks, and a test that `init` on a repository with a contract
-proposes no second level.
+packages. Check: `inside.public_mismatch` and `inside.forbidden_import`, each catalogued with a
+shop overlay that gives `store` a contract for its inside, and a test that `init` drafts no
+component carrying `inside`. A missing or unreadable inside contract reports `contract.invalid`.
+An `external_dependency_scope` declared inside is not yet compared against the level above.
 
 **AD-21 Structure measurements are derivations, never gates.** `ir` derives, from modules and
 module-level edges alone, the module count, inner edges, fan-in, fan-out and unresolved-call share

@@ -58,6 +58,8 @@ run shows many violations together; every other row isolates one item.
 | validation | contract.schema_version | validation-contract-schema-version | validate/report run | - | contract.schema_version | architecture-contract.json |
 | validation | contract.invalid | validation-contract-invalid | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
+| validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | architecture-contract.json, shop/store/architecture-contract.json |
+| validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | architecture-contract.json, shop/store/architecture-contract.json |
 | validation | rule_without_subjects | validation-rule-without-subjects | validate/report run | - | - | architecture-contract.json |
 | validation | parse_error | validation-parse-error | validate/report run | - | - | shop/model/broken_syntax.py |
 | validation | scope_empty | validation-scope-empty | validate/report run | - | - | architecture-contract.json, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/model/entities.py, shop/render/text.py, shop/store/__init__.py, shop/store/backend/__init__.py, shop/store/backend/files.py, shop/store/repository.py, shop/store/sqlite.py |

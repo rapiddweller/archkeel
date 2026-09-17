@@ -94,6 +94,16 @@ def test_init_drafts_no_dependency_rule_but_still_drafts_structural_rules(
             assert any(in_scope(module, package) for package in component.packages)
 
 
+def test_init_opens_no_second_level(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    """AD-20: a level is opened by an architect deciding to, never by init drafting one."""
+    root = _repository(tmp_path)
+    _init(root, capsys)
+
+    draft = _contract(root / "architecture-contract.json")
+    assert draft.components, "the draft must name components for the assertion to mean anything"
+    assert all(component.inside is None for component in draft.components)
+
+
 def test_init_open_decisions_are_sorted_and_cover_every_ordered_pair_exactly_once(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
