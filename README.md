@@ -108,6 +108,10 @@ The HTML report is designed for a reviewer making a merge decision:
   unknown claim, and remedy.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
+- **Claims are named, never gated on.** `report` and `validate` print what the four review
+  claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
+  level, 0 unread bindings, 0 repetitions — in the terminal and under `claims` in `--json`,
+  while the HTML report lists the candidates. None of it reaches an exit code.
 
 ## Try the demo
 
@@ -309,10 +313,11 @@ make fixtures
 [architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json)
 holds Archkeel to the rules it sells, and every rule was proven by a deliberate violation:
 
-- **Every pair decided.** Six components; each of the 30 ordered pairs is an
-  `allowed_dependency` or `forbidden_dependency` rule with a rationale, all decided by the
-  architect. The [architecture guide](docs/architecture/archkeel.md) names the quality goal each
-  allowed edge serves.
+- **Every pair decided.** Six components, so 30 ordered pairs, decided by eight `requires`
+  entries and one `complete_requires` rule: a pair no entry names is forbidden, not open. All
+  25 rules carry a rationale and are decided by the architect. The
+  [architecture guide](docs/architecture/archkeel.md) names the quality goal each required edge
+  serves.
 - **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
   the composition root. The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`.
 - **No dynamic shortcuts.** `getattr`, `hasattr`, `cast`, `eval`, `exec`, dynamic imports and
@@ -321,6 +326,11 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
   terminal view, `rich_argparse` only in the CLI.
 - **Complete and acyclic.** Every module belongs to exactly one component, and components form
   no cycle.
+- **A second level where one was owed.** `check` holds 13 modules and 23 imports between them,
+  more than the whole top level holds, so it declares a contract of its own: `entry`, `policy`
+  and `foundation`, whose crossings its `requires` entries cover at 21, 6 and 2 import sites.
+  The flow view opens it as a level of its own, and the one module no sub-component owns keeps
+  a card of its own.
 
 `make check` reobserves the repository and compares it with
 [fixtures/D-self](https://github.com/rapiddweller/archkeel/blob/main/fixtures/D-self/result.json);
