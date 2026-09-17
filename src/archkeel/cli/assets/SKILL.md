@@ -110,6 +110,47 @@ separately from onboarding, not a reason to hold the commit.
 - `validate --json` and `report --json` report `agent_decisions` as `[agent, total]`; a
   nonzero first value means an auto-mode contract still awaits an architect interview on
   those rules.
+- The same two commands report `claims`, the Class D review claims. They never change a
+  verdict or an exit code; bring a nonzero count to the architect as reading work, and never
+  delete code because a claim named it.
+
+## A second level: the inside of a component
+
+A component may name a contract of its own, which becomes a second level of the same
+architecture (AD-20, AD-34). Opening one is the architect's decision, never yours. The
+`component larger than its level` claim is evidence that a component holds more than the whole
+top level does; it is a reason to ask, not permission to split.
+
+Once the architect decides:
+
+1. Draft the scope with `archkeel init --source <component path> --namespace <component
+   package>`. Read the draft as an inventory, not as a proposal: it writes one component per
+   module, so on Archkeel's own `check` it drafted 12 sub-components and 132 open decisions
+   where the three layers the architect settled on need 6. Consolidate it into a few layers
+   with the architect before deciding a single pair.
+2. Point the outer component at the resulting contract with
+   `"inside": "<repository-relative path>"`.
+3. Decide the inside the way you decide the top level: a `requires` list per sub-component and
+   one `complete_requires` rule, so absence forbids there too (AD-32).
+
+`validate` then holds the two levels to each other, and you read its diagnostics by `code`:
+
+- `inside.public_mismatch` — the component's `public` above and the public surface of the
+  inside must be the same list. Declare it once and repeat it in both contracts.
+- `inside.forbidden_import` — the inside grants an edge the level above forbids the component,
+  by a rule or by absence under `requires`. Remove the grant, or change the decision above.
+- `contract.invalid` at `/components/<n>/inside` — the file is missing, outside the repository,
+  or does not parse on its own.
+
+`report` evaluates `complete_requires` a second time against the inside, over the imports the
+outer scan already collected, so a crossing between two sub-components that no `requires` entry
+covers is a violation like any other, and the flow view opens that component into its
+sub-components before its modules.
+
+Three limits hold today: the inside has no `archkeel.toml`, so it cannot be validated as a
+level of its own; of its rules only `complete_requires` is evaluated, and an
+`external_dependency_scope` declared inside is not compared with the level above; and only one
+level down is recorded, so an inside declared within an inside is not read.
 
 ## Rule catalog (summary)
 
@@ -121,7 +162,10 @@ ordered component pair is decided, once, by an `allowed_dependency` or a
 `forbidden_dependency` rule — is an implicit Contract 2.1 invariant, not a rule you
 declare. Class B regression checks compare an accepted observation with a candidate.
 Class C declarations (capabilities, public API, context roots, owners) are recorded and
-reported, not enforced. Class D review claims are planned and not yet implemented.
+reported, not enforced. Class D review claims are derived and never enforced: `report` and
+`validate` count them in the terminal and under `claims` in `--json`, and the HTML report
+lists the candidates. A claim is a reading task, not a verdict; it never changes an exit code,
+and `null` for a claim means its signal was missing, which is not the same as finding nothing.
 
 Full field reference and examples:
 https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md

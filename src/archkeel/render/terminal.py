@@ -95,6 +95,8 @@ def print_result(
             Text(row.reason),
         )
     output.print(verdicts)
+    if summary.claims:
+        output.print(Text(summary.claims, style="dim"))
     if summary.regressions:
         regressions = Table(
             title="Regression checks", title_justify="left", box=box.SIMPLE_HEAD, expand=True

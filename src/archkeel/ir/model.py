@@ -695,6 +695,20 @@ class OpenDecision:
 
 
 @dataclass(frozen=True, slots=True)
+class ReviewClaims:
+    """How many candidates each review claim named, or None where its signal was missing.
+
+    Counts only (AD-35). A claim that could not be derived is None rather than zero, because
+    "nothing found" and "nothing looked at" are different answers (AD-5).
+    """
+
+    unreferenced_symbols: int | None
+    oversized_components: int | None
+    unread_bindings: int | None
+    repeated_logic: int | None
+
+
+@dataclass(frozen=True, slots=True)
 class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
@@ -716,6 +730,8 @@ class RunResult:
     open_decisions: tuple[OpenDecision, ...] = ()
     # AD-16: (agent-decided rules, total rules), from `ir.decisions.agent_decisions`.
     agent_decisions: tuple[int, int] | None = None
+    # AD-35: review-claim counts, from `ir.decisions.review_claims`.
+    claims: ReviewClaims | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

@@ -36,6 +36,8 @@ class Summary:
     sentence: str
     verdicts: tuple[VerdictRow, ...]
     regressions: tuple[Comparison, ...]
+    # AD-35: the terminal's one claim line. The HTML shows the same claims as full tables.
+    claims: str = ""
 
 
 def badge(value: str) -> Badge:
@@ -90,6 +92,23 @@ def _open_decisions_lines(result: RunResult) -> str:
     return f"{header} Heaviest observed:\n{lines}"
 
 
+def _claims_line(result: RunResult) -> str:
+    """Name what each review claim found, never as a verdict (AD-26, AD-35); silent when absent."""
+    claims = result.claims
+    if claims is None:
+        return ""
+    counted = ", ".join(
+        f"{'unknown' if value is None else value} {label}"
+        for label, value in (
+            ("unreferenced symbol(s)", claims.unreferenced_symbols),
+            ("component(s) larger than their level", claims.oversized_components),
+            ("unread binding(s)", claims.unread_bindings),
+            ("repetition(s) outside an owner", claims.repeated_logic),
+        )
+    )
+    return f"Review claims, never a verdict: {counted}."
+
+
 def report_summary(result: RunResult) -> Summary:
     """Summarize a report or validate result, which never evaluates an expectation."""
     sentence = {
@@ -142,7 +161,7 @@ def report_summary(result: RunResult) -> Summary:
         ),
     )
     sentence += _open_decisions_lines(result) + _agent_decisions_line(result)
-    return Summary(_decision_badge(result), sentence, verdicts, ())
+    return Summary(_decision_badge(result), sentence, verdicts, (), _claims_line(result))
 
 
 def init_summary(result: RunResult) -> Summary:

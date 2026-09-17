@@ -12,15 +12,21 @@ from __future__ import annotations
 from collections import Counter
 from typing import Final, get_args, get_type_hints
 
+from .bindings import unread_bindings
+from .duplication import repeated_logic
 from .interfaces import component_owners, owner_of
 from .model import (
     AllowedDependencyRule,
     ArchitectureRule,
+    ComparisonStatus,
     ForbiddenDependencyRule,
     Observation,
     OpenDecision,
+    ReviewClaims,
     package_owners,
 )
+from .references import unreferenced_symbols
+from .structure import oversized_insides
 
 _DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
 
@@ -175,6 +181,29 @@ def agent_decisions(observation: Observation) -> tuple[int, int]:
     ]
     agent = sum(record.data.get("decided_by") == "agent" for record in declared_rules)
     return agent, len(declared_rules)
+
+
+def _named(status: ComparisonStatus, candidates: tuple[object, ...]) -> int | None:
+    """An unsupported claim names nothing, which is not the same as finding nothing (AD-5)."""
+    return len(candidates) if status == "SUPPORTED" else None
+
+
+def review_claims(observation: Observation) -> ReviewClaims:
+    """Count every review claim once, so terminal, JSON and page cannot disagree (AD-35).
+
+    Derived here beside `agent_decisions` and `open_decisions`, the other counts a result
+    carries, so a report rendered later from `architecture.json` bytes alone still agrees.
+    """
+    symbols = unreferenced_symbols(observation)
+    insides = oversized_insides(observation)
+    bindings = unread_bindings(observation)
+    logic = repeated_logic(observation)
+    return ReviewClaims(
+        _named(symbols.status, symbols.candidates),
+        _named(insides.status, insides.candidates),
+        _named(bindings.status, bindings.candidates),
+        _named(logic.status, logic.candidates),
+    )
 
 
 def dependency_rule_ids(source: str, target: str) -> tuple[str, str]:

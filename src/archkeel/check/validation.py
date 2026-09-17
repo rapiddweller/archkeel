@@ -19,7 +19,7 @@ from archkeel.ir.codec import (
     decode_json,
     parse_contract,
 )
-from archkeel.ir.decisions import agent_decisions, open_decisions
+from archkeel.ir.decisions import agent_decisions, open_decisions, review_claims
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -701,6 +701,23 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
     return _sorted(diagnostics)
 
 
+def _repository_diagnostics(
+    root: Path,
+    config: ScanConfig,
+    contract: ArchitectureContract,
+    observation: Observation,
+) -> list[Diagnostic]:
+    """Every diagnostic a complete observation adds, once the contract's references hold."""
+    documents = tuple(
+        (path, (root / path).read_text()) for path in contract_provenance_paths(contract)
+    )
+    return [
+        *reference_diagnostics(root, config, contract, observation),
+        *observation_diagnostics(contract, observation, documents),
+        *inside_diagnostics(root, contract),
+    ]
+
+
 def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResult:
     """Validate contract structure, repository references and observed architecture."""
     contract_path = root / config.contract
@@ -737,12 +754,7 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
             ),
             coverage=observed.coverage,
         )
-    diagnostics = [*reference_diagnostics(root, config, contract, observation)]
-    documents = tuple(
-        (path, (root / path).read_text()) for path in contract_provenance_paths(contract)
-    )
-    diagnostics.extend(observation_diagnostics(contract, observation, documents))
-    diagnostics.extend(inside_diagnostics(root, contract))
+    diagnostics = _repository_diagnostics(root, config, contract, observation)
     try:
         measurements, declared = inspect_observation(observation)
     except ValueError as error:
@@ -780,4 +792,5 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         measurements=measurements,
         open_decisions=decisions,
         agent_decisions=counts,
+        claims=review_claims(observation),
     )

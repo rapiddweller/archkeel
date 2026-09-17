@@ -59,6 +59,7 @@ only when its row names repository evidence.
 | The flow view opens a component and draws its modules and the imports between them, observed and undecided, from the same observation and no contract field (AD-24) | `src/archkeel/render/flow.py`; `src/archkeel/render/assets/flow.js`; `tests/test_flow.py` |
 | Two levels are tied together (AD-20): a component names the contract describing its inside, the report names an inside larger than its own level, and two checks hold both levels to one public surface and to the prohibitions above; Archkeel's own `check` declares three sub-components where `init` would have drafted twelve | `4195e43`; `2e951c0`; `0625af3`; `src/archkeel/check/architecture-contract.json` |
 | A declared inside is recorded in the observation under a kind of its own, derived in `ir`, judged by the rule code that judges the level above, and drawn as a level of the flow view: opening `check` shows `entry`, `foundation` and `policy` with their crossings at 21, 6 and 2 import sites, beside the one module no sub-component owns (AD-34) | `34fb7dd`; `e366f1c`; `7d825f2`; `26e4ba4`; `9bc30af`; `src/archkeel/ir/levels.py`; `tests/test_levels.py` |
+| Every review claim is counted where the command answers, not only where the page is opened: `report` and `validate` print the counts in the terminal and carry them under `claims` in `--json`, with `null` for a missing signal (AD-35) | `src/archkeel/ir/decisions.py`; `src/archkeel/render/summary.py`; `tests/test_terminal.py`; `docs/rules.md` |
 
 ## Next
 
@@ -112,3 +113,9 @@ only when its row names repository evidence.
 
 - A total score as a gate.
 - Empty state as a fallback.
+- A claim for symbols referenced exactly once. Measured on Archkeel: 163 of 564 symbols are private
+  and referenced once, and AD-6 produces them deliberately, because a function kept under 80 lines
+  extracts helpers its only caller uses. Narrowing the claim to a reference from another module
+  names none, since a private symbol reaching another module is already an `interface_boundary`
+  violation. A claim that either repeats a verdict or names a quarter of the repository teaches
+  readers to skip it, which AD-26 warns against.

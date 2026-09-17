@@ -159,6 +159,11 @@ analyzer records, a pure derivation in `ir`, and a report section without a verd
 whose signal is missing reports UNKNOWN and lists nothing, so an analyzer that cannot produce the
 signal costs the other claims nothing.
 
+Every command that derives a claim also names it: `report` and `validate` print the counts in the
+terminal and carry them under `claims` in `--json`, where a missing signal is `null` rather than
+zero, while the HTML report lists the candidates themselves (AD-35). None of this reaches an exit
+code.
+
 `unreferenced symbol` is the first claim. Its signal is the `references` section, which records
 every use of a scanned symbol that is not a call: a function put into a table, passed as an
 argument, or read as a property. The derivation names each symbol that no call, reference or import
