@@ -222,9 +222,13 @@ def test_an_inside_crossing_no_requires_entry_covers_becomes_a_violation(tmp_pat
         for record in result.observation.records("violations") or ()
         if record.kind == "complete_requires"
     ]
-    assert [item.rule_ids for item in violations] == [("REQUIRES-COMPLETE",)]
+    # The rule is recorded under the component holding the inside, and the violation names it
+    # there, so the chain trace_valid_violations walks resolves (AD-36).
+    assert [item.rule_ids for item in violations] == [("core:REQUIRES-COMPLETE",)]
     assert violations[0].data.get("source_module") == "sample.core.b"
     assert violations[0].data.get("target_module") == "sample.core.a"
+    declared = {record.id for record in result.observation.records("declarations") or ()}
+    assert "core:REQUIRES-COMPLETE" in declared
 
 
 def test_an_inside_without_its_rule_decides_nothing(tmp_path: Path) -> None:

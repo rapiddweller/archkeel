@@ -39,6 +39,7 @@ from archkeel.ir.model import (
     SiblingIsolationRule,
     contract_relative_path,
     in_scope,
+    text_value,
 )
 
 from .ports import Analyzer, ScanConfig
@@ -542,6 +543,29 @@ def reference_diagnostics(
     return _sorted(diagnostics)
 
 
+def _inside_rule_pointers(
+    contract: ArchitectureContract, observation: Observation
+) -> dict[str, str]:
+    """Pointer per rule an inside declares: the component whose `inside` names it (AD-36).
+
+    Such a rule is in no `rules` array of this contract, so a reader sent to `/rules/<n>` would
+    be shown an unrelated decision; the component is where the level, and its contract, begin.
+    """
+    positions = {
+        component.label: index
+        for index, component in enumerate(contract.components)
+        if component.inside is not None
+    }
+    pointers: dict[str, str] = {}
+    for record in observation.records("declarations") or ():
+        if record.kind == "inside_component_responsibility":
+            continue
+        parent = text_value(record.data.get("parent_id"))
+        if parent and (index := positions.get(parent)) is not None:
+            pointers[record.id] = f"/components/{index}/inside"
+    return pointers
+
+
 def observation_diagnostics(
     contract: ArchitectureContract,
     observation: Observation,
@@ -549,6 +573,7 @@ def observation_diagnostics(
 ) -> tuple[Diagnostic, ...]:
     """Validate rules, closed-world coverage and architecture documentation."""
     rule_index = {rule.id: index for index, rule in enumerate(contract.rules)}
+    inside_pointers = _inside_rule_pointers(contract, observation)
     diagnostics = [
         *closed_world_diagnostics(contract, observation),
         *interface_diagnostics(contract, observation),
@@ -557,10 +582,11 @@ def observation_diagnostics(
     ]
     for record in observation.records("violations") or ():
         rule_id = record.rule_ids[0] if record.rule_ids else record.id
+        index = rule_index.get(rule_id)
         diagnostics.append(
             _diagnostic(
                 "rule.violated",
-                f"/rules/{rule_index.get(rule_id, 0)}",
+                f"/rules/{index}" if index is not None else inside_pointers.get(rule_id, ""),
                 rule_id,
                 f"The observed code violates the declared rule: {record.title}",
                 "Change the code or amend the contract with owner approval.",

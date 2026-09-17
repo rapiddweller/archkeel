@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import io
+import json
 import subprocess
 import tarfile
 from pathlib import Path
 
 import pytest
 
+from archkeel.check.ports import ScanConfig
+from archkeel.check.run import materialize_declarations
 from archkeel.check.snapshot import SnapshotError, _materialize_archive, materialize_git_snapshot
 
 ROOT = Path(__file__).parents[2]
@@ -135,3 +138,44 @@ def test_git_snapshot_rejects_unsafe_or_linked_members(
         _materialize_archive(
             _tar_with(member, b"value = 1\n"), tmp_path / "snapshot", roots=("example",)
         )
+
+
+def test_declaration_snapshot_carries_the_contracts_an_inside_names(tmp_path: Path) -> None:
+    """AD-36: without the inside contract, check observes one level and the lock names two."""
+    root, _ = _committed_repository(tmp_path)
+    _write(
+        root / "architecture-contract.json",
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        "id": "COMP-TASKS",
+                        "label": "tasks",
+                        "role": "component",
+                        "packages": ["example.tasks"],
+                        "inside": "example/tasks/architecture-contract.json",
+                        "responsibilities": ["Hold the sample task."],
+                        "forbidden_responsibilities": ["Everything else."],
+                        "provenance": ["example/tasks/README.md"],
+                    }
+                ],
+                "rules": [],
+            }
+        ),
+    )
+    _write(root / "example/tasks/architecture-contract.json", '{"schema_version": "2.1.0"}')
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "declare an inside")
+    commit = _git(root, "rev-parse", "HEAD")
+
+    destination = tmp_path / "declarations"
+    materialize_declarations(
+        root,
+        commit,
+        ScanConfig(("example",), "example", "architecture-contract.json", "0" * 64),
+        destination,
+    )
+
+    assert (destination / "example/tasks/architecture-contract.json").is_file()
+    assert (destination / "example/tasks/README.md").is_file()

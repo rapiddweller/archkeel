@@ -20,6 +20,7 @@ from archkeel.ir.model import (
 
 from .contract import (
     ContractError,
+    inside_rule_id,
     load_contract,
     project_declarations,
     project_inside_declarations,
@@ -33,7 +34,7 @@ DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
 def _inside_levels(
     root: Path, contract: ArchitectureContract
-) -> tuple[list[RawRecord], list[str], list[ArchitectureContract]]:
+) -> tuple[list[RawRecord], list[str], list[tuple[str, ArchitectureContract]]]:
     """Load each declared inside contract, project it, and collect its digest (AD-34).
 
     A path that leaves the repository, a missing file and an unreadable contract are skipped
@@ -42,7 +43,7 @@ def _inside_levels(
     """
     records: list[RawRecord] = []
     digests: list[str] = []
-    contracts: list[ArchitectureContract] = []
+    contracts: list[tuple[str, ArchitectureContract]] = []
     for component in contract.components:
         if component.inside is None:
             continue
@@ -58,7 +59,7 @@ def _inside_levels(
             continue
         records.extend(project_inside_declarations(component.label, inner))
         digests.append(digest)
-        contracts.append(inner)
+        contracts.append((component.label, inner))
     return records, digests, contracts
 
 
@@ -73,15 +74,20 @@ def _contract_tree_digest(digest: str, inside_digests: list[str]) -> str:
     return hashlib.sha256("".join([digest, *inside_digests]).encode()).hexdigest()
 
 
-def _add_inside_violations(scan: ScanResult, contracts: list[ArchitectureContract]) -> None:
+def _add_inside_violations(
+    scan: ScanResult, contracts: list[tuple[str, ArchitectureContract]]
+) -> None:
     """Evaluate each inside contract's rules against the imports already collected (AD-34).
 
     The same rule code as the level above. It reads finished import records, so a second level
     costs no second scan, and its verdict reaches both the view and the exit code through the
-    records every other verdict travels in.
+    records every other verdict travels in. The rule a violation names is renamed with it,
+    because the level's rules are recorded under the component holding them (AD-36).
     """
-    for inner in contracts:
-        scan.violations.extend(requires_violations(scan.imports, inner))
+    for parent, inner in contracts:
+        for violation in requires_violations(scan.imports, inner):
+            violation["rule_ids"] = [inside_rule_id(parent, item) for item in violation["rule_ids"]]
+            scan.violations.append(violation)
     scan.violations.sort(key=lambda item: item["id"])
 
 

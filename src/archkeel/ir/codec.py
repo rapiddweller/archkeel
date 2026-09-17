@@ -66,6 +66,7 @@ from archkeel.ir.model import (
     SnapshotSummary,
     SourceInfo,
     Verdict,
+    contract_relative_path,
 )
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
@@ -1400,8 +1401,19 @@ def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]
 
 
 def declaration_paths(payload: bytes, contract_path: str) -> tuple[str, ...]:
+    """Every repository path a contract's declarations are read from, the insides included.
+
+    A `check` snapshot that left the inside contracts behind would observe the level above
+    while the lock was written over both, so the two could never agree (AD-36). The same
+    filter `report` applies decides which insides count, so both commands skip the same ones.
+    """
     contract = parse_contract(decode_json(payload))
-    return tuple(sorted({contract_path, *contract_provenance_paths(contract)}))
+    inside = {
+        component.inside
+        for component in contract.components
+        if component.inside is not None and contract_relative_path(component.inside) is not None
+    }
+    return tuple(sorted({contract_path, *inside, *contract_provenance_paths(contract)}))
 
 
 def _record_payload(value: Record) -> dict[str, RawJson]:

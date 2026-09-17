@@ -22,6 +22,7 @@ from .model import (
     ForbiddenDependencyRule,
     Observation,
     OpenDecision,
+    Record,
     ReviewClaims,
     package_owners,
 )
@@ -45,6 +46,15 @@ DOCUMENT_PATH: Final = "docs/architecture/architecture.md"
 _PLACEHOLDER_RATIONALE: Final = "TODO: the architect's reason for this decision."
 
 
+def _decides_this_level(record: Record) -> bool:
+    """False for a rule a component's inside declares: it decides that level's pairs, not these.
+
+    The parent id is the signal the analyzer writes on every inside record (AD-36); reading the
+    rule id's prefix instead would decide behaviour from a name.
+    """
+    return record.data.get("parent_id") is None
+
+
 def _decided_component_pairs(
     observation: Observation, owners: dict[str, str]
 ) -> set[tuple[str, str]]:
@@ -55,7 +65,7 @@ def _decided_component_pairs(
     """
     decided: set[tuple[str, str]] = set()
     for record in observation.records("declarations") or ():
-        if record.kind not in _DECIDING_KINDS:
+        if record.kind not in _DECIDING_KINDS or not _decides_this_level(record):
             continue
         source_module = record.data.get("source")
         target_module = record.data.get("target")
@@ -128,7 +138,8 @@ def _open_decision(
 def requires_declared(observation: Observation) -> bool:
     """True when a `complete_requires` rule decides every component pair by absence (AD-32)."""
     return any(
-        record.kind == "complete_requires" for record in observation.records("declarations") or ()
+        record.kind == "complete_requires" and _decides_this_level(record)
+        for record in observation.records("declarations") or ()
     )
 
 
@@ -174,7 +185,9 @@ def agent_decisions(observation: Observation) -> tuple[int, int]:
 
     Reads the analyzer's own projected rule declarations, the same evidence `open_decisions`
     reads, so validation and a report rendered later from `architecture.json` bytes alone
-    share one derivation with no second contract read.
+    share one derivation with no second contract read. A rule an inside declares counts here,
+    unlike in the pair derivations above: it is a decision somebody made, whichever level it
+    governs, and an agent decision nobody reviewed is no less unreviewed one level down.
     """
     declared_rules = [
         record for record in observation.records("declarations") or () if record.kind in _RULE_KINDS

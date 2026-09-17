@@ -72,7 +72,11 @@ rule nothing changes, so a contract that never adopts it keeps deciding pairs on
 `render` component that imports `model` without requiring it is an example violation. The same
 rule kind is evaluated a second time against a component's declared inside, over the imports the
 outer scan already collected, so a crossing between two sub-components that no `requires` entry
-covers is a violation of the inside's own rule (AD-34).
+covers is a violation of the inside's own rule (AD-34). An inside's rules are recorded under the
+component holding them, as `<component>:<rule id>`, and its violations name them there, so the
+finding reads `store:STORE-REQUIRES-COMPLETE` rather than the bare id the inside contract wrote
+(AD-36). The same prefix keeps the two levels apart: a `complete_requires` an inside declares
+decides that level's pairs, never the pairs above it.
 
 `external_dependency_scope` fields are `dependency` (a top-level import name) and
 `allowed_sources`. It matches import records whose target is the dependency or one of its
