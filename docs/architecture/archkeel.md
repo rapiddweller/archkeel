@@ -502,14 +502,19 @@ its own scan scope and its own contract, with its own components, their own `req
 `check` drafts 12 sub-components, which is 132 ordered pairs under AD-15 but 23 `requires` entries,
 and on `ir` 13 sub-components, 156 pairs against 15 entries. An inside can outgrow the whole top
 level, which holds 6 components and 8 edges, so leaving it ungoverned by default hides the larger
-half of the system. The report therefore names a component whose inside would draft more
-sub-components than the contract has components, or more edges between them than it has component
-edges. Which of the two measures is chosen does not matter here, because they agree: `check` at
-12 and 23 and `ir` at 13 and 15 are larger than 6 and 8, while `analyzer` at 3 and 1 is smaller.
+half of the system. The report therefore names a component holding more modules than the contract
+has components, or more edges among those modules than it has component edges. Both quantities are
+already in the observation, which is what makes the trigger legal: AD-10 binds the view to one
+observation, and what a second level *would* draft is not derivable from it, because drafting needs
+a second scan at a narrower scope. Which of the two quantities is chosen does not matter, because
+on this repository they agree on every component: `analyzer` at 21 and 46, `check` at 13 and 23 and
+`ir` at 14 and 15 stand against 6 and 8, while `cli` at 4 and 3, `render` at 5 and 3 and `host` at
+2 and 0 stay below. The draft-based reading would have called `analyzer` small on the strength of
+3 drafted sub-components, which measures how a package happens to be cut rather than what it holds.
 Depth itself stays optional (AD-20): the report states that an inside is large, and the architect
 decides whether to open it, because naming a size is evidence while opening a level is intent.
-Check: no schema or model carries `complete_inner_decisions`, and the report names `check` and `ir`
-as larger than the top level while staying silent about `analyzer`.
+Check: no schema or model carries `complete_inner_decisions`, and the report names `analyzer`,
+`check` and `ir` as larger than the top level while staying silent about `cli`, `render` and `host`.
 
 ## Allowed dependencies
 
