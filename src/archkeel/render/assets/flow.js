@@ -78,6 +78,42 @@
     if (!opened) return { components: DATA.components, edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
     const component = componentByLabel.get(opened.component);
+    // AD-34: a component whose contract describes its inside opens into that level first, and
+    // its modules sit one step deeper, inside the sub-component that owns them.
+    if (opened.inside) {
+      const card = (component.inside.components || []).find((c) => c.label === opened.inside);
+      return card ? cardLevel(card) : { components: [], edges: [] };
+    }
+    if (component.inside) return insideLevel(component.inside);
+    return cardLevel(component);
+  }
+
+  function insideLevel(inside) {
+    const cards = inside.components.map((card) => ({
+      label: card.label,
+      modules: card.modules,
+      openable: card.modules.length > 0,
+      public: card.public,
+    }));
+    // A module no sub-component owns keeps a card: one that vanished between two levels is
+    // exactly what this tool exists to prevent (AD-34). Opening it opens the module itself.
+    const orphans = (inside.unassigned || []).map((name) => ({
+      label: name,
+      display: name.split(".").pop() || name,
+      modules: [],
+      openable: Boolean((DATA.modules || {})[name]),
+      opensModule: name,
+      public: null,
+    }));
+    return {
+      components: cards.concat(orphans),
+      edges: inside.edges.map((edge) => ({ ...edge, names: [] })),
+    };
+  }
+
+  // The modules of one card - a component without a declared inside, or one sub-component of
+  // an inside - in the shape every level returns (AD-24a).
+  function cardLevel(component) {
     // Name a module relative to the package its component owns, so the package __init__ and
     // its submodules read the same way: `store` and `repository`, not `shop.store` and
     // `store.repository`.
@@ -474,15 +510,22 @@
       const label = el("text", { class: "label", x: "16", y: "30" });
       label.textContent = component.display || component.label;
       const meta = el("text", { class: "meta", x: "16", y: "56" });
+      const modulesMeta = (card) =>
+        `${card.modules.length} module${card.modules.length === 1 ? "" : "s"} · ${
+          card.public === null ? "no public" : `public ${card.public.length}`
+        }`;
       meta.textContent = opened
         ? opened.module
           ? `${component.kind}${component.members.length ? ` · ${component.members.length} method${component.members.length === 1 ? "" : "s"}` : ""}${component.public === null ? "" : " · used outside"}`
-          : component.public === null
-            ? "internal"
-            : "public"
-        : `${component.modules.length} module${component.modules.length === 1 ? "" : "s"} · ${
-            component.public === null ? "no public" : `public ${component.public.length}`
-          }`;
+          : // A sub-component card holds modules, so it reads like a component, not like one.
+            component.modules && component.modules.length
+            ? modulesMeta(component)
+            : component.opensModule
+              ? "owned by no sub-component"
+              : component.public === null
+                ? "internal"
+                : "public"
+        : modulesMeta(component);
       const group = el(
         "g",
         {
@@ -571,8 +614,11 @@
       const reaches = (inside.imports || []).slice(0, 12).map((name) => `<li><code>${esc(name)}</code></li>`).join("");
       return `<div class="kicker">Inside</div><h2>${esc(opened.module)}</h2><p>The functions and classes it declares and the calls and references between them; methods are listed on the card of the class that owns them. A card marked public is imported by another module (AD-24a). Press Escape or use Back to leave.</p>${statBlock()}${reaches ? `<h3>Reaches outward</h3><ul class="names">${reaches}</ul>` : ""}`;
     }
+    if (opened && !opened.inside && (componentByLabel.get(opened.component) || {}).inside) {
+      return `<div class="kicker">Inside</div><h2>${esc(opened.component)}</h2><p>This component describes its inside in a contract of its own (AD-34). Its sub-components are drawn here, and an edge between them is decided: green where the source requires the target, red where no requires entry covers it, because absence forbids (AD-32). A module no sub-component owns keeps a card of its own. Click a sub-component again to see its modules. Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
+    }
     if (opened) {
-      return `<div class="kicker">Inside</div><h2>${esc(opened.component)}</h2><p>Its modules and the imports between them. An edge here is observed, not undecided: no decision is owed inside a component (AD-24b), so these carry no warning colour. A rule scoped below the component still decides its pair, and that edge turns red. Click a module again to open it. Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
+      return `<div class="kicker">Inside</div><h2>${esc(opened.inside || opened.component)}</h2><p>Its modules and the imports between them. An edge here is observed, not undecided: no decision is owed inside a component (AD-24b), so these carry no warning colour. A rule scoped below the component still decides its pair, and that edge turns red. Click a module again to open it. Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
     }
     return `<div class="kicker">Overview</div><h2>Component flow</h2><p>Select a card to see its modules and declared public interface, click it again to open it, or select a connector to see the exact names one component uses from another.</p>${statBlock()}${heaviestBlock()}`;
   }
@@ -816,26 +862,51 @@
     render();
   });
 
+  // Where one press of Back returns to, named for the level the viewer is standing on.
+  function backLabel() {
+    if (opened.module) return `Back to ${opened.inside || opened.component}`;
+    if (opened.inside) return `Back to ${opened.component}`;
+    return "Back to components";
+  }
+
   function enter(label) {
-    opened = opened ? { component: opened.component, module: label } : { component: label };
+    if (!opened) {
+      opened = { component: label };
+    } else if (opened.inside || !componentByLabel.get(opened.component).inside) {
+      opened = { ...opened, module: label };
+    } else {
+      // On an inside level a card is a sub-component, except the one the contract left
+      // unowned, which opens as the module it is (AD-34).
+      const card = level().components.find((c) => c.label === label);
+      opened = card && card.opensModule
+        ? { component: opened.component, module: card.opensModule }
+        : { component: opened.component, inside: label };
+    }
     selected = null;
     positions = {};
     backButton.hidden = false;
-    backButton.textContent = opened.module
-      ? `Back to ${opened.component}`
-      : "Back to components";
+    backButton.textContent = backLabel();
     render();
     fit(false);
   }
 
-  // One step back per press: a module returns to its component, a component to the overview.
+  // One step back per press: a module returns to what held it, a sub-component to its
+  // component, a component to the overview.
   function leave() {
     if (!opened) return;
-    opened = opened.module ? { component: opened.component } : null;
+    if (opened.module) {
+      opened = opened.inside
+        ? { component: opened.component, inside: opened.inside }
+        : { component: opened.component };
+    } else if (opened.inside) {
+      opened = { component: opened.component };
+    } else {
+      opened = null;
+    }
     selected = null;
     positions = {};
     backButton.hidden = opened === null;
-    if (opened) backButton.textContent = "Back to components";
+    if (opened) backButton.textContent = backLabel();
     render();
     fit(false);
   }
