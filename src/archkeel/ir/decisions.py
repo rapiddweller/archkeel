@@ -119,6 +119,13 @@ def _open_decision(
     )
 
 
+def requires_declared(observation: Observation) -> bool:
+    """True when a `complete_requires` rule decides every component pair by absence (AD-32)."""
+    return any(
+        record.kind == "complete_requires" for record in observation.records("declarations") or ()
+    )
+
+
 def inner_opt_ins(observation: Observation) -> frozenset[str]:
     """Components whose inside an architect chose to govern (AD-31)."""
     return frozenset(
@@ -236,7 +243,12 @@ def open_decisions(
     `components` lets `init` supply the components it just drafted, before any contract
     declares them; `validate` and a report rendered later from `architecture.json` bytes
     pass none and read the observation's own declared components instead.
+
+    A contract carrying `complete_requires` owes no pair decision at all: there absence
+    forbids, so an unlisted pair is decided rather than open (AD-32).
     """
+    if requires_declared(observation):
+        return ()
     resolved = component_owners(observation) if components is None else components
     owners = package_owners(resolved)
     packages = dict(resolved)

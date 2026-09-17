@@ -45,6 +45,11 @@ from .run import inspect_observation
 
 COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
 _REPEATED_RATIONALE = re.compile(r"(?:The )?\S+ does not depend on \S+\.", re.IGNORECASE)
+# A requires entry states a permission, so the prohibition-shaped pattern above can never
+# fire on it; its filler equivalent reads "cli depends on render." (AD-32).
+_REPEATED_REQUIRES = re.compile(
+    r"(?:The )?\S+ (?:depends on|requires|uses|needs) \S+\.", re.IGNORECASE
+)
 _PLACEHOLDER_RATIONALE = re.compile(r"(?:todo|tbd|placeholder)(?:\b|:)", re.IGNORECASE)
 _GRAPH_EDGE = re.compile(r"\s*([a-z][a-z0-9_]*)\s*-->\s*([a-z][a-z0-9_]*)\s*")
 
@@ -258,6 +263,27 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
                 "Explain the architectural reason for this dependency boundary.",
             )
         )
+    for index, component in enumerate(contract.components):
+        for position, entry in enumerate(component.requires or ()):
+            rationale = entry.rationale.strip()
+            entry_code: DiagnosticCode
+            if _REPEATED_REQUIRES.fullmatch(rationale):
+                entry_code = "rationale.repeated"
+                claim = "The rationale repeats the requires entry without explaining why."
+            elif _PLACEHOLDER_RATIONALE.match(rationale):
+                entry_code = "rationale.placeholder"
+                claim = "The rationale is a placeholder."
+            else:
+                continue
+            diagnostics.append(
+                _diagnostic(
+                    entry_code,
+                    f"/components/{index}/requires/{position}/rationale",
+                    f"{component.label} -> {entry.component}",
+                    claim,
+                    "Explain the architectural reason for this dependency boundary.",
+                )
+            )
     return tuple(diagnostics)
 
 
