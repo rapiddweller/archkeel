@@ -553,17 +553,20 @@ code {
   opacity: 0.9;
   animation: flow-pulse 1.8s linear infinite;
 }
+/* A pulse the colour of its own line cannot be seen, which was true of all four states. A
+   coloured line is by definition legible against the surface, so a surface-coloured pulse is
+   legible against the line: it rides as a travelling gap and needs no per-state tuning. The
+   muted line is the exception - too close to the surface for a gap to read - so it keeps a
+   light pulse instead. */
 .edge.conforms .pulse {
-  stroke: var(--ck-teal);
+  stroke: var(--ck-surface);
 }
 .edge.violation .pulse {
-  stroke: var(--ck-fail);
+  stroke: var(--ck-surface);
 }
 .edge.undecided .pulse {
-  stroke: var(--ck-unknown);
+  stroke: var(--ck-surface);
 }
-/* The pulse must out-shine the line it rides, or it is invisible: a muted pulse on a muted
-   line is the one combination where the motion disappears, which is exactly the inner view. */
 .edge.observed .pulse {
   stroke: var(--ck-text);
 }
