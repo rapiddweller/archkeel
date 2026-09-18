@@ -141,16 +141,22 @@ def build_and_run_check(
         "analyzer_digest": accepted.analyzer.code_digest,
         "contract_digest": accepted.contract.digest,
         "baseline_digest": lock["observation_digest"],
-        "selected_changes": [
-            {
-                "dimension": change.dimension,
-                "change": change.change,
-                "fingerprint": change.fingerprint,
-                "before_count": change.before_count,
-                "after_count": change.after_count,
-            }
-            for change in delta.semantic_changes
-        ],
+        # AD-39: "empty_declaration" declares no semantic change at all, rather than the
+        # observed delta itself, so the empty list is a real declaration, not an omission.
+        "selected_changes": (
+            []
+            if scenario == "empty_declaration"
+            else [
+                {
+                    "dimension": change.dimension,
+                    "change": change.change,
+                    "fingerprint": change.fingerprint,
+                    "before_count": change.before_count,
+                    "after_count": change.after_count,
+                }
+                for change in delta.semantic_changes
+            ]
+        ),
         "guardrails": dict.fromkeys(GUARDRAIL_KEYS, True),
     }
     expectation_bytes = _write_json(root / "expectation.json", expectation)
@@ -208,6 +214,12 @@ _HARMLESS_FILES: Mapping[str, str | None] = {
         "    return order\n"
     )
 }
+# A comment adds no import, no call, no typed position: every dimension's before/after
+# records stay byte-identical, so the delta this produces is genuinely empty (AD-39).
+_COMMENT_ONLY_FILES: Mapping[str, str | None] = {
+    "shop/model/entities.py": (FIXTURE_DIR / "shop/model/entities.py").read_text()
+    + "\n# Pure refactor note: no behavior changes in this revision.\n"
+}
 _ORDERED = CheckExpectation(
     scenario="ordered",
     exit_code=0,
@@ -227,6 +239,13 @@ _EXPECTATION_CHANGED = CheckExpectation(
     exit_code=1,
     expectation_fulfilled="FAIL",
     git_predicate="FAIL",
+    host_order="PASS",
+)
+_EMPTY_DECLARATION = CheckExpectation(
+    scenario="empty_declaration",
+    exit_code=0,
+    expectation_fulfilled="PASS",
+    git_predicate="PASS",
     host_order="PASS",
 )
 _PROTOCOL_ROWS: tuple[Variant, ...] = (
@@ -264,6 +283,18 @@ _PROTOCOL_ROWS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         check=_EXPECTATION_CHANGED,
+    ),
+    Variant(
+        id="protocol-empty-declaration",
+        section="protocol",
+        item="empty_declaration",
+        summary="A comment-only edit declares `selected_changes: []`, the legal move for a "
+        "candidate with nothing architectural to select (AD-39); the delta it produces is "
+        "genuinely empty, so the declaration holds and every verdict passes.",
+        files=_COMMENT_ONLY_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        check=_EMPTY_DECLARATION,
     ),
 )
 

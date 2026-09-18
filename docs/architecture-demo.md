@@ -73,6 +73,7 @@ run shows many violations together; every other row isolates one item.
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
 | protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |
+| protocol | empty_declaration | protocol-empty-declaration | check run | - | - | shop/model/entities.py |
 | class_b | SCALARS:violations | class-b-check-scalar-violations | check run | - | - | shop/render/text.py |
 | class_b | GUARDRAIL_DIMENSIONS:violations | class-b-check-guardrail-violations | check run | - | - | shop/render/text.py |
 | class_b | SCALARS:private_crossings | class-b-scalar-private-crossings | check run | - | - | shop/cli/main.py |

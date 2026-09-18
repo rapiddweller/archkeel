@@ -63,6 +63,7 @@ only when its row names repository evidence.
 | An inside's rules are recorded under the component holding them, its violations name them there instead of being dropped by the evidence trace, the pair derivations above stay untouched by them, and a `check` snapshot carries the inside contracts the lock was written over (AD-36) | `src/archkeel/analyzer/embedded/contract.py`; `src/archkeel/ir/codec.py`; `tests/test_snapshot.py`; `tests/test_analyzer.py` |
 | `make demo-onboarding` replays the agent-driven creation of a contract on the shop sample in one real command per step: `init` drafts 5 components and 20 open decisions, `validate` refuses the draft, the decided contract passes, the report names `store` as larger than its level, `init` drafts its 4 sub-components and 12 more pairs, the architect settles them with 3 `requires` entries, and a later crossing inside that level is caught and named for it | `fixtures/reproduce_onboarding.py`; `tests/test_onboarding_demo.py`; `make demo-onboarding` |
 | The shop sample demonstrates both levels end to end: `store` declares an inside of four sub-components crossing at 3, 2 and 2 import sites, both levels pass on the clean sample, and four catalogued variants produce the inner `complete_requires` violation, both AD-20 checks and the missing-contract diagnostic | `fixtures/F-architecture/shop/store/architecture-contract.json`; `docs/architecture-demo.md`; `fixtures/F-architecture/docs/architecture/shop.md` |
+| An empty `selected_changes` is a legal E declaration for a candidate with no semantic change; under it `check` fails on any semantic change in any of the eight delta dimensions, not only the five guardrail ones (AD-39) | `src/archkeel/check/expectation.py`; `tests/test_expectation.py`; `fixtures/demo_catalog_check.py::protocol-empty-declaration`; `docs/architecture-demo.md` |
 
 ## Next
 
@@ -79,6 +80,22 @@ only when its row names repository evidence.
    `Publication order evidence` name concepts a reader has to look up (AD-19).
 4. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
    without the JSON that the two snapshots were comparable at all.
+5. Shrink what one edit forces an agent to declare. Measured by adding a two-line module,
+   `src/archkeel/ir/labels.py` with `from .digest import package_digest` and one function, on top
+   of Archkeel's own accepted observation: `build_architecture_delta` reports 7
+   `semantic_changes` for that one edit, and none needs an architect decision, since both modules
+   share the `ir` component and an intra-component import is unconstrained. One
+   `dependency_edges` addition (`archkeel.ir.labels -> archkeel.ir.digest`) is the only entry that
+   carries information about what changed. The other six are mechanical: one `api_crossings`
+   addition for the `from __future__ import annotations` import every module in the repository
+   already carries, and five `coverage` `changed` entries, `files_discovered`, `files_read` and
+   `files_parsed` each 61 -> 62, `calls_analyzed` 3982 -> 3983 and `calls_resolved` 2896 -> 2897,
+   which shift by construction whenever any file is added and say nothing about this one. Fold the
+   five coverage counters into the existing aggregate `DeltaCoverage` status that
+   `evaluate_expectation` already reads as one PASS/FAIL, instead of five separately declarable
+   `semantic_changes`, and stop surfacing a fixed set of language-boilerplate imports (starting
+   with `from __future__ import annotations`, which names no project symbol on either side) as
+   `api_crossings` entries at all, so this edit declares 1 entry instead of 7.
 
 ## Later
 

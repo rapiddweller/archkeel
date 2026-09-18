@@ -26,8 +26,11 @@ HEADER = (
 CLEAN_SHOP_MD = (FIXTURE_DIR / "docs/architecture/shop.md").read_text()
 
 
-# Named after the check_git_order and check_order predicate each scenario keeps or breaks.
-CheckScenario = Literal["ordered", "published_after_candidate", "candidate_changed_expectation"]
+# Named after the check_git_order and check_order predicate each scenario keeps or breaks,
+# except "empty_declaration", named after the AD-39 declaration it demonstrates instead.
+CheckScenario = Literal[
+    "ordered", "published_after_candidate", "candidate_changed_expectation", "empty_declaration"
+]
 
 
 @dataclass(frozen=True, slots=True)

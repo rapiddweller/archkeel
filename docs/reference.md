@@ -69,6 +69,13 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
 `init --json` and `validate --json` add `open_decisions`, heaviest observed pair first, each with its `allowed_dependency` and `forbidden_dependency` option rule (AD-15). `validate` and `report` add `agent_decisions` as `[agent, total]` rules (AD-16).
 
+`selected_changes` may be `[]`, declaring that the candidate has no semantic change at all
+(AD-39). Under that declaration `evaluate_expectation` fails on any entry in the delta's
+`semantic_changes`, in any of the eight delta dimensions, not only the five fixed guardrail ones,
+naming the dimension, the change kind and the fingerprint. A non-empty `selected_changes` keeps its
+existing meaning: a dimension it does not name and that is not a fixed guardrail dimension is still
+not checked, so an undeclared change there passes without producing any failure text.
+
 ## Regression checks
 
 Regression checks add these scalars to the existing record counts and fingerprint checks:

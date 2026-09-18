@@ -180,7 +180,11 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
   Pointers).
 - `report`: 0 observation complete (a rule violation is a FAIL verdict), 2 not checked.
 - `skill install claude|codex`: 0 instructions written, 2 the target file could not be updated.
-- `check`: 0 merge, 1 reject, 2 not checked.
+- `check`: 0 merge, 1 reject, 2 not checked. Its expectation's `selected_changes` may be `[]`
+  when a candidate is not meant to change anything architectural, such as a pure refactor. That
+  declares absence, not "nothing to report": `check` then fails on any semantic change the
+  candidate actually produced, in any dimension, not only the five guardrail ones. Declare `[]`
+  only when you mean it; naming the real changes remains the default (AD-39).
 
 ## JSON output
 

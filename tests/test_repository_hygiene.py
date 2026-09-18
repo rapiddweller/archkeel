@@ -52,8 +52,6 @@ ALLOWED_LONG_FUNCTIONS = {
     "the unmatched record pools.",
     "src/archkeel/check/delta.py::build_architecture_delta": "Shared, coverage and availability "
     "reasons are decided in one place per dimension.",
-    "src/archkeel/check/expectation.py::evaluate_expectation": "Raises in declaration order; each "
-    "step reads the previous index.",
     "src/archkeel/check/run.py::run_check": "Sequences authentication, git and host order, both "
     "snapshots and evaluation; one with-block owns the snapshot lifetimes.",
     "src/archkeel/cli/__init__.py::build_parser": "Declarative argparse setup, one subparser per "

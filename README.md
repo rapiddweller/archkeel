@@ -331,10 +331,16 @@ gitGraph
 | **E** | Child of B that changes only the expectation file. It must be published before the first submission of H. |
 | **H** | Descendant of E. It must not modify the lock, config, architecture contract, or expectation. |
 
+E's `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all. A
+refactor is a legal move under the protocol even when it moves nothing architectural. That
+declaration is not weaker than naming changes: Archkeel then fails the check on any semantic
+change at all, in any delta dimension, not only the five guardrail ones (AD-39).
+
 ### Agent workflow
 
 1. Start from the lock commit **B**.
-2. Write the intended architecture change and commit it alone as **E**.
+2. Write the intended architecture change and commit it alone as **E** — or declare
+   `selected_changes: []` when the change is not meant to be architectural at all.
 3. Publish **E** before submitting implementation work.
 4. Implement the change in one or more commits ending at **H**.
 5. Run `archkeel check`. Fix the code or revise the proposal in a new protocol

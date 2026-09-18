@@ -163,6 +163,30 @@ def _typed_delta(payload: dict[str, object]) -> ArchitectureDelta:
     return parse_delta(payload)
 
 
+def _empty_expectation_payload() -> dict[str, object]:
+    payload = _expectation_payload()
+    payload["selected_changes"] = []
+    return payload
+
+
+def _empty_delta_payload() -> dict[str, object]:
+    """A delta with no semantic change at all: every dimension's counts are stable."""
+    delta = _delta_payload()
+    dimensions = delta["dimensions"]
+    assert isinstance(dimensions, dict)
+    dimensions["violations"] = {
+        "status": "SUPPORTED",
+        "before_count": 1,
+        "after_count": 1,
+        "added": [],
+        "removed": [],
+        "relocated": [],
+        "changed": [],
+    }
+    delta["semantic_changes"] = []
+    return delta
+
+
 def test_expectation_requires_hypothesis_and_fixed_guardrails() -> None:
     parsed = parse_expectation(_expectation_payload())
 
@@ -180,6 +204,12 @@ def test_expectation_requires_hypothesis_and_fixed_guardrails() -> None:
     guardrails["no_new_cycles"] = False
     with pytest.raises(ExpectationError, match="must be true"):
         parse_expectation(disabled_guardrail)
+
+
+def test_empty_selected_changes_declares_no_semantic_change() -> None:
+    parsed = parse_expectation(_empty_expectation_payload())
+
+    assert parsed.selected_changes == ()
 
 
 def test_expectation_rejects_generic_fields_and_invalid_counts() -> None:
@@ -221,6 +251,51 @@ def test_missing_fingerprint_and_guardrail_regression_are_governance_failures() 
     assert result.failures == (
         "guardrail regression in cycles: 1->2",
         f"missing expected violations removed fingerprint {FINGERPRINT}",
+    )
+
+
+def test_empty_declaration_of_no_change_passes_against_an_empty_delta() -> None:
+    result = evaluate_expectation(
+        _typed_delta(_empty_delta_payload()), parse_expectation(_empty_expectation_payload())
+    )
+
+    assert result.failures == ()
+
+
+def test_empty_declaration_fails_on_a_guardrail_dimension_change() -> None:
+    # The default delta carries one violations removal; declaring nothing must still
+    # catch it, because "no change" was declared, not "no regression".
+    result = evaluate_expectation(
+        _typed_delta(_delta_payload()), parse_expectation(_empty_expectation_payload())
+    )
+
+    assert result.failures == (
+        f"undeclared change in violations: removed fingerprint {FINGERPRINT}",
+    )
+
+
+def test_empty_declaration_fails_on_a_non_guardrail_dimension_change() -> None:
+    delta = _empty_delta_payload()
+    semantic_changes = delta["semantic_changes"]
+    assert isinstance(semantic_changes, list)
+    semantic_changes.append(
+        {
+            "dimension": "dependency_edges",
+            "change": "added",
+            "fingerprint": "new-dependency-edge",
+            "before_count": 0,
+            "after_count": 1,
+            "before": None,
+            "after": _projection("DEP-new", {"level": "module", "source": "a", "target": "b"}),
+        }
+    )
+
+    result = evaluate_expectation(
+        _typed_delta(delta), parse_expectation(_empty_expectation_payload())
+    )
+
+    assert result.failures == (
+        "undeclared change in dependency_edges: added fingerprint new-dependency-edge",
     )
 
 

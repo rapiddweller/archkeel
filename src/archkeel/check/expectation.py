@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from archkeel.ir.digest import package_digest
-from archkeel.ir.model import ArchitectureDelta, Projection
+from archkeel.ir.model import ArchitectureDelta, DeltaProvenance, Projection, SemanticChange
 
 from .delta import SUPPORTED_DIMENSIONS, require_comparable_runtime
 from .ratchets import compare_ratchets
@@ -123,8 +123,8 @@ def parse_expectation(raw: object) -> ArchitectureExpectation:
     contract_digest = _require_sha256(expectation["contract_digest"], "contract_digest")
     baseline_digest = _require_sha256(expectation["baseline_digest"], "baseline_digest")
     selected_raw = expectation["selected_changes"]
-    if not isinstance(selected_raw, list) or not selected_raw:
-        raise ExpectationError("selected_changes must be a non-empty list")
+    if not isinstance(selected_raw, list):
+        raise ExpectationError("selected_changes must be a list")
     selected = tuple(
         _parse_selected_change(value, index=index) for index, value in enumerate(selected_raw)
     )
@@ -157,7 +157,37 @@ def evaluate_expectation(
 ) -> ExpectationResult:
     """Compare the typed delta with a validated declaration."""
     require_comparable_runtime(delta_model.baseline.python_version, delta_model.head.python_version)
-    provenance = delta_model.provenance
+    _require_matching_provenance(delta_model.provenance, expectation)
+    if delta_model.coverage.status != "PASS":
+        raise ExpectationError("delta coverage status must be PASS")
+
+    dimension_counts = _require_dimension_counts(delta_model, expectation)
+    actual_changes, removed_cycles, added_cycles = _index_semantic_changes(
+        delta_model.semantic_changes
+    )
+
+    ratchets = delta_model.ratchets
+    if ratchets.status != "SUPPORTED" or ratchets.baseline is None or ratchets.head is None:
+        raise ExpectationError(
+            f"delta regression checks are not safely comparable: {ratchets.reason}"
+        )
+    failures = list(compare_ratchets(ratchets.baseline, ratchets.head))
+    if expectation.selected_changes:
+        # A non-empty declaration is checked against what it named; anything else is
+        # left to the fixed guardrail dimensions (AD-39).
+        failures.extend(_match_selected_changes(expectation.selected_changes, actual_changes))
+        failures.extend(
+            _guardrail_failures(dimension_counts, actual_changes, added_cycles, removed_cycles)
+        )
+    else:
+        # An empty declaration asserts "no semantic change"; any change at all breaks it.
+        failures.extend(_undeclared_change_failures(actual_changes))
+    return ExpectationResult(failures=tuple(sorted(failures)))
+
+
+def _require_matching_provenance(
+    provenance: DeltaProvenance, expectation: ArchitectureExpectation
+) -> None:
     for key, actual, expected in (
         ("checker_digest", provenance.checker_digest, expectation.checker_digest),
         ("analyzer_digest", provenance.analyzer_digest, expectation.analyzer_digest),
@@ -169,9 +199,11 @@ def evaluate_expectation(
             raise ExpectationError(f"delta {key} does not match the architecture expectation")
     if not hmac.compare_digest(expectation.checker_digest, package_digest()):
         raise ExpectationError("checker_digest differs from the running Archkeel package")
-    if delta_model.coverage.status != "PASS":
-        raise ExpectationError("delta coverage status must be PASS")
 
+
+def _require_dimension_counts(
+    delta_model: ArchitectureDelta, expectation: ArchitectureExpectation
+) -> dict[str, tuple[int, int]]:
     dimensions = {item.name: item for item in delta_model.dimensions}
     required_dimensions = {
         *GUARDRAIL_DIMENSIONS,
@@ -188,11 +220,18 @@ def evaluate_expectation(
             _require_count(record.before_count, f"dimensions.{dimension}.before_count"),
             _require_count(record.after_count, f"dimensions.{dimension}.after_count"),
         )
+    return dimension_counts
 
+
+def _index_semantic_changes(
+    semantic_changes: tuple[SemanticChange, ...],
+) -> tuple[
+    dict[tuple[str, str, str], tuple[int, int]], list[_CycleIdentity], dict[str, _CycleIdentity]
+]:
     actual_changes: dict[tuple[str, str, str], tuple[int, int]] = {}
     removed_cycles: list[_CycleIdentity] = []
     added_cycles: dict[str, _CycleIdentity] = {}
-    for index, change in enumerate(delta_model.semantic_changes):
+    for index, change in enumerate(semantic_changes):
         if change.dimension not in SUPPORTED_DIMENSIONS:
             raise ExpectationError(
                 f"semantic_changes[{index}] has unsupported dimension {change.dimension!r}"
@@ -216,14 +255,15 @@ def evaluate_expectation(
                 added_cycles[change.fingerprint] = cycle
             else:
                 removed_cycles.append(cycle)
+    return actual_changes, removed_cycles, added_cycles
 
-    ratchets = delta_model.ratchets
-    if ratchets.status != "SUPPORTED" or ratchets.baseline is None or ratchets.head is None:
-        raise ExpectationError(
-            f"delta regression checks are not safely comparable: {ratchets.reason}"
-        )
-    failures = list(compare_ratchets(ratchets.baseline, ratchets.head))
-    for selected in expectation.selected_changes:
+
+def _match_selected_changes(
+    selected_changes: tuple[ExpectedSemanticChange, ...],
+    actual_changes: dict[tuple[str, str, str], tuple[int, int]],
+) -> list[str]:
+    failures = []
+    for selected in selected_changes:
         identity = (selected.dimension, selected.change, selected.fingerprint)
         expected_counts = (selected.before_count, selected.after_count)
         actual_counts = actual_changes.get(identity)
@@ -238,6 +278,16 @@ def evaluate_expectation(
                 f"expected {expected_counts[0]}->{expected_counts[1]}, "
                 f"got {actual_counts[0]}->{actual_counts[1]}"
             )
+    return failures
+
+
+def _guardrail_failures(
+    dimension_counts: dict[str, tuple[int, int]],
+    actual_changes: dict[tuple[str, str, str], tuple[int, int]],
+    added_cycles: dict[str, _CycleIdentity],
+    removed_cycles: list[_CycleIdentity],
+) -> list[str]:
+    failures = []
     for dimension in GUARDRAIL_DIMENSIONS:
         before_count, after_count = dimension_counts[dimension]
         if after_count > before_count:
@@ -257,7 +307,16 @@ def evaluate_expectation(
             f"guardrail added {dimension} fingerprint {fingerprint}"
             for fingerprint in added_fingerprints
         )
-    return ExpectationResult(failures=tuple(sorted(failures)))
+    return failures
+
+
+def _undeclared_change_failures(
+    actual_changes: dict[tuple[str, str, str], tuple[int, int]],
+) -> list[str]:
+    return [
+        f"undeclared change in {dimension}: {kind} fingerprint {fingerprint}"
+        for dimension, kind, fingerprint in actual_changes
+    ]
 
 
 def _parse_cycle_identity(projection: Projection | None, *, index: int) -> _CycleIdentity:
