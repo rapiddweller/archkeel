@@ -34,11 +34,17 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
     """
     outer = json.loads((ROOT / "architecture-contract.json").read_text())
     inner = json.loads((ROOT / "src/archkeel/check/architecture-contract.json").read_text())
+    analyzer_inner = json.loads(
+        (ROOT / "src/archkeel/analyzer/architecture-contract.json").read_text()
+    )
     root = tmp_path / "repository"
     inside = root / "src/archkeel/check/architecture-contract.json"
     inside.parent.mkdir(parents=True)
+    analyzer_inside = root / "src/archkeel/analyzer/architecture-contract.json"
+    analyzer_inside.parent.mkdir(parents=True)
     (root / "architecture-contract.json").write_text(json.dumps(outer))
     inside.write_text(json.dumps(inner))
+    analyzer_inside.write_text(json.dumps(analyzer_inner))
 
     assert inside_diagnostics(root, parse_contract(outer)) == ()
 

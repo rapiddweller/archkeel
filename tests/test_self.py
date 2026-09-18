@@ -21,6 +21,7 @@ from archkeel.check.validation import (
 )
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.digest import package_digest
+from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -28,6 +29,7 @@ from archkeel.ir.model import (
     Observation,
     in_scope,
 )
+from archkeel.ir.structure import oversized_insides
 
 # AD-4: the analyzer's public IR API is exactly these two modules.
 ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec"})
@@ -152,6 +154,32 @@ def test_self_contract_public_matches_drafted_proposal(self_observation: Observa
     actual = {component.label: component.public for component in contract.components}
     proposed = {component.label: component.public for component in drafted.components}
     assert actual == proposed
+
+
+def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
+    """AD-45: `analyzer` declares an inside too, the same shape `check`'s (AD-34) already
+    carries. Both parents are named because a second declared inside is one more entry in the
+    same map, not a new derivation; a stale count here would mean a sub-component silently
+    stopped owning a module it used to."""
+    levels = {level.parent: level for level in inside_levels(self_observation)}
+    assert set(levels) == {"analyzer", "check"}
+    analyzer = levels["analyzer"]
+    assert [(item.label, len(item.modules)) for item in analyzer.components] == [
+        ("collectors", 10),
+        ("foundation", 5),
+        ("orchestration", 5),
+    ]
+    assert analyzer.unassigned == ("archkeel.analyzer", "archkeel.analyzer.embedded")
+
+
+def test_self_oversized_components_claim_still_counts_analyzer(
+    self_observation: Observation,
+) -> None:
+    """AD-45's limit: `oversized_insides` (AD-33) compares a component's raw module and edge
+    count against the top level's own, not against whether it has a declared inside, so
+    `analyzer` joins `check` on this claim instead of leaving it once its inside is declared."""
+    sizes = oversized_insides(self_observation)
+    assert {item.scope for item in sizes.candidates} == {"analyzer", "check", "ir"}
 
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:
