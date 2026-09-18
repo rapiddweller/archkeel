@@ -14,10 +14,14 @@ and `unresolved_ratio` regression checks, never a rule.
 | Archkeel (`fixtures/D-self`) | 630 (19.1%) | 257 | 3,303 |
 | Internal 13-component service (`docs/evidence/internal-service/`) | 998 (23.1%) | 380 | 4,318 |
 
-The resolver follows indexed names, import aliases, builtins and simple attribute chains. It does
-not use annotations, local assignments or return types, so `x.method()` on a parameter, a call on
-a call result and an attribute of an awaited value stay unresolved. An unresolved call is not
-proven dynamic at runtime.
+The resolver follows indexed names, import aliases, builtins and simple attribute chains. Since
+AD-37 it also follows a receiver whose type a literal or an annotation makes statically obvious,
+against a hand-written table of `list`/`dict`/`set`/`frozenset`/`tuple`/`str`/`Path` methods; a
+literal-typed receiver resolves, an annotated one only `partially_resolved`, because Python never
+checks an annotation at runtime. It does not use return types or follow a value across a
+conditional reassignment, so a call on a call result (`Repository(root).save(...)`), a receiver two
+attributes deep (`self.items.append`) and an attribute of an awaited value stay unresolved. An
+unresolved call is not proven dynamic at runtime.
 
 ## Imports and constructs
 
