@@ -1,0 +1,106 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-ORCHESTRATION",
+      "label": "orchestration",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.bridge",
+        "archkeel.analyzer.runtime",
+        "archkeel.analyzer.embedded.scanner",
+        "archkeel.analyzer.embedded.report",
+        "archkeel.analyzer.embedded.contract"
+      ],
+      "responsibilities": [
+        "Discover and parse sources, run the collectors once per module, load the contract and assemble the observation the port publishes."
+      ],
+      "forbidden_responsibilities": [
+        "Reading or writing an AST record itself; that stays with a named collector."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "requires": [
+        {
+          "component": "collectors",
+          "rationale": "`scanner` runs every collector once per parsed module to build one `ScanResult`, and `report` also calls `violations.requires_violations` directly to judge the assembled contract without adding a second collector call inside the scanner."
+        },
+        {
+          "component": "foundation",
+          "rationale": "`scanner` parses sources and builds the shared symbol index before handing parsed modules to the collectors, and both `scanner` and `report` write through the shared record envelope, so orchestration reaches the same foundation the collectors it calls already depend on."
+        }
+      ],
+      "public": [
+        "archkeel.analyzer"
+      ]
+    },
+    {
+      "id": "COMP-COLLECTORS",
+      "label": "collectors",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.embedded.bindings",
+        "archkeel.analyzer.embedded.calls",
+        "archkeel.analyzer.embedded.constructs",
+        "archkeel.analyzer.embedded.contexts",
+        "archkeel.analyzer.embedded.dependencies",
+        "archkeel.analyzer.embedded.imports",
+        "archkeel.analyzer.embedded.references",
+        "archkeel.analyzer.embedded.symbols",
+        "archkeel.analyzer.embedded.typing_signals",
+        "archkeel.analyzer.embedded.violations"
+      ],
+      "responsibilities": [
+        "Read parsed sources and the shared symbol index, and write one kind of typed AST record each (AD-1); a peer nobody declared stays a peer nobody isolates (COLLECTORS-ISOLATED)."
+      ],
+      "forbidden_responsibilities": [
+        "Importing a sibling collector, discovering files, or deciding scan order."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "requires": [
+        {
+          "component": "foundation",
+          "rationale": "Every collector reads a `ParsedModule` and writes through the shared `RawRecord`/`RawEvidence` envelope so a record from `bindings` and one from `symbols` compare the same way; `calls` and `references` also resolve names through the shared symbol index, which each would otherwise reimplement one call site at a time."
+        }
+      ],
+      "public": []
+    },
+    {
+      "id": "COMP-FOUNDATION",
+      "label": "foundation",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.embedded.records",
+        "archkeel.analyzer.embedded.source",
+        "archkeel.analyzer.embedded.resolve",
+        "archkeel.analyzer.embedded.receiver_types",
+        "archkeel.analyzer.embedded.graph"
+      ],
+      "responsibilities": [
+        "Parse sources, build the symbol index, hold the stdlib receiver-type tables, run graph algorithms and hold the record envelope every collector writes through."
+      ],
+      "forbidden_responsibilities": [
+        "Writing a typed AST record itself, or knowing which collector or entry point called it."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "public": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Inside a component the same principle holds as above it: an import nobody asked for is an accident, so each part names what it needs and absence refuses the rest.",
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}

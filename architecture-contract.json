@@ -124,6 +124,7 @@
           "rationale": "The analyzer records signals and publishes them through the common model and codec only; every claim, measurement, level or decision built from those records belongs to the reader, so the two never depend on each other (AD-4)."
         }
       ],
+      "inside": "src/archkeel/analyzer/architecture-contract.json",
       "public": ["archkeel.analyzer"],
       "responsibilities": [
         "Run the bundled Python analyzer and preserve typed diagnostics.",
