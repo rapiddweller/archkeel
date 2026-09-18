@@ -21,9 +21,10 @@ def _self_observation():
 
 
 def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> None:
-    levels = inside_levels(_self_observation())
-    assert [level.parent for level in levels] == ["check"]
-    level = levels[0]
+    levels = {level.parent: level for level in inside_levels(_self_observation())}
+    # AD-45 opened `analyzer` too; this test keeps reading `check`'s level by name.
+    assert sorted(levels) == ["analyzer", "check"]
+    level = levels["check"]
     assert [(item.label, len(item.modules)) for item in level.components] == [
         ("entry", 4),
         ("foundation", 5),
@@ -39,7 +40,7 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
 def test_a_module_no_sub_component_owns_is_carried_not_dropped() -> None:
     """The package __init__ belongs to no layer; a module that vanished between two levels
     would be the one thing this tool exists to prevent."""
-    level = inside_levels(_self_observation())[0]
+    level = next(item for item in inside_levels(_self_observation()) if item.parent == "check")
     assert level.unassigned == ("archkeel.check",)
     owned = {name for item in level.components for name in item.modules}
     assert "archkeel.check" not in owned
