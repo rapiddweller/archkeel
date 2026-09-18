@@ -37,8 +37,10 @@ LANE_X = {"agent": 40, "gate": 350, "architect": 660}
 CARD_W = 280
 CARD_H = 128
 ROW_Y = 138
-ROW_GAP = 152
+ROW_GAP = 184
 FOOT = 44
+CONNECTOR = "#6E6E66"
+CORNER = 12
 
 
 def _wrap(text: str, width: int) -> list[str]:
@@ -56,9 +58,17 @@ def _wrap(text: str, width: int) -> list[str]:
     return lines
 
 
+def _lanes(height: int) -> list[str]:
+    """A band per lane, so a reader six rows down still knows whose column this is."""
+    return [
+        f'<rect x="{LANE_X[lane] - 16}" y="88" width="{CARD_W + 32}" height="{height - 118}" '
+        'rx="14" fill="#090909"/>'
+        for lane in LANES
+    ]
+
+
 def _header() -> list[str]:
     parts = [
-        '<rect width="100%" height="100%" fill="#000000"/>',
         '<text x="40" y="42" fill="#E8E8E2" font-size="19" font-weight="600">'
         "How an architecture contract comes to exist</text>",
         '<text x="40" y="66" fill="#8A8A84" font-size="12.5">'
@@ -109,14 +119,32 @@ def _card(index: int, step: Step, y: int) -> list[str]:
 
 
 def _arrow(previous: Step, step: Step, y: int) -> str:
-    """A curve from the card above into this one, so the lane change is the visible thing."""
+    """An elbow from the card above into this one, so the lane change is the visible thing.
+
+    Orthogonal rather than curved: over 300 horizontal pixels a bezier flattens into a stray
+    diagonal, while down-across-down reads as a handoff even at README width.
+    """
     start_x = LANE_X[previous.actor] + CARD_W / 2
     end_x = LANE_X[step.actor] + CARD_W / 2
     start_y = y - ROW_GAP + CARD_H
     mid = start_y + (ROW_GAP - CARD_H) / 2
+    end_y = y - 10
+    if start_x == end_x:
+        return (
+            f'<path d="M {start_x} {start_y} V {end_y}" fill="none" stroke="{CONNECTOR}" '
+            f'stroke-width="1.8" marker-end="url(#tip)"/>'
+        )
+    step_x = CORNER if end_x > start_x else -CORNER
+    path = (
+        f"M {start_x} {start_y} V {mid - CORNER} "
+        f"Q {start_x} {mid} {start_x + step_x} {mid} "
+        f"H {end_x - step_x} "
+        f"Q {end_x} {mid} {end_x} {mid + CORNER} "
+        f"V {end_y}"
+    )
     return (
-        f'<path d="M {start_x} {start_y} C {start_x} {mid}, {end_x} {mid}, {end_x} {y - 7}" '
-        'fill="none" stroke="#2A2A28" stroke-width="1.4" marker-end="url(#tip)"/>'
+        f'<path d="{path}" fill="none" stroke="{CONNECTOR}" stroke-width="1.8" '
+        f'stroke-linecap="round" marker-end="url(#tip)"/>'
     )
 
 
@@ -126,9 +154,11 @@ def render(steps: tuple[Step, ...]) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{height}" '
         f'viewBox="0 0 {WIDTH} {height}" font-family="ui-sans-serif, system-ui, '
         'Segoe UI, Roboto, sans-serif">',
-        '<defs><marker id="tip" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" '
-        'markerHeight="6" orient="auto"><path d="M 0 1 L 6 4 L 0 7 z" fill="#2A2A28"/>'
+        '<defs><marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" '
+        f'markerHeight="7" orient="auto"><path d="M 0 0 L 9 5 L 0 10 z" fill="{CONNECTOR}"/>'
         "</marker></defs>",
+        '<rect width="100%" height="100%" fill="#000000"/>',
+        *_lanes(height),
         *_header(),
     ]
     for index, step in enumerate(steps, start=1):

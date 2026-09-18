@@ -75,13 +75,20 @@ settles them with 3 `requires` entries, because absence forbids. The two levels 
 to one public surface, and the flow view opens the component into them.
 
 <p>
-  <img src="docs/assets/archkeel-shop-components.png" alt="Component flow of the clean shop sample: five components, all six edges teal" width="430">
-  <img src="docs/assets/archkeel-shop-store-inside.png" alt="The store component opened into its declared inside: api, repository, codec and backend, plus the module no sub-component owns" width="430">
+  <img src="docs/assets/archkeel-shop-components.png" alt="Component flow of the clean shop sample: cli, app, render, store and model, all six edges teal, with the heaviest connections listed beside the graph" width="980">
 </p>
 
-<sub>Left: the five components. Right: <code>store</code> opened into the level its own contract
-declares — <code>api</code>, <code>repository</code>, <code>codec</code>, <code>backend</code>, and
-<code>shop.store</code>, the module no sub-component owns, carried rather than dropped.</sub>
+<sub>The five components. Every edge carries its import sites; teal means the contract allows it.
+<code>store</code> shows 7 modules against a level of 5 components — that is the claim.</sub>
+
+<p>
+  <img src="docs/assets/archkeel-shop-store-inside.png" alt="The store component opened into its declared inside: api, repository, codec and backend, plus shop.store, the module no sub-component owns" width="980">
+</p>
+
+<sub>The same view after opening <code>store</code>: the level its own contract declares —
+<code>api</code>, <code>repository</code>, <code>codec</code>, <code>backend</code> — with their
+three crossings at 3, 2 and 2 import sites, and <code>shop.store</code>, the module no
+sub-component owns, carried rather than dropped.</sub>
 
 ### 3. The gate names the boundary, the level and the fix
 
