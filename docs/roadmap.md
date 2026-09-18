@@ -63,6 +63,7 @@ only when its row names repository evidence.
 | An inside's rules are recorded under the component holding them, its violations name them there instead of being dropped by the evidence trace, the pair derivations above stay untouched by them, and a `check` snapshot carries the inside contracts the lock was written over (AD-36) | `src/archkeel/analyzer/embedded/contract.py`; `src/archkeel/ir/codec.py`; `tests/test_snapshot.py`; `tests/test_analyzer.py` |
 | `make demo-onboarding` replays the agent-driven creation of a contract on the shop sample in one real command per step: `init` drafts 5 components and 20 open decisions, `validate` refuses the draft, the decided contract passes, the report names `store` as larger than its level, `init` drafts its 4 sub-components and 12 more pairs, the architect settles them with 3 `requires` entries, and a later crossing inside that level is caught and named for it | `fixtures/reproduce_onboarding.py`; `tests/test_onboarding_demo.py`; `make demo-onboarding` |
 | The shop sample demonstrates both levels end to end: `store` declares an inside of four sub-components crossing at 3, 2 and 2 import sites, both levels pass on the clean sample, and four catalogued variants produce the inner `complete_requires` violation, both AD-20 checks and the missing-contract diagnostic | `fixtures/F-architecture/shop/store/architecture-contract.json`; `docs/architecture-demo.md`; `fixtures/F-architecture/docs/architecture/shop.md` |
+| A drafted component carries the size `structure_metrics` already measures instead of a bare name: the generated table gains Modules and Inner edges columns, `init --json` gains `draft_sizes`, and the terminal names the drafted component whose module count uniquely leads, or that none does (AD-38) | `src/archkeel/ir/structure.py`; `src/archkeel/check/onboarding.py`; `tests/test_onboarding.py`; `tests/test_terminal.py` |
 | An empty `selected_changes` is a legal E declaration for a candidate with no semantic change; under it `check` fails on any semantic change in any of the eight delta dimensions, not only the five guardrail ones (AD-39) | `src/archkeel/check/expectation.py`; `tests/test_expectation.py`; `fixtures/demo_catalog_check.py::protocol-empty-declaration`; `docs/architecture-demo.md` |
 
 ## Next
@@ -80,7 +81,15 @@ only when its row names repository evidence.
    `Publication order evidence` name concepts a reader has to look up (AD-19).
 4. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
    without the JSON that the two snapshots were comparable at all.
-5. Shrink what one edit forces an agent to declare. Measured by adding a two-line module,
+5. Group a sub-root draft by import connectivity rather than by directory. Evidence: on this
+   repository `init --source src/archkeel/analyzer --namespace archkeel.analyzer` drafts 3
+   components while `embedded` alone hides 18 of the scope's modules; `init` on
+   `src/archkeel/ir` drafts 14 components and 182 open decisions; `init` on
+   `src/archkeel/check` drafts 12 components and 132 open decisions where the architect
+   settled on 3. Naming each draft's size (AD-38) makes the imbalance visible but does not fix
+   it: a directory-per-component draft still proposes 12 or 14 components to consolidate by
+   hand, one per module, regardless of how those modules import each other.
+6. Shrink what one edit forces an agent to declare. Measured by adding a two-line module,
    `src/archkeel/ir/labels.py` with `from .digest import package_digest` and one function, on top
    of Archkeel's own accepted observation: `build_architecture_delta` reports 7
    `semantic_changes` for that one edit, and none needs an architect decision, since both modules

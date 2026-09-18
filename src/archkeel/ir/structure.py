@@ -119,18 +119,31 @@ def _aggregate(
     )
 
 
+def scope_metrics(
+    observation: Observation, level: StructureLevel, scope_of: dict[str, str]
+) -> tuple[StructureMetric, ...]:
+    """Measure modules, inner edges, fan and calls for a caller-supplied scope grouping.
+
+    `structure_metrics` calls this once per level it already knows (component, package).
+    `init` calls it a third time with its own draft grouping, before any component is
+    declared, so a draft's size and a declared component's size share one aggregation
+    (AD-38) instead of `init` counting modules and edges again.
+    """
+    edges = module_edges(observation)
+    calls, unresolved = _calls_by_module(observation)
+    return _aggregate(level, scope_of, edges, calls, unresolved)
+
+
 def structure_metrics(observation: Observation) -> tuple[StructureMetric, ...]:
     """Measure every declared component and every observed package of one observation."""
     components = component_owners(observation)
     names = _module_names(observation)
-    edges = module_edges(observation)
-    calls, unresolved = _calls_by_module(observation)
     by_component = {
         module: owner for module in names if (owner := owner_of(module, components)) is not None
     }
     by_package = {module: module.rpartition(".")[0] or module for module in names}
-    return _aggregate("component", by_component, edges, calls, unresolved) + _aggregate(
-        "package", by_package, edges, calls, unresolved
+    return scope_metrics(observation, "component", by_component) + scope_metrics(
+        observation, "package", by_package
     )
 
 

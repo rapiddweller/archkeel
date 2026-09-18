@@ -94,6 +94,30 @@ def test_init_drafts_no_dependency_rule_but_still_drafts_structural_rules(
             assert any(in_scope(module, package) for package in component.packages)
 
 
+def test_init_drafts_component_sizes_and_names_the_largest(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-38: a per-child draft hides size; the draft must carry it instead of just names."""
+    root = _repository(tmp_path)
+    result = _init(root, capsys)
+
+    draft = _contract(root / "architecture-contract.json")
+    labels = {component.label for component in draft.components}
+    sizes = {item["label"]: item for item in result["draft_sizes"]}
+    assert set(sizes) == labels
+    assert all(sizes[label]["modules"] > 0 for label in labels)
+
+    document = (root / "docs/architecture/architecture.md").read_text()
+    assert "| Component | Package | Modules | Inner edges | Responsibility |" in document
+    for label in labels:
+        row = next(line for line in document.splitlines() if line.startswith(f"| `{label}` |"))
+        assert f"| {sizes[label]['modules']} | {sizes[label]['inner_edges']} |" in row
+
+    # `analyzer` is Archkeel's own densest top-level package by a wide margin (AD-33).
+    assert sizes["analyzer"]["modules"] > sizes["ir"]["modules"]
+    assert sizes["analyzer"]["modules"] > sizes["cli"]["modules"]
+
+
 def test_init_opens_no_second_level(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     """AD-20: a level is opened by an architect deciding to, never by init drafting one."""
     root = _repository(tmp_path)

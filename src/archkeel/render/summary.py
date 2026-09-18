@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from archkeel.ir.measurements import compare_measurements
-from archkeel.ir.model import RunResult
+from archkeel.ir.model import DraftedComponentSize, RunResult
 
 State: TypeAlias = Literal["pass", "fail", "info", "unknown"]
 Comparison: TypeAlias = tuple[str, str, str, str]
@@ -164,12 +164,39 @@ def report_summary(result: RunResult) -> Summary:
     return Summary(_decision_badge(result), sentence, verdicts, (), _claims_line(result))
 
 
+def _largest_draft(
+    sizes: tuple[DraftedComponentSize, ...],
+) -> DraftedComponentSize | None:
+    """Return the drafted component whose module count uniquely leads, or None (AD-38)."""
+    if not sizes:
+        return None
+    ranked = sorted(sizes, key=lambda item: item.modules, reverse=True)
+    if len(ranked) == 1 or ranked[0].modules > ranked[1].modules:
+        return ranked[0]
+    return None
+
+
+def _draft_sizes_line(result: RunResult) -> str:
+    """Name the drafted component that stands out in size, or that none does; silent when
+    `init` did not measure a draft at all (AD-38)."""
+    if result.draft_sizes is None:
+        return ""
+    largest = _largest_draft(result.draft_sizes)
+    if largest is None:
+        return "\n\nNo drafted component stands out in size."
+    return (
+        f"\n\n`{largest.label}` is the largest drafted component: "
+        f"{largest.modules} module(s), {largest.inner_edges} inner edge(s)."
+    )
+
+
 def init_summary(result: RunResult) -> Summary:
     """Summarize onboarding, whose drafted rules are evaluated later by validate."""
     report = report_summary(result)
     sentence = (
         "Draft written. Run archkeel validate to list every decision left."
         + _open_decisions_lines(result)
+        + _draft_sizes_line(result)
         if result.exit_code == 0
         else report.sentence
     )

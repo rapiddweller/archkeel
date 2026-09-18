@@ -28,7 +28,8 @@ first. It detects the Python package, requires an existing Git repository with a
 commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
 per top-level subpackage/module, plus `complete_assignment` and — only when no component
 cycle exists — `no_component_cycles`; no dependency rule), and
-`docs/architecture/architecture.md` (component table and Mermaid graph of observed edges).
+`docs/architecture/architecture.md` (component table, each component's modules and inner
+edges, and a Mermaid graph of observed edges).
 Every rule `init` drafts carries `decided_by: "agent"` as a placeholder you must resolve, not
 an answer. It refuses to overwrite existing files without `--force`.
 
@@ -126,8 +127,10 @@ Once the architect decides:
 1. Draft the scope with `archkeel init --source <component path> --namespace <component
    package>`. Read the draft as an inventory, not as a proposal: it writes one component per
    module, so on Archkeel's own `check` it drafted 12 sub-components and 132 open decisions
-   where the three layers the architect settled on need 6. Consolidate it into a few layers
-   with the architect before deciding a single pair.
+   where the three layers the architect settled on need 6. The drafted table and `init
+   --json`'s `draft_sizes` also carry each drafted component's modules and inner edges, so a
+   large or well-connected child is visible before you group anything, not only after.
+   Consolidate it into a few layers with the architect before deciding a single pair.
 2. Point the outer component at the resulting contract with
    `"inside": "<repository-relative path>"`.
 3. Decide the inside the way you decide the top level: a `requires` list per sub-component and
