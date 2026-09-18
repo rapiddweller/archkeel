@@ -36,6 +36,7 @@ top-level modules, one responsibility each:
 | `imports` | Import bindings and `__all__` exports |
 | `symbols` | Classes, functions and their signatures |
 | `calls` | Call sites and their resolution |
+| `receiver_types` | Hand-written stdlib method tables and static receiver-type detection (AD-37) |
 | `typing_signals` | Weak typing signals such as `Any`, `object` and `type: ignore` |
 | `constructs` | Statement constructs: assert statements and broad except handlers |
 | `dependencies` | Package and module topology, dependency edges, cycles, declared paths and component scopes |
@@ -614,6 +615,44 @@ drops one `requires` entry and reads three `rule.violated` findings under
 its open pair with an inside declared, and every `check` protocol row verifies its lock over both
 levels.
 
+**AD-37 A receiver whose type is statically obvious resolves the stdlib method it calls.**
+`resolve_name` recognises three sources for a method call `recv.method(...)`: a str or f-string
+literal written directly at the call site; a local name the same function binds, once, to a
+list/dict/set/str literal or an unshadowed `list()`/`dict()`/`set()` constructor call; and a
+parameter or local whose annotation names `list`, `dict`, `set`, `frozenset`, `tuple`, `str` or
+`pathlib.Path`/`Path`, generic subscript included. Each type carries a hand-written table of its
+public methods, copied from the documentation rather than read with `dir()`, because `dir()`
+answers for whichever interpreter happens to run the analyzer and AD-7 requires the same source to
+resolve the same way on every supported one. A literal proves its type outright, so it resolves; an
+annotation is a declaration Python never checks at runtime, so it resolves only
+`partially_resolved`, the same distinction `resolve_name` already draws between an indexed symbol
+and a name that only matches one by tail. `_local_receiver_types` reads these bindings from the
+function's own-scope walk that `bindings.py` already defines, moved to `source.own_scope` so both
+read it instead of each re-deriving the same boundary: a nested function's own locals must never
+leak into its enclosing scope's receiver map, and a second copy of that boundary is a second place
+for it to drift. Reason: measured on Archkeel itself, 703 of 3,982 calls were unresolved (17.65%),
+and classifying every one showed 621 of them (88%) were exactly this: `''.join`,
+`diagnostics.append`, `items.extend`, `check.add_argument` and their like, stdlib container,
+string, path and argparse methods on a receiver the source already states the type of.
+`calls_unresolved` and `unresolved_ratio` are regression gates (`check/ratchets.py`), so this noise
+moved the gate on every line the analyzer's own source added, never on a change to what it actually
+calls. Three cheaper ways were rejected. Reading `dir(list)` at analyzer runtime answers correctly
+today and wrongly on whatever Python version adds or removes a method next, which fails AD-7's
+determinism requirement outright. Inferring a receiver's type from every assignment along every
+control-flow path is the general problem a static call graph cannot solve in Python at all; a
+function that assigns `items` a list on one branch and something else on another stays out of
+scope, because this cut answers only the receiver a single, unconditional literal or a declared
+annotation already commits to. Resolving a call result's own type, as in `Repository(root).save(...)`
+or `hashlib.sha256().digest()`, needs a second, expression-level type inference and stays unresolved
+with its existing reason, so a method invoked on a call result is never conflated with one invoked
+on a name whose binding this function can point to. Limit: a receiver two attributes deep
+(`self.items.append`), a subscript receiver, and a name reassigned across branches to conflicting
+types stay unresolved exactly as before; the table names only methods present on every supported
+Python, so nothing version-specific is guessed into it. `ANALYZER_VERSION` rises, because the same
+input now yields different call records (AD-3). Check: `tests/test_analyzer.py` probes each
+resolution source once, a call-result receiver once, and a method absent from the table once;
+`tools/classify_unresolved.py` re-run on Archkeel's own live source falls from 703 unresolved calls
+of 3,982 (17.65%) to 419 of 4,031 (10.39%).
 **AD-38 A drafted component carries the size `structure_metrics` already measures, so the
 architect sees what a per-child draft hides before deciding whether to consolidate.**
 `draft_contract` maps every in-scope module to the child directory `init` would name a
