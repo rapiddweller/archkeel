@@ -31,14 +31,16 @@ def own_scope(node: FunctionNode) -> Iterator[ast.AST]:
     The unused-binding collector and the call collector both need this exact boundary: a
     name a nested scope binds or reads is not a fact about the outer function's own body,
     so both read it from here instead of each running its own version of the same walk.
+    Nodes come in source order, so a receiver typed from an earlier binding is known by the
+    time a later call result is typed from it (AD-40).
     """
-    stack: list[ast.AST] = list(node.body)
+    stack: list[ast.AST] = list(reversed(node.body))
     while stack:
         current = stack.pop()
         yield current
         if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
             continue
-        stack.extend(ast.iter_child_nodes(current))
+        stack.extend(reversed(list(ast.iter_child_nodes(current))))
 
 
 @dataclass(frozen=True)
