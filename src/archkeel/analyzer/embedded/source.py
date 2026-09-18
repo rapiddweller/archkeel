@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,12 +15,30 @@ from archkeel.ir.model import EvidenceClass, stable_id
 
 from .records import RawEvidence, RawRecord, classified
 
+FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
+
 
 def location(node: ast.AST) -> tuple[int, int, int]:
     if not isinstance(node, ast.stmt | ast.expr | ast.excepthandler | ast.arg | ast.keyword):
         return 1, 1, 0
     line = max(node.lineno, 1)
     return line, node.end_lineno or line, node.col_offset
+
+
+def own_scope(node: FunctionNode) -> Iterator[ast.AST]:
+    """Walk a function's body, stopping at a nested function, lambda or class of its own.
+
+    The unused-binding collector and the call collector both need this exact boundary: a
+    name a nested scope binds or reads is not a fact about the outer function's own body,
+    so both read it from here instead of each running its own version of the same walk.
+    """
+    stack: list[ast.AST] = list(node.body)
+    while stack:
+        current = stack.pop()
+        yield current
+        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
+            continue
+        stack.extend(ast.iter_child_nodes(current))
 
 
 @dataclass(frozen=True)
