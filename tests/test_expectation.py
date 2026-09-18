@@ -275,18 +275,20 @@ def test_empty_declaration_fails_on_a_guardrail_dimension_change() -> None:
 
 
 def test_empty_declaration_fails_on_a_non_guardrail_dimension_change() -> None:
+    # api_crossings is the one dimension AD-44 left outside the guardrail set, so it is
+    # the genuine non-guardrail example now that dependency_edges joined it.
     delta = _empty_delta_payload()
     semantic_changes = delta["semantic_changes"]
     assert isinstance(semantic_changes, list)
     semantic_changes.append(
         {
-            "dimension": "dependency_edges",
+            "dimension": "api_crossings",
             "change": "added",
-            "fingerprint": "new-dependency-edge",
+            "fingerprint": "new-api-crossing",
             "before_count": 0,
             "after_count": 1,
             "before": None,
-            "after": _projection("DEP-new", {"level": "module", "source": "a", "target": "b"}),
+            "after": _projection("IMP-new", {"source_module": "a", "target_module": "b"}),
         }
     )
 
@@ -295,7 +297,7 @@ def test_empty_declaration_fails_on_a_non_guardrail_dimension_change() -> None:
     )
 
     assert result.failures == (
-        "undeclared change in dependency_edges: added fingerprint new-dependency-edge",
+        "undeclared change in api_crossings: added fingerprint new-api-crossing",
     )
 
 
@@ -323,6 +325,99 @@ def test_new_violation_cannot_be_hidden_by_an_unrelated_removal() -> None:
     result = evaluate_expectation(_typed_delta(delta), parse_expectation(_expectation_payload()))
 
     assert result.failures == ("guardrail added violations fingerprint new-hard-violation",)
+
+
+def _with_added_dependency_edge(delta: dict[str, object]) -> dict[str, object]:
+    dimensions = delta["dimensions"]
+    assert isinstance(dimensions, dict)
+    dimensions["dependency_edges"] = {
+        "status": "SUPPORTED",
+        "before_count": 1,
+        "after_count": 2,
+        "added": ["new-dependency-edge"],
+        "removed": [],
+        "relocated": [],
+        "changed": [],
+    }
+    semantic_changes = delta["semantic_changes"]
+    assert isinstance(semantic_changes, list)
+    semantic_changes.append(
+        {
+            "dimension": "dependency_edges",
+            "change": "added",
+            "fingerprint": "new-dependency-edge",
+            "before_count": 0,
+            "after_count": 1,
+            "before": None,
+            "after": _projection("DEP-new", {"level": "module", "source": "a", "target": "b"}),
+        }
+    )
+    return delta
+
+
+def test_undeclared_added_dependency_edge_fails_naming_it() -> None:
+    # AD-44 closes the AD-39 Limit: a new edge the declaration never named is a guardrail
+    # failure, even though dependency_edges is not otherwise a "should shrink" dimension.
+    delta = _with_added_dependency_edge(_delta_payload())
+
+    result = evaluate_expectation(_typed_delta(delta), parse_expectation(_expectation_payload()))
+
+    assert result.failures == ("guardrail added dependency_edges fingerprint new-dependency-edge",)
+
+
+def test_declared_added_dependency_edge_passes() -> None:
+    delta = _with_added_dependency_edge(_delta_payload())
+    expectation = _expectation_payload()
+    selected_changes = expectation["selected_changes"]
+    assert isinstance(selected_changes, list)
+    selected_changes.append(
+        {
+            "dimension": "dependency_edges",
+            "change": "added",
+            "fingerprint": "new-dependency-edge",
+            "before_count": 0,
+            "after_count": 1,
+        }
+    )
+
+    result = evaluate_expectation(_typed_delta(delta), parse_expectation(expectation))
+
+    assert result.failures == ()
+
+
+def test_removed_dependency_edge_does_not_fail_undeclared() -> None:
+    # A removed edge can only narrow what a component depends on, never widen it past a
+    # boundary, so AD-44 leaves it out of the guardrail the way every other dimension's
+    # fingerprint check already only watches "added".
+    delta = _delta_payload()
+    dimensions = delta["dimensions"]
+    assert isinstance(dimensions, dict)
+    dimensions["dependency_edges"] = {
+        "status": "SUPPORTED",
+        "before_count": 2,
+        "after_count": 1,
+        "added": [],
+        "removed": ["old-dependency-edge"],
+        "relocated": [],
+        "changed": [],
+    }
+    semantic_changes = delta["semantic_changes"]
+    assert isinstance(semantic_changes, list)
+    semantic_changes.append(
+        {
+            "dimension": "dependency_edges",
+            "change": "removed",
+            "fingerprint": "old-dependency-edge",
+            "before_count": 1,
+            "after_count": 0,
+            "before": _projection("DEP-old", {"level": "module", "source": "a", "target": "b"}),
+            "after": None,
+        }
+    )
+
+    result = evaluate_expectation(_typed_delta(delta), parse_expectation(_expectation_payload()))
+
+    assert result.failures == ()
 
 
 def _projection(identifier: str, data: dict[str, object] | None = None) -> dict[str, object]:

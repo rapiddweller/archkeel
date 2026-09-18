@@ -71,10 +71,14 @@ The `report` headline follows its verdicts, not the exit code alone: exit 0 with
 
 `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all
 (AD-39). Under that declaration `evaluate_expectation` fails on any entry in the delta's
-`semantic_changes`, in any of the eight delta dimensions, not only the five fixed guardrail ones,
+`semantic_changes`, in any of the eight delta dimensions, not only the six fixed guardrail ones,
 naming the dimension, the change kind and the fingerprint. A non-empty `selected_changes` keeps its
 existing meaning: a dimension it does not name and that is not a fixed guardrail dimension is still
-not checked, so an undeclared change there passes without producing any failure text.
+not checked, so an undeclared change there passes without producing any failure text. Five of the
+six guardrail dimensions (`violations`, `cycles`, `private_crossings`, `typing_signals`,
+`unknowns`) fail on any added entry whether declared or not; the sixth, `dependency_edges`, fails
+only on an added entry `selected_changes` never named, since a declared new edge is ordinary
+architecture growth, not a regression (AD-44).
 
 ## Regression checks
 

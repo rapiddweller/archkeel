@@ -43,6 +43,7 @@ _UNIQUE_CHECK_RUNS = list({id(variant.check): variant for variant in _CHECK_VARI
 _CLASS_B_TESTED_ONLY = {
     "SCALARS:coverage_failures",
     "GUARDRAIL_DIMENSIONS:unknowns",
+    "GUARDRAIL_DIMENSIONS:dependency_edges",
     "coverage_must_pass",
 }
 

@@ -32,7 +32,9 @@ _VIOLATION = CheckExpectation(
     git_predicate="PASS",
     host_order="PASS",
     regressed_scalars=("violations",),
-    regressed_dimensions=("violations",),
+    # The new import is also a new module-level dependency_edges entry (AD-44), declared
+    # alongside the violation itself.
+    regressed_dimensions=("violations", "dependency_edges"),
 )
 
 _PRIVATE_CROSSING_FILES = _files_of(_INTERFACE_VARIANTS, "class-a-interface-boundary-underscore")
@@ -62,7 +64,8 @@ _CYCLE = CheckExpectation(
     git_predicate="PASS",
     host_order="PASS",
     regressed_scalars=("violations", "cycle_edges"),
-    regressed_dimensions=("violations", "cycles"),
+    # The new back-edge is also a new module-level dependency_edges entry (AD-44).
+    regressed_dimensions=("violations", "cycles", "dependency_edges"),
 )
 
 _TYPING_FILES = _files_of(_CONSTRUCT_VARIANTS, "class-a-construct-type_ignore")

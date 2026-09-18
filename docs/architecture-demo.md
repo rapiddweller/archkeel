@@ -86,6 +86,7 @@ run shows many violations together; every other row isolates one item.
 | class_b | unresolved_ratio | class-b-check-unresolved-ratio | check run | - | - | shop/app/probe_unresolved.py |
 | class_b | SCALARS:coverage_failures | class-b-scalar-coverage-failures | tested only | - | - | tests/test_ratchets.py |
 | class_b | GUARDRAIL_DIMENSIONS:unknowns | class-b-guardrail-unknowns | tested only | - | - | tests/test_expectation.py |
+| class_b | GUARDRAIL_DIMENSIONS:dependency_edges | class-b-guardrail-dependency-edges | tested only | - | - | tests/test_expectation.py |
 | class_b | coverage_must_pass | class-b-coverage-must-pass | tested only | - | - | tests/test_expectation.py |
 | class_c | ContractDeclarations.capabilities | class-c-capabilities | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.review_scopes | class-c-review-scopes | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
