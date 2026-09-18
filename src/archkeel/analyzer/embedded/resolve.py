@@ -15,12 +15,27 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from .receiver_types import ReceiverType, literal_receiver_type, receiver_call_target
+from .receiver_types import (
+    ReceiverType,
+    constructor_receiver_type,
+    literal_receiver_type,
+    method_return_type,
+    receiver_call_target,
+)
 from .records import RawRecord
 from .source import ParsedModule
 
 _BUILTINS = frozenset(dir(builtins))
 _NO_RECEIVERS: Mapping[str, ReceiverType] = {}
+# What each receiver origin lets a call on it claim (AD-37, AD-40).
+_ORIGIN_VERDICT: dict[str, tuple[str, str]] = {
+    "literal": ("resolved", "literal-bound receiver of known type"),
+    "annotation": ("partially_resolved", "annotated receiver of known type, unproven at runtime"),
+    "documented": (
+        "partially_resolved",
+        "receiver bound to a call result of documented type, unproven at runtime",
+    ),
+}
 
 
 def dotted_expression(node: ast.AST) -> str | None:
@@ -55,21 +70,65 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
     return SymbolIndex(frozenset(names), dict(by_tail), evidence)
 
 
-def _resolve_literal_receiver(node: ast.Attribute) -> tuple[str, list[str], str, int] | None:
-    """Resolve a str or f-string written directly at the call site (AD-37 case 1).
+def _static_receiver_type(
+    node: ast.expr, *, module: ParsedModule, receiver_types: Mapping[str, ReceiverType | None]
+) -> str | None:
+    """Name the type of an expression used as a receiver, from what is already known."""
+    if isinstance(node, ast.Name):
+        receiver = receiver_types.get(node.id)
+        return receiver.type_name if receiver else None
+    if isinstance(node, ast.Call):
+        return call_result_type(node, module=module, receiver_types=receiver_types)
+    return literal_receiver_type(node)
 
-    Unlike `[]`/`{}`/`list(...)`, which case 2 recognises only through a named local, a
-    literal here proves its own type outright with no name to look up at all.
+
+def call_result_type(
+    call: ast.Call, *, module: ParsedModule, receiver_types: Mapping[str, ReceiverType | None]
+) -> str | None:
+    """Name the documented type a call evaluates to, or None (AD-40).
+
+    A method on a typed receiver is looked up by its documented return; anything else must
+    be a callable the import bindings name, so a project's own `Table` never matches Rich's.
     """
-    if not isinstance(node.value, ast.Constant | ast.JoinedStr):
+    if isinstance(call.func, ast.Attribute):
+        receiver = _static_receiver_type(
+            call.func.value, module=module, receiver_types=receiver_types
+        )
+        if receiver is not None:
+            return method_return_type(receiver, call.func.attr)
+    dotted = dotted_expression(call.func)
+    if dotted is None:
         return None
-    literal_type = literal_receiver_type(node.value)
+    parts = dotted.split(".")
+    binding = module.aliases.get(parts[0])
+    if binding is None:
+        return None
+    return constructor_receiver_type(".".join([binding.target, *parts[1:]]))
+
+
+def _resolve_expression_receiver(
+    node: ast.Attribute, *, module: ParsedModule, receiver_types: Mapping[str, ReceiverType]
+) -> tuple[str, list[str], str, int] | None:
+    """Resolve a call on a literal or on a call result written at the call site.
+
+    Unlike `[]`/`{}`/`list(...)`, which AD-37 case 2 recognises only through a named local,
+    a str or f-string here proves its own type outright (AD-37 case 1); a call result is
+    typed from its documented table and so claims only `partially_resolved` (AD-40).
+    """
+    if isinstance(node.value, ast.Constant | ast.JoinedStr):
+        literal_type = literal_receiver_type(node.value)
+        status, reason = "resolved", "literal receiver of known type"
+    elif isinstance(node.value, ast.Call):
+        literal_type = call_result_type(node.value, module=module, receiver_types=receiver_types)
+        status, reason = "partially_resolved", "call result of documented type, unproven at runtime"
+    else:
+        return None
     if literal_type is None:
         return None
     target = receiver_call_target(literal_type, node.attr)
     if target is None:
         return None
-    return "resolved", [target], "literal receiver of known type", 1
+    return status, [target], reason, 1
 
 
 def _resolve_name_node(
@@ -106,12 +165,7 @@ def _resolve_receiver_bound_call(
     target = receiver_call_target(receiver.type_name, parts[1])
     if target is None:
         return None
-    status = "resolved" if receiver.origin == "literal" else "partially_resolved"
-    reason = (
-        "literal-bound receiver of known type"
-        if receiver.origin == "literal"
-        else "annotated receiver of known type, unproven at runtime"
-    )
+    status, reason = _ORIGIN_VERDICT[receiver.origin]
     return status, [target], reason, 1
 
 
@@ -171,9 +225,11 @@ def resolve_name(
     that shares this resolver passes none, and gets the exact result it had before AD-37.
     """
     if isinstance(node, ast.Attribute):
-        literal_result = _resolve_literal_receiver(node)
-        if literal_result:
-            return literal_result
+        expression_result = _resolve_expression_receiver(
+            node, module=module, receiver_types=receiver_types
+        )
+        if expression_result:
+            return expression_result
     if isinstance(node, ast.Name):
         return _resolve_name_node(node, module=module, index=index)
     dotted = dotted_expression(node)

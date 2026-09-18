@@ -11,17 +11,22 @@ and `unresolved_ratio` regression checks, never a rule.
 
 | Repository | Unresolved | Partially resolved | Analyzed |
 |---|---:|---:|---:|
-| Archkeel (`fixtures/D-self`) | 630 (19.1%) | 257 | 3,303 |
+| Archkeel (`fixtures/D-self`) | 381 (9.3%) | 442 | 4,101 |
 | Internal 13-component service (`docs/evidence/internal-service/`) | 998 (23.1%) | 380 | 4,318 |
 
 The resolver follows indexed names, import aliases, builtins and simple attribute chains. Since
 AD-37 it also follows a receiver whose type a literal or an annotation makes statically obvious,
 against a hand-written table of `list`/`dict`/`set`/`frozenset`/`tuple`/`str`/`Path` methods; a
 literal-typed receiver resolves, an annotated one only `partially_resolved`, because Python never
-checks an annotation at runtime. It does not use return types or follow a value across a
-conditional reassignment, so a call on a call result (`Repository(root).save(...)`), a receiver two
-attributes deep (`self.items.append`) and an attribute of an awaited value stay unresolved. An
-unresolved call is not proven dynamic at runtime.
+checks an annotation at runtime. Since AD-40 a call result is typed too, but only from a closed
+table of documented library types: a constructor the import binding names (`hashlib.sha256()`,
+`argparse.ArgumentParser(...)`, Rich's `Console(...)` and `Table(...)`, `Path(...)`) and a method
+whose documented return is in that table (`add_subparsers`, `add_parser`, `relative_to`); such a
+receiver is `partially_resolved`, never `resolved`. It does not read return annotations in the
+analysed source or follow a value across a conditional reassignment, so a call on a project
+call result (`Repository(root).save(...)`), a receiver two attributes deep (`self.items.append`)
+and an attribute of an awaited value stay unresolved. An unresolved call is not proven dynamic
+at runtime.
 
 ## Imports and constructs
 

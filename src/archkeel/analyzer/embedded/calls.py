@@ -13,7 +13,7 @@ from archkeel.ir.model import EvidenceClass, stable_id
 
 from .receiver_types import ReceiverType, annotation_receiver_type, literal_receiver_type
 from .records import RawEvidence, RawRecord, classified
-from .resolve import SymbolIndex, resolve_name
+from .resolve import SymbolIndex, call_result_type, resolve_name
 from .source import FunctionNode, ParsedModule, add_evidence, annotation_text, location, own_scope
 
 _BUILTINS = frozenset(dir(builtins))
@@ -50,7 +50,21 @@ def _void_targets(receivers: dict[str, ReceiverType | None], target: ast.expr) -
             _bind_receiver(receivers, child.id, None)
 
 
-def _local_receiver_types(node: FunctionNode) -> dict[str, ReceiverType]:
+def _value_receiver_type(
+    value: ast.expr, module: ParsedModule, receivers: dict[str, ReceiverType | None]
+) -> ReceiverType | None:
+    """Type an assigned value: a literal proves itself, a call result is documented (AD-40)."""
+    literal_type = literal_receiver_type(value)
+    if literal_type:
+        return ReceiverType(literal_type, "literal")
+    if isinstance(value, ast.Call):
+        result_type = call_result_type(value, module=module, receiver_types=receivers)
+        if result_type:
+            return ReceiverType(result_type, "documented")
+    return None
+
+
+def _local_receiver_types(node: FunctionNode, module: ParsedModule) -> dict[str, ReceiverType]:
     """Map each name this function binds to its receiver type, where every binding agrees.
 
     Reuses the own-scope walk `bindings.py` already defines (via `source.own_scope`) instead
@@ -64,18 +78,19 @@ def _local_receiver_types(node: FunctionNode) -> dict[str, ReceiverType]:
             _bind_receiver(receivers, argument.arg, ReceiverType(type_name, "annotation"))
     for statement in own_scope(node):
         if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
-            literal_type = literal_receiver_type(statement.value) if statement.value else None
-            annotated_type = literal_type or annotation_receiver_type(
-                annotation_text(statement.annotation)
+            candidate = (
+                _value_receiver_type(statement.value, module, receivers)
+                if statement.value
+                else None
             )
-            origin = "literal" if literal_type else "annotation"
-            candidate = ReceiverType(annotated_type, origin) if annotated_type else None
+            if candidate is None:
+                annotated_type = annotation_receiver_type(annotation_text(statement.annotation))
+                candidate = ReceiverType(annotated_type, "annotation") if annotated_type else None
             _bind_receiver(receivers, statement.target.id, candidate)
         elif isinstance(statement, ast.Assign):
-            literal_type = literal_receiver_type(statement.value)
+            candidate = _value_receiver_type(statement.value, module, receivers)
             for target in statement.targets:
                 if isinstance(target, ast.Name):
-                    candidate = ReceiverType(literal_type, "literal") if literal_type else None
                     _bind_receiver(receivers, target.id, candidate)
                 else:
                     _void_targets(receivers, target)
@@ -119,7 +134,7 @@ class CallCollector(ast.NodeVisitor):
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
-        self.receiver_stack.append(_local_receiver_types(node))
+        self.receiver_stack.append(_local_receiver_types(node, self.module))
         self.generic_visit(node)
         self.receiver_stack.pop()
         self.scope_stack.pop()

@@ -13,8 +13,10 @@ from test_delta import _model, _record
 from archkeel.analyzer import observe
 from archkeel.analyzer.embedded.calls import collect_calls
 from archkeel.analyzer.embedded.constructs import collect_constructs
+from archkeel.analyzer.embedded.imports import collect_imports
 from archkeel.analyzer.embedded.resolve import build_symbol_index
 from archkeel.analyzer.embedded.source import ParsedModule
+from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import component_owners
@@ -1022,3 +1024,70 @@ def test_a_binding_the_body_never_reads_is_recorded(tmp_path: Path) -> None:
         ("unused_parameter", "currency"),
         ("unused_local", "spare"),
     }
+
+
+@pytest.mark.parametrize(
+    ("source", "expression", "status", "targets", "reason"),
+    [
+        (
+            "import hashlib\n\n\ndef f(payload: bytes) -> None:\n"
+            "    digest = hashlib.sha256()\n    digest.update(payload)\n",
+            "digest.update",
+            "partially_resolved",
+            ["hashlib._Hash.update"],
+            "receiver bound to a call result of documented type, unproven at runtime",
+        ),
+        (
+            "import hashlib\n\n\ndef f(payload: bytes) -> str:\n"
+            "    return hashlib.sha256(payload).hexdigest()\n",
+            "hashlib.sha256(payload).hexdigest",
+            "partially_resolved",
+            ["hashlib._Hash.hexdigest"],
+            "call result of documented type, unproven at runtime",
+        ),
+        (
+            "import argparse\n\n\ndef f() -> None:\n"
+            "    parser = argparse.ArgumentParser()\n"
+            '    commands = parser.add_subparsers(dest="command")\n'
+            '    check = commands.add_parser("check")\n'
+            '    check.add_argument("--root")\n',
+            "check.add_argument",
+            "partially_resolved",
+            ["argparse.ArgumentParser.add_argument"],
+            "receiver bound to a call result of documented type, unproven at runtime",
+        ),
+        (
+            "from rich.table import Table\n\n\ndef f() -> None:\n"
+            '    verdicts = Table(title="verdicts")\n    verdicts.add_column("check")\n',
+            "verdicts.add_column",
+            "partially_resolved",
+            ["rich.table.Table.add_column"],
+            "receiver bound to a call result of documented type, unproven at runtime",
+        ),
+        (
+            "class Table:\n    def add_column(self, name: str) -> None:\n        pass\n\n\n"
+            'def f() -> None:\n    verdicts = Table()\n    verdicts.add_column("check")\n',
+            "verdicts.add_column",
+            "partially_resolved",
+            ["sample.mod.Table.add_column"],
+            "dynamic receiver with matching internal methods",
+        ),
+    ],
+)
+def test_call_results_of_documented_type_resolve_their_methods(
+    source: str, expression: str, status: str, targets: list[str], reason: str
+) -> None:
+    """AD-40: a constructor the import binding proves, or a documented return, types a call.
+
+    The last row is the guard: a project's own `Table` is not an import binding, so it never
+    borrows Rich's method table and keeps the answer the symbol index gives it.
+    """
+    module = _parsed_module(source)
+    symbols, _, _ = collect_symbols([module], {})
+    index = build_symbol_index(symbols)
+    collect_imports([module], set(), {}, namespace="sample")
+    calls = collect_calls([module], index, {})
+    match = next(item for item in calls if item["data"]["expression"] == expression)
+    assert match["data"]["status"] == status
+    assert match["data"]["targets"] == targets
+    assert match["data"]["reason"] == reason
