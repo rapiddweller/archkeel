@@ -11,25 +11,12 @@ record stays a fact; calling such a binding dead is a review claim in `ir`, neve
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 
 from archkeel.ir.model import EvidenceClass, stable_id
 
 from .records import RawEvidence, RawRecord, classified
-from .source import ParsedModule, add_evidence, body_is_empty, location
-
-FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
-
-
-def _own_scope(node: FunctionNode) -> Iterator[ast.AST]:
-    """Walk the function body, stopping at a nested function or class of its own."""
-    stack: list[ast.AST] = list(node.body)
-    while stack:
-        current = stack.pop()
-        yield current
-        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
-            continue
-        stack.extend(ast.iter_child_nodes(current))
+from .source import FunctionNode, ParsedModule, add_evidence, body_is_empty, location, own_scope
 
 
 def _loaded_names(node: FunctionNode) -> set[str]:
@@ -59,7 +46,7 @@ def _parameter_names(node: FunctionNode) -> set[str]:
 def _local_names(node: FunctionNode) -> set[str]:
     return {
         child.id
-        for child in _own_scope(node)
+        for child in own_scope(node)
         if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
     }
 
