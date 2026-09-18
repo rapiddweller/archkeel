@@ -36,7 +36,7 @@ from archkeel.ir.model import (
 from .python_profile import crossing_imports
 from .ratchets import measure_python_ratchets
 
-# AD-43: the eight per-counter coverage records stopped being declarable semantic changes,
+# AD-43: the per-counter coverage records stopped being declarable semantic changes,
 # so a candidate that adds one file no longer forces an agent to name five mechanical
 # counter shifts; DeltaCoverage still carries one PASS/FAIL for the aggregate.
 DELTA_SCHEMA_VERSION: Final = "1.3.0"
