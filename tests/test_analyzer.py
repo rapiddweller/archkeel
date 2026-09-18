@@ -17,6 +17,7 @@ from archkeel.analyzer.embedded.imports import collect_imports
 from archkeel.analyzer.embedded.resolve import build_symbol_index
 from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
+from archkeel.analyzer.embedded.violations import requires_violations
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import component_owners
@@ -1091,3 +1092,32 @@ def test_call_results_of_documented_type_resolve_their_methods(
     assert match["data"]["status"] == status
     assert match["data"]["targets"] == targets
     assert match["data"]["reason"] == reason
+
+
+def test_a_requires_entry_covers_only_the_modules_it_goes_through() -> None:
+    """AD-42: `through` narrows a `requires` entry to module prefixes of the required component.
+
+    `cli` requires `core` through `sample.core.model`, so importing `sample.core.model` is
+    covered and importing `sample.core.store` is the violation an unrequired component gets.
+    """
+    entry = {
+        "component": "core",
+        "through": ["sample.core.model"],
+        "rationale": "The composition root reads the model, never the store.",
+    }
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core"), _component("cli") | {"requires": [entry]}],
+            "rules": [_INNER_REQUIRES_RULE],
+        }
+    )
+    module = _parsed_module(
+        "import sample.core.model\nimport sample.core.store\n", module="sample.cli.main"
+    )
+    imports = collect_imports(
+        [module], {"sample.core.model", "sample.core.store"}, {}, namespace="sample"
+    )
+    violations = requires_violations(imports, contract)
+    assert [item["data"]["target_module"] for item in violations] == ["sample.core.store"]
+    assert violations[0]["rule_ids"] == ["REQUIRES-COMPLETE"]

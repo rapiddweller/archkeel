@@ -1,7 +1,6 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-import re
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
@@ -11,21 +10,14 @@ from archkeel.ir.codec import parse_measurements
 from archkeel.ir.measurements import Measurements, RatchetScalars
 
 
-def test_source_has_no_untyped_module_boundaries_or_product_namespace() -> None:
+def test_source_has_no_product_namespace() -> None:
+    """Where `Any` may appear is the contract's `CONSTRUCT-NO-ANY` rule (AD-41), not a test."""
     source = Path(__file__).parents[1] / "src"
-    pattern = re.compile(r"dict\[str, Any\]|Mapping\[str, Any\]|: Any\b")
-    raw_record_owners = ("archkeel/ir/codec.py", "archkeel/analyzer/embedded/")
-    hits = []
     namespace_hits = []
     for path in sorted(source.rglob("*.py")):
         for line, text in enumerate(path.read_text().splitlines(), 1):
-            if pattern.search(text) and not path.relative_to(source).as_posix().startswith(
-                raw_record_owners
-            ):
-                hits.append(f"{path}:{line}:{text}")
             if "datamimic" in text.lower():
                 namespace_hits.append(f"{path}:{line}:{text}")
-    assert hits == []
     assert namespace_hits == []
 
 

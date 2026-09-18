@@ -64,7 +64,11 @@ rule naming it is an example violation.
 
 `complete_requires` has no selector fields. Every import that crosses from one component to another
 must be covered by a `requires` entry of the importing component, and an import no entry covers is a
-violation naming the importing module. A component pair absent from the list is decided, not open:
+violation naming the importing module. An entry may list `through`, module prefixes of the required
+component; then only an import of one of those modules is covered, and an import of any other
+module of that component is the same violation (AD-42). A `through` prefix that names no module
+in the scan is a `reference.namespace` diagnostic in `validate`; one that names a module of a
+different component covers nothing. A component pair absent from the list is decided, not open:
 absence forbids, the way `complete_assignment` makes an unassigned module a violation rather than a
 question (AD-32). `TYPE_CHECKING` imports count unless `include_type_checking` is false. Without the
 rule nothing changes, so a contract that never adopts it keeps deciding pairs one by one. A

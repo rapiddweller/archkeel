@@ -750,10 +750,11 @@ def _public_entry(value: str, label: str) -> str:
 
 
 def _required_component(raw: RawJson, label: str) -> RequiredComponent:
-    item = _contract_fields(raw, {"component", "rationale"}, set(), label)
+    item = _contract_fields(raw, {"component", "rationale"}, {"through"}, label)
     return RequiredComponent(
         _nonempty(item["component"], f"{label}.component"),
         _nonempty(item["rationale"], f"{label}.rationale"),
+        _contract_strings(item.get("through", []), f"{label}.through"),
     )
 
 

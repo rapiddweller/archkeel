@@ -405,11 +405,12 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
 
 - **Every pair decided.** Six components, so 30 ordered pairs, decided by eight `requires`
   entries and one `complete_requires` rule: a pair no entry names is forbidden, not open. All
-  25 rules carry a rationale and are decided by the architect. The
+  14 rules carry a rationale and are decided by the architect. The
   [architecture guide](docs/architecture/archkeel.md) names the quality goal each required edge
   serves.
 - **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
-  the composition root. The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`.
+  the composition root. The analyzer's `requires` entry goes `through` `archkeel.ir.model` and
+  `archkeel.ir.codec` only, so any other `ir` module is a violation.
 - **No dynamic shortcuts.** `getattr`, `hasattr`, `cast`, `eval`, `exec`, dynamic imports and
   `type: ignore` are forbidden everywhere.
 - **Confined dependencies.** `packaging` only in the analyzer runtime gate, `rich` only in the

@@ -22,6 +22,7 @@
       "requires": [
         {
           "component": "core",
+          "through": ["sample.core"],
           "rationale": "The composition root builds its work from the core model."
         }
       ]

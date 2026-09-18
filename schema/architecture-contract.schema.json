@@ -29,7 +29,8 @@
       "additionalProperties": false,
       "properties": {
         "component": {"$ref": "#/$defs/nonEmpty"},
-        "rationale": {"$ref": "#/$defs/nonEmpty"}
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "through": {"$ref": "#/$defs/strings"}
       }
     },
     "component": {
