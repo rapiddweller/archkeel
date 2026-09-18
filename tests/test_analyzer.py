@@ -802,6 +802,22 @@ def test_collect_constructs_detects_broad_except_and_documented_blind_spots(
             [],
             "dynamic attribute receiver",
         ),
+        (
+            "def make():\n    return object()\n\n\n"
+            'def f() -> None:\n    items = []\n    items = make()\n    items.append("x")\n',
+            "items.append",
+            "unresolved",
+            [],
+            "dynamic attribute receiver",
+        ),
+        (
+            "def f(items: list[str]) -> None:\n"
+            '    for items in rows():\n        items.append("x")\n',
+            "items.append",
+            "unresolved",
+            [],
+            "dynamic attribute receiver",
+        ),
     ],
 )
 def test_receiver_typed_calls_resolve_or_name_why_not(
@@ -811,7 +827,10 @@ def test_receiver_typed_calls_resolve_or_name_why_not(
 
     Covers each resolution source in turn — a literal written at the call site, a local
     bound to a literal, an annotated parameter, an annotated local — plus a call-result
-    receiver, which AD-37 leaves out of scope, and a method the frozen table does not name.
+    receiver, which AD-37 leaves out of scope, a method the frozen table does not name, and
+    a name rebound to something else (a plain reassignment, then a `for` target): every
+    binding of a name must agree, so either rebinding voids it rather than keeping the first
+    or the last answer.
     """
     index = build_symbol_index([])
     calls = collect_calls([_parsed_module(source)], index, {})

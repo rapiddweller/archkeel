@@ -617,10 +617,15 @@ levels.
 
 **AD-37 A receiver whose type is statically obvious resolves the stdlib method it calls.**
 `resolve_name` recognises three sources for a method call `recv.method(...)`: a str or f-string
-literal written directly at the call site; a local name the same function binds, once, to a
-list/dict/set/str literal or an unshadowed `list()`/`dict()`/`set()` constructor call; and a
-parameter or local whose annotation names `list`, `dict`, `set`, `frozenset`, `tuple`, `str` or
-`pathlib.Path`/`Path`, generic subscript included. Each type carries a hand-written table of its
+literal written directly at the call site; a local name every one of whose bindings in the
+function's own scope agrees on a list/dict/set/str literal or an unshadowed
+`list()`/`dict()`/`set()` constructor call (an annotation of the same type is not a disagreement);
+and a parameter or local whose only binding, if any, is an annotation naming `list`, `dict`, `set`,
+`frozenset`, `tuple`, `str` or `pathlib.Path`/`Path`, generic subscript included. A second,
+differently typed or non-literal binding of the same name — a plain rebinding, a `for`/`with`
+target, a walrus or an unpacked assignment — voids the name for the whole function rather than
+picking a winner, because which binding a call site actually sees is exactly the control-flow
+question this cut does not attempt to answer. Each type carries a hand-written table of its
 public methods, copied from the documentation rather than read with `dir()`, because `dir()`
 answers for whichever interpreter happens to run the analyzer and AD-7 requires the same source to
 resolve the same way on every supported one. A literal proves its type outright, so it resolves; an
@@ -650,9 +655,11 @@ on a name whose binding this function can point to. Limit: a receiver two attrib
 types stay unresolved exactly as before; the table names only methods present on every supported
 Python, so nothing version-specific is guessed into it. `ANALYZER_VERSION` rises, because the same
 input now yields different call records (AD-3). Check: `tests/test_analyzer.py` probes each
-resolution source once, a call-result receiver once, and a method absent from the table once;
+resolution source once, a call-result receiver once, a method absent from the table once, and a
+name rebound outside the table's proof — a plain reassignment, and a `for` target — twice;
 `tools/classify_unresolved.py` re-run on Archkeel's own live source falls from 703 unresolved calls
-of 3,982 (17.65%) to 419 of 4,031 (10.39%).
+of 3,982 (17.65%) to 421 of 4,051 (10.39%).
+
 **AD-38 A drafted component carries the size `structure_metrics` already measures, so the
 architect sees what a per-child draft hides before deciding whether to consolidate.**
 `draft_contract` maps every in-scope module to the child directory `init` would name a

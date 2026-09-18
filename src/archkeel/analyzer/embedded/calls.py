@@ -19,37 +19,77 @@ from .source import FunctionNode, ParsedModule, add_evidence, annotation_text, l
 _BUILTINS = frozenset(dir(builtins))
 
 
+def _bind_receiver(
+    receivers: dict[str, ReceiverType | None], name: str, candidate: ReceiverType | None
+) -> None:
+    """Merge one binding of `name` into the running receiver map.
+
+    AD-37 requires every binding of a name to agree before a call on it resolves, so a
+    conflicting or untyped binding is remembered as None — permanently voiding the name for
+    this function — rather than letting whichever binding is merged first or last win.
+    """
+    if name not in receivers:
+        receivers[name] = candidate
+        return
+    existing = receivers[name]
+    if existing is None or candidate is None or existing.type_name != candidate.type_name:
+        receivers[name] = None
+        return
+    if existing.origin == "literal" or candidate.origin == "literal":
+        receivers[name] = ReceiverType(existing.type_name, "literal")
+
+
+def _void_targets(receivers: dict[str, ReceiverType | None], target: ast.expr) -> None:
+    """Void every name a `for`, `with` or unpacking target binds (AD-37 case 3).
+
+    None of these prove a single type the way a literal or an annotation does, and a target
+    can nest names inside a tuple or list, so every `Name` under it is walked and voided.
+    """
+    for child in ast.walk(target):
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
+            _bind_receiver(receivers, child.id, None)
+
+
 def _local_receiver_types(node: FunctionNode) -> dict[str, ReceiverType]:
-    """Map each parameter and local this function binds to its known receiver type.
+    """Map each name this function binds to its receiver type, where every binding agrees.
 
     Reuses the own-scope walk `bindings.py` already defines (via `source.own_scope`) instead
-    of a second full traversal of the same body; a literal assignment overwrites an
-    annotation the same name carried, the way `contexts.py` already lets a call's context
-    win over a bare annotation for the identical precedence question (AD-37).
+    of a second full traversal of the same body.
     """
-    receivers: dict[str, ReceiverType] = {}
+    receivers: dict[str, ReceiverType | None] = {}
     arguments = node.args
     for argument in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs):
         type_name = annotation_receiver_type(annotation_text(argument.annotation))
         if type_name:
-            receivers[argument.arg] = ReceiverType(type_name, "annotation")
+            _bind_receiver(receivers, argument.arg, ReceiverType(type_name, "annotation"))
     for statement in own_scope(node):
         if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
             literal_type = literal_receiver_type(statement.value) if statement.value else None
-            if literal_type:
-                receivers[statement.target.id] = ReceiverType(literal_type, "literal")
-                continue
-            annotated_type = annotation_receiver_type(annotation_text(statement.annotation))
-            if annotated_type:
-                receivers[statement.target.id] = ReceiverType(annotated_type, "annotation")
+            annotated_type = literal_type or annotation_receiver_type(
+                annotation_text(statement.annotation)
+            )
+            origin = "literal" if literal_type else "annotation"
+            candidate = ReceiverType(annotated_type, origin) if annotated_type else None
+            _bind_receiver(receivers, statement.target.id, candidate)
         elif isinstance(statement, ast.Assign):
             literal_type = literal_receiver_type(statement.value)
-            if not literal_type:
-                continue
             for target in statement.targets:
                 if isinstance(target, ast.Name):
-                    receivers[target.id] = ReceiverType(literal_type, "literal")
-    return receivers
+                    candidate = ReceiverType(literal_type, "literal") if literal_type else None
+                    _bind_receiver(receivers, target.id, candidate)
+                else:
+                    _void_targets(receivers, target)
+        elif isinstance(statement, ast.AugAssign) and isinstance(statement.target, ast.Name):
+            _bind_receiver(receivers, statement.target.id, None)
+        elif isinstance(statement, ast.For | ast.AsyncFor):
+            _void_targets(receivers, statement.target)
+        elif isinstance(statement, ast.withitem) and statement.optional_vars is not None:
+            _void_targets(receivers, statement.optional_vars)
+        elif isinstance(statement, ast.NamedExpr):
+            _bind_receiver(receivers, statement.target.id, None)
+        elif isinstance(statement, ast.ExceptHandler) and statement.name:
+            _bind_receiver(receivers, statement.name, None)
+    return {name: value for name, value in receivers.items() if value is not None}
 
 
 class CallCollector(ast.NodeVisitor):
