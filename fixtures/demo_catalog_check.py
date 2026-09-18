@@ -226,6 +226,9 @@ _ORDERED = CheckExpectation(
     expectation_fulfilled="PASS",
     git_predicate="PASS",
     host_order="PASS",
+    # The new module's own import is a new module-level dependency_edges entry (AD-44); it
+    # is declared like every other row here, so the guardrail firing does not fail the check.
+    regressed_dimensions=("dependency_edges",),
 )
 _PUBLISHED_AFTER = CheckExpectation(
     scenario="published_after_candidate",

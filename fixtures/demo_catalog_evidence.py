@@ -47,6 +47,20 @@ _CLASS_B_ROWS: tuple[Variant, ...] = (
         evidence="tests/test_expectation.py",
     ),
     Variant(
+        id="class-b-guardrail-dependency-edges",
+        section="class_b",
+        item="GUARDRAIL_DIMENSIONS:dependency_edges",
+        summary="Every check demo in this catalog declares its whole observed delta, so none "
+        "of them can show an *undeclared* added edge failing; that needs a declaration built "
+        "to omit one, which only the expectation tests construct. The check-run rows still "
+        "exercise the dimension itself: adding any import creates a new module-level edge, "
+        "declared like the rest of that row's delta (AD-44).",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_expectation.py",
+    ),
+    Variant(
         id="class-b-coverage-must-pass",
         section="class_b",
         item="coverage_must_pass",

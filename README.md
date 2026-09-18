@@ -337,7 +337,10 @@ gitGraph
 E's `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all. A
 refactor is a legal move under the protocol even when it moves nothing architectural. That
 declaration is not weaker than naming changes: Archkeel then fails the check on any semantic
-change at all, in any delta dimension, not only the five guardrail ones (AD-39).
+change at all, in any delta dimension, not only the six guardrail ones (AD-39). A non-empty
+declaration still lets an added, undeclared entry through in most dimensions, but not in
+`dependency_edges`: a new edge `selected_changes` never named is a guardrail failure there too
+(AD-44).
 
 ### Agent workflow
 

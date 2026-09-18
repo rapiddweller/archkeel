@@ -25,7 +25,12 @@ GUARDRAIL_DIMENSIONS: Final = (
     "private_crossings",
     "typing_signals",
     "unknowns",
+    "dependency_edges",
 )
+# AD-44: an edge count grows with any new import, so unlike the other five guardrail
+# dimensions its aggregate growth is not itself a regression; only a genuinely new,
+# undeclared edge is. A removed edge cannot violate a boundary, so it is never checked here.
+_COUNT_REGRESSION_DIMENSIONS: Final = frozenset(GUARDRAIL_DIMENSIONS) - {"dependency_edges"}
 GUARDRAIL_KEYS: Final = (
     "no_new_violations",
     "no_new_cycles",
@@ -175,9 +180,14 @@ def evaluate_expectation(
     if expectation.selected_changes:
         # A non-empty declaration is checked against what it named; anything else is
         # left to the fixed guardrail dimensions (AD-39).
+        declared = {
+            (item.dimension, item.change, item.fingerprint) for item in expectation.selected_changes
+        }
         failures.extend(_match_selected_changes(expectation.selected_changes, actual_changes))
         failures.extend(
-            _guardrail_failures(dimension_counts, actual_changes, added_cycles, removed_cycles)
+            _guardrail_failures(
+                dimension_counts, actual_changes, added_cycles, removed_cycles, declared
+            )
         )
     else:
         # An empty declaration asserts "no semantic change"; any change at all breaks it.
@@ -286,11 +296,12 @@ def _guardrail_failures(
     actual_changes: dict[tuple[str, str, str], tuple[int, int]],
     added_cycles: dict[str, _CycleIdentity],
     removed_cycles: list[_CycleIdentity],
+    declared: set[tuple[str, str, str]],
 ) -> list[str]:
     failures = []
     for dimension in GUARDRAIL_DIMENSIONS:
         before_count, after_count = dimension_counts[dimension]
-        if after_count > before_count:
+        if dimension in _COUNT_REGRESSION_DIMENSIONS and after_count > before_count:
             failures.append(f"guardrail regression in {dimension}: {before_count}->{after_count}")
         added_fingerprints = sorted(
             fingerprint
@@ -302,6 +313,14 @@ def _guardrail_failures(
                 fingerprint
                 for fingerprint in added_fingerprints
                 if not _is_cycle_contraction(added_cycles[fingerprint], removed_cycles)
+            ]
+        if dimension == "dependency_edges":
+            # AD-44: unlike the other five, a named edge is not itself a regression; only
+            # one the declaration never mentioned is.
+            added_fingerprints = [
+                fingerprint
+                for fingerprint in added_fingerprints
+                if (dimension, "added", fingerprint) not in declared
             ]
         failures.extend(
             f"guardrail added {dimension} fingerprint {fingerprint}"

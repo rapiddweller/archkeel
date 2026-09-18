@@ -186,8 +186,11 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
 - `check`: 0 merge, 1 reject, 2 not checked. Its expectation's `selected_changes` may be `[]`
   when a candidate is not meant to change anything architectural, such as a pure refactor. That
   declares absence, not "nothing to report": `check` then fails on any semantic change the
-  candidate actually produced, in any dimension, not only the five guardrail ones. Declare `[]`
-  only when you mean it; naming the real changes remains the default (AD-39).
+  candidate actually produced, in any dimension, not only the six guardrail ones. Declare `[]`
+  only when you mean it; naming the real changes remains the default (AD-39). A non-empty
+  declaration still lets an undeclared change through in most dimensions, except
+  `dependency_edges`: name every new edge you add, or `check` fails on the one you left out
+  (AD-44).
 
 ## JSON output
 
