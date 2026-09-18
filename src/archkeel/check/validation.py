@@ -399,6 +399,11 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
                 (f"/components/{index}/public/{item}", value.split(":", 1)[0])
                 for item, value in enumerate(component.public)
             )
+        names.extend(
+            (f"/components/{index}/requires/{position}/through/{item}", value)
+            for position, entry in enumerate(component.requires or ())
+            for item, value in enumerate(entry.through)
+        )
     for index, rule in enumerate(contract.rules):
         if isinstance(
             rule,

@@ -131,17 +131,12 @@ def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Ob
 def test_self_contract_covers_modules_and_analyzer_interface(
     self_observation: Observation,
 ) -> None:
+    """AD-4 lives in the contract (AD-42): the analyzer's `requires` entry for `ir` goes
+    through exactly the two modules, and the observed imports stay inside them."""
     contract = _contract()
-    forbidden_ir = {
-        rule.target
-        for rule in contract.rules
-        if isinstance(rule, ForbiddenDependencyRule) and rule.source == "archkeel.analyzer"
-    }
-    for module in self_observation.records("modules") or ():
-        name = module.data.get("qualified_name")
-        assert isinstance(name, str)
-        if name.startswith("archkeel.ir.") and name not in ANALYZER_PUBLIC_IR:
-            assert any(in_scope(name, prefix) for prefix in forbidden_ir), name
+    analyzer = next(item for item in contract.components if item.label == "analyzer")
+    entry = next(item for item in analyzer.requires or () if item.component == "ir")
+    assert frozenset(entry.through) == ANALYZER_PUBLIC_IR
     for record in self_observation.records("imports") or ():
         source = record.data.get("source_module")
         target = record.data.get("target_module")
@@ -204,15 +199,19 @@ def test_closed_world_check_detects_a_conflicting_rule(self_observation: Observa
 
 def test_rationale_check_detects_a_repeated_rule() -> None:
     contract = _contract()
-    # Position is incidental, so find the first forbidden rule wherever AD-32 left it.
-    index, rule = next(
-        (position, item)
-        for position, item in enumerate(contract.rules)
-        if isinstance(item, ForbiddenDependencyRule)
+    # AD-42 left no forbidden rule in the live contract, so the probe brings its own.
+    repeated = ForbiddenDependencyRule(
+        "DEP-IR-NO-CHECK-PROBE",
+        "forbidden_dependency",
+        "archkeel.ir",
+        "archkeel.check",
+        True,
+        "archkeel.ir does not depend on archkeel.check.",
+        contract.components[0].provenance,
+        "architect",
     )
-    repeated = replace(rule, rationale=f"{rule.source} does not depend on {rule.target}.")
-    rules = (*contract.rules[:index], repeated, *contract.rules[index + 1 :])
-    broken = replace(contract, rules=rules)
+    index = len(contract.rules)
+    broken = replace(contract, rules=(*contract.rules, repeated))
     assert rationale_diagnostics(broken)[0].pointer == f"/rules/{index}/rationale"
 
 

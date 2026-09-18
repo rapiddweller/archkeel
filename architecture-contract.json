@@ -120,7 +120,8 @@
       "requires": [
         {
           "component": "ir",
-          "rationale": "Publish observations through the common model and codec boundary."
+          "through": ["archkeel.ir.model", "archkeel.ir.codec"],
+          "rationale": "The analyzer records signals and publishes them through the common model and codec only; every claim, measurement, level or decision built from those records belongs to the reader, so the two never depend on each other (AD-4)."
         }
       ],
       "public": ["archkeel.analyzer"],
@@ -192,126 +193,6 @@
       "decided_by": "architect"
     },
     {
-      "id": "DEP-ANALYZER-NO-IR-BINDINGS",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.bindings",
-      "include_type_checking": true,
-      "rationale": "The analyzer records the binding signal; the claim built from those records belongs to the reader, so the two never depend on each other.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-DUPLICATION",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.duplication",
-      "include_type_checking": true,
-      "rationale": "The analyzer records the shape signal; the claim built from those shapes belongs to the reader, so the two never depend on each other.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-DIGEST",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.digest",
-      "include_type_checking": true,
-      "rationale": "Package identity is checker provenance, so the analyzer must not own package hashing.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-LOCK",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.lock",
-      "include_type_checking": true,
-      "rationale": "Accepted-state verification belongs to checks while the analyzer only observes source.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-MEASUREMENTS",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.measurements",
-      "include_type_checking": true,
-      "rationale": "Checks derive regression measurements from observations instead of accepting analyzer policy.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-TRACE",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.trace",
-      "include_type_checking": true,
-      "rationale": "Checks validate evidence classes while analyzer output stays at the observation boundary.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-HOST-RECORDS",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.host_records",
-      "include_type_checking": true,
-      "rationale": "The analyzer may publish only the common model and codec boundary.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-INTERFACES",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.interfaces",
-      "include_type_checking": true,
-      "rationale": "Component communication is derived from observations by render, not built by the analyzer that only observes source.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-REFERENCES",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.references",
-      "include_type_checking": true,
-      "rationale": "Unreferenced symbols are derived from a finished observation by the report, not decided by the analyzer that only records the reference signal (AD-26).",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-STRUCTURE",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.structure",
-      "include_type_checking": true,
-      "rationale": "Size and coupling are derived from a finished observation by the report, not measured by the analyzer that only observes source (AD-21).",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-DECISIONS",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.decisions",
-      "include_type_checking": true,
-      "rationale": "Undecided component pairs are derived from observations by validation and the report, not built by the analyzer that only observes source.",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "DEP-ANALYZER-NO-IR-LEVELS",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.analyzer",
-      "target": "archkeel.ir.levels",
-      "include_type_checking": true,
-      "rationale": "The analyzer records a declared inside; the level derived from those records belongs to the reader, so the two never depend on each other (AD-34).",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
-    },
-    {
       "id": "CONSTRUCT-NO-DYNAMIC",
       "kind": "forbidden_construct",
       "source": "archkeel",
@@ -345,6 +226,16 @@
       "constructs": ["broad_except"],
       "allowed_sources": ["archkeel.cli.main"],
       "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit-2 result.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CONSTRUCT-NO-ANY",
+      "kind": "forbidden_construct",
+      "source": "archkeel",
+      "constructs": ["any_annotation"],
+      "allowed_sources": ["archkeel.ir.codec", "archkeel.analyzer.embedded"],
+      "rationale": "A typed boundary is the evidence; Any is allowed only where JSON enters, in the codec that decodes it and the collectors that write it (AD-2).",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },

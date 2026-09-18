@@ -486,6 +486,16 @@ def _sibling_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _requires_covers(source: ContractComponent, target_label: str, target_module: str) -> bool:
+    """True when a `requires` entry names the target and, if it lists `through`, one of those
+    prefixes names the imported module (AD-42)."""
+    return any(
+        entry.component == target_label
+        and (not entry.through or any(in_scope(target_module, m) for m in entry.through))
+        for entry in source.requires or ()
+    )
+
+
 def requires_violations(
     imports: Sequence[RawRecord], contract: ArchitectureContract
 ) -> list[RawRecord]:
@@ -510,7 +520,7 @@ def requires_violations(
                 or target is None
                 or source == target
                 or (data["under_type_checking"] and not rule.include_type_checking)
-                or any(entry.component == target.label for entry in source.requires or ())
+                or _requires_covers(source, target.label, data["target_module"])
             ):
                 continue
             violations.append(

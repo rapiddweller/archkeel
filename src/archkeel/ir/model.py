@@ -174,10 +174,15 @@ class ContractComponent:
 
 @dataclass(frozen=True, slots=True)
 class RequiredComponent:
-    """One component its owner may import, carrying the architect's reason for the edge (AD-32)."""
+    """One component its owner may import, carrying the architect's reason for the edge (AD-32).
+
+    `through` narrows the edge to module prefixes of the required component (AD-42); empty
+    means its whole public surface, the way the entry always read before.
+    """
 
     component: str
     rationale: str
+    through: tuple[str, ...] = ()
 
 
 def contract_relative_path(value: str) -> PurePosixPath | None:
