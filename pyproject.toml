@@ -46,21 +46,16 @@ source = "vcs"
 content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
 
+# One rule for every asset, not one per file: the per-file list went stale the moment the
+# README gained an image, and PyPI showed a broken one for each that nobody had added here.
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = 'src="docs/assets/archkeel-hero\.png"'
-replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-hero.png"'
+pattern = '(src|href)="(docs/)'
+replacement = '\1="https://raw.githubusercontent.com/rapiddweller/archkeel/main/\2'
 
+# A relative Markdown link resolves against PyPI's own page, so it 404s there.
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = 'src="docs/assets/archkeel-report-preview\.png"'
-replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-report-preview.png"'
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = 'src="docs/assets/archkeel-component-flow\.png"'
-replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-component-flow.png"'
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = 'src="docs/assets/archkeel-check-terminal\.svg"'
-replacement = 'src="https://raw.githubusercontent.com/rapiddweller/archkeel/main/docs/assets/archkeel-check-terminal.svg"'
+pattern = '\]\((docs/[^)]+)\)'
+replacement = '](https://github.com/rapiddweller/archkeel/blob/main/\1)'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/archkeel"]
