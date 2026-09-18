@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.ir.codec import (
     canonical_json_bytes,
@@ -312,3 +314,54 @@ def test_delta_serialization_is_deterministic_for_reordered_inputs() -> None:
     assert canonical_json_bytes(delta_payload(first_delta)) == canonical_json_bytes(
         delta_payload(second_delta)
     )
+
+
+def _observe_sample(root: Path):
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (root / "contract.json").write_text('{"schema_version":"2.1.0","components":[],"rules":[]}')
+    return observe(
+        root,
+        roots=(".",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=root,
+    )
+
+
+def test_one_module_with_one_intra_component_import_is_one_semantic_change(
+    tmp_path: Path,
+) -> None:
+    """AD-43: a labels.py-shaped edit declares 1 entry, not 7 (roadmap item 6).
+
+    Both modules live three levels deep, ``sample.pkg.base`` and ``sample.pkg.labels``, the
+    same shape as ``archkeel.ir.digest``/``archkeel.ir.labels`` the roadmap measured: sharing
+    a package by its first two dotted segments is what makes the import unconstrained.
+    """
+    (tmp_path / "sample/pkg").mkdir(parents=True)
+    (tmp_path / "sample/pkg/__init__.py").write_text("")
+    (tmp_path / "sample/pkg/base.py").write_text(
+        "from __future__ import annotations\n\n\ndef helper() -> str:\n    return 'value'\n"
+    )
+    before_result = _observe_sample(tmp_path)
+    assert before_result.observation is not None, before_result.diagnostics
+
+    (tmp_path / "sample/pkg/labels.py").write_text(
+        "from __future__ import annotations\n\nfrom .base import helper\n\n\n"
+        "def label() -> str:\n    return helper()\n"
+    )
+    after_result = _observe_sample(tmp_path)
+    assert after_result.observation is not None, after_result.diagnostics
+
+    delta = build_architecture_delta(
+        before_result.observation,
+        after_result.observation,
+        baseline_digest="a" * 64,
+        head_digest="b" * 64,
+        checker_digest=package_digest(),
+    )
+
+    assert len(delta.semantic_changes) == 1
+    change = delta.semantic_changes[0]
+    assert (change.dimension, change.change) == ("dependency_edges", "added")

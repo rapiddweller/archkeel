@@ -12,12 +12,14 @@ from archkeel.check.delta import build_architecture_delta
 from archkeel.ir.codec import canonical_json_bytes, delta_payload, parse_observation
 
 
+# AD-43 raised DELTA_SCHEMA_VERSION, so these golden digests moved with the field's own
+# byte value; the import records they cover are untouched, so nothing else changed them.
 @pytest.mark.parametrize(
     ("before_n", "after_n", "digest"),
     [
-        (3, 1, "5004bd7aa85becb04a0089e6cb48311e7feec860a7c7cc9b73c19f5fc3c00034"),
-        (1, 3, "af5c4b3babfbdda944e026f4ab1dc2609f81cdb7b2cb36d4ab955c8011cc50dc"),
-        (2, 2, "6acf0be61a39a951c4101f9660b5cc853c4f00e34826a58ba91bbc6cd9ba3cc2"),
+        (3, 1, "752a75285e47f32fff5782ff3387531598fbcb6990e95e18f3fc47ecc2a42357"),
+        (1, 3, "a26c1656124c0349d409c56c800a16207fbeb5cc66ce457665057a0007febd91"),
+        (2, 2, "a7af63bd6f8ef0e91d9505ff4638ffa383755fbb7b82744adc29dca322e29d4f"),
     ],
 )
 def test_typed_delta_preserves_original_canonical_bytes(

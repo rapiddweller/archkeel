@@ -22,7 +22,6 @@ from archkeel.ir.model import (
     DiagnosticError,
     DimensionDelta,
     Evidence,
-    EvidenceClass,
     JsonValue,
     Observation,
     Projection,
@@ -37,7 +36,10 @@ from archkeel.ir.model import (
 from .python_profile import crossing_imports
 from .ratchets import measure_python_ratchets
 
-DELTA_SCHEMA_VERSION: Final = "1.2.0"
+# AD-43: the eight per-counter coverage records stopped being declarable semantic changes,
+# so a candidate that adds one file no longer forces an agent to name five mechanical
+# counter shifts; DeltaCoverage still carries one PASS/FAIL for the aggregate.
+DELTA_SCHEMA_VERSION: Final = "1.3.0"
 SUPPORTED_DIMENSIONS: Final = (
     "violations",
     "dependency_edges",
@@ -223,7 +225,10 @@ def _section(observation: Observation, dimension: str) -> tuple[Record, ...] | N
 
 def _delta_records(observation: Observation, dimension: str) -> tuple[_DeltaRecord, ...] | None:
     if dimension == "coverage":
-        return _coverage_records(observation)
+        # AD-43: the counters live on both observations already; comparing them here would
+        # make every file added or removed anywhere declare five mechanical entries that
+        # carry no information about what the candidate actually changed.
+        return ()
     values = _section(observation, dimension)
     if values is None:
         return None
@@ -252,45 +257,6 @@ def _delta_records(observation: Observation, dimension: str) -> tuple[_DeltaReco
                 item.location_fingerprint,
             ),
         )
-    )
-
-
-def _coverage_records(observation: Observation) -> tuple[_DeltaRecord, ...]:
-    coverage = observation.coverage
-    values: tuple[tuple[str, JsonValue], ...] = (
-        ("status", coverage.status),
-        ("files_discovered", coverage.files_discovered),
-        ("files_read", coverage.files_read),
-        ("files_parsed", coverage.files_parsed),
-        ("calls_analyzed", coverage.calls_analyzed),
-        ("calls_resolved", coverage.calls_resolved),
-        ("calls_partially_resolved", coverage.calls_partially_resolved),
-        ("calls_unresolved", coverage.calls_unresolved),
-        ("ast_coverage_percent", coverage.ast_coverage_percent),
-        ("call_resolution_percent", coverage.call_resolution_percent),
-        ("failures", len(coverage.failures)),
-    )
-    if coverage.rules is not None:
-        values += (("rules", coverage.rules),)
-    return tuple(
-        _DeltaRecord(
-            _fingerprint(RecordData((("key", key),))),
-            _fingerprint(RecordData((("key", key), ("value", value)))),
-            _fingerprint(()),
-            Projection(
-                f"COVERAGE-{key}",
-                (
-                    EvidenceClass.FACT if key != "failures" or value == 0 else EvidenceClass.UNKNOWN
-                ).value,
-                "analysis_coverage",
-                "coverage_measure",
-                key.replace("_", " ").title(),
-                ("repository",),
-                RecordData((("key", key), ("value", value))),
-                (),
-            ),
-        )
-        for key, value in sorted(values)
     )
 
 

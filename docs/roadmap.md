@@ -69,6 +69,7 @@ only when its row names repository evidence.
 | A `requires` entry may name the modules it goes `through`; `complete_requires` covers only those, and the analyzer's twelve `DEP-ANALYZER-NO-IR-*` prohibitions became one permission through `ir.model` and `ir.codec`, 26 rules to 14 (AD-42) | `src/archkeel/analyzer/embedded/violations.py`; `src/archkeel/ir/model.py`; `architecture-contract.json`; `tests/test_analyzer.py` |
 | A drafted component carries the size `structure_metrics` already measures instead of a bare name: the generated table gains Modules and Inner edges columns, `init --json` gains `draft_sizes`, and the terminal names the drafted component whose module count uniquely leads, or that none does (AD-38) | `src/archkeel/ir/structure.py`; `src/archkeel/check/onboarding.py`; `tests/test_onboarding.py`; `tests/test_terminal.py` |
 | An empty `selected_changes` is a legal E declaration for a candidate with no semantic change; under it `check` fails on any semantic change in any of the eight delta dimensions, not only the five guardrail ones (AD-39) | `src/archkeel/check/expectation.py`; `tests/test_expectation.py`; `fixtures/demo_catalog_check.py::protocol-empty-declaration`; `docs/architecture-demo.md` |
+| The five per-counter `coverage` counters stopped being declarable `semantic_changes`, and `from __future__ import annotations` stopped counting as an `api_crossings` entry: adding `src/archkeel/ir/labels.py` now declares 1 entry instead of 7 (AD-43) | `src/archkeel/check/delta.py`; `src/archkeel/check/python_profile.py`; `tests/test_delta.py::test_one_module_with_one_intra_component_import_is_one_semantic_change` |
 | `analyzer` declares an inside too, not only `check`: `orchestration`, `collectors` and `foundation`, the ten collectors matching `COLLECTORS-ISOLATED` unchanged, both levels passing with zero violations on the current source (AD-45) | `src/archkeel/analyzer/architecture-contract.json`; `architecture-contract.json`; `tests/test_self.py` |
 
 ## Next
@@ -94,23 +95,6 @@ only when its row names repository evidence.
    settled on 3. Naming each draft's size (AD-38) makes the imbalance visible but does not fix
    it: a directory-per-component draft still proposes 12 or 14 components to consolidate by
    hand, one per module, regardless of how those modules import each other.
-6. Shrink what one edit forces an agent to declare. Measured by adding a two-line module,
-   `src/archkeel/ir/labels.py` with `from .digest import package_digest` and one function, on top
-   of Archkeel's own accepted observation: `build_architecture_delta` reports 7
-   `semantic_changes` for that one edit, and none needs an architect decision, since both modules
-   share the `ir` component and an intra-component import is unconstrained. One
-   `dependency_edges` addition (`archkeel.ir.labels -> archkeel.ir.digest`) is the only entry that
-   carries information about what changed. The other six are mechanical: one `api_crossings`
-   addition for the `from __future__ import annotations` import every module in the repository
-   already carries, and five `coverage` `changed` entries, `files_discovered`, `files_read` and
-   `files_parsed` each 61 -> 62, `calls_analyzed` 3982 -> 3983 and `calls_resolved` 2896 -> 2897,
-   which shift by construction whenever any file is added and say nothing about this one. Fold the
-   five coverage counters into the existing aggregate `DeltaCoverage` status that
-   `evaluate_expectation` already reads as one PASS/FAIL, instead of five separately declarable
-   `semantic_changes`, and stop surfacing a fixed set of language-boilerplate imports (starting
-   with `from __future__ import annotations`, which names no project symbol on either side) as
-   `api_crossings` entries at all, so this edit declares 1 entry instead of 7.
-
 ## Later
 
 - Let a second level run on its own (AD-20): an inside is recorded, derived, judged, drawn and

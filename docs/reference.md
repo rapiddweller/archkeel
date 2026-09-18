@@ -29,7 +29,7 @@ counts the `calls` section alone. An observation written before a section existe
 decodes and fails closed with the missing section named (AD-3).
 
 The checker hashes its installed Python package separately from the analyzer digest.
-Delta schema 1.2.0 and expectation schema 1.2.0 bind `checker_digest`;
+Delta schema 1.3.0 and expectation schema 1.2.0 bind `checker_digest`;
 the evaluator verifies the running package.
 Underscore-private imports belong to the Python decoded-IR profile in `check/python_profile.py`.
 
