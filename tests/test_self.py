@@ -153,7 +153,7 @@ def test_self_contract_covers_modules_and_analyzer_interface(
 def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
     """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard)."""
     contract = _contract()
-    drafted, _ = draft_contract(self_observation, "archkeel")
+    drafted, _, _ = draft_contract(self_observation, "archkeel")
     actual = {component.label: component.public for component in contract.components}
     proposed = {component.label: component.public for component in drafted.components}
     assert actual == proposed

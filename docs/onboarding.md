@@ -105,7 +105,7 @@ made without the architect.
 |---|---|---|
 | `archkeel.toml` | Scan roots, namespace, contract path. | Deterministic from detection. |
 | `architecture-contract.json` | Components, `complete_assignment`, `no_component_cycles` when acyclic, `interface_boundary` when any component has a `public` list. No `allowed_dependency` or `forbidden_dependency`: every component pair stays an open decision. Every drafted rule carries `decided_by: "agent"`. | Structure is deterministic; every rule `rationale`, every pair's allow/forbid decision, and who decided it, needs a human — either directly (interview mode) or by reviewing the agent's summary later (auto mode). |
-| `docs/architecture/architecture.md` | Component table and a marked Mermaid graph of observed edges. | Deterministic from the observation. |
+| `docs/architecture/architecture.md` | Component table with each component's modules and inner edges, and a marked Mermaid graph of observed edges. | Deterministic from the observation. |
 
 `init` also proposes AD-9 `public` entries: a component with inbound cross-component imports
 gets a `pkg.module` entry when the target module declares `__all__` or other components use at
@@ -120,6 +120,8 @@ why crossing imports must go through the declared interface, not `init`.
 **Deterministic (`init` computes these from the repository, not from judgment):**
 - Package and namespace detection.
 - The set of observed import edges between components, and their import-site counts.
+- Each drafted component's module count and inner edges, carried in the component table and
+  under `draft_sizes` in `init --json`, with the largest one named in the terminal summary.
 - The ordered pair, source and target package, and observed/import-site facts of every
   open decision `init --json` and `validate --json` report — but never which of them is
   allowed or forbidden.

@@ -695,6 +695,21 @@ class OpenDecision:
 
 
 @dataclass(frozen=True, slots=True)
+class DraftedComponentSize:
+    """One drafted component's measured size, so a per-child draft carries what it hides.
+
+    `label` matches a component `init` proposed; `modules` and `inner_edges` come from the
+    same aggregation a declared component's size uses (AD-38), applied to the draft grouping
+    before any component exists. Defined here, not in `ir.structure`, so `RunResult` names no
+    type from a module that in turn depends on this one.
+    """
+
+    label: str
+    modules: int
+    inner_edges: int
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewClaims:
     """How many candidates each review claim named, or None where its signal was missing.
 
@@ -732,6 +747,8 @@ class RunResult:
     agent_decisions: tuple[int, int] | None = None
     # AD-35: review-claim counts, from `ir.decisions.review_claims`.
     claims: ReviewClaims | None = None
+    # AD-38: `init`'s own drafted components with their measured size, from `draft_contract`.
+    draft_sizes: tuple[DraftedComponentSize, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

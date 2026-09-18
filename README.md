@@ -224,7 +224,10 @@ top-level package and writes `archkeel.toml`, `architecture-contract.json` and
 `docs/architecture/architecture.md`: one component per subpackage, drafted `public` interfaces and
 no dependency rule. Every ordered component pair is an open decision; `init --json` and
 `validate --json` list them heaviest first, each with the exact `allowed_dependency` and
-`forbidden_dependency` rule to choose from. The installed skill runs onboarding in one of two
+`forbidden_dependency` rule to choose from. The component table and `init --json`'s
+`draft_sizes` also carry each drafted component's modules and inner edges, so a directory
+that hides an outsized sub-package is visible before you decide anything about it. The
+installed skill runs onboarding in one of two
 modes: an interview, where the agent reads your ADRs and documents, recommends and asks only about
 conflicts and gaps, or auto mode, where the agent decides. Every rule records `decided_by`, and
 reports count the decisions the architect has not reviewed yet. The prompt is in

@@ -13,6 +13,7 @@ from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import (
     AllowedDependencyRule,
     Diagnostic,
+    DraftedComponentSize,
     ForbiddenDependencyRule,
     OpenDecision,
     RatchetObservations,
@@ -113,6 +114,42 @@ def test_init_headline_is_unchanged_by_the_report_decision_fix() -> None:
     assert summary.decision.label == "PASS"
     assert summary.sentence == "Draft written. Run archkeel validate to list every decision left."
     assert len(summary.verdicts) == 1
+
+
+def test_terminal_view_names_the_largest_drafted_component() -> None:
+    """AD-38: the architect gets a size to consolidate with, not just a list of names."""
+    result = RunResult(
+        "init",
+        0,
+        observation_complete="PASS",
+        expectation_fulfilled="n/a",
+        artifact="architecture-contract.json",
+        draft_sizes=(
+            DraftedComponentSize("embedded", 18, 40),
+            DraftedComponentSize("bridge", 2, 1),
+            DraftedComponentSize("runtime", 1, 0),
+        ),
+    )
+    summary = init_summary(result)
+    assert (
+        "`embedded` is the largest drafted component: 18 module(s), 40 inner edge(s)."
+        in summary.sentence
+    )
+    assert all(len(line) <= 80 for line in _render(result, summary, 80).splitlines())
+
+
+def test_terminal_view_says_no_drafted_component_stands_out_on_a_tie() -> None:
+    """A tie for the most modules names no single component as the one to consolidate."""
+    result = RunResult(
+        "init",
+        0,
+        observation_complete="PASS",
+        expectation_fulfilled="n/a",
+        artifact="architecture-contract.json",
+        draft_sizes=(DraftedComponentSize("a", 5, 2), DraftedComponentSize("b", 5, 3)),
+    )
+    summary = init_summary(result)
+    assert "No drafted component stands out in size." in summary.sentence
 
 
 def test_terminal_view_names_agent_decisions_awaiting_the_architect() -> None:
