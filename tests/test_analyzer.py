@@ -11,7 +11,9 @@ import pytest
 from test_delta import _model, _record
 
 from archkeel.analyzer import observe
+from archkeel.analyzer.embedded.calls import collect_calls
 from archkeel.analyzer.embedded.constructs import collect_constructs
+from archkeel.analyzer.embedded.resolve import build_symbol_index
 from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
@@ -752,6 +754,71 @@ def test_collect_constructs_detects_broad_except_and_documented_blind_spots(
 ) -> None:
     records = collect_constructs([_parsed_module(source)], {})
     assert sorted((item["kind"], item["data"]["owner"]) for item in records) == sorted(expected)
+
+
+@pytest.mark.parametrize(
+    ("source", "expression", "status", "targets", "reason"),
+    [
+        (
+            'def f(items: list[str]) -> None:\n    "".join(items)\n',
+            "''.join",
+            "resolved",
+            ["builtins.str.join"],
+            "literal receiver of known type",
+        ),
+        (
+            'def f() -> None:\n    diagnostics = []\n    diagnostics.append("x")\n',
+            "diagnostics.append",
+            "resolved",
+            ["builtins.list.append"],
+            "literal-bound receiver of known type",
+        ),
+        (
+            'def f(items: list[str]) -> None:\n    items.append("x")\n',
+            "items.append",
+            "partially_resolved",
+            ["builtins.list.append"],
+            "annotated receiver of known type, unproven at runtime",
+        ),
+        (
+            'def f() -> None:\n    items: list[str]\n    items.append("x")\n',
+            "items.append",
+            "partially_resolved",
+            ["builtins.list.append"],
+            "annotated receiver of known type, unproven at runtime",
+        ),
+        (
+            "def make() -> list[str]:\n    return []\n\n\n"
+            'def f() -> None:\n    make().append("x")\n',
+            "make().append",
+            "unresolved",
+            [],
+            "expression is dynamic",
+        ),
+        (
+            "def f() -> None:\n    items = []\n    items.frobnicate()\n",
+            "items.frobnicate",
+            "unresolved",
+            [],
+            "dynamic attribute receiver",
+        ),
+    ],
+)
+def test_receiver_typed_calls_resolve_or_name_why_not(
+    source: str, expression: str, status: str, targets: list[str], reason: str
+) -> None:
+    """AD-37: a receiver's static type resolves a stdlib method call, or names why not.
+
+    Covers each resolution source in turn — a literal written at the call site, a local
+    bound to a literal, an annotated parameter, an annotated local — plus a call-result
+    receiver, which AD-37 leaves out of scope, and a method the frozen table does not name.
+    """
+    index = build_symbol_index([])
+    calls = collect_calls([_parsed_module(source)], index, {})
+    match = next(item for item in calls if item["data"]["expression"] == expression)
+    assert match["data"]["status"] == status
+    assert match["data"]["targets"] == targets
+    assert match["data"]["reason"] == reason
 
 
 def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_path: Path) -> None:
