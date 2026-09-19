@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.1.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "EXTERNAL-JSON",
+      "kind": "external_dependency_scope",
+      "dependency": "json",
+      "exact_sources": [],
+      "rationale": "An empty exact list allows nowhere, the same as an empty prefix list.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

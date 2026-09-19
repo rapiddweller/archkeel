@@ -277,6 +277,8 @@ class ForbiddenConstructKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ForbiddenConstructRule:
+    """`allowed_sources` match an owner scope by prefix, `exact_sources` only the scope named."""
+
     id: str
     kind: Literal["forbidden_construct"]
     source: str
@@ -285,10 +287,13 @@ class ForbiddenConstructRule:
     provenance: tuple[str, ...]
     decided_by: Literal["architect", "agent"]
     allowed_sources: tuple[str, ...] = ()
+    exact_sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class ExternalDependencyScopeRule:
+    """`allowed_sources` match by module prefix, `exact_sources` only the module named (AD-49)."""
+
     id: str
     kind: Literal["external_dependency_scope"]
     dependency: str
@@ -296,6 +301,7 @@ class ExternalDependencyScopeRule:
     rationale: str
     provenance: tuple[str, ...]
     decided_by: Literal["architect", "agent"]
+    exact_sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

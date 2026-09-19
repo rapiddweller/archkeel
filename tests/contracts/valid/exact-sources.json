@@ -1,0 +1,25 @@
+{
+  "schema_version": "2.1.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "EXTERNAL-DOTENV-ROOT",
+      "kind": "external_dependency_scope",
+      "dependency": "dotenv",
+      "exact_sources": ["sample"],
+      "rationale": "Only the package root loads the environment file; no module below it may.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CONSTRUCT-ROOT-EXCEPT",
+      "kind": "forbidden_construct",
+      "source": "sample",
+      "constructs": ["broad_except"],
+      "exact_sources": ["sample.cli.main"],
+      "rationale": "Only the CLI entry point's own body turns any failure into an exit code.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

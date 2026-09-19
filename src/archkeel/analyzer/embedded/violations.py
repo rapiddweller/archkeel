@@ -138,6 +138,7 @@ def _construct_violations(
                 or construct not in rule.constructs
                 or not in_scope(scope, rule.source)
                 or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
+                or scope in rule.exact_sources
             ):
                 continue
             violations.append(
@@ -167,8 +168,10 @@ def _external_dependency_violations(
         for item in imports:
             data = item["data"]
             source_module = data["source_module"]
-            if not in_scope(data["target_module"], rule.dependency) or any(
-                in_scope(source_module, allowed) for allowed in rule.allowed_sources
+            if (
+                not in_scope(data["target_module"], rule.dependency)
+                or any(in_scope(source_module, allowed) for allowed in rule.allowed_sources)
+                or source_module in rule.exact_sources
             ):
                 continue
             violations.append(
@@ -397,7 +400,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
-        return {"allowed_sources": rule.allowed_sources}
+        scopes = {"allowed_sources": rule.allowed_sources, "exact_sources": rule.exact_sources}
+        return {side: values for side, values in scopes.items() if values}
     # complete_requires selects no module: it speaks about every cross-component import, so a
     # scope here would have rule_subject_failures match it against scanned module names and
     # call the rule vacuous.
