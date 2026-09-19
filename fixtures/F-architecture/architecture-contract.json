@@ -387,8 +387,8 @@
       "kind": "forbidden_construct",
       "source": "shop",
       "constructs": ["broad_except"],
-      "allowed_sources": ["shop.cli.main"],
-      "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit code.",
+      "exact_sources": ["shop.cli.main.main"],
+      "rationale": "Failures stay typed and visible; only the CLI error boundary, main's own body, turns any failure into an exit code.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from archkeel.ir.model import ForbiddenConstructKind
-from fixtures.demo_catalog_support import HEADER, Variant
+from fixtures.demo_catalog_support import HEADER, Variant, contract_rule_field
 
 _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
     ForbiddenConstructKind.GETATTR: HEADER
@@ -172,46 +172,56 @@ _CONSTRUCT_VARIANTS = tuple(
     )
     for kind in ForbiddenConstructKind
 )
-_BROAD_EXCEPT_ALLOWED = Variant(
-    id="class-a-broad-except-allowed",
+# One scope below the boundary: `parse_quantity`'s owner is shop.cli.main.main.parse_quantity.
+_MAIN_WITH_NESTED_HANDLER = HEADER + (
+    '"""Argument parsing and composition; the single broad error boundary lives here."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from pathlib import Path\n\n"
+    "from shop.app.orders import place_order\n"
+    "from shop.render.text import render_order\n\n\n"
+    "def main(argv: list[str]) -> int:\n"
+    "    def parse_quantity(text: str) -> int:\n"
+    "        try:\n"
+    "            return int(text)\n"
+    "        except Exception:\n"
+    "            return 1\n\n"
+    "    try:\n"
+    "        order_id, description, quantity, unit_price_cents, store_dir = argv\n"
+    "        order = place_order(\n"
+    "            Path(store_dir), order_id, description, parse_quantity(quantity), "
+    "int(unit_price_cents)\n"
+    "        )\n"
+    "        print(render_order(order))\n"
+    "        return 0\n"
+    "    except Exception:\n"
+    "        return 1\n"
+)
+_BROAD_EXCEPT_EXACT = Variant(
+    id="class-a-broad-except-exact",
     section="class_a",
-    item="forbidden_construct:broad_except (allowed source)",
-    summary="A second broad-except handler inside shop.cli.main stays allowed by "
-    "CONSTRUCT-NO-BROAD-EXCEPT's allowed_sources.",
+    item="forbidden_construct:exact_sources",
+    summary="The clean contract names shop.cli.main.main in CONSTRUCT-NO-BROAD-EXCEPT's "
+    "exact_sources. A helper nested inside main catches every exception too: its handler is "
+    "reported, main's own is not (AD-49).",
+    files={"shop/cli/main.py": _MAIN_WITH_NESTED_HANDLER},
+    expected_violations=("CONSTRUCT-NO-BROAD-EXCEPT",),
+    expected_codes=("rule.violated",),
+)
+_BROAD_EXCEPT_PREFIX = Variant(
+    id="class-a-broad-except-prefix",
+    section="class_a",
+    item="forbidden_construct:allowed_sources",
+    summary="The same code with shop.cli.main.main moved to allowed_sources: as a prefix the "
+    "name also exempts the nested helper, so nothing is reported. Only the list differs from "
+    "class-a-broad-except-exact.",
     files={
-        "shop/cli/main.py": HEADER
-        + (
-            '"""Argument parsing and composition; the single broad error boundary lives here."""'
-            "\n\n"
-            "from __future__ import annotations\n\n"
-            "from pathlib import Path\n\n"
-            "from shop.app.orders import place_order\n"
-            "from shop.render.text import render_order\n\n\n"
-            "def main(argv: list[str]) -> int:\n"
-            "    try:\n"
-            "        order_id, description, quantity, unit_price_cents, store_dir = argv\n"
-            "        order = place_order(\n"
-            "            Path(store_dir), order_id, description, int(quantity), "
-            "int(unit_price_cents)\n"
-            "        )\n"
-            "        print(render_order(order))\n"
-            "        return 0\n"
-            "    except Exception:\n"
-            "        return 1\n\n\n"
-            "def safe_summary(argv: list[str]) -> str:\n"
-            '    """A second CLI entry point covered by the same allowed broad-except source."""'
-            "\n"
-            "    try:\n"
-            "        order = place_order(\n"
-            "            Path(argv[4]), argv[0], argv[1], int(argv[2]), int(argv[3])\n"
-            "        )\n"
-            "        return render_order(order)\n"
-            "    except Exception:\n"
-            '        return "error"\n'
-        )
+        "shop/cli/main.py": _MAIN_WITH_NESTED_HANDLER,
+        "architecture-contract.json": contract_rule_field(
+            "CONSTRUCT-NO-BROAD-EXCEPT", allowed_sources=["shop.cli.main.main"], exact_sources=[]
+        ),
     },
     expected_violations=(),
     expected_codes=(),
 )
 
-VARIANTS: tuple[Variant, ...] = (*_CONSTRUCT_VARIANTS, _BROAD_EXCEPT_ALLOWED)
+VARIANTS: tuple[Variant, ...] = (*_CONSTRUCT_VARIANTS, _BROAD_EXCEPT_EXACT, _BROAD_EXCEPT_PREFIX)
