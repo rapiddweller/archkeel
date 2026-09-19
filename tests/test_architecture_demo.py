@@ -91,6 +91,16 @@ def test_every_diagnostic_kind_has_a_variant_or_evidence() -> None:
     assert set(get_args(DiagnosticKind)) <= produced | evidenced_kinds
 
 
+def test_class_a_shows_exact_sources_beside_its_prefix_twin() -> None:
+    """AD-49: one nested handler, allowed under a prefix and reported under the exact name."""
+    rows = {variant.item: variant for variant in CATALOG}
+    prefix = rows["forbidden_construct:allowed_sources"]
+    exact = rows["forbidden_construct:exact_sources"]
+    assert prefix.files["shop/cli/main.py"] == exact.files["shop/cli/main.py"]
+    assert prefix.expected_violations == ()
+    assert exact.expected_violations == ("CONSTRUCT-NO-BROAD-EXCEPT",)
+
+
 def test_class_b_covers_every_measurement_dimension() -> None:
     items = {variant.item for variant in CATALOG if variant.section == "class_b"}
     expected = {
@@ -219,6 +229,23 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
     assert actual_dimensions == set(check.regressed_dimensions)
 
 
+def test_graph_drift_names_the_command_or_the_line_it_refuses(tmp_path: Path) -> None:
+    """AD-46: a stale page names --write-graph, which then passes; a subgraph is left to a human."""
+    rows = {variant.item: variant for variant in CATALOG}
+    stale = _prepare_repo(tmp_path / "stale", dict(rows["graph.drift:write-graph"].files))
+    (drift,) = run_validate(stale, CONFIG, observe)[0].diagnostics
+    assert "archkeel validate --write-graph" in drift.remedy
+    fixed, files = run_validate(stale, CONFIG, observe, write_graph=True)
+    assert (fixed.exit_code, set(files)) == (0, {"docs/architecture/shop.md"})
+
+    refused = _prepare_repo(tmp_path / "refused", dict(rows["graph.drift:subgraph"].files))
+    result, files = run_validate(refused, CONFIG, observe, write_graph=True)
+    (drift,) = result.diagnostics
+    assert files == {}
+    assert "`subgraph composition`" in drift.remedy
+    assert "by hand" in drift.remedy
+
+
 def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:
     clean = next(variant for variant in CATALOG if variant.id == "clean")
     root = _prepare_repo(tmp_path, dict(clean.files))
@@ -226,6 +253,8 @@ def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:
     validate_result, _ = run_validate(root, CONFIG, observe)
     assert validate_result.exit_code == 0
     assert validate_result.diagnostics == ()
+    # AD-46: the clean page is what --write-graph writes, so the command leaves it alone.
+    assert run_validate(root, CONFIG, observe, write_graph=True)[1] == {}
 
     report_result, _ = run_report(root, config=CONFIG, analyzer=observe)
     assert report_result.declared_rules == "PASS"
