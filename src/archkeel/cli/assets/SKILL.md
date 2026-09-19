@@ -67,7 +67,8 @@ own words as the `rationale`, with `decided_by: "architect"`.
    architect's real reason. A `graph.drift` is no decision: after you merged or renamed
    components the marked graph in the architecture page is stale, so run
    `archkeel validate --write-graph` instead of editing it by hand; it rewrites only that
-   graph's edges.
+   graph's edges. When the remedy says the graph holds structure the command does not rewrite
+   (a `subgraph`, a labeled edge, a style), edit those edges by hand instead.
 6. When the architect delegates a choice ("whatever is consistent" or similar), derive it
    only from their earlier decisions in this interview, never from your own judgment. Label
    the rationale agent-derived in your summary to the architect and list it for them to

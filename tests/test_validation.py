@@ -16,6 +16,7 @@ from archkeel.check.onboarding import architecture_document
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
+    graph_diagnostics,
     inside_diagnostics,
     interface_diagnostics,
     reference_diagnostics,
@@ -357,3 +358,39 @@ def test_write_graph_changes_nothing_without_exactly_one_marked_graph() -> None:
     )
     assert rewrite_component_graph((("a.md", page), ("b.md", page)), edges) is None
     assert rewrite_component_graph((("a.md", page + page),), edges) is None
+
+
+def test_write_graph_adds_the_declaration_a_block_lacks() -> None:
+    """AD-46: a `%%` comment is kept, but it is no diagram declaration and cannot stand in."""
+    block = (
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n%% generated component graph\ncli --> core\n```\n"
+    )
+    assert rewrite_component_graph((("a.md", block),), frozenset({("cli", "core")})) == (
+        "a.md",
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n%% generated component graph\n"
+        "    cli --> core\n```\n",
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "structure"),
+    [
+        ("flowchart LR\n    subgraph core\n    cli --> core\n    end\n", "subgraph core"),
+        ("flowchart LR\n    cli -->|uses| core\n    core --> ir\n", "cli -->|uses| core"),
+        ("flowchart LR\n    cli --> core\n    classDef hot fill:#f96\n", "classDef hot fill:#f96"),
+    ],
+    ids=["subgraph", "labeled-edge", "style"],
+)
+def test_write_graph_leaves_a_block_it_cannot_read_to_the_architect(
+    body: str, structure: str
+) -> None:
+    """AD-46: only a declaration, `%%` comments and plain edges are known to survive a rewrite."""
+    documents = (("a.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+    assert rewrite_component_graph(documents, frozenset({("core", "ir")})) is None
+
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    observation = parse_observation(_model(git_head="a" * 40))
+    (drift,) = graph_diagnostics(contract, observation, documents)
+    assert drift.code == "graph.drift"
+    assert f"`{structure}`" in drift.remedy
+    assert "by hand" in drift.remedy

@@ -56,6 +56,8 @@ _REPEATED_REQUIRES = re.compile(
 _PLACEHOLDER_RATIONALE = re.compile(r"(?:todo|tbd|placeholder)(?:\b|:)", re.IGNORECASE)
 _GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
 _MERMAID_FENCE = "```mermaid\n"
+_GRAPH_DECLARATION = re.compile(r"\s*(?:graph|flowchart)\b.*")
+_GRAPH_COMMENT = re.compile(r"\s*%%.*")
 
 
 def _diagnostic(
@@ -307,6 +309,25 @@ def _marked_bodies(content: str) -> list[tuple[int, int]]:
     return spans
 
 
+def _unwritable_line(body: str) -> str | None:
+    """The first line of a marked block that is not a declaration, a `%%` comment or an edge.
+
+    AD-46: a subgraph, a labeled edge or a style can depend on where an edge sits, so a rewrite
+    that reorders the edges could change what the graph says; such a block is left to a human.
+    """
+    return next(
+        (
+            line.strip()
+            for line in body.splitlines()
+            if line.strip()
+            and not _GRAPH_EDGE.fullmatch(line)
+            and not _GRAPH_DECLARATION.fullmatch(line)
+            and not _GRAPH_COMMENT.fullmatch(line)
+        ),
+        None,
+    )
+
+
 def mermaid_edges(edges: frozenset[tuple[str, str]]) -> str:
     """One sorted Mermaid line per component edge: what `init` and `--write-graph` write."""
     return "".join(f"    {source} --> {target}\n" for source, target in sorted(edges))
@@ -315,10 +336,11 @@ def mermaid_edges(edges: frozenset[tuple[str, str]]) -> str:
 def rewrite_component_graph(
     documents: tuple[tuple[str, str], ...], edges: frozenset[tuple[str, str]]
 ) -> tuple[str, str] | None:
-    """The one marked graph's document with its edges replaced, or None if nothing changes.
+    """The one marked graph's document with its edges replaced, or None if nothing is written.
 
-    AD-46: every non-edge line of the block stays, so a page's own `flowchart LR` survives.
-    Without exactly one marked graph there is no block to choose, and `graph.count` says so.
+    AD-46: the declaration and `%%` comments stay, so a page's own `flowchart LR` survives, and a
+    block without a declaration gets `init`'s. Without exactly one marked graph there is no block
+    to choose, and `graph.count` says so; a block with any other line is not rewritten at all.
     """
     blocks = [
         (path, content, span) for path, content in documents for span in _marked_bodies(content)
@@ -326,13 +348,17 @@ def rewrite_component_graph(
     if len(blocks) != 1:
         return None
     path, content, (start, end) = blocks[0]
-    kept = [
-        f"{line}\n"
-        for line in content[start:end].splitlines()
-        if line.strip() and not _GRAPH_EDGE.fullmatch(line)
-    ]
+    body = content[start:end]
+    if _unwritable_line(body) is not None:
+        return None
+    kept = [line for line in body.splitlines() if line.strip() and not _GRAPH_EDGE.fullmatch(line)]
+    if not any(_GRAPH_DECLARATION.fullmatch(line) for line in kept):
+        kept.insert(0, "graph TD")
     written = (
-        content[:start] + "".join(kept or ["graph TD\n"]) + mermaid_edges(edges) + content[end:]
+        content[:start]
+        + "".join(f"{line}\n" for line in kept)
+        + mermaid_edges(edges)
+        + content[end:]
     )
     return None if written == content else (path, written)
 
@@ -344,14 +370,7 @@ def graph_diagnostics(
 ) -> tuple[Diagnostic, ...]:
     """Require exactly one marked Mermaid graph matching observed component edges."""
     graphs = [
-        (
-            path,
-            frozenset(
-                (match.group(1), match.group(2))
-                for line in content[start:end].splitlines()
-                if (match := _GRAPH_EDGE.fullmatch(line))
-            ),
-        )
+        (path, content[start:end])
         for path, content in documents
         for start, end in _marked_bodies(content)
     ]
@@ -365,12 +384,18 @@ def graph_diagnostics(
                 "Keep one graph after the archkeel-component-graph marker in contract provenance.",
             ),
         )
-    path, declared = graphs[0]
+    path, body = graphs[0]
+    declared = frozenset(
+        (match.group(1), match.group(2))
+        for line in body.splitlines()
+        if (match := _GRAPH_EDGE.fullmatch(line))
+    )
     observed = observed_component_edges(contract, observation)
     if declared == observed:
         return ()
     missing = ", ".join(f"{a}->{b}" for a, b in sorted(observed - declared)) or "none"
     extra = ", ".join(f"{a}->{b}" for a, b in sorted(declared - observed)) or "none"
+    unwritable = _unwritable_line(body)
     return (
         _diagnostic(
             "graph.drift",
@@ -379,7 +404,10 @@ def graph_diagnostics(
             "The marked component graph differs from observed imports; "
             f"missing: {missing}; extra: {extra}.",
             "Run archkeel validate --write-graph to regenerate the marked Mermaid graph "
-            "from the observed component edges.",
+            "from the observed component edges."
+            if unwritable is None
+            else f"Edit the marked graph's edges by hand: it holds `{unwritable}`, structure "
+            "archkeel validate --write-graph does not rewrite.",
         ),
     )
 

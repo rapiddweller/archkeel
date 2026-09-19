@@ -71,10 +71,13 @@ Without `--source` and `--namespace`, `init` scans the only top-level Python pac
 `init --json` and `validate --json` add `open_decisions`, heaviest observed pair first, each with its `allowed_dependency` and `forbidden_dependency` option rule (AD-15). `validate` and `report` add `agent_decisions` as `[agent, total]` rules (AD-16). `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
 `validate --write-graph` rewrites the edges of the one marked component graph from the contract
 and the observed imports before it validates, sorted the way `init` writes them (AD-46). The rest
-of the page stays as it was, and so does every non-blank line of the block that is not an edge,
-such as a `flowchart LR`, ahead of the edges. It writes only a page that changes and names it in
-`artifact`; with no marked graph or with several it writes nothing, and `graph.count` remains.
-The page is read and written as UTF-8 with `\n` line endings.
+of the page stays as it was, and so do the block's diagram declaration, such as a `flowchart LR`,
+and its `%%` comments, ahead of the edges; a block without a declaration gets `graph TD`. It
+writes only a page that changes and names it in `artifact`; with no marked graph or with several
+it writes nothing, and `graph.count` remains. A block holding any other line, such as a
+`subgraph`, a labeled edge or a `classDef`, is not rewritten: `graph.drift` remains, and its
+remedy names the line and asks for the edges to be edited by hand. The page is read and written
+as UTF-8 with `\n` line endings.
 
 `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all
 (AD-39). Under that declaration `evaluate_expectation` fails on any entry in the delta's
