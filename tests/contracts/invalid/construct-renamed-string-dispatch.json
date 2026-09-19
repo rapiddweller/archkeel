@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.1.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "CONSTRUCT-RENAMED",
+      "kind": "forbidden_construct",
+      "source": "sample",
+      "constructs": ["string_dispatch"],
+      "rationale": "A construct name that never shipped fails closed instead of matching nothing.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

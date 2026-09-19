@@ -197,7 +197,7 @@
       "id": "CONSTRUCT-NO-DYNAMIC",
       "kind": "forbidden_construct",
       "source": "archkeel",
-      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore"],
+      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "setattr", "delattr", "vars", "dunder_dict"],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"

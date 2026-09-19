@@ -166,8 +166,8 @@ def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: 
     assert architecture is not None
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
 
-    # 33 rules above the level, plus the one store's inside declares (AD-36).
-    assert agent_decisions(observation) == (1, 34)
+    # 34 rules above the level, plus the one store's inside declares (AD-36).
+    assert agent_decisions(observation) == (1, 35)
 
 
 def test_open_decisions_counts_import_sites_for_components_with_split_or_nested_packages() -> None:

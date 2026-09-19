@@ -11,7 +11,7 @@ and `unresolved_ratio` regression checks, never a rule.
 
 | Repository | Unresolved | Partially resolved | Analyzed |
 |---|---:|---:|---:|
-| Archkeel (`fixtures/D-self`) | 389 (9.4%) | 455 | 4,154 |
+| Archkeel (`fixtures/D-self`) | 389 (9.3%) | 459 | 4,186 |
 | Internal 13-component service (`docs/evidence/internal-service/`) | 998 (23.1%) | 380 | 4,318 |
 
 The resolver follows indexed names, import aliases, builtins and simple attribute chains. Since
@@ -35,6 +35,11 @@ at runtime.
 - Only import records cross boundaries: `import pkg` followed by `pkg._member` is not a private
   crossing.
 - `forbidden_construct` matches names as written; aliases and shadowed names are blind spots (AD-8).
+- `string_literal_compare` is syntactic: it cannot tell a closed vocabulary from an open value,
+  so a Python dunder, a driver string, a trust-boundary parser and a value already typed as a
+  `Literal` are reported like any other; it does not see a named constant set (`x in NAMES`), a
+  dict-literal membership test, `str.startswith` or a dict used as a dispatch table.
+  `object.__setattr__(...)` is not `setattr` (AD-48).
 - Imports under `TYPE_CHECKING` are graph edges for cycle detection even when a rule sets
   `include_type_checking` to false; the flag only affects rule violations.
 
