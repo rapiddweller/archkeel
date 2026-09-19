@@ -389,6 +389,11 @@ make check
 
 This runs Ruff, strict mypy, pytest, and Archkeel's self-check.
 
+A change under `src/`, to the contract or to the architecture pages moves the saved
+self-observation that check compares against; regenerate it with `make self-observation`. The
+[contributing guide](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md) lists what a
+pull request needs.
+
 Run the full release check, build both distributions, and install each one in isolation:
 
 ```bash

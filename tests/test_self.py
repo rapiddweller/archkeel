@@ -7,7 +7,6 @@ import json
 import subprocess
 import sys
 from dataclasses import dataclass, replace
-from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -20,7 +19,6 @@ from archkeel.check.validation import (
     rationale_diagnostics,
 )
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
-from archkeel.ir.digest import package_digest
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -30,12 +28,14 @@ from archkeel.ir.model import (
     in_scope,
 )
 from archkeel.ir.structure import oversized_insides
+from fixtures.reproduce_self import provenance as saved_provenance
 
 # AD-4: the analyzer's public IR API is exactly these two modules.
 ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec"})
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
+STALE = "fixtures/D-self is stale: run `make self-observation` and commit the result on its own"
 
 
 def _contract() -> ArchitectureContract:
@@ -99,7 +99,7 @@ def test_self_result_matches_the_saved_run(self_run: SelfRun) -> None:
     observed = json.loads(self_run.result)
     assert saved.pop("artifact") == "fixtures/D-self/architecture.json"
     assert observed.pop("artifact")
-    assert saved == observed
+    assert saved == observed, STALE
 
 
 def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Observation) -> None:
@@ -113,21 +113,12 @@ def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Ob
     assert coverage.status == coverage.rules == "PASS"
     assert coverage.files_discovered == coverage.files_read == coverage.files_parsed > 0
     assert coverage.failures == ()
-    assert observed.python_version == saved.python_version
-    assert observed.source.source_digest == saved.source.source_digest
-    assert observed.contract.digest == saved.contract.digest
-    assert observed.analyzer.code_digest == saved.analyzer.code_digest
-    assert coverage == saved.coverage
-    assert provenance == {
-        "analyzer_digest": saved.analyzer.code_digest,
-        "checker_digest": package_digest(),
-        "source_digest": saved.source.source_digest,
-        "contract_digest": saved.contract.digest,
-        "artifact_digest": sha256(artifact).hexdigest(),
-        "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
-        "exit_code": 0,
-        "python_version": saved.python_version,
-    }
+    assert observed.python_version == saved.python_version, STALE
+    assert observed.source.source_digest == saved.source.source_digest, STALE
+    assert observed.contract.digest == saved.contract.digest, STALE
+    assert observed.analyzer.code_digest == saved.analyzer.code_digest, STALE
+    assert coverage == saved.coverage, STALE
+    assert provenance == saved_provenance(saved, artifact), STALE
 
 
 def test_self_contract_covers_modules_and_analyzer_interface(
