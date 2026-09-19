@@ -425,6 +425,11 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
                 (f"/rules/{index}/allowed_sources/{item}", value)
                 for item, value in enumerate(rule.allowed_sources)
             )
+        if isinstance(rule, ExternalDependencyScopeRule):
+            names.extend(
+                (f"/rules/{index}/exact_sources/{item}", value)
+                for item, value in enumerate(rule.exact_sources)
+            )
     names.extend(
         (f"/declarations/public_api/{index}", value)
         for index, value in enumerate(declarations.public_api)

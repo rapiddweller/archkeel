@@ -901,7 +901,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "constructs", "rationale", "decided_by"},
-        {"allowed_sources"},
+        {"allowed_sources", "exact_sources"},
         label,
     )
     raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
@@ -910,6 +910,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     except ValueError as exc:
         raise ValueError(f"{label}.constructs contains an unsupported construct") from exc
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
+    exact = _contract_strings(item.get("exact_sources", []), f"{label}.exact_sources")
     return ForbiddenConstructRule(
         item_id,
         "forbidden_construct",
@@ -919,24 +920,33 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
         allowed,
+        exact,
     )
 
 
 def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDependencyScopeRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "dependency", "allowed_sources", "rationale", "decided_by"}, set(), label
+        raw,
+        {"kind", "dependency", "rationale", "decided_by"},
+        {"allowed_sources", "exact_sources"},
+        label,
     )
     dependency = _nonempty(item["dependency"], f"{label}.dependency")
     if not dependency.isidentifier():
         raise ValueError(f"{label}.dependency must be a top-level import name")
+    allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
+    exact = _contract_strings(item.get("exact_sources", []), f"{label}.exact_sources")
+    if not allowed and not exact:
+        raise ValueError(f"{label} must name allowed_sources or exact_sources")
     return ExternalDependencyScopeRule(
         item_id,
         "external_dependency_scope",
         dependency,
-        _contract_strings(item["allowed_sources"], f"{label}.allowed_sources", required=True),
+        allowed,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
+        exact,
     )
 
 

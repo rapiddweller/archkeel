@@ -24,8 +24,9 @@ blind spot. Removing one pair rule from Archkeel is an example violation.
 prefix, except when `source` and `target` each name a declared component package exactly and
 `target_symbol` is absent: that rule decides the whole component pair (AD-15), so it also enforces
 every package of the source component against every package of the target, not only the named
-ones. `allowed_sources` lists exact source modules, unlike the prefix scopes of
-`forbidden_construct` and `external_dependency_scope`. Closed-world validation counts every
+ones. `allowed_sources` here lists exact source modules; `forbidden_construct` and
+`external_dependency_scope` match their `allowed_sources` by prefix and take exact names as
+`exact_sources` (AD-49). Closed-world validation counts every
 observed import, including `TYPE_CHECKING` and allowed-source imports, so `allowed_sources` and
 `include_type_checking: false` only fit a rule scoped below a component pair, such as a submodule
 target or a `target_symbol`. A complete scan, fixed source bytes, analyzer digest and Python
@@ -37,8 +38,11 @@ component pair may depend, recorded with its reason. It adds no report violation
 only by closed-world validation, never by the analyzer. Declaring `sample.core` allowed to depend
 on `sample.cli` when no code observes that edge is valid; it simply decides the pair.
 
-`forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources`, whose
-prefixes exempt owners as in `external_dependency_scope`. Supported constructs are `getattr`,
+`forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources` and
+`exact_sources`, which exempt owners the way `external_dependency_scope` exempts modules. An
+owner is the qualified scope a construct is written in, a module, class or function such as
+`sample.cli.main`; an `allowed_sources` prefix exempts it and every scope nested in it, an
+`exact_sources` entry only the scope it names (AD-49). Supported constructs are `getattr`,
 `hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `any_annotation`,
 `placeholder_body`, `assert` and `broad_except`. `placeholder_body` covers a function body that is
 only `pass`, `...` or a lone `raise NotImplementedError`, and exempts a method carrying
@@ -59,8 +63,10 @@ module. It closes for dependencies what `complete_assignment` closes for modules
 contract never mentions — including one that does not exist anywhere — stops passing silently
 (AD-28). The standard library is read from the analyzer's own Python version, which the
 observation records, so a version change can move a module into or out of the exempt set.
-Relative imports are internal by construction and are never counted. Importing `helpers` with no
-rule naming it is an example violation.
+Relative imports are internal by construction and are never counted. A dependency only the
+package root imports is covered by a rule whose `exact_sources` names that root, so covering it
+does not allow it in every module below (AD-49). Importing `helpers` with no rule naming it is
+an example violation.
 
 `complete_requires` has no selector fields. Every import that crosses from one component to another
 must be covered by a `requires` entry of the importing component, and an import no entry covers is a
@@ -82,11 +88,15 @@ finding reads `store:STORE-REQUIRES-COMPLETE` rather than the bare id the inside
 (AD-36). The same prefix keeps the two levels apart: a `complete_requires` an inside declares
 decides that level's pairs, never the pairs above it.
 
-`external_dependency_scope` fields are `dependency` (a top-level import name) and
-`allowed_sources`. It matches import records whose target is the dependency or one of its
-submodules, including `TYPE_CHECKING` imports. Fixed source bytes and analyzer digest make the
-result deterministic. Imports through `importlib` remain a blind spot. Importing `rich` from
-`archkeel.check` when only `archkeel.cli` is allowed is an example violation.
+`external_dependency_scope` fields are `dependency` (a top-level import name), `allowed_sources`
+and `exact_sources`, at least one of the two non-empty. It matches import records whose target is
+the dependency or one of its submodules, including `TYPE_CHECKING` imports, and allows those whose
+source module falls under an `allowed_sources` prefix or equals an `exact_sources` entry. A
+package root is a prefix of every module in its package, so only `exact_sources: ["sample"]`
+allows `sample/__init__.py` a dependency that `sample.core` may not import (AD-49). Fixed source
+bytes and analyzer digest make the result deterministic. Imports through `importlib` remain a
+blind spot. Importing `rich` from `archkeel.check` when only `archkeel.cli` is allowed is an
+example violation.
 
 `complete_assignment` has the field `source`. Every scanned module below `source` must belong to
 exactly one component; a module matched by two different components counts as unowned, while

@@ -225,7 +225,7 @@
       "kind": "forbidden_construct",
       "source": "archkeel",
       "constructs": ["broad_except"],
-      "allowed_sources": ["archkeel.cli.main"],
+      "exact_sources": ["archkeel.cli.main"],
       "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit-2 result.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
@@ -252,7 +252,7 @@
       "id": "EXTERNAL-PACKAGING-RUNTIME",
       "kind": "external_dependency_scope",
       "dependency": "packaging",
-      "allowed_sources": ["archkeel.analyzer.runtime"],
+      "exact_sources": ["archkeel.analyzer.runtime"],
       "rationale": "Only the runtime gate interprets requires-python specifiers; the core stays dependency-free.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
@@ -261,7 +261,7 @@
       "id": "EXTERNAL-RICH-TERMINAL",
       "kind": "external_dependency_scope",
       "dependency": "rich",
-      "allowed_sources": ["archkeel.render.terminal"],
+      "exact_sources": ["archkeel.render.terminal"],
       "rationale": "Terminal styling stays replaceable; JSON and HTML evidence never depend on it.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
@@ -270,7 +270,7 @@
       "id": "EXTERNAL-RICH-ARGPARSE-CLI",
       "kind": "external_dependency_scope",
       "dependency": "rich_argparse",
-      "allowed_sources": ["archkeel.cli"],
+      "exact_sources": ["archkeel.cli"],
       "rationale": "Help formatting belongs to the composition root that owns the argument parser.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
