@@ -136,6 +136,22 @@ def test_public_entry_outside_namespace_is_a_diagnostic() -> None:
     )
 
 
+def test_exact_source_outside_namespace_is_a_diagnostic() -> None:
+    """AD-49: an exact source is a module name like a prefix one, held to the same namespace."""
+    rule = {
+        "id": "EXTERNAL-JSON",
+        "kind": "external_dependency_scope",
+        "dependency": "json",
+        "exact_sources": ["other"],
+        "rationale": "Probe.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": [rule]})
+    diagnostics = reference_diagnostics(ROOT, CONFIG, contract)
+    assert "/rules/0/exact_sources/0" in [item.pointer for item in diagnostics]
+
+
 def test_public_entry_owned_by_another_component_is_a_diagnostic() -> None:
     contract = parse_contract(
         {

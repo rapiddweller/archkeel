@@ -168,7 +168,10 @@ Class A rules are deterministic PASS/FAIL, evaluated from one observation:
 violation; it only decides that a component pair may depend. `closed_world` — every
 ordered component pair is decided, once, by an `allowed_dependency` or a
 `forbidden_dependency` rule — is an implicit Contract 2.1 invariant, not a rule you
-declare. Class B regression checks compare an accepted observation with a candidate.
+declare. `forbidden_construct` and `external_dependency_scope` exempt by prefix in
+`allowed_sources` and by exact name in `exact_sources`; a package root such as `pkg` goes in
+`exact_sources`, because as a prefix it exempts the whole package (AD-49). Class B
+regression checks compare an accepted observation with a candidate.
 Class C declarations (capabilities, public API, context roots, owners) are recorded and
 reported, not enforced. Class D review claims are derived and never enforced: `report` and
 `validate` count them in the terminal and under `claims` in `--json`, and the HTML report

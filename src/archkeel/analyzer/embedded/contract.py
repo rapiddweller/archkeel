@@ -80,16 +80,24 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             f"{rule.source} forbids {', '.join(constructs)}",
             [rule.source],
         )
-        data = {"source": rule.source, "constructs": constructs, "rationale": rule.rationale}
+        data = {
+            "source": rule.source,
+            "constructs": constructs,
+            "allowed_sources": sorted(rule.allowed_sources),
+            **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
+            "rationale": rule.rationale,
+        }
     elif isinstance(rule, ExternalDependencyScopeRule):
+        allowed = [*rule.allowed_sources, *rule.exact_sources]
         area, title, subjects = (
             "dependency_violations",
-            f"{rule.dependency} is allowed only in {', '.join(rule.allowed_sources)}",
-            [rule.dependency, *rule.allowed_sources],
+            f"{rule.dependency} is allowed only in {', '.join(allowed)}",
+            [rule.dependency, *allowed],
         )
         data = {
             "dependency": rule.dependency,
             "allowed_sources": sorted(rule.allowed_sources),
+            **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
             "rationale": rule.rationale,
         }
     elif isinstance(rule, CompleteAssignmentRule):

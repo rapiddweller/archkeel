@@ -21,7 +21,7 @@ from archkeel.analyzer.embedded.violations import requires_violations
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import component_owners
-from archkeel.ir.model import Coverage, Diagnostic, Observation
+from archkeel.ir.model import Coverage, Diagnostic, Observation, ObservationResult
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
@@ -320,6 +320,101 @@ def test_an_inside_that_leaves_the_repository_is_not_recorded(tmp_path: Path) ->
 def test_class_a_rule_produces_one_traceable_violation(
     tmp_path: Path, rule: dict[str, object], sources: dict[str, str]
 ) -> None:
+    result = _observe_one_rule(tmp_path, rule, sources)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids) for item in violations] == [(rule["kind"], ("RULE",))]
+    assert len(result.observation.records("violations") or ()) == 1
+
+
+_BROAD_EXCEPT = "try:\n    pass\nexcept Exception:\n    pass\n"
+
+
+@pytest.mark.parametrize(
+    ("rule", "sources", "subjects"),
+    [
+        (
+            {
+                "kind": "external_dependency_scope",
+                "dependency": "json",
+                "exact_sources": ["sample"],
+            },
+            {"__init__.py": "import json\n", "core.py": "import json\n"},
+            ("json", "sample.core"),
+        ),
+        (
+            {
+                "kind": "forbidden_construct",
+                "source": "sample",
+                "constructs": ["broad_except"],
+                "allowed_sources": ["sample.cli"],
+                "exact_sources": ["sample"],
+            },
+            {
+                "__init__.py": _BROAD_EXCEPT
+                + "\n\ndef load():\n"
+                + "".join(f"    {line}\n" for line in _BROAD_EXCEPT.splitlines()),
+                "cli.py": _BROAD_EXCEPT,
+            },
+            ("sample.load",),
+        ),
+    ],
+)
+def test_exact_sources_scope_the_package_root_and_nothing_below_it(
+    tmp_path: Path,
+    rule: dict[str, object],
+    sources: dict[str, str],
+    subjects: tuple[str, ...],
+) -> None:
+    """AD-49: an `exact_sources` entry allows the name itself, never what lies below it.
+
+    The package root `sample` is a prefix of every module and scope in the package, so as an
+    `allowed_sources` entry it would allow everything; as an exact entry it allows
+    `sample/__init__.py`'s own imports and module-level code, and `sample.core` and the
+    function `sample.load` stay forbidden.
+    """
+    result = _observe_one_rule(tmp_path, rule, sources)
+    assert result.diagnostics == ()
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.subjects, item.rule_ids) for item in violations] == [(subjects, ("RULE",))]
+
+
+@pytest.mark.parametrize(
+    ("exemptions", "recorded"),
+    [
+        (
+            {"allowed_sources": ["sample.core", "sample.cli"], "exact_sources": ["sample"]},
+            {"allowed_sources": ("sample.cli", "sample.core"), "exact_sources": ("sample",)},
+        ),
+        ({}, {"allowed_sources": ()}),
+    ],
+)
+def test_forbidden_construct_declaration_records_every_exemption(
+    tmp_path: Path, exemptions: dict[str, list[str]], recorded: dict[str, tuple[str, ...]]
+) -> None:
+    """AD-49: the report shows every exemption a construct rule grants, prefix and exact.
+
+    `exact_sources` is recorded only when the contract writes it, the way
+    `external_dependency_scope` records it.
+    """
+    rule = {"kind": "forbidden_construct", "source": "sample", "constructs": ["broad_except"]}
+    result = _observe_one_rule(tmp_path, rule | exemptions, {"core.py": "V = 1\n"})
+    assert result.observation is not None
+    declared = {
+        record.id: record.data for record in result.observation.records("declarations") or ()
+    }
+    exemption_fields = {
+        key: value
+        for key, value in declared["RULE"].entries
+        if key in {"allowed_sources", "exact_sources"}
+    }
+    assert exemption_fields == recorded
+
+
+def _observe_one_rule(
+    tmp_path: Path, rule: dict[str, object], sources: dict[str, str]
+) -> ObservationResult:
     contract = {
         "schema_version": "2.1.0",
         "components": [_component("core"), _component("cli")],
@@ -337,11 +432,7 @@ def test_class_a_rule_produces_one_traceable_violation(
     (tmp_path / "sample").mkdir()
     for name, text in sources.items():
         (tmp_path / "sample" / name).write_text(text)
-    result = _observe(tmp_path)
-    assert result.observation is not None
-    violations = trace_valid_violations(result.observation)
-    assert [(item.kind, item.rule_ids) for item in violations] == [(rule["kind"], ("RULE",))]
-    assert len(result.observation.records("violations") or ()) == 1
+    return _observe(tmp_path)
 
 
 def _multi_package_worker() -> dict[str, object]:
