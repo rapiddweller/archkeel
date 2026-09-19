@@ -42,7 +42,10 @@ on `sample.cli` when no code observes that edge is valid; it simply decides the 
 `exact_sources`, which exempt owners the way `external_dependency_scope` exempts modules. An
 owner is the qualified scope a construct is written in, a module, class or function such as
 `sample.cli.main`; an `allowed_sources` prefix exempts it and every scope nested in it, an
-`exact_sources` entry only the scope it names (AD-49). Supported constructs are `getattr`,
+`exact_sources` entry only the scope it names (AD-49). The shop sample exempts exactly
+`shop.cli.main.main` from its broad-except rule, and the demo rows `class-a-broad-except-exact`
+and `class-a-broad-except-prefix` run one nested handler under each list: reported, then allowed.
+Supported constructs are `getattr`,
 `hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `any_annotation`,
 `placeholder_body`, `assert`, `broad_except`, `setattr`, `delattr`, `vars`, `dunder_dict` and
 `string_literal_compare`. `placeholder_body` covers a function body that is

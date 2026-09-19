@@ -29,7 +29,8 @@ run shows many violations together; every other row isolates one item.
 | class_a | forbidden_construct:vars | class-a-construct-vars | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_vars.py |
 | class_a | forbidden_construct:dunder_dict | class-a-construct-dunder_dict | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_dunder_dict.py |
 | class_a | forbidden_construct:string_literal_compare | class-a-construct-string_literal_compare | validate/report run | CONSTRUCT-NO-STRING-LITERAL-COMPARE | rule.violated | shop/model/probe_string_literal_compare.py |
-| class_a | forbidden_construct:broad_except (allowed source) | class-a-broad-except-allowed | validate/report run | - | - | shop/cli/main.py |
+| class_a | forbidden_construct:exact_sources | class-a-broad-except-exact | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | shop/cli/main.py |
+| class_a | forbidden_construct:allowed_sources | class-a-broad-except-prefix | validate/report run | - | - | architecture-contract.json, shop/cli/main.py |
 | class_a | complete_requires | class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | architecture-contract.json |
 | class_a | complete_requires:include_type_checking | class-a-complete-requires-type-checking | validate/report run | REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json |
 | class_a | complete_requires:inside | class-a-complete-requires-inside | validate/report run | store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated | shop/store/architecture-contract.json |
@@ -56,6 +57,8 @@ run shows many violations together; every other row isolates one item.
 | validation | rationale.placeholder | validation-rationale-placeholder | validate/report run | - | rationale.placeholder | architecture-contract.json |
 | validation | rationale.repeated | validation-rationale-repeated | validate/report run | - | rationale.repeated | architecture-contract.json |
 | validation | graph.count | validation-graph-count | validate/report run | - | graph.count | docs/architecture/shop.md |
+| validation | graph.drift:write-graph | validation-graph-drift-write-graph | validate/report run | - | graph.drift | architecture-contract.json |
+| validation | graph.drift:subgraph | validation-graph-drift-subgraph | validate/report run | - | graph.drift | architecture-contract.json, docs/architecture/shop.md |
 | validation | reference.namespace | validation-reference-namespace | validate/report run | - | reference.namespace | architecture-contract.json |
 | validation | reference.public_owner | validation-reference-public-owner | validate/report run | - | reference.public_owner | architecture-contract.json |
 | validation | reference.public_underscore | validation-reference-public-underscore | validate/report run | - | reference.public_underscore | architecture-contract.json |

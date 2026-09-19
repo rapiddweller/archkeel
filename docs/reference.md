@@ -77,7 +77,9 @@ writes only a page that changes and names it in `artifact`; with no marked graph
 it writes nothing, and `graph.count` remains. A block holding any other line, such as a
 `subgraph`, a labeled edge or a `classDef`, is not rewritten: `graph.drift` remains, and its
 remedy names the line and asks for the edges to be edited by hand. The page is read and written
-as UTF-8 with `\n` line endings.
+as UTF-8 with `\n` line endings. The demo rows `validation-graph-drift-write-graph` and
+`validation-graph-drift-subgraph` show both remedies on the shop sample, whose own page is already
+in the form the command writes.
 
 `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all
 (AD-39). Under that declaration `evaluate_expectation` fails on any entry in the delta's

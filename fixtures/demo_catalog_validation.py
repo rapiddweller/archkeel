@@ -11,6 +11,7 @@ from fixtures.demo_catalog_support import (
     HEADER,
     Variant,
     contract_component_field_appended,
+    contract_component_field_set,
     contract_rule_field,
     contract_rule_provenance_appended,
     contract_top_field,
@@ -18,6 +19,13 @@ from fixtures.demo_catalog_support import (
     contract_without_component_field,
     contract_without_top_field,
     inside_contract,
+)
+
+# A contract edit AD-46 was written for: a component renamed after the page was drawn.
+_RENDER_RENAMED = contract_component_field_set("render", "label", "view")
+_PAGE_WITH_SUBGRAPH = CLEAN_SHOP_MD.replace(
+    "    cli --> app\n    cli --> render\n",
+    "    subgraph composition\n    cli --> app\n    cli --> render\n    end\n",
 )
 
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
@@ -76,11 +84,36 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         section="validation",
         item="graph.count",
         summary="Removing the marked Mermaid graph from docs/architecture/shop.md leaves zero "
-        "marked graphs. graph.drift is demonstrated separately by the forbidden_dependency "
-        "pair variant, whose new edge disagrees with the (still present) marked graph.",
+        "marked graphs, so neither --write-graph nor a reader can tell which graph is meant. "
+        "graph.drift has the two rows below.",
         files={"docs/architecture/shop.md": CLEAN_SHOP_MD.split(COMPONENT_GRAPH_MARKER, 1)[0]},
         expected_violations=(),
         expected_codes=("graph.count",),
+    ),
+    Variant(
+        id="validation-graph-drift-write-graph",
+        section="validation",
+        item="graph.drift:write-graph",
+        summary="A contract edit renames COMP-RENDER's label to view, and the marked graph in "
+        "docs/architecture/shop.md still draws render. The remedy names archkeel validate "
+        "--write-graph, which rewrites only that graph's edges; validate then passes (AD-46).",
+        files={"architecture-contract.json": _RENDER_RENAMED},
+        expected_violations=(),
+        expected_codes=("graph.drift",),
+    ),
+    Variant(
+        id="validation-graph-drift-subgraph",
+        section="validation",
+        item="graph.drift:subgraph",
+        summary="The same rename, on a page whose marked graph groups cli's edges in a subgraph. "
+        "Rewritten edges could leave it, so --write-graph writes nothing, and the remedy names "
+        "`subgraph composition` and asks for a hand edit (AD-46).",
+        files={
+            "architecture-contract.json": _RENDER_RENAMED,
+            "docs/architecture/shop.md": _PAGE_WITH_SUBGRAPH,
+        },
+        expected_violations=(),
+        expected_codes=("graph.drift",),
     ),
     Variant(
         id="validation-reference-namespace",
