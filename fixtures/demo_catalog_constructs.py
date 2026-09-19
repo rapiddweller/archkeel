@@ -134,9 +134,9 @@ _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
         "def fields() -> dict[str, object]:\n"
         "    return _Box().__dict__\n"
     ),
-    ForbiddenConstructKind.STRING_DISPATCH: HEADER
+    ForbiddenConstructKind.STRING_LITERAL_COMPARE: HEADER
     + (
-        '"""String-dispatch probe for the architecture demo."""\n\n'
+        '"""String-literal-compare probe for the architecture demo."""\n\n'
         "from __future__ import annotations\n\n\n"
         "def shipping_cents(method: str) -> int:\n"
         '    if method == "express":\n'
@@ -154,8 +154,8 @@ _CONSTRUCT_RULE: dict[ForbiddenConstructKind, str] = {
         if kind is ForbiddenConstructKind.ANY_ANNOTATION
         else "CONSTRUCT-NO-PLACEHOLDER"
         if kind is ForbiddenConstructKind.PLACEHOLDER_BODY
-        else "CONSTRUCT-NO-STRING-DISPATCH"
-        if kind is ForbiddenConstructKind.STRING_DISPATCH
+        else "CONSTRUCT-NO-STRING-LITERAL-COMPARE"
+        if kind is ForbiddenConstructKind.STRING_LITERAL_COMPARE
         else "CONSTRUCT-NO-DYNAMIC"
     )
     for kind in ForbiddenConstructKind

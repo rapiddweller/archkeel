@@ -277,7 +277,7 @@ class ForbiddenConstructKind(StrEnum):
     DELATTR = "delattr"
     VARS = "vars"
     DUNDER_DICT = "dunder_dict"
-    STRING_DISPATCH = "string_dispatch"
+    STRING_LITERAL_COMPARE = "string_literal_compare"
 
 
 @dataclass(frozen=True, slots=True)

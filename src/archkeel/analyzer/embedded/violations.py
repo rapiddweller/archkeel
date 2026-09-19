@@ -123,7 +123,7 @@ _CONSTRUCT_SIGNALS: Final = {
     "delattr_call": ForbiddenConstructKind.DELATTR,
     "vars_call": ForbiddenConstructKind.VARS,
     "dunder_dict": ForbiddenConstructKind.DUNDER_DICT,
-    "string_dispatch": ForbiddenConstructKind.STRING_DISPATCH,
+    "string_literal_compare": ForbiddenConstructKind.STRING_LITERAL_COMPARE,
 }
 
 

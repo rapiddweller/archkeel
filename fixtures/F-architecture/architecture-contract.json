@@ -365,11 +365,11 @@
       "decided_by": "architect"
     },
     {
-      "id": "CONSTRUCT-NO-STRING-DISPATCH",
+      "id": "CONSTRUCT-NO-STRING-LITERAL-COMPARE",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["string_dispatch"],
-      "rationale": "A closed vocabulary is an enum the type checker follows; a string literal compared to pick a branch is a vocabulary nobody declared.",
+      "constructs": ["string_literal_compare"],
+      "rationale": "A closed vocabulary is an enum or Literal the type checker follows; a value compared with a string literal is a vocabulary nobody declared.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },

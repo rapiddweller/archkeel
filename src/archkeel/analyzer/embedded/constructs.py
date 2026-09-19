@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Construct collection: asserts, broad excepts, empty bodies, reflection and string dispatch."""
+"""Construct collection: asserts, broad excepts, empty bodies, reflection, str literal compares."""
 
 from __future__ import annotations
 
@@ -70,8 +70,8 @@ def _is_main_guard(node: ast.Compare) -> bool:
     )
 
 
-def _dispatch_form(node: ast.Compare) -> str | None:
-    """Name how a comparison branches on a str literal, or nothing when it does not (AD-48)."""
+def _compare_form(node: ast.Compare) -> str | None:
+    """Name how a comparison tests a value against str literals, or nothing when it does not."""
     # The interpreter's entry protocol, not a vocabulary an enum could replace.
     if _is_main_guard(node):
         return None
@@ -171,10 +171,14 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:
-        form = _dispatch_form(node)
+        form = _compare_form(node)
         if form is not None:
             self._record(
-                node, kind="string_dispatch", construct="string_dispatch", handled=None, form=form
+                node,
+                kind="string_literal_compare",
+                construct="string_literal_compare",
+                handled=None,
+                form=form,
             )
         self.generic_visit(node)
 
@@ -182,8 +186,8 @@ class ConstructCollector(ast.NodeVisitor):
         if _matches_str_literal(node):
             self._record(
                 node,
-                kind="string_dispatch",
-                construct="string_dispatch",
+                kind="string_literal_compare",
+                construct="string_literal_compare",
                 handled=None,
                 form="match",
             )
