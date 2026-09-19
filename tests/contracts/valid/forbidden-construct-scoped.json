@@ -30,6 +30,16 @@
       "rationale": "Assertions and broad excepts stay out of enforced modules except the CLI boundary.",
       "provenance": ["docs/architecture/sample.md"],
       "decided_by": "architect"
+    },
+    {
+      "id": "CONSTRUCT-SCOPED-REFLECTION",
+      "kind": "forbidden_construct",
+      "source": "sample",
+      "constructs": ["setattr", "delattr", "vars", "dunder_dict", "string_dispatch"],
+      "allowed_sources": ["sample.cli"],
+      "rationale": "Attributes are written through declared fields and closed vocabularies are enums; only the CLI handles user strings.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
     }
   ]
 }

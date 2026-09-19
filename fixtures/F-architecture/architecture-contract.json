@@ -341,7 +341,7 @@
       "id": "CONSTRUCT-NO-DYNAMIC",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore"],
+      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "setattr", "delattr", "vars", "dunder_dict"],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
@@ -361,6 +361,15 @@
       "source": "shop",
       "constructs": ["placeholder_body"],
       "rationale": "A function whose body is pass, ellipsis or a lone NotImplementedError reports capability it does not have, and its callers are written against that promise.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CONSTRUCT-NO-STRING-DISPATCH",
+      "kind": "forbidden_construct",
+      "source": "shop",
+      "constructs": ["string_dispatch"],
+      "rationale": "A closed vocabulary is an enum the type checker follows; a string literal compared to pick a branch is a vocabulary nobody declared.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },
