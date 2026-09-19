@@ -180,7 +180,8 @@ def build_parser() -> _Parser:
         help="Draft archkeel.toml, a closed contract and its architecture page.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
-            "Observes the only top-level package and proposes one component per subpackage.\n"
+            "Observes the only top-level package, or the one pyproject.toml's [project] name\n"
+            "names when several sit side by side, and proposes one component per subpackage.\n"
             "It writes no dependency rule: every ordered component pair is an open decision,\n"
             "reported by import weight for the architect to allow or forbid.\n\n"
             "Examples:\n"

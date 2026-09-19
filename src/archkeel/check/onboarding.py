@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import json
+import re
+import tomllib
 from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path
@@ -40,21 +42,36 @@ CONFIG_PATH: Final = "archkeel.toml"
 CONTRACT_PATH: Final = "architecture-contract.json"
 
 
+def _project_import_name(root: Path) -> str | None:
+    """Return pyproject.toml's `[project] name` in wheel file-name form, if one is declared."""
+    try:
+        pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    project = pyproject.get("project")
+    name = project.get("name") if isinstance(project, dict) else None
+    return re.sub(r"[-_.]+", "_", name).lower() if isinstance(name, str) else None
+
+
 def detect_source(root: Path) -> tuple[str, str]:
-    """Return the scan root and namespace of the only top-level package."""
+    """Return the scan root and namespace of the only top-level package, or of the one
+    package named after the project when there are several (AD-47)."""
     base = root / "src" if (root / "src").is_dir() else root
     packages = sorted(path for path in base.iterdir() if (path / "__init__.py").is_file())
-    if len(packages) != 1:
+    name = _project_import_name(root)
+    chosen = packages if len(packages) == 1 else [p for p in packages if p.name.lower() == name]
+    if len(chosen) != 1:
         found = ", ".join(path.relative_to(root).as_posix() for path in packages) or "none"
         raise DiagnosticError(
             Diagnostic(
                 "scope_empty",
                 str(base),
-                f"Expected exactly one top-level Python package; found {found}.",
+                "Expected one top-level Python package, or one matching pyproject.toml's "
+                f"[project] name ({name or 'missing'}); found {found}.",
                 "Pass --source <directory> and --namespace <package> to archkeel init.",
             )
         )
-    return packages[0].relative_to(root).as_posix(), packages[0].name
+    return chosen[0].relative_to(root).as_posix(), chosen[0].name
 
 
 def _has_cycle(labels: tuple[str, ...], edges: frozenset[tuple[str, str]]) -> bool:
