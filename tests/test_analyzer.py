@@ -629,6 +629,26 @@ def test_scoped_forbidden_dependency_supersedes_only_the_imports_it_rejects(
             },
             1,
         ),
+        (
+            ["sample.core.impl"],
+            {},
+            {
+                "sample/core/__init__.py": "\n",
+                "sample/core/impl.py": "class Widget:\n    pass\n",
+                "sample/cli.py": "from sample.core import impl\n",
+            },
+            0,
+        ),
+        (
+            ["sample.core:impl"],
+            {},
+            {
+                "sample/core/__init__.py": "\n",
+                "sample/core/impl.py": "class Widget:\n    pass\n",
+                "sample/cli.py": "from sample.core import impl\n",
+            },
+            1,
+        ),
     ],
 )
 def test_interface_boundary_rule_matches_the_declared_public_interface(
