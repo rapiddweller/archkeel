@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from archkeel.analyzer import observe
-from archkeel.check.onboarding import interface_entries
+from archkeel.check.onboarding import detect_source, interface_entries
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli import main
@@ -20,6 +20,7 @@ from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
     CompleteAssignmentRule,
+    DiagnosticError,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
@@ -287,6 +288,58 @@ def test_init_asks_for_the_source_when_the_package_is_ambiguous(
         diagnostic["kind"] == "scope_empty" and "src/alpha, src/beta" in diagnostic["unknown_claim"]
     )
     assert not (root / "archkeel.toml").exists()
+
+
+def test_init_picks_the_package_the_project_is_named_after(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    # AD-47: the copied pyproject.toml declares `name = "archkeel"`; `tests_pkg` sits beside it.
+    root = _repository(tmp_path, ("archkeel", "tests_pkg"))
+    _init(root, capsys)
+    assert (
+        'roots = ["src/archkeel"]\nnamespace = "archkeel"\n' in (root / "archkeel.toml").read_text()
+    )
+
+
+def test_init_stays_ambiguous_when_no_package_matches_the_project_name(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path, ("archkeel_core", "tests_pkg"))
+    assert main(["init", "--root", str(root), "--json"]) == 2
+    diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
+    assert diagnostic["kind"] == "scope_empty"
+    assert "[project] name (archkeel)" in diagnostic["unknown_claim"]
+    assert "src/archkeel_core, src/tests_pkg" in diagnostic["unknown_claim"]
+    assert not (root / "archkeel.toml").exists()
+
+
+def _flat_layout(root: Path, pyproject: str | None) -> Path:
+    for package in ("archkeel_core", "tests_pkg"):
+        (root / package).mkdir()
+        (root / package / "__init__.py").touch()
+    if pyproject is not None:
+        (root / "pyproject.toml").write_text(pyproject)
+    return root
+
+
+@pytest.mark.parametrize("name", ["archkeel_core", "Archkeel-Core", "archkeel.core"])
+def test_detect_source_matches_the_project_name_in_wheel_file_name_form(
+    tmp_path: Path, name: str
+) -> None:
+    root = _flat_layout(tmp_path, f'[project]\nname = "{name}"\n')
+    assert detect_source(root) == ("archkeel_core", "archkeel_core")
+
+
+@pytest.mark.parametrize("pyproject", [None, "[project\n", '[project]\nversion = "1"\n'])
+def test_detect_source_fails_closed_without_a_readable_project_name(
+    tmp_path: Path, pyproject: str | None
+) -> None:
+    with pytest.raises(DiagnosticError) as raised:
+        detect_source(_flat_layout(tmp_path, pyproject))
+    assert raised.value.diagnostic.kind == "scope_empty"
+    assert "[project] name (missing); found archkeel_core, tests_pkg." in (
+        raised.value.diagnostic.unknown_claim
+    )
 
 
 def test_interface_entries_applies_the_ad9_module_entry_rule() -> None:

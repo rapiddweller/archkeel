@@ -220,7 +220,8 @@ uvx archkeel validate
 ```
 
 The contract is your target architecture, not a copy of the code. `init` observes the only
-top-level package and writes `archkeel.toml`, `architecture-contract.json` and
+top-level package, or the one your `pyproject.toml`'s `[project] name` names when a test package
+sits beside it, and writes `archkeel.toml`, `architecture-contract.json` and
 `docs/architecture/architecture.md`: one component per subpackage, drafted `public` interfaces and
 no dependency rule. Every ordered component pair is an open decision; `init --json` and
 `validate --json` list them heaviest first, each with the exact `allowed_dependency` and
@@ -448,7 +449,8 @@ Archkeel is deliberately strict about what it can prove:
 - **Precommitment:** publication order is proven; private editing order is not.
 - **Analyzer runtime:** Archkeel's Python must be at least the target
   repository's Python.
-- **Onboarding:** `init` detects one top-level package; other layouts need `--source` and
+- **Onboarding:** `init` detects the only top-level package, or the one `pyproject.toml`'s
+  `[project] name` names when several sit side by side (AD-47); other layouts need `--source` and
   `--namespace`. It never decides a dependency; the architect or, in auto mode, the agent does,
   and `decided_by` keeps the difference visible.
 - **Static observation:** runtime behavior, data flow and performance are not observed; see

@@ -118,7 +118,9 @@ why crossing imports must go through the declared interface, not `init`.
 ## Determinism
 
 **Deterministic (`init` computes these from the repository, not from judgment):**
-- Package and namespace detection.
+- Package and namespace detection: the only top-level package, or, when several sit side by
+  side, the one whose name matches `pyproject.toml`'s `[project] name` (AD-47). Anything else
+  exits 2 with `scope_empty` and asks for `--source` and `--namespace`; it never picks one.
 - The set of observed import edges between components, and their import-site counts.
 - Each drafted component's module count and inner edges, carried in the component table and
   under `draft_sizes` in `init --json`, with the largest one named in the terminal summary.
