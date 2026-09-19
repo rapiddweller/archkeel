@@ -170,7 +170,7 @@ def _report_violations(root: Path) -> tuple[str, ...]:
 def test_variant_produces_the_catalogued_findings(tmp_path: Path, variant: Variant) -> None:
     root = _prepare_repo(tmp_path, dict(variant.files))
 
-    validate_result = run_validate(root, CONFIG, observe)
+    validate_result, _ = run_validate(root, CONFIG, observe)
     actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
     assert actual_codes == variant.expected_codes
     actual_kinds = tuple(
@@ -223,7 +223,7 @@ def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:
     clean = next(variant for variant in CATALOG if variant.id == "clean")
     root = _prepare_repo(tmp_path, dict(clean.files))
 
-    validate_result = run_validate(root, CONFIG, observe)
+    validate_result, _ = run_validate(root, CONFIG, observe)
     assert validate_result.exit_code == 0
     assert validate_result.diagnostics == ()
 

@@ -72,6 +72,7 @@ only when its row names repository evidence.
 | The five per-counter `coverage` counters stopped being declarable `semantic_changes`, and `from __future__ import annotations` stopped counting as an `api_crossings` entry: adding `src/archkeel/ir/labels.py` now declares 1 entry instead of 7 (AD-43) | `src/archkeel/check/delta.py`; `src/archkeel/check/python_profile.py`; `tests/test_delta.py::test_one_module_with_one_intra_component_import_is_one_semantic_change` |
 | `dependency_edges` joined the fixed guardrail dimensions: an `added` entry a non-empty declaration never named is a guardrail failure, named by dimension, kind and fingerprint, closing the AD-39 Limit (AD-44) | `src/archkeel/check/expectation.py`; `tests/test_expectation.py`; `fixtures/demo_catalog_check.py`; `fixtures/demo_catalog_check_regressions.py` |
 | `analyzer` declares an inside too, not only `check`: `orchestration`, `collectors` and `foundation`, the ten collectors matching `COLLECTORS-ISOLATED` unchanged, both levels passing with zero violations on the current source (AD-45) | `src/archkeel/analyzer/architecture-contract.json`; `architecture-contract.json`; `tests/test_self.py` |
+| After a contract edit, `validate --write-graph` rewrites only the edges of the one marked component graph from the observed imports, sorted as `init` writes them and keeping the page's own diagram line; a block with a `subgraph`, a labeled edge or a style is left to a hand edit the remedy names; `graph.drift` names the command, and Archkeel's own graph was regenerated with it (AD-46) | `src/archkeel/check/validation.py`; `src/archkeel/cli/__init__.py`; `tests/test_cli.py::test_validate_write_graph_regenerates_only_the_marked_graph`; `tests/test_validation.py` |
 | `init` scans the top-level package `pyproject.toml`'s `[project] name` names when a test package sits beside it, and still exits 2 with `scope_empty` when no package or several match: a copy of `datamimic_ce` (`datamimic_ce/` beside `tests_ce/`) now drafts with exit 0 where it stopped with exit 2 (AD-47) | `src/archkeel/check/onboarding.py`; `tests/test_onboarding.py` |
 | An allowance may name its module exactly: `external_dependency_scope` and `forbidden_construct` take `exact_sources` beside the `allowed_sources` prefixes, so a package root is scoped on its own, Archkeel's own contract narrows four of its five prefix allowances, `rich_argparse` from the `archkeel.cli` package to its root module, and both rule kinds record every exemption they grant (AD-49) | `src/archkeel/analyzer/embedded/violations.py`; `src/archkeel/analyzer/embedded/contract.py`; `src/archkeel/ir/codec.py`; `schema/architecture-contract.schema.json`; `architecture-contract.json`; `tests/test_analyzer.py`; `tests/test_validation.py` |
 
@@ -120,8 +121,8 @@ only when its row names repository evidence.
   because well-resolved duplicate code was deleted; a ratio-only check would reject this
   improvement. `bbab17c` showed the opposite case for an absolute-only check.
 - Act on the open onboarding findings in `docs/evidence/internal-service/README.md`: assign a
-  package `__init__` exactly, regenerate the marked graph after a component cut, check
-  `requires-python` before scanning, and measure auto-mode agreement on a second repository.
+  package `__init__` exactly, check `requires-python` before scanning, and measure auto-mode
+  agreement on a second repository.
 - Split `ir/codec.py` along its contract, observation, delta, result and lock seams (AD-17).
 - Add `propose` and `next`.
 - Integrate Archkeel into DataMimic EE.

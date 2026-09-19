@@ -12,15 +12,25 @@ from test_architecture_demo import _prepare_repo
 from test_delta import _model, _record
 
 from archkeel.analyzer import observe
+from archkeel.check.onboarding import architecture_document
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import (
+    COMPONENT_GRAPH_MARKER,
+    graph_diagnostics,
     inside_diagnostics,
     interface_diagnostics,
     reference_diagnostics,
+    rewrite_component_graph,
     run_validate,
 )
 from archkeel.cli.config import load_config
-from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
+from archkeel.ir.codec import (
+    CONTRACT_SCHEMA_VERSION,
+    decode_canonical_model,
+    parse_contract,
+    parse_observation,
+)
+from archkeel.ir.model import ArchitectureContract
 from fixtures.architecture_demo import CATALOG
 
 ROOT = Path(__file__).parents[1]
@@ -69,7 +79,7 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
 
 
 def test_validate_accepts_archkeel_self_contract() -> None:
-    result = run_validate(ROOT, load_config(ROOT), observe)
+    result, _ = run_validate(ROOT, load_config(ROOT), observe)
     assert result.exit_code == 0
     assert result.observation_complete == result.declared_rules == "PASS"
     assert result.expectation_fulfilled == "n/a"
@@ -78,7 +88,7 @@ def test_validate_accepts_archkeel_self_contract() -> None:
 def test_validate_rejects_contract_1_1_with_exact_pointer(tmp_path: Path) -> None:
     (tmp_path / "contract.json").write_text('{"schema_version":"1.1.0","components":[],"rules":[]}')
     analyzer = Mock()
-    result = run_validate(tmp_path, CONFIG, analyzer)
+    result, _ = run_validate(tmp_path, CONFIG, analyzer)
     analyzer.assert_not_called()
     assert result.exit_code == 2
     assert result.diagnostics[0].pointer == "/schema_version"
@@ -90,7 +100,7 @@ def test_validate_rejects_contract_1_1_with_exact_pointer(tmp_path: Path) -> Non
 def test_validate_gives_every_contract_invalid_diagnostic_a_code(tmp_path: Path) -> None:
     broken = (ROOT / "tests/contracts/invalid/wrong-type.json").read_bytes()
     (tmp_path / "contract.json").write_bytes(broken)
-    result = run_validate(tmp_path, CONFIG, Mock())
+    result, _ = run_validate(tmp_path, CONFIG, Mock())
     assert result.diagnostics
     assert all(item.code == "contract.invalid" for item in result.diagnostics)
 
@@ -102,7 +112,7 @@ def test_validate_sorts_namespace_and_provenance_diagnostics(tmp_path: Path) -> 
     contract["components"] = contract["components"][:1]
     contract["rules"] = []
     (tmp_path / "contract.json").write_text(json.dumps(contract))
-    result = run_validate(tmp_path, CONFIG, Mock())
+    result, _ = run_validate(tmp_path, CONFIG, Mock())
     assert [item.pointer for item in result.diagnostics] == [
         "/components/0/packages/0",
         "/components/0/provenance/0",
@@ -316,7 +326,71 @@ def test_a_violated_inside_rule_points_at_the_component_that_declares_the_level(
     variant = next(item for item in CATALOG if item.id == "class-a-complete-requires-inside")
     root = _prepare_repo(tmp_path, dict(variant.files))
 
-    diagnostics = run_validate(root, SHOP_CONFIG, observe).diagnostics
+    diagnostics = run_validate(root, SHOP_CONFIG, observe)[0].diagnostics
 
     assert {item.pointer for item in diagnostics} == {"/components/1/inside"}
     assert {item.subject for item in diagnostics} == {"store:STORE-REQUIRES-COMPLETE"}
+
+
+def test_write_graph_writes_the_graph_init_writes() -> None:
+    """AD-46: one edge format for both writers, and a current graph is left alone."""
+    empty = ArchitectureContract(CONTRACT_SCHEMA_VERSION, (), ())
+    edges = frozenset({("cli", "app"), ("app", "model")})
+    drafted = architecture_document("shop", empty, frozenset({("cli", "model")}), ())
+    current = architecture_document("shop", empty, edges, ())
+
+    assert rewrite_component_graph((("shop.md", drafted),), edges) == ("shop.md", current)
+    assert rewrite_component_graph((("shop.md", current),), edges) is None
+    # A block without a diagram line gets the one `init` writes.
+    block = f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n```\n"
+    assert rewrite_component_graph((("shop.md", block),), edges) == (
+        "shop.md",
+        block.replace("```\n", "graph TD\n    app --> model\n    cli --> app\n```\n"),
+    )
+
+
+def test_write_graph_changes_nothing_without_exactly_one_marked_graph() -> None:
+    """AD-46: which graph to rewrite is ambiguous there, so `graph.count` is the answer."""
+    edges = frozenset({("cli", "app")})
+    page = f"# Shop\n\n{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
+    assert (
+        rewrite_component_graph((("a.md", "# Shop\n```mermaid\ngraph TD\n```\n"),), edges) is None
+    )
+    assert rewrite_component_graph((("a.md", page), ("b.md", page)), edges) is None
+    assert rewrite_component_graph((("a.md", page + page),), edges) is None
+
+
+def test_write_graph_adds_the_declaration_a_block_lacks() -> None:
+    """AD-46: a `%%` comment is kept, but it is no diagram declaration and cannot stand in."""
+    block = (
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n%% generated component graph\ncli --> core\n```\n"
+    )
+    assert rewrite_component_graph((("a.md", block),), frozenset({("cli", "core")})) == (
+        "a.md",
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n%% generated component graph\n"
+        "    cli --> core\n```\n",
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "structure"),
+    [
+        ("flowchart LR\n    subgraph core\n    cli --> core\n    end\n", "subgraph core"),
+        ("flowchart LR\n    cli -->|uses| core\n    core --> ir\n", "cli -->|uses| core"),
+        ("flowchart LR\n    cli --> core\n    classDef hot fill:#f96\n", "classDef hot fill:#f96"),
+    ],
+    ids=["subgraph", "labeled-edge", "style"],
+)
+def test_write_graph_leaves_a_block_it_cannot_read_to_the_architect(
+    body: str, structure: str
+) -> None:
+    """AD-46: only a declaration, `%%` comments and plain edges are known to survive a rewrite."""
+    documents = (("a.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
+    assert rewrite_component_graph(documents, frozenset({("core", "ir")})) is None
+
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    observation = parse_observation(_model(git_head="a" * 40))
+    (drift,) = graph_diagnostics(contract, observation, documents)
+    assert drift.code == "graph.drift"
+    assert f"`{structure}`" in drift.remedy
+    assert "by hand" in drift.remedy

@@ -79,7 +79,9 @@ Install the Archkeel skill for yourself, then onboard this repository:
    message text: `decision.open` needs an allow or forbid decision from me (back to step 4);
    `decision.conflict` or `closed_world.duplicate` means the pair has more than one decision,
    keep exactly one; `rationale.placeholder` or `rationale.repeated` needs the real reason in
-   my words.
+   my words. A `graph.drift` is no decision: after a component merge or rename, run
+   `uvx archkeel validate --write-graph`, which rewrites only the marked graph's edges, or edit
+   them by hand where the remedy says the graph holds structure the command does not rewrite.
 7. The interview ends when none of those five codes remain in `validate --json` — not when
    it exits 0. If it still exits 2 with `rule.violated` or `closed_world.observed_forbidden`,
    the code still uses an edge I just decided against: show it to me with `archkeel report`.
@@ -105,7 +107,7 @@ made without the architect.
 |---|---|---|
 | `archkeel.toml` | Scan roots, namespace, contract path. | Deterministic from detection. |
 | `architecture-contract.json` | Components, `complete_assignment`, `no_component_cycles` when acyclic, `interface_boundary` when any component has a `public` list. No `allowed_dependency` or `forbidden_dependency`: every component pair stays an open decision. Every drafted rule carries `decided_by: "agent"`. | Structure is deterministic; every rule `rationale`, every pair's allow/forbid decision, and who decided it, needs a human — either directly (interview mode) or by reviewing the agent's summary later (auto mode). |
-| `docs/architecture/architecture.md` | Component table with each component's modules and inner edges, and a marked Mermaid graph of observed edges. | Deterministic from the observation. |
+| `docs/architecture/architecture.md` | Component table with each component's modules and inner edges, and a marked Mermaid graph of observed edges. | Deterministic from the observation; after a contract edit, `validate --write-graph` rewrites the graph's edges and leaves the rest of the page alone, unless the block holds a `subgraph`, a labeled edge or a style, which it leaves to a hand edit. |
 
 `init` also proposes AD-9 `public` entries: a component with inbound cross-component imports
 gets a `pkg.module` entry when the target module declares `__all__` or other components use at
