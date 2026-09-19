@@ -115,8 +115,9 @@ complete scan, fixed source bytes and analyzer digest make the result determinis
 these remain blind spots. `from pkg import name` is matched as the module `pkg.name` whenever the
 scan holds that module, exactly like `import pkg.name`, and as the name `pkg:name` only otherwise.
 So when the scan holds `pkg.submodule`, `from pkg import submodule` passes a `pkg.submodule` entry,
-not a `pkg:submodule` entry. That also holds when `pkg/__init__.py` binds the same name, although
-Python then imports that attribute and not the module; this is a blind spot
+not a `pkg:submodule` entry. That also holds when the package already exposes an attribute with
+that name: Python may then bind the attribute instead of importing the submodule, and the result can
+depend on whether the submodule was imported before. Archkeel does not model that runtime state
 ([#23](https://github.com/rapiddweller/archkeel/issues/23)). `validate`
 reports such a name entry as `interface.unused` without pointing at the module entry that would
 admit the import; only the violation beside it names `pkg.submodule`. Importing `sample.core.impl`
