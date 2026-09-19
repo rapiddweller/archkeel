@@ -327,7 +327,7 @@ def test_an_inside_that_leaves_the_repository_is_not_recorded(tmp_path: Path) ->
             {
                 "kind": "forbidden_construct",
                 "source": "sample",
-                "constructs": ["string_dispatch"],
+                "constructs": ["string_literal_compare"],
                 "allowed_sources": ["sample.cli"],
             },
             {
@@ -378,6 +378,21 @@ _BROAD_EXCEPT = "try:\n    pass\nexcept Exception:\n    pass\n"
             },
             ("sample.load",),
         ),
+        (
+            {
+                "kind": "forbidden_construct",
+                "source": "sample",
+                "constructs": ["string_literal_compare"],
+                "allowed_sources": ["sample.cli"],
+                "exact_sources": ["sample"],
+            },
+            {
+                "__init__.py": 'mode = "a"\nray = mode == "ray"\n\n\n'
+                'def load(mode):\n    return mode == "ray"\n',
+                "cli.py": 'mode = "a"\nray = mode == "ray"\n',
+            },
+            ("sample.load",),
+        ),
     ],
 )
 def test_exact_sources_scope_the_package_root_and_nothing_below_it(
@@ -401,24 +416,33 @@ def test_exact_sources_scope_the_package_root_and_nothing_below_it(
 
 
 @pytest.mark.parametrize(
-    ("exemptions", "recorded"),
+    ("constructs", "exemptions", "recorded"),
     [
         (
+            ["broad_except"],
             {"allowed_sources": ["sample.core", "sample.cli"], "exact_sources": ["sample"]},
             {"allowed_sources": ("sample.cli", "sample.core"), "exact_sources": ("sample",)},
         ),
-        ({}, {"allowed_sources": ()}),
+        (["broad_except"], {}, {"allowed_sources": ()}),
+        (
+            ["setattr", "delattr", "vars", "dunder_dict", "string_literal_compare"],
+            {"allowed_sources": ["sample.cli"], "exact_sources": ["sample"]},
+            {"allowed_sources": ("sample.cli",), "exact_sources": ("sample",)},
+        ),
     ],
 )
 def test_forbidden_construct_declaration_records_every_exemption(
-    tmp_path: Path, exemptions: dict[str, list[str]], recorded: dict[str, tuple[str, ...]]
+    tmp_path: Path,
+    constructs: list[str],
+    exemptions: dict[str, list[str]],
+    recorded: dict[str, tuple[str, ...]],
 ) -> None:
     """AD-49: the report shows every exemption a construct rule grants, prefix and exact.
 
     `exact_sources` is recorded only when the contract writes it, the way
     `external_dependency_scope` records it.
     """
-    rule = {"kind": "forbidden_construct", "source": "sample", "constructs": ["broad_except"]}
+    rule = {"kind": "forbidden_construct", "source": "sample", "constructs": constructs}
     result = _observe_one_rule(tmp_path, rule | exemptions, {"core.py": "V = 1\n"})
     assert result.observation is not None
     declared = {
@@ -430,6 +454,7 @@ def test_forbidden_construct_declaration_records_every_exemption(
         if key in {"allowed_sources", "exact_sources"}
     }
     assert exemption_fields == recorded
+    assert dict(declared["RULE"].entries)["constructs"] == tuple(constructs)
 
 
 def _observe_one_rule(
@@ -957,7 +982,7 @@ def test_collect_constructs_detects_reflection_as_written(
         ),
     ],
 )
-def test_collect_constructs_detects_string_dispatch_and_its_exclusions(
+def test_collect_constructs_detects_string_literal_compare_and_its_exclusions(
     source: str, expected: list[tuple[str, str]]
 ) -> None:
     """AD-48: one record per comparison or match statement, with the form it takes."""
@@ -965,7 +990,7 @@ def test_collect_constructs_detects_string_dispatch_and_its_exclusions(
     found = [
         (item["data"]["owner"], item["data"]["form"])
         for item in records
-        if item["kind"] == "string_dispatch"
+        if item["kind"] == "string_literal_compare"
     ]
     assert sorted(found) == sorted(expected)
     assert len({item["id"] for item in records}) == len(records)

@@ -95,7 +95,7 @@
         "kind": {"const": "forbidden_construct"},
         "source": {"$ref": "#/$defs/nonEmpty"},
         "constructs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {
-          "enum": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "any_annotation", "placeholder_body", "assert", "broad_except", "setattr", "delattr", "vars", "dunder_dict", "string_dispatch"]
+          "enum": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "any_annotation", "placeholder_body", "assert", "broad_except", "setattr", "delattr", "vars", "dunder_dict", "string_literal_compare"]
         }},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},

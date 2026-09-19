@@ -35,10 +35,11 @@ at runtime.
 - Only import records cross boundaries: `import pkg` followed by `pkg._member` is not a private
   crossing.
 - `forbidden_construct` matches names as written; aliases and shadowed names are blind spots (AD-8).
-- `string_dispatch` is syntactic: it cannot tell a closed vocabulary from an open value, and it
-  does not see a named constant set (`x in NAMES`), a dict-literal membership test,
-  `str.startswith` or a dict used as a dispatch table. `object.__setattr__(...)` is not
-  `setattr` (AD-48).
+- `string_literal_compare` is syntactic: it cannot tell a closed vocabulary from an open value,
+  so a Python dunder, a driver string, a trust-boundary parser and a value already typed as a
+  `Literal` are reported like any other; it does not see a named constant set (`x in NAMES`), a
+  dict-literal membership test, `str.startswith` or a dict used as a dispatch table.
+  `object.__setattr__(...)` is not `setattr` (AD-48).
 - Imports under `TYPE_CHECKING` are graph edges for cycle detection even when a rule sets
   `include_type_checking` to false; the flag only affects rule violations.
 

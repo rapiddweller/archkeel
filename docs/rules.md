@@ -45,20 +45,22 @@ owner is the qualified scope a construct is written in, a module, class or funct
 `exact_sources` entry only the scope it names (AD-49). Supported constructs are `getattr`,
 `hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `any_annotation`,
 `placeholder_body`, `assert`, `broad_except`, `setattr`, `delattr`, `vars`, `dunder_dict` and
-`string_dispatch`. `placeholder_body` covers a function body that is
+`string_literal_compare`. `placeholder_body` covers a function body that is
 only `pass`, `...` or a lone `raise NotImplementedError`, and exempts a method carrying
 `@abstractmethod` or `@overload` and a method of a class that has a base, where emptiness is the
 interface rather than a missing implementation (AD-29). `setattr`, `delattr` and `vars` are calls
 written bare or as `builtins.<name>`, and `dunder_dict` is any `x.__dict__` access.
-`string_dispatch` is a comparison where `==` or `!=` has a `str` literal on one side, an `in` or
-`not in` test against a non-empty tuple, list or set literal of `str` literals only, or a `match`
-statement with a `str` literal value pattern in any case; it counts once per comparison and once
-per `match` statement, and `if __name__ == "__main__":` is not counted (AD-48). It matches
+`string_literal_compare` is a comparison where `==` or `!=` has a `str` literal on one side, an
+`in` or `not in` test against a non-empty tuple, list or set literal of `str` literals only, or a
+`match` statement with a `str` literal value pattern in any case, wherever it stands; it counts
+once per comparison and once per `match` statement, and `if __name__ == "__main__":` is not
+counted. It is syntactic, so whether a compared value is a closed vocabulary is decided by
+`source` and `allowed_sources` (AD-48). It matches
 typing-signal records from direct AST calls, type-ignore comments and
 `Any` in a parameter, return or variable annotation, and construct records from `assert` statements,
 `except` handlers with no type or with `Exception` or `BaseException`, alone, in a tuple or as
 `builtins.Exception` (`except Exception: raise` counts), empty bodies, and the reflection and
-string-dispatch forms above. One record is one violation, so an
+string-literal forms above. One record is one violation, so an
 annotation repeated across a serialisation boundary reports once per position. Fixed source bytes,
 analyzer digest and Python version make the result deterministic. Aliasing first, such as
 `f = getattr; f(value, name)` or `E = Exception; except E:`, is not resolved and remains a blind

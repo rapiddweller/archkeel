@@ -35,9 +35,9 @@
       "id": "CONSTRUCT-SCOPED-REFLECTION",
       "kind": "forbidden_construct",
       "source": "sample",
-      "constructs": ["setattr", "delattr", "vars", "dunder_dict", "string_dispatch"],
+      "constructs": ["setattr", "delattr", "vars", "dunder_dict", "string_literal_compare"],
       "allowed_sources": ["sample.cli"],
-      "rationale": "Attributes are written through declared fields and closed vocabularies are enums; only the CLI handles user strings.",
+      "rationale": "Attributes are written through declared fields and string literals are compared only where the CLI handles user strings.",
       "provenance": ["docs/architecture/sample.md"],
       "decided_by": "architect"
     }
