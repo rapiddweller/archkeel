@@ -234,6 +234,9 @@ conflicts and gaps, or auto mode, where the agent decides. Every rule records `d
 reports count the decisions the architect has not reviewed yet. The prompt is in
 [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
 rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+When a later contract edit merges or renames components, `archkeel validate --write-graph`
+rewrites the edges of the page's marked component graph and leaves the rest of the page alone;
+a graph with a `subgraph`, a labeled edge or a style is left for you to edit by hand.
 
 To install it permanently instead, run `pip install archkeel`. Every command explains itself
 with `archkeel <command> --help`.

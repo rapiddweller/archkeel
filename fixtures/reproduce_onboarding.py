@@ -98,7 +98,7 @@ def _refuses_the_draft(root: Path) -> Step:
     (drafted / "docs/architecture/architecture.md").write_bytes(
         files["docs/architecture/architecture.md"]
     )
-    result = run_validate(drafted, SHOP, observe)
+    result, _ = run_validate(drafted, SHOP, observe)
     open_decisions = [item for item in result.diagnostics if item.code == "decision.open"]
     return Step(
         "Archkeel refuses the draft",
@@ -116,7 +116,7 @@ def _architect_decides(root: Path) -> Step:
     """The committed contract, replayed: what the architect answered to those 20 questions."""
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_bytes())
     kinds = [rule["kind"] for rule in contract["rules"]]
-    result = run_validate(root, SHOP, observe)
+    result, _ = run_validate(root, SHOP, observe)
     return Step(
         "The architect decides every pair",
         "archkeel validate",

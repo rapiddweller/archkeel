@@ -7,8 +7,11 @@ import sys
 from pathlib import Path
 
 import pytest
+from test_architecture_demo import _prepare_repo
 
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
 from archkeel.cli import main
+from fixtures.demo_catalog_support import FIXTURE_DIR
 
 ROOT = Path(__file__).parents[1]
 
@@ -85,6 +88,39 @@ def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> 
     assert explicit == default
     result = json.loads(explicit)
     assert result["observation_complete"] == result["declared_rules"] == "PASS"
+
+
+def test_validate_write_graph_regenerates_only_the_marked_graph(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-46: a contract edit leaves the marked graph stale, and one flag rewrites that block."""
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    render = next(item for item in contract["components"] if item["label"] == "render")
+    render["label"] = "view"
+    root = _prepare_repo(tmp_path, {"architecture-contract.json": json.dumps(contract)})
+    page = root / "docs/architecture/shop.md"
+    before = page.read_text()
+
+    assert main(["validate", "--root", str(root), "--json"]) == 2
+    (drift,) = json.loads(capsys.readouterr().out)["diagnostics"]
+    assert drift["code"] == "graph.drift"
+    assert "archkeel validate --write-graph" in drift["remedy"]
+
+    assert main(["validate", "--root", str(root), "--write-graph", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["diagnostics"] == []
+    assert result["artifact"] == "docs/architecture/shop.md"
+    head, _, graph = page.read_text().partition(COMPONENT_GRAPH_MARKER)
+    assert head == before.partition(COMPONENT_GRAPH_MARKER)[0]
+    # The page's own `flowchart LR` stays; the edges are sorted the way `init` writes them.
+    assert graph == (
+        "\n```mermaid\nflowchart LR\n"
+        "    app --> model\n    app --> store\n    cli --> app\n"
+        "    cli --> view\n    store --> model\n    view --> model\n```\n"
+    )
+
+    assert main(["validate", "--root", str(root), "--write-graph", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["artifact"] is None
 
 
 def test_validate_configuration_error_has_pointer(

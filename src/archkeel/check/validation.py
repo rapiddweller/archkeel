@@ -55,6 +55,9 @@ _REPEATED_REQUIRES = re.compile(
 )
 _PLACEHOLDER_RATIONALE = re.compile(r"(?:todo|tbd|placeholder)(?:\b|:)", re.IGNORECASE)
 _GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
+_MERMAID_FENCE = "```mermaid\n"
+_GRAPH_DECLARATION = re.compile(r"\s*(?:graph|flowchart)\b.*")
+_GRAPH_COMMENT = re.compile(r"\s*%%.*")
 
 
 def _diagnostic(
@@ -290,28 +293,87 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
     return tuple(diagnostics)
 
 
+def _marked_bodies(content: str) -> list[tuple[int, int]]:
+    """Start and end of each Mermaid body that follows a graph marker, before the next one."""
+    spans: list[tuple[int, int]] = []
+    marker = content.find(COMPONENT_GRAPH_MARKER)
+    while marker != -1:
+        following = content.find(COMPONENT_GRAPH_MARKER, marker + len(COMPONENT_GRAPH_MARKER))
+        limit = len(content) if following == -1 else following
+        fence = content.find(_MERMAID_FENCE, marker, limit)
+        if fence != -1:
+            start = fence + len(_MERMAID_FENCE)
+            end = content.find("```", start, limit)
+            spans.append((start, limit if end == -1 else end))
+        marker = following
+    return spans
+
+
+def _unwritable_line(body: str) -> str | None:
+    """The first line of a marked block that is not a declaration, a `%%` comment or an edge.
+
+    AD-46: a subgraph, a labeled edge or a style can depend on where an edge sits, so a rewrite
+    that reorders the edges could change what the graph says; such a block is left to a human.
+    """
+    return next(
+        (
+            line.strip()
+            for line in body.splitlines()
+            if line.strip()
+            and not _GRAPH_EDGE.fullmatch(line)
+            and not _GRAPH_DECLARATION.fullmatch(line)
+            and not _GRAPH_COMMENT.fullmatch(line)
+        ),
+        None,
+    )
+
+
+def mermaid_edges(edges: frozenset[tuple[str, str]]) -> str:
+    """One sorted Mermaid line per component edge: what `init` and `--write-graph` write."""
+    return "".join(f"    {source} --> {target}\n" for source, target in sorted(edges))
+
+
+def rewrite_component_graph(
+    documents: tuple[tuple[str, str], ...], edges: frozenset[tuple[str, str]]
+) -> tuple[str, str] | None:
+    """The one marked graph's document with its edges replaced, or None if nothing is written.
+
+    AD-46: the declaration and `%%` comments stay, so a page's own `flowchart LR` survives, and a
+    block without a declaration gets `init`'s. Without exactly one marked graph there is no block
+    to choose, and `graph.count` says so; a block with any other line is not rewritten at all.
+    """
+    blocks = [
+        (path, content, span) for path, content in documents for span in _marked_bodies(content)
+    ]
+    if len(blocks) != 1:
+        return None
+    path, content, (start, end) = blocks[0]
+    body = content[start:end]
+    if _unwritable_line(body) is not None:
+        return None
+    kept = [line for line in body.splitlines() if line.strip() and not _GRAPH_EDGE.fullmatch(line)]
+    if not any(_GRAPH_DECLARATION.fullmatch(line) for line in kept):
+        kept.insert(0, "graph TD")
+    written = (
+        content[:start]
+        + "".join(f"{line}\n" for line in kept)
+        + mermaid_edges(edges)
+        + content[end:]
+    )
+    return None if written == content else (path, written)
+
+
 def graph_diagnostics(
     contract: ArchitectureContract,
     observation: Observation,
     documents: tuple[tuple[str, str], ...],
 ) -> tuple[Diagnostic, ...]:
     """Require exactly one marked Mermaid graph matching observed component edges."""
-    graphs: list[tuple[str, frozenset[tuple[str, str]]]] = []
-    for path, content in documents:
-        for fragment in content.split(COMPONENT_GRAPH_MARKER)[1:]:
-            if "```mermaid\n" not in fragment:
-                continue
-            mermaid = fragment.split("```mermaid\n", 1)[1].split("```", 1)[0]
-            graphs.append(
-                (
-                    path,
-                    frozenset(
-                        (match.group(1), match.group(2))
-                        for line in mermaid.splitlines()
-                        if (match := _GRAPH_EDGE.fullmatch(line))
-                    ),
-                )
-            )
+    graphs = [
+        (path, content[start:end])
+        for path, content in documents
+        for start, end in _marked_bodies(content)
+    ]
     if len(graphs) != 1:
         return (
             _diagnostic(
@@ -322,12 +384,18 @@ def graph_diagnostics(
                 "Keep one graph after the archkeel-component-graph marker in contract provenance.",
             ),
         )
-    path, declared = graphs[0]
+    path, body = graphs[0]
+    declared = frozenset(
+        (match.group(1), match.group(2))
+        for line in body.splitlines()
+        if (match := _GRAPH_EDGE.fullmatch(line))
+    )
     observed = observed_component_edges(contract, observation)
     if declared == observed:
         return ()
     missing = ", ".join(f"{a}->{b}" for a, b in sorted(observed - declared)) or "none"
     extra = ", ".join(f"{a}->{b}" for a, b in sorted(declared - observed)) or "none"
+    unwritable = _unwritable_line(body)
     return (
         _diagnostic(
             "graph.drift",
@@ -335,7 +403,11 @@ def graph_diagnostics(
             path,
             "The marked component graph differs from observed imports; "
             f"missing: {missing}; extra: {extra}.",
-            "Regenerate the marked Mermaid graph from the observed component edges.",
+            "Run archkeel validate --write-graph to regenerate the marked Mermaid graph "
+            "from the observed component edges."
+            if unwritable is None
+            else f"Edit the marked graph's edges by hand: it holds `{unwritable}`, structure "
+            "archkeel validate --write-graph does not rewrite.",
         ),
     )
 
@@ -737,55 +809,35 @@ def _repository_diagnostics(
     config: ScanConfig,
     contract: ArchitectureContract,
     observation: Observation,
-) -> list[Diagnostic]:
-    """Every diagnostic a complete observation adds, once the contract's references hold."""
+    write_graph: bool,
+) -> tuple[list[Diagnostic], tuple[str, str] | None]:
+    """Every diagnostic a complete observation adds, once the contract's references hold.
+
+    AD-46: `write_graph` rewrites the marked graph first, so the diagnostics judge the page as
+    it will be written, and that page comes back with its path.
+    """
+    # The page is written back as UTF-8, so it is read as UTF-8 whatever the locale says.
     documents = tuple(
-        (path, (root / path).read_text()) for path in contract_provenance_paths(contract)
+        (path, (root / path).read_text(encoding="utf-8"))
+        for path in contract_provenance_paths(contract)
     )
+    graph = (
+        rewrite_component_graph(documents, observed_component_edges(contract, observation))
+        if write_graph
+        else None
+    )
+    if graph is not None:
+        page, written = graph
+        documents = tuple((path, written if path == page else text) for path, text in documents)
     return [
         *reference_diagnostics(root, config, contract, observation),
         *observation_diagnostics(contract, observation, documents),
         *inside_diagnostics(root, contract),
-    ]
+    ], graph
 
 
-def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResult:
-    """Validate contract structure, repository references and observed architecture."""
-    contract_path = root / config.contract
-    try:
-        contract = parse_contract(decode_json(contract_path.read_bytes()))
-    except ContractVersionError as error:
-        return RunResult(
-            "validate",
-            2,
-            diagnostics=(
-                _diagnostic(
-                    "contract.schema_version",
-                    "/schema_version",
-                    config.contract,
-                    f"Contract schema {error.actual} cannot be validated as "
-                    f"{CONTRACT_SCHEMA_VERSION}.",
-                    "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
-                ),
-            ),
-        )
-    except (OSError, ValueError) as error:
-        return invalid_result(config.contract, error)
-    references = reference_diagnostics(root, config, contract)
-    if references:
-        return RunResult("validate", 2, diagnostics=references)
-    observed = observe_repository(root, config, analyzer)
-    observation = observed.observation
-    if observed.diagnostics or observation is None:
-        return RunResult(
-            "validate",
-            2,
-            diagnostics=tuple(
-                replace(item, pointer=item.pointer or "") for item in observed.diagnostics
-            ),
-            coverage=observed.coverage,
-        )
-    diagnostics = _repository_diagnostics(root, config, contract, observation)
+def _observed_result(observation: Observation, diagnostics: list[Diagnostic]) -> RunResult:
+    """The validate result once a complete observation has produced its diagnostics."""
     try:
         measurements, declared = inspect_observation(observation)
     except ValueError as error:
@@ -825,3 +877,53 @@ def run_validate(root: Path, config: ScanConfig, analyzer: Analyzer) -> RunResul
         agent_decisions=counts,
         claims=review_claims(observation),
     )
+
+
+def run_validate(
+    root: Path, config: ScanConfig, analyzer: Analyzer, *, write_graph: bool = False
+) -> tuple[RunResult, dict[str, bytes]]:
+    """Validate contract structure, repository references and observed architecture.
+
+    AD-46: with `write_graph`, the rewritten graph page comes back for the caller to write,
+    the way `run_init` returns its files.
+    """
+    contract_path = root / config.contract
+    try:
+        contract = parse_contract(decode_json(contract_path.read_bytes()))
+    except ContractVersionError as error:
+        return RunResult(
+            "validate",
+            2,
+            diagnostics=(
+                _diagnostic(
+                    "contract.schema_version",
+                    "/schema_version",
+                    config.contract,
+                    f"Contract schema {error.actual} cannot be validated as "
+                    f"{CONTRACT_SCHEMA_VERSION}.",
+                    "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
+                ),
+            ),
+        ), {}
+    except (OSError, ValueError) as error:
+        return invalid_result(config.contract, error), {}
+    references = reference_diagnostics(root, config, contract)
+    if references:
+        return RunResult("validate", 2, diagnostics=references), {}
+    observed = observe_repository(root, config, analyzer)
+    observation = observed.observation
+    if observed.diagnostics or observation is None:
+        return RunResult(
+            "validate",
+            2,
+            diagnostics=tuple(
+                replace(item, pointer=item.pointer or "") for item in observed.diagnostics
+            ),
+            coverage=observed.coverage,
+        ), {}
+    diagnostics, graph = _repository_diagnostics(root, config, contract, observation, write_graph)
+    result = _observed_result(observation, diagnostics)
+    if graph is None:
+        return result, {}
+    page, written = graph
+    return replace(result, artifact=page), {page: written.encode()}
