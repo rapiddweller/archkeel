@@ -24,9 +24,8 @@ typecheck:
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
 
-# CI observes on 3.11.12 (.github/workflows/ci.yml); the saved run must record the same version.
 self-observation:
-	$(UV) run --locked --python 3.11.12 python -m fixtures.reproduce_self
+	$(UV) run --locked python -m fixtures.reproduce_self
 
 demo:
 	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary

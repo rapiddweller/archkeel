@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from dataclasses import dataclass, replace
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from archkeel.check.validation import (
     rationale_diagnostics,
 )
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
+from archkeel.ir.digest import package_digest
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -28,7 +30,6 @@ from archkeel.ir.model import (
     in_scope,
 )
 from archkeel.ir.structure import oversized_insides
-from fixtures.reproduce_self import provenance as saved_provenance
 
 # AD-4: the analyzer's public IR API is exactly these two modules.
 ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec"})
@@ -118,7 +119,18 @@ def test_self_report_is_complete_and_matches_saved_evidence(self_observation: Ob
     assert observed.contract.digest == saved.contract.digest, STALE
     assert observed.analyzer.code_digest == saved.analyzer.code_digest, STALE
     assert coverage == saved.coverage, STALE
-    assert provenance == saved_provenance(saved, artifact), STALE
+    # Spelled out, not imported from fixtures/reproduce_self.py: one bug there must not
+    # produce both the saved value and the value this test expects.
+    assert provenance == {
+        "analyzer_digest": saved.analyzer.code_digest,
+        "checker_digest": package_digest(),
+        "source_digest": saved.source.source_digest,
+        "contract_digest": saved.contract.digest,
+        "artifact_digest": sha256(artifact).hexdigest(),
+        "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
+        "exit_code": 0,
+        "python_version": saved.python_version,
+    }, STALE
 
 
 def test_self_contract_covers_modules_and_analyzer_interface(
