@@ -68,7 +68,8 @@ packages = ["src/archkeel"]
 only-include = [
     "src", "schema", "tests", "Makefile", "uv.lock",
     "fixtures/A-dispatch", "fixtures/B-posthoc", "fixtures/C-valid",
-    "fixtures/reproduce_milestone1.py", "fixtures/E-runtime", "fixtures/D-self",
+    "fixtures/reproduce_milestone1.py", "fixtures/reproduce_self.py", "fixtures/E-runtime",
+    "fixtures/D-self",
     "archkeel.toml", "architecture-contract.json", "docs/architecture",
     "docs/reference.md", "docs/roadmap.md", "docs/report-visual-system.md", "README.md",
     "docs/assets/archkeel-hero.png", "docs/assets/archkeel-report-preview.png",
