@@ -423,7 +423,8 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
 - **No dynamic shortcuts.** `getattr`, `hasattr`, `cast`, `eval`, `exec`, dynamic imports and
   `type: ignore` are forbidden everywhere.
 - **Confined dependencies.** `packaging` only in the analyzer runtime gate, `rich` only in the
-  terminal view, `rich_argparse` only in the CLI.
+  terminal view, `rich_argparse` only in the CLI's root module: each names its one module
+  exactly, never as a prefix of the modules below it.
 - **Complete and acyclic.** Every module belongs to exactly one component, and components form
   no cycle.
 - **A second level where one was owed.** `check` holds 13 modules and 23 imports between them,

@@ -100,7 +100,8 @@
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"},
-        "allowed_sources": {"$ref": "#/$defs/strings"}
+        "allowed_sources": {"$ref": "#/$defs/strings"},
+        "exact_sources": {"$ref": "#/$defs/strings"}
       }
     },
     "completeRequires": {
@@ -131,13 +132,18 @@
     },
     "externalDependencyScope": {
       "type": "object",
-      "required": ["id", "kind", "dependency", "allowed_sources", "rationale", "provenance", "decided_by"],
+      "required": ["id", "kind", "dependency", "rationale", "provenance", "decided_by"],
+      "anyOf": [
+        {"required": ["allowed_sources"], "properties": {"allowed_sources": {"minItems": 1}}},
+        {"required": ["exact_sources"], "properties": {"exact_sources": {"minItems": 1}}}
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {"$ref": "#/$defs/nonEmpty"},
         "kind": {"const": "external_dependency_scope"},
         "dependency": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
-        "allowed_sources": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "allowed_sources": {"$ref": "#/$defs/strings"},
+        "exact_sources": {"$ref": "#/$defs/strings"},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"}
