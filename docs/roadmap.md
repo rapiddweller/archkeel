@@ -72,6 +72,7 @@ only when its row names repository evidence.
 | The five per-counter `coverage` counters stopped being declarable `semantic_changes`, and `from __future__ import annotations` stopped counting as an `api_crossings` entry: adding `src/archkeel/ir/labels.py` now declares 1 entry instead of 7 (AD-43) | `src/archkeel/check/delta.py`; `src/archkeel/check/python_profile.py`; `tests/test_delta.py::test_one_module_with_one_intra_component_import_is_one_semantic_change` |
 | `dependency_edges` joined the fixed guardrail dimensions: an `added` entry a non-empty declaration never named is a guardrail failure, named by dimension, kind and fingerprint, closing the AD-39 Limit (AD-44) | `src/archkeel/check/expectation.py`; `tests/test_expectation.py`; `fixtures/demo_catalog_check.py`; `fixtures/demo_catalog_check_regressions.py` |
 | `analyzer` declares an inside too, not only `check`: `orchestration`, `collectors` and `foundation`, the ten collectors matching `COLLECTORS-ISOLATED` unchanged, both levels passing with zero violations on the current source (AD-45) | `src/archkeel/analyzer/architecture-contract.json`; `architecture-contract.json`; `tests/test_self.py` |
+| `init` scans the top-level package `pyproject.toml`'s `[project] name` names when a test package sits beside it, and still exits 2 with `scope_empty` when no package or several match: a copy of `datamimic_ce` (`datamimic_ce/` beside `tests_ce/`) now drafts with exit 0 where it stopped with exit 2 (AD-47) | `src/archkeel/check/onboarding.py`; `tests/test_onboarding.py` |
 
 ## Next
 
