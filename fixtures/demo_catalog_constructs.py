@@ -98,6 +98,51 @@ _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
         "    except Exception:\n"
         "        return 0\n"
     ),
+    ForbiddenConstructKind.SETATTR: HEADER
+    + (
+        '"""Setattr probe for the architecture demo."""\n\n'
+        "from __future__ import annotations\n\n\n"
+        "class _Box:\n"
+        "    value = 1\n\n\n"
+        "def write_value() -> None:\n"
+        '    setattr(_Box(), "value", 2)\n'
+    ),
+    ForbiddenConstructKind.DELATTR: HEADER
+    + (
+        '"""Delattr probe for the architecture demo."""\n\n'
+        "from __future__ import annotations\n\n\n"
+        "class _Box:\n"
+        "    value = 1\n\n\n"
+        "def drop_value() -> None:\n"
+        '    delattr(_Box, "value")\n'
+    ),
+    ForbiddenConstructKind.VARS: HEADER
+    + (
+        '"""Vars probe for the architecture demo."""\n\n'
+        "from __future__ import annotations\n\n\n"
+        "class _Box:\n"
+        "    value = 1\n\n\n"
+        "def fields() -> dict[str, object]:\n"
+        "    return vars(_Box())\n"
+    ),
+    ForbiddenConstructKind.DUNDER_DICT: HEADER
+    + (
+        '"""Dunder-dict probe for the architecture demo."""\n\n'
+        "from __future__ import annotations\n\n\n"
+        "class _Box:\n"
+        "    value = 1\n\n\n"
+        "def fields() -> dict[str, object]:\n"
+        "    return _Box().__dict__\n"
+    ),
+    ForbiddenConstructKind.STRING_LITERAL_COMPARE: HEADER
+    + (
+        '"""String-literal-compare probe for the architecture demo."""\n\n'
+        "from __future__ import annotations\n\n\n"
+        "def shipping_cents(method: str) -> int:\n"
+        '    if method == "express":\n'
+        "        return 900\n"
+        "    return 300\n"
+    ),
 }
 _CONSTRUCT_RULE: dict[ForbiddenConstructKind, str] = {
     kind: (
@@ -109,6 +154,8 @@ _CONSTRUCT_RULE: dict[ForbiddenConstructKind, str] = {
         if kind is ForbiddenConstructKind.ANY_ANNOTATION
         else "CONSTRUCT-NO-PLACEHOLDER"
         if kind is ForbiddenConstructKind.PLACEHOLDER_BODY
+        else "CONSTRUCT-NO-STRING-LITERAL-COMPARE"
+        if kind is ForbiddenConstructKind.STRING_LITERAL_COMPARE
         else "CONSTRUCT-NO-DYNAMIC"
     )
     for kind in ForbiddenConstructKind
