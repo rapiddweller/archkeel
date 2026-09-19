@@ -54,7 +54,7 @@ _REPEATED_REQUIRES = re.compile(
     r"(?:The )?\S+ (?:depends on|requires|uses|needs) \S+\.", re.IGNORECASE
 )
 _PLACEHOLDER_RATIONALE = re.compile(r"(?:todo|tbd|placeholder)(?:\b|:)", re.IGNORECASE)
-_GRAPH_EDGE = re.compile(r"\s*([a-z][a-z0-9_]*)\s*-->\s*([a-z][a-z0-9_]*)\s*")
+_GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
 
 
 def _diagnostic(

@@ -118,6 +118,24 @@ def test_init_drafts_component_sizes_and_names_the_largest(
     assert sizes["analyzer"]["modules"] > sizes["cli"]["modules"]
 
 
+def test_init_graph_with_private_component_validates_without_graph_drift(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+    private_package = root / "src/archkeel/_compat"
+    private_package.mkdir()
+    (private_package / "__init__.py").write_text("from . import helper\n")
+    (private_package / "helper.py").write_text("VALUE = 1\n")
+    (root / "src/archkeel/uses_compat.py").write_text(
+        "from ._compat import helper\n\nVALUE = helper.VALUE\n"
+    )
+
+    _init(root, capsys)
+    main(["validate", "--root", str(root), "--json"])
+    result = json.loads(capsys.readouterr().out)
+    assert "graph.drift" not in {item["code"] for item in result["diagnostics"]}
+
+
 def test_init_opens_no_second_level(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     """AD-20: a level is opened by an architect deciding to, never by init drafting one."""
     root = _repository(tmp_path)
