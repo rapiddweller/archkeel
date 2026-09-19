@@ -11,7 +11,7 @@ and `unresolved_ratio` regression checks, never a rule.
 
 | Repository | Unresolved | Partially resolved | Analyzed |
 |---|---:|---:|---:|
-| Archkeel (`fixtures/D-self`) | 382 (9.3%) | 449 | 4,120 |
+| Archkeel (`fixtures/D-self`) | 389 (9.4%) | 455 | 4,154 |
 | Internal 13-component service (`docs/evidence/internal-service/`) | 998 (23.1%) | 380 | 4,318 |
 
 The resolver follows indexed names, import aliases, builtins and simple attribute chains. Since
