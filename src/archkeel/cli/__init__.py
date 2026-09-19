@@ -120,10 +120,12 @@ def build_parser() -> _Parser:
             "Checks the contract structure, package and provenance references, that every\n"
             "component pair is decided by one allowed_dependency or forbidden_dependency\n"
             "rule, rule rationales and the marked component graph. Run it after every\n"
-            "contract edit.\n\n"
+            "contract edit; --write-graph first rewrites that graph's edges from the\n"
+            "contract and the observed imports, leaving the rest of the page untouched.\n\n"
             "Examples:\n"
             "  archkeel validate\n"
-            "  archkeel validate --json\n\n"
+            "  archkeel validate --json\n"
+            "  archkeel validate --write-graph\n\n"
             "Exit codes:\n"
             "  0  the contract is valid for this repository\n"
             "  2  invalid: each diagnostic names the JSON Pointer to fix\n\n"
@@ -131,6 +133,12 @@ def build_parser() -> _Parser:
         ),
     )
     _observing(validate, None)
+    validate.add_argument(
+        "--write-graph",
+        action="store_true",
+        help="Rewrite the edges of the marked component graph from the observed imports, "
+        "then validate.",
+    )
 
     check = commands.add_parser(
         "check",
@@ -227,6 +235,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     subject = "command-line arguments"
     interactive = sys.stdout.isatty()
     artifacts: list[Path] = []
+    files: dict[str, bytes] = {}
     try:
         args = parser.parse_args(argv)
         if args.command is None:
@@ -254,11 +263,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     force=args.force,
                     analyzer=observe,
                 )
-                for relative, payload in files.items():
-                    target = root / relative
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(payload)
-                    artifacts.append(target)
             elif command == "report":
                 config = load_config(root)
                 subject = str(root)
@@ -288,7 +292,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     artifacts.extend((artifact, report_html))
             elif command == "validate":
                 config = load_config(root)
-                result = run_validate(root, config, observe)
+                result, files = run_validate(root, config, observe, write_graph=args.write_graph)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
@@ -319,6 +323,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         )
                     )
                     artifacts.extend((args.output, check_html))
+            for relative, payload in files.items():
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(payload)
+                artifacts.append(target)
     # The CLI contract is a JSON result with exit 2, never a bare traceback, for any failure.
     except Exception as error:
         result = (
