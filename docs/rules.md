@@ -111,10 +111,12 @@ reports a violation unless the imported name, directly or through its re-export 
 a declared name; underscore names never qualify. An import a `forbidden_dependency` rule already
 rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). A
 complete scan, fixed source bytes and analyzer digest make the result deterministic. An empty
-`__all__` reads the same as no `__all__` at all,
-aliasing during a re-export is not resolved, and `from pkg import submodule` is matched as the
-name `pkg:submodule` rather than the module `pkg.submodule`; these remain blind spots.
-Importing `sample.core.impl`
+`__all__` reads the same as no `__all__` at all, and aliasing during a re-export is not resolved;
+these remain blind spots. `from pkg import name` is matched as the module `pkg.name` whenever the
+scan holds that module, exactly like `import pkg.name`, and as the name `pkg:name` only otherwise,
+so a submodule import passes a `pkg.submodule` entry and never a `pkg:submodule` entry. `validate`
+reports such a name entry as `interface.unused` without pointing at the module entry that would
+admit the import; only the violation beside it names `pkg.submodule`. Importing `sample.core.impl`
 directly from `sample.cli` when `core` declares only `sample.core` as public is an example
 violation.
 

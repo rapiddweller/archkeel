@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
 from test_analyzer import _component
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
@@ -251,6 +252,31 @@ def test_public_entry_used_through_a_reexport_chain_has_no_diagnostic() -> None:
         )
     )
     assert interface_diagnostics(contract, observation) == ()
+
+
+@pytest.mark.parametrize(
+    ("public", "pointers"),
+    [("sample.core.impl", []), ("sample.core:impl", ["/components/0/public/0"])],
+)
+def test_a_submodule_import_uses_the_module_entry_and_never_the_name_entry(
+    public: str, pointers: list[str]
+) -> None:
+    """`from sample.core import impl` records the module `sample.core.impl` and no symbol."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core", public=[public]), _component("cli")],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            imports=[_cross_import("sample.core.impl", symbol=None, reexport_chain=[])],
+        )
+    )
+    diagnostics = interface_diagnostics(contract, observation)
+    assert [item.pointer for item in diagnostics] == pointers
 
 
 def test_no_interface_rule_means_neither_diagnostic() -> None:
