@@ -423,8 +423,8 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
 - **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
   the composition root. The analyzer's `requires` entry goes `through` `archkeel.ir.model` and
   `archkeel.ir.codec` only, so any other `ir` module is a violation.
-- **No dynamic shortcuts.** `getattr`, `hasattr`, `cast`, `eval`, `exec`, dynamic imports and
-  `type: ignore` are forbidden everywhere.
+- **No dynamic shortcuts.** `getattr`, `hasattr`, `setattr`, `delattr`, `vars`, `__dict__`,
+  `cast`, `eval`, `exec`, dynamic imports and `type: ignore` are forbidden everywhere.
 - **Confined dependencies.** `packaging` only in the analyzer runtime gate, `rich` only in the
   terminal view, `rich_argparse` only in the CLI's root module: each names its one module
   exactly, never as a prefix of the modules below it.

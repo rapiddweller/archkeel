@@ -315,6 +315,26 @@ def test_an_inside_that_leaves_the_repository_is_not_recorded(tmp_path: Path) ->
                 "cli.py": "try:\n    pass\nexcept Exception:\n    pass\n",
             },
         ),
+        (
+            {
+                "kind": "forbidden_construct",
+                "source": "sample",
+                "constructs": ["setattr", "delattr", "vars", "dunder_dict"],
+            },
+            {"core.py": 'setattr(object(), "x", 1)\n'},
+        ),
+        (
+            {
+                "kind": "forbidden_construct",
+                "source": "sample",
+                "constructs": ["string_dispatch"],
+                "allowed_sources": ["sample.cli"],
+            },
+            {
+                "core.py": 'mode = "a"\nray = mode == "ray"\n',
+                "cli.py": 'mode = "a"\nray = mode == "ray"\n',
+            },
+        ),
     ],
 )
 def test_class_a_rule_produces_one_traceable_violation(
@@ -868,6 +888,87 @@ def test_collect_constructs_detects_broad_except_and_documented_blind_spots(
 ) -> None:
     records = collect_constructs([_parsed_module(source)], {})
     assert sorted((item["kind"], item["data"]["owner"]) for item in records) == sorted(expected)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ('setattr(box, "x", 1)\n', [("setattr_call", "sample.mod")]),
+        ('delattr(box, "x")\n', [("delattr_call", "sample.mod")]),
+        ("vars(box)\nvars()\n", [("vars_call", "sample.mod"), ("vars_call", "sample.mod")]),
+        (
+            'import builtins\nbuiltins.setattr(box, "x", 1)\n',
+            [("setattr_call", "sample.mod")],
+        ),
+        (
+            "class Widget:\n    def m(self):\n        return self.__dict__\n",
+            [("dunder_dict", "sample.mod.Widget.m")],
+        ),
+        ('box.__dict__["x"] = 1\ndel box.__dict__["x"]\n', [("dunder_dict", "sample.mod")] * 2),
+        ("box.__dict__.__dict__\n", [("dunder_dict", "sample.mod")]),
+        ('box.setattr("x", 1)\nbox.vars()\n', []),
+        ('f = setattr\nf(box, "x", 1)\n', []),
+        ('object.__setattr__(box, "x", 1)\n', []),
+    ],
+)
+def test_collect_constructs_detects_reflection_as_written(
+    source: str, expected: list[tuple[str, str]]
+) -> None:
+    """AD-48: the write side of reflection is matched as written; aliases stay blind spots."""
+    records = collect_constructs([_parsed_module(source)], {})
+    assert sorted((item["kind"], item["data"]["owner"]) for item in records) == sorted(expected)
+    assert len({item["id"] for item in records}) == len(records)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ('if mode == "ray":\n    pass\n', [("sample.mod", "compare")]),
+        ('if "ray" != mode:\n    pass\n', [("sample.mod", "compare")]),
+        ('ok = a == "x" or b == "y"\n', [("sample.mod", "compare")] * 2),
+        ('ok = low < mode == "ray"\n', [("sample.mod", "compare")]),
+        ('ok = mode in ("a", "b")\n', [("sample.mod", "membership")]),
+        ('ok = mode not in ["a"]\n', [("sample.mod", "membership")]),
+        ('ok = mode in {"a", "b"}\n', [("sample.mod", "membership")]),
+        (
+            'def f(mode):\n    match mode:\n        case "a":\n            pass\n'
+            '        case "b" | "c":\n            pass\n',
+            [("sample.mod.f", "match")],
+        ),
+        (
+            'match command:\n    case ["go", where]:\n        pass\n',
+            [("sample.mod", "match")],
+        ),
+        ('if __name__ == "__main__":\n    pass\n', []),
+        ("ok = mode == 5\n", []),
+        ('ok = mode == f"{x}"\n', []),
+        ('ok = mode == b"a"\n', []),
+        ('ok = mode < "b"\n', []),
+        ('ok = mode in ("a", 1)\n', []),
+        ("ok = mode in ()\n", []),
+        ('ok = mode in {"a": 1}\n', []),
+        ("ok = mode in names\n", []),
+        ('ok = "a" in text\n', []),
+        ('ok = mode.startswith("a")\n', []),
+        (
+            "match point:\n    case Point():\n        pass\n"
+            '    case {"kind": _}:\n        pass\n    case Color.RED:\n        pass\n',
+            [],
+        ),
+    ],
+)
+def test_collect_constructs_detects_string_dispatch_and_its_exclusions(
+    source: str, expected: list[tuple[str, str]]
+) -> None:
+    """AD-48: one record per comparison or match statement, with the form it takes."""
+    records = collect_constructs([_parsed_module(source)], {})
+    found = [
+        (item["data"]["owner"], item["data"]["form"])
+        for item in records
+        if item["kind"] == "string_dispatch"
+    ]
+    assert sorted(found) == sorted(expected)
+    assert len({item["id"] for item in records}) == len(records)
 
 
 @pytest.mark.parametrize(

@@ -119,6 +119,11 @@ _CONSTRUCT_SIGNALS: Final = {
     "placeholder_body": ForbiddenConstructKind.PLACEHOLDER_BODY,
     "assert_statement": ForbiddenConstructKind.ASSERT,
     "broad_except": ForbiddenConstructKind.BROAD_EXCEPT,
+    "setattr_call": ForbiddenConstructKind.SETATTR,
+    "delattr_call": ForbiddenConstructKind.DELATTR,
+    "vars_call": ForbiddenConstructKind.VARS,
+    "dunder_dict": ForbiddenConstructKind.DUNDER_DICT,
+    "string_dispatch": ForbiddenConstructKind.STRING_DISPATCH,
 }
 
 

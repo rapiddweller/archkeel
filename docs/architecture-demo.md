@@ -24,6 +24,11 @@ run shows many violations together; every other row isolates one item.
 | class_a | forbidden_construct:placeholder_body | class-a-construct-placeholder_body | validate/report run | CONSTRUCT-NO-PLACEHOLDER | rule.violated | shop/model/probe_placeholder_body.py |
 | class_a | forbidden_construct:assert | class-a-construct-assert | validate/report run | CONSTRUCT-NO-ASSERT | rule.violated | shop/model/probe_assert.py |
 | class_a | forbidden_construct:broad_except | class-a-construct-broad_except | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | shop/model/probe_broad_except.py |
+| class_a | forbidden_construct:setattr | class-a-construct-setattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_setattr.py |
+| class_a | forbidden_construct:delattr | class-a-construct-delattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_delattr.py |
+| class_a | forbidden_construct:vars | class-a-construct-vars | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_vars.py |
+| class_a | forbidden_construct:dunder_dict | class-a-construct-dunder_dict | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_dunder_dict.py |
+| class_a | forbidden_construct:string_dispatch | class-a-construct-string_dispatch | validate/report run | CONSTRUCT-NO-STRING-DISPATCH | rule.violated | shop/model/probe_string_dispatch.py |
 | class_a | forbidden_construct:broad_except (allowed source) | class-a-broad-except-allowed | validate/report run | - | - | shop/cli/main.py |
 | class_a | complete_requires | class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | architecture-contract.json |
 | class_a | complete_requires:include_type_checking | class-a-complete-requires-type-checking | validate/report run | REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json |

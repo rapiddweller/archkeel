@@ -273,6 +273,11 @@ class ForbiddenConstructKind(StrEnum):
     PLACEHOLDER_BODY = "placeholder_body"
     ASSERT = "assert"
     BROAD_EXCEPT = "broad_except"
+    SETATTR = "setattr"
+    DELATTR = "delattr"
+    VARS = "vars"
+    DUNDER_DICT = "dunder_dict"
+    STRING_DISPATCH = "string_dispatch"
 
 
 @dataclass(frozen=True, slots=True)
