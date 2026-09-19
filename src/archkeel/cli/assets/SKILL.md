@@ -24,7 +24,9 @@ contract field for a quality goal: it lives in the rationale, in your own words,
 rule it justifies.
 
 Run `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once,
-first. It detects the Python package, requires an existing Git repository with at least one
+first. It detects the Python package (the only top-level one, or the one `pyproject.toml`'s
+`[project] name` names when a test package sits beside it; otherwise it exits 2 and asks for
+`--source` and `--namespace`), requires an existing Git repository with at least one
 commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
 per top-level subpackage/module, plus `complete_assignment` and — only when no component
 cycle exists — `no_component_cycles`; no dependency rule), and
