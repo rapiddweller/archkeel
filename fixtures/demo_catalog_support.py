@@ -191,6 +191,14 @@ def contract_with_requires(
     return _dump_contract(contract)
 
 
+def contract_component_field_set(label: str, field: str, value: object) -> str:
+    """Clean contract JSON with one component field replaced by label."""
+    contract = _clean_contract()
+    component = next(item for item in contract["components"] if item["label"] == label)
+    component[field] = value
+    return _dump_contract(contract)
+
+
 def contract_without_component_field(label: str, field: str) -> str:
     """Clean contract JSON with one component field removed by label."""
     contract = _clean_contract()

@@ -17,6 +17,10 @@ From outside, the backend of `store` is out of reach: `DEP-APP-NO-STORE-BACKEND`
 prohibition to that subpackage, one level below the `app` → `store` edge the contract otherwise
 allows.
 
+Inside `cli`, the error boundary is one function: `CONSTRUCT-NO-BROAD-EXCEPT` names
+`shop.cli.main.main` in `exact_sources`, so only that function's own body may catch every
+exception, and a helper nested inside it may not (AD-49).
+
 ## Inside store
 
 `store` holds seven modules, more than this level has components, so the report names it as larger
@@ -66,10 +70,10 @@ flowchart LR
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
-    store --> model
     app --> model
     app --> store
-    render --> model
     cli --> app
     cli --> render
+    render --> model
+    store --> model
 ```
