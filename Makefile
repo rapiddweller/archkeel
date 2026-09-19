@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: check test lint typecheck fixtures demo demo-onboarding loop-figure demo-screenshots build smoke release-check
+.PHONY: check test lint typecheck fixtures self-observation demo demo-onboarding loop-figure demo-screenshots build smoke release-check
 check: lint typecheck test
 
 release-check: check build smoke
@@ -11,7 +11,7 @@ test:
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py \
-	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
+	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
 
 lint:
@@ -23,6 +23,9 @@ typecheck:
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
+
+self-observation:
+	$(UV) run --locked python -m fixtures.reproduce_self
 
 demo:
 	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary
