@@ -25,7 +25,11 @@ returns exit 2. Historical observations without runtime provenance remain readab
 The observation carries a `references` section beside `calls`: every use of a scanned symbol
 that is not a call, such as a function put into a table, passed as an argument or read as a
 property, with the symbols it resolves to (AD-26). Call metrics stay untouched, because coverage
-counts the `calls` section alone. An observation written before a section existed no longer
+counts the `calls` section alone. A function record in the `symbols` section carries
+`facade_types` when the function is part of its component's declared `public` list and at least
+one of its parameter or return annotations resolves: the dotted `module.Name` origins that
+signature exposes, resolved once by `boundary_types` (AD-63) and read back by `validate`'s
+unused-entry check (AD-65). An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 
 The checker hashes its installed Python package separately from the analyzer digest.

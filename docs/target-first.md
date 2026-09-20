@@ -347,13 +347,15 @@ with each other at this one entry.
 {
   "code": "interface.unused",
   "subject": "shop.app.future:NotBuiltYet",
-  "unknown_claim": "No cross-component import reaches this public entry."
+  "unknown_claim": "No cross-component import and no declared facade signature reaches this public entry."
 }
 ```
 
 This is not particular to landing a planned entry — it is `interface_boundary`'s ordinary reading
-of any declared `public` name nothing yet imports across the boundary (AD-9), and it clears the
-same way any such entry does, once a caller actually crosses.
+of any declared `public` name nothing yet reaches (AD-9), and it clears the same way any such
+entry does: once a caller actually crosses, or once one of the component's own declared facade
+signatures names the type, which exposes it to every consumer of that signature without an
+import of its own (AD-65).
 
 ## The loop repeats
 

@@ -94,6 +94,8 @@ only when its row names repository evidence.
 | A `forbidden_construct` owner now names the scope an annotated variable is written in, module, class or function, instead of the bare target name `ast.walk` left it with; `CONSTRUCT-NO-ANY` had been structurally blind to a module- or class-level `Any` since AD-27, and now names the one real instance it had been missing in `archkeel.ir.widening` (AD-62) | `src/archkeel/analyzer/embedded/typing_signals.py`; `architecture-contract.json`; `tests/test_analyzer.py`; `fixtures/demo_catalog_constructs.py`; `docs/architecture-demo.md` |
 | `boundary_types` reads a component's declared `public` list instead of a naming convention: only a function the facade itself covers is inspected, and a resolved named type is a violation only when it is neither a builtin, an enum, a Pydantic model, nor declared by any component's own facade — clearing the `ObservationResult`/`Order` false positives AD-58's own measurement found, and Archkeel adopts the rule against itself for the first time (`ANALYZER-TYPES-DECLARED`) (AD-63, #44) | `src/archkeel/analyzer/embedded/violations.py`; `architecture-contract.json`; `tests/test_analyzer.py`; `fixtures/demo_catalog_types.py`; `docs/architecture-demo.md` |
 | A new `api` component is the declared external read contract, `__all__` exactly `ViolationRow`, `load_observation` and `violation_rows`; the file read AD-54 put inside `ir.codec` moves into it, `archkeel.ir.codec.load_observation` is removed, and `ir.baseline`'s public entry becomes whole-module once the facade's own crossing is drafted in (AD-64) | `src/archkeel/api.py`; `src/archkeel/ir/codec.py`; `architecture-contract.json`; `docs/reference.md`; `tests/test_violations.py`; `tests/test_self.py::test_self_contract_public_matches_drafted_proposal` |
+| A `public` entry is reached in two ways, not one: a cross-component import, or a declared facade signature that names the type, recorded as `facade_types` on the facade function's own symbol record by `boundary_types`' own resolution, so declaring the type such a violation asks for no longer produces `interface.unused` (AD-65, #57) | `src/archkeel/analyzer/embedded/violations.py`; `src/archkeel/analyzer/embedded/scanner.py`; `src/archkeel/check/validation.py`; `tests/test_analyzer.py`; `tests/test_validation.py`; `tests/test_self.py::test_self_facades_record_the_ten_types_they_expose` |
+
 ## Next
 
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
@@ -117,6 +119,13 @@ only when its row names repository evidence.
    settled on 3. Naming each draft's size (AD-38) makes the imbalance visible but does not fix
    it: a directory-per-component draft still proposes 12 or 14 components to consolidate by
    hand, one per module, regardless of how those modules import each other.
+6. Adopt `boundary_types` for `check` and `render` and decide their ten findings (#61).
+   AD-65 made declaring the three types they expose — `Analyzer`, `Host` and `Summary` —
+   legal, so the blocker is gone; what remains is a decision about the ten positions and a
+   `draft_contract` that can propose an entry a facade signature reaches, since
+   `tests/test_self.py::test_self_contract_public_matches_drafted_proposal` holds Archkeel's
+   own `public` lists to what `init` drafts from observed imports alone.
+
 ## Later
 
 - Let a second level run on its own (AD-20): an inside is recorded, derived, judged, drawn and

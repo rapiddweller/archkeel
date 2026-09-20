@@ -150,7 +150,13 @@ holds `pkg.module` entries, which make every non-underscore name of that module 
 `__all__` when the module declares one, and `pkg.module:Name` entries, which make exactly one name
 public. It matches every cross-component import whose target component declares `public` and
 reports a violation unless the imported name, directly or through its re-export chain, resolves to
-a declared name; underscore names never qualify. An import a `forbidden_dependency` rule already
+a declared name; underscore names never qualify. An entry is *reached* in one of two ways, and one
+notion of `public` covers both (AD-65): a cross-component import that resolves to it, or a
+declared facade signature of any component that names the type it declares, which exposes that
+type to every consumer of the signature without an import of its own. The second reading uses the
+`facade_types` the analyzer records on each declared facade function, resolved by
+`boundary_types`' own resolution below, so the rule that asks for such a type to be declared and
+the check that asks whether declaring it was worth it read one answer, not two. An import a `forbidden_dependency` rule already
 rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). A
 complete scan, fixed source bytes and analyzer digest make the result deterministic. An empty
 `__all__` reads the same as no `__all__` at all, and aliasing during a re-export is not resolved;
@@ -172,7 +178,7 @@ A contract may name a target architecture ahead of the refactoring that builds i
 tells a facade that is not built yet from one that never will be (AD-56). An unused `public` entry
 is `interface.missing` when its module was never scanned — it names something that does not exist,
 whether that is a typo or work still to do — and stays `interface.unused` when the module exists
-but nothing imports it, unchanged from before. A `pkg.module:Name` entry is judged by its module
+but nothing reaches it, neither an import nor a declared facade signature (AD-65). A `pkg.module:Name` entry is judged by its module
 alone: the `symbols` section records only classes and functions, so treating an unmatched name as
 missing would misreport a module-level constant or type alias that the scan cannot see. A
 component's optional `planned` list holds entries in the same `pkg.module`/`pkg.module:Name` shape
@@ -234,7 +240,10 @@ restricted-string match alone still fires 26 times inside `archkeel.ir`, all of 
 untyped-JSON boundary and narrowing helpers such as `text_value(value: object) -> str`; a `source`
 scoped to a component whose facade really is typed throughout, such as `archkeel.analyzer`, is how
 Archkeel's own contract adopts the rule against itself (AD-63) without a growing
-`allowed_sources` list carrying architecture knowledge it does not own. Fixed source bytes and
+`allowed_sources` list carrying architecture knowledge it does not own. The answer a violation
+asks for — declare the type in the owning component's `public` list — is a legal answer: the
+declaration is reached by the very signature that exposed it, so `interface_boundary` no longer
+calls it unused (AD-65). Fixed source bytes and
 analyzer digest make the result deterministic. Adding a `snapshot(context: dict) -> str` function
 declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
 example violation.
