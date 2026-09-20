@@ -55,6 +55,22 @@ from .report import observe_repository
 from .run import inspect_observation
 
 COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
+# AD-57: a second, independent marker for the graph the contract permits, beside the one
+# above for the graph the code observes. A page may carry either, both or neither.
+TARGET_GRAPH_MARKER = "<!-- archkeel-target-graph -->"
+# One noun and two source phrases per marker - the claim reads "differs from X", the remedy
+# "regenerate ... from Y" - so graph.count/graph.drift read the same for both markers and a
+# diagnostic's subject always names which one it is about. The observed marker keeps AD-46's
+# own two phrasings; the target marker, new here, uses one for both.
+_GRAPH_MARKERS: tuple[tuple[str, str, str, str], ...] = (
+    (COMPONENT_GRAPH_MARKER, "component", "observed imports", "the observed component edges"),
+    (
+        TARGET_GRAPH_MARKER,
+        "target",
+        "the edges the contract permits",
+        "the edges the contract permits",
+    ),
+)
 _REPEATED_RATIONALE = re.compile(r"(?:The )?\S+ does not depend on \S+\.", re.IGNORECASE)
 # A requires entry states a permission, so the prohibition-shaped pattern above can never
 # fire on it; its filler equivalent reads "cli depends on render." (AD-32).
@@ -112,6 +128,26 @@ def _decided_pairs(
         for rule in contract.rules
         if isinstance(rule, rule_type) and rule.source in owners and rule.target in owners
     ]
+
+
+def target_component_edges(contract: ArchitectureContract) -> frozenset[tuple[str, str]]:
+    """The component pairs the contract permits, for `<!-- archkeel-target-graph -->` (AD-57).
+
+    A contract states a pair may exist in one of two ways: a `requires` entry, AD-32's
+    intentional grant, absence of which `complete_requires` forbids; or an `allowed_dependency`
+    rule, AD-15's closed-world grant, where every pair is decided one way or the other. Both
+    name a permitted pair, so the target draws their union - one rule, not a branch on which
+    system a contract adopted. In practice a contract writes one or the other: a `requires`-based
+    contract carries no coarse `allowed_dependency` pair and a pair-decided one carries no
+    `requires` entry, so the union reduces to whichever the contract actually wrote, and a
+    contract that has adopted neither permits nothing yet - the target graph is then empty.
+    """
+    requires_edges = {
+        (component.label, entry.component)
+        for component in contract.components
+        for entry in component.requires or ()
+    }
+    return frozenset(requires_edges) | frozenset(_decided_pairs(contract, AllowedDependencyRule))
 
 
 def _pair_diagnostics(
@@ -301,19 +337,24 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
     return tuple(diagnostics)
 
 
-def _marked_bodies(content: str) -> list[tuple[int, int]]:
-    """Start and end of each Mermaid body that follows a graph marker, before the next one."""
+def _marked_bodies(content: str, marker: str) -> list[tuple[int, int]]:
+    """Start and end of each Mermaid body that follows `marker`, before the next one.
+
+    AD-57: the marker is a parameter, not a hardcoded constant, so `graph_diagnostics` and
+    `rewrite_component_graph` read `COMPONENT_GRAPH_MARKER` and `TARGET_GRAPH_MARKER` through
+    the one reader and can never disagree about where either marker's block starts and ends.
+    """
     spans: list[tuple[int, int]] = []
-    marker = content.find(COMPONENT_GRAPH_MARKER)
-    while marker != -1:
-        following = content.find(COMPONENT_GRAPH_MARKER, marker + len(COMPONENT_GRAPH_MARKER))
+    position = content.find(marker)
+    while position != -1:
+        following = content.find(marker, position + len(marker))
         limit = len(content) if following == -1 else following
-        fence = content.find(_MERMAID_FENCE, marker, limit)
+        fence = content.find(_MERMAID_FENCE, position, limit)
         if fence != -1:
             start = fence + len(_MERMAID_FENCE)
             end = content.find("```", start, limit)
             spans.append((start, limit if end == -1 else end))
-        marker = following
+        position = following
     return spans
 
 
@@ -342,54 +383,85 @@ def mermaid_edges(edges: frozenset[tuple[str, str]]) -> str:
 
 
 def rewrite_component_graph(
-    documents: tuple[tuple[str, str], ...], edges: frozenset[tuple[str, str]]
-) -> tuple[str, str] | None:
-    """The one marked graph's document with its edges replaced, or None if nothing is written.
-
-    AD-46: the declaration and `%%` comments stay, so a page's own `flowchart LR` survives, and a
-    block without a declaration gets `init`'s. Without exactly one marked graph there is no block
-    to choose, and `graph.count` says so; a block with any other line is not rewritten at all.
-    """
-    blocks = [
-        (path, content, span) for path, content in documents for span in _marked_bodies(content)
-    ]
-    if len(blocks) != 1:
-        return None
-    path, content, (start, end) = blocks[0]
-    body = content[start:end]
-    if _unwritable_line(body) is not None:
-        return None
-    kept = [line for line in body.splitlines() if line.strip() and not _GRAPH_EDGE.fullmatch(line)]
-    if not any(_GRAPH_DECLARATION.fullmatch(line) for line in kept):
-        kept.insert(0, "graph TD")
-    written = (
-        content[:start]
-        + "".join(f"{line}\n" for line in kept)
-        + mermaid_edges(edges)
-        + content[end:]
-    )
-    return None if written == content else (path, written)
-
-
-def graph_diagnostics(
-    contract: ArchitectureContract,
-    observation: Observation,
     documents: tuple[tuple[str, str], ...],
+    observed_edges: frozenset[tuple[str, str]],
+    target_edges: frozenset[tuple[str, str]],
+) -> tuple[tuple[str, str], ...]:
+    """Every marked graph's document with its edges replaced; empty if nothing is written.
+
+    AD-46/AD-57: the two markers are rewritten independently, each only when the documents
+    carry exactly one block for it; a marker absent everywhere is left alone, the way a page
+    may carry either, both or neither, and one repeated is as ambiguous to rewrite as before -
+    `graph.count` says so and this writes nothing for it either. The declaration and `%%`
+    comments stay ahead of the edges, so a page's own `flowchart LR` survives, and a block
+    without a declaration gets `init`'s; a block with any other line is not rewritten at all.
+    Both markers may sit in the same document, which then comes back once with both edits.
+    """
+    edited: dict[str, str] = {}
+    for marker, edges in (
+        (COMPONENT_GRAPH_MARKER, observed_edges),
+        (TARGET_GRAPH_MARKER, target_edges),
+    ):
+        current = {path: edited.get(path, content) for path, content in documents}
+        blocks = [
+            (path, span)
+            for path, content in current.items()
+            for span in _marked_bodies(content, marker)
+        ]
+        if len(blocks) != 1:
+            continue
+        path, (start, end) = blocks[0]
+        content = current[path]
+        body = content[start:end]
+        if _unwritable_line(body) is not None:
+            continue
+        kept = [
+            line for line in body.splitlines() if line.strip() and not _GRAPH_EDGE.fullmatch(line)
+        ]
+        if not any(_GRAPH_DECLARATION.fullmatch(line) for line in kept):
+            kept.insert(0, "graph TD")
+        written = (
+            content[:start]
+            + "".join(f"{line}\n" for line in kept)
+            + mermaid_edges(edges)
+            + content[end:]
+        )
+        if written != content:
+            edited[path] = written
+    return tuple(edited.items())
+
+
+def _marker_diagnostics(
+    marker: str,
+    noun: str,
+    claim_source: str,
+    remedy_source: str,
+    edges: frozenset[tuple[str, str]],
+    documents: tuple[tuple[str, str], ...],
+    *,
+    required: bool,
 ) -> tuple[Diagnostic, ...]:
-    """Require exactly one marked Mermaid graph matching observed component edges."""
+    """One marker's graph.count/graph.drift findings; the subject always names the marker.
+
+    AD-57: `required` is false for the target marker, so a page that draws none is silent -
+    the target is optional, the way a page may carry either, both or neither - while the
+    observed marker keeps AD-12's original rule, always exactly one.
+    """
     graphs = [
         (path, content[start:end])
         for path, content in documents
-        for start, end in _marked_bodies(content)
+        for start, end in _marked_bodies(content, marker)
     ]
+    if not graphs and not required:
+        return ()
     if len(graphs) != 1:
         return (
             _diagnostic(
                 "graph.count",
                 "/components",
-                "architecture component graph",
-                f"Expected one marked Mermaid component graph, found {len(graphs)}.",
-                "Keep one graph after the archkeel-component-graph marker in contract provenance.",
+                f"architecture {noun} graph",
+                f"Expected one marked Mermaid {noun} graph, found {len(graphs)}.",
+                f"Keep one graph after the archkeel-{noun}-graph marker in contract provenance.",
             ),
         )
     path, body = graphs[0]
@@ -398,24 +470,59 @@ def graph_diagnostics(
         for line in body.splitlines()
         if (match := _GRAPH_EDGE.fullmatch(line))
     )
-    observed = observed_component_edges(contract, observation)
-    if declared == observed:
+    if declared == edges:
         return ()
-    missing = ", ".join(f"{a}->{b}" for a, b in sorted(observed - declared)) or "none"
-    extra = ", ".join(f"{a}->{b}" for a, b in sorted(declared - observed)) or "none"
+    missing = ", ".join(f"{a}->{b}" for a, b in sorted(edges - declared)) or "none"
+    extra = ", ".join(f"{a}->{b}" for a, b in sorted(declared - edges)) or "none"
     unwritable = _unwritable_line(body)
     return (
         _diagnostic(
             "graph.drift",
             "/components",
-            path,
-            "The marked component graph differs from observed imports; "
+            f"{path} ({noun} graph)",
+            f"The marked {noun} graph differs from {claim_source}; "
             f"missing: {missing}; extra: {extra}.",
             "Run archkeel validate --write-graph to regenerate the marked Mermaid graph "
-            "from the observed component edges."
+            f"from {remedy_source}."
             if unwritable is None
             else f"Edit the marked graph's edges by hand: it holds `{unwritable}`, structure "
             "archkeel validate --write-graph does not rewrite.",
+        ),
+    )
+
+
+def graph_diagnostics(
+    contract: ArchitectureContract,
+    observation: Observation,
+    documents: tuple[tuple[str, str], ...],
+) -> tuple[Diagnostic, ...]:
+    """Require the observed marker always, and the target marker whenever a page draws one.
+
+    AD-57: `<!-- archkeel-target-graph -->` is compared against `target_component_edges`, the
+    pairs the contract permits, beside `<!-- archkeel-component-graph -->`'s unchanged
+    comparison against observed imports; the two are independent, so one may drift while the
+    other passes, and each diagnostic's subject names its own marker.
+    """
+    observed_marker, observed_noun, observed_claim, observed_remedy = _GRAPH_MARKERS[0]
+    target_marker, target_noun, target_claim, target_remedy = _GRAPH_MARKERS[1]
+    return (
+        *_marker_diagnostics(
+            observed_marker,
+            observed_noun,
+            observed_claim,
+            observed_remedy,
+            observed_component_edges(contract, observation),
+            documents,
+            required=True,
+        ),
+        *_marker_diagnostics(
+            target_marker,
+            target_noun,
+            target_claim,
+            target_remedy,
+            target_component_edges(contract),
+            documents,
+            required=False,
         ),
     )
 
@@ -826,32 +933,36 @@ def _repository_diagnostics(
     observation: Observation,
     write_graph: bool,
     report_violations: bool,
-) -> tuple[list[Diagnostic], tuple[str, str] | None]:
+) -> tuple[list[Diagnostic], tuple[tuple[str, str], ...]]:
     """Every diagnostic a complete observation adds, once the contract's references hold.
 
-    AD-46: `write_graph` rewrites the marked graph first, so the diagnostics judge the page as
-    it will be written, and that page comes back with its path.
+    AD-46/AD-57: `write_graph` rewrites both marked graphs first, so the diagnostics judge the
+    pages as they will be written, and every rewritten page comes back with its path.
     """
     # The page is written back as UTF-8, so it is read as UTF-8 whatever the locale says.
     documents = tuple(
         (path, (root / path).read_text(encoding="utf-8"))
         for path in contract_provenance_paths(contract)
     )
-    graph = (
-        rewrite_component_graph(documents, observed_component_edges(contract, observation))
+    edits = (
+        rewrite_component_graph(
+            documents,
+            observed_component_edges(contract, observation),
+            target_component_edges(contract),
+        )
         if write_graph
-        else None
+        else ()
     )
-    if graph is not None:
-        page, written = graph
-        documents = tuple((path, written if path == page else text) for path, text in documents)
+    if edits:
+        written = dict(edits)
+        documents = tuple((path, written.get(path, text)) for path, text in documents)
     return [
         *reference_diagnostics(root, config, contract, observation),
         *observation_diagnostics(
             contract, observation, documents, report_violations=report_violations
         ),
         *inside_diagnostics(root, contract),
-    ], graph
+    ], edits
 
 
 def _observed_result(
@@ -938,8 +1049,8 @@ def run_validate(
 ) -> tuple[RunResult, dict[str, bytes]]:
     """Validate contract structure, repository references and observed architecture.
 
-    AD-46: with `write_graph`, the rewritten graph page comes back for the caller to write,
-    the way `run_init` returns its files.
+    AD-46/AD-57: with `write_graph`, every rewritten graph page comes back for the caller to
+    write, the way `run_init` returns its files.
 
     AD-52: with `baseline`, the violations that file already states are known debt, and only
     the difference is reported - as `failures` with exit 1. `write_baseline` writes today's
@@ -985,7 +1096,7 @@ def run_validate(
             ),
             coverage=observed.coverage,
         ), {}
-    diagnostics, graph = _repository_diagnostics(
+    diagnostics, edits = _repository_diagnostics(
         root, config, contract, observation, write_graph, baseline is None
     )
     violations = observed_violations(observation) if baseline is not None else ()
@@ -998,8 +1109,7 @@ def run_validate(
     if write_baseline and baseline is not None and result.exit_code != 2:
         artifact = str(baseline)
         files[artifact] = baseline_bytes(violations)
-    if graph is not None:
-        page, written = graph
+    for page, written in edits:
         artifact = page
         files[page] = written.encode()
     return (result if artifact is None else replace(result, artifact=artifact)), files

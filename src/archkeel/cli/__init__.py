@@ -119,9 +119,10 @@ def build_parser() -> _Parser:
         description=(
             "Checks the contract structure, package and provenance references, that every\n"
             "component pair is decided by one allowed_dependency or forbidden_dependency\n"
-            "rule, rule rationales and the marked component graph. Run it after every\n"
-            "contract edit; --write-graph first rewrites that graph's edges from the\n"
-            "contract and the observed imports, leaving the rest of the page untouched.\n\n"
+            "rule, rule rationales, the marked component graph against observed imports and,\n"
+            "where a page draws one, the marked target graph against the edges the contract\n"
+            "permits. Run it after every contract edit; --write-graph first rewrites each\n"
+            "marked graph's edges, leaving the rest of the page untouched.\n\n"
             "A contract that states the target architecture is violated by the code that\n"
             "has yet to reach it. --baseline names a file of those known violations: the\n"
             "run then fails only on a violation the file does not state, and on one it\n"
@@ -144,8 +145,8 @@ def build_parser() -> _Parser:
     validate.add_argument(
         "--write-graph",
         action="store_true",
-        help="Rewrite the edges of the marked component graph from the observed imports, "
-        "then validate.",
+        help="Rewrite the edges of each marked graph - the component graph from observed "
+        "imports, the target graph from the edges the contract permits - then validate.",
     )
     validate.add_argument(
         "--baseline",

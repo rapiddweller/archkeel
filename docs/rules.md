@@ -38,6 +38,16 @@ component pair may depend, recorded with its reason. It adds no report violation
 only by closed-world validation, never by the analyzer. Declaring `sample.core` allowed to depend
 on `sample.cli` when no code observes that edge is valid; it simply decides the pair.
 
+A contract page's marked graph draws what the code does; a second, optional marker,
+`<!-- archkeel-target-graph -->`, draws what the contract permits, beside the always-required `<!--
+archkeel-component-graph -->` (AD-57). A pair permits an edge by an `allowed_dependency` rule or by
+a `requires` entry (below); the two together, never redefining either marker, since that would
+silently change what a page already asserts. The target graph may differ from the component graph
+- a permission not yet used, or debt the code has not yet shed - without either being wrong; only a
+marker whose own edges disagree with its own source is `graph.drift`, and the diagnostic's subject
+names which marker. A page may carry either marker, both or neither; `init` never writes the target
+marker, since it drafts no dependency decision for `--write-graph` to draw (AD-15).
+
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources` and
 `exact_sources`, which exempt owners the way `external_dependency_scope` exempts modules. An
 owner is the qualified scope a construct is written in, a module, class or function such as

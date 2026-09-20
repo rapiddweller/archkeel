@@ -230,18 +230,47 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
 
 
 def test_graph_drift_names_the_command_or_the_line_it_refuses(tmp_path: Path) -> None:
-    """AD-46: a stale page names --write-graph, which then passes; a subgraph is left to a human."""
+    """AD-46: a stale page names --write-graph, which then passes; a subgraph is left to a human.
+
+    The rename touches both markers (AD-57), since the shop sample's target graph agrees with
+    its observed one today; --write-graph regenerates both in the one page.
+    """
     rows = {variant.item: variant for variant in CATALOG}
     stale = _prepare_repo(tmp_path / "stale", dict(rows["graph.drift:write-graph"].files))
-    (drift,) = run_validate(stale, CONFIG, observe)[0].diagnostics
-    assert "archkeel validate --write-graph" in drift.remedy
+    drifted = run_validate(stale, CONFIG, observe)[0].diagnostics
+    assert {item.code for item in drifted} == {"graph.drift"}
+    assert {"archkeel validate --write-graph" in item.remedy for item in drifted} == {True}
     fixed, files = run_validate(stale, CONFIG, observe, write_graph=True)
     assert (fixed.exit_code, set(files)) == (0, {"docs/architecture/shop.md"})
 
     refused = _prepare_repo(tmp_path / "refused", dict(rows["graph.drift:subgraph"].files))
     result, files = run_validate(refused, CONFIG, observe, write_graph=True)
+    assert files == {}
+    assert {item.code for item in result.diagnostics} == {"graph.drift"}
+    for item in result.diagnostics:
+        assert "`subgraph composition`" in item.remedy
+        assert "by hand" in item.remedy
+
+
+def test_target_graph_drift_leaves_the_observed_graph_untouched(tmp_path: Path) -> None:
+    """AD-57: a target-only edit drifts only the target marker; the observed one keeps passing."""
+    rows = {variant.item: variant for variant in CATALOG}
+    stale = _prepare_repo(
+        tmp_path / "target-stale", dict(rows["graph.drift:target-write-graph"].files)
+    )
+    (drift,) = run_validate(stale, CONFIG, observe)[0].diagnostics
+    assert drift.subject == "docs/architecture/shop.md (target graph)"
+    assert "archkeel validate --write-graph" in drift.remedy
+    fixed, files = run_validate(stale, CONFIG, observe, write_graph=True)
+    assert (fixed.exit_code, set(files)) == (0, {"docs/architecture/shop.md"})
+
+    refused = _prepare_repo(
+        tmp_path / "target-refused", dict(rows["graph.drift:target-subgraph"].files)
+    )
+    result, files = run_validate(refused, CONFIG, observe, write_graph=True)
     (drift,) = result.diagnostics
     assert files == {}
+    assert drift.subject == "docs/architecture/shop.md (target graph)"
     assert "`subgraph composition`" in drift.remedy
     assert "by hand" in drift.remedy
 
