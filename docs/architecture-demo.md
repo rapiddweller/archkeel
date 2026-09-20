@@ -52,6 +52,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | interface_boundary:whole-module import | class-a-interface-boundary-whole-module | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/maintenance_report.py |
 | class_a | interface_boundary:__all__ gate | class-a-interface-boundary-all-gate | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/render/discount_probe.py |
 | class_a | interface_boundary:accepted re-export | class-a-interface-boundary-accepted-reexport | validate/report run | - | - | shop/app/accepted_reexport.py |
+| class_a | interface_boundary:package attribute over submodule | class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/sqlite_probe.py, shop/store/__init__.py |
 | validation | interface.undeclared | validation-interface-undeclared | validate/report run | - | interface.undeclared | architecture-contract.json |
 | validation | interface.unused | validation-interface-unused | validate/report run | - | interface.unused | architecture-contract.json |
 | validation | rationale.placeholder | validation-rationale-placeholder | validate/report run | - | rationale.placeholder | architecture-contract.json |
