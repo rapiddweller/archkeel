@@ -55,8 +55,9 @@ refuses that draft — a contract nobody decided is not a target, and the gate s
 the architect answers.
 
 That is the split the whole tool rests on: **the agent does the reading, the architect does the
-deciding, and the file records which is which.** Every rule carries `decided_by`, so a later
-report counts what an agent decided and no human has reviewed.
+deciding, and the file records which is which.** Every rule carries `decided_by`, and so may a
+`requires` entry and a component, whose own covers its `public` list, so a later report counts
+every edge, interface and rule an agent decided and no human has reviewed.
 
 <p>
   <img src="docs/assets/archkeel-onboarding-loop.svg" alt="Swimlane diagram of the onboarding loop across three lanes: the agent drafts five components and twenty open decisions, Archkeel refuses the draft with twenty decision.open, the architect decides every pair, the report names one oversized component, the agent drafts the inside, and Archkeel fails a crossing inside that level" width="980">
@@ -230,8 +231,9 @@ no dependency rule. Every ordered component pair is an open decision; `init --js
 that hides an outsized sub-package is visible before you decide anything about it. The
 installed skill runs onboarding in one of two
 modes: an interview, where the agent reads your ADRs and documents, recommends and asks only about
-conflicts and gaps, or auto mode, where the agent decides. Every rule records `decided_by`, and
-reports count the decisions the architect has not reviewed yet. The prompt is in
+conflicts and gaps, or auto mode, where the agent decides. Every rule records `decided_by`, a
+`requires` entry and a component may too, and reports count the decisions the architect has not
+reviewed yet. The prompt is in
 [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
 rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
 When a later contract edit merges or renames components, `archkeel validate --write-graph`

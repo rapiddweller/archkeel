@@ -33,7 +33,7 @@ cycle exists — `no_component_cycles`; no dependency rule), and
 `docs/architecture/architecture.md` (component table, each component's modules and inner
 edges, and a Mermaid graph of observed edges).
 Every rule `init` drafts carries `decided_by: "agent"` as a placeholder you must resolve, not
-an answer. It refuses to overwrite existing files without `--force`.
+an answer, and so does every component whose `public` list it drafted. It refuses to overwrite existing files without `--force`.
 
 Then pick one of two modes. The architect chooses; do not choose for them.
 
@@ -81,13 +81,17 @@ own words as the `rationale`, with `decided_by: "architect"`.
    judgment, labeled as judgment in the rationale.
 2. Never treat an observed edge as permission: code importing across a boundary today is not
    evidence the boundary should allow it.
-3. Write every rule you decide with `decided_by: "agent"`.
+3. Write every rule you decide with `decided_by: "agent"`, and mark a component whose
+   `public` list or `requires` edges you decided the same way: `decided_by` on the component
+   covers its `public` list and every `requires` entry that carries none of its own, and one
+   entry may override it (AD-50).
 4. End with a summary of your decisions grouped by evidence basis (document, layer
    principle, judgment) and name the lowest-confidence decisions first, for the architect to
    review.
 
-A later interview on an auto-mode contract asks the architect only about rules with
-`decided_by: "agent"`; an `architect`-decided rule is already closed and is not reopened.
+A later interview on an auto-mode contract asks the architect only about rules, entries and
+components with `decided_by: "agent"`; an `architect`-decided one is already closed and is not
+reopened.
 
 ### Ending onboarding, either mode
 
@@ -114,9 +118,10 @@ separately from onboarding, not a reason to hold the commit.
 - Never weaken or delete a rule just to make a violation disappear, unless the component
   owner explicitly approves the change to the contract. A silently loosened rule hides the
   next real violation.
-- `validate --json` and `report --json` report `agent_decisions` as `[agent, total]`; a
-  nonzero first value means an auto-mode contract still awaits an architect interview on
-  those rules.
+- `validate --json` and `report --json` report `agent_decisions` as `[agent, total]`, counting
+  one rule declaration, one `requires` entry and one declared `public` list alike; a nonzero
+  first value means an auto-mode contract still awaits an architect interview on those
+  decisions.
 - The same two commands report `claims`, the Class D review claims. They never change a
   verdict or an exit code; bring a nonzero count to the architect as reading work, and never
   delete code because a claim named it.

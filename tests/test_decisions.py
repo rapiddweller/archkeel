@@ -66,15 +66,34 @@ def _module_edge(source: str, target: str, count: int) -> Record:
     )
 
 
-def _observation(edges: tuple[Record, ...]) -> Observation:
+def _observation(edges: tuple[Record, ...], declarations: tuple[Record, ...] = ()) -> Observation:
     return Observation(
         schema_version="1.3.0",
         analyzer=AnalyzerInfo("test-analyzer", "0.0.0", "0" * 16),
         source=SourceInfo("0" * 40, False, "0" * 16, ()),
         contract=ContractInfo("2.1.0", "0" * 16, "architecture-contract.json"),
         coverage=_COVERAGE,
-        sections=(Section("declarations", ()), Section("dependency_edges", edges)),
+        sections=(
+            Section("declarations", declarations),
+            Section("dependency_edges", edges),
+        ),
         evidence=(),
+    )
+
+
+def _declaration(item_id: str, kind: str, data: tuple[tuple[str, object], ...]) -> Record:
+    return Record(
+        id=item_id,
+        evidence_class=EvidenceClass.DECLARED_RULE,
+        area="components",
+        kind=kind,
+        title=item_id,
+        subjects=(),
+        evidence_ids=(),
+        rule_ids=(),
+        fact_ids=(),
+        provenance=(),
+        data=RecordData(data),
     )
 
 
@@ -166,8 +185,44 @@ def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: 
     assert architecture is not None
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
 
-    # 34 rules above the level, plus the one store's inside declares (AD-36).
-    assert agent_decisions(observation) == (1, 35)
+    # 34 rules above the level plus the one store's inside declares (AD-36); 8 declared
+    # public lists and the inside's 3 requires entries are decisions too (AD-50).
+    assert agent_decisions(observation) == (1, 46)
+
+
+def test_agent_decisions_counts_requires_entries_and_public_lists() -> None:
+    """AD-50: a rule, a `requires` edge and a declared `public` list each count as one decision.
+
+    A component that declares no `public` recorded no interface decision, so it adds nothing;
+    an entry nobody attributed is a decision all the same, and counts in the total alone.
+    """
+    observation = _observation(
+        (),
+        (
+            _declaration("RULE-1", "no_component_cycles", (("decided_by", "architect"),)),
+            _declaration(
+                "COMP-CLI",
+                "component_responsibility",
+                (
+                    (
+                        "requires",
+                        (
+                            RecordData((("component", "api"),)),
+                            RecordData((("component", "core"), ("decided_by", "agent"))),
+                        ),
+                    ),
+                ),
+            ),
+            _declaration(
+                "COMP-CORE",
+                "component_responsibility",
+                (("public", ("sample.core",)), ("decided_by", "agent")),
+            ),
+            _declaration("COMP-API", "component_responsibility", (("public", ("sample.api",)),)),
+        ),
+    )
+
+    assert agent_decisions(observation) == (2, 5)
 
 
 def test_open_decisions_counts_import_sites_for_components_with_split_or_nested_packages() -> None:

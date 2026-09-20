@@ -211,8 +211,13 @@ def draft_contract(
     edges = observed_component_edges(scaffold, observation)
     sizes = scope_metrics(observation, "component", module_labels)
     public = _drafted_public(observation, scaffold)
+    # A drafted public list is the agent's interface decision, marked the way its rules are
+    # (AD-50), so `agent_decisions` counts it and the architect sees what is still owed.
     components = tuple(
-        replace(component, public=public.get(component.label)) for component in draft_components
+        replace(component, public=entries, decided_by="agent")
+        if (entries := public.get(component.label)) is not None
+        else component
+        for component in draft_components
     )
     rules: list[ArchitectureRule] = [
         CompleteAssignmentRule(

@@ -149,9 +149,10 @@ onboarding step.
 **Auto mode's evidence discipline (an agent must still not guess):** documents first, then
 the layer principles the architect already confirmed or the documents state, then judgment
 labeled as judgment in the rationale — never "the code already does this, so it is allowed."
-`validate --json` and `report --json` carry `agent_decisions: [agent, total]`; a nonzero
-first value means rules an interview has not yet reviewed, and the terminal and HTML
-summaries say so as "N of M rules decided by the agent, awaiting the architect."
+`validate --json` and `report --json` carry `agent_decisions: [agent, total]`, counting one
+rule declaration, one `requires` entry and one declared `public` list alike (AD-50); a nonzero
+first value means decisions an interview has not yet reviewed, and the terminal and HTML
+summaries say so as "N of M decisions made by the agent, awaiting the architect."
 
 Every ordered component pair is a decision, made exactly once, by one `allowed_dependency`
 rule or one `forbidden_dependency` rule with the architect's rationale; `validate` reports an

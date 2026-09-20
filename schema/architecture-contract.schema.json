@@ -30,7 +30,8 @@
       "properties": {
         "component": {"$ref": "#/$defs/nonEmpty"},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
-        "through": {"$ref": "#/$defs/strings"}
+        "through": {"$ref": "#/$defs/strings"},
+        "decided_by": {"$ref": "#/$defs/decidedBy"}
       }
     },
     "component": {
@@ -51,7 +52,8 @@
         "public": {"type": "array", "uniqueItems": true, "items": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$"
-        }}
+        }},
+        "decided_by": {"$ref": "#/$defs/decidedBy"}
       }
     },
     "decidedBy": {"enum": ["architect", "agent"]},

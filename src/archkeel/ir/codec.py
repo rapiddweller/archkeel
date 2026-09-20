@@ -750,11 +750,13 @@ def _public_entry(value: str, label: str) -> str:
 
 
 def _required_component(raw: RawJson, label: str) -> RequiredComponent:
-    item = _contract_fields(raw, {"component", "rationale"}, {"through"}, label)
+    item = _contract_fields(raw, {"component", "rationale"}, {"through", "decided_by"}, label)
+    decided_by = item.get("decided_by")
     return RequiredComponent(
         _nonempty(item["component"], f"{label}.component"),
         _nonempty(item["rationale"], f"{label}.rationale"),
         _contract_strings(item.get("through", []), f"{label}.through"),
+        _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
     )
 
 
@@ -762,7 +764,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
-        {"capability_id", "inside", "public", "requires"},
+        {"capability_id", "decided_by", "inside", "public", "requires"},
         label,
     )
     try:
@@ -791,6 +793,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         else None
     )
     inside = item.get("inside")
+    decided_by = item.get("decided_by")
     return ContractComponent(
         item_id,
         _nonempty(item["label"], f"{label}.label"),
@@ -805,6 +808,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         requires,
         _nonempty(inside, f"{label}.inside") if inside is not None else None,
         public,
+        _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
     )
 
 

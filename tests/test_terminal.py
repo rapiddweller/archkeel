@@ -153,17 +153,17 @@ def test_terminal_view_says_no_drafted_component_stands_out_on_a_tie() -> None:
 
 
 def test_terminal_view_names_agent_decisions_awaiting_the_architect() -> None:
-    """AD-16: validate and report say how many rules the agent decided, not just PASS."""
+    """AD-50: validate and report say how many decisions the agent made, not just PASS."""
     result = RunResult("report", 0, "PASS", "PASS", "n/a", agent_decisions=(3, 10))
     summary = report_summary(result)
-    assert "3 of 10 rules decided by the agent, awaiting the architect." in summary.sentence
+    assert "3 of 10 decisions made by the agent, awaiting the architect." in summary.sentence
     wide = _render(result, summary, 200)
-    assert "3 of 10 rules decided by the agent, awaiting the architect." in wide
+    assert "3 of 10 decisions made by the agent, awaiting the architect." in wide
 
 
 def test_terminal_view_omits_the_agent_decisions_line_when_none_remain() -> None:
     result = RunResult("report", 0, "PASS", "PASS", "n/a", agent_decisions=(0, 10))
-    assert "decided by the agent" not in report_summary(result).sentence
+    assert "made by the agent" not in report_summary(result).sentence
 
 
 def test_terminal_view_counts_every_review_claim_without_a_verdict() -> None:
