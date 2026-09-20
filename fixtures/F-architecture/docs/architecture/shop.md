@@ -77,3 +77,18 @@ flowchart LR
     render --> model
     store --> model
 ```
+
+The same six edges are every pair `allowed_dependency` permits, so the target graph below draws
+them again (AD-57): here the two agree, and drawing both says the contract has no headroom left
+unused.
+
+<!-- archkeel-target-graph -->
+```mermaid
+flowchart LR
+    app --> model
+    app --> store
+    cli --> app
+    cli --> render
+    render --> model
+    store --> model
+```

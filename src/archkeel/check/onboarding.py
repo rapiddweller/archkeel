@@ -262,6 +262,10 @@ def architecture_document(
 
     AD-38: the Modules and Inner edges columns name each draft's size, so the architect sees
     where a per-child draft hides a large sub-package before deciding whether to consolidate.
+
+    No `<!-- archkeel-target-graph -->` marker is written here (AD-57): `init` drafts no
+    dependency rule and no `requires` entry, so there is no permitted-edge set yet to draw -
+    that decision is the architect's, and `init` proposes, it never decides (AD-15).
     """
     by_label = {metric.scope: metric for metric in sizes}
     rows = "\n".join(

@@ -16,6 +16,7 @@ from archkeel.check.onboarding import architecture_document
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
+    TARGET_GRAPH_MARKER,
     graph_diagnostics,
     inside_diagnostics,
     interface_diagnostics,
@@ -205,6 +206,25 @@ _INTERFACE_RULE = {
 }
 
 
+def _contract_with_allowed_dependency(source: str, target: str) -> dict[str, object]:
+    """A two-component contract whose only decision permits `source` to depend on `target`."""
+    return {
+        "schema_version": "2.1.0",
+        "components": [_component(source), _component(target)],
+        "rules": [
+            {
+                "id": "DEP-ALLOW",
+                "kind": "allowed_dependency",
+                "source": f"sample.{source}",
+                "target": f"sample.{target}",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+
+
 def _cross_import(target_module: str, **data: object) -> dict[str, object]:
     return _record(
         "IMPORT-1",
@@ -339,13 +359,17 @@ def test_write_graph_writes_the_graph_init_writes() -> None:
     drafted = architecture_document("shop", empty, frozenset({("cli", "model")}), ())
     current = architecture_document("shop", empty, edges, ())
 
-    assert rewrite_component_graph((("shop.md", drafted),), edges) == ("shop.md", current)
-    assert rewrite_component_graph((("shop.md", current),), edges) is None
+    assert rewrite_component_graph((("shop.md", drafted),), edges, frozenset()) == (
+        ("shop.md", current),
+    )
+    assert rewrite_component_graph((("shop.md", current),), edges, frozenset()) == ()
     # A block without a diagram line gets the one `init` writes.
     block = f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n```\n"
-    assert rewrite_component_graph((("shop.md", block),), edges) == (
-        "shop.md",
-        block.replace("```\n", "graph TD\n    app --> model\n    cli --> app\n```\n"),
+    assert rewrite_component_graph((("shop.md", block),), edges, frozenset()) == (
+        (
+            "shop.md",
+            block.replace("```\n", "graph TD\n    app --> model\n    cli --> app\n```\n"),
+        ),
     )
 
 
@@ -354,10 +378,13 @@ def test_write_graph_changes_nothing_without_exactly_one_marked_graph() -> None:
     edges = frozenset({("cli", "app")})
     page = f"# Shop\n\n{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
     assert (
-        rewrite_component_graph((("a.md", "# Shop\n```mermaid\ngraph TD\n```\n"),), edges) is None
+        rewrite_component_graph(
+            (("a.md", "# Shop\n```mermaid\ngraph TD\n```\n"),), edges, frozenset()
+        )
+        == ()
     )
-    assert rewrite_component_graph((("a.md", page), ("b.md", page)), edges) is None
-    assert rewrite_component_graph((("a.md", page + page),), edges) is None
+    assert rewrite_component_graph((("a.md", page), ("b.md", page)), edges, frozenset()) == ()
+    assert rewrite_component_graph((("a.md", page + page),), edges, frozenset()) == ()
 
 
 def test_write_graph_adds_the_declaration_a_block_lacks() -> None:
@@ -365,10 +392,14 @@ def test_write_graph_adds_the_declaration_a_block_lacks() -> None:
     block = (
         f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n%% generated component graph\ncli --> core\n```\n"
     )
-    assert rewrite_component_graph((("a.md", block),), frozenset({("cli", "core")})) == (
-        "a.md",
-        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n%% generated component graph\n"
-        "    cli --> core\n```\n",
+    assert rewrite_component_graph(
+        (("a.md", block),), frozenset({("cli", "core")}), frozenset()
+    ) == (
+        (
+            "a.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n%% generated component graph\n"
+            "    cli --> core\n```\n",
+        ),
     )
 
 
@@ -386,11 +417,93 @@ def test_write_graph_leaves_a_block_it_cannot_read_to_the_architect(
 ) -> None:
     """AD-46: only a declaration, `%%` comments and plain edges are known to survive a rewrite."""
     documents = (("a.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n{body}```\n"),)
-    assert rewrite_component_graph(documents, frozenset({("core", "ir")})) is None
+    assert rewrite_component_graph(documents, frozenset({("core", "ir")}), frozenset()) == ()
 
     contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
     observation = parse_observation(_model(git_head="a" * 40))
     (drift,) = graph_diagnostics(contract, observation, documents)
     assert drift.code == "graph.drift"
     assert f"`{structure}`" in drift.remedy
+    assert "by hand" in drift.remedy
+
+
+def test_target_graph_matches_the_edges_the_contract_permits() -> None:
+    """AD-57: a target marker whose edges equal `target_component_edges` passes cleanly."""
+    contract = parse_contract(_contract_with_allowed_dependency("core", "cli"))
+    observation = parse_observation(_model(git_head="a" * 40))
+    documents = (
+        (
+            "sample.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+            f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n    core --> cli\n```\n",
+        ),
+    )
+    assert graph_diagnostics(contract, observation, documents) == ()
+
+
+def test_target_graph_drift_names_the_target_marker() -> None:
+    """AD-57: a stale target marker is graph.drift naming the target graph, not the observed."""
+    contract = parse_contract(_contract_with_allowed_dependency("core", "cli"))
+    observation = parse_observation(_model(git_head="a" * 40))
+    documents = (
+        (
+            "sample.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+            f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n",
+        ),
+    )
+    (drift,) = graph_diagnostics(contract, observation, documents)
+    assert drift.code == "graph.drift"
+    assert drift.subject == "sample.md (target graph)"
+    assert "the edges the contract permits" in drift.unknown_claim
+    assert "archkeel validate --write-graph" in drift.remedy
+
+
+def test_a_page_with_only_the_observed_marker_behaves_exactly_as_before() -> None:
+    """AD-57: the target marker is optional; its absence adds no diagnostic and no requirement."""
+    contract = parse_contract(_contract_with_allowed_dependency("core", "cli"))
+    observation = parse_observation(_model(git_head="a" * 40))
+    documents = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"),)
+    assert graph_diagnostics(contract, observation, documents) == ()
+
+
+def test_write_graph_regenerates_both_marked_graphs_on_one_page() -> None:
+    """AD-57: one page carrying both markers comes back once, with both blocks rewritten."""
+    documents = (
+        (
+            "sample.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+            f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n",
+        ),
+    )
+    edits = rewrite_component_graph(
+        documents, frozenset({("cli", "app")}), frozenset({("app", "model")})
+    )
+    assert edits == (
+        (
+            "sample.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n    cli --> app\n```\n\n"
+            f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n    app --> model\n```\n",
+        ),
+    )
+
+
+def test_write_graph_leaves_a_target_block_it_cannot_read_to_the_architect() -> None:
+    """AD-57: the target marker follows AD-46's same allowlist; a subgraph is left to a human."""
+    documents = (
+        (
+            "sample.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+            f"{TARGET_GRAPH_MARKER}\n```mermaid\nflowchart LR\n    subgraph core\n"
+            "    cli --> core\n    end\n```\n",
+        ),
+    )
+    assert rewrite_component_graph(documents, frozenset(), frozenset({("cli", "core")})) == ()
+
+    contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
+    observation = parse_observation(_model(git_head="a" * 40))
+    (drift,) = graph_diagnostics(contract, observation, documents)
+    assert drift.code == "graph.drift"
+    assert drift.subject == "sample.md (target graph)"
+    assert "`subgraph core`" in drift.remedy
     assert "by hand" in drift.remedy

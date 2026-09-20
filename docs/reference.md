@@ -70,17 +70,25 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
 Without `--source` and `--namespace`, `init` scans the only top-level Python package under `src/`, or under the root when there is no `src/`; when several sit side by side it scans the one whose name matches `pyproject.toml`'s `[project] name` in wheel file-name form (runs of `-`, `_` and `.` become `_`, compared case-insensitively), and otherwise exits 2 with `scope_empty`, naming the packages it found and the name it compared (AD-47).
 `init --json` and `validate --json` add `open_decisions`, heaviest observed pair first, each with its `allowed_dependency` and `forbidden_dependency` option rule (AD-15). `validate` and `report` add `agent_decisions` as `[agent, total]` decisions: one rule declaration, one `requires` entry or one declared `public` list each, at either level, and one nobody attributed counts in the total alone (AD-16, AD-50), and `violations_by_rule` as `[rule, count]` pairs with `violations_by_component_pair` as `[source, target, count]` triples, heaviest first (AD-51); a violation that crosses no component pair, such as a construct or a cycle, appears only in the first. `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
-`validate --write-graph` rewrites the edges of the one marked component graph from the contract
-and the observed imports before it validates, sorted the way `init` writes them (AD-46). The rest
-of the page stays as it was, and so do the block's diagram declaration, such as a `flowchart LR`,
-and its `%%` comments, ahead of the edges; a block without a declaration gets `graph TD`. It
-writes only a page that changes and names it in `artifact`; with no marked graph or with several
-it writes nothing, and `graph.count` remains. A block holding any other line, such as a
-`subgraph`, a labeled edge or a `classDef`, is not rewritten: `graph.drift` remains, and its
-remedy names the line and asks for the edges to be edited by hand. The page is read and written
-as UTF-8 with `\n` line endings. The demo rows `validation-graph-drift-write-graph` and
-`validation-graph-drift-subgraph` show both remedies on the shop sample, whose own page is already
-in the form the command writes.
+`validate --write-graph` rewrites the edges of the one marked component graph, `<!--
+archkeel-component-graph -->`, from the observed imports, and, where a page also carries `<!--
+archkeel-target-graph -->`, that marked target graph from `target_component_edges`: every pair a
+`requires` entry or an `allowed_dependency` rule permits (AD-57). Both are sorted the way `init`
+writes them (AD-46), and each is rewritten independently: a page may carry either marker, both, or
+neither, and only markers actually present are checked or written. The rest of the page stays as
+it was, and so do a rewritten block's diagram declaration, such as a `flowchart LR`, and its `%%`
+comments, ahead of the edges; a block without a declaration gets `graph TD`. It writes only a page
+that changes and names it in `artifact`; the observed marker still requires exactly one across the
+contract's provenance documents, or `graph.count` remains, while the target marker is silent when
+absent and `graph.count` only if it appears more than once. A block holding any other line, such as
+a `subgraph`, a labeled edge or a `classDef`, is not rewritten: `graph.drift` remains for that
+marker, and its remedy names the line and asks for the edges to be edited by hand; the diagnostic's
+subject always names which marker, for example `docs/architecture/shop.md (target graph)`. The page
+is read and written as UTF-8 with `\n` line endings. The demo rows `validation-graph-drift-write-graph`
+and `validation-graph-drift-subgraph` show both remedies for the observed marker on the shop sample,
+whose own page draws both graphs and (today) has them agree; `validation-target-graph-drift-write-graph`
+and `validation-target-graph-drift-subgraph` show the same two remedies isolated to the target marker,
+with the observed marker still passing.
 
 `validate --baseline <file>` holds the run against a file of known violations, for a contract
 that states the target architecture and so is violated by the code that has yet to reach it

@@ -171,8 +171,10 @@ _NO_COMPONENT_CYCLES = Variant(
                 "decided_by": "architect",
             },
         ),
+        # The permission is added too (AD-57), so both the observed and the target graph
+        # gain the edge; `.replace` with no count hits both, since the two currently agree.
         "docs/architecture/shop.md": CLEAN_SHOP_MD.replace(
-            "    render --> model\n", "    render --> model\n    model --> render\n", 1
+            "    render --> model\n", "    render --> model\n    model --> render\n"
         ),
     },
     expected_violations=("COMPONENT-NO-CYCLES",),

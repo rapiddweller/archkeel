@@ -58,8 +58,10 @@ run shows many violations together; every other row isolates one item.
 | validation | rationale.placeholder | validation-rationale-placeholder | validate/report run | - | rationale.placeholder | architecture-contract.json |
 | validation | rationale.repeated | validation-rationale-repeated | validate/report run | - | rationale.repeated | architecture-contract.json |
 | validation | graph.count | validation-graph-count | validate/report run | - | graph.count | docs/architecture/shop.md |
-| validation | graph.drift:write-graph | validation-graph-drift-write-graph | validate/report run | - | graph.drift | architecture-contract.json |
-| validation | graph.drift:subgraph | validation-graph-drift-subgraph | validate/report run | - | graph.drift | architecture-contract.json, docs/architecture/shop.md |
+| validation | graph.drift:write-graph | validation-graph-drift-write-graph | validate/report run | - | graph.drift, graph.drift | architecture-contract.json |
+| validation | graph.drift:subgraph | validation-graph-drift-subgraph | validate/report run | - | graph.drift, graph.drift | architecture-contract.json, docs/architecture/shop.md |
+| validation | graph.drift:target-write-graph | validation-target-graph-drift-write-graph | validate/report run | - | graph.drift | architecture-contract.json |
+| validation | graph.drift:target-subgraph | validation-target-graph-drift-subgraph | validate/report run | - | graph.drift | architecture-contract.json, docs/architecture/shop.md |
 | validation | reference.namespace | validation-reference-namespace | validate/report run | - | reference.namespace | architecture-contract.json |
 | validation | reference.public_owner | validation-reference-public-owner | validate/report run | - | reference.public_owner | architecture-contract.json |
 | validation | reference.public_underscore | validation-reference-public-underscore | validate/report run | - | reference.public_underscore | architecture-contract.json |

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from archkeel.check.validation import COMPONENT_GRAPH_MARKER
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
     HEADER,
@@ -14,6 +14,7 @@ from fixtures.demo_catalog_support import (
     contract_component_field_set,
     contract_rule_field,
     contract_rule_provenance_appended,
+    contract_rule_replaced,
     contract_top_field,
     contract_with_rule,
     contract_without_component_field,
@@ -27,6 +28,41 @@ _PAGE_WITH_SUBGRAPH = CLEAN_SHOP_MD.replace(
     "    cli --> app\n    cli --> render\n",
     "    subgraph composition\n    cli --> app\n    cli --> render\n    end\n",
 )
+
+# AD-57: a pair the closed world already decided forbidden, swapped to allowed - the pair no
+# code observes, so only the target-permitted set grows; the observed graph is untouched.
+_CLI_ALLOWS_MODEL = contract_rule_replaced(
+    "DEP-CLI-NO-MODEL",
+    {
+        "id": "DEP-CLI-ALLOWS-MODEL",
+        "kind": "allowed_dependency",
+        "source": "shop.cli",
+        "target": "shop.model",
+        "rationale": "The composition root may construct a default order directly, ahead of "
+        "the use case that will call it; nothing does yet.",
+        "provenance": ["docs/architecture/shop.md"],
+        "decided_by": "architect",
+    },
+)
+
+
+def _target_block_with_subgraph(page: str) -> str:
+    """`page` with only its target graph's `cli` edges grouped in a `subgraph` (AD-57).
+
+    Slicing on the two markers, rather than `.replace`, keeps the edit inside the target
+    block alone: in the clean sample the target and observed graphs draw the same edges, so a
+    blind text replace would wrap both.
+    """
+    before, marker, rest = page.partition(TARGET_GRAPH_MARKER)
+    block, tail_marker, after = rest.partition(COMPONENT_GRAPH_MARKER)
+    wrapped = block.replace(
+        "    cli --> app\n    cli --> render\n",
+        "    subgraph composition\n    cli --> app\n    cli --> render\n    end\n",
+    )
+    return before + marker + wrapped + tail_marker + after
+
+
+_TARGET_PAGE_WITH_SUBGRAPH = _target_block_with_subgraph(CLEAN_SHOP_MD)
 
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
     Variant(
@@ -94,23 +130,51 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         id="validation-graph-drift-write-graph",
         section="validation",
         item="graph.drift:write-graph",
-        summary="A contract edit renames COMP-RENDER's label to view, and the marked graph in "
-        "docs/architecture/shop.md still draws render. The remedy names archkeel validate "
-        "--write-graph, which rewrites only that graph's edges; validate then passes (AD-46).",
+        summary="A contract edit renames COMP-RENDER's label to view, and both marked graphs in "
+        "docs/architecture/shop.md still draw render: the observed graph, and the target graph "
+        "it agrees with today (AD-57). The remedy names archkeel validate --write-graph, which "
+        "rewrites both graphs' edges; validate then passes (AD-46).",
         files={"architecture-contract.json": _RENDER_RENAMED},
         expected_violations=(),
-        expected_codes=("graph.drift",),
+        expected_codes=("graph.drift", "graph.drift"),
     ),
     Variant(
         id="validation-graph-drift-subgraph",
         section="validation",
         item="graph.drift:subgraph",
-        summary="The same rename, on a page whose marked graph groups cli's edges in a subgraph. "
-        "Rewritten edges could leave it, so --write-graph writes nothing, and the remedy names "
-        "`subgraph composition` and asks for a hand edit (AD-46).",
+        summary="The same rename, on a page whose two marked graphs both group cli's edges in a "
+        "subgraph. Rewritten edges could leave it, so --write-graph writes nothing for either "
+        "block, and each remedy names `subgraph composition` and asks for a hand edit (AD-46).",
         files={
             "architecture-contract.json": _RENDER_RENAMED,
             "docs/architecture/shop.md": _PAGE_WITH_SUBGRAPH,
+        },
+        expected_violations=(),
+        expected_codes=("graph.drift", "graph.drift"),
+    ),
+    Variant(
+        id="validation-target-graph-drift-write-graph",
+        section="validation",
+        item="graph.drift:target-write-graph",
+        summary="A contract edit allows cli to depend on model, a pair the code has never used. "
+        "The observed graph still matches; only the target graph is stale, and its subject names "
+        "the target marker, not the observed one. --write-graph regenerates that block alone "
+        "(AD-57).",
+        files={"architecture-contract.json": _CLI_ALLOWS_MODEL},
+        expected_violations=(),
+        expected_codes=("graph.drift",),
+    ),
+    Variant(
+        id="validation-target-graph-drift-subgraph",
+        section="validation",
+        item="graph.drift:target-subgraph",
+        summary="The same allowance, on a page whose target graph alone groups cli's edges in a "
+        "subgraph; the observed graph is untouched. --write-graph writes nothing for the target "
+        "block, and the remedy names `subgraph composition` and asks for a hand edit, the rule "
+        "AD-46 gave the observed graph applied to the target one (AD-57).",
+        files={
+            "architecture-contract.json": _CLI_ALLOWS_MODEL,
+            "docs/architecture/shop.md": _TARGET_PAGE_WITH_SUBGRAPH,
         },
         expected_violations=(),
         expected_codes=("graph.drift",),
