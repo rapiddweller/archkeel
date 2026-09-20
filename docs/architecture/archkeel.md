@@ -86,6 +86,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-52 | [A violation is named by what it is, and a baseline may hold the ones already there](decisions/ad-52-a-violation-is-named-by-what-it-is-and-a-baseline-may-hold.md) |
 | AD-53 | [`from pkg import name` follows `pkg/__init__.py`'s own binding before a same-named submodule](decisions/ad-53-from-pkg-import-name-follows-pkginitpys-own-binding-before.md) |
 | AD-54 | [A typed violation row is the one supported way to read a report's violations, and `ir.baseline` derives it once for everything that groups them](decisions/ad-54-a-typed-violation-row-is-the-one-supported-way-to-read-a.md) |
+| AD-55 | [The decision record splits into one file per decision, indexed in document order](decisions/ad-55-the-decision-record-splits-into-one-file-per-decision.md) |
 
 ## Allowed dependencies
 

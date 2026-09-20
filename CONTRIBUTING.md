@@ -43,9 +43,10 @@ unneeded one rewrites `architecture.json` and conflicts with other branches for 
 ## A behaviour change carries its decision
 
 - **Test first.** Add the test that shows the issue, see it fail, then make it pass.
-- **Record the decision.** A change in behaviour gets an `AD-<n>` entry in
-  [docs/architecture/archkeel.md](docs/architecture/archkeel.md) with its reason, the rejected
-  alternatives, its limit and the tests that check it, and a row in
+- **Record the decision.** A change in behaviour gets an `AD-<n>` file under
+  [docs/architecture/decisions/](docs/architecture/decisions/) with its reason, the rejected
+  alternatives, its limit and the tests that check it, an index row in
+  [docs/architecture/archkeel.md](docs/architecture/archkeel.md), and a row in
   [docs/roadmap.md](docs/roadmap.md). Update every document that describes the old behaviour.
 - **Keep the contract true.** A new module needs a component in `architecture-contract.json`, and a
   new import between components needs a `requires` entry with its reason. Never widen a rule to

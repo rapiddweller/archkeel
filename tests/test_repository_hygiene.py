@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import ast
 import json
+import re
 import subprocess
 import tomllib
 from collections.abc import Iterator
@@ -156,6 +157,35 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
         "the sdist must not ship a test suite or its fixtures: it cannot run from a tarball "
         f"(see docs/reference.md), so shipping it half-working is worse than not shipping it; "
         f"found {shipped_test_inputs}"
+    )
+
+
+def test_decision_index_matches_decision_files() -> None:
+    """AD-55: the decisions index and docs/architecture/decisions/ name the same set.
+
+    A decision file nobody indexed, or an index row pointing at a missing file, is a
+    drift the split's whole point was to prevent: add the file's row to the index table
+    in docs/architecture/archkeel.md, or add the missing file under decisions/.
+    """
+    archkeel_md = (ROOT / "docs/architecture/archkeel.md").read_text(encoding="utf-8")
+    indexed = dict(
+        re.findall(
+            r"^\| AD-(\S+) \| \[.*?\]\(decisions/(ad-\S+\.md)\) \|$", archkeel_md, re.MULTILINE
+        )
+    )
+    decisions_dir = ROOT / "docs/architecture/decisions"
+    on_disk = {path.name for path in decisions_dir.glob("ad-*.md")}
+
+    assert indexed, "the index table in docs/architecture/archkeel.md parsed no rows"
+    missing_files = sorted(set(indexed.values()) - on_disk)
+    assert missing_files == [], (
+        "the index in docs/architecture/archkeel.md names a file docs/architecture/decisions/ "
+        f"does not have: {missing_files}"
+    )
+    unindexed_files = sorted(on_disk - set(indexed.values()))
+    assert unindexed_files == [], (
+        "docs/architecture/decisions/ holds a file the index in docs/architecture/archkeel.md "
+        f"does not name: {unindexed_files}"
     )
 
 
