@@ -148,80 +148,116 @@ def _rule_presence_widening(rule: ArchitectureRule, *, added: bool) -> list[str]
     return [f"rule {rule.id} ({rule.kind}) {verb}"] if widens else []
 
 
+def _forbidden_dependency_widenings(
+    subject: str, before: ForbiddenDependencyRule, after: ForbiddenDependencyRule
+) -> list[str]:
+    return [
+        *_set_widenings(
+            f"{subject}.allowed_sources",
+            frozenset(before.allowed_sources),
+            frozenset(after.allowed_sources),
+            grows_widens=True,
+        ),
+        *_include_type_checking_widening(
+            subject, before.include_type_checking, after.include_type_checking
+        ),
+        *_generic_field_widenings(
+            subject, before, after, handled=frozenset({"allowed_sources", "include_type_checking"})
+        ),
+    ]
+
+
+def _forbidden_construct_widenings(
+    subject: str, before: ForbiddenConstructRule, after: ForbiddenConstructRule
+) -> list[str]:
+    return [
+        # A construct dropped from the forbidden list is a widening; one added is not.
+        *_set_widenings(
+            f"{subject}.constructs",
+            frozenset(before.constructs),
+            frozenset(after.constructs),
+            grows_widens=False,
+        ),
+        *_set_widenings(
+            f"{subject}.allowed_sources",
+            frozenset(before.allowed_sources),
+            frozenset(after.allowed_sources),
+            grows_widens=True,
+        ),
+        *_set_widenings(
+            f"{subject}.exact_sources",
+            frozenset(before.exact_sources),
+            frozenset(after.exact_sources),
+            grows_widens=True,
+        ),
+        *_generic_field_widenings(
+            subject,
+            before,
+            after,
+            handled=frozenset({"constructs", "allowed_sources", "exact_sources"}),
+        ),
+    ]
+
+
+def _external_dependency_scope_widenings(
+    subject: str, before: ExternalDependencyScopeRule, after: ExternalDependencyScopeRule
+) -> list[str]:
+    return [
+        *_set_widenings(
+            f"{subject}.allowed_sources",
+            frozenset(before.allowed_sources),
+            frozenset(after.allowed_sources),
+            grows_widens=True,
+        ),
+        *_set_widenings(
+            f"{subject}.exact_sources",
+            frozenset(before.exact_sources),
+            frozenset(after.exact_sources),
+            grows_widens=True,
+        ),
+        *_generic_field_widenings(
+            subject, before, after, handled=frozenset({"allowed_sources", "exact_sources"})
+        ),
+    ]
+
+
+def _sibling_isolation_widenings(
+    subject: str, before: SiblingIsolationRule, after: SiblingIsolationRule
+) -> list[str]:
+    return [
+        # Fewer isolated members means less is kept apart: a widening, not a narrowing.
+        *_set_widenings(
+            f"{subject}.members",
+            frozenset(before.members),
+            frozenset(after.members),
+            grows_widens=False,
+        ),
+        *_include_type_checking_widening(
+            subject, before.include_type_checking, after.include_type_checking
+        ),
+        *_generic_field_widenings(
+            subject, before, after, handled=frozenset({"members", "include_type_checking"})
+        ),
+    ]
+
+
 def _matched_rule_widenings(before: ArchitectureRule, after: ArchitectureRule) -> list[str]:
+    """Dispatch by matched rule kind; a kind this module has no branch for falls closed below."""
     subject = f"rule {before.id}"
     if before.kind != after.kind:
         # An id kept across a kind change: neither the permission nor the restriction map
         # still applies, so fail closed rather than guess which side is now safe.
         return [f"{subject} changed kind from {before.kind} to {after.kind}"]
     if isinstance(before, ForbiddenDependencyRule) and isinstance(after, ForbiddenDependencyRule):
-        return [
-            *_set_widenings(
-                f"{subject}.allowed_sources",
-                frozenset(before.allowed_sources),
-                frozenset(after.allowed_sources),
-                grows_widens=True,
-            ),
-            *_include_type_checking_widening(
-                subject, before.include_type_checking, after.include_type_checking
-            ),
-            *_generic_field_widenings(
-                subject,
-                before,
-                after,
-                handled=frozenset({"allowed_sources", "include_type_checking"}),
-            ),
-        ]
+        return _forbidden_dependency_widenings(subject, before, after)
     if isinstance(before, AllowedDependencyRule) and isinstance(after, AllowedDependencyRule):
         return _generic_field_widenings(subject, before, after, handled=frozenset())
     if isinstance(before, ForbiddenConstructRule) and isinstance(after, ForbiddenConstructRule):
-        return [
-            # A construct dropped from the forbidden list is a widening; one added is not.
-            *_set_widenings(
-                f"{subject}.constructs",
-                frozenset(before.constructs),
-                frozenset(after.constructs),
-                grows_widens=False,
-            ),
-            *_set_widenings(
-                f"{subject}.allowed_sources",
-                frozenset(before.allowed_sources),
-                frozenset(after.allowed_sources),
-                grows_widens=True,
-            ),
-            *_set_widenings(
-                f"{subject}.exact_sources",
-                frozenset(before.exact_sources),
-                frozenset(after.exact_sources),
-                grows_widens=True,
-            ),
-            *_generic_field_widenings(
-                subject,
-                before,
-                after,
-                handled=frozenset({"constructs", "allowed_sources", "exact_sources"}),
-            ),
-        ]
+        return _forbidden_construct_widenings(subject, before, after)
     if isinstance(before, ExternalDependencyScopeRule) and isinstance(
         after, ExternalDependencyScopeRule
     ):
-        return [
-            *_set_widenings(
-                f"{subject}.allowed_sources",
-                frozenset(before.allowed_sources),
-                frozenset(after.allowed_sources),
-                grows_widens=True,
-            ),
-            *_set_widenings(
-                f"{subject}.exact_sources",
-                frozenset(before.exact_sources),
-                frozenset(after.exact_sources),
-                grows_widens=True,
-            ),
-            *_generic_field_widenings(
-                subject, before, after, handled=frozenset({"allowed_sources", "exact_sources"})
-            ),
-        ]
+        return _external_dependency_scope_widenings(subject, before, after)
     if isinstance(before, CompleteRequiresRule) and isinstance(after, CompleteRequiresRule):
         return [
             *_include_type_checking_widening(
@@ -241,21 +277,7 @@ def _matched_rule_widenings(before: ArchitectureRule, after: ArchitectureRule) -
             ),
         ]
     if isinstance(before, SiblingIsolationRule) and isinstance(after, SiblingIsolationRule):
-        return [
-            # Fewer isolated members means less is kept apart: a widening, not a narrowing.
-            *_set_widenings(
-                f"{subject}.members",
-                frozenset(before.members),
-                frozenset(after.members),
-                grows_widens=False,
-            ),
-            *_include_type_checking_widening(
-                subject, before.include_type_checking, after.include_type_checking
-            ),
-            *_generic_field_widenings(
-                subject, before, after, handled=frozenset({"members", "include_type_checking"})
-            ),
-        ]
+        return _sibling_isolation_widenings(subject, before, after)
     if isinstance(before, CompleteAssignmentRule) and isinstance(after, CompleteAssignmentRule):
         return _generic_field_widenings(subject, before, after, handled=frozenset())
     if isinstance(before, CompleteExternalScopeRule) and isinstance(
