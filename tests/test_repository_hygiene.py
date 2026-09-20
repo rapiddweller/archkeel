@@ -139,8 +139,9 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
     It cannot: a tarball has no `.git` for the license-header check above, no pinned
     interpreters for `fixtures/E-runtime`, no `tools/`, and none of the cross-test imports the
     suite relies on. A shipped-but-untestable suite would be a second, weaker definition of
-    "tests pass," so `only-include` carries only what rebuilds the wheel (`src`, `schema`) and
-    distributors rebuild the test suite from the Git tag instead (docs/reference.md).
+    "tests pass," so `only-include` carries what rebuilds the wheel (`src`, `schema` and the
+    declared `README.md`) and distributors rebuild the test suite from the Git tag instead
+    (docs/reference.md).
     """
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())
     only_include = config["tool"]["hatch"]["build"]["targets"]["sdist"]["only-include"]

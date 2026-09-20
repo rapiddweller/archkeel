@@ -67,8 +67,9 @@ packages = ["src/archkeel"]
 # The sdist ships what rebuilds the wheel, not the test suite: pytest needs a Git checkout
 # (fixtures/E-runtime's two pinned interpreters, tools/, cross-test imports) that a tarball
 # cannot offer, so a shipped-but-skipped suite would only be a second, weaker "tests pass".
-# Distributors rebuild from the Git tag.
-only-include = ["src", "schema"]
+# Distributors rebuild from the Git tag. README.md is the declared readme source, so the
+# tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
+only-include = ["src", "schema", "README.md"]
 
 [dependency-groups]
 # Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.
