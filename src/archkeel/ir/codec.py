@@ -12,7 +12,6 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from math import isfinite
-from pathlib import Path
 from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
 
 from archkeel.ir.baseline import BASELINE_SCHEMA_VERSION, KnownViolation, ViolationFingerprint
@@ -569,17 +568,6 @@ def decode_json(payload: bytes | str) -> object:
         return json.loads(payload.decode("utf-8") if isinstance(payload, bytes) else payload)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"invalid JSON: {exc}") from exc
-
-
-def load_observation(path: Path) -> Observation:
-    """Read one `architecture.json` report from disk and return its Observation (AD-54).
-
-    The one supported way in: `decode_json`, `decode_canonical_model` and `parse_observation`
-    are the internal steps a consumer would otherwise have to compose itself, against a
-    columnar, string-interned file format this function is what stays stable across it.
-    """
-    payload = _object(decode_json(path.read_bytes()), "architecture.json")
-    return parse_observation(decode_canonical_model(payload))
 
 
 def _exact(value: object, keys: set[str], label: str) -> dict[str, RawJson]:

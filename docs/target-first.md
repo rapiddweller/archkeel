@@ -307,8 +307,8 @@ On a backlog larger than one entry, `violations_by_rule` and `violations_by_comp
 `report --json` rank it by weight without decoding anything else (AD-51); `--rule` and
 `--component` then isolate one slice to work, the same flags used to read the first report in
 step 2. An agent building its own dashboard on top of `architecture.json` reads it through
-`archkeel.ir.codec.load_observation` and `archkeel.ir.baseline.violation_rows`, the one supported
-way to get typed rows instead of decoding the columnar file directly (AD-54;
+`archkeel.api.load_observation` and `archkeel.api.violation_rows`, the one supported facade for
+typed rows instead of decoding the columnar file directly (AD-54, AD-64;
 [reference.md](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md#reading-a-reports-violations)).
 
 ## 8. Land a planned interface

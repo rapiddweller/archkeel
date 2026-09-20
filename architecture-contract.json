@@ -3,16 +3,34 @@
   "schema_version": "2.1.0",
   "components": [
     {
+      "id": "COMP-API",
+      "label": "api",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": ["archkeel.api"],
+      "requires": [
+        {
+          "component": "ir",
+          "through": ["archkeel.ir.baseline", "archkeel.ir.codec", "archkeel.ir.model"],
+          "rationale": "Read one architecture.json report from disk and hand its bytes to ir's codec and baseline derivations; api decodes nothing itself."
+        }
+      ],
+      "responsibilities": [
+        "The declared external contract: the named surface a consumer outside this repository may import, and the one place that reads its bytes.",
+        "Quality goal: stable across every internal refactor of ir."
+      ],
+      "forbidden_responsibilities": ["Decoding IR bytes into typed values, which ir.codec still owns."],
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-IR",
       "label": "ir",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.ir"],
       "public": [
-        "archkeel.ir.baseline:KnownViolation",
-        "archkeel.ir.baseline:compare_violations",
-        "archkeel.ir.baseline:observed_violations",
-        "archkeel.ir.baseline:select_violations",
+        "archkeel.ir.baseline",
         "archkeel.ir.bindings",
         "archkeel.ir.codec",
         "archkeel.ir.decisions",
