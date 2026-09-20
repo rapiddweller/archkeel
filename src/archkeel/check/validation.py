@@ -34,6 +34,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
+    ContractComponent,
     ContractDeclarations,
     Diagnostic,
     DiagnosticCode,
@@ -220,6 +221,19 @@ def closed_world_diagnostics(
     return tuple(diagnostics)
 
 
+def _scanned_modules(observation: Observation) -> frozenset[str]:
+    """Every module the scan actually read, by qualified name (shared with reference checks)."""
+    return frozenset(
+        module_name
+        for record in observation.records("modules") or ()
+        if isinstance((module_name := record.data.get("qualified_name")), str)
+    )
+
+
+def _entry_module(entry: str) -> str:
+    return entry.partition(":")[0]
+
+
 def _entry_used(entry: str, records: list[RecordData]) -> bool:
     """Match one public entry's usage the way `_interface_allows` walks reexport_chain.
 
@@ -243,12 +257,9 @@ def _entry_used(entry: str, records: list[RecordData]) -> bool:
     return False
 
 
-def interface_diagnostics(
+def _imports_by_target(
     contract: ArchitectureContract, observation: Observation
-) -> tuple[Diagnostic, ...]:
-    """Require a declared interface for inbound imports and usage for declared entries."""
-    if not any(isinstance(rule, InterfaceBoundaryRule) for rule in contract.rules):
-        return ()
+) -> dict[str, list[RecordData]]:
     imports_by_target: dict[str, list[RecordData]] = {}
     for record in observation.records("imports") or ():
         source_module = record.data.get("source_module")
@@ -260,6 +271,78 @@ def interface_diagnostics(
         if source is None or target is None or source == target:
             continue
         imports_by_target.setdefault(target.label, []).append(record.data)
+    return imports_by_target
+
+
+def _public_entry_diagnostics(
+    index: int, component: ContractComponent, records: list[RecordData], modules: frozenset[str]
+) -> list[Diagnostic]:
+    """Split an unused `public` entry by whether its module was ever scanned (AD-56).
+
+    A module the scan never saw does not exist yet, `interface.missing`, whether that is a typo
+    or a facade a refactoring has not built; one the scan saw but nothing imports is
+    `interface.unused`, same as before. A `pkg.module:Name` entry is judged by its module alone:
+    `symbols` records only classes and functions, so absence from it would misreport a constant
+    or type alias as missing. A used entry is checked against neither, exactly as before.
+    """
+    diagnostics = []
+    for item, entry in enumerate(component.public or ()):
+        if _entry_used(entry, records):
+            continue
+        if _entry_module(entry) not in modules:
+            diagnostics.append(
+                _diagnostic(
+                    "interface.missing",
+                    f"/components/{index}/public/{item}",
+                    entry,
+                    "The public entry's module has not been scanned; it does not exist yet.",
+                    "Build the module, correct a typo, or move the entry to planned "
+                    "until it exists.",
+                )
+            )
+        else:
+            diagnostics.append(
+                _diagnostic(
+                    "interface.unused",
+                    f"/components/{index}/public/{item}",
+                    entry,
+                    "No cross-component import reaches this public entry.",
+                    "Remove the entry or confirm another component should use it.",
+                )
+            )
+    return diagnostics
+
+
+def _planned_entry_diagnostics(
+    index: int, component: ContractComponent, modules: frozenset[str]
+) -> list[Diagnostic]:
+    """Flag a `planned` entry whose module the scan now sees: the marker is stale (AD-56).
+
+    A planned module the scan never saw is target work, not a finding. Needs no declared
+    `public` of its own: an architect may name a facade before the component has any live
+    interface to pair it with.
+    """
+    return [
+        _diagnostic(
+            "interface.planned_built",
+            f"/components/{index}/planned/{item}",
+            entry,
+            "The planned entry's module has been scanned; it is no longer planned.",
+            "Move the entry to public and drop it from planned.",
+        )
+        for item, entry in enumerate(component.planned or ())
+        if _entry_module(entry) in modules
+    ]
+
+
+def interface_diagnostics(
+    contract: ArchitectureContract, observation: Observation
+) -> tuple[Diagnostic, ...]:
+    """Require a declared interface for inbound imports and usage for declared entries."""
+    if not any(isinstance(rule, InterfaceBoundaryRule) for rule in contract.rules):
+        return ()
+    imports_by_target = _imports_by_target(contract, observation)
+    modules = _scanned_modules(observation)
     diagnostics = []
     for index, component in enumerate(contract.components):
         records = imports_by_target.get(component.label, [])
@@ -275,18 +358,9 @@ def interface_diagnostics(
                         "Declare the used modules or names in public.",
                     )
                 )
-            continue
-        for item, entry in enumerate(component.public):
-            if not _entry_used(entry, records):
-                diagnostics.append(
-                    _diagnostic(
-                        "interface.unused",
-                        f"/components/{index}/public/{item}",
-                        entry,
-                        "No cross-component import reaches this public entry.",
-                        "Remove the entry or confirm another component should use it.",
-                    )
-                )
+        else:
+            diagnostics.extend(_public_entry_diagnostics(index, component, records, modules))
+        diagnostics.extend(_planned_entry_diagnostics(index, component, modules))
     return tuple(diagnostics)
 
 
@@ -586,6 +660,11 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
                 (f"/components/{index}/public/{item}", value.split(":", 1)[0])
                 for item, value in enumerate(component.public)
             )
+        if component.planned is not None:
+            names.extend(
+                (f"/components/{index}/planned/{item}", value.split(":", 1)[0])
+                for item, value in enumerate(component.planned)
+            )
         names.extend(
             (f"/components/{index}/requires/{position}/through/{item}", value)
             for position, entry in enumerate(component.requires or ())
@@ -637,35 +716,49 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
     return names
 
 
+def _entry_ownership_diagnostics(
+    contract: ArchitectureContract, component: ContractComponent, index: int, field: str
+) -> list[Diagnostic]:
+    """Require each entry of one `public` or `planned` list to be owned, never underscore-named."""
+    entries = component.public if field == "public" else component.planned
+    diagnostics = []
+    for item, entry in enumerate(entries or ()):
+        module, _, name = entry.partition(":")
+        pointer = f"/components/{index}/{field}/{item}"
+        if contract.component_for(module) is not component:
+            diagnostics.append(
+                _diagnostic(
+                    "reference.public_owner",
+                    pointer,
+                    entry,
+                    "The public entry's module is not owned by this component.",
+                    "Move the entry to its owning component or correct the module.",
+                )
+            )
+        if name.startswith("_"):
+            diagnostics.append(
+                _diagnostic(
+                    "reference.public_underscore",
+                    pointer,
+                    entry,
+                    "Underscore names are never public.",
+                    "Remove the entry or expose a non-underscore name.",
+                )
+            )
+    return diagnostics
+
+
 def _public_diagnostics(contract: ArchitectureContract) -> list[Diagnostic]:
-    """Require each public entry to be owned by its component and never underscore-named."""
+    """Require each public and planned entry to be owned by its component, never underscore.
+
+    A planned entry names something the component will own once built, so it is held to the
+    same ownership and underscore checks as `public` (AD-56); reusing them here means a typo
+    in a planned facade name is caught the same way a typo in a live one already is.
+    """
     diagnostics = []
     for index, component in enumerate(contract.components):
-        if component.public is None:
-            continue
-        for item, entry in enumerate(component.public):
-            module, _, name = entry.partition(":")
-            pointer = f"/components/{index}/public/{item}"
-            if contract.component_for(module) is not component:
-                diagnostics.append(
-                    _diagnostic(
-                        "reference.public_owner",
-                        pointer,
-                        entry,
-                        "The public entry's module is not owned by this component.",
-                        "Move the entry to its owning component or correct the module.",
-                    )
-                )
-            if name.startswith("_"):
-                diagnostics.append(
-                    _diagnostic(
-                        "reference.public_underscore",
-                        pointer,
-                        entry,
-                        "Underscore names are never public.",
-                        "Remove the entry or expose a non-underscore name.",
-                    )
-                )
+        diagnostics.extend(_entry_ownership_diagnostics(contract, component, index, "public"))
+        diagnostics.extend(_entry_ownership_diagnostics(contract, component, index, "planned"))
     return diagnostics
 
 
@@ -720,11 +813,7 @@ def reference_diagnostics(
                     )
                 )
     if observation is not None:
-        modules = {
-            module_name
-            for record in observation.records("modules") or ()
-            if isinstance((module_name := record.data.get("qualified_name")), str)
-        }
+        modules = _scanned_modules(observation)
         for component_index, component in enumerate(contract.components):
             for package_index, package in enumerate(component.packages):
                 if not any(in_scope(module, package) for module in modules):

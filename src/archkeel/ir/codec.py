@@ -783,7 +783,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
-        {"capability_id", "decided_by", "inside", "public", "requires"},
+        {"capability_id", "decided_by", "inside", "planned", "public", "requires"},
         label,
     )
     try:
@@ -798,6 +798,15 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
             for index, value in enumerate(_contract_strings(public_raw, f"{label}.public"))
         )
         if public_raw is not None
+        else None
+    )
+    planned_raw = item.get("planned")
+    planned = (
+        tuple(
+            _public_entry(value, f"{label}.planned[{index}]")
+            for index, value in enumerate(_contract_strings(planned_raw, f"{label}.planned"))
+        )
+        if planned_raw is not None
         else None
     )
     requires_raw = item.get("requires")
@@ -827,6 +836,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         requires,
         _nonempty(inside, f"{label}.inside") if inside is not None else None,
         public,
+        planned,
         _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
     )
 

@@ -118,7 +118,9 @@ def test_forbidden_construct_produces_a_violation_and_contract_pointer(tmp_path:
     assert any(item.pointer == "/rules/0" for item in diagnostics)
 
 
-def _component(label: str, *, public: list[str] | None = None) -> dict[str, object]:
+def _component(
+    label: str, *, public: list[str] | None = None, planned: list[str] | None = None
+) -> dict[str, object]:
     component: dict[str, object] = {
         "id": f"COMP-{label.upper()}",
         "label": label,
@@ -130,6 +132,8 @@ def _component(label: str, *, public: list[str] | None = None) -> dict[str, obje
     }
     if public is not None:
         component["public"] = public
+    if planned is not None:
+        component["planned"] = planned
     return component
 
 

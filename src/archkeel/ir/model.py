@@ -170,6 +170,10 @@ class ContractComponent:
     # A reference to a file, never a parent or child link: the levels stay separate contracts.
     inside: str | None = None
     public: tuple[str, ...] | None = None
+    # AD-56: entries not yet built, the same `pkg.module`/`pkg.module:Name` shape as `public`
+    # and disjoint from it, so an entry lives in exactly one list and cannot drift between
+    # "declared" and "not built yet".
+    planned: tuple[str, ...] | None = None
     # AD-50: who decided this component's `public` list, and every `requires` entry that
     # names nobody of its own. None records no attribution, the way a contract read before.
     decided_by: Literal["architect", "agent"] | None = None
@@ -520,6 +524,8 @@ DiagnosticCode: TypeAlias = Literal[
     "closed_world.duplicate",
     "interface.undeclared",
     "interface.unused",
+    "interface.missing",
+    "interface.planned_built",
     "rationale.placeholder",
     "rationale.repeated",
     "graph.count",
