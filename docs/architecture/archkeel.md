@@ -92,6 +92,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-58 | [A class lives where its symbol_placement rule allows, and a facade's dict or object is all boundary_types decides](decisions/ad-58-a-class-lives-where-its-symbolplacement-rule-allows-and-a.md) |
 | AD-59 | [A type crossing many component boundaries is a review claim, not a verdict](decisions/ad-59-a-type-crossing-many-component-boundaries-is-a-review-claim.md) |
 | AD-60 | [report --only, --rule and --component narrow what a rendered report shows, never what it judged](decisions/ad-60-report-only-rule-and-component-narrow-what-a-rendered.md) |
+| AD-61 | [A widening fails unless an amendment binds its exact before and after digest](decisions/ad-61-a-widening-fails-unless-an-amendment-binds-its-exact-before.md) |
 
 ## Allowed dependencies
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from collections.abc import Iterable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TypeVar
 
@@ -16,9 +16,12 @@ from archkeel.ir.baseline import KnownViolation, compare_violations, observed_vi
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
+    amendment_bytes,
     baseline_bytes,
+    contract_digest,
     contract_provenance_paths,
     decode_json,
+    parse_amendment,
     parse_baseline,
     parse_contract,
 )
@@ -52,7 +55,9 @@ from archkeel.ir.model import (
     in_scope,
     text_value,
 )
+from archkeel.ir.widening import Amendment, baseline_widenings, contract_widenings, verify_amendment
 
+from .git import GitError, read_blob
 from .ports import Analyzer, ScanConfig
 from .report import observe_repository
 from .run import inspect_observation
@@ -1137,33 +1142,44 @@ def _baseline_invalid(path: Path, error: Exception) -> RunResult:
     )
 
 
-def run_validate(
-    root: Path,
-    config: ScanConfig,
-    analyzer: Analyzer,
-    *,
-    write_graph: bool = False,
-    baseline: Path | None = None,
-    write_baseline: bool = False,
-) -> tuple[RunResult, dict[str, bytes]]:
-    """Validate contract structure, repository references and observed architecture.
+def _against_invalid(against: str, error: Exception) -> RunResult:
+    return RunResult(
+        "validate",
+        2,
+        diagnostics=(
+            _diagnostic(
+                "against.invalid",
+                "",
+                against,
+                f"The compared revision cannot be read: {error}",
+                "Supply a Git revision this repository can resolve, with a valid contract at "
+                "its configured path.",
+            ),
+        ),
+    )
 
-    AD-46/AD-57: with `write_graph`, every rewritten graph page comes back for the caller to
-    write, the way `run_init` returns its files.
 
-    AD-52: with `baseline`, the violations that file already states are known debt, and only
-    the difference is reported - as `failures` with exit 1. `write_baseline` writes today's
-    violations to that same path instead of comparing them.
-    """
-    known: tuple[KnownViolation, ...] = ()
-    if baseline is not None and not write_baseline:
-        try:
-            known = parse_baseline(decode_json(baseline.read_bytes()))
-        except (OSError, ValueError) as error:
-            return _baseline_invalid(baseline, error), {}
-    contract_path = root / config.contract
+def _amendment_invalid(path: Path, error: Exception) -> RunResult:
+    return RunResult(
+        "validate",
+        2,
+        diagnostics=(
+            _diagnostic(
+                "amendment.invalid",
+                "",
+                str(path),
+                f"The contract-widening amendment cannot be read: {error}",
+                "Correct the amendment, or write it with archkeel validate --against <ref> "
+                "--amendment <path> --write-amendment --decided-by <who> --rationale <why>.",
+            ),
+        ),
+    )
+
+
+def _parse_contract_or_invalid(root: Path, config: ScanConfig) -> ArchitectureContract | RunResult:
+    """The parsed contract, or the exit-2 result naming why it could not be read."""
     try:
-        contract = parse_contract(decode_json(contract_path.read_bytes()))
+        return parse_contract(decode_json((root / config.contract).read_bytes()))
     except ContractVersionError as error:
         return RunResult(
             "validate",
@@ -1178,12 +1194,15 @@ def run_validate(
                     "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
                 ),
             ),
-        ), {}
+        )
     except (OSError, ValueError) as error:
-        return invalid_result(config.contract, error), {}
-    references = reference_diagnostics(root, config, contract)
-    if references:
-        return RunResult("validate", 2, diagnostics=references), {}
+        return invalid_result(config.contract, error)
+
+
+def _observed_or_invalid(
+    root: Path, config: ScanConfig, analyzer: Analyzer
+) -> Observation | RunResult:
+    """The complete observation, or the exit-2 result naming what analyzer evidence is missing."""
     observed = observe_repository(root, config, analyzer)
     observation = observed.observation
     if observed.diagnostics or observation is None:
@@ -1194,21 +1213,234 @@ def run_validate(
                 replace(item, pointer=item.pointer or "") for item in observed.diagnostics
             ),
             coverage=observed.coverage,
-        ), {}
+        )
+    return observation
+
+
+@dataclass(frozen=True, slots=True)
+class _AgainstContext:
+    """Everything `--against` and `--amendment` resolve to, threaded through one run (AD-61)."""
+
+    against: str | None
+    contract: ArchitectureContract | None
+    baseline: tuple[KnownViolation, ...]
+    amendment: Path | None
+    write_amendment: bool
+    parsed_amendment: Amendment | None
+    decided_by: str | None
+    rationale: str | None
+
+
+def _resolve_against_context(
+    root: Path,
+    config: ScanConfig,
+    against: str | None,
+    baseline: Path | None,
+    amendment: Path | None,
+    write_amendment: bool,
+    decided_by: str | None,
+    rationale: str | None,
+) -> tuple[_AgainstContext, RunResult | None]:
+    """The contract and baseline `--against` names, and `--amendment`'s record.
+
+    A missing baseline blob at that revision is not an error: the revision itself is already
+    known good once its contract parses, so a `GitError` reading the baseline path there means
+    only that the file did not exist yet, read as no prior baseline entries.
+    """
+    empty = _AgainstContext(
+        against, None, (), amendment, write_amendment, None, decided_by, rationale
+    )
+    if against is None:
+        return empty, None
+    try:
+        against_contract = parse_contract(decode_json(read_blob(root, against, config.contract)))
+    except (GitError, ValueError) as error:
+        return empty, _against_invalid(against, error)
+    against_baseline: tuple[KnownViolation, ...] = ()
+    baseline_at = _baseline_at(root, baseline)
+    if baseline_at is not None:
+        try:
+            against_baseline_bytes: bytes | None = read_blob(root, against, baseline_at)
+        except GitError:
+            against_baseline_bytes = None
+        if against_baseline_bytes is not None:
+            try:
+                against_baseline = parse_baseline(decode_json(against_baseline_bytes))
+            except ValueError as error:
+                return empty, _against_invalid(against, error)
+    parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
+    context = _AgainstContext(
+        against,
+        against_contract,
+        against_baseline,
+        amendment,
+        write_amendment,
+        parsed_amendment,
+        decided_by,
+        rationale,
+    )
+    return context, amendment_error
+
+
+def _resolve_amendment(
+    amendment: Path | None, write_amendment: bool
+) -> tuple[Amendment | None, RunResult | None]:
+    if amendment is None or write_amendment:
+        return None, None
+    try:
+        return parse_amendment(decode_json(amendment.read_bytes())), None
+    except (OSError, ValueError) as error:
+        return None, _amendment_invalid(amendment, error)
+
+
+def _widening_failures(
+    ctx: _AgainstContext,
+    contract: ArchitectureContract,
+    baseline: Path | None,
+    after_baseline: tuple[KnownViolation, ...],
+) -> tuple[str, ...]:
+    """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
+    if ctx.against is None or ctx.contract is None:
+        return ()
+    findings = list(contract_widenings(ctx.contract, contract))
+    if baseline is not None:
+        findings += list(baseline_widenings(ctx.baseline, after_baseline))
+    amended = ctx.write_amendment or (
+        ctx.parsed_amendment is not None
+        and verify_amendment(
+            ctx.parsed_amendment,
+            before_digest=contract_digest(ctx.contract),
+            after_digest=contract_digest(contract),
+        )
+    )
+    return tuple(findings) if findings and not amended else ()
+
+
+def _artifact_files(
+    *,
+    write_baseline: bool,
+    baseline: Path | None,
+    violations: tuple[KnownViolation, ...],
+    against: _AgainstContext,
+    contract: ArchitectureContract,
+    edits: tuple[tuple[str, str], ...],
+    exit_code: int,
+) -> tuple[dict[str, bytes], str | None]:
+    """Every file this run writes, and the last one written, as the result's `artifact`.
+
+    AD-46/AD-57: every rewritten graph page is written before the diagnostics judge it,
+    whatever they say; a baseline or an amendment records what a run could judge, so exit 2
+    writes neither.
+    """
+    files: dict[str, bytes] = {}
+    artifact: str | None = None
+    if write_baseline and baseline is not None and exit_code != 2:
+        artifact = str(baseline)
+        files[artifact] = baseline_bytes(violations)
+    if (
+        against.write_amendment
+        and against.contract is not None
+        and against.amendment is not None
+        and exit_code != 2
+    ):
+        artifact = str(against.amendment)
+        files[artifact] = amendment_bytes(
+            Amendment(
+                contract_digest(against.contract),
+                contract_digest(contract),
+                against.decided_by or "",
+                against.rationale or "",
+            )
+        )
+    for page, written in edits:
+        artifact = page
+        files[page] = written.encode()
+    return files, artifact
+
+
+def _baseline_at(root: Path, baseline: Path | None) -> str | None:
+    """`--baseline`'s repository-relative path, or None when it names no path under `root`.
+
+    A baseline outside the repository has no Git history to compare `--against` with, so its
+    widening is simply not checked.
+    """
+    if baseline is None:
+        return None
+    try:
+        return baseline.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return None
+
+
+def run_validate(
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    *,
+    write_graph: bool = False,
+    baseline: Path | None = None,
+    write_baseline: bool = False,
+    against: str | None = None,
+    amendment: Path | None = None,
+    write_amendment: bool = False,
+    decided_by: str | None = None,
+    rationale: str | None = None,
+) -> tuple[RunResult, dict[str, bytes]]:
+    """Validate contract structure, repository references and observed architecture.
+
+    AD-46/AD-57: with `write_graph`, every rewritten graph page comes back for the caller to
+    write, the way `run_init` returns its files.
+
+    AD-52: with `baseline`, the violations that file already states are known debt, and only
+    the difference is reported - as `failures` with exit 1. `write_baseline` writes today's
+    violations to that same path instead of comparing them.
+
+    AD-61 (#11): with `against`, the contract at that Git revision - and, when `baseline` is
+    also given, the baseline file there too - is compared with the one being validated;
+    every widening (ir.widening.contract_widenings, ir.widening.baseline_widenings) is a
+    `failures` entry with exit 1 unless `amendment` binds exactly this before/after pair.
+    `write_amendment` writes that binding instead of checking it.
+    """
+    known: tuple[KnownViolation, ...] = ()
+    if baseline is not None and not write_baseline:
+        try:
+            known = parse_baseline(decode_json(baseline.read_bytes()))
+        except (OSError, ValueError) as error:
+            return _baseline_invalid(baseline, error), {}
+    parsed_contract = _parse_contract_or_invalid(root, config)
+    if isinstance(parsed_contract, RunResult):
+        return parsed_contract, {}
+    contract = parsed_contract
+    against_ctx, against_error = _resolve_against_context(
+        root, config, against, baseline, amendment, write_amendment, decided_by, rationale
+    )
+    if against_error is not None:
+        return against_error, {}
+    references = reference_diagnostics(root, config, contract)
+    if references:
+        return RunResult("validate", 2, diagnostics=references), {}
+    observed = _observed_or_invalid(root, config, analyzer)
+    if isinstance(observed, RunResult):
+        return observed, {}
+    observation = observed
     diagnostics, edits = _repository_diagnostics(
         root, config, contract, observation, write_graph, baseline is None
     )
     violations = observed_violations(observation) if baseline is not None else ()
-    failures = () if write_baseline or baseline is None else compare_violations(known, violations)
-    result = _observed_result(observation, diagnostics, failures)
-    files: dict[str, bytes] = {}
-    artifact: str | None = None
-    # The graph is rewritten before the diagnostics judge the page (AD-46), so it is written
-    # whatever they say; a baseline records what a run could judge, so exit 2 writes none.
-    if write_baseline and baseline is not None and result.exit_code != 2:
-        artifact = str(baseline)
-        files[artifact] = baseline_bytes(violations)
-    for page, written in edits:
-        artifact = page
-        files[page] = written.encode()
+    baseline_failures = (
+        () if write_baseline or baseline is None else compare_violations(known, violations)
+    )
+    widening_failures = _widening_failures(
+        against_ctx, contract, baseline, violations if write_baseline else known
+    )
+    result = _observed_result(observation, diagnostics, (*baseline_failures, *widening_failures))
+    files, artifact = _artifact_files(
+        write_baseline=write_baseline,
+        baseline=baseline,
+        violations=violations,
+        against=against_ctx,
+        contract=contract,
+        edits=edits,
+        exit_code=result.exit_code,
+    )
     return (result if artifact is None else replace(result, artifact=artifact)), files

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections import Counter
@@ -73,6 +74,7 @@ from archkeel.ir.model import (
     Verdict,
     contract_relative_path,
 )
+from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
@@ -743,6 +745,11 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
     schema = fields.pop("schema")
     document = {**({"$schema": schema} if schema is not None else {}), **fields}
     return (json.dumps(_without_none(document), indent=2, ensure_ascii=False) + "\n").encode()
+
+
+def contract_digest(contract: ArchitectureContract) -> str:
+    """The digest an amendment binds to (AD-61): the canonical bytes `contract_bytes` writes."""
+    return hashlib.sha256(contract_bytes(contract)).hexdigest()
 
 
 def _without_none(value: object) -> object:
@@ -1577,6 +1584,47 @@ def baseline_bytes(violations: tuple[KnownViolation, ...]) -> bytes:
                 violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects)
             )
         ],
+    }
+    return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
+
+
+def _amendment_digest(raw: RawJson, label: str) -> str:
+    value = _string(raw, label)
+    if re.fullmatch("[0-9a-f]{64}", value) is None:
+        raise ValueError(f"{label} must be a lowercase SHA-256 digest")
+    return value
+
+
+def parse_amendment(raw: object) -> Amendment:
+    """Read a contract-widening amendment record, ordered like `archkeel validate` writes it."""
+    document = _exact(
+        raw,
+        {"schema_version", "before_digest", "after_digest", "decided_by", "rationale"},
+        "amendment",
+    )
+    if document["schema_version"] != AMENDMENT_SCHEMA_VERSION:
+        raise ValueError(
+            f"amendment schema {document['schema_version']!r} cannot be read as "
+            f"{AMENDMENT_SCHEMA_VERSION}"
+        )
+    return Amendment(
+        _amendment_digest(document["before_digest"], "amendment.before_digest"),
+        _amendment_digest(document["after_digest"], "amendment.after_digest"),
+        _nonempty(document["decided_by"], "amendment.decided_by"),
+        _nonempty(document["rationale"], "amendment.rationale"),
+    )
+
+
+def amendment_bytes(amendment: Amendment) -> bytes:
+    """Write the amendment indented and sorted: this file is read and reviewed in diffs."""
+    payload = {
+        "schema_version": AMENDMENT_SCHEMA_VERSION,
+        "before_digest": amendment.before_digest,
+        "after_digest": amendment.after_digest,
+        "decided_by": amendment.decided_by,
+        "rationale": amendment.rationale,
     }
     return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
         "utf-8"

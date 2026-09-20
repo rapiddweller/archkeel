@@ -150,15 +150,25 @@ def build_parser() -> _Parser:
             "run then fails only on a violation the file does not state, and on one it\n"
             "states that nobody violates any more, so the budget only shrinks. Write the\n"
             "file with --write-baseline, review it, and commit it.\n\n"
+            "--against <ref> classifies every difference from the contract at that Git\n"
+            "revision (and, with --baseline, the baseline file there too) as a widening -\n"
+            "a new permission or a dropped restriction, including a padded baseline entry -\n"
+            "or a narrowing, its harmless reverse. A widening fails unless --amendment names\n"
+            "a file recording who decided it and why, bound to this exact before/after pair;\n"
+            "write it with --write-amendment, --decided-by and --rationale.\n\n"
             "Examples:\n"
             "  archkeel validate\n"
             "  archkeel validate --json\n"
             "  archkeel validate --write-graph\n"
             "  archkeel validate --baseline known-violations.json --write-baseline\n"
-            "  archkeel validate --baseline known-violations.json\n\n"
+            "  archkeel validate --baseline known-violations.json\n"
+            "  archkeel validate --against main --amendment widening.json \\\n"
+            '    --write-amendment --decided-by "Jordan (architect)" --rationale "..."\n'
+            "  archkeel validate --against main --amendment widening.json\n\n"
             "Exit codes:\n"
             "  0  the contract is valid for this repository\n"
-            "  1  with --baseline: a violation is new, or a known one is resolved\n"
+            "  1  with --baseline: a violation is new, or a known one is resolved; with\n"
+            "     --against: an unamended widening\n"
             "  2  invalid: each diagnostic names the JSON Pointer to fix\n\n"
             f"Rules: {_DOCS}/rules.md"
         ),
@@ -181,6 +191,22 @@ def build_parser() -> _Parser:
         action="store_true",
         help="Write today's violations to --baseline instead of comparing them.",
     )
+    validate.add_argument(
+        "--against",
+        help="Git revision to compare the contract against; fail on an unamended widening.",
+    )
+    validate.add_argument(
+        "--amendment",
+        type=Path,
+        help="File recording who decided a widening from --against, and why. Needs --against.",
+    )
+    validate.add_argument(
+        "--write-amendment",
+        action="store_true",
+        help="Write --amendment for this --against comparison instead of checking it.",
+    )
+    validate.add_argument("--decided-by", help="Free text for --write-amendment: who decided.")
+    validate.add_argument("--rationale", help="Free text for --write-amendment: why.")
 
     check = commands.add_parser(
         "check",
@@ -343,6 +369,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config = load_config(root)
                 if args.write_baseline and args.baseline is None:
                     parser.error("--write-baseline needs --baseline to name the file to write")
+                if args.amendment is not None and args.against is None:
+                    parser.error("--amendment needs --against to name the compared revision")
+                if args.write_amendment and args.against is None:
+                    parser.error("--write-amendment needs --against to name the compared revision")
+                if args.write_amendment and args.amendment is None:
+                    parser.error("--write-amendment needs --amendment to name the file to write")
+                if args.write_amendment and (not args.decided_by or not args.rationale):
+                    parser.error("--write-amendment needs --decided-by and --rationale")
                 result, files = run_validate(
                     root,
                     config,
@@ -352,6 +386,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     # --root says; the result then names the path the user will open.
                     baseline=None if args.baseline is None else args.baseline.resolve(),
                     write_baseline=args.write_baseline,
+                    against=args.against,
+                    amendment=None if args.amendment is None else args.amendment.resolve(),
+                    write_amendment=args.write_amendment,
+                    decided_by=args.decided_by,
+                    rationale=args.rationale,
                 )
             else:
                 config = load_check_config(root, args.baseline, args.head)

@@ -31,7 +31,7 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
         ("policy", 3),
     ]
     assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
-        ("entry", "foundation", 21),
+        ("entry", "foundation", 23),
         ("entry", "policy", 6),
         ("policy", "foundation", 2),
     ]

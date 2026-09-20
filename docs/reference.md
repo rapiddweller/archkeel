@@ -118,6 +118,40 @@ indented and sorted for review, and writes nothing from a run that exited 2. `va
 }
 ```
 
+`validate --against <ref>` classifies every difference between the contract at that Git
+revision and the one being validated - and, with `--baseline`, the baseline file there too - as
+a widening (a new permission or a dropped restriction) or a narrowing, its harmless reverse
+(AD-61, #11). Enumerated per rule kind and per component field: a new `allowed_dependency` rule,
+a removed `forbidden_dependency`/`forbidden_construct`/`external_dependency_scope`/
+`complete_assignment`/`complete_external_scope`/`complete_requires`/`no_component_cycles`/
+`interface_boundary`/`sibling_isolation` rule, a gained `allowed_sources` or `exact_sources`
+entry, `include_type_checking` relaxed from true to false, a gained component `public` or
+`requires` entry, and a component added or removed, are each widening; every reverse is
+narrowing. A padded baseline entry - a higher count or a new fingerprint - is a widening too,
+compared the same way against the baseline file at `--against`. Only a rule's or a `requires`
+entry's `rationale`, and every `provenance`, are neutral; any other difference - an unrecognised
+rule kind's presence, a field no classifier names, `declarations`, `$schema` - fails closed as a
+widening. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
+unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
+each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contract_digest` - the
+way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment
+written for one change does not verify against a different one. `--write-amendment`, with
+`--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
+`--amendment` file is `amendment.invalid`, exit 2; an `--against` revision or its contract that
+cannot be read is `against.invalid`, exit 2. `validate` without `--against` is unchanged. The
+file's shape is
+[`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json):
+
+```json
+{
+  "schema_version": "1.0.0",
+  "before_digest": "16c9c52202633a0fad7bd3e954ab03156d7d73b7f336d1f963b06ecfb3c20551",
+  "after_digest": "f91beec8a28f71f4651000345fddaad2898ebcaa7ba7739b30ce9e6013d66c1c",
+  "decided_by": "Jordan (architect)",
+  "rationale": "Orders needs the sqlite exemption during the migration."
+}
+```
+
 `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all
 (AD-39). Under that declaration `evaluate_expectation` fails on any entry in the delta's
 `semantic_changes`, in any of the eight delta dimensions, not only the six fixed guardrail ones,

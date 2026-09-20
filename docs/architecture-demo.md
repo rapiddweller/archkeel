@@ -76,6 +76,8 @@ run shows many violations together; every other row isolates one item.
 | validation | contract.invalid | validation-contract-invalid | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
 | validation | baseline.invalid | validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
+| validation | against.invalid | validation-against-invalid | tested only | - | - | tests/test_widening.py |
+| validation | amendment.invalid | validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
 | validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | shop/store/architecture-contract.json |
 | validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | shop/store/architecture-contract.json |
 | validation | contract.invalid:inside | validation-inside-contract-missing | validate/report run | - | contract.invalid | shop/store/architecture-contract.json |
@@ -88,6 +90,9 @@ run shows many violations together; every other row isolates one item.
 | validation | incomparable_runtime | validation-incomparable-runtime | tested only | - | - | tests/test_runtime_delta.py |
 | validation | existing_files | validation-existing-files | tested only | - | - | tests/test_onboarding.py |
 | validation | filter_unknown | validation-filter-unknown | tested only | - | - | tests/test_report_filter.py |
+| validation | against:widened_unamended | against-widened-unamended | validate --against run | - | - | architecture-contract.json |
+| validation | against:widened_amended | against-widened-amended | validate --against run | - | - | architecture-contract.json |
+| validation | against:narrowed_only | against-narrowed-only | validate --against run | - | - | architecture-contract.json |
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
 | protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |

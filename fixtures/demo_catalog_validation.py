@@ -329,6 +329,29 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         evidence="tests/test_baseline.py",
     ),
     Variant(
+        id="validation-against-invalid",
+        section="validation",
+        item="against.invalid",
+        summary="against.invalid needs a --against revision this repository cannot resolve, "
+        "or whose contract cannot be read; every row here runs validate on the sample without "
+        "--against (AD-61, #11). The widening tests supply an unresolvable revision instead.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_widening.py",
+    ),
+    Variant(
+        id="validation-amendment-invalid",
+        section="validation",
+        item="amendment.invalid",
+        summary="amendment.invalid needs a --amendment file that cannot be read (AD-61, #11); "
+        "the widening tests supply a missing file and a malformed one instead.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_widening.py",
+    ),
+    Variant(
         id="validation-inside-public-mismatch",
         section="validation",
         item="inside.public_mismatch",

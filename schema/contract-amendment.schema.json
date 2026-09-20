@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:contract-amendment:1",
+  "title": "Amendment record for archkeel validate --against widening",
+  "$comment": "Written and read by `archkeel validate --against <ref> --amendment <path>` (AD-61, #11). Binds one exact before/after contract digest pair, computed with archkeel.ir.codec.contract_digest, so an amendment written for one change cannot silently authorise a different one.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "before_digest",
+    "after_digest",
+    "decided_by",
+    "rationale"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "description": "The only amendment schema this Archkeel reads."
+    },
+    "before_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the --against revision's contract, in the canonical form archkeel.ir.codec.contract_bytes writes."
+    },
+    "after_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the contract being validated, in the same canonical form."
+    },
+    "decided_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Free text: who decided this widening is allowed."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Free text: why the widening was decided."
+    }
+  }
+}

@@ -122,6 +122,15 @@ nobody violates any more — so the budget only shrinks, and the file is rewritt
 change that shrinks it. Never add a new violation to the baseline to make a run pass: that is
 the architect's decision, not the agent's (AD-52).
 
+A reviewer or a CI gate may hold your branch to this the same way, with `archkeel validate
+--against <base ref>`: it classifies every difference from the contract at that revision — a
+new `requires` edge, a `public` entry, an `allowed_sources` module, a relaxed or deleted rule,
+a padded baseline entry, and anything else this repository's `ir.widening` does not otherwise
+name — as a widening, which fails (exit 1) unless `--amendment <path>` names a file the
+architect wrote, recording who decided it and why, bound to this exact change (AD-61, #11).
+Never widen the contract in the same change that removes the violation it names: fix the code,
+or ask the architect for an amendment.
+
 ## Daily loop
 
 - Run `archkeel report --json` before submitting any change. A rule violation does not
@@ -218,7 +227,8 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
 - `init`: 0 draft written, 2 not checked (with a diagnostic).
 - `validate`: 0 contract valid for this repository, 2 invalid (diagnostics with JSON
   Pointers). With `--baseline <file>` also 1: a violation the file does not state, or one it
-  states that nobody violates any more, each named in `failures` (AD-52).
+  states that nobody violates any more, each named in `failures` (AD-52). With `--against
+  <ref>` also 1: an unamended widening, named in `failures` (AD-61, #11).
 - `report`: 0 observation complete (a rule violation is a FAIL verdict), 2 not checked.
 - `skill install claude|codex`: 0 instructions written, 2 the target file could not be updated.
 - `check`: 0 merge, 1 reject, 2 not checked. Its expectation's `selected_changes` may be `[]`

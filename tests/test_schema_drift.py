@@ -13,11 +13,14 @@ from referencing import Registry, Resource
 from archkeel.cli.config import parse_config
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import (
+    amendment_bytes,
     baseline_bytes,
     decode_canonical_model,
+    parse_amendment,
     parse_baseline,
     parse_observation,
 )
+from archkeel.ir.widening import Amendment
 
 ROOT = Path(__file__).parents[1]
 
@@ -45,6 +48,17 @@ def test_baseline_schema_accepts_what_the_writer_writes_and_the_parser_reads() -
     written = json.loads(baseline_bytes(violations))
 
     assert parse_baseline(written) == violations
+    assert not list(Draft202012Validator(schema).iter_errors(written))
+
+
+def test_amendment_schema_accepts_what_the_writer_writes_and_the_parser_reads() -> None:
+    """AD-61: one shape for the file, checked against the executable writer and parser."""
+    amendment = Amendment("0" * 64, "1" * 64, "architect: Jordan", "Planned migration, phase 2.")
+    schema = _schema("contract-amendment.schema.json")
+    Draft202012Validator.check_schema(schema)
+    written = json.loads(amendment_bytes(amendment))
+
+    assert parse_amendment(written) == amendment
     assert not list(Draft202012Validator(schema).iter_errors(written))
 
 

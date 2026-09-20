@@ -247,6 +247,35 @@ the file is rewritten in the change that shrinks it. A run whose baseline is exa
 be read is `baseline.invalid`, exit 2. The file's shape is
 [`schema/violation-baseline.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json).
 
+### Contract widening
+
+The easiest way to "fix" a violation in the target-first workflow above is to widen the target
+in the same change: add a `requires` edge, a `public` entry or an `allowed_sources` module,
+relax or delete a rule, or pad the baseline. `--against <ref>` classifies every difference from
+the contract at that Git revision (and, with `--baseline`, the baseline file there too) as a
+widening or a narrowing (AD-61, #11):
+
+```bash
+archkeel validate --against origin/main
+```
+
+Widening is a new permission or a dropped restriction; narrowing is each reverse, and always
+passes. A difference this classification does not name is reported as a widening, never passed
+over silently. A widening fails (`failures`, exit 1) unless `--amendment <path>` names a file
+binding its exact before/after contract digest, recording who decided it and why:
+
+```bash
+archkeel validate --against origin/main --amendment widening.json \
+  --write-amendment --decided-by "Jordan (architect)" --rationale "..."   # once, reviewed
+archkeel validate --against origin/main --amendment widening.json         # the gate
+```
+
+An amendment written for one change does not verify against a different one: its digests will
+not match. A missing or malformed `--amendment` file is `amendment.invalid`, and an `--against`
+revision or its contract that cannot be read is `against.invalid`, both exit 2. `validate`
+without `--against` is unchanged. The file's shape is
+[`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json).
+
 ## Class B: regression checks
 
 Regression checks compare accepted and candidate observations. They include scalar counts,

@@ -27,7 +27,8 @@
         "archkeel.ir.references",
         "archkeel.ir.structure",
         "archkeel.ir.trace",
-        "archkeel.ir.type_fanin"
+        "archkeel.ir.type_fanin",
+        "archkeel.ir.widening"
       ],
       "responsibilities": [
         "The shared evidence model, its codecs, and the pure derivations over them, without I/O, that more than one component needs.",
