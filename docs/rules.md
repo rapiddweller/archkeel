@@ -207,25 +207,37 @@ dataclass in `shop.model.promotions` when `MODEL-TYPES-IN-ENTITIES` allows only
 `shop.model.entities` for a dataclass below `shop.model` is an example violation (AD-58).
 
 `boundary_types` fields are `source` and, matching `forbidden_construct`, optional
-`allowed_sources` and `exact_sources`. It states that a public function below `source` takes and
-returns no bare `dict` or `object`: a target architecture where a component's own types are the
-only thing that crosses its boundary rules out a broad container standing in for one. It matches
-every non-underscore, module-level function symbol below `source`, exempts one whose own module
-falls under an `allowed_sources` prefix or equals an `exact_sources` entry (AD-49), and reports one
-violation per parameter or return position whose annotation is exactly `dict`, `Dict`, `object`,
-or a `dict[...]`/`Dict[...]` generic. This is the whole rule: no other annotation is decided,
-because deciding whether a named type such as `Context` or `Path` belongs to the facade, a
-declared model, or neither needs resolving where the name comes from, which AD-37 and AD-40 leave
-unfinished for a call's receiver and this rule leaves unfinished for an annotation too (issue #9,
-AD-58). Measured on Archkeel's own facades, the same restricted match already fires 25
-times inside `archkeel.ir`, all of it the codec's own untyped-JSON boundary and narrowing helpers
-such as `text_value(value: object) -> str`, which is why Archkeel's own contract does not adopt
-this rule against itself: `source` lets an architect scope it to a component that really is meant
-to carry typed models only, not to every component that declares a public interface. A missing
-annotation stays silent, the way a bare `self` or `cls` does, because it is not decidable whether
-nothing was written on purpose or by omission. Fixed source bytes and analyzer digest make the
-result deterministic. Adding a `snapshot(context: dict) -> str` function to `shop.app`, which
-`APP-TYPES-NOT-DICT` scopes to `shop.app`, is an example violation.
+`allowed_sources` and `exact_sources`. It states that a component's declared facade function
+below `source` takes and returns no bare `dict`/`object`, and no named type outside a builtin, an
+enum, a Pydantic model, or a type some component -- whichever one actually owns it -- already
+declares public: a target architecture where a component's own types are the only thing that
+crosses its boundary rules out a broad container, and an undeclared type, standing in for one.
+Only a function `component.public` itself covers is inspected -- a module-level entry makes every
+non-underscore name of that module a facade function, or its `__all__` when it declares one, and a
+`pkg.module:Name` entry makes exactly that one, the same reading `interface_boundary` gives
+`public` (AD-9) -- exempts one whose own module falls under an `allowed_sources` prefix or equals
+an `exact_sources` entry (AD-49), and reports one violation per parameter or return position whose
+annotation is exactly `dict`, `Dict`, `object`, a `dict[...]`/`Dict[...]` generic, or a bare name
+that resolves, through the same import bindings `interface_boundary` reads, to a class that is
+neither an `enum` nor a `pydantic_model` by kind and that no component's own `public` list
+declares. A dotted name, a subscripted generic other than `dict`, a forward-reference string and a
+missing annotation all stay silent, because deciding any of them still needs resolving where the
+name comes from in a way AD-37 and AD-40 leave unfinished for a call's receiver and this rule
+leaves unfinished for them too (issue #9, AD-58, AD-63). A component that declares no `public` at
+all has no functions for the rule to inspect, the way `interface_boundary` gives it no imports to
+check either; a `planned` entry (AD-56) is never projected into the observation, so it plays no
+part here, the same as everywhere else in the analyzer. A `source` that matches a scanned module
+but whose declared facade covers no function of it reports `rule_without_subjects`, UNKNOWN, not a
+clean pass: a rule that can only pass by finding nothing to check is the same defect a declared
+rule that cannot fail is everywhere else in this tool (AD-63, issue #56). Measured on Archkeel's own facades, the
+restricted-string match alone still fires 26 times inside `archkeel.ir`, all of it the codec's own
+untyped-JSON boundary and narrowing helpers such as `text_value(value: object) -> str`; a `source`
+scoped to a component whose facade really is typed throughout, such as `archkeel.analyzer`, is how
+Archkeel's own contract adopts the rule against itself (AD-63) without a growing
+`allowed_sources` list carrying architecture knowledge it does not own. Fixed source bytes and
+analyzer digest make the result deterministic. Adding a `snapshot(context: dict) -> str` function
+declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
+example violation.
 
 ### Known violations of a target contract
 

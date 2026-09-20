@@ -413,11 +413,14 @@ class SymbolPlacementRule:
 
 @dataclass(frozen=True, slots=True)
 class BoundaryTypesRule:
-    """A public function below `source` must not take or return a bare `dict` or `object`.
+    """A component's declared facade function below `source` takes and returns no bare
+    `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a type
+    some component's own `public` list already declares (AD-58, amended by AD-63).
 
-    Restricted to what an annotation string alone decides, with no name resolution: `dict`,
-    `Dict`, a `dict[...]`/`Dict[...]` generic, or bare `object`. `allowed_sources` and
-    `exact_sources` exempt an owner the way `forbidden_construct` exempts one (AD-49).
+    Only a function the owning component's `public` list itself covers is inspected: the rule
+    reads the contract's declared facade, not a naming convention over every non-underscore,
+    module-level function. `allowed_sources` and `exact_sources` exempt an owner the way
+    `forbidden_construct` exempts one (AD-49).
     """
 
     id: str

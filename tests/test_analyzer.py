@@ -1359,11 +1359,10 @@ def test_symbol_placement_reports_a_class_outside_its_allowed_module(tmp_path: P
     ]
 
 
-def test_boundary_types_reports_a_bare_dict_but_not_a_named_type(tmp_path: Path) -> None:
-    """AD-58: restricted to what the annotation string alone decides (issue #9, part 2)."""
-    contract = {
+def _boundary_types_contract(*components: dict[str, object]) -> dict[str, object]:
+    return {
         "schema_version": "2.1.0",
-        "components": [_component("app")],
+        "components": list(components),
         "rules": [
             {
                 "id": "APP-TYPES-NOT-DICT",
@@ -1375,20 +1374,24 @@ def test_boundary_types_reports_a_bare_dict_but_not_a_named_type(tmp_path: Path)
             }
         ],
     }
+
+
+def test_boundary_types_checks_only_the_declared_facade(tmp_path: Path) -> None:
+    """AD-63: a naming convention used to check every non-underscore function below `source`;
+    now only a function `component.public` itself names is inspected (issue #44). Before this
+    change, `internal`'s bare `dict` was also reported; it is silent now because `app` never
+    declared it as part of its facade, even though it is neither underscore nor out of scope.
+    """
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:snapshot"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
     (tmp_path / "sample/app").mkdir(parents=True)
     (tmp_path / "sample/app/__init__.py").write_text("")
     (tmp_path / "sample/app/facade.py").write_text(
-        "from sample.app.order import Order\n\n\n"
         "def snapshot(context: dict) -> str:\n"
         "    return str(context)\n\n\n"
-        # A named type is not decidable from the annotation string alone: no violation, the
-        # way resolving where a name comes from is left to AD-37 and AD-40 for a call's
-        # receiver and stays unfinished here too (AD-58's Limit).
-        "def typed(order: Order) -> Order:\n"
-        "    return order\n"
+        "def internal(context: dict) -> str:\n"
+        "    return str(context)\n"
     )
-    (tmp_path / "sample/app/order.py").write_text("class Order:\n    pass\n")
     result = _observe(tmp_path)
     assert result.observation is not None
     violations = trace_valid_violations(result.observation)
@@ -1399,6 +1402,127 @@ def test_boundary_types_reports_a_bare_dict_but_not_a_named_type(tmp_path: Path)
             ("sample.app.facade", "sample.app.facade.snapshot"),
         )
     ]
+
+
+def test_boundary_types_reports_a_type_the_facade_does_not_declare(tmp_path: Path) -> None:
+    """AD-63: a bare name now resolves through the same import bindings `interface_boundary`
+    reads; a resolved type that is neither a builtin, an enum, a Pydantic model, nor declared
+    by any component's own `public` list is the leak issue #9 asked this rule to catch."""
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:broken"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "class Payload:\n"
+        "    pass\n\n\n"
+        # Payload is defined right here and never declared in app's public list: a genuine
+        # undeclared type crossing the facade, not a naming-convention artefact.
+        "def broken(payload: Payload) -> str:\n"
+        "    return str(payload)\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids, item.subjects) for item in violations] == [
+        (
+            "boundary_types",
+            ("APP-TYPES-NOT-DICT",),
+            ("sample.app.facade", "sample.app.facade.broken"),
+        )
+    ]
+
+
+def test_boundary_types_is_silent_when_the_facade_declares_the_named_type(tmp_path: Path) -> None:
+    """AD-63: a type app's own facade declares is exactly the pattern issue #9 asked for."""
+    contract = _boundary_types_contract(
+        _component("app", public=["sample.app.facade:typed", "sample.app.facade:Order"])
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "class Order:\n    pass\n\n\ndef typed(order: Order) -> Order:\n    return order\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+
+
+def test_boundary_types_is_silent_for_a_provider_returning_its_own_declared_type(
+    tmp_path: Path,
+) -> None:
+    """AD-63 amends AD-58: `archkeel.analyzer.observe` returning `ir`'s own `ObservationResult`
+    and `shop.render.text.render_order` returning `shop.model`'s own `Order` are the two false
+    positives AD-58's measurement found and rejected the contract reading over; here `core`, not
+    `app`, declares `Order` public, and app's own facade function still returns it cleanly,
+    because the declared facade is read component-wide, not only against app's own list."""
+    contract = _boundary_types_contract(
+        _component("app", public=["sample.app.facade:typed"]),
+        _component("core", public=["sample.core.model:Order"]),
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from sample.core.model import Order\n\n\n"
+        "def typed(order: Order) -> Order:\n"
+        "    return order\n"
+    )
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    (tmp_path / "sample/core/model.py").write_text("class Order:\n    pass\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+
+
+def test_boundary_types_is_silent_for_an_enum_even_when_undeclared(tmp_path: Path) -> None:
+    """AD-63: `enum` and `pydantic_model` cross a boundary self-describing, so they clear a
+    facade function even when nobody declared them (issue #9's own phrasing)."""
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:snapshot"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from enum import StrEnum\n\n\n"
+        "class Status(StrEnum):\n"
+        '    OPEN = "open"\n\n\n'
+        "def snapshot(status: Status) -> str:\n"
+        "    return status.value\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+
+
+def test_boundary_types_reports_unknown_when_the_facade_has_no_subjects(tmp_path: Path) -> None:
+    """Issue #56: a component with no declared public gives boundary_types zero functions to
+    check, and reading no violations back as a clean pass would be the same defect #43 fixed
+    for a different rule -- a declared rule that cannot fail. `source` matching a scanned
+    module used to be enough (any non-underscore function under it was a subject); AD-63's own
+    narrowing makes that no longer true for this one rule kind, so rule_subject_failures now
+    reads the declared facade too, not just module names, and reports rule-without-subjects
+    instead of silence.
+    """
+    contract = _boundary_types_contract(_component("app"))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def snapshot(context: dict) -> str:\n    return str(context)\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    unknowns = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.rule_ids == ("APP-TYPES-NOT-DICT",)
+    ]
+    assert [item.kind for item in unknowns] == ["rule-without-subjects"]
+    assert result.observation.coverage.rules == "FAIL"
+    assert result.diagnostics and result.diagnostics[0].kind == "rule_without_subjects"
+    assert result.exit_code == 2
 
 
 def test_a_function_used_only_as_a_value_is_recorded_as_a_reference(tmp_path: Path) -> None:

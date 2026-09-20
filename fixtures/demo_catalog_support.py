@@ -228,6 +228,23 @@ def contract_without_component_field(label: str, field: str) -> str:
     return _dump_contract(contract)
 
 
+def contract_without_component_field_and_rule(label: str, field: str, rule_id: str) -> str:
+    """Clean contract JSON with one component field removed and one rule removed by id.
+
+    Removing a component's `public` can leave a `boundary_types` rule scoped to it with no
+    declared facade to inspect (AD-63, issue #56): `rule_subject_failures` now reports that as
+    `rule_without_subjects` and `validate` returns it alone, before the interface diagnostics a
+    variant may actually be demonstrating ever run. A variant that removes `public` for its own
+    reason drops the rule that field would otherwise leave vacuous, the same way it would start
+    from a contract that already lacked it.
+    """
+    contract = _clean_contract()
+    component = next(item for item in contract["components"] if item["label"] == label)
+    del component[field]
+    contract["rules"] = [item for item in contract["rules"] if item["id"] != rule_id]
+    return _dump_contract(contract)
+
+
 def contract_rule_provenance_appended(rule_id: str, path: str) -> str:
     """Clean contract JSON with one extra provenance path appended to a rule."""
     contract = _clean_contract()

@@ -167,7 +167,8 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
     elif isinstance(rule, BoundaryTypesRule):
         area, title, subjects = (
             "type_architecture",
-            f"Public functions below {rule.source} take and return no bare dict or object",
+            f"Declared facade functions below {rule.source} take and return no bare dict or "
+            "object, and no undeclared type",
             [rule.source],
         )
         data = {
