@@ -600,6 +600,8 @@ DiagnosticCode: TypeAlias = Literal[
     "contract.schema_version",
     "contract.invalid",
     "baseline.invalid",
+    "against.invalid",
+    "amendment.invalid",
     "observation.incomplete",
     "inside.public_mismatch",
     "inside.forbidden_import",
