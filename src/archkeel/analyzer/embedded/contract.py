@@ -14,6 +14,7 @@ from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
+    BoundaryTypesRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -26,6 +27,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     SiblingIsolationRule,
+    SymbolPlacementRule,
 )
 
 from .records import RawRecord, RecordData, classified
@@ -148,6 +150,32 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
     elif isinstance(rule, NoComponentCyclesRule):
         area, title, subjects = "cycles", "Component dependencies form no cycle", []
         data = {"rationale": rule.rationale}
+    elif isinstance(rule, SymbolPlacementRule):
+        kinds = [item.value for item in rule.class_kinds]
+        area, title, subjects = (
+            "type_architecture",
+            f"{', '.join(kinds)} classes below {rule.source} are defined only in an allowed module",
+            [rule.source],
+        )
+        data = {
+            "source": rule.source,
+            "class_kinds": kinds,
+            "allowed_sources": sorted(rule.allowed_sources),
+            **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, BoundaryTypesRule):
+        area, title, subjects = (
+            "type_architecture",
+            f"Public functions below {rule.source} take and return no bare dict or object",
+            [rule.source],
+        )
+        data = {
+            "source": rule.source,
+            "allowed_sources": sorted(rule.allowed_sources),
+            **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
+            "rationale": rule.rationale,
+        }
     else:
         assert_never(rule)
     data["decided_by"] = rule.decided_by

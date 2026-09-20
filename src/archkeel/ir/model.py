@@ -271,6 +271,16 @@ class AllowedDependencyRule:
     decided_by: Literal["architect", "agent"]
 
 
+class SymbolClassKind(StrEnum):
+    """The five values `class_kind` resolves to (`analyzer.embedded.symbols`'s fixpoint)."""
+
+    PROTOCOL = "protocol"
+    ENUM = "enum"
+    PYDANTIC_MODEL = "pydantic_model"
+    DATACLASS = "dataclass"
+    CLASS = "class"
+
+
 class ForbiddenConstructKind(StrEnum):
     GETATTR = "getattr"
     HASATTR = "hasattr"
@@ -381,6 +391,45 @@ class SiblingIsolationRule:
     include_type_checking: bool = True
 
 
+@dataclass(frozen=True, slots=True)
+class SymbolPlacementRule:
+    """A class of a named kind below `source` must be defined in an allowed module.
+
+    `allowed_sources` match a defining module by prefix, `exact_sources` only the module
+    named (AD-49): a package root is a prefix of every module below it, so only the exact
+    form scopes the root and nothing below it.
+    """
+
+    id: str
+    kind: Literal["symbol_placement"]
+    source: str
+    class_kinds: tuple[SymbolClassKind, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+    allowed_sources: tuple[str, ...] = ()
+    exact_sources: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class BoundaryTypesRule:
+    """A public function below `source` must not take or return a bare `dict` or `object`.
+
+    Restricted to what an annotation string alone decides, with no name resolution: `dict`,
+    `Dict`, a `dict[...]`/`Dict[...]` generic, or bare `object`. `allowed_sources` and
+    `exact_sources` exempt an owner the way `forbidden_construct` exempts one (AD-49).
+    """
+
+    id: str
+    kind: Literal["boundary_types"]
+    source: str
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+    allowed_sources: tuple[str, ...] = ()
+    exact_sources: tuple[str, ...] = ()
+
+
 ArchitectureRule: TypeAlias = (
     ForbiddenDependencyRule
     | AllowedDependencyRule
@@ -392,6 +441,8 @@ ArchitectureRule: TypeAlias = (
     | NoComponentCyclesRule
     | InterfaceBoundaryRule
     | SiblingIsolationRule
+    | SymbolPlacementRule
+    | BoundaryTypesRule
 )
 
 

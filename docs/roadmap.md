@@ -86,6 +86,7 @@ only when its row names repository evidence.
 | `docs/architecture/archkeel.md`'s 53 decision records, AD-24a and AD-24b included, split one file per decision under `docs/architecture/decisions/`; the document keeps its title, `## Layers`, `## Allowed dependencies` and the marked component graph, and `## Decisions` becomes an index table in document order with cross-references turned into relative links (AD-55) | `docs/architecture/archkeel.md`; `docs/architecture/decisions/`; `tests/test_repository_hygiene.py::test_decision_index_matches_decision_files` |
 | An unused `public` entry splits into `interface.missing`, a module the scan never saw, and unchanged `interface.unused`; a component gains an optional `planned` list, disjoint from `public`, whose unbuilt entries raise no finding and whose built ones raise `interface.planned_built`, so a target-first contract tells a not-yet-built facade from a typo (AD-56) | `src/archkeel/ir/model.py`; `src/archkeel/ir/codec.py`; `src/archkeel/check/validation.py`; `schema/architecture-contract.schema.json`; `tests/test_validation.py`; `fixtures/demo_catalog_validation.py`; `docs/architecture-demo.md` |
 | `<!-- archkeel-target-graph -->`, a second marker beside `<!-- archkeel-component-graph -->`, compares against `target_component_edges` - every pair a `requires` entry or an `allowed_dependency` rule permits - instead of observed imports, so a target-first contract can draw the architecture it is heading for beside the one it has; `validate --write-graph` rewrites each marker independently, and the marker is optional so `init` and every page that carries only the observed marker are unaffected (AD-57) | `src/archkeel/check/validation.py`; `fixtures/F-architecture/docs/architecture/shop.md`; `tests/test_validation.py`; `tests/test_cli.py::test_validate_write_graph_regenerates_both_marked_graphs`; `tests/test_architecture_demo.py::test_target_graph_drift_leaves_the_observed_graph_untouched` |
+| `symbol_placement` states that a class of a declared kind below `source` is defined only in an allowed module, reusing the `class_kind` fixpoint `analyzer.embedded.symbols` already carries; `boundary_types` states that a public function below `source` takes and returns no bare `dict`, `Dict` or `object`, restricted to what the annotation string alone decides after a measurement showed resolving a name across component facades produces false positives on legitimate provider-owns-the-contract usage (AD-58) | `src/archkeel/ir/model.py`; `src/archkeel/ir/codec.py`; `src/archkeel/analyzer/embedded/violations.py`; `src/archkeel/analyzer/embedded/contract.py`; `schema/architecture-contract.schema.json`; `architecture-contract.json`; `docs/rules.md`; `tests/test_analyzer.py` |
 ## Next
 
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
@@ -139,6 +140,16 @@ only when its row names repository evidence.
 - Add digest-bound blind LLM review whose verdict remains a hypothesis.
 - Track finding lifecycle states on existing fingerprints without changing check outcomes.
 - Add a publication timeline when check results carry host-record timestamps.
+- Widen `boundary_types` past a bare `dict`/`object` once a name can be resolved to the
+  component whose facade declares it, not only the checked component's own (AD-58). Evidence:
+  resolving a bare annotation through its module's own import bindings reached 136 of 189
+  positions (72%) on Archkeel's own facades, but 11 of the additionally resolved ones were false
+  positives — `archkeel.analyzer.observe` returning `ir`'s own `ObservationResult`,
+  `shop.render.text.render_order` returning `shop.model`'s own `Order` — because both are
+  declared in another component's facade, not the checked component's, and "declared in C's
+  facade" as issue #9 phrased it has no room for that. A rule needs to know which component a
+  resolved name belongs to, which needs `ir.interfaces.component_owners` reached from the
+  analyzer's own rule evaluation, not only from `ir`.
 
 ## Excluded
 

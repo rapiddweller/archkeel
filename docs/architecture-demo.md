@@ -53,6 +53,8 @@ run shows many violations together; every other row isolates one item.
 | class_a | interface_boundary:__all__ gate | class-a-interface-boundary-all-gate | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/render/discount_probe.py |
 | class_a | interface_boundary:accepted re-export | class-a-interface-boundary-accepted-reexport | validate/report run | - | - | shop/app/accepted_reexport.py |
 | class_a | interface_boundary:package attribute over submodule | class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/sqlite_probe.py, shop/store/__init__.py |
+| class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | architecture-contract.json, shop/model/promotions.py |
+| class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py |
 | validation | interface.undeclared | validation-interface-undeclared | validate/report run | - | interface.undeclared | architecture-contract.json |
 | validation | interface.unused | validation-interface-unused | validate/report run | - | interface.unused | architecture-contract.json |
 | validation | interface.missing | validation-interface-missing | validate/report run | - | interface.missing | architecture-contract.json |

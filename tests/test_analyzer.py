@@ -1240,6 +1240,94 @@ def test_sibling_isolation_reports_a_peer_import_but_not_a_shared_one(tmp_path: 
     ]
 
 
+def test_symbol_placement_reports_a_class_outside_its_allowed_module(tmp_path: Path) -> None:
+    """AD-58: a class of a declared kind below source is defined only in an allowed module."""
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("model")],
+        "rules": [
+            {
+                "id": "MODEL-TYPES-IN-ENTITIES",
+                "kind": "symbol_placement",
+                "source": "sample.model",
+                "class_kinds": ["dataclass"],
+                "exact_sources": ["sample.model.entities"],
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/model").mkdir(parents=True)
+    (tmp_path / "sample/model/__init__.py").write_text("")
+    (tmp_path / "sample/model/entities.py").write_text(
+        "from dataclasses import dataclass\n\n\n"
+        "@dataclass(frozen=True, slots=True)\n"
+        "class Order:\n"
+        "    order_id: str\n"
+    )
+    # Violation: a dataclass declared outside the one allowed module.
+    (tmp_path / "sample/model/rogue.py").write_text(
+        "from dataclasses import dataclass\n\n\n"
+        "@dataclass(frozen=True, slots=True)\n"
+        "class Coupon:\n"
+        "    code: str\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids, item.subjects) for item in violations] == [
+        (
+            "symbol_placement",
+            ("MODEL-TYPES-IN-ENTITIES",),
+            ("sample.model.rogue", "sample.model.rogue.Coupon"),
+        )
+    ]
+
+
+def test_boundary_types_reports_a_bare_dict_but_not_a_named_type(tmp_path: Path) -> None:
+    """AD-58: restricted to what the annotation string alone decides (issue #9, part 2)."""
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("app")],
+        "rules": [
+            {
+                "id": "APP-TYPES-NOT-DICT",
+                "kind": "boundary_types",
+                "source": "sample.app",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from sample.app.order import Order\n\n\n"
+        "def snapshot(context: dict) -> str:\n"
+        "    return str(context)\n\n\n"
+        # A named type is not decidable from the annotation string alone: no violation, the
+        # way resolving where a name comes from is left to AD-37 and AD-40 for a call's
+        # receiver and stays unfinished here too (AD-58's Limit).
+        "def typed(order: Order) -> Order:\n"
+        "    return order\n"
+    )
+    (tmp_path / "sample/app/order.py").write_text("class Order:\n    pass\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.rule_ids, item.subjects) for item in violations] == [
+        (
+            "boundary_types",
+            ("APP-TYPES-NOT-DICT",),
+            ("sample.app.facade", "sample.app.facade.snapshot"),
+        )
+    ]
+
+
 def test_a_function_used_only_as_a_value_is_recorded_as_a_reference(tmp_path: Path) -> None:
     """AD-26: a call graph cannot see a function handed to a dict; the reference signal can."""
     contract = {

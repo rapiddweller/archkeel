@@ -245,6 +245,7 @@ def scan_repository(
         typing_signals=typing_signals,
         constructs=constructs,
         modules=module_facts,
+        symbols=symbols,
         blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
         contract=contract,
     )

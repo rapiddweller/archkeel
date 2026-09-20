@@ -1,0 +1,17 @@
+{
+  "schema_version": "2.1.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "MODEL-TYPES-IN-ENTITIES",
+      "kind": "symbol_placement",
+      "source": "sample.model",
+      "class_kinds": ["dataclass"],
+      "allowed_sources": [],
+      "exact_sources": [],
+      "rationale": "An empty allowed_sources and an empty exact_sources allow nowhere.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}
