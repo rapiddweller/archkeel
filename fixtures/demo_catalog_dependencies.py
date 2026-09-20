@@ -274,6 +274,38 @@ _DECISION_CONFLICT = Variant(
     ),
 )
 
+# Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
+# STORE-PEERS-ISOLATED itself lives on the clean sample's own architecture-contract.json (AD-11,
+# issue #47), since the clean tree already satisfies it; this row overlays only the peer import
+# and the inside grant that keeps the level below silent, not the rule. The tour reuses the same
+# grant but not the same sqlite.py, since its own version also demonstrates complete_requires.
+STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT = inside_requires_replaced(
+    "api",
+    [
+        {
+            "component": "repository",
+            "rationale": "A deliberately granted peer edge, so the architecture demo's "
+            "sibling_isolation row reports the outer rule alone.",
+        }
+    ],
+)
+_SQLITE_WITH_REPOSITORY_IMPORT = HEADER + (
+    '"""A maintenance-only view of the JSON store, kept out of ordinary order use '
+    'cases."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from dataclasses import dataclass\n"
+    "from pathlib import Path\n\n"
+    "from shop.store.repository import OrderRepository\n\n"
+    "_OWNER = OrderRepository.__name__\n\n\n"
+    "@dataclass(frozen=True, slots=True)\n"
+    "class Connection:\n"
+    "    path: Path\n\n\n"
+    "def vacuum(connection: Connection) -> None:\n"
+    '    """Remove empty leftover order files from the store directory."""\n'
+    '    for candidate in connection.path.glob("*.json"):\n'
+    "        if candidate.stat().st_size == 0:\n"
+    "            candidate.unlink()\n"
+)
 _SIBLING_ISOLATION = Variant(
     id="class-a-sibling-isolation",
     section="class_a",
@@ -282,45 +314,8 @@ _SIBLING_ISOLATION = Variant(
     "of one set, and peers reach shared modules, never each other (AD-25). The inside contract "
     "grants api that same edge, so the level below stays silent and this row shows one rule.",
     files={
-        "shop/store/architecture-contract.json": inside_requires_replaced(
-            "api",
-            [
-                {
-                    "component": "repository",
-                    "rationale": "A deliberately granted peer edge, so the architecture demo's "
-                    "sibling_isolation row reports the outer rule alone.",
-                }
-            ],
-        ),
-        "architecture-contract.json": contract_with_rule(
-            {
-                "id": "STORE-PEERS-ISOLATED",
-                "kind": "sibling_isolation",
-                "members": ["shop.store.repository", "shop.store.sqlite"],
-                "rationale": "Persistence and maintenance are peers behind the store's entry "
-                "point, so neither reaches into the other.",
-                "provenance": ["docs/architecture/shop.md"],
-                "decided_by": "architect",
-            }
-        ),
-        "shop/store/sqlite.py": HEADER
-        + (
-            '"""A maintenance-only view of the JSON store, kept out of ordinary order use '
-            'cases."""\n\n'
-            "from __future__ import annotations\n\n"
-            "from dataclasses import dataclass\n"
-            "from pathlib import Path\n\n"
-            "from shop.store.repository import OrderRepository\n\n"
-            "_OWNER = OrderRepository.__name__\n\n\n"
-            "@dataclass(frozen=True, slots=True)\n"
-            "class Connection:\n"
-            "    path: Path\n\n\n"
-            "def vacuum(connection: Connection) -> None:\n"
-            '    """Remove empty leftover order files from the store directory."""\n'
-            '    for candidate in connection.path.glob("*.json"):\n'
-            "        if candidate.stat().st_size == 0:\n"
-            "            candidate.unlink()\n"
-        ),
+        "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
+        "shop/store/sqlite.py": _SQLITE_WITH_REPOSITORY_IMPORT,
     },
     expected_violations=("STORE-PEERS-ISOLATED",),
     expected_codes=("rule.violated",),
@@ -353,23 +348,22 @@ _INSIDE_COMPLETE_REQUIRES = Variant(
     ),
     expected_codes=("rule.violated", "rule.violated", "rule.violated"),
 )
+# Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
+ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE = HEADER + (
+    '"""Reporting use case that reaches for an undeclared package."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from shop_analytics import track\n\n\n"
+    "def report(total: int) -> str:\n"
+    "    track(total)\n"
+    '    return f"reported {total}"\n'
+)
 _COMPLETE_EXTERNAL_SCOPE = Variant(
     id="class-a-complete-external-scope",
     section="class_a",
     item="complete_external_scope",
     summary="A new shop.app module imports shop_analytics, a package no rule declares and no "
     "index carries, which EXTERNAL-COMPLETE reports as an undecided dependency (AD-28).",
-    files={
-        "shop/app/analytics.py": HEADER
-        + (
-            '"""Reporting use case that reaches for an undeclared package."""\n\n'
-            "from __future__ import annotations\n\n"
-            "from shop_analytics import track\n\n\n"
-            "def report(total: int) -> str:\n"
-            "    track(total)\n"
-            '    return f"reported {total}"\n'
-        )
-    },
+    files={"shop/app/analytics.py": ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE},
     expected_violations=("EXTERNAL-COMPLETE",),
     expected_codes=("rule.violated",),
 )
