@@ -55,8 +55,11 @@ Limit: `boundary_types` decides only what the annotation string itself commits t
 `object`, and a `dict[...]`/`Dict[...]` generic, whatever its parameters. A named type, a
 dotted name, a forward-reference string, `Any`, a generic other than `dict`, and a missing
 annotation all stay silent, because deciding any of them needs resolving where the name comes
-from and which component's facade owns it, which stays future work. Only a module-level function
-is checked, never a method, so `self` and `cls` never enter the question. `symbol_placement`
+from and which component's facade owns it. AD-63 resolves a bare named type this way and reads
+`component.public` for which functions the rule inspects at all; a dotted name, a generic other
+than `dict`, a forward-reference string and a missing annotation remain future work even there.
+Only a module-level function is checked, never a method, so `self` and `cls` never enter the
+question. `symbol_placement`
 inherits `class_kind`'s own blind spot: a base resolved through an alias the fixpoint cannot
 follow keeps whatever kind it last held. `ANALYZER_VERSION` rises to 0.25.0 (AD-3): a contract may
 now yield violation records no earlier analyzer could produce. Check:

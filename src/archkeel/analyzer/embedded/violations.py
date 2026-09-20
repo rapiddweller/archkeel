@@ -8,6 +8,7 @@ from __future__ import annotations
 import sys
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Final, assert_never
 
 from archkeel.ir.model import (
@@ -325,24 +326,55 @@ def _component_cycle_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def exports_by_module(modules: Sequence[RawRecord]) -> dict[str, frozenset[str]]:
+    """Map each scanned module to its literal `__all__`, or an empty set when it declares none.
+
+    Shared by `interface_boundary` and `boundary_types` (AD-63): both need the same answer to
+    "does this module's `__all__` narrow which of its names are public", so both read it from
+    here instead of two readings of the same `modules` section drifting apart. Public, not a
+    module-private helper: `scanner.scan_repository` computes it once and hands it to both
+    `rule_violations` and `rule_subject_failures` too (issue #56).
+    """
+    return {
+        item["data"]["qualified_name"]: frozenset(item["data"]["all_exports"]) for item in modules
+    }
+
+
+def _facade_covers(
+    module: str,
+    name: str,
+    component: ContractComponent,
+    exports_by_module: dict[str, frozenset[str]],
+) -> bool:
+    """True when `component.public` declares `module:name`, directly or through `module`'s
+    `__all__` (AD-9): the one answer both `interface_boundary` (does a cross-component import
+    reach its target) and `boundary_types` (does an annotation name a type its own component
+    already declares) need, given the module and name already stopped at rather than a chain to
+    walk -- a chain, when one exists, is the caller's own job.
+    """
+    public = component.public
+    if public is None or name.startswith("_"):
+        return False
+    if f"{module}:{name}" in public:
+        return True
+    exports = exports_by_module.get(module)
+    return module in public and (not exports or name in exports)
+
+
 def _interface_allows(
     data: RecordData, target: ContractComponent, exports_by_module: dict[str, frozenset[str]]
 ) -> bool:
     """Decide whether one cross-component import reaches the target's declared interface."""
-    public = target.public
-    if public is None:
+    if target.public is None:
         return True
     symbol = data["symbol"]
     if symbol is None:
-        return data["target_module"] in public
+        return data["target_module"] in target.public
     if symbol.startswith("_"):
         return False
     for entry in data["reexport_chain"]:
         module, _, name = entry.rpartition(".")
-        if f"{module}:{name}" in public:
-            return True
-        exports = exports_by_module.get(module)
-        if module in public and (not exports or name in exports):
+        if _facade_covers(module, name, target, exports_by_module):
             return True
     return False
 
@@ -350,15 +382,12 @@ def _interface_allows(
 def _interface_violations(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    modules: Sequence[RawRecord],
+    exports_by_module: dict[str, frozenset[str]],
     forbidden_rejected_ids: frozenset[str],
 ) -> list[RawRecord]:
     rules = [rule for rule in contract.rules if isinstance(rule, InterfaceBoundaryRule)]
     if not rules:
         return []
-    exports_by_module = {
-        item["data"]["qualified_name"]: frozenset(item["data"]["all_exports"]) for item in modules
-    }
     violations: list[RawRecord] = []
     for rule in rules:
         for item in imports:
@@ -440,28 +469,65 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     assert_never(rule)
 
 
+def _boundary_type_subject_modules(
+    rule: BoundaryTypesRule,
+    symbols: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+) -> frozenset[str]:
+    """Modules carrying at least one function `rule` actually inspects (issue #56).
+
+    `source` matching a scanned module used to be enough: every non-underscore, module-level
+    function under it was a subject. AD-63 reads the declared facade instead, so a component
+    whose `public` is `None`, or whose `public` never covers a function under `source`, gives
+    the rule zero functions to check -- a scanned module is no longer the same thing as a
+    decided subject for this one rule kind, and `rule_subject_failures` has to see that instead
+    of reading an empty result as a clean pass.
+    """
+    return frozenset(
+        module
+        for item in symbols
+        if (found := _facade_positions(item, rule, contract, exports_by_module)) is not None
+        for module in (found[0],)
+    )
+
+
 def rule_subject_failures(
-    rules: Sequence[ArchitectureRule], module_names: set[str]
+    rules: Sequence[ArchitectureRule],
+    module_names: set[str],
+    *,
+    symbols: Sequence[RawRecord] = (),
+    contract: ArchitectureContract | None = None,
+    exports_by_module: dict[str, frozenset[str]] | None = None,
 ) -> list[RawRecord]:
-    """Flag each rule whose scope selectors match no scanned module."""
+    """Flag each rule whose scope selectors match no scanned module -- or, for `boundary_types`,
+    no function its own component's declared facade actually covers (AD-63, issue #56): a rule
+    that can only pass by finding nothing to check must report UNKNOWN, not PASS.
+    """
     rule_failures: list[RawRecord] = []
     for rule in rules:
         scopes = rule_scopes(rule)
-        matches = {
-            side: sum(
-                any(in_scope(module, scope) for scope in side_scopes) for module in module_names
+        subjects: AbstractSet[str] = module_names
+        facade_scoped = False
+        if isinstance(rule, BoundaryTypesRule) and contract is not None:
+            subjects = _boundary_type_subject_modules(
+                rule, symbols, contract, exports_by_module or {}
             )
+            facade_scoped = True
+        matches = {
+            side: sum(any(in_scope(module, scope) for scope in side_scopes) for module in subjects)
             for side, side_scopes in scopes.items()
         }
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
+            reason = "no declared facade function" if facade_scoped else "no scanned modules"
             rule_failures.append(
                 classified(
                     item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule.id),
                     evidence_class=EvidenceClass.UNKNOWN,
                     area="analysis_coverage",
                     kind="rule-without-subjects",
-                    title=f"{rule.id}: no scanned modules for {', '.join(missing)}",
+                    title=f"{rule.id}: {reason} for {', '.join(missing)}",
                     subjects=[scope for side in missing for scope in scopes[side]],
                     rule_ids=[rule.id],
                     data={
@@ -563,44 +629,166 @@ _BROAD_BOUNDARY_TYPES: Final = ("dict", "Dict", "object")
 def _is_broad_boundary_type(annotation: str) -> bool:
     """A bare `dict`/`Dict`/`object`, or a `dict[...]`/`Dict[...]` generic (AD-58).
 
-    Restricted to what the annotation string alone decides: no name is resolved, so a named
-    type, a generic other than `dict`, a forward-reference string and a missing annotation
-    all stay silent rather than guess (issue #9 part 2's measurement).
+    Restricted to what the annotation string alone decides: a generic other than `dict`, a
+    dotted name, a forward-reference string and a missing annotation all stay silent rather
+    than guess. A bare named type is decided separately, by `_resolve_named_type` (AD-63).
     """
     return annotation in _BROAD_BOUNDARY_TYPES or annotation.startswith(("dict[", "Dict["))
 
 
+_EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
+
+
+def _resolve_named_type(
+    annotation: str,
+    module: str,
+    imports_by_binding: dict[tuple[str, str], RecordData],
+    classes_by_location: dict[tuple[str, str], RecordData],
+) -> tuple[str, str] | None:
+    """Resolve a bare annotation name to the module and name where it is actually defined.
+
+    Reuses the same `binding`/`origin_definition` fields `imports` already carries for
+    `interface_boundary` (AD-9), so a `from ir import ObservationResult` import lets an
+    `ObservationResult` annotation resolve the way the import itself would. Only a single bare
+    identifier is attempted, never a dotted name, a subscripted generic or a forward-reference
+    string: those stay unresolved exactly as AD-58 left them. A builtin needs no import and
+    defines no symbol of its own, so it resolves to nothing here and stays silent rather than
+    being matched against a fixed list that would drift from what Python actually ships.
+    """
+    if not annotation.isidentifier():
+        return None
+    imported = imports_by_binding.get((module, annotation))
+    if imported is not None:
+        origin = imported["origin_definition"]
+        # A bare `import pkg as name` binds a module, not a name; nonsensical as a type.
+        if imported["symbol"] is None or not origin:
+            return None
+        origin_module, _, origin_name = origin.rpartition(".")
+        return origin_module, origin_name
+    if (module, annotation) in classes_by_location:
+        return module, annotation
+    return None
+
+
+def _boundary_type_indexes(
+    symbols: Sequence[RawRecord], imports: Sequence[RawRecord]
+) -> tuple[dict[tuple[str, str], RecordData], dict[tuple[str, str], RecordData]]:
+    """Index `imports` by (module, local binding) and top-level classes by (module, name).
+
+    Both are `_resolve_named_type`'s own lookups, built once per call instead of once per
+    function checked: `boundary_types` may inspect many facade functions below one `source`.
+    """
+    imports_by_binding = {
+        (data["source_module"], data["binding"]): data
+        for data in (item["data"] for item in imports)
+    }
+    classes_by_location = {
+        (data["module"], data["name"]): data
+        for item in symbols
+        for data in [item["data"]]
+        # A nested class is never what a module-level annotation's bare name resolves to.
+        if item["kind"] == "class" and data.get("parent") is None
+    }
+    return imports_by_binding, classes_by_location
+
+
+def _boundary_type_reason(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: dict[tuple[str, str], RecordData],
+    classes_by_location: dict[tuple[str, str], RecordData],
+) -> str | None:
+    """Why one annotation violates `boundary_types`, or None when it does not (AD-58, AD-63)."""
+    if _is_broad_boundary_type(annotation):
+        return "instead of a typed model"
+    resolved = _resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
+    if resolved is None:
+        return None
+    origin_module, origin_name = resolved
+    origin_symbol = classes_by_location.get(resolved)
+    class_kind = origin_symbol["class_kind"] if origin_symbol else None
+    origin_component = contract.component_for(origin_module)
+    if (
+        class_kind in _EXEMPT_CLASS_KINDS
+        or origin_component is None
+        or _facade_covers(origin_module, origin_name, origin_component, exports_by_module)
+    ):
+        return None
+    return f"which {origin_component.label} does not declare"
+
+
+def _facade_positions(
+    item: RawRecord,
+    rule: BoundaryTypesRule,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+) -> tuple[str, str, list[tuple[str, str]]] | None:
+    """The (module, qualified name, annotated positions) of one function `rule` must check, or
+    None when it is not a function, out of scope, exempted, or not itself a function
+    `component.public` covers -- a naming convention used to guess at that last one (AD-63).
+    """
+    data = item["data"]
+    if item["kind"] != "function" or data.get("symbol_category") != "function":
+        return None
+    module, name = data["module"], data["name"]
+    component = contract.component_for(module)
+    if (
+        not in_scope(module, rule.source)
+        or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
+        or module in rule.exact_sources
+        or component is None
+        or not _facade_covers(module, name, component, exports_by_module)
+    ):
+        return None
+    positions = [
+        (parameter["name"], parameter["annotation"])
+        for parameter in data["parameters"]
+        if parameter["annotation"]
+    ]
+    if data["returns"]:
+        positions.append(("return", data["returns"]))
+    return module, data["qualified_name"], positions
+
+
 def _boundary_types_violations(
-    symbols: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
 ) -> list[RawRecord]:
-    """AD-58: a public function below `source` takes and returns no bare `dict` or `object`."""
+    """AD-58, amended by AD-63: a component's declared facade function takes and returns no
+    bare `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a
+    type some component -- whichever one actually owns it -- already declares public.
+
+    Only a function `component.public` itself covers is inspected: an internal helper below
+    `source` that the contract never promised as facade is not a claim about the boundary, so
+    it is not this rule's business (issue #44). `allowed_sources`/`exact_sources` still exempt
+    a module the way `forbidden_construct` does (AD-49), for a component such as `ir` whose
+    facade legitimately narrows an untyped boundary with a bare `object`.
+    """
+    rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
+    if not rules:
+        return []
+    imports_by_binding, classes_by_location = _boundary_type_indexes(symbols, imports)
     violations: list[RawRecord] = []
     for rule in rules:
-        if not isinstance(rule, BoundaryTypesRule):
-            continue
         for item in symbols:
-            data = item["data"]
-            if item["kind"] != "function" or data.get("symbol_category") != "function":
+            found = _facade_positions(item, rule, contract, exports_by_module)
+            if found is None:
                 continue
-            module = data["module"]
-            name = data["name"]
-            if (
-                name.startswith("_")
-                or not in_scope(module, rule.source)
-                or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
-                or module in rule.exact_sources
-            ):
-                continue
-            qualname = data["qualified_name"]
-            positions: list[tuple[str, str]] = [
-                (parameter["name"], parameter["annotation"])
-                for parameter in data["parameters"]
-                if parameter["annotation"]
-            ]
-            if data["returns"]:
-                positions.append(("return", data["returns"]))
+            module, qualname, positions = found
             for position, annotation in positions:
-                if not _is_broad_boundary_type(annotation):
+                reason = _boundary_type_reason(
+                    annotation,
+                    module,
+                    contract,
+                    exports_by_module,
+                    imports_by_binding,
+                    classes_by_location,
+                )
+                if reason is None:
                     continue
                 verb = "returns" if position == "return" else f"takes {position} as"
                 violations.append(
@@ -609,7 +797,7 @@ def _boundary_types_violations(
                         evidence_class=EvidenceClass.VIOLATION,
                         area="type_architecture",
                         kind=rule.kind,
-                        title=f"{qualname} {verb} {annotation} instead of a typed model",
+                        title=f"{qualname} {verb} {annotation} {reason}",
                         subjects=[qualname, module],
                         evidence_ids=item["evidence_ids"],
                         rule_ids=[rule.id],
@@ -694,6 +882,7 @@ def rule_violations(
     symbols: Sequence[RawRecord],
     blank_modules: frozenset[str],
     contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
 ) -> list[RawRecord]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
@@ -708,10 +897,10 @@ def rule_violations(
             *requires_violations(imports, contract),
             *_assignment_violations(modules, contract, blank_modules),
             *_component_cycle_violations(imports, contract),
-            *_interface_violations(imports, contract, modules, forbidden_rejected_ids),
+            *_interface_violations(imports, contract, exports_by_module, forbidden_rejected_ids),
             *_sibling_violations(imports, contract.rules),
             *_symbol_placement_violations(symbols, contract.rules),
-            *_boundary_types_violations(symbols, contract.rules),
+            *_boundary_types_violations(symbols, imports, contract, exports_by_module),
         ],
         key=lambda item: item["id"],
     )

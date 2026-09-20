@@ -36,7 +36,7 @@ from .resolve import build_symbol_index
 from .source import ParsedModule, add_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
-from .violations import rule_subject_failures, rule_violations
+from .violations import exports_by_module, rule_subject_failures, rule_violations
 
 # AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
 CoveragePayload: TypeAlias = dict[str, Any]
@@ -173,15 +173,14 @@ def scan_repository(
     evidence: dict[str, RawEvidence] = {}
 
     module_names = {module.module for module in parsed}
-    rule_failures = rule_subject_failures(contract.rules, module_names)
     module_evidence = {
         module.module: add_evidence(evidence, module, module.tree) for module in parsed
     }
     imports = collect_imports(parsed, module_names, evidence, namespace=namespace)
 
     # Exports exist only after the import loop, and re-exports must resolve before symbols.
-    exports_by_module = {module.module: module.all_exports for module in parsed}
-    resolve_reexports(imports, exports_by_module)
+    module_all_exports = {module.module: module.all_exports for module in parsed}
+    resolve_reexports(imports, module_all_exports)
 
     symbols, symbol_nodes, symbol_owners = collect_symbols(parsed, evidence)
     symbol_index = build_symbol_index(symbols)
@@ -215,6 +214,19 @@ def scan_repository(
     packages = sorted({module.package for module in parsed})
     package_facts = package_records(parsed, packages, package_edge_pairs)
     module_facts = module_records(parsed, module_names, module_edge_pairs, symbols, module_evidence)
+    # boundary_types reads the declared facade, not a naming convention (AD-63): a rule whose
+    # source matches a scanned module can still have zero functions to check, so
+    # rule_subject_failures needs symbols and the contract to see that, not module_names alone
+    # (issue #56). Computed here, after module_facts exists, and handed to rule_violations too,
+    # so the two share one answer to "what does __all__ narrow" instead of two computations.
+    facade_exports = exports_by_module(module_facts)
+    rule_failures = rule_subject_failures(
+        contract.rules,
+        module_names,
+        symbols=symbols,
+        contract=contract,
+        exports_by_module=facade_exports,
+    )
     scope_observations = component_scope_observations(
         components=contract.components,
         modules=module_facts,
@@ -248,6 +260,7 @@ def scan_repository(
         symbols=symbols,
         blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
         contract=contract,
+        exports_by_module=facade_exports,
     )
 
     unknowns = [*_analysis_limits(calls, declarations, namespace), *failures, *rule_failures]

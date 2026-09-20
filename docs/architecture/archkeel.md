@@ -95,6 +95,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-60 | [report --only, --rule and --component narrow what a rendered report shows, never what it judged](decisions/ad-60-report-only-rule-and-component-narrow-what-a-rendered.md) |
 | AD-61 | [A widening fails unless an amendment binds its exact before and after digest](decisions/ad-61-a-widening-fails-unless-an-amendment-binds-its-exact-before.md) |
 | AD-62 | [An annotated variable's owner is the scope it is written in, not its bare name](decisions/ad-62-an-annotated-variables-owner-is-the-scope-it-is-written-in.md) |
+| AD-63 | [boundary_types reads a component's declared public list, not a naming convention](decisions/ad-63-boundarytypes-reads-a-components-declared-public-list-not-a.md) |
 | AD-64 | [`archkeel.api` is the declared external contract, and `ir` performs no I/O](decisions/ad-64-archkeelapi-is-the-declared-external-contract-and-ir.md) |
 
 ## Allowed dependencies

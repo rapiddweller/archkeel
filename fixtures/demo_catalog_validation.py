@@ -17,7 +17,7 @@ from fixtures.demo_catalog_support import (
     contract_rule_replaced,
     contract_top_field,
     contract_with_rule,
-    contract_without_component_field,
+    contract_without_component_field_and_rule,
     contract_without_top_field,
     inside_contract,
 )
@@ -70,8 +70,14 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         section="validation",
         item="interface.undeclared",
         summary="Removing COMP-APP's public declaration leaves its existing inbound import "
-        "from shop.cli undeclared.",
-        files={"architecture-contract.json": contract_without_component_field("app", "public")},
+        "from shop.cli undeclared; APP-TYPES-NOT-DICT is removed with it, since a boundary_types "
+        "rule scoped to a component with no declared public has nothing to inspect and would "
+        "otherwise report rule_without_subjects first (AD-63, issue #56).",
+        files={
+            "architecture-contract.json": contract_without_component_field_and_rule(
+                "app", "public", "APP-TYPES-NOT-DICT"
+            )
+        },
         expected_violations=(),
         expected_codes=("interface.undeclared",),
     ),
