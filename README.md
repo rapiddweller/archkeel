@@ -251,7 +251,9 @@ archkeel validate --baseline known-violations.json                    # in CI
 
 The gate exits 1 on a violation the file does not state, and on one it states that nobody
 violates any more, so the budget only shrinks. Each entry names its violation by rule and
-subjects rather than by line, so unrelated edits above it do not move it.
+subjects rather than by line, so unrelated edits above it do not move it. Running that loop day
+to day — gating CI, keeping the target from widening, working the backlog down — is
+[docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md).
 
 To install it permanently instead, run `pip install archkeel`. Every command explains itself
 with `archkeel <command> --help`.
@@ -472,9 +474,10 @@ Archkeel is deliberately strict about what it can prove:
   `[project] name` names when several sit side by side (AD-47); other layouts need `--source` and
   `--namespace`. It never decides a dependency; the architect or, in auto mode, the agent does,
   and `decided_by` keeps the difference visible.
-- **Known-violation baseline:** the file is compared, never authenticated. `check`'s digest
-  chain does not cover it, and nothing yet stops a change from widening it while claiming to
-  fix a violation; that stays a review question.
+- **Known-violation baseline:** the file is compared, never authenticated; `check`'s digest
+  chain does not cover it. `validate --against <ref>` classifies a padded entry as a widening
+  like any other and fails it without an amendment (AD-61), but only when a reviewer or CI runs
+  it with `--against`; nothing forces that flag on every gate.
 - **Static observation:** runtime behavior, data flow and performance are not observed; see
   [docs/known-limits.md](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
 
