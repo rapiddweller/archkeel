@@ -29,18 +29,81 @@ def _owning_package(module: ParsedModule) -> str:
     return module.module.rpartition(".")[0]
 
 
+def _binds_identical_submodule(node: ast.ImportFrom, alias: ast.alias, *, package: str) -> bool:
+    """True exactly for the plain `from . import name` case in `package`'s own `__init__.py`.
+
+    That statement really does bind ``name`` to the identically named submodule, so it must not
+    count as an attribute that shadows it (AD-53); a rename (`as`) or an import from anywhere
+    else binds ``name`` to something else and does shadow.
+    """
+    if alias.asname is not None:
+        return False
+    raw = "." * node.level + (node.module or "")
+    try:
+        anchor = importlib.util.resolve_name(raw, package) if node.level else node.module or ""
+    except (ImportError, ValueError):
+        return False
+    return anchor == package
+
+
+def _shadowed_names(module: ParsedModule) -> frozenset[str]:
+    """Top-level names `module`'s package body binds ahead of a same-named submodule (AD-53).
+
+    Only unconditional top-level statements count, matching ``literal_all_exports``: a name
+    bound inside ``if``/``try`` is not settled at import time the way a bare top-level statement
+    is. A ``__getattr__`` or a star import makes every attribute dynamic or unlisted, so either
+    one empties the result and the caller keeps today's submodule-if-it-exists reading for the
+    whole package -- the narrower blind spot ``docs/rules.md`` names for issue #23.
+    """
+    package = module.module
+    names: set[str] = set()
+    for node in module.tree.body:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            if node.name == "__getattr__":
+                return frozenset()
+            names.add(node.name)
+        elif isinstance(node, ast.Assign):
+            names.update(target.id for target in node.targets if isinstance(target, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+        elif isinstance(node, ast.Import):
+            names.update(alias.asname or alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name == "*":
+                    return frozenset()
+                if not _binds_identical_submodule(node, alias, package=package):
+                    names.add(alias.asname or alias.name)
+    return frozenset(names)
+
+
+def collect_package_bindings(parsed: Sequence[ParsedModule]) -> dict[str, frozenset[str]]:
+    """Map each scanned package to the names its `__init__.py` binds ahead of a submodule.
+
+    Computed once, before any module's ``from`` imports are resolved, because a module that
+    imports from a package needs that package's own bindings even when it is scanned first.
+    """
+    return {
+        module.module: _shadowed_names(module)
+        for module in parsed
+        if module.path.name == "__init__.py"
+    }
+
+
 class ImportCollector(ast.NodeVisitor):
     def __init__(
         self,
         module: ParsedModule,
         module_names: set[str],
         evidence: dict[str, RawEvidence],
+        package_bindings: dict[str, frozenset[str]],
         *,
         namespace: str,
     ) -> None:
         self.module = module
         self.module_names = module_names
         self.evidence = evidence
+        self.package_bindings = package_bindings
         self.namespace = namespace
         self.under_type_checking = False
         self.items: list[RawRecord] = []
@@ -79,7 +142,8 @@ class ImportCollector(ast.NodeVisitor):
                 )
                 continue
             submodule = f"{anchor}.{alias.name}" if anchor else alias.name
-            target = submodule if submodule in self.module_names else anchor
+            shadowed = alias.name in self.package_bindings.get(anchor, frozenset())
+            target = anchor if shadowed else submodule if submodule in self.module_names else anchor
             symbol = None if target == submodule else alias.name
             binding = alias.asname or alias.name
             binding_target = target if symbol is None else f"{target}.{symbol}"
@@ -151,10 +215,13 @@ def collect_imports(
     namespace: str,
 ) -> list[RawRecord]:
     """Run the import collector over every module and return its records sorted by id."""
+    package_bindings = collect_package_bindings(parsed)
     imports: list[RawRecord] = []
     for module in parsed:
         module.all_exports = literal_all_exports(module.tree)
-        collector = ImportCollector(module, module_names, evidence, namespace=namespace)
+        collector = ImportCollector(
+            module, module_names, evidence, package_bindings, namespace=namespace
+        )
         collector.visit(module.tree)
         imports.extend(collector.items)
     imports.sort(key=lambda item: item["id"])
