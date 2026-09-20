@@ -9,6 +9,7 @@
       "role": "component",
       "packages": ["archkeel.ir"],
       "public": [
+        "archkeel.ir.baseline",
         "archkeel.ir.bindings",
         "archkeel.ir.codec",
         "archkeel.ir.decisions",
