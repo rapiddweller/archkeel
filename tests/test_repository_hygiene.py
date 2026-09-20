@@ -26,6 +26,9 @@ FORBIDDEN = (
     b"/" + b"var/folders",
     b"C:" + bytes([92]),
 )
+# Split so this file does not match itself. A lone `=======` is a Markdown setext heading, so
+# only the two unambiguous markers count; a conflict always leaves at least one of them.
+CONFLICT_MARKERS = (b"<<<" + b"<<<<", b">>>" + b">>>>")
 TRACKED = tuple(
     ROOT / name
     for name in subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT, text=True).split("\0")
@@ -199,3 +202,20 @@ def test_tracked_text_has_no_local_absolute_paths() -> None:
             if any(prefix in text for prefix in FORBIDDEN):
                 hits.append(f"{path.relative_to(ROOT)}:{line}")
     assert hits == []
+
+
+def test_tracked_text_carries_no_unresolved_merge_conflict() -> None:
+    """A `git add -A` over an unresolved merge commits the markers and every test still passes.
+
+    That happened: a merge left them in the decision record, and the split carried them into a
+    decision's own file, where nothing looked at them again.
+    """
+    hits = []
+    for path in TRACKED:
+        payload = path.read_bytes()
+        if b"\0" in payload:
+            continue
+        for line, text in enumerate(payload.splitlines(), 1):
+            if any(text.startswith(marker) for marker in CONFLICT_MARKERS):
+                hits.append(f"{path.relative_to(ROOT)}:{line}")
+    assert hits == [], f"unresolved merge conflict markers: {hits}"
