@@ -17,11 +17,19 @@ from archkeel.analyzer.embedded.imports import collect_imports
 from archkeel.analyzer.embedded.resolve import build_symbol_index
 from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
-from archkeel.analyzer.embedded.violations import requires_violations
+from archkeel.analyzer.embedded.typing_signals import collect_typing_signals
+from archkeel.analyzer.embedded.violations import _construct_violations, requires_violations
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import component_owners
-from archkeel.ir.model import Coverage, Diagnostic, Observation, ObservationResult
+from archkeel.ir.model import (
+    Coverage,
+    Diagnostic,
+    ForbiddenConstructKind,
+    ForbiddenConstructRule,
+    Observation,
+    ObservationResult,
+)
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
@@ -1046,6 +1054,71 @@ def test_collect_constructs_detects_string_literal_compare_and_its_exclusions(
     ]
     assert sorted(found) == sorted(expected)
     assert len({item["id"] for item in records}) == len(records)
+
+
+def _any_rule(source: str = "sample") -> ForbiddenConstructRule:
+    return ForbiddenConstructRule(
+        "R",
+        "forbidden_construct",
+        source,
+        (ForbiddenConstructKind.ANY_ANNOTATION,),
+        "because",
+        (),
+        "architect",
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_owner"),
+    [
+        # Module-level: before AD-62 the owner was the bare target name ("X"), which never
+        # starts with "sample", so `in_scope` rejected it and the violation never fired.
+        ("from typing import Any\nX: dict[str, Any] = {}\n", "sample.mod.X"),
+        # Class-level: same bug, the bare attribute name ("x") was equally unscoped.
+        (
+            "from typing import Any\nclass Box:\n    x: dict[str, Any] = {}\n",
+            "sample.mod.Box.x",
+        ),
+        # Function-local: ast.walk found the AnnAssign with no enclosing-function context at all.
+        (
+            "from typing import Any\ndef f() -> None:\n    x: dict[str, Any] = {}\n",
+            "sample.mod.f.x",
+        ),
+        # Function parameter: already correct before the fix, and must stay that way.
+        (
+            "from typing import Any\ndef f(value: Any) -> None:\n    pass\n",
+            "sample.mod.f:value",
+        ),
+    ],
+)
+def test_collect_typing_signals_scopes_annassign_owner_to_its_enclosing_scope(
+    source: str, expected_owner: str
+) -> None:
+    """AD-62: an annotated variable's owner names the scope it is written in, exactly like a
+    function's owner already did, so a source-scoped forbidden_construct rule can see it.
+
+    Before the fix, `collect_typing_signals` gave a module- or class-level annotated variable
+    the bare target name as its owner (`annotation_text(node.target) or module.module`), with
+    no module or class prefix; `_construct_violations` scopes by `owner.split(":", 1)[0]` and
+    `in_scope`, so a bare name under a package it never named as its prefix was silently
+    dropped -- the rule fired on a parameter but never on a variable of the same annotation.
+    """
+    records = collect_typing_signals([_parsed_module(source)], [], [], [], {})
+    any_records = [item for item in records if item["kind"] == "any_annotation"]
+    assert [item["data"]["owner"] for item in any_records] == [expected_owner]
+    violations = _construct_violations(any_records, [_any_rule()])
+    assert len(violations) == 1
+
+
+def test_collect_typing_signals_scopes_a_nested_function_to_its_enclosing_function() -> None:
+    """A closure gets the same fix as a method or a variable: its owner carries the outer
+    function's name, not just the module's, since both come from the one scope-tracking walk."""
+    source = (
+        "from typing import Any\ndef outer():\n    def inner(value: Any) -> None:\n        pass\n"
+    )
+    records = collect_typing_signals([_parsed_module(source)], [], [], [], {})
+    any_records = [item for item in records if item["kind"] == "any_annotation"]
+    assert [item["data"]["owner"] for item in any_records] == ["sample.mod.outer.inner:value"]
 
 
 @pytest.mark.parametrize(

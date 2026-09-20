@@ -93,6 +93,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-59 | [A type crossing many component boundaries is a review claim, not a verdict](decisions/ad-59-a-type-crossing-many-component-boundaries-is-a-review-claim.md) |
 | AD-60 | [report --only, --rule and --component narrow what a rendered report shows, never what it judged](decisions/ad-60-report-only-rule-and-component-narrow-what-a-rendered.md) |
 | AD-61 | [A widening fails unless an amendment binds its exact before and after digest](decisions/ad-61-a-widening-fails-unless-an-amendment-binds-its-exact-before.md) |
+| AD-62 | [An annotated variable's owner is the scope it is written in, not its bare name](decisions/ad-62-an-annotated-variables-owner-is-the-scope-it-is-written-in.md) |
 
 ## Allowed dependencies
 

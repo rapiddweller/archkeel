@@ -51,7 +51,10 @@ marker, since it drafts no dependency decision for `--write-graph` to draw (AD-1
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources` and
 `exact_sources`, which exempt owners the way `external_dependency_scope` exempts modules. An
 owner is the qualified scope a construct is written in, a module, class or function such as
-`sample.cli.main`; an `allowed_sources` prefix exempts it and every scope nested in it, an
+`sample.cli.main`; an annotated variable's owner extends one segment further, to the variable
+itself, at the module, class or function scope it is written in, such as
+`sample.cli.main.parse.timeout` (AD-62). An
+`allowed_sources` prefix exempts it and every scope nested in it, an
 `exact_sources` entry only the scope it names (AD-49). The shop sample exempts exactly
 `shop.cli.main.main` from its broad-except rule, and the demo rows `class-a-broad-except-exact`
 and `class-a-broad-except-prefix` run one nested handler under each list: reported, then allowed.
