@@ -507,6 +507,18 @@ _VALIDATION_EXISTING_FILES = Variant(
     expected_codes=(),
     evidence="tests/test_onboarding.py",
 )
+_VALIDATION_FILTER_UNKNOWN = Variant(
+    id="validation-filter-unknown",
+    section="validation",
+    item="filter_unknown",
+    summary="filter_unknown is raised by report --rule or --component naming a rule or "
+    "component this contract does not declare (AD-60); the generic overlay harness runs a "
+    "plain report/validate with no CLI argument to carry it.",
+    files={},
+    expected_violations=(),
+    expected_codes=(),
+    evidence="tests/test_report_filter.py",
+)
 
 VARIANTS: tuple[Variant, ...] = (
     *_VALIDATION_CODED_ROWS,
@@ -518,4 +530,5 @@ VARIANTS: tuple[Variant, ...] = (
     _VALIDATION_TIMEOUT,
     _VALIDATION_INCOMPARABLE_RUNTIME,
     _VALIDATION_EXISTING_FILES,
+    _VALIDATION_FILTER_UNKNOWN,
 )

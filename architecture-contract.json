@@ -12,6 +12,7 @@
         "archkeel.ir.baseline:KnownViolation",
         "archkeel.ir.baseline:compare_violations",
         "archkeel.ir.baseline:observed_violations",
+        "archkeel.ir.baseline:select_violations",
         "archkeel.ir.bindings",
         "archkeel.ir.codec",
         "archkeel.ir.decisions",

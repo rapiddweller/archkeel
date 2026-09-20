@@ -129,6 +129,30 @@ six guardrail dimensions (`violations`, `cycles`, `private_crossings`, `typing_s
 only on an added entry `selected_changes` never named, since a declared new edge is ordinary
 architecture growth, not a regression (AD-44).
 
+## Narrowing a report
+
+`report --only violations` shows only the declared-rule violations table, hiding component
+flow, component communication, review claims and size and coupling, so a large repository's
+page stays a small review surface; `--rule <id>` and `--component <label>` each narrow that
+table further and combine as an intersection. `--component` matches a violation whose crossing
+touches it on either side, source or target, since an import violation crosses two components
+(AD-60). All three read the same on `--json`: `report_filter` names the flags that produced the
+run and `filtered_violations` carries the records they select, one `Record` per row exactly like
+every other JSON section; both read `null` on an unfiltered run, the same way every other
+optional `report` field reads `null` when it has nothing to carry.
+None of the three changes what was judged: `architecture.json`, `declared_rules`,
+`violations_by_rule`, `violations_by_component_pair`, the `violations` measurement and the exit
+code all keep reading every violation, filtered or not. A filtered result still announces
+itself: the HTML decision banner carries `data-report-filter="true"` and a `Filtered (...): N of
+TOTAL violation(s) shown.` sentence, and the terminal prints the same sentence in its own panel.
+`--rule` matches a fingerprint's rule id exactly, top-level or the `<component>:<rule id>` an
+inside declares (AD-36); `--component` matches only a top-level component, since
+`ViolationRow.source_component`/`target_component` always come from the top level
+(AD-34, AD-54). A `--rule` or `--component` naming nothing the contract declares is
+`filter_unknown`, exit 2, not a silently empty page: `--rule` validates against every declared
+rule id, `--component` against every top-level component label, whether or not either has a
+violation today.
+
 ## Reading a report's violations
 
 AD-54 is the one supported way to read `architecture.json` outside this repository, for a CI

@@ -7,6 +7,7 @@ import subprocess
 from dataclasses import replace
 from pathlib import Path
 
+from archkeel.ir.baseline import select_violations
 from archkeel.ir.codec import canonical_report_bytes, result_bytes
 from archkeel.ir.decisions import (
     agent_decisions,
@@ -14,7 +15,13 @@ from archkeel.ir.decisions import (
     review_claims,
     violation_counts,
 )
-from archkeel.ir.model import Diagnostic, DiagnosticError, ObservationResult, RunResult
+from archkeel.ir.model import (
+    Diagnostic,
+    DiagnosticError,
+    ObservationResult,
+    ReportFilter,
+    RunResult,
+)
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
@@ -59,7 +66,26 @@ def run_report(
     *,
     config: ScanConfig,
     analyzer: Analyzer,
+    only_violations: bool = False,
+    rule: str | None = None,
+    component: str | None = None,
 ) -> tuple[RunResult, bytes | None]:
+    """Observe, evaluate and, when a filter argument narrows it, select what the report shows.
+
+    `cli` hands in the three plain arguments it parsed, never a `ReportFilter`: composing a
+    typed `ir` value is this function's job, the same split `cli` already keeps with every
+    other command (AD-60). The filter never reaches `canonical_report_bytes`: `architecture
+    .json` is built from `model` before any filter argument is even read, so a filtered run
+    writes the same bytes an unfiltered one would. A `rule` or `component` naming nothing this
+    observation declares raises `DiagnosticError` inside `select_violations`, caught below
+    exactly like `inspect_observation`'s own `ValueError`, so an unknown filter value is a
+    named exit-2 diagnostic, never a silently empty report.
+    """
+    report_filter = (
+        ReportFilter(only_violations, rule, component)
+        if only_violations or rule is not None or component is not None
+        else None
+    )
     result = observe_repository(root, config, analyzer)
     model = result.observation
     architecture = canonical_report_bytes(model) if model is not None else None
@@ -74,6 +100,9 @@ def run_report(
     else:
         try:
             measurements, declared = inspect_observation(model)
+            filtered_violations = (
+                select_violations(model, report_filter) if report_filter is not None else None
+            )
         except ValueError as error:
             command_result = replace(
                 unknown_result("report", "observation", error),
@@ -96,5 +125,7 @@ def run_report(
                 claims=review_claims(model),
                 violations_by_rule=counted.by_rule,
                 violations_by_component_pair=counted.by_component_pair,
+                report_filter=report_filter,
+                filtered_violations=filtered_violations,
             )
     return command_result, architecture

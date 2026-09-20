@@ -460,7 +460,15 @@ def render_html(
             if report_violates_rules(result)
             else "<li>None.</li>"
         )
-    violations = observation.records("violations") if observation is not None else ()
+    # AD-60: a filtered run shows `filtered_violations`, the same records `ir.baseline
+    # .select_violations` chose; an unfiltered one shows every violation, exactly as before.
+    violations = (
+        result.filtered_violations
+        if result.report_filter is not None
+        else observation.records("violations")
+        if observation is not None
+        else ()
+    )
     unknowns = observation.records("unknowns") if observation is not None else ()
     source_sha = observation.source.git_head if observation is not None else "UNKNOWN"
     source_digest = observation.source.source_digest if observation is not None else "UNKNOWN"
@@ -470,15 +478,26 @@ def render_html(
         if observation is not None
         else ""
     )
+    # AD-60: --only violations hides everything below but the violations table, so a large
+    # repository's page stays a small review surface instead of every section at once.
+    only_violations = result.report_filter is not None and result.report_filter.only_violations
     unknowns_html = (
-        _findings("Known unknowns", unknowns or (), observation) if observation is not None else ""
+        _findings("Known unknowns", unknowns or (), observation)
+        if observation is not None and not only_violations
+        else ""
     )
-    flow_html = _flow_section(observation) if observation is not None else ""
-    communication_html = _interfaces_section(observation) if observation is not None else ""
+    flow_html = (
+        _flow_section(observation) if observation is not None and not only_violations else ""
+    )
+    communication_html = (
+        _interfaces_section(observation) if observation is not None and not only_violations else ""
+    )
     measurements_html = _measurements(result.measurements)
     coverage_html = _coverage(observation)
-    structure_html = _structure(observation) if observation is not None else ""
-    claims_html = _claims(observation) if observation is not None else ""
+    structure_html = (
+        _structure(observation) if observation is not None and not only_violations else ""
+    )
+    claims_html = _claims(observation) if observation is not None and not only_violations else ""
     inventory_html = _section_inventory(observation)
     metadata_html = _metadata(result, observation)
     raw_link = (
@@ -497,6 +516,7 @@ def render_html(
       </div>
     </section>
     <section class="decision-banner" data-decision="{summary.decision.state}"
+             data-report-filter="{"true" if result.report_filter is not None else "false"}"
              aria-label="Decision: {summary.decision.label}">
       <span class="decision-symbol" aria-hidden="true">{summary.decision.symbol}</span>
       <div><h2>{summary.decision.label}</h2><p>{_text(summary.sentence)}</p></div>
