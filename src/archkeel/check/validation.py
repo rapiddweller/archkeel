@@ -19,7 +19,12 @@ from archkeel.ir.codec import (
     decode_json,
     parse_contract,
 )
-from archkeel.ir.decisions import agent_decisions, open_decisions, review_claims
+from archkeel.ir.decisions import (
+    agent_decisions,
+    open_decisions,
+    review_claims,
+    violation_counts,
+)
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -854,6 +859,8 @@ def _observed_result(observation: Observation, diagnostics: list[Diagnostic]) ->
         declared = "FAIL"
     decisions = open_decisions(observation)
     counts = agent_decisions(observation)
+    # AD-51: a rejected run is where the breakdown is read, so it carries it too.
+    counted = violation_counts(observation)
     if diagnostics:
         return RunResult(
             "validate",
@@ -863,6 +870,8 @@ def _observed_result(observation: Observation, diagnostics: list[Diagnostic]) ->
             python_version=observation.python_version,
             open_decisions=decisions,
             agent_decisions=counts,
+            violations_by_rule=counted.by_rule,
+            violations_by_component_pair=counted.by_component_pair,
         )
     return RunResult(
         "validate",
@@ -876,6 +885,8 @@ def _observed_result(observation: Observation, diagnostics: list[Diagnostic]) ->
         open_decisions=decisions,
         agent_decisions=counts,
         claims=review_claims(observation),
+        violations_by_rule=counted.by_rule,
+        violations_by_component_pair=counted.by_component_pair,
     )
 
 

@@ -746,6 +746,18 @@ class ReviewClaims:
 
 
 @dataclass(frozen=True, slots=True)
+class ViolationCounts:
+    """How many violations each rule and each crossed component pair holds (AD-51).
+
+    Both are derived from one observation's violation records, so a time series built from
+    `report --json` and the records themselves can never disagree.
+    """
+
+    by_rule: tuple[tuple[str, int], ...]
+    by_component_pair: tuple[tuple[str, str, int], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
@@ -769,6 +781,9 @@ class RunResult:
     agent_decisions: tuple[int, int] | None = None
     # AD-35: review-claim counts, from `ir.decisions.review_claims`.
     claims: ReviewClaims | None = None
+    # AD-51: the same violations grouped, from `ir.decisions.violation_counts`.
+    violations_by_rule: tuple[tuple[str, int], ...] | None = None
+    violations_by_component_pair: tuple[tuple[str, str, int], ...] | None = None
     # AD-38: `init`'s own drafted components with their measured size, from `draft_contract`.
     draft_sizes: tuple[DraftedComponentSize, ...] | None = None
 

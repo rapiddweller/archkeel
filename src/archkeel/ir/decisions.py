@@ -26,7 +26,9 @@ from .model import (
     Record,
     RecordData,
     ReviewClaims,
+    ViolationCounts,
     package_owners,
+    text_value,
 )
 from .references import unreferenced_symbols
 from .structure import oversized_insides
@@ -244,6 +246,43 @@ def review_claims(observation: Observation) -> ReviewClaims:
         _named(insides.status, insides.candidates),
         _named(bindings.status, bindings.candidates),
         _named(logic.status, logic.candidates),
+    )
+
+
+def violation_counts(observation: Observation) -> ViolationCounts:
+    """Group one observation's violations by rule and by the component pair they cross (AD-51).
+
+    A rule with no violation is absent: the contract already lists every rule, while this
+    answers how many remain. The pair comes from the record's own `source_module` and
+    `target_module`, never from the position of a subject, which `classified` sorts. A
+    violation that names no import, such as a construct, an unassigned module or a cycle,
+    crosses no pair and is counted by rule alone.
+    """
+    violations = observation.records("violations") or ()
+    components = component_owners(observation)
+    rules: Counter[str] = Counter()
+    pairs: Counter[tuple[str, str]] = Counter()
+    for record in violations:
+        rules[record.rule_ids[0] if record.rule_ids else record.id] += 1
+        source_module = text_value(record.data.get("source_module"))
+        target_module = text_value(record.data.get("target_module"))
+        if not source_module or not target_module:
+            continue
+        source = owner_of(source_module, components)
+        target = owner_of(target_module, components)
+        if source is not None and target is not None and source != target:
+            pairs[(source, target)] += 1
+    return ViolationCounts(
+        tuple(
+            (rule, count)
+            for rule, count in sorted(rules.items(), key=lambda item: (-item[1], item[0]))
+        ),
+        tuple(
+            (source, target, count)
+            for (source, target), count in sorted(
+                pairs.items(), key=lambda item: (-item[1], item[0])
+            )
+        ),
     )
 
 
