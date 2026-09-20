@@ -914,12 +914,18 @@ def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause
         assert result.observation.records("unknowns")[0].id == "unknown-rule"
 
 
-def _parsed_module(source: str, module: str = "sample.mod") -> ParsedModule:
+def _parsed_module(
+    source: str,
+    module: str = "sample.mod",
+    *,
+    rel_path: str = "sample/mod.py",
+    package: str = "sample",
+) -> ParsedModule:
     return ParsedModule(
-        path=Path("sample/mod.py"),
-        rel_path="sample/mod.py",
+        path=Path(rel_path),
+        rel_path=rel_path,
         module=module,
-        package="sample",
+        package=package,
         source=source,
         source_bytes=source.encode(),
         lines=source.splitlines(),
@@ -1400,3 +1406,51 @@ def test_a_requires_entry_covers_only_the_modules_it_goes_through() -> None:
     violations = requires_violations(imports, contract)
     assert [item["data"]["target_module"] for item in violations] == ["sample.core.store"]
     assert violations[0]["rule_ids"] == ["REQUIRES-COMPLETE"]
+
+
+def test_from_import_binds_the_package_attribute_over_a_same_named_submodule() -> None:
+    """AD-53 / issue #23: `from pkg import name` binds what `pkg/__init__.py` binds first.
+
+    `pkg` assigns `name` to a string at module scope, so CPython's `_handle_fromlist` finds
+    the attribute through `hasattr` before it ever imports the submodule `pkg/name.py`. Before
+    AD-53 the scan alone decided this: since `pkg.name` was a scanned module, the import was
+    recorded as the module `pkg.name`, though the program never touches that file.
+    """
+    package_init = _parsed_module(
+        'name = "something"\n', module="pkg", rel_path="pkg/__init__.py", package="pkg"
+    )
+    submodule = _parsed_module(
+        "VALUE = 1\n", module="pkg.name", rel_path="pkg/name.py", package="pkg"
+    )
+    consumer = _parsed_module(
+        "from pkg import name\n", module="app", rel_path="app.py", package="app"
+    )
+    imports = collect_imports(
+        [package_init, submodule, consumer], {"pkg", "pkg.name", "app"}, {}, namespace="pkg"
+    )
+    [record] = [item for item in imports if item["data"]["source_module"] == "app"]
+    assert record["data"]["target_module"] == "pkg"
+    assert record["data"]["symbol"] == "name"
+
+
+def test_from_import_of_a_re_exported_submodule_still_resolves_to_the_submodule() -> None:
+    """AD-53's precedence must not over-correct the common `from . import name` re-export.
+
+    `pkg/__init__.py` binds `name` by importing the submodule itself, so the attribute Python
+    finds *is* the submodule `pkg.name`; the fix keeps the pre-existing, correct reading here.
+    """
+    package_init = _parsed_module(
+        "from . import name\n", module="pkg", rel_path="pkg/__init__.py", package="pkg"
+    )
+    submodule = _parsed_module(
+        "VALUE = 1\n", module="pkg.name", rel_path="pkg/name.py", package="pkg"
+    )
+    consumer = _parsed_module(
+        "from pkg import name\n", module="app", rel_path="app.py", package="app"
+    )
+    imports = collect_imports(
+        [package_init, submodule, consumer], {"pkg", "pkg.name", "app"}, {}, namespace="pkg"
+    )
+    [record] = [item for item in imports if item["data"]["source_module"] == "app"]
+    assert record["data"]["target_module"] == "pkg.name"
+    assert record["data"]["symbol"] is None
