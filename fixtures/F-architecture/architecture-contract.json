@@ -11,7 +11,8 @@
       "public": ["shop.model.entities"],
       "responsibilities": ["Order and Line value types, and Money arithmetic."],
       "forbidden_responsibilities": ["Persistence, use cases, presentation or command-line orchestration."],
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-STORE",
@@ -27,7 +28,8 @@
       ],
       "responsibilities": ["Persist orders as JSON files."],
       "forbidden_responsibilities": ["Order use cases and presentation."],
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-APP",
@@ -38,7 +40,8 @@
       "public": ["shop.app.orders:place_order"],
       "responsibilities": ["Use cases: place and summarise orders."],
       "forbidden_responsibilities": ["Persistence details and presentation."],
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-RENDER",
@@ -49,7 +52,8 @@
       "public": ["shop.render.text"],
       "responsibilities": ["Text projection of an order."],
       "forbidden_responsibilities": ["Order use cases and persistence."],
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-CLI",
@@ -59,7 +63,8 @@
       "packages": ["shop.cli"],
       "responsibilities": ["Argument parsing, composition and the single broad error boundary."],
       "forbidden_responsibilities": ["Domain logic, persistence and presentation formatting."],
-      "provenance": ["docs/architecture/shop.md"]
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

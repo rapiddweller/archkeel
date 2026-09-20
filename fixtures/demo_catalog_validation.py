@@ -132,6 +132,21 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_codes=("interface.planned_built",),
     ),
     Variant(
+        id="validation-agent-decisions-attributed",
+        section="validation",
+        item="agent_decisions:agent-attributed",
+        summary="COMP-RENDER's decided_by is set to agent instead of architect: the same "
+        "declared public list, attributed differently. No rule reads decided_by, so nothing "
+        "fails; agent_decisions alone moves from [0, 46] to [1, 46] (AD-50).",
+        files={
+            "architecture-contract.json": contract_component_field_set(
+                "render", "decided_by", "agent"
+            )
+        },
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
         id="validation-rationale-placeholder",
         section="validation",
         item="rationale.placeholder",
