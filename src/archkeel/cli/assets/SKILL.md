@@ -129,7 +129,9 @@ a padded baseline entry, and anything else this repository's `ir.widening` does 
 name — as a widening, which fails (exit 1) unless `--amendment <path>` names a file the
 architect wrote, recording who decided it and why, bound to this exact change (AD-61, #11).
 Never widen the contract in the same change that removes the violation it names: fix the code,
-or ask the architect for an amendment.
+or ask the architect for an amendment. The full loop — gating, widening, picking a slice of the
+backlog and landing a planned interface — is worked end to end on the shop sample in
+https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
 
 ## Daily loop
 

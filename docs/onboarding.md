@@ -163,6 +163,12 @@ violates any more; a run whose baseline is exactly right exits 0 while `declared
 it. The agent shrinks the file by fixing violations and rewriting it in the same change; adding
 an entry to make a run pass is an architect's decision, and the diff is where it is reviewed.
 
+Running that loop day to day — keeping the target from widening while the backlog shrinks,
+picking the next violation to fix, and landing the interfaces the target already names ahead of
+the code — is
+[docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md),
+with a worked example on the shop sample.
+
 **Auto mode's evidence discipline (an agent must still not guess):** documents first, then
 the layer principles the architect already confirmed or the documents state, then judgment
 labeled as judgment in the rationale — never "the code already does this, so it is allowed."
