@@ -119,3 +119,21 @@ flowchart LR
     host --> ir
     render --> ir
 ```
+
+Every edge above is also a `requires` entry in the contract, so the graph the code observes and
+the graph the contract permits are the same set today ([AD-57](decisions/ad-57-a-target-graph-marker-draws-the-edges-the-contract-permits.md)).
+The block below is generated from `target_component_edges`, not hand-written; it will diverge from
+the graph above the day this repository takes on debt its own contract has not yet granted.
+
+<!-- archkeel-target-graph -->
+```mermaid
+flowchart LR
+    analyzer --> ir
+    check --> ir
+    cli --> analyzer
+    cli --> check
+    cli --> host
+    cli --> render
+    host --> ir
+    render --> ir
+```
