@@ -60,7 +60,8 @@ The A/B/C fixtures use real local Git repositories and simulated host records an
 
 JSON results separate `observation_complete`, `declared_rules` and
 `expectation_fulfilled`. `report` uses `n/a` for expectations. Exit codes: 0 for
-complete report/successful check, 1 for a rejected check, 2 for unverifiable inputs.
+complete report/successful check, 1 for a rejected check or a `validate --baseline` run whose
+baseline no longer matches the code, 2 for unverifiable inputs.
 Every exit 2 includes a Diagnostic with `kind`, `subject`, `unknown_claim` and a
 one-line `remedy`. Partial analyzer observations retain their typed coverage and
 are persisted by `report`. Invalid locks are never replaced with empty state.
@@ -80,6 +81,34 @@ remedy names the line and asks for the edges to be edited by hand. The page is r
 as UTF-8 with `\n` line endings. The demo rows `validation-graph-drift-write-graph` and
 `validation-graph-drift-subgraph` show both remedies on the shop sample, whose own page is already
 in the form the command writes.
+
+`validate --baseline <file>` holds the run against a file of known violations, for a contract
+that states the target architecture and so is violated by the code that has yet to reach it
+(AD-52). Each entry names one violation by fingerprint — the rule ids it cites and its sorted
+`subjects`, the modules, construct owner or cycle members it is about — with the number of
+violations sharing it. No position enters a fingerprint, so an unrelated edit above a violating
+line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Counts must match
+the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
+violation`, both in `failures` with exit 1, so the budget only shrinks. A run whose baseline is
+exactly right exits 0 with `declared_rules: FAIL`. Only `rule.violated` is answered this way;
+every other diagnostic still exits 2, as does a baseline that cannot be read
+(`baseline.invalid`). `--write-baseline` writes the observed violations to that same path,
+indented and sorted for review, and writes nothing from a run that exited 2. `validate` with no
+`--baseline` behaves exactly as before. The file's shape is
+`schema/violation-baseline.schema.json`:
+
+```json
+{
+  "schema_version": "1.0.0",
+  "violations": [
+    {
+      "count": 2,
+      "rules": ["CONSTRUCT-NO-DYNAMIC"],
+      "subjects": ["shop.model.probe.read"]
+    }
+  ]
+}
+```
 
 `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all
 (AD-39). Under that declaration `evaluate_expectation` fails on any entry in the delta's

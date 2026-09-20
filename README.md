@@ -240,6 +240,19 @@ When a later contract edit merges or renames components, `archkeel validate --wr
 rewrites the edges of the page's marked component graph and leaves the rest of the page alone;
 a graph with a `subgraph`, a labeled edge or a style is left for you to edit by hand.
 
+If your contract states the architecture you are heading for, the code that has yet to reach it
+is violating it — by design. Freeze those known violations once and gate on the difference,
+instead of weakening the contract to make it green:
+
+```bash
+archkeel validate --baseline known-violations.json --write-baseline   # once, then review it
+archkeel validate --baseline known-violations.json                    # in CI
+```
+
+The gate exits 1 on a violation the file does not state, and on one it states that nobody
+violates any more, so the budget only shrinks. Each entry names its violation by rule and
+subjects rather than by line, so unrelated edits above it do not move it.
+
 To install it permanently instead, run `pip install archkeel`. Every command explains itself
 with `archkeel <command> --help`.
 
@@ -311,7 +324,7 @@ single score.
 | Exit | Meaning |
 | ---: | --- |
 | `0` | Complete report or successful check |
-| `1` | Rejected because at least one verdict is `FAIL` |
+| `1` | Rejected because at least one verdict is `FAIL`, or `validate --baseline` found a violation the baseline does not state, or one it states that nobody violates any more |
 | `2` | Unverifiable input, always with at least one diagnostic |
 
 Every exit `2` diagnostic contains:
@@ -459,6 +472,9 @@ Archkeel is deliberately strict about what it can prove:
   `[project] name` names when several sit side by side (AD-47); other layouts need `--source` and
   `--namespace`. It never decides a dependency; the architect or, in auto mode, the agent does,
   and `decided_by` keeps the difference visible.
+- **Known-violation baseline:** the file is compared, never authenticated. `check`'s digest
+  chain does not cover it, and nothing yet stops a change from widening it while claiming to
+  fix a violation; that stays a review question.
 - **Static observation:** runtime behavior, data flow and performance are not observed; see
   [docs/known-limits.md](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
 

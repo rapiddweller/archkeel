@@ -146,6 +146,23 @@ rule to reach it. A `rule.violated` or `closed_world.observed_forbidden` diagnos
 that point is the architecture's own finding, shown with `archkeel report`, not an
 onboarding step.
 
+### Gating a target that stays red
+
+Where those findings are the point — the contract states the target architecture and the code
+has yet to reach it — `validate` is red by design and gates nothing. Freeze the known
+violations rather than describing the current code in the contract (AD-52):
+
+```bash
+archkeel validate --baseline known-violations.json --write-baseline   # once, then review it
+archkeel validate --baseline known-violations.json                    # the CI gate
+```
+
+The gate exits 1 on a violation the file does not state, and on one it states that nobody
+violates any more; a run whose baseline is exactly right exits 0 while `declared_rules` stays
+`FAIL`. Each entry is named by rule and subjects, not by line, so unrelated edits do not move
+it. The agent shrinks the file by fixing violations and rewriting it in the same change; adding
+an entry to make a run pass is an architect's decision, and the diff is where it is reviewed.
+
 **Auto mode's evidence discipline (an agent must still not guess):** documents first, then
 the layer principles the architect already confirmed or the documents state, then judgment
 labeled as judgment in the rationale — never "the code already does this, so it is allowed."
