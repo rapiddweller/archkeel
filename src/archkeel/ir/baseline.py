@@ -14,7 +14,8 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
-from .model import Observation, Record
+from .interfaces import component_owners, owner_of
+from .model import Observation, Record, text_value
 
 BASELINE_SCHEMA_VERSION = "1.0.0"
 
@@ -50,11 +51,60 @@ def _ordered(counts: Counter[ViolationFingerprint]) -> tuple[KnownViolation, ...
     )
 
 
+@dataclass(frozen=True, slots=True)
+class ViolationRow:
+    """One violation, read the way a consumer off disk wants it rather than as a raw record.
+
+    `fingerprint` is AD-52's stable key: `(rules, subjects)` survives an edit that moves the
+    violating line without changing what the violation is, and is what a consumer should key
+    on across runs - read `fingerprint.rules` and `fingerprint.subjects` directly rather than
+    a second copy of them here, so there is exactly one place either can drift. `source_module`,
+    `target_module` and `symbol` are the import a dependency or interface violation crosses; a
+    violation kind that names no import, such as a forbidden construct or a component cycle,
+    leaves them None rather than a value nobody derived (AD-2). `source_component` and
+    `target_component` come from `ir.interfaces.owner_of`, the one place this repository maps a
+    module to its component.
+    """
+
+    fingerprint: ViolationFingerprint
+    source_module: str | None
+    target_module: str | None
+    symbol: str | None
+    source_component: str | None
+    target_component: str | None
+    evidence_ids: tuple[str, ...]
+
+
+def violation_rows(observation: Observation) -> tuple[ViolationRow, ...]:
+    """Every violation this observation reports, one typed row per record, in record order.
+
+    AD-54: the one derivation that both `observed_violations` below and
+    `ir.decisions.violation_counts` build on, so a baseline comparison and a rule-and-pair
+    breakdown can never disagree about what a violation is or which component it crosses.
+    """
+    resolved = component_owners(observation)
+    rows = []
+    for record in observation.records("violations") or ():
+        source_module = text_value(record.data.get("source_module")) or None
+        target_module = text_value(record.data.get("target_module")) or None
+        symbol = text_value(record.data.get("symbol")) or None
+        rows.append(
+            ViolationRow(
+                violation_fingerprint(record),
+                source_module,
+                target_module,
+                symbol,
+                owner_of(source_module, resolved) if source_module is not None else None,
+                owner_of(target_module, resolved) if target_module is not None else None,
+                record.evidence_ids,
+            )
+        )
+    return tuple(rows)
+
+
 def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:
     """Every violation this observation reports, counted per fingerprint and ordered."""
-    return _ordered(
-        Counter(violation_fingerprint(record) for record in observation.records("violations") or ())
-    )
+    return _ordered(Counter(row.fingerprint for row in violation_rows(observation)))
 
 
 def _drift(fingerprint: ViolationFingerprint, known: int, observed: int) -> str:

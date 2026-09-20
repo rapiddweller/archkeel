@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Final, get_args, get_type_hints
 
+from .baseline import violation_rows
 from .bindings import unread_bindings
 from .duplication import repeated_logic
 from .interfaces import component_owners, owner_of
@@ -28,7 +29,6 @@ from .model import (
     ReviewClaims,
     ViolationCounts,
     package_owners,
-    text_value,
 )
 from .references import unreferenced_symbols
 from .structure import oversized_insides
@@ -253,25 +253,24 @@ def violation_counts(observation: Observation) -> ViolationCounts:
     """Group one observation's violations by rule and by the component pair they cross (AD-51).
 
     A rule with no violation is absent: the contract already lists every rule, while this
-    answers how many remain. The pair comes from the record's own `source_module` and
+    answers how many remain. Built on `ir.baseline.violation_rows` (AD-54), whose own
+    `source_component`/`target_component` already come from the record's `source_module` and
     `target_module`, never from the position of a subject, which `classified` sorts. A
     violation that names no import, such as a construct, an unassigned module or a cycle,
-    crosses no pair and is counted by rule alone.
+    crosses no pair and is counted by rule alone. `fingerprint.rules[0]` never needs a
+    fallback: `embedded.violations` sets exactly one rule id on every violation it produces,
+    and `ir.codec.parse_record` (AD-54) rejects a VIOLATION record read back with none.
     """
-    violations = observation.records("violations") or ()
-    components = component_owners(observation)
     rules: Counter[str] = Counter()
     pairs: Counter[tuple[str, str]] = Counter()
-    for record in violations:
-        rules[record.rule_ids[0] if record.rule_ids else record.id] += 1
-        source_module = text_value(record.data.get("source_module"))
-        target_module = text_value(record.data.get("target_module"))
-        if not source_module or not target_module:
-            continue
-        source = owner_of(source_module, components)
-        target = owner_of(target_module, components)
-        if source is not None and target is not None and source != target:
-            pairs[(source, target)] += 1
+    for row in violation_rows(observation):
+        rules[row.fingerprint.rules[0]] += 1
+        if (
+            row.source_component is not None
+            and row.target_component is not None
+            and row.source_component != row.target_component
+        ):
+            pairs[(row.source_component, row.target_component)] += 1
     return ViolationCounts(
         tuple(
             (rule, count)
