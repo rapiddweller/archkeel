@@ -11,6 +11,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from math import isfinite
+from pathlib import Path
 from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
 
 from archkeel.ir.baseline import BASELINE_SCHEMA_VERSION, KnownViolation, ViolationFingerprint
@@ -175,6 +176,12 @@ def parse_record(raw: object, label: str = "record") -> Record:
         evidence_class = EvidenceClass(_string(item["evidence_class"], f"{label}.evidence_class"))
     except ValueError as exc:
         raise ValueError(f"{label}.evidence_class is invalid") from exc
+    rule_ids = _strings(item["rule_ids"], f"{label}.rule_ids")
+    # schema/architecture-ir-common.schema.json promises minItems: 1 here for VIOLATION but
+    # does not enforce it at runtime; a downstream count keyed on `rule_ids[0]` (AD-51, AD-54)
+    # would otherwise fail on a malformed file with an IndexError, not a named diagnosis.
+    if evidence_class == EvidenceClass.VIOLATION and not rule_ids:
+        raise ValueError(f"{label}.rule_ids must not be empty for a VIOLATION record")
     return Record(
         id=_string(item["id"], f"{label}.id"),
         evidence_class=evidence_class,
@@ -183,7 +190,7 @@ def parse_record(raw: object, label: str = "record") -> Record:
         title=_string(item["title"], f"{label}.title"),
         subjects=_strings(item["subjects"], f"{label}.subjects"),
         evidence_ids=_strings(item["evidence_ids"], f"{label}.evidence_ids"),
-        rule_ids=_strings(item["rule_ids"], f"{label}.rule_ids"),
+        rule_ids=rule_ids,
         fact_ids=_strings(item["fact_ids"], f"{label}.fact_ids"),
         provenance=_strings(item["provenance"], f"{label}.provenance"),
         data=_data(item["data"], f"{label}.data"),
@@ -557,6 +564,17 @@ def decode_json(payload: bytes | str) -> object:
         return json.loads(payload.decode("utf-8") if isinstance(payload, bytes) else payload)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"invalid JSON: {exc}") from exc
+
+
+def load_observation(path: Path) -> Observation:
+    """Read one `architecture.json` report from disk and return its Observation (AD-54).
+
+    The one supported way in: `decode_json`, `decode_canonical_model` and `parse_observation`
+    are the internal steps a consumer would otherwise have to compose itself, against a
+    columnar, string-interned file format this function is what stays stable across it.
+    """
+    payload = _object(decode_json(path.read_bytes()), "architecture.json")
+    return parse_observation(decode_canonical_model(payload))
 
 
 def _exact(value: object, keys: set[str], label: str) -> dict[str, RawJson]:

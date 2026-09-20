@@ -121,6 +121,41 @@ six guardrail dimensions (`violations`, `cycles`, `private_crossings`, `typing_s
 only on an added entry `selected_changes` never named, since a declared new edge is ordinary
 architecture growth, not a regression (AD-44).
 
+## Reading a report's violations
+
+AD-54 is the one supported way to read `architecture.json` outside this repository, for a CI
+gate that wants named fields rather than the columnar, string-interned file on disk.
+`archkeel.ir.codec.load_observation(path)` returns the `Observation` that `decode_json`,
+`decode_canonical_model` and `parse_observation` would otherwise take three internal calls to
+build, and `archkeel.ir.baseline.violation_rows(observation)` turns its `violations` section
+into one typed `ViolationRow` per violation - `fingerprint`, `source_module`, `target_module`,
+`symbol`, `source_component`, `target_component` and `evidence_ids` - instead of a positional
+record. A field a violation kind does not carry, such as a forbidden construct's
+`source_module`, is `None`, never a guessed value.
+
+```python
+from pathlib import Path
+
+from archkeel.ir.baseline import violation_rows
+from archkeel.ir.codec import load_observation
+
+observation = load_observation(Path("architecture.json"))
+rows = [
+    (row.fingerprint, row.source_component, row.target_component)
+    for row in violation_rows(observation)
+]
+```
+
+`row.fingerprint` is AD-52's `(rules, subjects)` pair, the stable key that survives an edit
+that moves the violating line without changing what the violation is; a stored baseline or a
+CI gate keys on it, not on the record `id` in `architecture.json`, which moves with the line.
+Not promised: the columnar file format `decode_canonical_model` inflates, and the internals of
+any `ir` module other than `ir.baseline`, `ir.codec` and `ir.decisions`. `architecture-contract.json`'s
+`COMP-IR` `public` list (AD-9) is a separate, narrower promise - which names another *Archkeel*
+component may cross-import inside this repository, not what an outside reader may use -
+so `ViolationRow` and `violation_rows` do not appear in it; nothing inside Archkeel imports
+them across a component boundary, only this reading surface does (AD-54).
+
 ## Regression checks
 
 Regression checks add these scalars to the existing record counts and fingerprint checks:
