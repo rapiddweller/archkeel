@@ -165,6 +165,21 @@ then disagree with what a particular attribute returns at runtime, and `validate
 directly from `sample.cli` when `core` declares only `sample.core` as public is an example
 violation.
 
+A contract may name a target architecture ahead of the refactoring that builds it, so `validate`
+tells a facade that is not built yet from one that never will be (AD-56). An unused `public` entry
+is `interface.missing` when its module was never scanned — it names something that does not exist,
+whether that is a typo or work still to do — and stays `interface.unused` when the module exists
+but nothing imports it, unchanged from before. A `pkg.module:Name` entry is judged by its module
+alone: the `symbols` section records only classes and functions, so treating an unmatched name as
+missing would misreport a module-level constant or type alias that the scan cannot see. A
+component's optional `planned` list holds entries in the same `pkg.module`/`pkg.module:Name` shape
+as `public`, disjoint from it: an entry the scan has not built yet is target work and gets no
+diagnostic, and one whose module the scan now sees is a stale marker, `interface.planned_built` —
+move it to `public` and drop it from `planned`. `planned` entries are held to the same ownership,
+underscore and namespace checks as `public` ones, but never reach the analyzer: `planned` is not
+projected into the observation, so it earns no `agent_decisions` count and takes no part in an
+AD-20 inside's public-surface match.
+
 `sibling_isolation` has the field `members`, at least two dotted prefixes, and the optional
 `include_type_checking` (default `true`). Peers reach shared modules and are reached from outside,
 but never each other: the analyzer reports every import whose source and target lie in two

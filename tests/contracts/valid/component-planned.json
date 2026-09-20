@@ -1,0 +1,27 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "public": ["sample.core"],
+      "planned": ["sample.core.facade:Widget"]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "role": "component",
+      "packages": ["sample.cli"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "planned": []
+    }
+  ],
+  "rules": []
+}

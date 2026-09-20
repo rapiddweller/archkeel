@@ -197,6 +197,56 @@ def test_public_entry_with_underscore_name_is_a_diagnostic() -> None:
     )
 
 
+def test_planned_entry_owned_by_another_component_is_a_diagnostic() -> None:
+    """AD-56: a planned entry is held to the same ownership check as a public one."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", planned=["sample.cli"]),
+                _component("cli"),
+            ],
+            "rules": [],
+        }
+    )
+    diagnostics = reference_diagnostics(ROOT, CONFIG, contract)
+    assert any(
+        item.pointer == "/components/0/planned/0"
+        and "not owned by this component" in item.unknown_claim
+        for item in diagnostics
+    )
+
+
+def test_planned_entry_with_underscore_name_is_a_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core", planned=["sample.core:_Hidden"])],
+            "rules": [],
+        }
+    )
+    diagnostics = reference_diagnostics(ROOT, CONFIG, contract)
+    assert any(
+        item.pointer == "/components/0/planned/0" and "Underscore" in item.unknown_claim
+        for item in diagnostics
+    )
+
+
+def test_planned_entry_outside_namespace_is_a_diagnostic() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core", planned=["other.module"])],
+            "rules": [],
+        }
+    )
+    diagnostics = reference_diagnostics(ROOT, CONFIG, contract)
+    assert any(
+        item.pointer == "/components/0/planned/0" and "outside namespace" in item.unknown_claim
+        for item in diagnostics
+    )
+
+
 _INTERFACE_RULE = {
     "id": "INTERFACE",
     "kind": "interface_boundary",
@@ -231,6 +281,10 @@ def _cross_import(target_module: str, **data: object) -> dict[str, object]:
         kind="import",
         data={"source_module": "sample.cli", "target_module": target_module, **data},
     )
+
+
+def _module(qualified_name: str) -> dict[str, object]:
+    return _record(f"MOD-{qualified_name}", kind="module", data={"qualified_name": qualified_name})
 
 
 def test_undeclared_interface_is_a_diagnostic_when_a_rule_is_present() -> None:
@@ -270,9 +324,63 @@ def test_unused_public_entry_is_a_diagnostic() -> None:
             "rules": [_INTERFACE_RULE],
         }
     )
+    observation = parse_observation(
+        _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    )
+    diagnostics = interface_diagnostics(contract, observation)
+    assert [item.pointer for item in diagnostics] == ["/components/0/public/0"]
+    assert diagnostics[0].code == "interface.unused"
+
+
+def test_missing_public_entry_is_a_diagnostic() -> None:
+    """AD-56: a public entry whose module the scan never saw is missing, not merely unused."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core", public=["sample.core:Widget"]), _component("cli")],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
     observation = parse_observation(_model(git_head="a" * 40, imports=[]))
     diagnostics = interface_diagnostics(contract, observation)
     assert [item.pointer for item in diagnostics] == ["/components/0/public/0"]
+    assert diagnostics[0].code == "interface.missing"
+
+
+def test_planned_entry_not_yet_built_has_no_diagnostic() -> None:
+    """AD-56: a planned entry the scan never saw is target work, not a finding."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", planned=["sample.core:Widget"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(_model(git_head="a" * 40, imports=[]))
+    assert interface_diagnostics(contract, observation) == ()
+
+
+def test_planned_entry_now_built_is_a_diagnostic() -> None:
+    """AD-56: a planned entry whose module the scan now sees is a stale marker."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", planned=["sample.core:Widget"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    )
+    diagnostics = interface_diagnostics(contract, observation)
+    assert [item.pointer for item in diagnostics] == ["/components/0/planned/0"]
+    assert diagnostics[0].code == "interface.planned_built"
 
 
 def test_public_entry_used_through_a_reexport_chain_has_no_diagnostic() -> None:
@@ -318,6 +426,7 @@ def test_a_submodule_import_uses_the_module_entry_and_never_the_name_entry(
     observation = parse_observation(
         _model(
             git_head="a" * 40,
+            modules=[_module("sample.core")],
             imports=[_cross_import("sample.core.impl", symbol=None, reexport_chain=[])],
         )
     )

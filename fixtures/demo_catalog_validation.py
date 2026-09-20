@@ -90,6 +90,48 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_codes=("interface.unused",),
     ),
     Variant(
+        id="validation-interface-missing",
+        section="validation",
+        item="interface.missing",
+        summary="Declaring shop.app.future:NotBuiltYet as public names a module the scan "
+        "never saw; unlike interface.unused, no cross-component import could ever reach it.",
+        files={
+            "architecture-contract.json": contract_component_field_appended(
+                "app", "public", "shop.app.future:NotBuiltYet"
+            )
+        },
+        expected_violations=(),
+        expected_codes=("interface.missing",),
+    ),
+    Variant(
+        id="validation-interface-planned-not-built",
+        section="validation",
+        item="interface.planned_built:not yet built",
+        summary="The same not-yet-existing entry, moved from public to planned, is target work "
+        "and produces no diagnostic (AD-56): the refactoring has not reached it yet.",
+        files={
+            "architecture-contract.json": contract_component_field_set(
+                "app", "planned", ["shop.app.future:NotBuiltYet"]
+            )
+        },
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-interface-planned-built",
+        section="validation",
+        item="interface.planned_built:stale marker",
+        summary="Marking shop.app.maintenance as planned when the scan already sees that "
+        "module is a stale marker (AD-56): the refactoring caught up and the contract did not.",
+        files={
+            "architecture-contract.json": contract_component_field_set(
+                "app", "planned", ["shop.app.maintenance"]
+            )
+        },
+        expected_violations=(),
+        expected_codes=("interface.planned_built",),
+    ),
+    Variant(
         id="validation-rationale-placeholder",
         section="validation",
         item="rationale.placeholder",

@@ -55,6 +55,9 @@ run shows many violations together; every other row isolates one item.
 | class_a | interface_boundary:package attribute over submodule | class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/sqlite_probe.py, shop/store/__init__.py |
 | validation | interface.undeclared | validation-interface-undeclared | validate/report run | - | interface.undeclared | architecture-contract.json |
 | validation | interface.unused | validation-interface-unused | validate/report run | - | interface.unused | architecture-contract.json |
+| validation | interface.missing | validation-interface-missing | validate/report run | - | interface.missing | architecture-contract.json |
+| validation | interface.planned_built:not yet built | validation-interface-planned-not-built | validate/report run | - | - | architecture-contract.json |
+| validation | interface.planned_built:stale marker | validation-interface-planned-built | validate/report run | - | interface.planned_built | architecture-contract.json |
 | validation | rationale.placeholder | validation-rationale-placeholder | validate/report run | - | rationale.placeholder | architecture-contract.json |
 | validation | rationale.repeated | validation-rationale-repeated | validate/report run | - | rationale.repeated | architecture-contract.json |
 | validation | graph.count | validation-graph-count | validate/report run | - | graph.count | docs/architecture/shop.md |
