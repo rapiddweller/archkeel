@@ -12,11 +12,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TypeVar
 
+from archkeel.ir.baseline import KnownViolation, compare_violations, observed_violations
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
+    baseline_bytes,
     contract_provenance_paths,
     decode_json,
+    parse_baseline,
     parse_contract,
 )
 from archkeel.ir.decisions import (
@@ -652,8 +655,14 @@ def observation_diagnostics(
     contract: ArchitectureContract,
     observation: Observation,
     documents: tuple[tuple[str, str], ...],
+    *,
+    report_violations: bool = True,
 ) -> tuple[Diagnostic, ...]:
-    """Validate rules, closed-world coverage and architecture documentation."""
+    """Validate rules, closed-world coverage and architecture documentation.
+
+    AD-52: a run carrying a baseline answers the violations there instead, so it asks for no
+    `rule.violated` diagnostic here; every other finding is unchanged and still exits 2.
+    """
     rule_index = {rule.id: index for index, rule in enumerate(contract.rules)}
     inside_pointers = _inside_pointers(contract, observation)
     diagnostics = [
@@ -662,7 +671,8 @@ def observation_diagnostics(
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]
-    for record in observation.records("violations") or ():
+    reported = (observation.records("violations") or ()) if report_violations else ()
+    for record in reported:
         rule_id = record.rule_ids[0] if record.rule_ids else record.id
         index = rule_index.get(rule_id)
         diagnostics.append(
@@ -815,6 +825,7 @@ def _repository_diagnostics(
     contract: ArchitectureContract,
     observation: Observation,
     write_graph: bool,
+    report_violations: bool,
 ) -> tuple[list[Diagnostic], tuple[str, str] | None]:
     """Every diagnostic a complete observation adds, once the contract's references hold.
 
@@ -836,13 +847,21 @@ def _repository_diagnostics(
         documents = tuple((path, written if path == page else text) for path, text in documents)
     return [
         *reference_diagnostics(root, config, contract, observation),
-        *observation_diagnostics(contract, observation, documents),
+        *observation_diagnostics(
+            contract, observation, documents, report_violations=report_violations
+        ),
         *inside_diagnostics(root, contract),
     ], graph
 
 
-def _observed_result(observation: Observation, diagnostics: list[Diagnostic]) -> RunResult:
-    """The validate result once a complete observation has produced its diagnostics."""
+def _observed_result(
+    observation: Observation, diagnostics: list[Diagnostic], failures: tuple[str, ...] = ()
+) -> RunResult:
+    """The validate result once a complete observation has produced its diagnostics.
+
+    AD-52: a baseline's own findings arrive as `failures` and exit 1, which keeps a
+    diagnostic and exit 2 meaning what they always meant - nothing could be judged.
+    """
     try:
         measurements, declared = inspect_observation(observation)
     except ValueError as error:
@@ -875,13 +894,14 @@ def _observed_result(observation: Observation, diagnostics: list[Diagnostic]) ->
         )
     return RunResult(
         "validate",
-        0,
+        1 if failures else 0,
         observation_complete="PASS",
         declared_rules=declared,
         expectation_fulfilled="n/a",
         coverage=observation.coverage,
         python_version=observation.python_version,
         measurements=measurements,
+        failures=failures,
         open_decisions=decisions,
         agent_decisions=counts,
         claims=review_claims(observation),
@@ -890,14 +910,47 @@ def _observed_result(observation: Observation, diagnostics: list[Diagnostic]) ->
     )
 
 
+def _baseline_invalid(path: Path, error: Exception) -> RunResult:
+    return RunResult(
+        "validate",
+        2,
+        diagnostics=(
+            _diagnostic(
+                "baseline.invalid",
+                "",
+                str(path),
+                f"The known-violation baseline cannot be read: {error}",
+                "Correct the baseline, or write it with archkeel validate --baseline "
+                "<path> --write-baseline.",
+            ),
+        ),
+    )
+
+
 def run_validate(
-    root: Path, config: ScanConfig, analyzer: Analyzer, *, write_graph: bool = False
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    *,
+    write_graph: bool = False,
+    baseline: Path | None = None,
+    write_baseline: bool = False,
 ) -> tuple[RunResult, dict[str, bytes]]:
     """Validate contract structure, repository references and observed architecture.
 
     AD-46: with `write_graph`, the rewritten graph page comes back for the caller to write,
     the way `run_init` returns its files.
+
+    AD-52: with `baseline`, the violations that file already states are known debt, and only
+    the difference is reported - as `failures` with exit 1. `write_baseline` writes today's
+    violations to that same path instead of comparing them.
     """
+    known: tuple[KnownViolation, ...] = ()
+    if baseline is not None and not write_baseline:
+        try:
+            known = parse_baseline(decode_json(baseline.read_bytes()))
+        except (OSError, ValueError) as error:
+            return _baseline_invalid(baseline, error), {}
     contract_path = root / config.contract
     try:
         contract = parse_contract(decode_json(contract_path.read_bytes()))
@@ -932,9 +985,21 @@ def run_validate(
             ),
             coverage=observed.coverage,
         ), {}
-    diagnostics, graph = _repository_diagnostics(root, config, contract, observation, write_graph)
-    result = _observed_result(observation, diagnostics)
-    if graph is None:
-        return result, {}
-    page, written = graph
-    return replace(result, artifact=page), {page: written.encode()}
+    diagnostics, graph = _repository_diagnostics(
+        root, config, contract, observation, write_graph, baseline is None
+    )
+    violations = observed_violations(observation) if baseline is not None else ()
+    failures = () if write_baseline or baseline is None else compare_violations(known, violations)
+    result = _observed_result(observation, diagnostics, failures)
+    files: dict[str, bytes] = {}
+    artifact: str | None = None
+    # The graph is rewritten before the diagnostics judge the page (AD-46), so it is written
+    # whatever they say; a baseline records what a run could judge, so exit 2 writes none.
+    if write_baseline and baseline is not None and result.exit_code != 2:
+        artifact = str(baseline)
+        files[artifact] = baseline_bytes(violations)
+    if graph is not None:
+        page, written = graph
+        artifact = page
+        files[page] = written.encode()
+    return (result if artifact is None else replace(result, artifact=artifact)), files

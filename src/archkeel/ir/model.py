@@ -532,6 +532,7 @@ DiagnosticCode: TypeAlias = Literal[
     "reference.package_unscanned",
     "contract.schema_version",
     "contract.invalid",
+    "baseline.invalid",
     "observation.incomplete",
     "inside.public_mismatch",
     "inside.forbidden_import",
