@@ -104,6 +104,7 @@ def _claims_line(result: RunResult) -> str:
             ("component(s) larger than their level", claims.oversized_components),
             ("unread binding(s)", claims.unread_bindings),
             ("repetition(s) outside an owner", claims.repeated_logic),
+            ("type(s) crossing many component boundaries", claims.type_fanin),
         )
     )
     return f"Review claims, never a verdict: {counted}."

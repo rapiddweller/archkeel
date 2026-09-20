@@ -31,6 +31,7 @@ from archkeel.ir.decisions import (
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
+    BoundaryTypesRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -46,6 +47,7 @@ from archkeel.ir.model import (
     RecordData,
     RunResult,
     SiblingIsolationRule,
+    SymbolPlacementRule,
     contract_relative_path,
     in_scope,
     text_value,
@@ -677,7 +679,9 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
             | AllowedDependencyRule
             | ForbiddenConstructRule
             | CompleteAssignmentRule
-            | CompleteExternalScopeRule,
+            | CompleteExternalScopeRule
+            | SymbolPlacementRule
+            | BoundaryTypesRule,
         ):
             names.append((f"/rules/{index}/source", rule.source))
         if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
@@ -686,12 +690,18 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
             names.extend(
                 (f"/rules/{index}/members/{item}", value) for item, value in enumerate(rule.members)
             )
-        if isinstance(rule, ForbiddenDependencyRule | ExternalDependencyScopeRule):
+        if isinstance(
+            rule,
+            ForbiddenDependencyRule
+            | ExternalDependencyScopeRule
+            | SymbolPlacementRule
+            | BoundaryTypesRule,
+        ):
             names.extend(
                 (f"/rules/{index}/allowed_sources/{item}", value)
                 for item, value in enumerate(rule.allowed_sources)
             )
-        if isinstance(rule, ExternalDependencyScopeRule):
+        if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
             names.extend(
                 (f"/rules/{index}/exact_sources/{item}", value)
                 for item, value in enumerate(rule.exact_sources)

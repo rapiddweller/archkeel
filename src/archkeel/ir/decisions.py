@@ -32,6 +32,7 @@ from .model import (
 )
 from .references import unreferenced_symbols
 from .structure import oversized_insides
+from .type_fanin import type_fanin
 
 _DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
 
@@ -241,11 +242,13 @@ def review_claims(observation: Observation) -> ReviewClaims:
     insides = oversized_insides(observation)
     bindings = unread_bindings(observation)
     logic = repeated_logic(observation)
+    fanin = type_fanin(observation)
     return ReviewClaims(
         _named(symbols.status, symbols.candidates),
         _named(insides.status, insides.candidates),
         _named(bindings.status, bindings.candidates),
         _named(logic.status, logic.candidates),
+        _named(fanin.status, fanin.candidates),
     )
 
 

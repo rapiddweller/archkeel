@@ -26,6 +26,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureDelta,
     ArchitectureRule,
+    BoundaryTypesRule,
     ComparisonStatus,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
@@ -67,6 +68,8 @@ from archkeel.ir.model import (
     SiblingIsolationRule,
     SnapshotSummary,
     SourceInfo,
+    SymbolClassKind,
+    SymbolPlacementRule,
     Verdict,
     contract_relative_path,
 )
@@ -1079,6 +1082,56 @@ def _parse_sibling_isolation(raw: RawJson, label: str) -> SiblingIsolationRule:
     )
 
 
+def _parse_symbol_placement(raw: RawJson, label: str) -> SymbolPlacementRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "class_kinds", "rationale", "decided_by"},
+        {"allowed_sources", "exact_sources"},
+        label,
+    )
+    raw_kinds = _contract_strings(item["class_kinds"], f"{label}.class_kinds", required=True)
+    try:
+        class_kinds = tuple(SymbolClassKind(value) for value in raw_kinds)
+    except ValueError as exc:
+        raise ValueError(f"{label}.class_kinds contains an unsupported class kind") from exc
+    allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
+    exact = _contract_strings(item.get("exact_sources", []), f"{label}.exact_sources")
+    if not allowed and not exact:
+        raise ValueError(f"{label} must name allowed_sources or exact_sources")
+    return SymbolPlacementRule(
+        item_id,
+        "symbol_placement",
+        _nonempty(item["source"], f"{label}.source"),
+        class_kinds,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        allowed,
+        exact,
+    )
+
+
+def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "rationale", "decided_by"},
+        {"allowed_sources", "exact_sources"},
+        label,
+    )
+    allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
+    exact = _contract_strings(item.get("exact_sources", []), f"{label}.exact_sources")
+    return BoundaryTypesRule(
+        item_id,
+        "boundary_types",
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        allowed,
+        exact,
+    )
+
+
 _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "forbidden_dependency": _parse_forbidden_dependency,
     "allowed_dependency": _parse_allowed_dependency,
@@ -1090,6 +1143,8 @@ _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "no_component_cycles": _parse_no_component_cycles,
     "interface_boundary": _parse_interface_boundary,
     "sibling_isolation": _parse_sibling_isolation,
+    "symbol_placement": _parse_symbol_placement,
+    "boundary_types": _parse_boundary_types,
 }
 
 

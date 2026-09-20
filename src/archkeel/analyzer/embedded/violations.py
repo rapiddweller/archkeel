@@ -14,6 +14,7 @@ from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
+    BoundaryTypesRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -26,6 +27,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     SiblingIsolationRule,
+    SymbolPlacementRule,
     in_scope,
     package_owners,
     stable_id,
@@ -415,9 +417,26 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     if isinstance(rule, SiblingIsolationRule):
         return {"members": rule.members}
     if isinstance(
-        rule, ForbiddenConstructRule | CompleteAssignmentRule | CompleteExternalScopeRule
+        rule,
+        ForbiddenConstructRule
+        | CompleteAssignmentRule
+        | CompleteExternalScopeRule
+        | BoundaryTypesRule,
     ):
         return {"source": (rule.source,)}
+    if isinstance(rule, SymbolPlacementRule):
+        scopes = {"source": (rule.source,)}
+        scopes.update(
+            {
+                side: values
+                for side, values in (
+                    ("allowed_sources", rule.allowed_sources),
+                    ("exact_sources", rule.exact_sources),
+                )
+                if values
+            }
+        )
+        return scopes
     assert_never(rule)
 
 
@@ -495,6 +514,118 @@ def _sibling_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _symbol_placement_violations(
+    symbols: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    """AD-58: a class of a named kind below `source` must be defined in an allowed module."""
+    violations: list[RawRecord] = []
+    for rule in rules:
+        if not isinstance(rule, SymbolPlacementRule):
+            continue
+        kinds = frozenset(kind.value for kind in rule.class_kinds)
+        for item in symbols:
+            data = item["data"]
+            if item["kind"] != "class" or data.get("class_kind") not in kinds:
+                continue
+            qualname = data["qualified_name"]
+            module = data["module"]
+            if (
+                not in_scope(qualname, rule.source)
+                or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
+                or module in rule.exact_sources
+            ):
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="type_architecture",
+                    kind=rule.kind,
+                    title=f"{qualname} ({data['class_kind']}) is defined outside an allowed module",
+                    subjects=[qualname, module],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "source": rule.source,
+                        "class_kind": data["class_kind"],
+                        "module": module,
+                        "qualified_name": qualname,
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+_BROAD_BOUNDARY_TYPES: Final = ("dict", "Dict", "object")
+
+
+def _is_broad_boundary_type(annotation: str) -> bool:
+    """A bare `dict`/`Dict`/`object`, or a `dict[...]`/`Dict[...]` generic (AD-58).
+
+    Restricted to what the annotation string alone decides: no name is resolved, so a named
+    type, a generic other than `dict`, a forward-reference string and a missing annotation
+    all stay silent rather than guess (issue #9 part 2's measurement).
+    """
+    return annotation in _BROAD_BOUNDARY_TYPES or annotation.startswith(("dict[", "Dict["))
+
+
+def _boundary_types_violations(
+    symbols: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    """AD-58: a public function below `source` takes and returns no bare `dict` or `object`."""
+    violations: list[RawRecord] = []
+    for rule in rules:
+        if not isinstance(rule, BoundaryTypesRule):
+            continue
+        for item in symbols:
+            data = item["data"]
+            if item["kind"] != "function" or data.get("symbol_category") != "function":
+                continue
+            module = data["module"]
+            name = data["name"]
+            if (
+                name.startswith("_")
+                or not in_scope(module, rule.source)
+                or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
+                or module in rule.exact_sources
+            ):
+                continue
+            qualname = data["qualified_name"]
+            positions: list[tuple[str, str]] = [
+                (parameter["name"], parameter["annotation"])
+                for parameter in data["parameters"]
+                if parameter["annotation"]
+            ]
+            if data["returns"]:
+                positions.append(("return", data["returns"]))
+            for position, annotation in positions:
+                if not _is_broad_boundary_type(annotation):
+                    continue
+                verb = "returns" if position == "return" else f"takes {position} as"
+                violations.append(
+                    classified(
+                        item_id=stable_id("VIO", rule.id, item["id"], position),
+                        evidence_class=EvidenceClass.VIOLATION,
+                        area="type_architecture",
+                        kind=rule.kind,
+                        title=f"{qualname} {verb} {annotation} instead of a typed model",
+                        subjects=[qualname, module],
+                        evidence_ids=item["evidence_ids"],
+                        rule_ids=[rule.id],
+                        fact_ids=[item["id"]],
+                        data={
+                            "source": rule.source,
+                            "qualified_name": qualname,
+                            "module": module,
+                            "position": position,
+                            "annotation": annotation,
+                        },
+                    )
+                )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def _requires_covers(source: ContractComponent, target_label: str, target_module: str) -> bool:
     """True when a `requires` entry names the target and, if it lists `through`, one of those
     prefixes names the imported module (AD-42)."""
@@ -560,6 +691,7 @@ def rule_violations(
     typing_signals: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
     modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
     blank_modules: frozenset[str],
     contract: ArchitectureContract,
 ) -> list[RawRecord]:
@@ -578,6 +710,8 @@ def rule_violations(
             *_component_cycle_violations(imports, contract),
             *_interface_violations(imports, contract, modules, forbidden_rejected_ids),
             *_sibling_violations(imports, contract.rules),
+            *_symbol_placement_violations(symbols, contract.rules),
+            *_boundary_types_violations(symbols, contract.rules),
         ],
         key=lambda item: item["id"],
     )

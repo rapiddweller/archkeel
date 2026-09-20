@@ -1,0 +1,25 @@
+{
+  "schema_version": "2.1.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "MODEL-TYPES-IN-ENTITIES",
+      "kind": "symbol_placement",
+      "source": "sample.model",
+      "class_kinds": ["dataclass", "enum"],
+      "exact_sources": ["sample.model.entities"],
+      "rationale": "Every order, line and money type sample.model owns lives in one module.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "APP-TYPES-NOT-DICT",
+      "kind": "boundary_types",
+      "source": "sample.app",
+      "allowed_sources": ["sample.app.legacy"],
+      "rationale": "sample.app's functions take and return typed models, never a bare dict.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

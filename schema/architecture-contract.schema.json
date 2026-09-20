@@ -15,7 +15,8 @@
       {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
       {"$ref": "#/$defs/completeExternalScope"}, {"$ref": "#/$defs/completeRequires"},
       {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"},
-      {"$ref": "#/$defs/siblingIsolation"}
+      {"$ref": "#/$defs/siblingIsolation"}, {"$ref": "#/$defs/symbolPlacement"},
+      {"$ref": "#/$defs/boundaryTypes"}
     ]}},
     "declarations": {"$ref": "#/$defs/declarations"}
   },
@@ -205,6 +206,43 @@
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"},
         "include_type_checking": {"type": "boolean"}
+      }
+    },
+    "symbolPlacement": {
+      "type": "object",
+      "required": ["id", "kind", "source", "class_kinds", "rationale", "provenance", "decided_by"],
+      "anyOf": [
+        {"required": ["allowed_sources"], "properties": {"allowed_sources": {"minItems": 1}}},
+        {"required": ["exact_sources"], "properties": {"exact_sources": {"minItems": 1}}}
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "symbol_placement"},
+        "source": {"$ref": "#/$defs/nonEmpty"},
+        "class_kinds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {
+          "enum": ["protocol", "enum", "pydantic_model", "dataclass", "class"]
+        }},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "decided_by": {"$ref": "#/$defs/decidedBy"},
+        "allowed_sources": {"$ref": "#/$defs/strings"},
+        "exact_sources": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "boundaryTypes": {
+      "type": "object",
+      "required": ["id", "kind", "source", "rationale", "provenance", "decided_by"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "boundary_types"},
+        "source": {"$ref": "#/$defs/nonEmpty"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "decided_by": {"$ref": "#/$defs/decidedBy"},
+        "allowed_sources": {"$ref": "#/$defs/strings"},
+        "exact_sources": {"$ref": "#/$defs/strings"}
       }
     },
     "declarations": {

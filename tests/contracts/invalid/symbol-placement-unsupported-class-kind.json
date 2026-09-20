@@ -1,0 +1,16 @@
+{
+  "schema_version": "2.1.0",
+  "components": [],
+  "rules": [
+    {
+      "id": "MODEL-TYPES-IN-ENTITIES",
+      "kind": "symbol_placement",
+      "source": "sample.model",
+      "class_kinds": ["frozen_dataclass"],
+      "exact_sources": ["sample.model.entities"],
+      "rationale": "frozen_dataclass is not one of the five class_kind values.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

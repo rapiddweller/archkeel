@@ -25,6 +25,7 @@ from archkeel.ir.structure import (
     oversized_insides,
     structure_metrics,
 )
+from archkeel.ir.type_fanin import MINIMUM_CROSSINGS, TypeFanin, type_fanin
 
 from .flow import FlowData, FlowInnerEdge, FlowInside, build_flow
 from .summary import (
@@ -728,6 +729,33 @@ def _repetition_claim_body(claim: OwnedLogic) -> str:
 """
 
 
+def _fanin_claim_body(claim: TypeFanin) -> str:
+    if claim.status == "UNKNOWN":
+        return (
+            "<p>Not available: this observation carries no symbols or imports section, so "
+            "nothing here can say which type crosses which component boundary.</p>"
+        )
+    if not claim.candidates:
+        return (
+            f"<p>None: across {claim.positions} annotated positions on functions and methods "
+            f"crossing a component boundary, nothing is passed across {MINIMUM_CROSSINGS} or "
+            "more distinct component pairs.</p>"
+        )
+    rows = "".join(
+        f"<tr><td><code>{_text(item.annotation)}</code></td>"
+        f'<td class="numeric">{item.crossings}</td></tr>'
+        for item in claim.candidates
+    )
+    return f"""
+      <p>{len(claim.candidates)} of {claim.positions} annotated positions on functions and
+      methods crossing a component boundary name a type passed across {MINIMUM_CROSSINGS} or
+      more distinct component pairs. A broad context or a service locator shows up as a wide
+      count here; what it means is the architect's to decide, never a verdict.</p>
+      <table class="data-table"><thead><tr><th>Type</th>
+      <th class="numeric">Component pairs</th></tr></thead><tbody>{rows}</tbody></table>
+"""
+
+
 def _inside_claim_body(claim: InsideSizes) -> str:
     if claim.status == "UNKNOWN":
         return (
@@ -771,6 +799,10 @@ def _claims(observation: Observation) -> str:
     <section class="report-section">
       <h2>Review claim: logic repeated outside its owner</h2>
       {_repetition_claim_body(repeated_logic(observation))}
+    </section>
+    <section class="report-section">
+      <h2>Review claim: types crossing the most component boundaries</h2>
+      {_fanin_claim_body(type_fanin(observation))}
     </section>
 """
 

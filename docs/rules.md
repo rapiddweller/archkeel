@@ -189,6 +189,41 @@ complete scan and fixed source bytes make the result deterministic; dynamic impo
 spot. Archkeel applies it to the eight analyzer collectors (AD-1, AD-25). Importing
 `sample.core.first` from `sample.core.second` when both are members is an example violation.
 
+`symbol_placement` fields are `source`, `class_kinds` and, matching `forbidden_construct`,
+`allowed_sources` and `exact_sources`, at least one of the two non-empty. It states that a class
+of a named kind below `source` is defined only in an allowed module: `class_kinds` names one or
+more of `protocol`, `enum`, `pydantic_model`, `dataclass` and `class`, the same five values
+`class_kind` resolves through the fixpoint over base classes `symbols.py` already runs, so the
+rule is a selector over records the analyzer already carries. It matches every `class` symbol
+record whose `class_kind` is named and whose qualified name falls under `source`, and allows one
+whose own module falls under an `allowed_sources` prefix or equals an `exact_sources` entry
+(AD-49); every other one is a violation. A complete scan and the same fixpoint that resolves
+`class_kind` make the result deterministic; a class whose base is an unresolved alias inherits
+`class_kind` through the same blind spot `class_kind` itself carries. Declaring a `Coupon`
+dataclass in `shop.model.promotions` when `MODEL-TYPES-IN-ENTITIES` allows only
+`shop.model.entities` for a dataclass below `shop.model` is an example violation (AD-58).
+
+`boundary_types` fields are `source` and, matching `forbidden_construct`, optional
+`allowed_sources` and `exact_sources`. It states that a public function below `source` takes and
+returns no bare `dict` or `object`: a target architecture where a component's own types are the
+only thing that crosses its boundary rules out a broad container standing in for one. It matches
+every non-underscore, module-level function symbol below `source`, exempts one whose own module
+falls under an `allowed_sources` prefix or equals an `exact_sources` entry (AD-49), and reports one
+violation per parameter or return position whose annotation is exactly `dict`, `Dict`, `object`,
+or a `dict[...]`/`Dict[...]` generic. This is the whole rule: no other annotation is decided,
+because deciding whether a named type such as `Context` or `Path` belongs to the facade, a
+declared model, or neither needs resolving where the name comes from, which AD-37 and AD-40 leave
+unfinished for a call's receiver and this rule leaves unfinished for an annotation too (issue #9,
+AD-58). Measured on Archkeel's own facades, the same restricted match already fires 25
+times inside `archkeel.ir`, all of it the codec's own untyped-JSON boundary and narrowing helpers
+such as `text_value(value: object) -> str`, which is why Archkeel's own contract does not adopt
+this rule against itself: `source` lets an architect scope it to a component that really is meant
+to carry typed models only, not to every component that declares a public interface. A missing
+annotation stays silent, the way a bare `self` or `cls` does, because it is not decidable whether
+nothing was written on purpose or by omission. Fixed source bytes and analyzer digest make the
+result deterministic. Adding a `snapshot(context: dict) -> str` function to `shop.app`, which
+`APP-TYPES-NOT-DICT` scopes to `shop.app`, is an example violation.
+
 ### Known violations of a target contract
 
 A contract may state the architecture the code is heading for rather than the one it has, in
@@ -331,6 +366,28 @@ claim removes that ambiguity without turning it into a verdict.
   `analyzer` (21 modules, 47 inner edges), `check` (13 and 23) and `ir` (15 and 22), while `cli`,
   `render` and `host` stay below on both. Opening a level for one of them is `archkeel init
   --source <path> --namespace <package>`, which drafts that inside as a contract of its own (AD-20).
+
+`cross-component type fan-in` is the fifth claim (issue #9, AD-59). Its signals are the `symbols`
+and `imports` sections: `imports` for which function or method a cross-component call reaches,
+`symbols` for that function's own parameter and return annotations. The derivation groups every
+crossing function once per ordered component pair it is called across, however many import sites
+name it, collects the raw annotation string at every parameter and return position, and names
+every annotation string that is passed across two or more distinct component pairs, most-crossed
+first.
+
+- **Measurement:** the annotated positions examined, and the candidates beside them.
+- **Determinism:** both signals come from one observation and one derivation, so the claim is
+  deterministic wherever the analyzer ran; it never becomes a verdict or an exit code.
+- **Blind spots:** the annotation is the raw string a function declares, not a resolved type, so
+  `Order` from one module and an unrelated `Order` from another are the same candidate; a call
+  reached only through a re-export whose chain the scan cannot expand is invisible the way
+  `interface_boundary`'s own blind spot is. A type that crosses many boundaries is not itself a
+  problem, only the material a broad-context smell would show up in.
+- **Example:** on the shop sample `Order` and `str` each cross two component pairs. On Archkeel
+  itself `str`, `bool`, `bytes` and `object` are the widest, all builtins or `ir.codec`'s own
+  untyped-JSON boundary, and `Observation` and `RunResult` follow at three: Archkeel's shared IR
+  model crossing widely is the architecture working as declared, not a service-locator context
+  smuggled through a facade, which is the reading the claim leaves to the architect (AD-26).
 
 ## Migrating from 1.1.0
 

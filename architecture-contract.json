@@ -25,7 +25,8 @@
         "archkeel.ir.model",
         "archkeel.ir.references",
         "archkeel.ir.structure",
-        "archkeel.ir.trace"
+        "archkeel.ir.trace",
+        "archkeel.ir.type_fanin"
       ],
       "responsibilities": [
         "The shared evidence model, its codecs, and the pure derivations over them, without I/O, that more than one component needs.",
@@ -322,6 +323,16 @@
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
       "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TYPES-ENUM-IN-MODEL",
+      "kind": "symbol_placement",
+      "source": "archkeel",
+      "class_kinds": ["enum"],
+      "exact_sources": ["archkeel.ir.model"],
+      "rationale": "Every enum Archkeel declares is a term of the contract vocabulary ir.model owns; a second module declaring one would fork that vocabulary.",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     }
