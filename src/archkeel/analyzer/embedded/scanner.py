@@ -36,7 +36,12 @@ from .resolve import build_symbol_index
 from .source import ParsedModule, add_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
-from .violations import exports_by_module, rule_subject_failures, rule_violations
+from .violations import (
+    exports_by_module,
+    facade_signature_types,
+    rule_subject_failures,
+    rule_violations,
+)
 
 # AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
 CoveragePayload: TypeAlias = dict[str, Any]
@@ -220,6 +225,10 @@ def scan_repository(
     # (issue #56). Computed here, after module_facts exists, and handed to rule_violations too,
     # so the two share one answer to "what does __all__ narrow" instead of two computations.
     facade_exports = exports_by_module(module_facts)
+    # AD-65: a type a declared facade signature names reaches the boundary without any import,
+    # so the resolution boundary_types already runs is recorded on the facade function itself
+    # and travels to validate's unused-entry check in the observation, not in a second copy.
+    symbols = facade_signature_types(symbols, imports, contract, facade_exports)
     rule_failures = rule_subject_failures(
         contract.rules,
         module_names,

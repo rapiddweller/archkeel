@@ -29,6 +29,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     Observation,
     in_scope,
+    text_value,
 )
 from archkeel.ir.structure import oversized_insides
 
@@ -149,6 +150,30 @@ def test_self_contract_covers_modules_and_analyzer_interface(
         assert isinstance(source, str) and isinstance(target, str)
         if in_scope(source, "archkeel.analyzer") and in_scope(target, "archkeel.ir"):
             assert target in ANALYZER_PUBLIC_IR, (source, target)
+
+
+def test_self_facades_record_the_ten_types_they_expose(self_observation: Observation) -> None:
+    """AD-65 on this repository: the ten positions AD-63 measured in `check` and `render` are
+    recorded as reached, so declaring them can no longer collide with `interface.unused`
+    (issue #57). `check` and `render` still declare no `boundary_types` rule and none of the
+    three types is in a `public` list yet: that is issue #61's decision, not this one's."""
+    exposed: dict[str, tuple[str, ...]] = {}
+    for record in self_observation.records("symbols") or ():
+        name = text_value(record.data.get("qualified_name"))
+        types = record.data.get("facade_types")
+        if name and isinstance(types, tuple):
+            exposed[name] = tuple(item for item in types if isinstance(item, str))
+    assert "archkeel.check.ports.Analyzer" in exposed["archkeel.check.report.run_report"]
+    assert "archkeel.check.ports.Host" in exposed["archkeel.check.run.run_check"]
+    for name in ("check_summary", "init_summary", "report_summary"):
+        assert "archkeel.render.summary.Summary" in exposed[f"archkeel.render.summary.{name}"]
+    contract = _contract()
+    declared = {entry for item in contract.components for entry in item.public or ()}
+    assert not declared & {
+        "archkeel.check.ports:Analyzer",
+        "archkeel.check.ports:Host",
+        "archkeel.render.summary:Summary",
+    }
 
 
 def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:

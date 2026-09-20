@@ -46,6 +46,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    JsonValue,
     Observation,
     RecordData,
     RunResult,
@@ -241,26 +242,60 @@ def _entry_module(entry: str) -> str:
     return entry.partition(":")[0]
 
 
-def _entry_used(entry: str, records: list[RecordData]) -> bool:
+def _entry_reached_by(entry: str, names: Iterable[JsonValue]) -> bool:
+    """True when one of the dotted names reaches the entry.
+
+    A `pkg.module:Name` entry is reached by exactly that name; a `pkg.module` entry by any
+    name the module defines. Both ways an entry can be reached share this one match (AD-65),
+    because an import's `reexport_chain` and a declared facade signature's `facade_types`
+    carry the same dotted shape: neither can drift into a second reading of what an entry
+    covers.
+    """
+    module, colon, name = entry.partition(":")
+    target = f"{module}.{name}" if colon else ""
+    return any(
+        (item == target if colon else item.rpartition(".")[0] == module)
+        for item in names
+        if isinstance(item, str)
+    )
+
+
+def _facade_types(observation: Observation) -> tuple[str, ...]:
+    """Every type a declared facade signature exposes, as the analyzer resolved it (AD-65).
+
+    The analyzer writes `facade_types` on the facade function's own symbol record, using the
+    resolution `boundary_types` (AD-63) already runs over the same annotations; reading it back
+    here keeps one answer to "which type does this signature expose" instead of a second
+    derivation that could disagree with the rule about the same position.
+    """
+    return tuple(
+        name
+        for record in observation.records("symbols") or ()
+        if isinstance((types := record.data.get("facade_types")), tuple)
+        for name in types
+        if isinstance(name, str)
+    )
+
+
+def _entry_used(entry: str, records: list[RecordData], facade_types: tuple[str, ...]) -> bool:
     """Match one public entry's usage the way `_interface_allows` walks reexport_chain.
 
     Deliberately looser than the analyzer's runtime check: no `__all__` gate and no
     underscore rejection, since a public entry naming a private or unexported name is
     a rule violation already reported elsewhere, not an unused-entry drift signal.
+
+    AD-65 adds the second way an entry is reached: a declared facade signature that names the
+    type exposes it to every consumer of that signature, whether or not an import names it.
     """
-    module, colon, name = entry.partition(":")
+    if _entry_reached_by(entry, facade_types):
+        return True
+    module, colon, _ = entry.partition(":")
     for data in records:
         chain = data.get("reexport_chain")
-        chain_items = chain if isinstance(chain, tuple) else ()
-        if colon:
-            if any(item == f"{module}.{name}" for item in chain_items if isinstance(item, str)):
-                return True
-            continue
-        if data.get("target_module") == module:
+        if _entry_reached_by(entry, chain if isinstance(chain, tuple) else ()):
             return True
-        for item in chain_items:
-            if isinstance(item, str) and item.rpartition(".")[0] == module:
-                return True
+        if not colon and data.get("target_module") == module:
+            return True
     return False
 
 
@@ -282,19 +317,25 @@ def _imports_by_target(
 
 
 def _public_entry_diagnostics(
-    index: int, component: ContractComponent, records: list[RecordData], modules: frozenset[str]
+    index: int,
+    component: ContractComponent,
+    records: list[RecordData],
+    modules: frozenset[str],
+    facade_types: tuple[str, ...],
 ) -> list[Diagnostic]:
     """Split an unused `public` entry by whether its module was ever scanned (AD-56).
 
     A module the scan never saw does not exist yet, `interface.missing`, whether that is a typo
-    or a facade a refactoring has not built; one the scan saw but nothing imports is
-    `interface.unused`, same as before. A `pkg.module:Name` entry is judged by its module alone:
-    `symbols` records only classes and functions, so absence from it would misreport a constant
-    or type alias as missing. A used entry is checked against neither, exactly as before.
+    or a facade a refactoring has not built; one the scan saw but nothing reaches is
+    `interface.unused`, same as before -- unless a declared facade signature exposes the type
+    it names, which reaches it without an import (AD-65). A `pkg.module:Name` entry is judged
+    by its module alone: `symbols` records only classes and functions, so absence from it
+    would misreport a constant or type alias as missing. A used entry is checked against
+    neither, exactly as before.
     """
     diagnostics = []
     for item, entry in enumerate(component.public or ()):
-        if _entry_used(entry, records):
+        if _entry_used(entry, records, facade_types):
             continue
         if _entry_module(entry) not in modules:
             diagnostics.append(
@@ -313,7 +354,8 @@ def _public_entry_diagnostics(
                     "interface.unused",
                     f"/components/{index}/public/{item}",
                     entry,
-                    "No cross-component import reaches this public entry.",
+                    "No cross-component import and no declared facade signature "
+                    "reaches this public entry.",
                     "Remove the entry or confirm another component should use it.",
                 )
             )
@@ -345,11 +387,17 @@ def _planned_entry_diagnostics(
 def interface_diagnostics(
     contract: ArchitectureContract, observation: Observation
 ) -> tuple[Diagnostic, ...]:
-    """Require a declared interface for inbound imports and usage for declared entries."""
+    """Require a declared interface for inbound imports and usage for declared entries.
+
+    An entry is used when a cross-component import reaches it or when a declared facade
+    signature exposes the type it names (AD-65): one notion of `public`, two ways of being
+    reached.
+    """
     if not any(isinstance(rule, InterfaceBoundaryRule) for rule in contract.rules):
         return ()
     imports_by_target = _imports_by_target(contract, observation)
     modules = _scanned_modules(observation)
+    facade_types = _facade_types(observation)
     diagnostics = []
     for index, component in enumerate(contract.components):
         records = imports_by_target.get(component.label, [])
@@ -366,7 +414,9 @@ def interface_diagnostics(
                     )
                 )
         else:
-            diagnostics.extend(_public_entry_diagnostics(index, component, records, modules))
+            diagnostics.extend(
+                _public_entry_diagnostics(index, component, records, modules, facade_types)
+            )
         diagnostics.extend(_planned_entry_diagnostics(index, component, modules))
     return tuple(diagnostics)
 

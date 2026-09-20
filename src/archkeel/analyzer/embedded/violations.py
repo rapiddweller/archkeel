@@ -719,28 +719,23 @@ def _boundary_type_reason(
     return f"which {origin_component.label} does not declare"
 
 
-def _facade_positions(
+def _declared_facade_positions(
     item: RawRecord,
-    rule: BoundaryTypesRule,
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
 ) -> tuple[str, str, list[tuple[str, str]]] | None:
-    """The (module, qualified name, annotated positions) of one function `rule` must check, or
-    None when it is not a function, out of scope, exempted, or not itself a function
-    `component.public` covers -- a naming convention used to guess at that last one (AD-63).
+    """The (module, qualified name, annotated positions) of one declared facade function, or
+    None when the record is not a module-level function its own `component.public` covers -- a
+    naming convention used to guess at that last one (AD-63). No rule is consulted: whether a
+    function is part of a component's declared facade is a fact about the contract and the
+    scan, which `boundary_types` narrows to its own `source` and AD-65 reads unnarrowed.
     """
     data = item["data"]
     if item["kind"] != "function" or data.get("symbol_category") != "function":
         return None
     module, name = data["module"], data["name"]
     component = contract.component_for(module)
-    if (
-        not in_scope(module, rule.source)
-        or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
-        or module in rule.exact_sources
-        or component is None
-        or not _facade_covers(module, name, component, exports_by_module)
-    ):
+    if component is None or not _facade_covers(module, name, component, exports_by_module):
         return None
     positions = [
         (parameter["name"], parameter["annotation"])
@@ -750,6 +745,81 @@ def _facade_positions(
     if data["returns"]:
         positions.append(("return", data["returns"]))
     return module, data["qualified_name"], positions
+
+
+def _facade_positions(
+    item: RawRecord,
+    rule: BoundaryTypesRule,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+) -> tuple[str, str, list[tuple[str, str]]] | None:
+    """The declared facade positions `rule` must check, or None when the function is out of
+    scope or exempted (AD-49)."""
+    found = _declared_facade_positions(item, contract, exports_by_module)
+    if found is None:
+        return None
+    module = found[0]
+    if (
+        not in_scope(module, rule.source)
+        or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
+        or module in rule.exact_sources
+    ):
+        return None
+    return found
+
+
+def facade_signature_types(
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+) -> list[RawRecord]:
+    """Record on every declared facade function the types its signature exposes (AD-65).
+
+    A type a facade signature names reaches the component's boundary whether or not another
+    component imports it, so `interface_boundary`'s unused-entry check needs the same answer
+    `boundary_types` already computes: `_declared_facade_positions` for which functions are
+    facade, `_resolve_named_type` for what a bare annotation name resolves to. That one
+    resolution is published here, as a `facade_types` key on the function's own symbol record
+    beside the annotations it resolves, so `check.validation` reads the answer off the
+    observation instead of deriving a second one that could disagree (AD-2's open payload,
+    AD-4's one channel out of the analyzer).
+
+    The key carries dotted `module.Name` origins, the shape an import's `reexport_chain`
+    already uses, and is written only when at least one position resolves: an unresolved
+    annotation reaches nothing, so recording an empty list would claim the function was
+    inspected without saying anything a reader may act on. No `boundary_types` rule is needed
+    or consulted -- every component that declares a facade gets the same record.
+    """
+    imports_by_binding, classes_by_location = _boundary_type_indexes(symbols, imports)
+    recorded: list[RawRecord] = []
+    for item in symbols:
+        found = _declared_facade_positions(item, contract, exports_by_module)
+        names = (
+            _resolved_position_types(found[0], found[2], imports_by_binding, classes_by_location)
+            if found is not None
+            else []
+        )
+        recorded.append(
+            {**item, "data": {**item["data"], "facade_types": names}} if names else item
+        )
+    return recorded
+
+
+def _resolved_position_types(
+    module: str,
+    positions: Sequence[tuple[str, str]],
+    imports_by_binding: dict[tuple[str, str], RecordData],
+    classes_by_location: dict[tuple[str, str], RecordData],
+) -> list[str]:
+    """The distinct types one function's annotated positions resolve to, dotted and sorted."""
+    names = set()
+    for _, annotation in positions:
+        resolved = _resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
+        if resolved is not None:
+            origin_module, origin_name = resolved
+            names.add(f"{origin_module}.{origin_name}")
+    return sorted(names)
 
 
 def _boundary_types_violations(

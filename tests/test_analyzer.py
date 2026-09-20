@@ -29,6 +29,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     Observation,
     ObservationResult,
+    text_value,
 )
 from archkeel.ir.trace import trace_valid_violations
 
@@ -1493,6 +1494,68 @@ def test_boundary_types_is_silent_for_an_enum_even_when_undeclared(tmp_path: Pat
     result = _observe(tmp_path)
     assert result.observation is not None
     assert trace_valid_violations(result.observation) == ()
+
+
+def _facade_types(observation: Observation) -> dict[str, tuple[str, ...]]:
+    """Every function symbol that records the types its declared facade signature exposes."""
+    return {
+        name: types
+        for record in observation.records("symbols") or ()
+        if (name := text_value(record.data.get("qualified_name")))
+        and isinstance(types := record.data.get("facade_types"), tuple)
+    }
+
+
+def test_a_declared_facade_records_the_types_its_signature_exposes(tmp_path: Path) -> None:
+    """AD-65: `Widget` reaches `app`'s boundary through `typed`'s parameter, although no other
+    component imports it. The resolution is `boundary_types`' own (AD-63), recorded whether or
+    not a `boundary_types` rule is declared -- this contract declares none -- because
+    `interface_boundary` asks the same question of every component that declares a facade.
+    """
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("app", public=["sample.app.facade:typed"])],
+        "rules": [],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/ports.py").write_text("class Widget:\n    pass\n")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from sample.app.ports import Widget\n\n\n"
+        "def typed(widget: Widget) -> str:\n"
+        "    return str(widget)\n\n\n"
+        "def internal(widget: Widget) -> str:\n"
+        "    return str(widget)\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert _facade_types(result.observation) == {
+        "sample.app.facade.typed": ("sample.app.ports.Widget",)
+    }
+
+
+def test_an_unresolved_facade_annotation_records_no_type(tmp_path: Path) -> None:
+    """AD-65's limit: the rule's own unresolved bucket (AD-63) stays silent here too. A
+    builtin needs no import, and a dotted name is never resolved, so neither reaches an entry
+    and neither is recorded as though it did."""
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("app", public=["sample.app.facade:typed"])],
+        "rules": [],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import sample.app.ports\n\n\n"
+        "def typed(count: int) -> sample.app.ports.Widget:\n"
+        "    return count\n"
+    )
+    (tmp_path / "sample/app/ports.py").write_text("class Widget:\n    pass\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert _facade_types(result.observation) == {}
 
 
 def test_boundary_types_reports_unknown_when_the_facade_has_no_subjects(tmp_path: Path) -> None:

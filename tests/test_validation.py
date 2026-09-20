@@ -332,6 +332,81 @@ def test_unused_public_entry_is_a_diagnostic() -> None:
     assert diagnostics[0].code == "interface.unused"
 
 
+def _api_import() -> dict[str, object]:
+    """One cross-component import that reaches `sample.core.api:run` the old way."""
+    return _cross_import("sample.core.api", symbol="run", reexport_chain=["sample.core.api.run"])
+
+
+def _function(qualified_name: str, *facade_types: str) -> dict[str, object]:
+    """One symbol record, carrying the types its signature exposes when it is a facade."""
+    module, _, name = qualified_name.rpartition(".")
+    data: dict[str, object] = {
+        "qualified_name": qualified_name,
+        "module": module,
+        "name": name,
+        "symbol_category": "function",
+    }
+    if facade_types:
+        data["facade_types"] = list(facade_types)
+    return _record(f"SYM-{qualified_name}", kind="function", data=data)
+
+
+def test_public_entry_a_declared_facade_signature_exposes_is_used() -> None:
+    """AD-65: `sample.core.ports:Widget` is reached, although nothing imports it.
+
+    `core`'s own declared facade `sample.core.api:run` takes it as a parameter, so the type is
+    exposed to every consumer of that signature. Reporting it `interface.unused` made the entry
+    `boundary_types` asks for (AD-63) impossible to declare, issue #57.
+    """
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api:run", "sample.core.ports:Widget"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            modules=[_module("sample.core.api"), _module("sample.core.ports")],
+            imports=[_api_import()],
+            symbols=[_function("sample.core.api.run", "sample.core.ports.Widget")],
+        )
+    )
+    assert interface_diagnostics(contract, observation) == ()
+
+
+def test_public_entry_only_an_internal_signature_names_is_still_unused() -> None:
+    """AD-65's limit: only a *declared facade* signature reaches an entry. `internal` is not
+    covered by `core`'s public list, so the analyzer records no facade type for it and
+    `sample.core.ports:Widget` stays `interface.unused`."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api:run", "sample.core.ports:Widget"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            modules=[_module("sample.core.api"), _module("sample.core.ports")],
+            imports=[_api_import()],
+            symbols=[_function("sample.core.api.internal")],
+        )
+    )
+    diagnostics = interface_diagnostics(contract, observation)
+    assert [(item.code, item.pointer) for item in diagnostics] == [
+        ("interface.unused", "/components/0/public/1")
+    ]
+
+
 def test_missing_public_entry_is_a_diagnostic() -> None:
     """AD-56: a public entry whose module the scan never saw is missing, not merely unused."""
     contract = parse_contract(
