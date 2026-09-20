@@ -1,10 +1,10 @@
 # Architecture demo catalog
 
-Generated from `fixtures/architecture_demo.py`'s `CATALOG`. Every checkable item in
-`docs/architecture/archkeel.md` (AD-11) has one row below: a named variant, the rule ids and
-diagnostic codes (AD-12) it must produce, and either the shop sample files it changes or the
-existing evidence that demonstrates it instead. Regenerate with `python -m
-fixtures.architecture_demo --markdown`.
+Generated from `fixtures/architecture_demo.py`'s `CATALOG`. Every checkable item in the decision
+records under `docs/architecture/decisions/` (indexed by `docs/architecture/archkeel.md`, AD-11) has
+one row below: a named variant, the rule ids and diagnostic codes (AD-12) it must produce, and
+either the shop sample files it changes or the existing evidence that demonstrates it instead.
+Regenerate with `python -m fixtures.architecture_demo --markdown`.
 
 The `showcase` row below (`tour`) is the default demo view: it applies many overlays at once so one
 run shows many violations together; every other row isolates one item.

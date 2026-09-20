@@ -41,8 +41,9 @@ CATALOG: tuple[Variant, ...] = (
 )
 
 _INTRO = (
-    "Generated from `fixtures/architecture_demo.py`'s `CATALOG`. Every checkable item in "
-    "`docs/architecture/archkeel.md` (AD-11) has one row below: a named variant, the "
+    "Generated from `fixtures/architecture_demo.py`'s `CATALOG`. Every checkable item in the "
+    "decision records under `docs/architecture/decisions/` (indexed by "
+    "`docs/architecture/archkeel.md`, AD-11) has one row below: a named variant, the "
     "rule ids and diagnostic codes (AD-12) it must produce, and either the shop sample "
     "files it changes or the existing evidence that demonstrates it instead. Regenerate "
     "with `python -m fixtures.architecture_demo --markdown`."
