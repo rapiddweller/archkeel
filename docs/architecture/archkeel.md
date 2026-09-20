@@ -10,6 +10,7 @@ imports remain allowed. Every cross-component pair is either observed or forbidd
 | Core | `ir`, `check` | Stable evidence values and deterministic policy evaluation | Deterministic and stable |
 | Adapters | `analyzer`, `host` | Python source observations and GitLab host records | `analyzer` isolated behind its digest; `host` replaceable |
 | Edge | `cli`, `render` | Composition and presentation | `cli` a thin composition root; `render` replaceable |
+| External | `api` | The declared external read contract for a consumer outside this repository (AD-64) | Stable across every internal `ir` refactor |
 
 The CLI is the composition root. It selects concrete analyzer and host adapters, invokes the
 core, writes artifacts and delegates HTML and terminal projection to `render`. Core modules
@@ -94,11 +95,13 @@ often explains an earlier one; the index below keeps that order.
 | AD-60 | [report --only, --rule and --component narrow what a rendered report shows, never what it judged](decisions/ad-60-report-only-rule-and-component-narrow-what-a-rendered.md) |
 | AD-61 | [A widening fails unless an amendment binds its exact before and after digest](decisions/ad-61-a-widening-fails-unless-an-amendment-binds-its-exact-before.md) |
 | AD-62 | [An annotated variable's owner is the scope it is written in, not its bare name](decisions/ad-62-an-annotated-variables-owner-is-the-scope-it-is-written-in.md) |
+| AD-64 | [`archkeel.api` is the declared external contract, and `ir` performs no I/O](decisions/ad-64-archkeelapi-is-the-declared-external-contract-and-ir.md) |
 
 ## Allowed dependencies
 
 | Edge | Reason |
 |---|---|
+| `api` → `ir` | Read one `architecture.json` report from disk and hand its bytes to `ir`'s codec and baseline derivations; `api` decodes nothing itself (AD-64). |
 | `cli` → `analyzer` | Supply the concrete, replaceable source analyzer to report and check workflows; `cli` composes, it does not analyze. |
 | `cli` → `check` | Invoke deterministic and stable report and check services from the composition root. |
 | `cli` → `host` | Supply the concrete, replaceable host-record loader to checks; `cli` composes, it does not fetch. |
@@ -112,6 +115,7 @@ often explains an earlier one; the index below keeps that order.
 ```mermaid
 flowchart LR
     analyzer --> ir
+    api --> ir
     check --> ir
     cli --> analyzer
     cli --> check
@@ -130,6 +134,7 @@ the graph above the day this repository takes on debt its own contract has not y
 ```mermaid
 flowchart LR
     analyzer --> ir
+    api --> ir
     check --> ir
     cli --> analyzer
     cli --> check

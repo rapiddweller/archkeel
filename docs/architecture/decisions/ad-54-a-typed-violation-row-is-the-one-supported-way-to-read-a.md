@@ -45,13 +45,12 @@ move: the two new names in `ir.baseline` dropped the share of its public names t
 component uses under half, so `init` now drafts `ir.baseline`'s entry as three symbols,
 `KnownViolation`, `compare_violations` and `observed_violations`, instead of the whole module;
 `architecture-contract.json` follows that draft exactly, as it already did before this change.
-Limit: `load_observation` performs I/O, which `ir/digest.py` already did before it, so `ir`'s
-"no I/O" reading in AD-17 always meant no I/O in a *derivation* over already-read evidence, not
-a blanket rule this function breaks; both are entry points that read one file a caller names
-and hand its bytes to the pure code beside them, nothing more. `ViolationRow` promises nothing
-about the columnar file format itself, nor about any `ir` module's internals beside
-`ir.baseline`, `ir.codec` and `ir.decisions`, which `architecture-contract.json` already lists
-as public. Check: `tests/test_violations.py`'s
+Limit: `load_observation` performed I/O inside `ir`, defended here on the grounds that
+`ir/digest.py` already did; [AD-64](ad-64-archkeelapi-is-the-declared-external-contract-and-ir.md)
+found that defense wrong - an existing boundary leak is not a reason to add a second one - and
+moved the read into a declared `archkeel.api` facade, `ir.codec` no longer performing any I/O.
+Read AD-64 for what replaced this decision's read path and its interface promise; this
+paragraph is history, not the current state. Check: `tests/test_violations.py`'s
 `test_load_observation_reads_the_canonical_report_bytes_back`,
 `test_violation_rows_type_an_import_violation`, `test_violation_rows_leave_construct_fields_none`,
 `test_violation_rows_fingerprints_agree_with_ir_baseline`,

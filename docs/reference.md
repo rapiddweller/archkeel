@@ -189,21 +189,23 @@ violation today.
 
 ## Reading a report's violations
 
-AD-54 is the one supported way to read `architecture.json` outside this repository, for a CI
-gate that wants named fields rather than the columnar, string-interned file on disk.
-`archkeel.ir.codec.load_observation(path)` returns the `Observation` that `decode_json`,
-`decode_canonical_model` and `parse_observation` would otherwise take three internal calls to
-build, and `archkeel.ir.baseline.violation_rows(observation)` turns its `violations` section
-into one typed `ViolationRow` per violation - `fingerprint`, `source_module`, `target_module`,
-`symbol`, `source_component`, `target_component` and `evidence_ids` - instead of a positional
-record. A field a violation kind does not carry, such as a forbidden construct's
-`source_module`, is `None`, never a guessed value.
+`archkeel.api` is the declared external contract (AD-64): the one supported way to read
+`architecture.json` outside this repository, for a CI gate that wants named fields rather than
+the columnar, string-interned file on disk. Its whole promise is `__all__`, exactly
+`ViolationRow`, `load_observation` and `violation_rows`. `load_observation(path)` reads the file
+and returns the `Observation` that `ir.codec`'s `decode_json`, `decode_canonical_model` and
+`parse_observation` would otherwise take three internal calls to build - `ir` itself performs no
+I/O (AD-17), so the read lives in the facade, not in `ir.codec` as AD-54 first placed it.
+`violation_rows(observation)` turns its `violations` section into one typed `ViolationRow` per
+violation - `fingerprint`, `source_module`, `target_module`, `symbol`, `source_component`,
+`target_component` and `evidence_ids` - instead of a positional record. A field a violation kind
+does not carry, such as a forbidden construct's `source_module`, is `None`, never a guessed
+value.
 
 ```python
 from pathlib import Path
 
-from archkeel.ir.baseline import violation_rows
-from archkeel.ir.codec import load_observation
+from archkeel.api import load_observation, violation_rows
 
 observation = load_observation(Path("architecture.json"))
 rows = [
@@ -216,11 +218,12 @@ rows = [
 that moves the violating line without changing what the violation is; a stored baseline or a
 CI gate keys on it, not on the record `id` in `architecture.json`, which moves with the line.
 Not promised: the columnar file format `decode_canonical_model` inflates, and the internals of
-any `ir` module other than `ir.baseline`, `ir.codec` and `ir.decisions`. `architecture-contract.json`'s
-`COMP-IR` `public` list (AD-9) is a separate, narrower promise - which names another *Archkeel*
-component may cross-import inside this repository, not what an outside reader may use -
-so `ViolationRow` and `violation_rows` do not appear in it; nothing inside Archkeel imports
-them across a component boundary, only this reading surface does (AD-54).
+every `ir` module, `ir.baseline` and `ir.codec` included - `archkeel.api` is what stays stable
+across an `ir` refactor, not a shorthand for importing `ir` directly. `architecture-contract.json`'s
+`COMP-API` `requires` entry names *this* repository's own crossing into `ir` (AD-9, AD-32); it
+says nothing about what an outside reader may use, which is `archkeel.api.__all__` alone (AD-64).
+`archkeel.ir.codec.load_observation`, the pre-AD-64 path, is removed, not deprecated: the surface
+was days old at 0.4.x, so there is one supported way in, never two.
 
 ## Regression checks
 
