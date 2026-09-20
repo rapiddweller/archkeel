@@ -8,7 +8,12 @@ from dataclasses import replace
 from pathlib import Path
 
 from archkeel.ir.codec import canonical_report_bytes, result_bytes
-from archkeel.ir.decisions import agent_decisions, open_decisions, review_claims
+from archkeel.ir.decisions import (
+    agent_decisions,
+    open_decisions,
+    review_claims,
+    violation_counts,
+)
 from archkeel.ir.model import Diagnostic, DiagnosticError, ObservationResult, RunResult
 
 from .git import git_bytes
@@ -76,6 +81,7 @@ def run_report(
                 python_version=model.python_version,
             )
         else:
+            counted = violation_counts(model)
             command_result = RunResult(
                 "report",
                 0,
@@ -88,5 +94,7 @@ def run_report(
                 agent_decisions=agent_decisions(model),
                 open_decisions=open_decisions(model),
                 claims=review_claims(model),
+                violations_by_rule=counted.by_rule,
+                violations_by_component_pair=counted.by_component_pair,
             )
     return command_result, architecture
