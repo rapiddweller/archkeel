@@ -29,6 +29,7 @@ from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import Variant
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
 from fixtures.demo_catalog_validation import VARIANTS as _VALIDATION_VARIANTS
+from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
 
 CATALOG: tuple[Variant, ...] = (
     *_SHOWCASE_VARIANTS,
@@ -37,6 +38,7 @@ CATALOG: tuple[Variant, ...] = (
     *_INTERFACE_VARIANTS,
     *_TYPE_VARIANTS,
     *_VALIDATION_VARIANTS,
+    *_WIDENING_VARIANTS,
     *_CHECK_PROTOCOL_VARIANTS,
     *_CHECK_REGRESSION_VARIANTS,
     *_EVIDENCE_VARIANTS,
@@ -60,6 +62,8 @@ def _demo_type(variant: Variant) -> str:
     """Name each row's demo kind: what it runs, not what it changes."""
     if variant.check is not None:
         return "check run"
+    if variant.against is not None:
+        return "validate --against run"
     if variant.evidence is not None:
         return "tested only"
     return "validate/report run"

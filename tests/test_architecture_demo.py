@@ -30,13 +30,17 @@ from archkeel.ir.trace import trace_valid_violations
 from fixtures.architecture_demo import CATALOG, markdown
 from fixtures.demo_catalog_check import build_and_run_check
 from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
+from fixtures.demo_catalog_widening import build_and_run_against
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
 _SAMPLE_VARIANTS = [
-    variant for variant in CATALOG if variant.evidence is None and variant.check is None
+    variant
+    for variant in CATALOG
+    if variant.evidence is None and variant.check is None and variant.against is None
 ]
 _CHECK_VARIANTS = [variant for variant in CATALOG if variant.check is not None]
+_AGAINST_VARIANTS = [variant for variant in CATALOG if variant.against is not None]
 # A scalar row and its guardrail row share one CheckExpectation, so each protocol runs once.
 _UNIQUE_CHECK_RUNS = list({id(variant.check): variant for variant in _CHECK_VARIANTS}.values())
 # Raising these makes typed code raise instead of returning FAIL; see demo_catalog_evidence.py.
@@ -227,6 +231,17 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
         if dimensions[name].after_count > dimensions[name].before_count
     }
     assert actual_dimensions == set(check.regressed_dimensions)
+
+
+@pytest.mark.parametrize("variant", _AGAINST_VARIANTS, ids=lambda v: v.id)
+def test_against_variant_produces_the_catalogued_verdict(tmp_path: Path, variant: Variant) -> None:
+    against = variant.against
+    assert against is not None
+    result = build_and_run_against(tmp_path, variant.files, against)
+
+    assert result.exit_code == against.exit_code
+    assert result.diagnostics == ()
+    assert result.failures == against.failures
 
 
 def test_graph_drift_names_the_command_or_the_line_it_refuses(tmp_path: Path) -> None:

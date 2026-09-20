@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
@@ -46,6 +46,26 @@ class CheckExpectation:
     regressed_dimensions: tuple[str, ...] = ()
 
 
+# Named after what the scenario demonstrates about --against (AD-61, #11): the two-revision
+# analogue of CheckScenario above, for the same reason a demo row cannot be one file overlay.
+AgainstScenario = Literal["widened_unamended", "widened_amended", "narrowed_only"]
+
+
+@dataclass(frozen=True, slots=True)
+class AgainstExpectation:
+    """Typed --against outcome: the revision comparison's verdict and its named findings.
+
+    `base_files` overlays the committed --against revision itself, on top of the clean sample;
+    the narrowing row needs one non-clean base (an exemption the code never actually needs) so
+    narrowing it back does not also expose a real violation the clean base never had.
+    """
+
+    scenario: AgainstScenario
+    exit_code: Literal[0, 1]
+    failures: tuple[str, ...]
+    base_files: Mapping[str, str | None] = field(default_factory=dict)
+
+
 @dataclass(frozen=True, slots=True)
 class Variant:
     """One catalogued demonstration: an overlay on the clean sample, or cited evidence."""
@@ -60,6 +80,7 @@ class Variant:
     expected_kinds: tuple[DiagnosticKind, ...] = ()
     evidence: str | None = None
     check: CheckExpectation | None = None
+    against: AgainstExpectation | None = None
 
 
 def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:
