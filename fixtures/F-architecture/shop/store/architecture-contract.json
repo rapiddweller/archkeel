@@ -16,7 +16,8 @@
           "rationale": "Compaction walks the stored files and deletes them, which is the only knowledge of the directory layout it is allowed to hold."
         }
       ],
-      "public": ["shop.store.sqlite:Connection", "shop.store.sqlite:vacuum"]
+      "public": ["shop.store.sqlite:Connection", "shop.store.sqlite:vacuum"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-STORE-BACKEND",
@@ -26,7 +27,8 @@
       "responsibilities": ["Where a document lives, how it is named, and how it is read and replaced."],
       "forbidden_responsibilities": ["Interpreting what a document contains, and knowing about orders at all."],
       "provenance": ["docs/architecture/shop.md"],
-      "public": []
+      "public": [],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-STORE-CODEC",
@@ -36,7 +38,8 @@
       "responsibilities": ["The stored document format and the version stamped into it."],
       "forbidden_responsibilities": ["Touching the filesystem, and deciding where a document is written."],
       "provenance": ["docs/architecture/shop.md"],
-      "public": []
+      "public": [],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-STORE-REPOSITORY",
@@ -56,7 +59,8 @@
           "rationale": "Turning an order into bytes and back is a format decision the persistence API delegates, so the format can change without the API changing."
         }
       ],
-      "public": ["shop.store.repository:OrderRepository"]
+      "public": ["shop.store.repository:OrderRepository"],
+      "decided_by": "architect"
     }
   ],
   "rules": [

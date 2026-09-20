@@ -60,6 +60,7 @@ run shows many violations together; every other row isolates one item.
 | validation | interface.missing | validation-interface-missing | validate/report run | - | interface.missing | architecture-contract.json |
 | validation | interface.planned_built:not yet built | validation-interface-planned-not-built | validate/report run | - | - | architecture-contract.json |
 | validation | interface.planned_built:stale marker | validation-interface-planned-built | validate/report run | - | interface.planned_built | architecture-contract.json |
+| validation | agent_decisions:agent-attributed | validation-agent-decisions-attributed | validate/report run | - | - | architecture-contract.json |
 | validation | rationale.placeholder | validation-rationale-placeholder | validate/report run | - | rationale.placeholder | architecture-contract.json |
 | validation | rationale.repeated | validation-rationale-repeated | validate/report run | - | rationale.repeated | architecture-contract.json |
 | validation | graph.count | validation-graph-count | validate/report run | - | graph.count | docs/architecture/shop.md |
