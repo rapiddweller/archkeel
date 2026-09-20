@@ -600,6 +600,7 @@ DiagnosticCode: TypeAlias = Literal[
     "reference.public_underscore",
     "reference.provenance",
     "reference.package_unscanned",
+    "api_surface.missing",
     "contract.schema_version",
     "contract.invalid",
     "baseline.invalid",

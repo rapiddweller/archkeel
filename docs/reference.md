@@ -191,8 +191,11 @@ violation today.
 
 `archkeel.api` is the declared external contract (AD-64): the one supported way to read
 `architecture.json` outside this repository, for a CI gate that wants named fields rather than
-the columnar, string-interned file on disk. Its whole promise is `__all__`, exactly
-`ViolationRow`, `load_observation` and `violation_rows`. `load_observation(path)` reads the file
+the columnar, string-interned file on disk. Its whole promise is declared in
+`architecture-contract.json`'s `declarations.public_api` (AD-66), exactly
+`archkeel.api:ViolationRow`, `archkeel.api:load_observation` and `archkeel.api:violation_rows`,
+mirrored by `__all__` and checked against a scanned module the same way a missing `public` entry
+is (`api_surface.missing`). `load_observation(path)` reads the file
 and returns the `Observation` that `ir.codec`'s `decode_json`, `decode_canonical_model` and
 `parse_observation` would otherwise take three internal calls to build - `ir` itself performs no
 I/O (AD-17), so the read lives in the facade, not in `ir.codec` as AD-54 first placed it.

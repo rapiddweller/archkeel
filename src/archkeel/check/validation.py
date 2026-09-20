@@ -342,6 +342,35 @@ def _planned_entry_diagnostics(
     ]
 
 
+def public_api_diagnostics(
+    contract: ArchitectureContract, observation: Observation
+) -> tuple[Diagnostic, ...]:
+    """Flag a `declarations.public_api` entry whose module the scan never saw (AD-66).
+
+    `public_api` names the surface a consumer *outside* this package may rely on, the case
+    AD-9's component `public` never covered: `public` is one component's promise to another
+    component of the same package, held to `interface_boundary`'s crossing check, while nothing
+    inside the scan ever crosses into `public_api` the way one component imports another, so
+    there is no cross-component import to make an `interface.unused` twin possible here. The one
+    signal left to check is existence, the same one `interface.missing` already gives `public`:
+    a `public_api` entry naming a module the scan never saw is a typo or a promise the package
+    has not built yet.
+    """
+    declarations = contract.declarations or ContractDeclarations()
+    modules = _scanned_modules(observation)
+    return tuple(
+        _diagnostic(
+            "api_surface.missing",
+            f"/declarations/public_api/{index}",
+            entry,
+            "The declared public API entry's module has not been scanned; it does not exist yet.",
+            "Build the module, correct a typo, or remove the entry until it exists.",
+        )
+        for index, entry in enumerate(declarations.public_api)
+        if _entry_module(entry) not in modules
+    )
+
+
 def interface_diagnostics(
     contract: ArchitectureContract, observation: Observation
 ) -> tuple[Diagnostic, ...]:
@@ -879,6 +908,7 @@ def observation_diagnostics(
     diagnostics = [
         *closed_world_diagnostics(contract, observation),
         *interface_diagnostics(contract, observation),
+        *public_api_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]

@@ -12,6 +12,7 @@ from fixtures.demo_catalog_support import (
     Variant,
     contract_component_field_appended,
     contract_component_field_set,
+    contract_declarations_field_appended,
     contract_rule_field,
     contract_rule_provenance_appended,
     contract_rule_replaced,
@@ -108,6 +109,22 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         },
         expected_violations=(),
         expected_codes=("interface.missing",),
+    ),
+    Variant(
+        id="validation-api-surface-missing",
+        section="validation",
+        item="api_surface.missing",
+        summary="Declaring shop.app.future:NotBuiltYet in declarations.public_api names a "
+        "module the scan never saw; unlike a component's public list, public_api names a "
+        "consumer outside the package, so there is no cross-component import that could ever "
+        "make an unused twin possible (AD-66, issue #58).",
+        files={
+            "architecture-contract.json": contract_declarations_field_appended(
+                "public_api", "shop.app.future:NotBuiltYet"
+            )
+        },
+        expected_violations=(),
+        expected_codes=("api_surface.missing",),
     ),
     Variant(
         id="validation-interface-planned-not-built",

@@ -17,9 +17,11 @@ from archkeel.api import ViolationRow, load_observation, violation_rows
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.ir.baseline import ViolationFingerprint, observed_violations
+from archkeel.ir.codec import parse_contract
 from fixtures.architecture_demo import CATALOG
 
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
+ROOT = Path(__file__).parents[1]
 
 
 def _tour_report(tmp_path: Path) -> Path:
@@ -108,12 +110,23 @@ def test_reference_md_snippet_reads_a_report_and_lists_its_rows(tmp_path: Path) 
 
 
 def test_api_all_matches_the_names_reference_md_documents() -> None:
-    """AD-64: `archkeel.api.__all__` is the facade's whole promise; the docs snippet and prose
-    name exactly these three, so a fourth export or a dropped one shows up here, cheaply, before
-    it shows up as prose drift."""
+    """AD-66: `declarations.public_api` is the facade's whole promise now, not a name the
+    module and the docs happen to agree on by hand; `archkeel.api.__all__` and docs/reference.md's
+    prose (kept in lockstep with this test by hand, same as the snippet above) are each checked
+    against the contract's declaration instead of against each other, so a fourth export or a
+    dropped one shows up as contract drift before it shows up as prose drift."""
     import archkeel.api as api
 
-    assert set(api.__all__) == {"ViolationRow", "load_observation", "violation_rows"}
+    contract = parse_contract(json.loads((ROOT / "architecture-contract.json").read_text()))
+    declared_names = {
+        module.partition(":")[2]
+        for module in contract.declarations.public_api
+        if module.partition(":")[0] == "archkeel.api"
+    }
+    reference_md_names = {"ViolationRow", "load_observation", "violation_rows"}
+
+    assert declared_names == reference_md_names
+    assert set(api.__all__) == declared_names
     assert api.ViolationRow is ViolationRow
     assert api.violation_rows is violation_rows
 

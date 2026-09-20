@@ -20,6 +20,7 @@ from archkeel.check.validation import (
     graph_diagnostics,
     inside_diagnostics,
     interface_diagnostics,
+    public_api_diagnostics,
     reference_diagnostics,
     rewrite_component_graph,
     run_validate,
@@ -345,6 +346,39 @@ def test_missing_public_entry_is_a_diagnostic() -> None:
     diagnostics = interface_diagnostics(contract, observation)
     assert [item.pointer for item in diagnostics] == ["/components/0/public/0"]
     assert diagnostics[0].code == "interface.missing"
+
+
+def test_missing_public_api_entry_is_a_diagnostic() -> None:
+    """AD-66: a `declarations.public_api` entry the scan never saw is missing, the one signal
+    an external surface has, since nothing inside the scan crosses into it to leave it unused."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [],
+            "rules": [],
+            "declarations": {"public_api": ["sample.core:Widget"]},
+        }
+    )
+    observation = parse_observation(_model(git_head="a" * 40, imports=[]))
+    diagnostics = public_api_diagnostics(contract, observation)
+    assert [item.pointer for item in diagnostics] == ["/declarations/public_api/0"]
+    assert diagnostics[0].code == "api_surface.missing"
+
+
+def test_built_public_api_entry_has_no_diagnostic() -> None:
+    """AD-66: a `declarations.public_api` entry whose module the scan saw is not missing."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [],
+            "rules": [],
+            "declarations": {"public_api": ["sample.core:Widget"]},
+        }
+    )
+    observation = parse_observation(
+        _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    )
+    assert public_api_diagnostics(contract, observation) == ()
 
 
 def test_planned_entry_not_yet_built_has_no_diagnostic() -> None:

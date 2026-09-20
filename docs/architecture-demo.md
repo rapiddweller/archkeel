@@ -59,6 +59,7 @@ run shows many violations together; every other row isolates one item.
 | validation | interface.undeclared | validation-interface-undeclared | validate/report run | - | interface.undeclared | architecture-contract.json |
 | validation | interface.unused | validation-interface-unused | validate/report run | - | interface.unused | architecture-contract.json |
 | validation | interface.missing | validation-interface-missing | validate/report run | - | interface.missing | architecture-contract.json |
+| validation | api_surface.missing | validation-api-surface-missing | validate/report run | - | api_surface.missing | architecture-contract.json |
 | validation | interface.planned_built:not yet built | validation-interface-planned-not-built | validate/report run | - | - | architecture-contract.json |
 | validation | interface.planned_built:stale marker | validation-interface-planned-built | validate/report run | - | interface.planned_built | architecture-contract.json |
 | validation | agent_decisions:agent-attributed | validation-agent-decisions-attributed | validate/report run | - | - | architecture-contract.json |
@@ -115,8 +116,8 @@ run shows many violations together; every other row isolates one item.
 | class_b | coverage_must_pass | class-b-coverage-must-pass | tested only | - | - | tests/test_expectation.py |
 | class_c | ContractDeclarations.capabilities | class-c-capabilities | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.review_scopes | class-c-review-scopes | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.public_api | class-c-public-api | tested only | - | - | docs/rules.md |
-| class_c | ContractDeclarations.public_api_provenance | class-c-public-api-provenance | tested only | - | - | docs/rules.md |
+| class_c | ContractDeclarations.public_api | class-c-public-api | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class_c | ContractDeclarations.public_api_provenance | class-c-public-api-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.public_commands | class-c-public-commands | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.context_roots | class-c-context-roots | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.context_roots_provenance | class-c-context-roots-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |

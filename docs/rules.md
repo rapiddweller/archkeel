@@ -308,15 +308,24 @@ incomplete scan produces no measurements, so the check reports NOT CHECKED inste
 
 ## Class C: declarations
 
-Fields under `declarations` preserve capabilities, review scopes, public interfaces, commands,
-context roots, paths and owners. Archkeel decodes and reports them but does not enforce them.
-`public_api` is superseded by the component `public` field and its `interface_boundary` rule
-(AD-9); it stays valid but new contracts should declare `public` per component instead.
+Fields under `declarations` preserve capabilities, review scopes, a package's external public
+API, commands, context roots, paths and owners. Archkeel decodes and reports every one of them,
+and checks every one for two structural facts: a declared name resolves inside the configured
+namespace (`reference.namespace`) and a declared provenance file exists (`reference.provenance`).
+`public_api` names the surface a consumer *outside* this package may rely on - a different thing
+from the component `public` field, which names one component's promise to another component of
+the *same* package and is held to `interface_boundary` at every crossing (AD-9). Nothing inside
+the scan crosses into `public_api` the way one component imports another, so there is no
+crossing to prove a `public_api` entry unused; there is still a module to prove it exists, so a
+`public_api` entry the scan never saw is `api_surface.missing`, the same existence check
+`interface.missing` already gives a missing `public` entry (AD-66).
 
 - **Measurement:** none; declaration records mirror the contract.
 - **Determinism:** decoding is deterministic for a valid Contract 2.0 document.
-- **Blind spots:** Archkeel makes no claim that code follows a declaration.
-- **Example:** record `sample.api` as the intended public interface.
+- **Blind spots:** Archkeel makes no claim that code follows a declaration, beyond `public_api`'s
+  existence check, which only confirms a name has not been mistyped or left unbuilt, never that a
+  consumer outside the package actually reaches it or that its signature has not moved.
+- **Example:** record `sample.api:load` as a name a consumer outside the package may rely on.
 
 A class-C entry records a judgment: a responsibility, an intended interface, a path or an owner
 that a person decided. Archkeel stores and reports it verbatim and never evaluates it, so it can
