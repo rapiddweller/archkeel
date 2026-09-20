@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:violation-baseline:1",
+  "title": "Known-violation baseline for archkeel validate --baseline",
+  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52). A fingerprint is the rules a violation breaks and the sorted subjects they name; whether it still matches the observed code requires a run.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "violations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "description": "The only baseline schema this Archkeel reads."
+    },
+    "violations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/knownViolation"
+      },
+      "description": "Every violation the code is known to commit today, one entry per fingerprint. Counts must match the observed code exactly: a higher one is a new violation, a lower one is work already done that has to leave this file."
+    }
+  },
+  "$defs": {
+    "knownViolation": {
+      "type": "object",
+      "required": [
+        "rules",
+        "subjects",
+        "count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The declared rule ids this violation breaks, as the observation records them."
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The sorted names the violation is about: modules, a construct owner or the members of a cycle, by kind. Sorted, so they carry no direction."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many violations share this fingerprint, for example two getattr calls in one function."
+        }
+      }
+    }
+  }
+}
