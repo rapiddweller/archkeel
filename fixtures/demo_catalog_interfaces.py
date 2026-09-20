@@ -127,6 +127,41 @@ _INTERFACE_ACCEPTED_REEXPORT = Variant(
     expected_violations=(),
     expected_codes=(),
 )
+_STORE_INIT_WITH_SHADOWED_SQLITE = HEADER + (
+    '"""Re-export the store component\'s repository entry point."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from shop.store.repository import OrderRepository\n\n"
+    "# AD-53: this attribute wins over the shop.store.sqlite submodule for\n"
+    '# "from shop.store import sqlite" -- unrelated to that module\'s Connection and vacuum.\n'
+    'sqlite = "shop.db"\n\n'
+    '__all__ = ["OrderRepository"]\n'
+)
+_INTERFACE_PACKAGE_ATTRIBUTE_OVER_SUBMODULE = Variant(
+    id="class-a-interface-boundary-package-attribute-over-submodule",
+    section="class_a",
+    item="interface_boundary:package attribute over submodule",
+    summary="shop.store's __init__ binds sqlite to a plain constant, shadowing its own "
+    "shop.store.sqlite submodule (AD-53); shop.app's `from shop.store import sqlite` now "
+    "resolves to the package attribute shop.store:sqlite, which store never declared public, "
+    "so interface_boundary reports it. Before AD-53 the scan alone resolved the same import to "
+    "the whole shop.store.sqlite submodule, which DEP-APP-NO-STORE-SQLITE forbids outright, so "
+    "the crossing was misreported as that forbidden_dependency (AD-18 supersedes interface_"
+    "boundary on the same import) though the code never touches that module.",
+    files={
+        "shop/store/__init__.py": _STORE_INIT_WITH_SHADOWED_SQLITE,
+        "shop/app/sqlite_probe.py": HEADER
+        + (
+            '"""Package-attribute probe: shop.store binds sqlite ahead of its own submodule."""'
+            "\n\n"
+            "from __future__ import annotations\n\n"
+            "from shop.store import sqlite\n\n\n"
+            "def default_database_name() -> str:\n"
+            "    return sqlite\n"
+        ),
+    },
+    expected_violations=("INTERFACE-BOUNDARY",),
+    expected_codes=("rule.violated",),
+)
 
 VARIANTS: tuple[Variant, ...] = (
     _INTERFACE_UNDERSCORE,
@@ -134,4 +169,5 @@ VARIANTS: tuple[Variant, ...] = (
     _INTERFACE_WHOLE_MODULE,
     _INTERFACE_ALL_GATE,
     _INTERFACE_ACCEPTED_REEXPORT,
+    _INTERFACE_PACKAGE_ATTRIBUTE_OVER_SUBMODULE,
 )
