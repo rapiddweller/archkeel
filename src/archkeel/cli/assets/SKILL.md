@@ -109,6 +109,19 @@ Once it ends, run `archkeel report` and commit the three generated files (`archk
 `rule.violated` or `closed_world.observed_forbidden` is follow-up code work, tracked
 separately from onboarding, not a reason to hold the commit.
 
+Where that follow-up is long — a contract that states the target architecture the code has
+yet to reach — freeze the known violations instead of weakening the contract:
+
+```bash
+archkeel validate --baseline known-violations.json --write-baseline   # once, then review it
+archkeel validate --baseline known-violations.json                    # the CI gate
+```
+
+The gate fails (exit 1) on a violation the file does not state, and on one it states that
+nobody violates any more — so the budget only shrinks, and the file is rewritten in the same
+change that shrinks it. Never add a new violation to the baseline to make a run pass: that is
+the architect's decision, not the agent's (AD-52).
+
 ## Daily loop
 
 - Run `archkeel report --json` before submitting any change. A rule violation does not
@@ -194,7 +207,8 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
 
 - `init`: 0 draft written, 2 not checked (with a diagnostic).
 - `validate`: 0 contract valid for this repository, 2 invalid (diagnostics with JSON
-  Pointers).
+  Pointers). With `--baseline <file>` also 1: a violation the file does not state, or one it
+  states that nobody violates any more, each named in `failures` (AD-52).
 - `report`: 0 observation complete (a rule violation is a FAIL verdict), 2 not checked.
 - `skill install claude|codex`: 0 instructions written, 2 the target file could not be updated.
 - `check`: 0 merge, 1 reject, 2 not checked. Its expectation's `selected_changes` may be `[]`
