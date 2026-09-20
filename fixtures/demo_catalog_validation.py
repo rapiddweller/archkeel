@@ -211,6 +211,18 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         evidence="tests/test_trace.py",
     ),
     Variant(
+        id="validation-baseline-invalid",
+        section="validation",
+        item="baseline.invalid",
+        summary="baseline.invalid needs a --baseline file that cannot be read, and every row "
+        "here runs validate on the sample without one (AD-52); the baseline tests supply "
+        "a missing file and a malformed one instead.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_baseline.py",
+    ),
+    Variant(
         id="validation-inside-public-mismatch",
         section="validation",
         item="inside.public_mismatch",

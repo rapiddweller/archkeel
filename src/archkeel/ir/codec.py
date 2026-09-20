@@ -13,6 +13,7 @@ from dataclasses import asdict
 from math import isfinite
 from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
 
+from archkeel.ir.baseline import BASELINE_SCHEMA_VERSION, KnownViolation, ViolationFingerprint
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import SCALARS, Measurements, RatchetError, RatchetScalars, count
 from archkeel.ir.model import (
@@ -1435,3 +1436,59 @@ def _record_payload(value: Record) -> dict[str, RawJson]:
     result = _raw_object(asdict(value))
     result["data"] = _raw_value(value.data)
     return result
+
+
+def _known_violation(raw: RawJson, label: str) -> KnownViolation:
+    value = _exact(raw, {"rules", "subjects", "count"}, label)
+    occurrences = count(value["count"], f"{label}.count")
+    if not occurrences:
+        raise ValueError(f"{label}.count must be at least 1")
+    return KnownViolation(
+        ViolationFingerprint(
+            _strings(value["rules"], f"{label}.rules"),
+            _strings(value["subjects"], f"{label}.subjects"),
+        ),
+        occurrences,
+    )
+
+
+def parse_baseline(raw: object) -> tuple[KnownViolation, ...]:
+    """Read a known-violation baseline, ordered like the writer writes it (AD-52)."""
+    document = _exact(raw, {"schema_version", "violations"}, "baseline")
+    if document["schema_version"] != BASELINE_SCHEMA_VERSION:
+        raise ValueError(
+            f"baseline schema {document['schema_version']!r} cannot be read as "
+            f"{BASELINE_SCHEMA_VERSION}"
+        )
+    entries = document["violations"]
+    if not isinstance(entries, list):
+        raise ValueError("baseline.violations must be an array")
+    violations = tuple(
+        _known_violation(entry, f"baseline.violations[{index}]")
+        for index, entry in enumerate(entries)
+    )
+    if len({item.fingerprint for item in violations}) != len(violations):
+        raise ValueError("baseline.violations repeats a fingerprint; give it one count instead")
+    return tuple(
+        sorted(violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects))
+    )
+
+
+def baseline_bytes(violations: tuple[KnownViolation, ...]) -> bytes:
+    """Write the baseline indented and one entry per line: this file is read in diffs."""
+    payload = {
+        "schema_version": BASELINE_SCHEMA_VERSION,
+        "violations": [
+            {
+                "rules": list(item.fingerprint.rules),
+                "subjects": list(item.fingerprint.subjects),
+                "count": item.count,
+            }
+            for item in sorted(
+                violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects)
+            )
+        ],
+    }
+    return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )

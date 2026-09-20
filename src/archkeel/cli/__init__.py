@@ -122,12 +122,20 @@ def build_parser() -> _Parser:
             "rule, rule rationales and the marked component graph. Run it after every\n"
             "contract edit; --write-graph first rewrites that graph's edges from the\n"
             "contract and the observed imports, leaving the rest of the page untouched.\n\n"
+            "A contract that states the target architecture is violated by the code that\n"
+            "has yet to reach it. --baseline names a file of those known violations: the\n"
+            "run then fails only on a violation the file does not state, and on one it\n"
+            "states that nobody violates any more, so the budget only shrinks. Write the\n"
+            "file with --write-baseline, review it, and commit it.\n\n"
             "Examples:\n"
             "  archkeel validate\n"
             "  archkeel validate --json\n"
-            "  archkeel validate --write-graph\n\n"
+            "  archkeel validate --write-graph\n"
+            "  archkeel validate --baseline known-violations.json --write-baseline\n"
+            "  archkeel validate --baseline known-violations.json\n\n"
             "Exit codes:\n"
             "  0  the contract is valid for this repository\n"
+            "  1  with --baseline: a violation is new, or a known one is resolved\n"
             "  2  invalid: each diagnostic names the JSON Pointer to fix\n\n"
             f"Rules: {_DOCS}/rules.md"
         ),
@@ -138,6 +146,17 @@ def build_parser() -> _Parser:
         action="store_true",
         help="Rewrite the edges of the marked component graph from the observed imports, "
         "then validate.",
+    )
+    validate.add_argument(
+        "--baseline",
+        type=Path,
+        help="File of known violations. Fail only on a violation it does not state, or on "
+        "one it states that nobody violates any more.",
+    )
+    validate.add_argument(
+        "--write-baseline",
+        action="store_true",
+        help="Write today's violations to --baseline instead of comparing them.",
     )
 
     check = commands.add_parser(
@@ -292,7 +311,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     artifacts.extend((artifact, report_html))
             elif command == "validate":
                 config = load_config(root)
-                result, files = run_validate(root, config, observe, write_graph=args.write_graph)
+                if args.write_baseline and args.baseline is None:
+                    parser.error("--write-baseline needs --baseline to name the file to write")
+                result, files = run_validate(
+                    root,
+                    config,
+                    observe,
+                    write_graph=args.write_graph,
+                    # Resolved here so the file is read and written at one path, whatever
+                    # --root says; the result then names the path the user will open.
+                    baseline=None if args.baseline is None else args.baseline.resolve(),
+                    write_baseline=args.write_baseline,
+                )
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"

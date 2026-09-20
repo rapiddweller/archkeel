@@ -162,6 +162,29 @@ complete scan and fixed source bytes make the result deterministic; dynamic impo
 spot. Archkeel applies it to the eight analyzer collectors (AD-1, AD-25). Importing
 `sample.core.first` from `sample.core.second` when both are members is an example violation.
 
+### Known violations of a target contract
+
+A contract may state the architecture the code is heading for rather than the one it has, in
+which case every class A rule above is violated by design until the refactoring lands. Freeze
+those violations instead of weakening the rules (AD-52):
+
+```bash
+archkeel validate --baseline known-violations.json --write-baseline   # once, then review it
+archkeel validate --baseline known-violations.json                    # the gate
+```
+
+Each entry names one violation by fingerprint — the rule ids it cites and its sorted `subjects`,
+which per rule kind are the modules, the construct owner or the members of a cycle — plus the
+number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
+A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
+alone. Counts must match the observation exactly: a higher one is a `new violation`, a lower one
+a `resolved violation`, both reported in `failures` with exit 1, so the budget only shrinks and
+the file is rewritten in the change that shrinks it. A run whose baseline is exactly right exits
+0, with `declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
+`decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that cannot
+be read is `baseline.invalid`, exit 2. The file's shape is
+[`schema/violation-baseline.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json).
+
 ## Class B: regression checks
 
 Regression checks compare accepted and candidate observations. They include scalar counts,

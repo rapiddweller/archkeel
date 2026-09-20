@@ -123,6 +123,47 @@ def test_validate_write_graph_regenerates_only_the_marked_graph(
     assert json.loads(capsys.readouterr().out)["artifact"] is None
 
 
+def test_validate_baseline_writes_then_gates_on_new_violations(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-52: the red target's whole loop, through the CLI: write, pass, then grow."""
+    probe = (
+        "# Archkeel\n# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.\n"
+        "# SPDX-License-Identifier: MIT\n"
+        '"""Getattr probe for the baseline demo."""\n\n'
+        "from __future__ import annotations\n\n\n"
+        "def read(box: object) -> object:\n"
+        '    return getattr(box, "value")\n'
+    )
+    root = _prepare_repo(tmp_path, {"shop/model/probe.py": probe})
+    baseline = root / "known-violations.json"
+    arguments = ["validate", "--root", str(root), "--baseline", str(baseline), "--json"]
+
+    assert main([*arguments, "--write-baseline"]) == 0
+    assert json.loads(capsys.readouterr().out)["artifact"] == str(baseline)
+    assert json.loads(baseline.read_text())["violations"] == [
+        {"count": 1, "rules": ["CONSTRUCT-NO-DYNAMIC"], "subjects": ["shop.model.probe.read"]}
+    ]
+
+    assert main(arguments) == 0
+    assert json.loads(capsys.readouterr().out)["failures"] == []
+
+    (root / "shop/model/probe_two.py").write_text(probe)
+    assert main(arguments) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["diagnostics"] == []
+    assert result["failures"] == [
+        "new violation: CONSTRUCT-NO-DYNAMIC | shop.model.probe_two.read "
+        "(1 observed, 0 in the baseline)"
+    ]
+
+
+def test_validate_write_baseline_needs_a_baseline_path(capsys: pytest.CaptureFixture) -> None:
+    assert main(["validate", "--root", str(ROOT), "--write-baseline", "--json"]) == 2
+    claim = json.loads(capsys.readouterr().out)["diagnostics"][0]["unknown_claim"]
+    assert "--write-baseline needs --baseline" in claim
+
+
 def test_validate_configuration_error_has_pointer(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
