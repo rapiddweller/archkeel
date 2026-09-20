@@ -141,15 +141,17 @@ a declared name; underscore names never qualify. An import a `forbidden_dependen
 rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). A
 complete scan, fixed source bytes and analyzer digest make the result deterministic. An empty
 `__all__` reads the same as no `__all__` at all, and aliasing during a re-export is not resolved;
-these remain blind spots. `from pkg import name` is matched as the module `pkg.name` whenever the
-scan holds that module, exactly like `import pkg.name`, and as the name `pkg:name` only otherwise.
-So when the scan holds `pkg.submodule`, `from pkg import submodule` passes a `pkg.submodule` entry,
-not a `pkg:submodule` entry. That also holds when the package already exposes an attribute with
-that name: Python may then bind the attribute instead of importing the submodule, and the result can
-depend on whether the submodule was imported before. Archkeel does not model that runtime state
-([#23](https://github.com/rapiddweller/archkeel/issues/23)). `validate`
-reports such a name entry as `interface.unused` without pointing at the module entry that would
-admit the import; only the violation beside it names `pkg.submodule`. Importing `sample.core.impl`
+these remain blind spots. `from pkg import name` follows Python's own precedence (AD-53): a
+top-level `def`, `class`, assignment, aliased import, or `from` import in `pkg/__init__.py` that
+binds `name` to anything but the identically named submodule wins over that submodule, so the
+import is matched as the name `pkg:name`; a plain `from . import name`, which really does bind
+the submodule, and no binding at all both match as the module `pkg.name`, exactly like `import
+pkg.name`. Only an unconditional top-level statement in `__init__.py` counts. A `pkg/__init__.py`
+that defines `__getattr__` or holds a star import the scan cannot expand makes every one of its
+attributes undecidable; the scan keeps the module-if-it-exists reading there instead, which may
+then disagree with what a particular attribute returns at runtime, and `validate` can report a
+`pkg:name` public entry as `interface.unused` while the violation beside it names `pkg.submodule`
+([#23](https://github.com/rapiddweller/archkeel/issues/23)). Importing `sample.core.impl`
 directly from `sample.cli` when `core` declares only `sample.core` as public is an example
 violation.
 
