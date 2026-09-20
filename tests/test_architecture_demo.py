@@ -63,6 +63,50 @@ def test_class_a_covers_every_rule_kind() -> None:
     assert kinds <= items
 
 
+# allowed_dependency records a permission, never a violation: the analyzer never evaluates it
+# against a run (docs/rules.md), so no run, `tour` included, can ever make it fire (AD-11).
+_KIND_CANNOT_VIOLATE = {"allowed_dependency"}
+
+
+def _clean_sample_rule_kind_by_id() -> dict[str, str]:
+    """Every rule id the clean sample declares, mapped to its kind.
+
+    An inside rule (AD-36) is keyed the way a finding names it, `<component>:<id>`, so it lines
+    up directly with `Variant.expected_violations`.
+    """
+    top = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    mapping = {rule["id"]: rule["kind"] for rule in top["rules"]}
+    inside = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    mapping.update({f"store:{rule['id']}": rule["kind"] for rule in inside["rules"]})
+    return mapping
+
+
+def test_tour_fires_every_class_a_rule_kind_that_can_violate() -> None:
+    """AD-11: `tour` is the showcase promise, not only the wider catalogue.
+
+    A rule kind present somewhere in the catalogue but missing from `tour` is exactly the gap
+    that let symbol_placement and boundary_types (AD-58) land without joining the showcase
+    (issue #47); this asserts the same sentence AD-11 states, not merely that a demo exists.
+    """
+    kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
+    tour = next(variant for variant in CATALOG if variant.id == "tour")
+    rule_kind = _clean_sample_rule_kind_by_id()
+    fired_kinds = {rule_kind[rule_id] for rule_id in tour.expected_violations}
+    assert kinds - _KIND_CANNOT_VIOLATE <= fired_kinds
+    # test_variant_produces_the_catalogued_findings[tour] proves expected_violations is what a
+    # real run produces; this test only has to prove that set covers every fireable kind.
+
+
+def test_clean_sample_declares_every_class_a_rule_kind() -> None:
+    """AD-11: the clean sample itself declares every Class A rule kind, not only the catalogue.
+
+    test_clean_variant_is_fully_clean proves the declared rules are all satisfied; this proves
+    the declaration is complete.
+    """
+    kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
+    assert kinds <= set(_clean_sample_rule_kind_by_id().values())
+
+
 def test_class_a_covers_every_forbidden_construct_kind() -> None:
     covered = {
         variant.item.split(":", 1)[1]

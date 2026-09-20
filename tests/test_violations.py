@@ -40,7 +40,7 @@ def test_load_observation_reads_the_canonical_report_bytes_back(tmp_path: Path) 
     observation = load_observation(report_path)
 
     assert observation.schema_version == "1.3.0"
-    assert len(observation.records("violations") or ()) == 14
+    assert len(observation.records("violations") or ()) == 19
 
 
 def test_violation_rows_type_an_import_violation(tmp_path: Path) -> None:
@@ -103,7 +103,7 @@ def test_reference_md_snippet_reads_a_report_and_lists_its_rows(tmp_path: Path) 
     ]
     # --- docs/reference.md snippet ends ---
 
-    assert len(rows) == 14
+    assert len(rows) == 19
     assert all(isinstance(fingerprint, ViolationFingerprint) for fingerprint, _, _ in rows)
 
 

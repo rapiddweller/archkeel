@@ -212,16 +212,17 @@ def test_html_report_rendered_from_architecture_json_alone_shows_agent_decisions
     )
     result, architecture = run_report(root, config=CONFIG, analyzer=observe)
     assert architecture is not None
-    # 35 rules, 8 declared public lists and the inside's 3 requires entries (AD-50).
-    assert result.agent_decisions == (1, 46)
-    assert "1 of 46 decisions made by the agent" in report_summary(result).sentence
+    # 38 rules (AD-11, issue #47), 8 declared public lists and the inside's 3 requires entries
+    # (AD-50).
+    assert result.agent_decisions == (1, 49)
+    assert "1 of 49 decisions made by the agent" in report_summary(result).sentence
 
     stripped = replace(result, agent_decisions=None)
     page = render_architecture_html(
         stripped, architecture, repository="shop", architecture_href="architecture.json"
     ).decode()
 
-    assert "1 of 46 decisions made by the agent, awaiting the architect." in page
+    assert "1 of 49 decisions made by the agent, awaiting the architect." in page
 
 
 def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:

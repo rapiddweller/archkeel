@@ -1,13 +1,19 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-11 symbol_placement and boundary_types rows (issue #9, AD-58)."""
+"""AD-11 symbol_placement and boundary_types rows (issue #9, AD-58).
+
+MODEL-TYPES-IN-ENTITIES and APP-TYPES-NOT-DICT are declared directly on the clean sample's own
+`architecture-contract.json` (AD-11, issue #47), since the clean tree already satisfies both;
+these rows overlay only the violating file, not the rule.
+"""
 
 from __future__ import annotations
 
-from fixtures.demo_catalog_support import HEADER, Variant, contract_with_rule
+from fixtures.demo_catalog_support import HEADER, Variant
 
-_ROGUE_DATACLASS_MODULE = HEADER + (
+# Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
+ROGUE_DATACLASS_MODULE = HEADER + (
     '"""A dataclass declared outside shop.model.entities, for the placement demo."""\n\n'
     "from __future__ import annotations\n\n"
     "from dataclasses import dataclass\n\n\n"
@@ -23,22 +29,7 @@ _SYMBOL_PLACEMENT = Variant(
     summary="A new shop.model.promotions module declares a dataclass outside "
     "shop.model.entities, the only module MODEL-TYPES-IN-ENTITIES allows for a dataclass "
     "below shop.model (AD-49, AD-58).",
-    files={
-        "shop/model/promotions.py": _ROGUE_DATACLASS_MODULE,
-        "architecture-contract.json": contract_with_rule(
-            {
-                "id": "MODEL-TYPES-IN-ENTITIES",
-                "kind": "symbol_placement",
-                "source": "shop.model",
-                "class_kinds": ["dataclass"],
-                "exact_sources": ["shop.model.entities"],
-                "rationale": "Every order, line and money type shop.model owns lives in one "
-                "module, not scattered across the package.",
-                "provenance": ["docs/architecture/shop.md"],
-                "decided_by": "architect",
-            }
-        ),
-    },
+    files={"shop/model/promotions.py": ROGUE_DATACLASS_MODULE},
     expected_violations=("MODEL-TYPES-IN-ENTITIES",),
     expected_codes=("rule.violated",),
 )
@@ -59,20 +50,7 @@ _BOUNDARY_TYPES = Variant(
     "typed model (AD-58). Restricted to what the annotation string alone decides (issue #9 "
     "part 2): no name is resolved, so only a bare dict/Dict/object or a dict[...]/Dict[...] "
     "generic fires.",
-    files={
-        "shop/app/reports.py": _BROAD_PARAM_MODULE,
-        "architecture-contract.json": contract_with_rule(
-            {
-                "id": "APP-TYPES-NOT-DICT",
-                "kind": "boundary_types",
-                "source": "shop.app",
-                "rationale": "shop.app's functions take and return typed models, never a "
-                "bare dict standing in for one.",
-                "provenance": ["docs/architecture/shop.md"],
-                "decided_by": "architect",
-            }
-        ),
-    },
+    files={"shop/app/reports.py": _BROAD_PARAM_MODULE},
     expected_violations=("APP-TYPES-NOT-DICT",),
     expected_codes=("rule.violated",),
 )

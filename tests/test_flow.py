@@ -134,8 +134,20 @@ def test_flow_carries_the_imports_inside_one_component(tmp_path: Path) -> None:
     # Every inner edge stays inside the component; a crossing edge belongs to flow.edges.
     assert all(source in store.modules and target in store.modules for source, target in inner)
     assert all(edge.import_sites > 0 for edge in store.inner_edges)
-    # AD-24b: observed, not undecided - no decision is owed for a pair inside one component.
-    assert all(edge.state == "observed" and edge.rule_ids == () for edge in store.inner_edges)
+    # AD-24b: observed and undecided, unless a rule scoped below the component names the pair
+    # (test_an_inner_edge_a_rule_names_carries_its_verdict); the tour's own sibling_isolation
+    # and complete_requires (inside) rows (AD-11, issue #47) each decide one inner pair here.
+    decided = {edge: edge.rule_ids for edge in store.inner_edges if edge.rule_ids}
+    assert {(edge.source, edge.target): rule_ids for edge, rule_ids in decided.items()} == {
+        ("shop.store.sqlite", "shop.store.repository"): ("STORE-PEERS-ISOLATED",),
+        ("shop.store.sqlite", "shop.store.codec"): ("store:STORE-REQUIRES-COMPLETE",),
+    }
+    assert all(edge.state == "violation" for edge in decided)
+    assert all(
+        edge.state == "observed" and edge.rule_ids == ()
+        for edge in store.inner_edges
+        if edge not in decided
+    )
     crossing = {(edge.source, edge.target) for edge in flow.edges}
     assert not inner & crossing
 

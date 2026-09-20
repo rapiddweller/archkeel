@@ -5,9 +5,15 @@
 
 from __future__ import annotations
 
-from fixtures.demo_catalog_dependencies import REPOSITORY_WITH_MONEY_IMPORT, SHOP_EXTRA
+from fixtures.demo_catalog_dependencies import (
+    ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE,
+    REPOSITORY_WITH_MONEY_IMPORT,
+    SHOP_EXTRA,
+    STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
+)
 from fixtures.demo_catalog_interfaces import MAIN_WITH_UNDERSCORE_IMPORT
 from fixtures.demo_catalog_support import HEADER, Variant
+from fixtures.demo_catalog_types import ROGUE_DATACLASS_MODULE
 
 _TOUR_RENDER_TEXT = HEADER + (
     '"""Text projection of an order."""\n\n'
@@ -152,31 +158,64 @@ _TOUR_APP_MAINTENANCE = HEADER + (
     "    except Exception:\n"
     "        raise\n"
 )
+_TOUR_STORE_SQLITE = HEADER + (
+    '"""A maintenance-only view of the JSON store, kept out of ordinary order use '
+    'cases."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from dataclasses import dataclass\n"
+    "from pathlib import Path\n\n"
+    "from shop.store.codec import DOCUMENT_VERSION\n"
+    "from shop.store.repository import OrderRepository\n\n"
+    "# A peer reach into repository, for the tour's sibling_isolation row.\n"
+    "_OWNER = OrderRepository.__name__\n"
+    "# An uncovered reach into codec, for the tour's complete_requires (inside) row: api's own\n"
+    "# requires grants it only the repository peer above.\n"
+    "_FORMAT_VERSION = DOCUMENT_VERSION\n\n\n"
+    "@dataclass(frozen=True, slots=True)\n"
+    "class Connection:\n"
+    "    path: Path\n\n\n"
+    "def vacuum(connection: Connection) -> None:\n"
+    '    """Remove empty leftover order files from the store directory."""\n'
+    '    for candidate in connection.path.glob("*.json"):\n'
+    "        if candidate.stat().st_size == 0:\n"
+    "            candidate.unlink()\n"
+)
 _TOUR = Variant(
     id="tour",
     section="showcase",
     item="tour",
-    summary="Every Class A rule kind fires at least once in a single run: a forbidden "
-    "render->store pair, a store->Money target_symbol violation, an app->store.sqlite "
-    "runtime reach, an app->store.backend reach one package level deeper, an app->json "
-    "scope violation, a cli->render underscore reach, a "
+    summary="Every Class A rule kind that can be violated fires at least once in a single run "
+    "(allowed_dependency structurally cannot, AD-11): a forbidden render->store pair, a "
+    "store->Money target_symbol violation, an app->store.sqlite runtime reach, an "
+    "app->store.backend reach one package level deeper, an app->json scope violation, an "
+    "app->shop_analytics reach no rule names at all, a cli->render underscore reach, a "
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
     "assert, an eval and a getattr, Any in the shop.model serialisation boundary, a "
-    "broad except outside the one exactly exempted function, and an "
-    "unassigned module. Real run: 13 rule ids and 14 violations, since CONSTRUCT-NO-DYNAMIC "
-    "answers both the eval and the getattr; at validate time the same 14 rule.violated "
-    "diagnostics plus 2 closed_world.observed_forbidden pairs (model->render, "
-    "render->store) and 1 graph.drift, since the marked graph never declared either edge.",
+    "broad except outside the one exactly exempted function, an "
+    "unassigned module, a store.sqlite->store.repository peer reach (the inside contract "
+    "grants api that same edge, so the level below stays silent there), a store.sqlite-"
+    ">store.codec reach the inside contract does not grant (so the level below reports that "
+    "one itself), a dataclass declared outside shop.model.entities, and a bare-object "
+    "parameter on the same app.orders facade already used for the store.sqlite reach. Real "
+    "run: 18 rule ids and 19 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
+    "and the getattr; at validate time the same 19 rule.violated diagnostics plus 2 "
+    "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
+    "since the marked graph never declared either edge.",
     files={
         "shop/render/text.py": _TOUR_RENDER_TEXT,
         "shop/app/orders.py": _TOUR_APP_ORDERS,
+        "shop/app/analytics.py": ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE,
         "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+        "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
+        "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
         "shop/model/entities.py": _TOUR_MODEL_ENTITIES,
+        "shop/model/promotions.py": ROGUE_DATACLASS_MODULE,
         "shop/app/maintenance.py": _TOUR_APP_MAINTENANCE,
         "shop/extra.py": SHOP_EXTRA,
     },
     expected_violations=(
+        "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "COMPONENT-NO-CYCLES",
         "CONSTRUCT-NO-ANY",
@@ -189,13 +228,22 @@ _TOUR = Variant(
         "DEP-MODEL-NO-RENDER",
         "DEP-RENDER-NO-STORE",
         "DEP-STORE-NO-MONEY",
+        "EXTERNAL-COMPLETE",
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
+        "MODEL-TYPES-IN-ENTITIES",
+        "STORE-PEERS-ISOLATED",
+        "store:STORE-REQUIRES-COMPLETE",
     ),
     expected_codes=(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
