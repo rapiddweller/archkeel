@@ -4,6 +4,7 @@
 import ast
 import json
 import subprocess
+import tomllib
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -130,6 +131,31 @@ def test_every_analyzer_collector_is_a_declared_peer() -> None:
         for member in sorted(declared)
         if not (ROOT / f"src/{member.replace('.', '/')}.py").is_file()
     ] == []
+
+
+def test_sdist_ships_library_and_build_inputs_only() -> None:
+    """The sdist promises a runnable test suite only if it ships one that can run.
+
+    It cannot: a tarball has no `.git` for the license-header check above, no pinned
+    interpreters for `fixtures/E-runtime`, no `tools/`, and none of the cross-test imports the
+    suite relies on. A shipped-but-untestable suite would be a second, weaker definition of
+    "tests pass," so `only-include` carries only what rebuilds the wheel (`src`, `schema`) and
+    distributors rebuild the test suite from the Git tag instead (docs/reference.md).
+    """
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    only_include = config["tool"]["hatch"]["build"]["targets"]["sdist"]["only-include"]
+    missing = [entry for entry in only_include if not (ROOT / entry).exists()]
+    assert missing == [], f"only-include names a path the repository does not have: {missing}"
+
+    def is_test_input(entry: str) -> bool:
+        return entry.partition("/")[0] in {"tests", "fixtures", "tools"}
+
+    shipped_test_inputs = [entry for entry in only_include if is_test_input(entry)]
+    assert shipped_test_inputs == [], (
+        "the sdist must not ship a test suite or its fixtures: it cannot run from a tarball "
+        f"(see docs/reference.md), so shipping it half-working is worse than not shipping it; "
+        f"found {shipped_test_inputs}"
+    )
 
 
 def test_tracked_text_has_no_local_absolute_paths() -> None:

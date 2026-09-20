@@ -178,6 +178,9 @@ GitHub Actions runs the complete check and smoke-tests both built distributions.
 Version tags such as `0.1.0` or `v0.1.0` build version `0.1.0` and publish
 through PyPI Trusted Publishing. The `pypi` GitHub environment and matching
 PyPI publisher must be configured before pushing the first release tag.
+The sdist's `only-include` carries only what rebuilds the wheel, `src` and `schema`: the test
+suite needs a Git checkout it cannot have from a tarball, so distributors rebuild it from the
+Git tag instead of receiving it half-working.
 
 ## Release versions
 
