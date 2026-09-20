@@ -801,6 +801,7 @@ class ReviewClaims:
     oversized_components: int | None
     unread_bindings: int | None
     repeated_logic: int | None
+    type_fanin: int | None
 
 
 @dataclass(frozen=True, slots=True)

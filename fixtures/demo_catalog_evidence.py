@@ -123,6 +123,19 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         expected_codes=(),
         evidence="docs/rules.md",
     ),
+    Variant(
+        id="class-d-type-fanin",
+        section="class_d",
+        item="type_fanin",
+        summary="Which types cross the most component boundaries is named in the report and "
+        "never gated on, so no overlay changes the clean sample's findings; measured on the "
+        "clean shop sample itself, the claim names Order and str crossing two component pairs "
+        "each, and on Archkeel itself, object (ir.codec's own JSON boundary) crosses four.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="docs/rules.md",
+    ),
 )
 
 VARIANTS: tuple[Variant, ...] = (

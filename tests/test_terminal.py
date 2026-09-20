@@ -168,13 +168,14 @@ def test_terminal_view_omits_the_agent_decisions_line_when_none_remain() -> None
 
 def test_terminal_view_counts_every_review_claim_without_a_verdict() -> None:
     """AD-35: the command that computes a claim names it, instead of leaving it to the page."""
-    result = RunResult("report", 0, "PASS", "PASS", "n/a", claims=ReviewClaims(2, 3, 0, None))
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", claims=ReviewClaims(2, 3, 0, None, 1))
     summary = report_summary(result)
     assert "2 unreferenced symbol(s)" in summary.claims
     assert "3 component(s) larger than their level" in summary.claims
     assert "0 unread binding(s)" in summary.claims
     # AD-5: a claim that could not be derived says so; it never reports zero findings.
     assert "unknown repetition(s) outside an owner" in summary.claims
+    assert "1 type(s) crossing many component boundaries" in summary.claims
     assert summary.decision.label == "PASS" and result.exit_code == 0
     assert "2 unreferenced symbol(s)" in _render(result, summary, 200)
     assert all(len(line) <= 80 for line in _render(result, summary, 80).splitlines())

@@ -367,6 +367,28 @@ claim removes that ambiguity without turning it into a verdict.
   `render` and `host` stay below on both. Opening a level for one of them is `archkeel init
   --source <path> --namespace <package>`, which drafts that inside as a contract of its own (AD-20).
 
+`cross-component type fan-in` is the fifth claim (issue #9, AD-59). Its signals are the `symbols`
+and `imports` sections: `imports` for which function or method a cross-component call reaches,
+`symbols` for that function's own parameter and return annotations. The derivation groups every
+crossing function once per ordered component pair it is called across, however many import sites
+name it, collects the raw annotation string at every parameter and return position, and names
+every annotation string that is passed across two or more distinct component pairs, most-crossed
+first.
+
+- **Measurement:** the annotated positions examined, and the candidates beside them.
+- **Determinism:** both signals come from one observation and one derivation, so the claim is
+  deterministic wherever the analyzer ran; it never becomes a verdict or an exit code.
+- **Blind spots:** the annotation is the raw string a function declares, not a resolved type, so
+  `Order` from one module and an unrelated `Order` from another are the same candidate; a call
+  reached only through a re-export whose chain the scan cannot expand is invisible the way
+  `interface_boundary`'s own blind spot is. A type that crosses many boundaries is not itself a
+  problem, only the material a broad-context smell would show up in.
+- **Example:** on the shop sample `Order` and `str` each cross two component pairs. On Archkeel
+  itself `str`, `bool`, `bytes` and `object` are the widest, all builtins or `ir.codec`'s own
+  untyped-JSON boundary, and `Observation` and `RunResult` follow at three: Archkeel's shared IR
+  model crossing widely is the architecture working as declared, not a service-locator context
+  smuggled through a facade, which is the reading the claim leaves to the architect (AD-26).
+
 ## Migrating from 1.1.0
 
 Contract 2.0 keeps `components` and `rules` at the top level. Move every class-C declaration
