@@ -71,11 +71,11 @@ def _decision_badge(result: RunResult) -> Badge:
 
 
 def _agent_decisions_line(result: RunResult) -> str:
-    """Name agent-decided rules still awaiting the architect (AD-16); silent when none."""
+    """Name agent-decided rules, edges and interfaces awaiting the architect (AD-50)."""
     if not result.agent_decisions or not result.agent_decisions[0]:
         return ""
     agent, total = result.agent_decisions
-    return f"\n\n{agent} of {total} rules decided by the agent, awaiting the architect."
+    return f"\n\n{agent} of {total} decisions made by the agent, awaiting the architect."
 
 
 def _open_decisions_lines(result: RunResult) -> str:

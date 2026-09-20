@@ -1,0 +1,35 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect",
+      "public": ["sample.core"]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "role": "component",
+      "packages": ["sample.cli"],
+      "responsibilities": [],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "agent",
+      "public": [],
+      "requires": [
+        {
+          "component": "core",
+          "rationale": "The CLI reads the core model.",
+          "decided_by": "architect"
+        }
+      ]
+    }
+  ],
+  "rules": []
+}

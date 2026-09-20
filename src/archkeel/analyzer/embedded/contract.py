@@ -17,6 +17,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
+    ContractComponent,
     ContractDeclarations,
     EvidenceClass,
     ExternalDependencyScopeRule,
@@ -162,6 +163,24 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
     )
 
 
+def _requires_entries(component: ContractComponent) -> list[RecordData]:
+    """Each declared edge with the decider it records (AD-50).
+
+    The entry's own `decided_by` wins over the component's, so the record shows the
+    effective decider and no reader resolves the default a second time.
+    """
+    entries: list[RecordData] = []
+    for entry in sorted(component.requires or (), key=lambda item: item.component):
+        decided_by = entry.decided_by or component.decided_by
+        entries.append(
+            {
+                "component": entry.component,
+                **({"decided_by": decided_by} if decided_by is not None else {}),
+            }
+        )
+    return entries
+
+
 def project_inside_declarations(parent: str, contract: ArchitectureContract) -> list[RawRecord]:
     """Project one component's inside contract as declarations of a kind of its own (AD-34).
 
@@ -188,8 +207,11 @@ def project_inside_declarations(parent: str, contract: ArchitectureContract) -> 
             provenance=list(component.provenance),
             data={
                 "parent_id": parent,
-                "requires": sorted(entry.component for entry in component.requires or ()),
+                "requires": _requires_entries(component),
                 **({"public": sorted(component.public)} if component.public is not None else {}),
+                **(
+                    {"decided_by": component.decided_by} if component.decided_by is not None else {}
+                ),
             },
         )
         for component in contract.components
@@ -232,6 +254,12 @@ def project_declarations(contract: ArchitectureContract) -> list[RawRecord]:
                     **(
                         {"public": sorted(component.public)} if component.public is not None else {}
                     ),
+                    **(
+                        {"decided_by": component.decided_by}
+                        if component.decided_by is not None
+                        else {}
+                    ),
+                    "requires": _requires_entries(component),
                     "role": component.role.value,
                     "responsibilities": sorted(component.responsibilities),
                     "forbidden_responsibilities": sorted(component.forbidden_responsibilities),

@@ -170,6 +170,9 @@ class ContractComponent:
     # A reference to a file, never a parent or child link: the levels stay separate contracts.
     inside: str | None = None
     public: tuple[str, ...] | None = None
+    # AD-50: who decided this component's `public` list, and every `requires` entry that
+    # names nobody of its own. None records no attribution, the way a contract read before.
+    decided_by: Literal["architect", "agent"] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,11 +181,14 @@ class RequiredComponent:
 
     `through` narrows the edge to module prefixes of the required component (AD-42); empty
     means its whole public surface, the way the entry always read before.
+
+    `decided_by` names who decided this edge (AD-50); it overrides the component's own.
     """
 
     component: str
     rationale: str
     through: tuple[str, ...] = ()
+    decided_by: Literal["architect", "agent"] | None = None
 
 
 def contract_relative_path(value: str) -> PurePosixPath | None:

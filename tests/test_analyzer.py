@@ -167,6 +167,46 @@ def test_rule_projection_writes_decided_by(tmp_path: Path) -> None:
     assert declared["RULE-AGENT"] == "agent"
 
 
+def test_component_projection_writes_who_decided_each_edge_and_the_public_list(
+    tmp_path: Path,
+) -> None:
+    """AD-50: an edge and an interface reach the records with their decider resolved.
+
+    The entry's own `decided_by` wins over the component's, which covers the rest of its
+    `requires` list and its `public` list; a component that names neither attributes nothing.
+    """
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component("core", public=["sample.core"]) | {"decided_by": "architect"},
+            _component("api", public=[]),
+            _component("cli")
+            | {
+                "decided_by": "agent",
+                "requires": [
+                    {"component": "core", "rationale": "Probe.", "decided_by": "architect"},
+                    {"component": "api", "rationale": "Probe."},
+                ],
+            },
+        ],
+        "rules": [],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    records = {
+        record.id: record
+        for record in result.observation.records("declarations") or ()
+        if record.kind == "component_responsibility"
+    }
+    assert records["COMP-CORE"].data.get("decided_by") == "architect"
+    assert records["COMP-API"].data.get("decided_by") is None
+    assert [
+        (entry.get("component"), entry.get("decided_by"))
+        for entry in records["COMP-CLI"].data.get("requires")
+    ] == [("api", "agent"), ("core", "architect")]
+
+
 def _inside_component(label: str, requires: list[str]) -> dict[str, object]:
     return {
         "id": f"COMP-{label.upper()}",
@@ -261,7 +301,9 @@ def test_a_declared_inside_becomes_a_level_of_its_own(tmp_path: Path) -> None:
     }
     assert sorted(records) == ["core:COMP-A", "core:COMP-B"]
     assert records["core:COMP-A"].data.get("parent_id") == "core"
-    assert records["core:COMP-A"].data.get("requires") == ("b",)
+    assert [entry.get("component") for entry in records["core:COMP-A"].data.get("requires")] == [
+        "b"
+    ]
     assert records["core:COMP-A"].subjects == ("sample.core.a",)
     # The landmine AD-34 names: a shared kind would let two levels claim one module, and
     # `owner_of` answers None wherever two components claim the same one.
