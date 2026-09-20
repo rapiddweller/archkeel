@@ -1404,6 +1404,12 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     payload["open_decisions"] = [
         _open_decision_payload(decision) for decision in result.open_decisions
     ]
+    # report_filter needs no rebuild: it holds no RecordData, so asdict's own recursion (null
+    # when unset) already matches every other optional RunResult field's JSON shape.
+    if result.filtered_violations is not None:
+        payload["filtered_violations"] = [
+            _record_payload(record) for record in result.filtered_violations
+        ]
     if result.observation is not None:
         payload["observation"] = observation_payload(result.observation)
     if result.coverage is not None:

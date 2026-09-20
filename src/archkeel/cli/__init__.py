@@ -96,13 +96,18 @@ def build_parser() -> _Parser:
         description=(
             "Scans the configured Python sources, evaluates the declared rules and writes the\n"
             "canonical architecture.json with an HTML report next to it. Report never rejects:\n"
-            "a rule violation is a FAIL verdict with exit code 0.\n\n"
+            "a rule violation is a FAIL verdict with exit code 0. architecture.json always\n"
+            "carries every violation; --only, --rule and --component narrow what the HTML page\n"
+            "and --json's own filtered_violations show, never what was judged (AD-60).\n\n"
             "Examples:\n"
             "  archkeel report\n"
-            "  archkeel report --output build/architecture.json --json\n\n"
+            "  archkeel report --output build/architecture.json --json\n"
+            "  archkeel report --only violations --rule DEP-STORE-NO-MONEY --json\n"
+            "  archkeel report --component store\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
-            "  2  not checked: configuration, tool or source evidence is missing\n\n"
+            "  2  not checked: configuration, tool or source evidence is missing, or --rule or\n"
+            "     --component names a rule or component this contract does not declare\n\n"
             f"Rules: {_DOCS}/rules.md"
         ),
     )
@@ -110,6 +115,23 @@ def build_parser() -> _Parser:
         report,
         "Path of architecture.json; the HTML report is written next to it. "
         "Default: test-artifacts/architecture/architecture.json.",
+    )
+    report.add_argument(
+        "--only",
+        choices=["violations"],
+        help="Show only the declared-rule violations table: hide component flow, component "
+        "communication, review claims and size and coupling, for a small review surface on a "
+        "large repository. --json also stops here, without those sections' data (AD-60).",
+    )
+    report.add_argument(
+        "--rule",
+        help="Show only violations naming this rule id - top-level, or <component>:<rule id> "
+        "for one an inside declares (AD-36). Unknown to this contract: exit 2.",
+    )
+    report.add_argument(
+        "--component",
+        help="Show only violations whose crossing touches this component, as source or "
+        "target. Unknown to this contract: exit 2.",
     )
 
     validate = commands.add_parser(
@@ -286,7 +308,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command == "report":
                 config = load_config(root)
                 subject = str(root)
-                result, architecture = run_report(root, config=config, analyzer=observe)
+                result, architecture = run_report(
+                    root,
+                    config=config,
+                    analyzer=observe,
+                    only_violations=args.only == "violations",
+                    rule=args.rule,
+                    component=args.component,
+                )
                 if architecture is not None:
                     artifact = args.output or root / "test-artifacts/architecture/architecture.json"
                     artifact.parent.mkdir(parents=True, exist_ok=True)

@@ -92,6 +92,25 @@ def _open_decisions_lines(result: RunResult) -> str:
     return f"{header} Heaviest observed:\n{lines}"
 
 
+def _report_filter_line(result: RunResult) -> str:
+    """Name the filter narrowing a rendered report, so a partial count is never read as the
+    total (AD-60). The one sentence terminal and HTML share; JSON carries the same filter in
+    `report_filter`, so all three name it the same way."""
+    report_filter = result.report_filter
+    if report_filter is None:
+        return ""
+    facets = []
+    if report_filter.only_violations:
+        facets.append("only violations")
+    if report_filter.rule is not None:
+        facets.append(f"rule {report_filter.rule}")
+    if report_filter.component is not None:
+        facets.append(f"component {report_filter.component}")
+    shown = len(result.filtered_violations) if result.filtered_violations is not None else 0
+    total = result.measurements.scalars.violations if result.measurements is not None else shown
+    return f"\n\nFiltered ({', '.join(facets)}): {shown} of {total} violation(s) shown."
+
+
 def _claims_line(result: RunResult) -> str:
     """Name what each review claim found, never as a verdict (AD-26, AD-35); silent when absent."""
     claims = result.claims
@@ -161,7 +180,9 @@ def report_summary(result: RunResult) -> Summary:
             expectation_reason,
         ),
     )
-    sentence += _open_decisions_lines(result) + _agent_decisions_line(result)
+    sentence += (
+        _report_filter_line(result) + _open_decisions_lines(result) + _agent_decisions_line(result)
+    )
     return Summary(_decision_badge(result), sentence, verdicts, (), _claims_line(result))
 
 

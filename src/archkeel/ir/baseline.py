@@ -15,7 +15,15 @@ from collections import Counter
 from dataclasses import dataclass
 
 from .interfaces import component_owners, owner_of
-from .model import Observation, Record, text_value
+from .model import (
+    RULE_KINDS,
+    Diagnostic,
+    DiagnosticError,
+    Observation,
+    Record,
+    ReportFilter,
+    text_value,
+)
 
 BASELINE_SCHEMA_VERSION = "1.0.0"
 
@@ -100,6 +108,81 @@ def violation_rows(observation: Observation) -> tuple[ViolationRow, ...]:
             )
         )
     return tuple(rows)
+
+
+def declared_rule_ids(observation: Observation) -> frozenset[str]:
+    """Every rule id the contract declares at either level, the domain `--rule` validates against.
+
+    Reads the DECLARED_RULE records themselves, not `violation_rows`: a rule with no violation
+    is still a valid filter target, and an id this returns but `violation_rows` never cites
+    simply selects nothing, which is not the same as naming a rule nobody declared (AD-60). An
+    inside's rule already carries the `<component>:<rule id>` prefix `report.py`'s
+    `_owned_rules` renamed it to before it reached this observation (AD-36), so this needs no
+    prefix logic of its own.
+    """
+    return frozenset(
+        record.id
+        for record in observation.records("declarations") or ()
+        if record.kind in RULE_KINDS
+    )
+
+
+def declared_components(observation: Observation) -> frozenset[str]:
+    """Every top-level component label, the domain `--component` validates against (AD-60).
+
+    `ViolationRow.source_component`/`target_component` are always this top level's own labels
+    (`ir.interfaces.component_owners` reads only `component_responsibility`, never a
+    sub-component's `inside_component_responsibility`), so a sub-component name is correctly
+    unknown here rather than silently matching nothing.
+    """
+    return frozenset(label for label, _ in component_owners(observation))
+
+
+def select_violations(observation: Observation, report_filter: ReportFilter) -> tuple[Record, ...]:
+    """Return the violation records `report_filter` selects, in record order (AD-60).
+
+    Built on `violation_rows` (AD-54), the one place a violation's rule ids and component pair
+    are derived, so the HTML table and `--json`'s `filtered_violations` can never select a
+    different row than the other. `rule` and `component` each narrow independently; a
+    violation matches `component` on either side of the import it crosses, source or target,
+    and a violation that crosses no pair (a construct, an unassigned module, a cycle) matches
+    no `component` filter at all. Raises `DiagnosticError` for a `rule` or `component` naming
+    nothing this observation declares, so a typo reports an error rather than an empty page a
+    reader could mistake for a clean one.
+    """
+    known_rules = declared_rule_ids(observation)
+    if report_filter.rule is not None and report_filter.rule not in known_rules:
+        raise DiagnosticError(
+            Diagnostic(
+                "filter_unknown",
+                f"--rule {report_filter.rule}",
+                f"{report_filter.rule!r} is not a rule id this contract declares.",
+                "Read violations_by_rule from archkeel report --json for the declared rule "
+                "ids, an inside rule included as <component>:<rule id>.",
+            )
+        )
+    known_components = declared_components(observation)
+    if report_filter.component is not None and report_filter.component not in known_components:
+        raise DiagnosticError(
+            Diagnostic(
+                "filter_unknown",
+                f"--component {report_filter.component}",
+                f"{report_filter.component!r} is not a component this contract declares.",
+                "Read violations_by_component_pair from archkeel report --json, or the "
+                "contract's own component labels, for a valid --component value.",
+            )
+        )
+    return tuple(
+        record
+        for row, record in zip(
+            violation_rows(observation), observation.records("violations") or (), strict=True
+        )
+        if (report_filter.rule is None or report_filter.rule in row.fingerprint.rules)
+        and (
+            report_filter.component is None
+            or report_filter.component in (row.source_component, row.target_component)
+        )
+    )
 
 
 def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:

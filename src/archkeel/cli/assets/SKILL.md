@@ -127,6 +127,16 @@ the architect's decision, not the agent's (AD-52).
 - Run `archkeel report --json` before submitting any change. A rule violation does not
   change the exit code; read the `declared_rules` verdict. Exit 2 means the evidence is
   incomplete; fix the diagnostic before trusting any verdict.
+- On a large repository, `report --only violations --rule <id> --component <label> --json`
+  narrows the review surface to a slice you can actually read: `--only violations` drops
+  component flow, communication, claims and structure from the HTML page; `--rule` and
+  `--component` narrow the violations table further and combine as an intersection.
+  `--component` matches either side of a crossing, source or target. This changes only what is
+  shown - `declared_rules`, the violation counts and the exit code stay computed from every
+  violation - and a filtered `--json` result says so in its own `report_filter` field, so never
+  read a filtered `filtered_violations` count as the repository's total; read the unfiltered
+  `violations` measurement for that. A `--rule` or `--component` you misspelled is a named exit
+  2, not a silently empty page.
 - If a rule fails, fix the code so the rule passes.
 - Never weaken or delete a rule just to make a violation disappear, unless the component
   owner explicitly approves the change to the contract. A silently loosened rule hides the

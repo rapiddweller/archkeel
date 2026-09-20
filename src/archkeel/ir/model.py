@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
-from typing import Literal, TypeAlias, get_args
+from typing import Final, Literal, TypeAlias, get_args, get_type_hints
 
 from .measurements import Measurements
 
@@ -445,6 +445,15 @@ ArchitectureRule: TypeAlias = (
     | BoundaryTypesRule
 )
 
+# Every rule kind the ArchitectureRule union names, read by reflection so a new rule kind is
+# recognized without a second hand-written list (AD-16). `ir.decisions` and `ir.baseline` both
+# read this one set instead of each keeping their own (AD-60).
+RULE_KINDS: Final[frozenset[str]] = frozenset(
+    kind
+    for rule_type in get_args(ArchitectureRule)
+    for kind in get_args(get_type_hints(rule_type)["kind"])
+)
+
 
 # The symbol kinds that carry a signature. One set, because a record's `kind` and its
 # older `symbol_category` field hold the same three values and two copies may drift apart.
@@ -565,6 +574,7 @@ DiagnosticKind: TypeAlias = Literal[
     "incomparable_runtime",
     "contract_invalid",
     "existing_files",
+    "filter_unknown",
 ]
 
 # AD-12: sixteen findings shared one kind and differed only in prose.
@@ -817,6 +827,24 @@ class ViolationCounts:
 
 
 @dataclass(frozen=True, slots=True)
+class ReportFilter:
+    """A render-time projection of one report's violations, never a second observation (AD-60).
+
+    `only_violations` and the `rule`/`component` facets narrow which violation records a
+    rendered report shows; `architecture.json`, `declared_rules` and the exit code stay
+    computed from every violation regardless, so a filtered run judges exactly what an
+    unfiltered one would. `rule` matches a fingerprint's rule id exactly, top-level or the
+    `<component>:<rule id>` an inside declares (AD-36); `component` matches either side of an
+    import violation's crossing, source or target, since a filter narrowing to one area wants
+    every violation touching it either way.
+    """
+
+    only_violations: bool = False
+    rule: str | None = None
+    component: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
@@ -845,6 +873,11 @@ class RunResult:
     violations_by_component_pair: tuple[tuple[str, str, int], ...] | None = None
     # AD-38: `init`'s own drafted components with their measured size, from `draft_contract`.
     draft_sizes: tuple[DraftedComponentSize, ...] | None = None
+    # AD-60: the filter behind a rendered `report`, or None when it shows every violation.
+    report_filter: ReportFilter | None = None
+    # AD-60: the violation records `report_filter` selects, the same ones the HTML table
+    # shows; None whenever no filter was given, so an unfiltered result's shape is unchanged.
+    filtered_violations: tuple[Record, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

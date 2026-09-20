@@ -10,15 +10,15 @@ validation and a report rendered later from `architecture.json` bytes share one 
 from __future__ import annotations
 
 from collections import Counter
-from typing import Final, get_args, get_type_hints
+from typing import Final
 
 from .baseline import violation_rows
 from .bindings import unread_bindings
 from .duplication import repeated_logic
 from .interfaces import component_owners, owner_of
 from .model import (
+    RULE_KINDS,
     AllowedDependencyRule,
-    ArchitectureRule,
     ComparisonStatus,
     ForbiddenDependencyRule,
     JsonValue,
@@ -38,14 +38,6 @@ _DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
 
 # The two kinds a component declaration reaches the observation under, one per level (AD-34).
 _COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_responsibility"})
-
-# Every rule kind the ArchitectureRule union names, read by reflection so a new rule kind
-# is counted here without a second hand-written list (AD-16).
-_RULE_KINDS: Final[frozenset[str]] = frozenset(
-    kind
-    for rule_type in get_args(ArchitectureRule)
-    for kind in get_args(get_type_hints(rule_type)["kind"])
-)
 
 # The provenance every drafted dependency option cites; init writes this file alongside
 # the contract, so the path already exists by the time an architect copies an option in.
@@ -219,7 +211,7 @@ def agent_decisions(observation: Observation) -> tuple[int, int]:
     """
     deciders: list[JsonValue] = []
     for record in observation.records("declarations") or ():
-        if record.kind in _RULE_KINDS:
+        if record.kind in RULE_KINDS:
             deciders.append(record.data.get("decided_by"))
         elif record.kind in _COMPONENT_KINDS:
             deciders.extend(_component_deciders(record))

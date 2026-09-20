@@ -87,6 +87,7 @@ run shows many violations together; every other row isolates one item.
 | validation | timeout | validation-timeout | tested only | - | - | tests/test_analyzer.py |
 | validation | incomparable_runtime | validation-incomparable-runtime | tested only | - | - | tests/test_runtime_delta.py |
 | validation | existing_files | validation-existing-files | tested only | - | - | tests/test_onboarding.py |
+| validation | filter_unknown | validation-filter-unknown | tested only | - | - | tests/test_report_filter.py |
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
 | protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |
