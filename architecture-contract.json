@@ -248,7 +248,8 @@
       "source": "archkeel",
       "constructs": ["any_annotation"],
       "allowed_sources": ["archkeel.ir.codec", "archkeel.analyzer.embedded"],
-      "rationale": "A typed boundary is the evidence; Any is allowed only where JSON enters, in the codec that decodes it and the collectors that write it (AD-2).",
+      "exact_sources": ["archkeel.ir.widening._DataclassInstance.__dataclass_fields__"],
+      "rationale": "A typed boundary is the evidence; Any is allowed only where JSON enters, in the codec that decodes it and the collectors that write it (AD-2). The one exact exemption is structural, not a JSON boundary: _DataclassInstance mirrors _typeshed.DataclassInstance, whose own __dataclass_fields__ is Any-valued because a dataclass's fields have no one shared type (AD-62).",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     },

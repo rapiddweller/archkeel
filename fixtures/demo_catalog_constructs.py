@@ -69,7 +69,10 @@ _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
     + (
         '"""Any-annotation probe for the architecture demo."""\n\n'
         "from __future__ import annotations\n\n"
-        "from typing import Any\n\n\n"
+        "from typing import Any\n\n"
+        # AD-62: a module-level annotated variable is a second owner shape the parameter case
+        # alone never exercised, since the analyzer once left it unscoped and blind.
+        "VALUE: dict[str, Any] = {}\n\n\n"
         "def widen(value: Any) -> str:\n"
         "    return str(value)\n"
     ),
@@ -160,6 +163,12 @@ _CONSTRUCT_RULE: dict[ForbiddenConstructKind, str] = {
     )
     for kind in ForbiddenConstructKind
 }
+# any_annotation's probe carries two owner shapes (a module variable and a parameter), so it
+# alone fires its rule twice; every other probe fires once.
+_CONSTRUCT_VIOLATION_COUNT: dict[ForbiddenConstructKind, int] = {
+    kind: 2 if kind is ForbiddenConstructKind.ANY_ANNOTATION else 1
+    for kind in ForbiddenConstructKind
+}
 _CONSTRUCT_VARIANTS = tuple(
     Variant(
         id=f"class-a-construct-{kind.value}",
@@ -167,8 +176,8 @@ _CONSTRUCT_VARIANTS = tuple(
         item=f"forbidden_construct:{kind.value}",
         summary=f"A new shop.model probe module uses {kind.value}, firing {_CONSTRUCT_RULE[kind]}.",
         files={f"shop/model/probe_{kind.value}.py": _CONSTRUCT_SOURCE[kind]},
-        expected_violations=(_CONSTRUCT_RULE[kind],),
-        expected_codes=("rule.violated",),
+        expected_violations=(_CONSTRUCT_RULE[kind],) * _CONSTRUCT_VIOLATION_COUNT[kind],
+        expected_codes=("rule.violated",) * _CONSTRUCT_VIOLATION_COUNT[kind],
     )
     for kind in ForbiddenConstructKind
 )

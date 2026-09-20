@@ -189,6 +189,59 @@ def _boundary_annotation_signals(
     return items
 
 
+def _annassign_owner(scope: str, target: ast.expr) -> str:
+    """Qualify an annotated target by the scope it is written in (AD-62).
+
+    A plain `Name` names itself under `scope`; any other target (`self.x`, `a.b`, `a[0]`) is
+    rendered by its own source text instead of being resolved to what it might refer to --
+    `self` is never read as the enclosing class -- so two different lvalue shapes can never
+    collide under one owner string, and a reader sees exactly what was written.
+    """
+    text = annotation_text(target)
+    return f"{scope}.{text}" if text else scope
+
+
+def _walk_typing_signals(
+    module: ParsedModule,
+    node: ast.AST,
+    scope: str,
+    evidence: dict[str, RawEvidence],
+    items: list[RawRecord],
+) -> None:
+    """Recurse through `node` carrying the enclosing scope, the way `symbols.py` builds a
+    qualified name by tracking its class/function chain instead of a flat `ast.walk` that
+    forgets which scope each node sits in the moment it is found.
+    """
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.AnnAssign):
+            owner = _annassign_owner(scope, child.target)
+            items.extend(
+                _annotation_signals(module, child, child.annotation, owner=owner, evidence=evidence)
+            )
+        elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            owner = f"{scope}.{child.name}"
+            for argument in [*child.args.posonlyargs, *child.args.args, *child.args.kwonlyargs]:
+                items.extend(
+                    _annotation_signals(
+                        module,
+                        argument,
+                        argument.annotation,
+                        owner=f"{owner}:{argument.arg}",
+                        evidence=evidence,
+                    )
+                )
+            items.extend(
+                _annotation_signals(
+                    module, child, child.returns, owner=f"{owner}:return", evidence=evidence
+                )
+            )
+            _walk_typing_signals(module, child, owner, evidence, items)
+        elif isinstance(child, ast.ClassDef):
+            _walk_typing_signals(module, child, f"{scope}.{child.name}", evidence, items)
+        else:
+            _walk_typing_signals(module, child, scope, evidence, items)
+
+
 def collect_typing_signals(
     modules: Sequence[ParsedModule],
     calls: Sequence[RawRecord],
@@ -198,31 +251,7 @@ def collect_typing_signals(
 ) -> list[RawRecord]:
     items: list[RawRecord] = []
     for module in modules:
-        for node in ast.walk(module.tree):
-            if isinstance(node, ast.AnnAssign):
-                owner = annotation_text(node.target) or module.module
-                items.extend(
-                    _annotation_signals(
-                        module, node, node.annotation, owner=owner, evidence=evidence
-                    )
-                )
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                owner = f"{module.module}.{node.name}"
-                for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
-                    items.extend(
-                        _annotation_signals(
-                            module,
-                            argument,
-                            argument.annotation,
-                            owner=f"{owner}:{argument.arg}",
-                            evidence=evidence,
-                        )
-                    )
-                items.extend(
-                    _annotation_signals(
-                        module, node, node.returns, owner=f"{owner}:return", evidence=evidence
-                    )
-                )
+        _walk_typing_signals(module, module.tree, module.module, evidence, items)
         items.extend(_type_ignore_signals(module, evidence))
     items.extend(_dynamic_call_signals(calls, evidence))
     items.extend(_boundary_annotation_signals(imports, symbols))
