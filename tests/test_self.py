@@ -15,6 +15,7 @@ import pytest
 from archkeel.check.onboarding import draft_contract
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
+    TARGET_GRAPH_MARKER,
     closed_world_diagnostics,
     graph_diagnostics,
     rationale_diagnostics,
@@ -195,6 +196,25 @@ def test_contract_rationales_explain_more_than_the_rule() -> None:
 
 def test_component_graph_matches_observed_edges(self_observation: Observation) -> None:
     assert graph_diagnostics(_contract(), self_observation, _architecture_documents()) == ()
+
+
+def test_self_architecture_page_draws_both_the_observed_and_target_graph() -> None:
+    """AD-57 leaves the target marker optional for every project but this one.
+
+    Archkeel's own target is derivable from `architecture-contract.json`'s `requires` entries
+    at no cost, so the repository that ships `--write-graph` should be seen using it on itself;
+    nothing but this test would notice the marker quietly going missing again. Whether the
+    target block's edges actually match `target_component_edges` is not re-checked here:
+    `test_component_graph_matches_observed_edges` above already calls `graph_diagnostics` on
+    this same page, and `graph_diagnostics` walks both markers (AD-57), so a drifted target
+    graph already fails there as a `graph.drift` diagnostic naming the target marker.
+    """
+    page = (ROOT / "docs/architecture/archkeel.md").read_text()
+    assert COMPONENT_GRAPH_MARKER in page and TARGET_GRAPH_MARKER in page, (
+        "Archkeel's own architecture page must carry both the observed graph marker and the "
+        "target graph marker: this repository dogfoods archkeel-target-graph (AD-57), so its "
+        "own page cannot silently fall back to only the observed graph."
+    )
 
 
 def test_closed_world_check_detects_a_conflicting_rule(self_observation: Observation) -> None:
