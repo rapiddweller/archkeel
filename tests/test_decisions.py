@@ -14,7 +14,12 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import closed_world_diagnostics
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
-from archkeel.ir.decisions import agent_decisions, dependency_rule_ids, open_decisions
+from archkeel.ir.decisions import (
+    agent_decisions,
+    dependency_rule_ids,
+    open_decisions,
+    violation_counts,
+)
 from archkeel.ir.model import (
     AllowedDependencyRule,
     AnalyzerInfo,
@@ -28,6 +33,7 @@ from archkeel.ir.model import (
     Section,
     SourceInfo,
 )
+from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
 
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
@@ -251,3 +257,45 @@ def test_open_decisions_counts_import_sites_for_components_with_split_or_nested_
         ("alpha", "beta", 1),
     ]
     assert all(item.observed for item in decisions)
+
+
+def test_violation_counts_group_the_report_by_rule_and_by_crossing_pair(tmp_path: Path) -> None:
+    """AD-51: both breakdowns come from the violation records the report already carries."""
+    tour = next(variant for variant in CATALOG if variant.id == "tour")
+    root = _prepare_repo(tmp_path, dict(tour.files))
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+
+    counts = violation_counts(observation)
+
+    violations = observation.records("violations") or ()
+    assert sum(count for _, count in counts.by_rule) == len(violations)
+    assert counts.by_rule == (
+        ("CONSTRUCT-NO-DYNAMIC", 2),
+        ("ASSIGNMENT-COMPLETE", 1),
+        ("COMPONENT-NO-CYCLES", 1),
+        ("CONSTRUCT-NO-ANY", 1),
+        ("CONSTRUCT-NO-ASSERT", 1),
+        ("CONSTRUCT-NO-BROAD-EXCEPT", 1),
+        ("DEP-APP-NO-STORE-BACKEND", 1),
+        ("DEP-APP-NO-STORE-SQLITE", 1),
+        ("DEP-MODEL-NO-RENDER", 1),
+        ("DEP-RENDER-NO-STORE", 1),
+        ("DEP-STORE-NO-MONEY", 1),
+        ("EXTERNAL-JSON-STORE", 1),
+        ("INTERFACE-BOUNDARY", 1),
+    )
+    # Direction comes from each record's source_module/target_module: `subjects` is sorted,
+    # so DEP-STORE-NO-MONEY would otherwise read as model -> store.
+    assert counts.by_component_pair == (
+        ("app", "store", 2),
+        ("cli", "render", 1),
+        ("model", "render", 1),
+        ("render", "store", 1),
+        ("store", "model", 1),
+    )
+    assert (result.violations_by_rule, result.violations_by_component_pair) == (
+        counts.by_rule,
+        counts.by_component_pair,
+    )
