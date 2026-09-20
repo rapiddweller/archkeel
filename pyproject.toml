@@ -64,16 +64,12 @@ packages = ["src/archkeel"]
 "schema" = "archkeel/schema"
 
 [tool.hatch.build.targets.sdist]
-# Archived Phase-4 runs contain external symlinks and are not distribution inputs.
-only-include = [
-    "src", "schema", "tests", "Makefile", "uv.lock",
-    "fixtures/A-dispatch", "fixtures/B-posthoc", "fixtures/C-valid",
-    "fixtures/reproduce_milestone1.py", "fixtures/reproduce_self.py", "fixtures/E-runtime",
-    "fixtures/D-self",
-    "archkeel.toml", "architecture-contract.json", "docs/architecture",
-    "docs/reference.md", "docs/roadmap.md", "docs/report-visual-system.md", "README.md",
-    "docs/assets/archkeel-hero.png", "docs/assets/archkeel-report-preview.png",
-]
+# The sdist ships what rebuilds the wheel, not the test suite: pytest needs a Git checkout
+# (fixtures/E-runtime's two pinned interpreters, tools/, cross-test imports) that a tarball
+# cannot offer, so a shipped-but-skipped suite would only be a second, weaker "tests pass".
+# Distributors rebuild from the Git tag. README.md is the declared readme source, so the
+# tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
+only-include = ["src", "schema", "README.md"]
 
 [dependency-groups]
 # Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.
