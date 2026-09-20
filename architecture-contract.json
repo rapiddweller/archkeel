@@ -29,7 +29,8 @@
         "Quality goal: deterministic and stable."
       ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-CHECK",
@@ -58,7 +59,8 @@
         "Quality goal: deterministic and stable."
       ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-CLI",
@@ -89,7 +91,8 @@
         "Quality goal: a thin composition root."
       ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-HOST",
@@ -109,7 +112,8 @@
         "Quality goal: replaceable."
       ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-ANALYZER",
@@ -131,7 +135,8 @@
         "Quality goal: isolated; changes independently behind its digest."
       ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-RENDER",
@@ -157,7 +162,8 @@
         "Quality goal: replaceable."
       ],
       "forbidden_responsibilities": ["Architecture decisions and persistence."],
-      "provenance": ["docs/architecture/archkeel.md"]
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

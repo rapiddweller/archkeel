@@ -20,9 +20,11 @@ from .model import (
     ArchitectureRule,
     ComparisonStatus,
     ForbiddenDependencyRule,
+    JsonValue,
     Observation,
     OpenDecision,
     Record,
+    RecordData,
     ReviewClaims,
     package_owners,
 )
@@ -30,6 +32,9 @@ from .references import unreferenced_symbols
 from .structure import oversized_insides
 
 _DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
+
+# The two kinds a component declaration reaches the observation under, one per level (AD-34).
+_COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_responsibility"})
 
 # Every rule kind the ArchitectureRule union names, read by reflection so a new rule kind
 # is counted here without a second hand-written list (AD-16).
@@ -180,20 +185,43 @@ def identifier(label: str) -> str:
     return label.upper().replace("_", "-")
 
 
-def agent_decisions(observation: Observation) -> tuple[int, int]:
-    """Count rule declarations `decided_by` the agent against every rule declaration (AD-16).
+def _component_deciders(record: Record) -> list[JsonValue]:
+    """Who decided each edge and the interface this component record declares (AD-50).
 
-    Reads the analyzer's own projected rule declarations, the same evidence `open_decisions`
+    One `requires` entry is one decision, and a declared `public` list is one more, whether
+    it names entries or is empty: declaring no public surface is itself the interface
+    decision. A component that declares no `public` at all recorded none.
+    """
+    requires = record.data.get("requires")
+    entries = requires if isinstance(requires, tuple) else ()
+    deciders = [entry.get("decided_by") for entry in entries if isinstance(entry, RecordData)]
+    if isinstance(record.data.get("public"), tuple):
+        deciders.append(record.data.get("decided_by"))
+    return deciders
+
+
+def agent_decisions(observation: Observation) -> tuple[int, int]:
+    """Count the decisions `decided_by` the agent against every decision recorded (AD-50).
+
+    A decision is one rule declaration (AD-16), one `requires` entry, or one declared
+    `public` list: in a target-first contract the edge and the facade are decisions as much
+    as a rule is, and a review that counted rules alone could not find them. A decision
+    nobody attributed counts in the total alone, because it was still made.
+
+    Reads the analyzer's own projected declarations, the same evidence `open_decisions`
     reads, so validation and a report rendered later from `architecture.json` bytes alone
-    share one derivation with no second contract read. A rule an inside declares counts here,
+    share one derivation with no second contract read. What an inside declares counts here,
     unlike in the pair derivations above: it is a decision somebody made, whichever level it
     governs, and an agent decision nobody reviewed is no less unreviewed one level down.
     """
-    declared_rules = [
-        record for record in observation.records("declarations") or () if record.kind in _RULE_KINDS
-    ]
-    agent = sum(record.data.get("decided_by") == "agent" for record in declared_rules)
-    return agent, len(declared_rules)
+    deciders: list[JsonValue] = []
+    for record in observation.records("declarations") or ():
+        if record.kind in _RULE_KINDS:
+            deciders.append(record.data.get("decided_by"))
+        elif record.kind in _COMPONENT_KINDS:
+            deciders.extend(_component_deciders(record))
+    agent = sum(decider == "agent" for decider in deciders)
+    return agent, len(deciders)
 
 
 def _named(status: ComparisonStatus, candidates: tuple[object, ...]) -> int | None:

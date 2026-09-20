@@ -85,7 +85,9 @@ an example violation.
 must be covered by a `requires` entry of the importing component, and an import no entry covers is a
 violation naming the importing module. An entry may list `through`, module prefixes of the required
 component; then only an import of one of those modules is covered, and an import of any other
-module of that component is the same violation (AD-42). A `through` prefix that names no module
+module of that component is the same violation (AD-42). An entry may also record `decided_by`,
+`architect` or `agent`, which overrides the component's own; who decided an edge changes no
+evaluation and is counted by `agent_decisions` (AD-50). A `through` prefix that names no module
 in the scan is a `reference.namespace` diagnostic in `validate`; one that names a module of a
 different component covers nothing. A component pair absent from the list is decided, not open:
 absence forbids, the way `complete_assignment` makes an unassigned module a violation rather than a
@@ -126,7 +128,11 @@ between unowned modules are invisible; combine it with `complete_assignment`. Im
 `sample.cli` from `sample.core` while `sample.cli` imports `sample.core` is an example violation.
 
 `interface_boundary` has the optional field `include_type_checking` (default `true`) and no
-selector fields; it applies wherever a component declares `public`. A component's `public` list
+selector fields; it applies wherever a component declares `public`. A component's optional
+`decided_by` records who decided that list, and defaults every `requires` entry that records
+none; `agent_decisions` counts one declared `public` list, empty or not, as one decision, and a
+component that declares no `public` at all recorded no interface decision (AD-50). A
+component's `public` list
 holds `pkg.module` entries, which make every non-underscore name of that module public, or its
 `__all__` when the module declares one, and `pkg.module:Name` entries, which make exactly one name
 public. It matches every cross-component import whose target component declares `public` and

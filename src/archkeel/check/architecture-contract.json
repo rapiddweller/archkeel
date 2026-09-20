@@ -35,7 +35,8 @@
         "archkeel.check.run:run_check",
         "archkeel.check.validation:invalid_result",
         "archkeel.check.validation:run_validate"
-      ]
+      ],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-POLICY",
@@ -59,7 +60,8 @@
           "rationale": "A verdict is measured against recorded state, so policy reads snapshots and the runtime profile and never gathers them itself."
         }
       ],
-      "public": []
+      "public": [],
+      "decided_by": "architect"
     },
     {
       "id": "COMP-FOUNDATION",
@@ -82,7 +84,8 @@
       "public": [
         "archkeel.check.git:read_blob",
         "archkeel.check.ports:ScanConfig"
-      ]
+      ],
+      "decided_by": "architect"
     }
   ],
   "rules": [
