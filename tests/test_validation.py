@@ -610,7 +610,9 @@ def test_public_api_name_without_all_is_unknown_to_the_analyzer_only_when_unprov
     result, _ = run_validate(root, SHOP_CONFIG, observe)
     assert result.exit_code == 0
     assert result.diagnostics == ()
-    assert result.declared_rules == "PASS"
+    # AD-72: the entry is what the contract declared and nothing could settle, so the run is
+    # honest about it -- and says so without gating, which the two assertions above hold.
+    assert result.declared_rules == "UNKNOWN"
 
 
 def test_planned_entry_not_yet_built_has_no_diagnostic() -> None:
