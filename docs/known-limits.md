@@ -43,7 +43,8 @@ and never gates: it does not move `coverage.rules`, the diagnostics or the exit 
 UNKNOWN there, not PASS, if an undecided position's reason is a real checker limit (a missing
 annotation, a union, a dotted name and the like), but stays PASS when every undecided position is a
 type owned by no declared component (`external_type`), since that question never applied to begin
-with.
+with. A `public_api` entry the scan could not settle (`api_surface_limit`) moves it the same way,
+for the same reason: the contract declared something and nothing could decide it.
 
 Measured on Archkeel's own facades with the rule widened to the whole `archkeel` namespace, 88
 declared facade functions carry 258 positions:

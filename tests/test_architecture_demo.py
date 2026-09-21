@@ -97,7 +97,7 @@ def test_tour_fires_every_class_a_rule_kind_that_can_violate(
     kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
     tour = next(variant for variant in CATALOG if variant.id == "tour")
     rule_kind = _clean_sample_rule_kind_by_id()
-    _, _, actual_violations = _sample_run(tmp_path_factory, tour)
+    _, _, actual_violations, _ = _sample_run(tmp_path_factory, tour)
     fired_kinds = {rule_kind[rule_id] for rule_id in actual_violations}
     assert kinds - _KIND_CANNOT_VIOLATE <= fired_kinds
 
@@ -220,23 +220,40 @@ def _prepare_repo(tmp_path: Path, files: dict[str, str | None]) -> Path:
     return root
 
 
-def _report_violations(root: Path) -> tuple[str, ...]:
+def _report_findings(root: Path) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
+    """Violations and `unknowns` (kind, subject) pairs, both off one decoded report model.
+
+    `run_validate` never populates `RunResult.observation` on a passing run (only its
+    diagnostics reach the caller), so `expected_unknowns` has nowhere to read from there;
+    `run_report`'s own decoded model already stands in for violations below, and carries the
+    `unknowns` section too, so checking it costs no second scan of the sample.
+    """
     _, architecture = run_report(root, config=CONFIG, analyzer=observe)
     if architecture is None:
-        return ()
+        return (), ()
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
     violations = trace_valid_violations(observation)
-    return tuple(sorted(item.rule_ids[0] if item.rule_ids else item.id for item in violations))
+    actual_violations = tuple(
+        sorted(item.rule_ids[0] if item.rule_ids else item.id for item in violations)
+    )
+    actual_unknowns = tuple(
+        sorted(
+            (record.kind, subject)
+            for record in observation.records("unknowns") or ()
+            for subject in record.subjects
+        )
+    )
+    return actual_violations, actual_unknowns
 
 
 # Keyed by variant id, so a variant several tests need (`tour`) is run once per session, not
 # once per test: `_sample_run` is the only place that materializes and analyzes a sample variant.
-_SampleRun = tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]
+_SampleRun = tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[tuple[str, str], ...]]
 _SAMPLE_RUN_CACHE: dict[str, _SampleRun] = {}
 
 
 def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _SampleRun:
-    """Actual (codes, kinds, violations) from a real run of one sample variant, cached by id."""
+    """Actual (codes, kinds, violations, unknowns) from a real run, cached by id."""
     if variant.id not in _SAMPLE_RUN_CACHE:
         root = _prepare_repo(tmp_path_factory.mktemp(variant.id), dict(variant.files))
         validate_result, _ = run_validate(root, CONFIG, observe)
@@ -244,7 +261,13 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
         actual_kinds = tuple(
             sorted(item.kind for item in validate_result.diagnostics if item.code is None)
         )
-        _SAMPLE_RUN_CACHE[variant.id] = (actual_codes, actual_kinds, _report_violations(root))
+        actual_violations, actual_unknowns = _report_findings(root)
+        _SAMPLE_RUN_CACHE[variant.id] = (
+            actual_codes,
+            actual_kinds,
+            actual_violations,
+            actual_unknowns,
+        )
     return _SAMPLE_RUN_CACHE[variant.id]
 
 
@@ -252,10 +275,15 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
 def test_variant_produces_the_catalogued_findings(
     tmp_path_factory: pytest.TempPathFactory, variant: Variant
 ) -> None:
-    actual_codes, actual_kinds, actual_violations = _sample_run(tmp_path_factory, variant)
+    actual_codes, actual_kinds, actual_violations, actual_unknowns = _sample_run(
+        tmp_path_factory, variant
+    )
     assert actual_codes == variant.expected_codes
     assert actual_kinds == variant.expected_kinds
     assert actual_violations == variant.expected_violations
+    # Subset, not equality: dynamic_call_limit/context_alias_limit/boundary_type_limit fire on
+    # every sample scan regardless of this variant's own overlay (see Variant.expected_unknowns).
+    assert set(variant.expected_unknowns) <= set(actual_unknowns)
 
 
 @pytest.mark.parametrize("variant", _UNIQUE_CHECK_RUNS, ids=lambda v: v.id)

@@ -632,7 +632,7 @@ def _is_broad_boundary_type(annotation: str) -> bool:
 
     Restricted to what the annotation string alone decides: a generic other than `dict`, a
     dotted name, a forward-reference string and a missing annotation all stay silent rather
-    than guess. A bare named type is decided separately, by `_resolve_named_type` (AD-63).
+    than guess. A bare named type is decided separately, by `resolve_named_type` (AD-63).
     """
     return annotation in _BROAD_BOUNDARY_TYPES or annotation.startswith(("dict[", "Dict["))
 
@@ -640,7 +640,7 @@ def _is_broad_boundary_type(annotation: str) -> bool:
 _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 
 # Issue #9 names a builtin as an acceptable boundary type, and a builtin needs no import and
-# defines no symbol of its own, so `_resolve_named_type` returns nothing for one. The set comes
+# defines no symbol of its own, so `resolve_named_type` returns nothing for one. The set comes
 # from the running interpreter rather than a list kept here, the way `resolve.py` and `calls.py`
 # already answer the same question, so one repository holds one answer to what a builtin is.
 _BUILTIN_NAMES: Final = frozenset(dir(builtins))
@@ -760,7 +760,7 @@ def _unresolvable_shape(annotation: str) -> str:
     return "other"
 
 
-def _resolve_named_type(
+def resolve_named_type(
     annotation: str,
     module: str,
     imports_by_binding: dict[tuple[str, str], RecordData],
@@ -792,13 +792,14 @@ def _resolve_named_type(
     return None
 
 
-def _boundary_type_indexes(
+def boundary_type_indexes(
     symbols: Sequence[RawRecord], imports: Sequence[RawRecord]
 ) -> tuple[dict[tuple[str, str], RecordData], dict[tuple[str, str], RecordData]]:
     """Index `imports` by (module, local binding) and top-level classes by (module, name).
 
-    Both are `_resolve_named_type`'s own lookups, built once per call instead of once per
-    function checked: `boundary_types` may inspect many facade functions below one `source`.
+    Both are `resolve_named_type`'s own lookups, built once per call instead of once per
+    function checked: `boundary_types` may inspect many facade functions below one `source`,
+    and `public_api_exposed_types` every declared `public_api` entry.
     """
     imports_by_binding = {
         (data["source_module"], data["binding"]): data
@@ -835,7 +836,7 @@ def _boundary_type_verdict(
     report its own denominator (AD-67). `enter_collections` is false for a collection's own
     parameter, which is what keeps the resolution one level in and not a general descent.
 
-    This is the only function that calls `_resolve_named_type`: `facade_types` (AD-65) reads
+    This is the only function that calls `resolve_named_type`: `facade_types` (AD-65) reads
     the `resolved` field of the `_Position` returned here rather than resolving its own
     candidate string, so the two readers of one annotation cannot drift apart again (AD-69).
     """
@@ -861,7 +862,7 @@ def _boundary_type_verdict(
         if entered is not None:
             return entered
         return _Position(undecidable=_unresolvable_shape(annotation))
-    resolved = _resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
+    resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if resolved is None:
         # A name the imports and the module's own classes do not define is either a builtin,
         # which issue #9 accepts, or a name this rule failed to resolve; it must not read the
@@ -899,7 +900,7 @@ def _collection_verdict(
     `execute(contexts: list[InternalContext])` was silent, because a generic's parameters were
     never inspected, so moving a parameter into a list dropped the check. The container's own
     element type is the whole of what crosses the boundary, so it is decided by exactly the
-    `_resolve_named_type` lookup the rule already runs on a bare name -- one level in, never a
+    `resolve_named_type` lookup the rule already runs on a bare name -- one level in, never a
     general descent into name resolution: a nested subscript, a dotted name, a forward
     reference and a type no component owns stay undecidable, and now say so.
 
@@ -1010,7 +1011,7 @@ def facade_signature_types(
     be declared for this -- every component that declares a facade gets the same record,
     because `resolved` fills in on its own walk regardless of the verdict built alongside it.
     """
-    imports_by_binding, classes_by_location = _boundary_type_indexes(symbols, imports)
+    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     recorded: list[RawRecord] = []
     for item in symbols:
         found = _declared_facade_positions(item, contract, exports_by_module)
@@ -1084,7 +1085,7 @@ def _boundary_types_violations(
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return []
-    imports_by_binding, classes_by_location = _boundary_type_indexes(symbols, imports)
+    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     violations: list[RawRecord] = []
     for rule in rules:
         for item in symbols:
@@ -1150,7 +1151,7 @@ def boundary_type_limits(
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return []
-    imports_by_binding, classes_by_location = _boundary_type_indexes(symbols, imports)
+    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     limits: list[RawRecord] = []
     for rule in rules:
         counts = dict.fromkeys(_UNDECIDABLE_KINDS, 0)
@@ -1192,6 +1193,105 @@ def boundary_type_limits(
             )
         )
     return sorted(limits, key=lambda item: item["id"])
+
+
+def _public_api_symbol(symbols: Sequence[RawRecord], module: str, name: str) -> RawRecord | None:
+    """The one top-level `symbols` record a `module:name` public_api entry names, if any."""
+    return next(
+        (
+            item
+            for item in symbols
+            if item["data"].get("module") == module
+            and item["data"].get("name") == name
+            and item["data"].get("parent") is None
+        ),
+        None,
+    )
+
+
+def _public_api_annotations(symbol: RawRecord) -> list[str]:
+    """AD-70's "externally visible signature": a declared function's parameter and return
+    annotations, or a declared class's own public attribute annotations (`fields`, added to
+    `symbols` for exactly this).
+    """
+    data = symbol["data"]
+    if symbol["kind"] == "class":
+        return [field["annotation"] for field in data["fields"] if field["annotation"]]
+    annotations = [
+        parameter["annotation"] for parameter in data["parameters"] if parameter["annotation"]
+    ]
+    if data["returns"]:
+        annotations.append(data["returns"])
+    return annotations
+
+
+def public_api_exposed_types(
+    public_api: Sequence[str],
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    contract: ArchitectureContract,
+) -> dict[str, list[str]]:
+    """Every `declarations.public_api` entry mapped to the non-builtin types its own signature
+    exposes and no declared entry already names, as `module:name` strings (AD-70) -- the
+    package-external twin of `boundary_types`, reading `_boundary_type_verdict`'s own `resolved`
+    field (AD-69) rather than a second, bare-name-only reading of the same annotations: a type
+    inside `tuple[X, ...]` or `list[X]` must be as visible here as it is to `boundary_types`, or
+    the two readings disagree on silence. `check.validation` compares this published answer
+    against the declared `public_api` set and resolves nothing itself (AD-2's open payload,
+    AD-4's one channel out of the analyzer).
+
+    An identifier is always the type's *origin*, `resolved`'s own pair -- the one name that is
+    true of it regardless of which module a consumer happens to reach it through. A declared
+    entry may name that same origin directly (`shop.model.entities:Order`, where `Order` is
+    defined) or name a facade that only re-exports it (`archkeel.api:ViolationRow`, defined in
+    `archkeel.ir.baseline`); both are legitimate promises for the same type, so a declared
+    entry's own name is resolved exactly the same way, through the one shared walk, to decide
+    which origin *it* names -- `declared_origins` below -- and an exposed type already covered
+    that way is left out rather than reported as a second, redundant promise.
+
+    A type whose origin module this scan never saw -- a builtin, a stdlib or a third-party type
+    -- is not part of the promise a *scanned* package can make about itself, so it is left out
+    here rather than reported as missing; `scanned_modules` is exactly `check._scanned_modules`'
+    own source, read here instead of derived a second time.
+    """
+    if not public_api:
+        return {}
+    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    exports = exports_by_module(modules)
+    scanned_modules = frozenset(item["data"]["qualified_name"] for item in modules)
+    declared_origins = {
+        pair
+        for entry in public_api
+        for declared_module, _, declared_name in [entry.partition(":")]
+        for pair in _boundary_type_verdict(
+            declared_name,
+            declared_module,
+            contract,
+            exports,
+            imports_by_binding,
+            classes_by_location,
+        ).resolved
+    }
+    types: dict[str, list[str]] = {}
+    for entry in public_api:
+        module, _, name = entry.partition(":")
+        symbol = _public_api_symbol(symbols, module, name)
+        if symbol is None:
+            continue
+        resolved: set[str] = set()
+        for annotation in _public_api_annotations(symbol):
+            verdict = _boundary_type_verdict(
+                annotation, module, contract, exports, imports_by_binding, classes_by_location
+            )
+            resolved.update(
+                f"{origin_module}:{origin_name}"
+                for origin_module, origin_name in verdict.resolved
+                if origin_module in scanned_modules
+                and (origin_module, origin_name) not in declared_origins
+            )
+        types[entry] = sorted(resolved)
+    return types
 
 
 def _requires_covers(source: ContractComponent, target_label: str, target_module: str) -> bool:

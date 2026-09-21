@@ -309,6 +309,19 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
     )
 
 
+def _declaration_records(
+    contract: ArchitectureContract, scan: ScanResult, inside_records: list[RawRecord]
+) -> list[RawRecord]:
+    """`project_declarations` needs `scan`'s own `symbols`/`imports`/`modules` to resolve
+    `declared_public_api`'s `types` (AD-70); kept out of `analyze_snapshot`'s own body only to
+    keep that call a single line there.
+    """
+    return [
+        *project_declarations(contract, scan.symbols, scan.imports, scan.modules),
+        *inside_records,
+    ]
+
+
 def analyze_snapshot(
     source_root: Path,
     *,
@@ -365,7 +378,7 @@ def analyze_snapshot(
         },
         "coverage": scan.coverage,
         "metrics": _metrics(scan, contract),
-        "declarations": [*project_declarations(contract), *inside_records],
+        "declarations": _declaration_records(contract, scan, inside_records),
         "scope_observations": scan.scope_observations,
         "packages": scan.packages,
         "modules": scan.modules,

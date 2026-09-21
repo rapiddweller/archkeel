@@ -10,7 +10,12 @@ target component, directly or through its re-export chain; underscore names neve
 `public`, and a `public` entry that no other component uses.
 `init` proposes a module entry when the module defines `__all__` or other components use at least
 half of its public names, and symbol entries otherwise, so a module entry admits at most twice the
-names in use. `declarations.public_api` stays valid but is superseded. The report derives a
+names in use. `declarations.public_api` names a different thing, a consumer *outside* this
+package, not one component's promise to another inside it -
+[AD-66](ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md) narrows this
+paragraph's older reading of it ("stays valid but is superseded") now that AD-64 gave this
+repository such an outside surface to declare; read AD-66 for what checks it and why `public`'s
+own checks do not simply extend to it. The report derives a
 communication table per component edge: the used names with their parameter and return
 annotations, and `UNKNOWN` where an annotation is missing. Protocol conformance, labeled graphs
 and new regression measures are out of scope. Reason: Archkeel already checks which components

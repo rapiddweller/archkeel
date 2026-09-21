@@ -238,6 +238,22 @@ def _scanned_modules(observation: Observation) -> frozenset[str]:
     )
 
 
+def _literal_exports(observation: Observation) -> dict[str, frozenset[str]]:
+    """Each scanned module's literal `__all__`, absent for a module that declares none.
+
+    A module without `__all__` is not in the mapping at all, which is what lets a reader tell
+    "this module states its surface and the name is not in it" from "this module states no
+    surface", the distinction `symbols` alone cannot make for a constant or type alias.
+    """
+    return {
+        module_name: frozenset(export for export in exports if isinstance(export, str))
+        for record in observation.records("modules") or ()
+        if isinstance((module_name := record.data.get("qualified_name")), str)
+        and isinstance((exports := record.data.get("all_exports")), tuple)
+        and exports
+    }
+
+
 def _entry_module(entry: str) -> str:
     return entry.partition(":")[0]
 
@@ -382,6 +398,107 @@ def _planned_entry_diagnostics(
         for item, entry in enumerate(component.planned or ())
         if _entry_module(entry) in modules
     ]
+
+
+def _published_api_types(observation: Observation) -> dict[str, tuple[str, ...]]:
+    """Each `declarations.public_api` entry mapped to the types its own signature exposes.
+
+    Read off the `declared_public_api` records `public_api_exposed_types`
+    (analyzer/embedded/violations.py, AD-70) already resolved -- `check` compares this published
+    answer against the declared set instead of deriving a second one (AD-2's open payload, AD-4's
+    one channel out of the analyzer).
+    """
+    types: dict[str, tuple[str, ...]] = {}
+    for record in observation.records("declarations") or ():
+        if record.kind != "declared_public_api":
+            continue
+        entry = text_value(record.data.get("qualified_name"))
+        exposed = record.data.get("types")
+        types[entry] = tuple(
+            item
+            for item in (exposed if isinstance(exposed, tuple) else ())
+            if isinstance(item, str)
+        )
+    return types
+
+
+def _public_api_entry_diagnostics(
+    index: int,
+    entry: str,
+    modules: frozenset[str],
+    exports: dict[str, frozenset[str]],
+    exposed_types: dict[str, tuple[str, ...]],
+    declared_api: frozenset[str],
+) -> list[Diagnostic]:
+    """One `declarations.public_api` entry's findings: existence (AD-66/AD-71) first, then
+    AD-70's signature check once the entry is known to exist. Both read as `api_surface.missing`
+    because either way a consumer was promised something this contract does not make good on.
+    """
+    module, _, name = entry.partition(":")
+    pointer = f"/declarations/public_api/{index}"
+    if module not in modules:
+        return [
+            _diagnostic(
+                "api_surface.missing",
+                pointer,
+                entry,
+                "The declared public API entry's module has not been scanned; "
+                "it does not exist yet.",
+                "Build the module, correct a typo, or remove the entry until it exists.",
+            )
+        ]
+    if name and (exported := exports.get(module)) is not None and name not in exported:
+        return [
+            _diagnostic(
+                "api_surface.missing",
+                pointer,
+                entry,
+                "The module declares __all__ and the promised name is not in it.",
+                "Export the name from the module, correct a typo, or remove the entry.",
+            )
+        ]
+    return [
+        _diagnostic(
+            "api_surface.missing",
+            pointer,
+            entry,
+            f"{entry} exposes {leaked.rpartition(':')[2]}, which declarations.public_api "
+            "does not name.",
+            f"Add {leaked} to declarations.public_api, or stop exposing it from this entry.",
+        )
+        for leaked in exposed_types.get(entry, ())
+        if leaked not in declared_api
+    ]
+
+
+def public_api_diagnostics(
+    contract: ArchitectureContract, observation: Observation
+) -> tuple[Diagnostic, ...]:
+    """Flag a `declarations.public_api` entry whose module the scan never saw (AD-66/AD-71), or
+    whose signature exposes a type the declarations never name (AD-70).
+
+    `public_api` names the surface a consumer *outside* this package may rely on, the case
+    AD-9's component `public` never covered, so there is no cross-component import to make an
+    `interface.unused` twin possible here (see `_public_api_entry_diagnostics`). AD-70 adds a
+    second, independent signal once an entry is known to exist: a declared function's parameter
+    and return types, and a declared class's own public attribute types, must themselves be
+    named in `public_api` -- the generic form of the guard AD-58/AD-63 already hold a
+    component's *internal* facade to, pointed here at the package's *external* one. The analyzer
+    (`public_api_exposed_types`) resolves which types those are; this reads that answer rather
+    than resolving annotations a second time.
+    """
+    declarations = contract.declarations or ContractDeclarations()
+    modules = _scanned_modules(observation)
+    exports = _literal_exports(observation)
+    exposed_types = _published_api_types(observation)
+    declared_api = frozenset(declarations.public_api)
+    return tuple(
+        diagnostic
+        for index, entry in enumerate(declarations.public_api)
+        for diagnostic in _public_api_entry_diagnostics(
+            index, entry, modules, exports, exposed_types, declared_api
+        )
+    )
 
 
 def interface_diagnostics(
@@ -929,6 +1046,7 @@ def observation_diagnostics(
     diagnostics = [
         *closed_world_diagnostics(contract, observation),
         *interface_diagnostics(contract, observation),
+        *public_api_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from pathlib import Path
 from typing import assert_never
 
@@ -31,6 +32,7 @@ from archkeel.ir.model import (
 )
 
 from .records import RawRecord, RecordData, classified
+from .violations import public_api_exposed_types
 
 
 class ContractError(ValueError):
@@ -247,9 +249,22 @@ def project_inside_declarations(parent: str, contract: ArchitectureContract) -> 
     ]
 
 
-def project_declarations(contract: ArchitectureContract) -> list[RawRecord]:
-    """Project the contract into classified records consumed by JSON and HTML."""
+def project_declarations(
+    contract: ArchitectureContract,
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+) -> list[RawRecord]:
+    """Project the contract into classified records consumed by JSON and HTML.
+
+    `symbols`/`imports`/`modules` serve one entry alone -- `declared_public_api` -- whose
+    `types` field `public_api_exposed_types` (AD-70) resolves them for; every other declaration
+    here is a pure projection of `contract` and reads none of them.
+    """
     declarations = contract.declarations or ContractDeclarations()
+    types_by_entry = public_api_exposed_types(
+        declarations.public_api, symbols, imports, modules, contract
+    )
     items: list[RawRecord] = []
     for capability in declarations.capabilities:
         items.append(
@@ -332,7 +347,7 @@ def project_declarations(contract: ArchitectureContract) -> list[RawRecord]:
                 title=api,
                 subjects=[api],
                 provenance=list(declarations.public_api_provenance),
-                data={"qualified_name": api},
+                data={"qualified_name": api, "types": types_by_entry.get(api, [])},
             )
         )
     for command in declarations.public_commands:
