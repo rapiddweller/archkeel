@@ -73,10 +73,19 @@ def check_leaves_a_verdict_undecided(result: RunResult) -> bool:
     )
 
 
+def report_leaves_rules_undecided(result: RunResult) -> bool:
+    """Whether a completed report or validation could not decide its declared rules."""
+    return (
+        result.command in {"report", "validate"}
+        and result.exit_code == 0
+        and result.declared_rules == "UNKNOWN"
+    )
+
+
 def _decision_badge(result: RunResult) -> Badge:
     if report_violates_rules(result) or report_lacks_decisions(result):
         return badge("FAIL")
-    if check_leaves_a_verdict_undecided(result):
+    if check_leaves_a_verdict_undecided(result) or report_leaves_rules_undecided(result):
         return badge("UNKNOWN")
     if result.exit_code == 0:
         return Badge("pass", "✓", "PASS")
@@ -166,6 +175,11 @@ def report_summary(result: RunResult) -> Summary:
         sentence = (
             "The declared target is incomplete, so this report cannot pass. "
             "Run archkeel validate for the worklist."
+        )
+    elif report_leaves_rules_undecided(result):
+        sentence = (
+            "The requested deterministic checks completed, but declared rules could not be "
+            "evaluated completely."
         )
     observation_reason = (
         "All configured source files were read and parsed."

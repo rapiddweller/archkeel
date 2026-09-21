@@ -438,3 +438,11 @@ def test_a_check_that_could_not_decide_a_rule_does_not_claim_every_verdict_passe
     assert "all five verdicts passed" not in check_decision_sentence(result)
     page = render_check_html(result, repository="sample", result_href="result.json").decode()
     assert "all five verdicts passed" not in page
+
+
+@pytest.mark.parametrize("command", ["report", "validate"])
+def test_a_completed_run_with_undecided_rules_does_not_claim_pass(command: str) -> None:
+    result = RunResult(command, 0, "PASS", "UNKNOWN", "n/a")
+    summary = report_summary(result)
+    assert summary.decision.label == "NOT CHECKED"
+    assert "declared rules could not be evaluated completely" in summary.sentence
