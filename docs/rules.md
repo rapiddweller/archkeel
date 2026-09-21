@@ -6,18 +6,18 @@ Contract 2.0 separates deterministic rules, regression checks, declarations and 
 |---|---|---|
 | A | Enforce a fact visible in one complete observation. | PASS or FAIL |
 | B | Compare accepted and candidate observations. | PASS or FAIL |
-| C | Preserve review context without enforcement. | Not evaluated |
+| C | Preserve declared context and validate public API promises. | Validation diagnostics, not a rule verdict |
 | D | Record a bounded human or LLM review claim. | HYPOTHESIS |
 
 ## Class A: deterministic rules
 
-`closed_world` is an implicit Contract 2.1 invariant (AD-15): each ordered component pair is a
-decision, made exactly once, by one `allowed_dependency` rule or one `forbidden_dependency` rule.
-Being observed is not a decision; an undecided pair is reported as `decision.open`, naming whether
-it is observed and at how many import sites. A pair decided twice, or decided both ways, is
-`closed_world.duplicate`; an observed pair also forbidden is `closed_world.observed_forbidden`. A
-complete scan and exact package assignment make the result deterministic; dynamic imports remain a
-blind spot. Removing one pair rule from Archkeel is an example violation.
+`complete_requires` is the compact closed-world invariant Archkeel uses itself (AD-32): each
+component lists its permitted outbound component edges under `requires`, and one
+`complete_requires` rule makes every absent pair forbidden. An observed crossing no entry covers
+is a violation. Contracts without that rule retain AD-15's pair-by-pair form: an undecided pair is
+`decision.open`, duplicate pair rules are `closed_world.duplicate`, and an observed pair also
+forbidden is `closed_world.observed_forbidden`. A complete scan and exact package assignment make
+either form deterministic; dynamic imports remain a blind spot.
 
 `forbidden_dependency` fields are `source`, `target`, `include_type_checking`, optional
 `target_symbol` and optional `allowed_sources`. The analyzer matches import records by exact module
@@ -105,8 +105,9 @@ in the scan is a `reference.namespace` diagnostic in `validate`; one that names 
 different component covers nothing. A component pair absent from the list is decided, not open:
 absence forbids, the way `complete_assignment` makes an unassigned module a violation rather than a
 question (AD-32). `TYPE_CHECKING` imports count unless `include_type_checking` is false. Without the
-rule nothing changes, so a contract that never adopts it keeps deciding pairs one by one. A
-`requires` entry naming a component that does not exist covers nothing and remains a blind spot. A
+rule nothing changes, so a compatibility contract that never adopts it keeps deciding pairs one
+by one. A `requires` entry naming a component that does not exist covers nothing and remains a
+blind spot. A
 `render` component that imports `model` without requiring it is an example violation. The same
 rule kind is evaluated a second time against a component's declared inside, over the imports the
 outer scan already collected, so a crossing between two sub-components that no `requires` entry
@@ -343,22 +344,27 @@ namespace (`reference.namespace`) and a declared provenance file exists (`refere
 from the component `public` field, which names one component's promise to another component of
 the *same* package and is held to `interface_boundary` at every crossing (AD-9). Nothing inside
 the scan crosses into `public_api` the way one component imports another, so there is no
-crossing to prove a `public_api` entry unused; there is still a module to prove it exists, so a
-`public_api` entry the scan never saw is `api_surface.missing`, the same existence check
-`interface.missing` already gives a missing `public` entry (AD-66).
+crossing to prove a `public_api` entry unused. Archkeel still checks that its module exists and,
+when the module declares a non-empty literal `__all__`, that the promised name is exported. An
+empty `__all__` is not inspected. A module with no inspected export list and no scanned top-level
+class or function of that name is `UNKNOWN`, not a silent pass.
+For an unambiguous declared function or class, every resolvable scanned type in its parameters,
+return or own public fields must also appear in `public_api`; builtins and external types do not.
+Ambiguous same-named bindings and annotation forms the shared type walk cannot resolve are never
+guessed (AD-66, AD-70-AD-74).
 
 - **Measurement:** none; declaration records mirror the contract.
 - **Determinism:** decoding is deterministic for a valid Contract 2.0 document.
-- **Blind spots:** Archkeel makes no claim that code follows a declaration, beyond `public_api`'s
-  existence check, which only confirms a name has not been mistyped or left unbuilt, never that a
-  consumer outside the package actually reaches it or that its signature has not moved.
+- **Blind spots:** Archkeel does not prove that an outside consumer uses the declaration, and it
+  does not enforce types the shared annotation walk cannot resolve.
 - **Example:** record `sample.api:load` as a name a consumer outside the package may rely on.
 
-A class-C entry records a judgment: a responsibility, an intended interface, a path or an owner
-that a person decided. Archkeel stores and reports it verbatim and never evaluates it, so it can
-neither pass nor fail a check. A judgment that needs testing becomes a class-D claim bound to an
-evidence digest, and its outcome stays HYPOTHESIS, never PASS or FAIL. A judgment that reduces to
-a fact visible in one observation belongs in class A instead.
+Most class-C entries record a judgment: a responsibility, an intended interface, a path or an
+owner that a person decided. Archkeel stores and reports those verbatim. `public_api` is also
+validated where its promise reduces to scanned facts: existence, literal exports and resolvable
+exposed types. A broader judgment that needs testing becomes a class-D claim bound to an evidence
+digest, and its outcome stays HYPOTHESIS, never PASS or FAIL. A judgment that reduces to a fact
+visible in one observation belongs in class A instead.
 
 ## Class D: review claims
 
@@ -442,8 +448,8 @@ claim removes that ambiguity without turning it into a verdict.
   which one observation cannot supply (AD-10); an inside a component has already declared is a
   different matter, recorded, judged and drawn from this same observation (AD-34). Missing either signal reports UNKNOWN, because a
   comparison against zero component edges would name every component.
-- **Example:** on Archkeel itself the top level holds 6 components and 8 edges, and the claim names
-  `analyzer` (21 modules, 47 inner edges), `check` (13 and 23) and `ir` (15 and 22), while `cli`,
+- **Example:** on Archkeel itself the top level holds 7 components and 9 edges, and the claim names
+  `analyzer` (22 modules, 50 inner edges), `check` (13 and 24) and `ir` (18 and 32), while `cli`,
   `render` and `host` stay below on both. Opening a level for one of them is `archkeel init
   --source <path> --namespace <package>`, which drafts that inside as a contract of its own (AD-20).
 
@@ -488,6 +494,6 @@ under the optional `declarations` object:
 
 Set `schema_version` to `2.1.0`. The optional `$schema` points to
 `schema/architecture-contract.schema.json`. Omit unused declaration arrays instead of copying
-empty arrays. Decide every ordered component pair with an `allowed_dependency` or
-`forbidden_dependency` rule (AD-15); `validate --root . --json` reports an undecided pair as
-`decision.open`. Run `archkeel validate --root . --json` to verify the migrated contract.
+empty arrays. Put each permitted outbound component edge in its source component's `requires`
+list and add one `complete_requires` rule; absence then forbids every other pair (AD-32). Run
+`archkeel validate --root . --json` to verify the migrated contract.

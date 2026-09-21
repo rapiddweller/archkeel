@@ -23,12 +23,15 @@ It catches two failure modes that finding-only diffs miss:
   the graph became blinder.
 
 <p>
-  <img src="docs/assets/archkeel-component-flow.png" alt="Component flow of the shop sample's tour variant: five components, conforming edges in teal, edges that break a declared rule dashed in red with the rule id, and the heaviest connections" width="1000">
+  <img src="docs/assets/archkeel-component-flow.png" alt="Component flow with Violating edges only checked: five components, six dashed red violated edges and seven broken edge rules at this level" width="1000">
 </p>
 
-<sub>The component flow view of the HTML report (AD-10), from <code>archkeel report</code> on the tour
-variant of <code>fixtures/F-architecture</code>: teal edges conform to the contract, dashed red edges
-break the named rule, and dotted amber edges are still undecided.</sub>
+<sub>A real negative case from the <code>fixtures/F-architecture</code> tour:
+<code>shop.store.repository</code> imports <code>Money</code> and breaks
+<code>DEP-STORE-NO-MONEY</code>. In the open HTML report, <strong>Violations only</strong> collapses
+secondary detail and leaves the verdict, failures, unknowns and evidence available; Component
+flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
+Both change the view, never the verdict or evidence.</sub>
 
 <p>
   <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
@@ -153,9 +156,10 @@ U_candidate × T_accepted <= U_accepted × T_candidate   (when both T > 0)
   order; author timestamps do not.
 - **Coverage-aware regression checks.** A disappearing edge is not mistaken
   for an improvement just because a finding disappeared with it.
-- **Explicit uncertainty.** An incomplete scan, broken lock, empty scope, or
-  runtime mismatch returns exit `2` with a diagnostic. Unknown never becomes
-  green.
+- **Explicit uncertainty.** An incomplete scan, broken lock, empty scope, or runtime mismatch
+  returns exit `2` with a diagnostic. A complete report may instead exit `0` with
+  `declared_rules: UNKNOWN` when a rule names the positions it could not decide; neither case is
+  displayed as `PASS`.
 
 Archkeel complements tests, linters, and human review. It does not replace any
 of them. Its job is narrower: keep architecture changes declared, observable,
@@ -164,10 +168,16 @@ and mechanically checkable.
 ## Review surface
 
 <p>
-  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel check report rejecting Fixture A with five independent verdicts and the failed regression checks" width="1100">
+  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel report with Violations only checked, showing the shop tour's negative findings and source evidence" width="1100">
 </p>
 
 The HTML report is designed for a reviewer making a merge decision:
+
+```bash
+archkeel report --only violations
+archkeel report --only violations --rule DEP-STORE-NO-MONEY
+archkeel report --only violations --component store
+```
 
 - **Decision first.** `PASS`, `REJECT`, or `NOT CHECKED` and one sentence explaining it are
   visible before details, in the HTML report and in the terminal.
@@ -177,10 +187,13 @@ The HTML report is designed for a reviewer making a merge decision:
   unknown claim, and remedy.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
-- **Claims are named, never gated on.** `report` and `validate` print what the four review
+- **Violations can take focus.** `Violations only` works in the already-open report: it hides
+  secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
+- **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 1 unreferenced symbol, 3 components larger than their
-  level, 0 unread bindings, 0 repetitions — in the terminal and under `claims` in `--json`,
-  while the HTML report lists the candidates. None of it reaches an exit code.
+  level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
+  and under `claims` in `--json`, while the HTML report lists the candidates. None of it reaches
+  an exit code.
 
 ## Try the demo
 
@@ -432,9 +445,9 @@ make fixtures
 [architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json)
 holds Archkeel to the rules it sells, and every rule was proven by a deliberate violation:
 
-- **Every pair decided.** Six components, so 30 ordered pairs, decided by eight `requires`
+- **Every pair decided.** Seven components, so 42 ordered pairs, decided by nine `requires`
   entries and one `complete_requires` rule: a pair no entry names is forbidden, not open. All
-  14 rules carry a rationale and are decided by the architect. The
+  16 rules carry a rationale and are decided by the architect. The
   [architecture guide](docs/architecture/archkeel.md) names the quality goal each required edge
   serves.
 - **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
@@ -447,9 +460,9 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
   exactly, never as a prefix of the modules below it.
 - **Complete and acyclic.** Every module belongs to exactly one component, and components form
   no cycle.
-- **A second level where one was owed.** `check` holds 13 modules and 23 imports between them,
+- **A second level where one was owed.** `check` holds 13 modules and 24 imports between them,
   more than the whole top level holds, so it declares a contract of its own: `entry`, `policy`
-  and `foundation`, whose crossings its `requires` entries cover at 21, 6 and 2 import sites.
+  and `foundation`, whose crossings its `requires` entries cover at 23, 6 and 2 import sites.
   The flow view opens it as a level of its own, and the one module no sub-component owns keeps
   a card of its own.
 

@@ -60,9 +60,33 @@ def report_lacks_decisions(result: RunResult) -> bool:
     return result.command == "report" and result.exit_code == 0 and bool(result.open_decisions)
 
 
+def check_leaves_a_verdict_undecided(result: RunResult) -> bool:
+    """Whether a passing check carries a verdict nothing decided (AD-72).
+
+    The exit code stops at FAIL by design, so it cannot answer this on its own: a run that
+    decided nothing wrong and a run that could not decide everything both leave it at 0.
+    """
+    return (
+        result.command == "check"
+        and result.exit_code == 0
+        and any(value == "UNKNOWN" for _label, _key, value in _check_verdict_values(result))
+    )
+
+
+def report_leaves_rules_undecided(result: RunResult) -> bool:
+    """Whether a completed report or validation could not decide its declared rules."""
+    return (
+        result.command in {"report", "validate"}
+        and result.exit_code == 0
+        and result.declared_rules == "UNKNOWN"
+    )
+
+
 def _decision_badge(result: RunResult) -> Badge:
     if report_violates_rules(result) or report_lacks_decisions(result):
         return badge("FAIL")
+    if check_leaves_a_verdict_undecided(result) or report_leaves_rules_undecided(result):
+        return badge("UNKNOWN")
     if result.exit_code == 0:
         return Badge("pass", "✓", "PASS")
     if result.exit_code == 1:
@@ -151,6 +175,11 @@ def report_summary(result: RunResult) -> Summary:
         sentence = (
             "The declared target is incomplete, so this report cannot pass. "
             "Run archkeel validate for the worklist."
+        )
+    elif report_leaves_rules_undecided(result):
+        sentence = (
+            "The requested deterministic checks completed, but declared rules could not be "
+            "evaluated completely."
         )
     observation_reason = (
         "All configured source files were read and parsed."
@@ -300,6 +329,11 @@ def check_decision_sentence(result: RunResult) -> str:
     if result.exit_code == 2:
         diagnostic = result.diagnostics[0]
         return f"Do not merge: {diagnostic.kind} — {diagnostic.unknown_claim}"
+    if check_leaves_a_verdict_undecided(result):
+        undecided = [
+            label for label, _key, value in _check_verdict_values(result) if value == "UNKNOWN"
+        ]
+        return f"Read before merging: {' and '.join(undecided).lower()} could not be decided."
     if result.exit_code == 0:
         return "Merge: all five verdicts passed and no regression check failed."
     failed = [row for row in _check_regressions(result) if row[3] == "FAIL"]

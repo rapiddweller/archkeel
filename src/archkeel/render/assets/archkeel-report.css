@@ -236,6 +236,30 @@ h3 {
 .report-section {
   margin-top: 48px;
 }
+.violation-focus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ck-space-2) var(--ck-space-4);
+  margin-bottom: var(--ck-space-3);
+  color: var(--ck-muted);
+  font-size: 12px;
+}
+.violation-focus[hidden] {
+  display: none;
+}
+.violation-focus label {
+  color: var(--ck-text);
+  font-family: var(--ck-font-mono);
+  cursor: pointer;
+}
+.violation-focus input,
+.flow-violations-only {
+  accent-color: var(--ck-fail);
+}
+.report-shell.violations-only [data-secondary-detail] {
+  display: none;
+}
 code,
 th {
   font-family: var(--ck-font-mono);

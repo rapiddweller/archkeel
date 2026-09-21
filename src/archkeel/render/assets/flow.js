@@ -35,6 +35,8 @@
   const legend = root.querySelector(".flow-legend");
   const thresholdInput = root.querySelector(".flow-threshold");
   const thresholdValue = root.querySelector(".flow-threshold-value");
+  const violationFocus = root.querySelector(".flow-violation-focus");
+  const violationsOnly = root.querySelector(".flow-violations-only");
   const fitButton = root.querySelector(".flow-fit");
   const backButton = root.querySelector(".flow-back");
 
@@ -298,7 +300,9 @@
 
   function visibleEdges() {
     const threshold = Number(thresholdInput.value || 0);
-    return level().edges.filter((e) => e.state === "violation" || weight(e) >= threshold);
+    return level().edges.filter(
+      (e) => e.state === "violation" || (!violationsOnly.checked && weight(e) >= threshold),
+    );
   }
 
   function related(edge) {
@@ -357,6 +361,7 @@
     const max = level().edges.reduce((acc, e) => Math.max(acc, weight(e)), 1);
     thresholdInput.max = String(max);
     if (Number(thresholdInput.value) > max) thresholdInput.value = String(max);
+    thresholdInput.disabled = violationsOnly.checked;
     thresholdValue.textContent = `≥ ${thresholdInput.value} import sites`;
     const visible = visibleEdges();
     const outs = groupBy(visible, (e) => e.source);
@@ -584,11 +589,12 @@
     }
     const modules = view.components.reduce((acc, c) => acc + c.modules.length, 0);
     const violations = new Set(view.edges.flatMap((e) => e.rule_ids)).size;
-    return `<dl class="kv"><dt>Components</dt><dd>${view.components.length}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Rules broken</dt><dd>${violations}</dd></dl>`;
+    return `<dl class="kv"><dt>Components</dt><dd>${view.components.length}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Broken edge rules (this level)</dt><dd>${violations}</dd></dl>`;
   }
 
   function topHeaviestEdges(limit) {
-    return [...level().edges]
+    const edges = violationsOnly.checked ? visibleEdges() : level().edges;
+    return [...edges]
       .sort(
         (a, b) => weight(b) - weight(a) || a.source.localeCompare(b.source) || a.target.localeCompare(b.target),
       )
@@ -597,7 +603,7 @@
 
   function heaviestBlock() {
     const top = topHeaviestEdges(5);
-    if (!top.length) return "";
+    if (!top.length) return emptyViolationBlock();
     const max = weight(top[0]) || 1;
     const rows = top
       .map(
@@ -605,14 +611,21 @@
           `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}"><span class="name">${esc(e.source)} → ${esc(e.target)}</span><em>${weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
       )
       .join("");
-    return `<h3>Heaviest connections</h3><div class="bars">${rows}</div>`;
+    const heading = violationsOnly.checked ? "Violating connections" : "Heaviest connections";
+    return `<h3>${heading}</h3><div class="bars">${rows}</div>`;
+  }
+
+  function emptyViolationBlock() {
+    return violationsOnly.checked
+      ? '<h3>Violating connections</h3><p class="empty">No violating edges at this level. Other violation kinds remain in the table above.</p>'
+      : "";
   }
 
   function overview() {
     if (opened && opened.module) {
       const inside = (DATA.modules || {})[opened.module] || {};
       const reaches = (inside.imports || []).slice(0, 12).map((name) => `<li><code>${esc(name)}</code></li>`).join("");
-      return `<div class="kicker">Inside</div><h2>${esc(opened.module)}</h2><p>The functions and classes it declares and the calls and references between them; methods are listed on the card of the class that owns them. A card marked public is imported by another module (AD-24a). Press Escape or use Back to leave.</p>${statBlock()}${reaches ? `<h3>Reaches outward</h3><ul class="names">${reaches}</ul>` : ""}`;
+      return `<div class="kicker">Inside</div><h2>${esc(opened.module)}</h2><p>The functions and classes it declares and the calls and references between them; methods are listed on the card of the class that owns them. A card marked public is imported by another module (AD-24a). Press Escape or use Back to leave.</p>${statBlock()}${reaches ? `<h3>Reaches outward</h3><ul class="names">${reaches}</ul>` : ""}${emptyViolationBlock()}`;
     }
     if (opened && !opened.inside && (componentByLabel.get(opened.component) || {}).inside) {
       return `<div class="kicker">Inside</div><h2>${esc(opened.component)}</h2><p>This component describes its inside in a contract of its own (AD-34). Its sub-components are drawn here, and an edge between them is decided: green where the source requires the target, red where no requires entry covers it, because absence forbids (AD-32). A module no sub-component owns keeps a card of its own. Click a sub-component again to see its modules. Press Escape or use Back to leave.</p>${statBlock()}${heaviestBlock()}`;
@@ -917,6 +930,13 @@
   });
 
   thresholdInput.addEventListener("input", render);
+  violationsOnly.addEventListener("change", () => {
+    if (violationsOnly.checked && selected && selected.type === "edge") {
+      const edge = level().edges.find((item) => edgeKey(item) === selected.key);
+      if (edge && edge.state !== "violation") selected = null;
+    }
+    render();
+  });
   // Fit used to move the camera only, which left a hand-dragged card where it was and offered
   // no way back to the computed arrangement.
   fitButton.addEventListener("click", () => {
@@ -924,6 +944,7 @@
     render();
     fit(true);
   });
+  violationFocus.hidden = false;
 
   renderLegend();
   render();

@@ -27,9 +27,11 @@ from pathlib import Path
 
 from test_analyzer import _observe
 
+from archkeel.analyzer.embedded.records import classified
+from archkeel.analyzer.embedded.violations import _public_api_symbol
 from archkeel.check.validation import public_api_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
-from archkeel.ir.model import Diagnostic
+from archkeel.ir.model import Diagnostic, EvidenceClass
 
 
 def _prepare(tmp_path: Path, public_api: list[str], facade_source: str) -> Path:
@@ -53,6 +55,34 @@ def _public_api_diagnostics(tmp_path: Path) -> tuple[Diagnostic, ...]:
     assert result.observation is not None, result.diagnostics
     contract = parse_contract(decode_json((tmp_path / "contract.json").read_bytes()))
     return public_api_diagnostics(contract, result.observation)
+
+
+def test_public_api_rejects_duplicate_functions_regardless_of_record_order() -> None:
+    for symbol_module, origins in (
+        ("sample.facade", ()),
+        ("sample.model", (("sample.model", "probe"),)),
+    ):
+        hidden = classified(
+            item_id=f"SYM-{symbol_module}-hidden",
+            evidence_class=EvidenceClass.FACT,
+            area="repository_topology",
+            kind="function",
+            title="probe",
+            data={"module": symbol_module, "name": "probe", "parent": None, "returns": "Hidden"},
+        )
+        scalar = classified(
+            item_id=f"SYM-{symbol_module}-scalar",
+            evidence_class=EvidenceClass.FACT,
+            area="repository_topology",
+            kind="function",
+            title="probe",
+            data={"module": symbol_module, "name": "probe", "parent": None, "returns": "str"},
+        )
+        assert (
+            _public_api_symbol([hidden, scalar], "sample.facade", "probe", origins, False)
+            is _public_api_symbol([scalar, hidden], "sample.facade", "probe", origins, False)
+            is None
+        )
 
 
 def test_public_api_reports_a_declared_function_returning_an_undeclared_type(
@@ -105,6 +135,67 @@ def test_public_api_reports_a_declared_classs_undeclared_attribute_type(tmp_path
 
     assert diagnostics != (), "a declared class's undeclared attribute type must be reported"
     assert any("Fingerprint" in diagnostic.unknown_claim for diagnostic in diagnostics)
+
+
+def test_public_api_inspects_a_local_class_whose_name_is_a_broad_type(tmp_path: Path) -> None:
+    _prepare(
+        tmp_path,
+        ["sample.facade:Dict"],
+        "from dataclasses import dataclass\n\n\n"
+        "@dataclass(frozen=True, slots=True)\n"
+        "class Hidden:\n"
+        "    value: str\n\n\n"
+        "@dataclass(frozen=True, slots=True)\n"
+        "class Dict:\n"
+        "    hidden: Hidden\n",
+    )
+
+    diagnostics = _public_api_diagnostics(tmp_path)
+
+    assert diagnostics != (), "a local class named Dict must still expose its field types"
+    assert any("Hidden" in diagnostic.unknown_claim for diagnostic in diagnostics)
+
+
+def test_public_api_reports_a_reexported_classs_undeclared_attribute_type(
+    tmp_path: Path,
+) -> None:
+    _prepare(
+        tmp_path,
+        ["sample.facade:Row"],
+        "from sample.model import Row\n\n__all__ = ['Row']\n",
+    )
+    (tmp_path / "sample/model.py").write_text(
+        "from dataclasses import dataclass\n\n\n"
+        "@dataclass(frozen=True, slots=True)\n"
+        "class Fingerprint:\n"
+        "    value: str\n\n\n"
+        "@dataclass(frozen=True, slots=True)\n"
+        "class Row:\n"
+        "    fingerprint: Fingerprint\n"
+    )
+
+    diagnostics = _public_api_diagnostics(tmp_path)
+
+    assert diagnostics != (), "a re-exported class's undeclared field type must be reported"
+    assert any("Fingerprint" in diagnostic.unknown_claim for diagnostic in diagnostics)
+
+
+def test_public_api_reports_a_reexported_functions_undeclared_return_type(
+    tmp_path: Path,
+) -> None:
+    _prepare(
+        tmp_path,
+        ["sample.facade:load"],
+        "from sample.model import load\n\n__all__ = ['load']\n",
+    )
+    (tmp_path / "sample/model.py").write_text(
+        "class Config:\n    pass\n\n\ndef load() -> Config:\n    return Config()\n"
+    )
+
+    diagnostics = _public_api_diagnostics(tmp_path)
+
+    assert diagnostics != (), "a re-exported function's undeclared return type must be reported"
+    assert any("Config" in diagnostic.unknown_claim for diagnostic in diagnostics)
 
 
 def test_public_api_is_silent_for_a_builtin_and_a_declared_collection_element(

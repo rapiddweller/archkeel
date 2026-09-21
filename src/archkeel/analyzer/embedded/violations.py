@@ -10,7 +10,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Final, NamedTuple, assert_never
+from typing import Final, NamedTuple, TypeAlias, assert_never
 
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -646,12 +646,17 @@ _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 _BUILTIN_NAMES: Final = frozenset(dir(builtins))
 
 # Why a position stayed undecided, in the order the limit record reports them (AD-67).
+# `ambiguous_binding` (AD-74) sits next to `unresolved_name`: both are bare names that failed
+# to resolve, but one failed because nothing defines it and the other because two records do --
+# a reader who sees only the count needs the two kept apart to tell "unreadable annotation"
+# from "this name is bound twice".
 _UNDECIDABLE_KINDS: Final = (
     "missing_annotation",
     "forward_reference",
     "dotted_name",
     "generic",
     "union",
+    "ambiguous_binding",
     "unresolved_name",
     "external_type",
     "other",
@@ -760,12 +765,42 @@ def _unresolvable_shape(annotation: str) -> str:
     return "other"
 
 
+class _AmbiguousBinding:
+    """Sentinel for a `(module, name)` key more than one distinct binding claims.
+
+    Nothing recorded says which import or which same-named class definition is the one Python
+    actually binds -- that is `boundary_type_indexes`'s whole reason to exist -- so a key with
+    more than one claimant maps here instead of to whichever claimant happened to arrive last.
+    """
+
+    __slots__ = ()
+
+
+_AMBIGUOUS: Final = _AmbiguousBinding()
+
+# `boundary_type_indexes`'s own return shape: a `(module, name)` key maps to one binding target,
+# or to `_AMBIGUOUS` when distinct targets or definitions claim it.
+BindingIndex: TypeAlias = dict[tuple[str, str], "RecordData | _AmbiguousBinding"]
+
+
+def _binding_is_ambiguous(
+    key: tuple[str, str], imports_by_binding: BindingIndex, classes_by_location: BindingIndex
+) -> bool:
+    imported = imports_by_binding.get(key)
+    local = classes_by_location.get(key)
+    return (
+        imported is _AMBIGUOUS
+        or local is _AMBIGUOUS
+        or (imported is not None and local is not None)
+    )
+
+
 def resolve_named_type(
     annotation: str,
     module: str,
-    imports_by_binding: dict[tuple[str, str], RecordData],
-    classes_by_location: dict[tuple[str, str], RecordData],
-) -> tuple[str, str] | None:
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> tuple[str, str] | _AmbiguousBinding | None:
     """Resolve a bare annotation name to the module and name where it is actually defined.
 
     Reuses the same `binding`/`origin_definition` fields `imports` already carries for
@@ -776,42 +811,91 @@ def resolve_named_type(
     defines no symbol of its own, so it still resolves to nothing here; what changed is that
     the caller no longer reads that nothing as silence but asks the interpreter whether the
     name is a builtin, and calls it a decided pass when it is (AD-67).
+
+    Returns `_AMBIGUOUS` when the name has distinct bindings in `module` (imports to different
+    targets, an import and a local class, or colliding local definitions), or when it resolves
+    to a location two same-named class definitions both claim. The records carry no source order,
+    so the caller must read that apart from an unresolved name rather than pick a claimant.
     """
     if not annotation.isidentifier():
         return None
-    imported = imports_by_binding.get((module, annotation))
-    if imported is not None:
+    key = (module, annotation)
+    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+        return _AMBIGUOUS
+    imported = imports_by_binding.get(key)
+    class_entry = classes_by_location.get(key)
+    if isinstance(imported, dict):
         origin = imported["origin_definition"]
         # A bare `import pkg as name` binds a module, not a name; nonsensical as a type.
         if imported["symbol"] is None or not origin:
             return None
         origin_module, _, origin_name = origin.rpartition(".")
+        chain = imported["reexport_chain"] or [origin]
+        for entry in chain:
+            entry_module, _, entry_name = entry.rpartition(".")
+            if _binding_is_ambiguous(
+                (entry_module, entry_name), imports_by_binding, classes_by_location
+            ):
+                return _AMBIGUOUS
         return origin_module, origin_name
-    if (module, annotation) in classes_by_location:
+    if class_entry is not None:
         return module, annotation
     return None
 
 
+def _binding_index(entries: Iterator[tuple[str, str, object, RecordData]]) -> BindingIndex:
+    """Index a binding once, or mark distinct targets ambiguous regardless of input order.
+
+    Repeating the same import target does not change a Python binding and keeps the first record.
+    Separate class definitions carry separate identities even when their bodies are identical
+    (AD-74).
+    """
+    index: BindingIndex = {}
+    identities: dict[tuple[str, str], object] = {}
+    for scope, name, identity, data in entries:
+        key = (scope, name)
+        if key not in index:
+            index[key] = data
+            identities[key] = identity
+        elif identities[key] != identity:
+            index[key] = _AMBIGUOUS
+    return index
+
+
 def boundary_type_indexes(
     symbols: Sequence[RawRecord], imports: Sequence[RawRecord]
-) -> tuple[dict[tuple[str, str], RecordData], dict[tuple[str, str], RecordData]]:
+) -> tuple[BindingIndex, BindingIndex]:
     """Index `imports` by (module, local binding) and top-level classes by (module, name).
 
     Both are `resolve_named_type`'s own lookups, built once per call instead of once per
     function checked: `boundary_types` may inspect many facade functions below one `source`,
     and `public_api_exposed_types` every declared `public_api` entry.
+
+    `symbols` and `imports` arrive sorted by each record's own content-hash id, not source
+    order, so distinct definitions sharing a binding must not let arrival order decide which
+    record wins. Repeating one import target is still one binding (AD-74).
     """
-    imports_by_binding = {
-        (data["source_module"], data["binding"]): data
+    imports_by_binding = _binding_index(
+        (
+            data["source_module"],
+            data["binding"],
+            (data["target_module"], data["symbol"]),
+            data,
+        )
         for data in (item["data"] for item in imports)
-    }
-    classes_by_location = {
-        (data["module"], data["name"]): data
+    )
+    classes_by_location = _binding_index(
+        (data["module"], data["name"], item["id"], data)
         for item in symbols
         for data in [item["data"]]
         # A nested class is never what a module-level annotation's bare name resolves to.
         if item["kind"] == "class" and data.get("parent") is None
-    }
+    )
+    for item in symbols:
+        data = item["data"]
+        key = (data["module"], data["name"])
+        if item["kind"] == "function" and (key in classes_by_location or key in imports_by_binding):
+            classes_by_location[key] = _AMBIGUOUS
     return imports_by_binding, classes_by_location
 
 
@@ -820,8 +904,8 @@ def _boundary_type_verdict(
     module: str,
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
-    imports_by_binding: dict[tuple[str, str], RecordData],
-    classes_by_location: dict[tuple[str, str], RecordData],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
     *,
     enter_collections: bool = True,
 ) -> _Position:
@@ -863,6 +947,11 @@ def _boundary_type_verdict(
             return entered
         return _Position(undecidable=_unresolvable_shape(annotation))
     resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
+    if isinstance(resolved, _AmbiguousBinding):
+        # Distinct records bind this name in `module`: Python picks whichever is textually last,
+        # and nothing the scanner recorded says which that is, so the position is undecidable,
+        # not a guess at either candidate (AD-74).
+        return _Position(undecidable="ambiguous_binding")
     if resolved is None:
         # A name the imports and the module's own classes do not define is either a builtin,
         # which issue #9 accepts, or a name this rule failed to resolve; it must not read the
@@ -873,7 +962,11 @@ def _boundary_type_verdict(
     origin_module, origin_name = resolved
     reached = (resolved,)
     origin_symbol = classes_by_location.get(resolved)
-    class_kind = origin_symbol["class_kind"] if origin_symbol else None
+    # `resolve_named_type` already ruled out an ambiguous `resolved` location, so a `dict` here
+    # is the one surviving claimant and is guaranteed a `class_kind` (AD-30's fixpoint sets one
+    # on every class it processes); the `isinstance` reflects that guarantee in the type rather
+    # than papering over a subscript that could otherwise still raise.
+    class_kind = origin_symbol["class_kind"] if isinstance(origin_symbol, dict) else None
     if class_kind in _EXEMPT_CLASS_KINDS:
         return _Position(resolved=reached)
     origin_component = contract.component_for(origin_module)
@@ -891,8 +984,8 @@ def _collection_verdict(
     module: str,
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
-    imports_by_binding: dict[tuple[str, str], RecordData],
-    classes_by_location: dict[tuple[str, str], RecordData],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
 ) -> _Position | None:
     """Decide `Container[Name]` from its parameters, or None when it is not one (AD-67).
 
@@ -1038,8 +1131,8 @@ def _resolved_position_types(
     positions: Sequence[tuple[str, str]],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
-    imports_by_binding: dict[tuple[str, str], RecordData],
-    classes_by_location: dict[tuple[str, str], RecordData],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
 ) -> list[str]:
     """The distinct types one function's annotated positions resolve to, dotted and sorted.
 
@@ -1195,18 +1288,30 @@ def boundary_type_limits(
     return sorted(limits, key=lambda item: item["id"])
 
 
-def _public_api_symbol(symbols: Sequence[RawRecord], module: str, name: str) -> RawRecord | None:
-    """The one top-level `symbols` record a `module:name` public_api entry names, if any."""
-    return next(
-        (
+def _public_api_symbol(
+    symbols: Sequence[RawRecord],
+    module: str,
+    name: str,
+    origins: tuple[tuple[str, str], ...],
+    ambiguous: bool,
+) -> RawRecord | None:
+    """The one top-level symbol a `module:name` public_api entry resolves to, if any."""
+    if ambiguous:
+        return None
+    locations = ((module, name), *origins) if len(origins) == 1 else ((module, name),)
+    for location in locations:
+        candidates = [
             item
             for item in symbols
-            if item["data"].get("module") == module
-            and item["data"].get("name") == name
+            if item["data"].get("module") == location[0]
+            and item["data"].get("name") == location[1]
             and item["data"].get("parent") is None
-        ),
-        None,
-    )
+        ]
+        if len(candidates) > 1:
+            return None
+        if candidates:
+            return candidates[0]
+    return None
 
 
 def _public_api_annotations(symbol: RawRecord) -> list[str]:
@@ -1260,29 +1365,41 @@ def public_api_exposed_types(
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     exports = exports_by_module(modules)
     scanned_modules = frozenset(item["data"]["qualified_name"] for item in modules)
-    declared_origins = {
-        pair
-        for entry in public_api
-        for declared_module, _, declared_name in [entry.partition(":")]
-        for pair in _boundary_type_verdict(
+    declared_positions = {
+        entry: _boundary_type_verdict(
             declared_name,
             declared_module,
             contract,
             exports,
             imports_by_binding,
             classes_by_location,
-        ).resolved
+        )
+        for entry in public_api
+        for declared_module, _, declared_name in [entry.partition(":")]
+    }
+    declared_origins = {
+        pair for position in declared_positions.values() for pair in position.resolved
     }
     types: dict[str, list[str]] = {}
     for entry in public_api:
         module, _, name = entry.partition(":")
-        symbol = _public_api_symbol(symbols, module, name)
+        position = declared_positions[entry]
+        ambiguous = position.undecidable == "ambiguous_binding" or _binding_is_ambiguous(
+            (module, name), imports_by_binding, classes_by_location
+        )
+        symbol = _public_api_symbol(symbols, module, name, position.resolved, ambiguous)
         if symbol is None:
             continue
+        symbol_module = symbol["data"]["module"]
         resolved: set[str] = set()
         for annotation in _public_api_annotations(symbol):
             verdict = _boundary_type_verdict(
-                annotation, module, contract, exports, imports_by_binding, classes_by_location
+                annotation,
+                symbol_module,
+                contract,
+                exports,
+                imports_by_binding,
+                classes_by_location,
             )
             resolved.update(
                 f"{origin_module}:{origin_name}"

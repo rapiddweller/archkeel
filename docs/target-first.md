@@ -22,9 +22,9 @@ target-first contract goes further, once the architect decides it: a `requires` 
 and a `public` entry only for an interface that already exists. An interface the refactoring has
 not built yet belongs in `planned` instead — the same `pkg.module`/`pkg.module:Name` shape as
 `public`, disjoint from it, so `validate` stays silent about it until the module exists
-(AD-56). Declaring it `public` before it exists is a worse mistake than it looks: `interface.missing`
-reads identically whether the entry is a typo or a facade nobody has written yet, so a baseline
-(below) could freeze either one as "known debt" with no way to tell them apart.
+(AD-56). Declaring it `public` before it exists is a worse mistake than it looks:
+`interface.missing` reads identically whether the entry is a typo or a facade nobody has written
+yet. A violation baseline cannot hide either validation diagnostic.
 
 The architect decides `app` will eventually expose a small report facade the refactoring has not
 written yet:
@@ -275,6 +275,9 @@ hand edit instead, the same remedy the observed marker's writer already gives (A
 Fix the violation from step 2 by removing the reach, not by widening the rule:
 
 ```diff
+-from shop.model.entities import Money, Order
++from shop.model.entities import Order
+
 -    def total_due(self, order_id: str) -> Money:
 -        """A report use case reaches this directly while the refactor moves it to app."""
 -        return self.load(order_id).total()
@@ -306,9 +309,9 @@ exploits (AD-52, AD-61): the file must state today's debt, not yesterday's.
 On a backlog larger than one entry, `violations_by_rule` and `violations_by_component_pair` in
 `report --json` rank it by weight without decoding anything else (AD-51); `--rule` and
 `--component` then isolate one slice to work, the same flags used to read the first report in
-step 2. An agent building its own dashboard on top of `architecture.json` reads it through
-`archkeel.api.load_observation` and `archkeel.api.violation_rows`, the one supported facade for
-typed rows instead of decoding the columnar file directly (AD-54, AD-64;
+step 2. An agent building its own dashboard on top of `architecture.json` reads typed rows with
+`archkeel.api.load_violations`, the one supported facade instead of decoding the columnar file
+directly (AD-54, AD-64;
 [reference.md](https://github.com/rapiddweller/archkeel/blob/main/docs/reference.md#reading-a-reports-violations)).
 
 ## 8. Land a planned interface
