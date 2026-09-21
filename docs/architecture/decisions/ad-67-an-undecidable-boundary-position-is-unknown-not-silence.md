@@ -55,9 +55,10 @@ boundary types, so a builtin is proven fine, not undecided. A builtin needs no i
 no symbol of its own, so `_resolve_named_type` returns nothing for one, which is why AD-58 and
 AD-63 could not tell it apart from a failure to resolve. `_BUILTIN_NAMES` is `dir(builtins)`, asked
 of the running interpreter after the imports and the module's own classes have been tried, so a
-shadowed name still resolves to the shadowing definition first. AD-58 refused "a fixed list that
-would drift from what Python actually ships"; `dir(builtins)` is what Python ships and cannot drift
-from it. Reporting 79 `str`/`int`/`bool` positions as things the rule could not decide would have
+shadowed name still resolves to the shadowing definition first. That set is asked of the
+interpreter rather than kept as a list in this file, because `resolve.py` and `calls.py` already
+answer the same question the same way, and a second list of builtin names would be a second thing
+to keep in step with the language. Reporting 79 `str`/`int`/`bool` positions as things the rule could not decide would have
 been the very noise AD-26 warns teaches readers to skip a section, and the honest remainder, 69,
 is less than half the figure the issue carried.
 

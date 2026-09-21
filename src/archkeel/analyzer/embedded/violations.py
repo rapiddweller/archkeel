@@ -640,9 +640,9 @@ def _is_broad_boundary_type(annotation: str) -> bool:
 _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 
 # Issue #9 names a builtin as an acceptable boundary type, and a builtin needs no import and
-# defines no symbol of its own, so `_resolve_named_type` returns nothing for one. Asking the
-# running interpreter what it ships is what AD-58 wanted when it refused "a fixed list that
-# would drift from what Python actually ships": `dir(builtins)` cannot drift from it.
+# defines no symbol of its own, so `_resolve_named_type` returns nothing for one. The set comes
+# from the running interpreter rather than a list kept here, the way `resolve.py` and `calls.py`
+# already answer the same question, so one repository holds one answer to what a builtin is.
 _BUILTIN_NAMES: Final = frozenset(dir(builtins))
 
 # Why a position stayed undecided, in the order the limit record reports them (AD-67).
@@ -763,8 +763,9 @@ def _resolve_named_type(
     `ObservationResult` annotation resolve the way the import itself would. Only a single bare
     identifier is attempted, never a dotted name, a subscripted generic or a forward-reference
     string: those stay unresolved exactly as AD-58 left them. A builtin needs no import and
-    defines no symbol of its own, so it resolves to nothing here and stays silent rather than
-    being matched against a fixed list that would drift from what Python actually ships.
+    defines no symbol of its own, so it still resolves to nothing here; what changed is that
+    the caller no longer reads that nothing as silence but asks the interpreter whether the
+    name is a builtin, and calls it a decided pass when it is (AD-67).
     """
     if not annotation.isidentifier():
         return None
