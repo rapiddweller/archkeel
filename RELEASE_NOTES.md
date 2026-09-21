@@ -47,9 +47,6 @@ by the tool itself.
   `delta` refuses them rather than comparing across versions (AD-3).
 - **`declared_rules` has a third value.** A consumer that treated it as PASS-or-FAIL must handle
   UNKNOWN. Exit codes are unchanged, so a gate reading the exit code needs no migration (AD-72).
-- **`archkeel.api` replaces two calls with one.** `load_observation` and `violation_rows` are
-  gone; `load_violations(path)` returns the rows directly. `archkeel.ir.codec.load_observation`
-  is removed. The surface arrived after 0.4.x, so no published promise is broken (AD-64, AD-70).
 - **A `public_api` entry is now checked.** A contract naming a module the scan never saw, or a
   name its module's `__all__` excludes, fails `validate` where it used to pass silently.
 - **Contract `schema_version` stays 2.1.0.** Every field added in this range is optional and no
@@ -78,6 +75,12 @@ and at this release:
 
 The unresolved ratio fell from 17.65% to 8.72% while the analyzed call count grew by 878. Two runs
 of `archkeel report` on the same commit write a byte-identical `architecture.json`.
+
+# Archkeel 0.4.1 — PyPI links resolve outside the repository
+
+0.4.1 changed no analyzer or contract behavior. The built PyPI description rewrites every local
+README image and documentation link, and verifies that each rewritten asset exists. Its
+self-observation is therefore unchanged from 0.4.0.
 
 # Archkeel 0.4.0 — A component names what it needs, and what is inside it
 
