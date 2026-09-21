@@ -242,7 +242,11 @@ undecidable kind, so a reader sees how much of the facade the rule actually deci
 reading no violation as proof of none (AD-67, issue #59). That record reports and does not gate --
 `coverage.rules`, the diagnostics and the exit code do not move -- because a rule that decided
 nothing at all is already `rule_without_subjects`, below, and a rule that decided some of its
-positions holds the verdict those positions earned. A component that declares no `public` at
+positions holds the verdict those positions earned. It does move `declared_rules`: a violation-free
+observation reads UNKNOWN there, not PASS, if an undecided position's reason is a real checker limit,
+but stays PASS when every undecided position is `external_type` (a type owned by no declared
+component), since a rule with no `public` list to check that type against never had the question to
+answer (`inspect_observation`, AD-67). A component that declares no `public` at
 all has no functions for the rule to inspect, the way `interface_boundary` gives it no imports to
 check either; a `planned` entry (AD-56) is never projected into the observation, so it plays no
 part here, the same as everywhere else in the analyzer. A `source` that matches a scanned module
