@@ -16,6 +16,8 @@ from .measurements import Measurements
 
 SCHEMA_VERSION = "1.3.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
+# AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
+RuleVerdict: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN"]
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
 CLASSIFIED_SECTIONS = (
     "metrics",
@@ -854,7 +856,7 @@ class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
     observation_complete: Literal["PASS", "UNKNOWN"] = "UNKNOWN"
-    declared_rules: Literal["PASS", "FAIL", "UNKNOWN"] = "UNKNOWN"
+    declared_rules: RuleVerdict = "UNKNOWN"
     expectation_fulfilled: Literal["PASS", "FAIL", "UNKNOWN", "n/a"] = "UNKNOWN"
     diagnostics: tuple[Diagnostic, ...] = ()
     coverage: Coverage | None = None

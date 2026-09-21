@@ -80,6 +80,13 @@ def self_run(tmp_path_factory: pytest.TempPathFactory) -> SelfRun:
     assert output.with_name("architecture.report.html").is_file()
     result = json.loads(run.stdout)
     assert result["diagnostics"] == []
+    # AD-67: Archkeel's own declared `boundary_types` rule does leave one `boundary_type_limit`
+    # record with 2 of its 8 positions undecided, but both are `external_type` -- `pathlib.Path`
+    # and `datetime.datetime`, types no declared component owns, so `boundary_types` has no
+    # `public` list to read them against. That is not a gap in what the checker could read (the
+    # six other undecidable kinds are); it is the question not applying. Everything the
+    # contract actually governs was decided, and there is no violation, so `declared_rules`
+    # stays PASS.
     assert result["observation_complete"] == result["declared_rules"] == "PASS"
     assert result["expectation_fulfilled"] == "n/a"
     observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
