@@ -325,6 +325,40 @@ def test_ambiguous_reexport_chain_is_undecidable_through_observe(tmp_path: Path)
     assert limit.data.get("ambiguous_binding") == 1
 
 
+def test_direct_import_and_ambiguous_reexport_are_distinct_bindings(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(
+        _component("core", public=["sample.core.declared:Thing"]),
+        _component("app", public=["sample.app.facade:snapshot"]),
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/core/declared.py").write_text("class Thing:\n    pass\n")
+    (tmp_path / "sample/core/undeclared.py").write_text("class Thing:\n    pass\n")
+    (tmp_path / "sample/core/__init__.py").write_text(
+        "from sample.core.declared import Thing\n\n\n\nfrom sample.core.undeclared import Thing\n"
+    )
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from sample.core.declared import Thing\n"
+        "from sample.core import Thing\n\n\n"
+        "def snapshot(thing: Thing) -> str:\n"
+        "    return str(thing)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    limit = next(
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    )
+    assert (limit.data.get("positions"), limit.data.get("decided")) == (2, 1)
+    assert limit.data.get("ambiguous_binding") == 1
+
+
 def test_repeated_identical_module_and_function_imports_are_not_ambiguous(
     tmp_path: Path,
 ) -> None:
@@ -386,6 +420,7 @@ def _import_record(module: str, binding: str, marker: str) -> RawRecord:
         "data": {
             "source_module": module,
             "binding": binding,
+            "target_module": f"other.{marker}",
             "symbol": binding,
             "origin_definition": f"other.{marker}.{binding}",
             "marker": marker,

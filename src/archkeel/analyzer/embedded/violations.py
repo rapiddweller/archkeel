@@ -838,8 +838,6 @@ def resolve_named_type(
             ):
                 return _AMBIGUOUS
         return origin_module, origin_name
-    if class_entry is _AMBIGUOUS:
-        return _AMBIGUOUS
     if class_entry is not None:
         return module, annotation
     return None
@@ -881,7 +879,7 @@ def boundary_type_indexes(
         (
             data["source_module"],
             data["binding"],
-            (data["symbol"] is not None, data["origin_definition"] or data["target_module"]),
+            (data["target_module"], data["symbol"]),
             data,
         )
         for data in (item["data"] for item in imports)
