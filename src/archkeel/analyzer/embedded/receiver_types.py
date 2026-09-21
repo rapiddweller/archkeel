@@ -15,256 +15,100 @@ import ast
 from dataclasses import dataclass
 from typing import Literal
 
-_LIST_METHODS = frozenset(
-    {
-        "append",
-        "extend",
-        "insert",
-        "remove",
-        "pop",
-        "clear",
-        "index",
-        "count",
-        "sort",
-        "reverse",
-        "copy",
-    }
-)
-
-_DICT_METHODS = frozenset(
-    {
-        "get",
-        "keys",
-        "values",
-        "items",
-        "update",
-        "pop",
-        "popitem",
-        "setdefault",
-        "clear",
-        "copy",
-        "fromkeys",
-    }
-)
-
-_SET_METHODS = frozenset(
-    {
-        "add",
-        "remove",
-        "discard",
-        "pop",
-        "clear",
-        "copy",
-        "union",
-        "intersection",
-        "difference",
-        "symmetric_difference",
-        "update",
-        "intersection_update",
-        "difference_update",
-        "symmetric_difference_update",
-        "issubset",
-        "issuperset",
-        "isdisjoint",
-    }
-)
-
-_FROZENSET_METHODS = frozenset(
-    {
-        "copy",
-        "union",
-        "intersection",
-        "difference",
-        "symmetric_difference",
-        "issubset",
-        "issuperset",
-        "isdisjoint",
-    }
-)
-
-_TUPLE_METHODS = frozenset({"count", "index"})
-
-_STR_METHODS = frozenset(
-    {
-        "join",
-        "split",
-        "rsplit",
-        "splitlines",
-        "strip",
-        "lstrip",
-        "rstrip",
-        "replace",
-        "format",
-        "format_map",
-        "startswith",
-        "endswith",
-        "upper",
-        "lower",
-        "title",
-        "capitalize",
-        "casefold",
-        "swapcase",
-        "find",
-        "rfind",
-        "index",
-        "rindex",
-        "count",
-        "encode",
-        "zfill",
-        "ljust",
-        "rjust",
-        "center",
-        "partition",
-        "rpartition",
-        "isdigit",
-        "isalpha",
-        "isalnum",
-        "isspace",
-        "isupper",
-        "islower",
-        "istitle",
-        "isnumeric",
-        "isdecimal",
-        "isidentifier",
-        "isprintable",
-        "isascii",
-        "expandtabs",
-        "removeprefix",
-        "removesuffix",
-        "translate",
-        "maketrans",
-    }
-)
-
-_PATH_METHODS = frozenset(
-    {
-        "read_text",
-        "write_text",
-        "read_bytes",
-        "write_bytes",
-        "exists",
-        "is_file",
-        "is_dir",
-        "is_symlink",
-        "is_absolute",
-        "mkdir",
-        "rmdir",
-        "unlink",
-        "touch",
-        "rename",
-        "replace",
-        "resolve",
-        "absolute",
-        "glob",
-        "rglob",
-        "iterdir",
-        "joinpath",
-        "with_name",
-        "with_suffix",
-        "with_stem",
-        "as_posix",
-        "as_uri",
-        "relative_to",
-        "samefile",
-        "stat",
-        "lstat",
-        "chmod",
-        "expanduser",
-    }
-)
-
-_HASH_METHODS = frozenset({"update", "digest", "hexdigest", "copy"})
-
-_ARGUMENT_PARSER_METHODS = frozenset(
-    {
-        "add_argument",
-        "add_argument_group",
-        "add_mutually_exclusive_group",
-        "add_subparsers",
-        "parse_args",
-        "parse_known_args",
-        "parse_intermixed_args",
-        "parse_known_intermixed_args",
-        "set_defaults",
-        "get_default",
-        "print_usage",
-        "print_help",
-        "format_usage",
-        "format_help",
-        "error",
-        "exit",
-        "register",
-    }
-)
-
-_ARGUMENT_GROUP_METHODS = frozenset(
-    {"add_argument", "add_argument_group", "add_mutually_exclusive_group", "set_defaults"}
-)
-
-_CONSOLE_METHODS = frozenset(
-    {
-        "print",
-        "print_json",
-        "print_exception",
-        "log",
-        "rule",
-        "line",
-        "status",
-        "input",
-        "bell",
-        "clear",
-        "control",
-        "out",
-        "render",
-        "render_lines",
-        "render_str",
-        "measure",
-        "get_style",
-        "begin_capture",
-        "end_capture",
-        "capture",
-        "pager",
-        "screen",
-        "export_text",
-        "export_html",
-        "export_svg",
-        "save_text",
-        "save_html",
-        "save_svg",
-        "push_theme",
-        "pop_theme",
-        "use_theme",
-        "push_render_hook",
-        "pop_render_hook",
-        "set_window_title",
-        "set_alt_screen",
-        "show_cursor",
-        "update_screen",
-        "update_screen_lines",
-    }
-)
-
-_TABLE_METHODS = frozenset({"add_column", "add_row", "add_section", "grid", "get_row_style"})
-
 # Each entry names the qualified type the target is reported under, and the methods it
 # resolves. `str` and `Path` share the same shape as `list`/`dict`/`set`; nothing here reads
 # an instance to decide, only the type name the caller already established. The library
 # types below are keyed by their qualified name, so an annotation spelled `Table` never
 # reaches them: only a constructor or a return the import binding proves does (AD-40).
 _METHOD_TABLES: dict[str, tuple[str, frozenset[str]]] = {
-    "list": ("builtins.list", _LIST_METHODS),
-    "dict": ("builtins.dict", _DICT_METHODS),
-    "set": ("builtins.set", _SET_METHODS),
-    "frozenset": ("builtins.frozenset", _FROZENSET_METHODS),
-    "tuple": ("builtins.tuple", _TUPLE_METHODS),
-    "str": ("builtins.str", _STR_METHODS),
-    "Path": ("pathlib.Path", _PATH_METHODS),
-    "hashlib._Hash": ("hashlib._Hash", _HASH_METHODS),
-    "argparse.ArgumentParser": ("argparse.ArgumentParser", _ARGUMENT_PARSER_METHODS),
-    "argparse._ArgumentGroup": ("argparse._ArgumentGroup", _ARGUMENT_GROUP_METHODS),
-    "argparse._SubParsersAction": ("argparse._SubParsersAction", frozenset({"add_parser"})),
-    "rich.console.Console": ("rich.console.Console", _CONSOLE_METHODS),
-    "rich.table.Table": ("rich.table.Table", _TABLE_METHODS),
+    "list": (
+        "builtins.list",
+        frozenset(("append clear copy count extend index insert pop remove reverse sort").split()),
+    ),
+    "dict": (
+        "builtins.dict",
+        frozenset(
+            ("clear copy fromkeys get items keys pop popitem setdefault update values").split()
+        ),
+    ),
+    "set": (
+        "builtins.set",
+        frozenset(
+            (
+                "add clear copy difference difference_update discard intersection "
+                "intersection_update isdisjoint issubset issuperset pop remove "
+                "symmetric_difference symmetric_difference_update union update"
+            ).split()
+        ),
+    ),
+    "frozenset": (
+        "builtins.frozenset",
+        frozenset(
+            (
+                "copy difference intersection isdisjoint issubset issuperset symmetric_difference "
+                "union"
+            ).split()
+        ),
+    ),
+    "tuple": ("builtins.tuple", frozenset("count index".split())),
+    "str": (
+        "builtins.str",
+        frozenset(
+            (
+                "capitalize casefold center count encode endswith expandtabs find format "
+                "format_map index isalnum isalpha isascii isdecimal isdigit isidentifier islower "
+                "isnumeric isprintable isspace istitle isupper join ljust lower lstrip maketrans "
+                "partition removeprefix removesuffix replace rfind rindex rjust rpartition rsplit "
+                "rstrip split splitlines startswith strip swapcase title translate upper zfill"
+            ).split()
+        ),
+    ),
+    "Path": (
+        "pathlib.Path",
+        frozenset(
+            (
+                "absolute as_posix as_uri chmod exists expanduser glob is_absolute is_dir is_file "
+                "is_symlink iterdir joinpath lstat mkdir read_bytes read_text relative_to rename "
+                "replace resolve rglob rmdir samefile stat touch unlink with_name with_stem "
+                "with_suffix write_bytes write_text"
+            ).split()
+        ),
+    ),
+    "hashlib._Hash": ("hashlib._Hash", frozenset("copy digest hexdigest update".split())),
+    "argparse.ArgumentParser": (
+        "argparse.ArgumentParser",
+        frozenset(
+            (
+                "add_argument add_argument_group add_mutually_exclusive_group add_subparsers "
+                "error exit format_help format_usage get_default parse_args parse_intermixed_args "
+                "parse_known_args parse_known_intermixed_args print_help print_usage register "
+                "set_defaults"
+            ).split()
+        ),
+    ),
+    "argparse._ArgumentGroup": (
+        "argparse._ArgumentGroup",
+        frozenset(
+            ("add_argument add_argument_group add_mutually_exclusive_group set_defaults").split()
+        ),
+    ),
+    "argparse._SubParsersAction": ("argparse._SubParsersAction", frozenset("add_parser".split())),
+    "rich.console.Console": (
+        "rich.console.Console",
+        frozenset(
+            (
+                "begin_capture bell capture clear control end_capture export_html export_svg "
+                "export_text get_style input line log measure out pager pop_render_hook pop_theme "
+                "print print_exception print_json push_render_hook push_theme render render_lines "
+                "render_str rule save_html save_svg save_text screen set_alt_screen "
+                "set_window_title show_cursor status update_screen update_screen_lines use_theme"
+            ).split()
+        ),
+    ),
+    "rich.table.Table": (
+        "rich.table.Table",
+        frozenset(("add_column add_row add_section get_row_style grid").split()),
+    ),
 }
 
 # A callable reached through an import binding whose documented result is a table type.
