@@ -14,6 +14,7 @@ from test_delta import _model, _record
 from archkeel.analyzer import observe
 from archkeel.check.onboarding import architecture_document
 from archkeel.check.ports import ScanConfig
+from archkeel.check.report import observe_repository
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
@@ -29,11 +30,13 @@ from archkeel.cli.config import load_config
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     decode_canonical_model,
+    decode_json,
     parse_contract,
     parse_observation,
 )
-from archkeel.ir.model import ArchitectureContract
+from archkeel.ir.model import ArchitectureContract, Observation, Record
 from fixtures.architecture_demo import CATALOG
+from fixtures.demo_catalog_support import FIXTURE_DIR
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
@@ -291,6 +294,21 @@ def _module(qualified_name: str, all_exports: list[str] | None = None) -> dict[s
     return _record(f"MOD-{qualified_name}", kind="module", data=data)
 
 
+def _symbol(module: str, name: str, kind: str = "function") -> dict[str, object]:
+    """A top-level, public class/function `symbols` record (AD-56's own evidence for `public`)."""
+    return _record(
+        f"SYM-{module}.{name}",
+        kind=kind,
+        data={
+            "qualified_name": f"{module}.{name}",
+            "module": module,
+            "name": name,
+            "parent": None,
+            "visibility": "public_name",
+        },
+    )
+
+
 def test_undeclared_interface_is_a_diagnostic_when_a_rule_is_present() -> None:
     contract = parse_contract(
         {
@@ -369,7 +387,12 @@ def test_missing_public_api_entry_is_a_diagnostic() -> None:
 
 
 def test_built_public_api_entry_has_no_diagnostic() -> None:
-    """AD-66: a `declarations.public_api` entry whose module the scan saw is not missing."""
+    """AD-66: a `declarations.public_api` entry whose module the scan saw is not missing.
+
+    `Widget` is recorded as a scanned class (AD-72) so this stays about AD-66's own module-only
+    existence check, undisturbed by whether the module's own `__all__` or its `symbols` prove
+    the name -- both of which are exercised by their own tests below.
+    """
     contract = parse_contract(
         {
             "schema_version": "2.1.0",
@@ -378,9 +401,9 @@ def test_built_public_api_entry_has_no_diagnostic() -> None:
             "declarations": {"public_api": ["sample.core:Widget"]},
         }
     )
-    observation = parse_observation(
-        _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
-    )
+    raw = _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    raw["symbols"] = [_symbol("sample.core", "Widget", kind="class")]
+    observation = parse_observation(raw)
     assert public_api_diagnostics(contract, observation) == ()
 
 
@@ -406,8 +429,43 @@ def test_public_api_name_outside_declared_all_is_missing() -> None:
     assert diagnostics[0].code == "api_surface.missing"
 
 
-def test_public_api_name_is_unchecked_without_declared_all() -> None:
-    """AD-71: without `__all__` a constant or type alias would be misreported as missing."""
+def test_public_api_name_inside_declared_all_has_no_diagnostic() -> None:
+    """AD-71: a name the module's own `__all__` lists is proven present, so nothing is flagged."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [],
+            "rules": [],
+            "declarations": {"public_api": ["sample.core:Widget"]},
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            modules=[_module("sample.core", all_exports=["Widget"])],
+            imports=[],
+        )
+    )
+    assert public_api_diagnostics(contract, observation) == ()
+
+
+def _unknowns_naming(observation: Observation, entry: str) -> list[Record]:
+    """Every `unknowns` record whose `subjects` name one `declarations.public_api` entry."""
+    unknowns = observation.records("unknowns") or ()
+    return [item for item in unknowns if entry in item.subjects]
+
+
+def test_public_api_diagnostics_never_flags_an_entry_the_analyzer_already_marked_unknown() -> None:
+    """AD-72: an `unknowns` record is the analyzer's verdict, not a draft for `check` to gate on.
+
+    Built by hand so this holds regardless of how the analyzer eventually decides
+    `sample.core:WIDGET_LIMIT` is undecidable: whatever `kind` or `data` an `api_surface_limit`
+    (or similarly named) `unknowns` record carries, `public_api_diagnostics` must stay silent
+    for the entry it names -- an undecidable position is a limit of the scan, not a proven
+    defect (AD-67's own boundary for `dynamic_call_limit`/`context_alias_limit`), so it must
+    never move `validate`'s exit code. This guard is what stops a later change from folding an
+    `unknowns` entry back into a coded or uncoded diagnostic.
+    """
     contract = parse_contract(
         {
             "schema_version": "2.1.0",
@@ -416,10 +474,68 @@ def test_public_api_name_is_unchecked_without_declared_all() -> None:
             "declarations": {"public_api": ["sample.core:WIDGET_LIMIT"]},
         }
     )
-    observation = parse_observation(
-        _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    raw = _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    unknown_record = _record(
+        "UNKNOWN-API-SURFACE-WIDGET-LIMIT",
+        kind="api_surface_limit",
+        evidence_class="UNKNOWN",
+        data={
+            "module": "sample.core",
+            "name": "WIDGET_LIMIT",
+            "reason": "The module declares no __all__ and the scan records no class or "
+            "function of this name.",
+        },
     )
+    unknown_record["subjects"] = ["sample.core:WIDGET_LIMIT"]
+    raw["unknowns"] = [unknown_record]
+    observation = parse_observation(raw)
+    assert _unknowns_naming(observation, "sample.core:WIDGET_LIMIT") != []
     assert public_api_diagnostics(contract, observation) == ()
+
+
+def test_public_api_name_without_all_is_unknown_to_the_analyzer_only_when_unprovable(
+    tmp_path: Path,
+) -> None:
+    """AD-72: the analyzer, not `check`, decides a `public_api` name `__all__` never declared.
+
+    `shop.app.orders:place_order` is a real scanned function, so the scan itself proves the
+    promise kept; `shop.app.orders:TypoThatIsNotReal` is the reviewer's own example -- its
+    module declares no `__all__` and `symbols` records no such name -- so neither the module nor
+    the scan can prove or disprove it. Only the second is recorded as `unknowns`; `validate`
+    reports it there, not as a diagnostic (coded or not) of any kind, and `public_api_diagnostics`
+    stays silent for both -- so the exit code, and `declared_rules`, are exactly what the clean
+    sample already gives, unmoved by an entry nothing could settle.
+    """
+    # The clean sample already declares shop.app.orders:place_order as public_api (a real
+    # scanned function); only the reviewer's unprovable name needs adding.
+    shop_contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    assert "shop.app.orders:place_order" in shop_contract["declarations"]["public_api"]
+    shop_contract["declarations"]["public_api"] = [
+        *shop_contract["declarations"]["public_api"],
+        "shop.app.orders:TypoThatIsNotReal",
+    ]
+    root = _prepare_repo(
+        tmp_path,
+        {"architecture-contract.json": json.dumps(shop_contract, indent=2) + "\n"},
+    )
+    observed = observe_repository(root, SHOP_CONFIG, observe)
+    assert observed.diagnostics == ()
+    observation = observed.observation
+    assert observation is not None
+    contract = parse_contract(decode_json((root / "architecture-contract.json").read_bytes()))
+
+    assert public_api_diagnostics(contract, observation) == ()
+    assert _unknowns_naming(observation, "shop.app.orders:place_order") == []
+    unresolved = _unknowns_naming(observation, "shop.app.orders:TypoThatIsNotReal")
+    assert len(unresolved) == 1, unresolved
+    unknown = unresolved[0]
+    assert unknown.data.get("module") == "shop.app.orders"
+    assert unknown.data.get("name") == "TypoThatIsNotReal"
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe)
+    assert result.exit_code == 0
+    assert result.diagnostics == ()
+    assert result.declared_rules == "PASS"
 
 
 def test_planned_entry_not_yet_built_has_no_diagnostic() -> None:
