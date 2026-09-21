@@ -8,7 +8,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -303,7 +303,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     subject = "command-line arguments"
     interactive = sys.stdout.isatty()
     artifacts: list[Path] = []
-    files: dict[str, bytes] = {}
+    files: Mapping[str, bytes] = {}
     try:
         args = parser.parse_args(argv)
         if args.command is None:
