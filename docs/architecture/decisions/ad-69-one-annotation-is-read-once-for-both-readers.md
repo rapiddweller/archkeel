@@ -2,9 +2,9 @@
 
 ## What changes
 
-`_resolved_position_types` reads a facade annotation the way `_boundary_type_verdict` reads it:
-the bare name, and the element of a known collection. It read only bare names, so the two
-readers of the same annotation disagreed the moment [AD-67](ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md)
+`_boundary_type_verdict` is the only place an annotation is read. Its `_Position` carries what
+the walk resolved beside the verdict, and `_resolved_position_types` reads that field. It read
+only bare names of its own, so the two readers disagreed the moment [AD-67](ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md)
 taught the rule to enter a collection.
 
 | Reader | `Payload` | `tuple[Payload, ...]` |
@@ -37,19 +37,23 @@ helper, no second definition to keep in step.
 | Alternative | Why not |
 |---|---|
 | Leave the readings apart | The drift is the defect AD-65 names, and it is measurable today: 18 types. |
-| Teach reachability its own collection walk | A second definition of what an annotation exposes, which is the thing this removes. |
+| Teach reachability its own collection walk, matching the rule's | Agreement by copy, which is what had just failed: the first revision of this decision did exactly that, and review rejected it. Two call sites stay equal only until the next shape is taught to one. |
 | Enter unions and mappings here too | AD-67 left both undecidable for the rule; the two readers must agree, so this follows it rather than overtaking it. |
 
 ## Limit
 
 Both readers now enter one level. A nested subscript, a union, a mapping, a dotted name and a
 forward reference stay unresolved on both sides, which is the point: they are unresolved
-*together*. `ANALYZER_VERSION` rises to 0.30.0, because a facade function's `facade_types` record
-gains the elements it always exposed.
+*together*. Reachability now needs the contract passed to it, although resolution does not
+depend on it -- the price of reading the verdict's walk rather than repeating it.
+`ANALYZER_VERSION` rises to 0.30.0, because a facade function's `facade_types` record gains the
+elements it always exposed; merging the two readers adds nothing further, and the output is
+byte-identical on a fixed sample.
 
 ## Check
 
 `tests/test_analyzer.py::test_facade_types_resolve_a_collection_element` fails on the unmerged
-readings: the collection element is missing from `facade_types` while `boundary_types` judges it.
-`archkeel report --root .` on this repository lists `OpenDecision`, `InterfaceEdge` and the other
-16 under the functions that expose them.
+readings. Two structural tests hold the merge itself: exactly one function may call
+`_resolve_named_type`, and reachability may not walk collection parameters of its own.
+`test_boundary_types_and_facade_types_agree_across_annotation_shapes` compares the two readings
+over nine shapes, silence included, and fails when either side alone is taught a new one.
