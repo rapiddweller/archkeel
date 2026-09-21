@@ -273,16 +273,19 @@ def test_every_decision_reference_names_a_record() -> None:
     sentence as a reference may belong to either record, so verifying attributions was measured,
     produced four false positives on 66 files and no true ones, and was left to review.
     """
+    # A record's id carries an optional letter: AD-24a and AD-24b are two records, and a pattern
+    # of digits alone matches neither, so the two ids most in need of the check would skip it.
+    identifier = re.compile(r"\bAD-(\d+[a-z]?)\b")
     numbers = {
-        (path.name.split("-")[1]).lstrip("0") or "0"
+        path.name.split("-")[1].lstrip("0")
         for path in (ROOT / "docs/architecture/decisions").glob("ad-*.md")
     }
     dangling: dict[str, list[str]] = {}
     for path in TRACKED:
-        if path.suffix not in {".md", ".py", ".json"}:
+        payload = path.read_bytes()
+        if b"\0" in payload:
             continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        for number in re.findall(r"\bAD-(\d+)\b", text):
-            if (number.lstrip("0") or "0") not in numbers:
+        for number in identifier.findall(payload.decode("utf-8", errors="ignore")):
+            if number.lstrip("0") not in numbers:
                 dangling.setdefault(f"AD-{number}", []).append(str(path.relative_to(ROOT)))
     assert dangling == {}, f"a decision reference names no record under decisions/: {dangling}"
