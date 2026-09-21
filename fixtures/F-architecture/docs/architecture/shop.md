@@ -13,9 +13,18 @@ Every cross-component pair is either observed or forbidden.
 | render | `shop.render` | Text projection of an order |
 | cli | `shop.cli` | Argument parsing and composition |
 
+Every dataclass `shop.model` owns lives in one module: `MODEL-TYPES-IN-ENTITIES` names
+`shop.model.entities` in `exact_sources`, so `Order`, `Line`, `Money` and `Discount` — the last
+listed in no `__all__` and imported by nothing — all stay there rather than spreading across the
+package as it grows.
+
 From outside, the backend of `store` is out of reach: `DEP-APP-NO-STORE-BACKEND` scopes a
 prohibition to that subpackage, one level below the `app` → `store` edge the contract otherwise
 allows.
+
+`shop.app`'s declared facade is one function: `APP-TYPES-NOT-DICT` (`boundary_types`) checks
+exactly what `public` covers, `shop.app.orders:place_order`, whose parameters and return are
+`Path`, builtins and `shop.model`'s own declared `Order`, never a bare `dict` standing in for one.
 
 Inside `cli`, the error boundary is one function: `CONSTRUCT-NO-BROAD-EXCEPT` names
 `shop.cli.main.main` in `exact_sources`, so only that function's own body may catch every
@@ -55,6 +64,10 @@ flowchart LR
     repository --> backend
     api --> backend
 ```
+
+Inside `store`, the two storage modules are peers: `STORE-PEERS-ISOLATED` names
+`shop.store.repository` and `shop.store.sqlite` in `members`, so neither imports the other, while
+both still import `shop.store.backend`, the module they share.
 
 ## Allowed dependencies
 

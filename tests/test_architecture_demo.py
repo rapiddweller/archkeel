@@ -81,20 +81,25 @@ def _clean_sample_rule_kind_by_id() -> dict[str, str]:
     return mapping
 
 
-def test_tour_fires_every_class_a_rule_kind_that_can_violate() -> None:
+def test_tour_fires_every_class_a_rule_kind_that_can_violate(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     """AD-11: `tour` is the showcase promise, not only the wider catalogue.
 
-    A rule kind present somewhere in the catalogue but missing from `tour` is exactly the gap
-    that let symbol_placement and boundary_types (AD-58) land without joining the showcase
-    (issue #47); this asserts the same sentence AD-11 states, not merely that a demo exists.
+    A rule kind present somewhere in the catalogue but missing from `tour`'s own real run is
+    exactly the gap that let symbol_placement and boundary_types (AD-58) land without joining
+    the showcase (issue #47), and that let `touch_store` drop out of `tour` silently when
+    `boundary_types` narrowed to a component's declared facade (issue #55): this asserts against
+    the violations a run of `tour` actually produces, sharing that run with
+    `test_variant_produces_the_catalogued_findings[tour]` via `_sample_run` rather than scanning
+    the sample a second time.
     """
     kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
     tour = next(variant for variant in CATALOG if variant.id == "tour")
     rule_kind = _clean_sample_rule_kind_by_id()
-    fired_kinds = {rule_kind[rule_id] for rule_id in tour.expected_violations}
+    _, _, actual_violations = _sample_run(tmp_path_factory, tour)
+    fired_kinds = {rule_kind[rule_id] for rule_id in actual_violations}
     assert kinds - _KIND_CANNOT_VIOLATE <= fired_kinds
-    # test_variant_produces_the_catalogued_findings[tour] proves expected_violations is what a
-    # real run produces; this test only has to prove that set covers every fireable kind.
 
 
 def test_clean_sample_declares_every_class_a_rule_kind() -> None:
@@ -224,19 +229,33 @@ def _report_violations(root: Path) -> tuple[str, ...]:
     return tuple(sorted(item.rule_ids[0] if item.rule_ids else item.id for item in violations))
 
 
+# Keyed by variant id, so a variant several tests need (`tour`) is run once per session, not
+# once per test: `_sample_run` is the only place that materializes and analyzes a sample variant.
+_SampleRun = tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]
+_SAMPLE_RUN_CACHE: dict[str, _SampleRun] = {}
+
+
+def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _SampleRun:
+    """Actual (codes, kinds, violations) from a real run of one sample variant, cached by id."""
+    if variant.id not in _SAMPLE_RUN_CACHE:
+        root = _prepare_repo(tmp_path_factory.mktemp(variant.id), dict(variant.files))
+        validate_result, _ = run_validate(root, CONFIG, observe)
+        actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
+        actual_kinds = tuple(
+            sorted(item.kind for item in validate_result.diagnostics if item.code is None)
+        )
+        _SAMPLE_RUN_CACHE[variant.id] = (actual_codes, actual_kinds, _report_violations(root))
+    return _SAMPLE_RUN_CACHE[variant.id]
+
+
 @pytest.mark.parametrize("variant", _SAMPLE_VARIANTS, ids=lambda v: v.id)
-def test_variant_produces_the_catalogued_findings(tmp_path: Path, variant: Variant) -> None:
-    root = _prepare_repo(tmp_path, dict(variant.files))
-
-    validate_result, _ = run_validate(root, CONFIG, observe)
-    actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
+def test_variant_produces_the_catalogued_findings(
+    tmp_path_factory: pytest.TempPathFactory, variant: Variant
+) -> None:
+    actual_codes, actual_kinds, actual_violations = _sample_run(tmp_path_factory, variant)
     assert actual_codes == variant.expected_codes
-    actual_kinds = tuple(
-        sorted(item.kind for item in validate_result.diagnostics if item.code is None)
-    )
     assert actual_kinds == variant.expected_kinds
-
-    assert _report_violations(root) == variant.expected_violations
+    assert actual_violations == variant.expected_violations
 
 
 @pytest.mark.parametrize("variant", _UNIQUE_CHECK_RUNS, ids=lambda v: v.id)
