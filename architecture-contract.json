@@ -72,6 +72,8 @@
       "public": [
         "archkeel.check.git:read_blob",
         "archkeel.check.onboarding:run_init",
+        "archkeel.check.ports:Analyzer",
+        "archkeel.check.ports:Host",
         "archkeel.check.ports:ScanConfig",
         "archkeel.check.report",
         "archkeel.check.run:run_check",
@@ -178,6 +180,7 @@
         "archkeel.render.html",
         "archkeel.render.summary:check_summary",
         "archkeel.render.summary:init_summary",
+        "archkeel.render.summary:Summary",
         "archkeel.render.summary:report_summary",
         "archkeel.render.terminal"
       ],
@@ -362,6 +365,22 @@
       "kind": "boundary_types",
       "source": "archkeel.analyzer",
       "rationale": "analyzer's one declared facade function takes and returns only a type some component's own public list declares, never a bare dict/object standing in for one -- observe returning ir's own ObservationResult is exactly that pattern, not the leak a naming convention alone mistook it for (AD-58, AD-63).",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CHECK-TYPES-DECLARED",
+      "kind": "boundary_types",
+      "source": "archkeel.check",
+      "rationale": "check's facade takes its ports by type: a caller cannot call run_check without satisfying Analyzer and Host, so the type is the contract rather than something behind it (AD-65, AD-68).",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "RENDER-TYPES-DECLARED",
+      "kind": "boundary_types",
+      "source": "archkeel.render",
+      "rationale": "render's three summary functions return the projection the composition root prints; a caller cannot use the value without the type, so Summary belongs to the facade (AD-68).",
       "provenance": ["docs/architecture/archkeel.md"],
       "decided_by": "architect"
     }

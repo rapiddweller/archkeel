@@ -100,6 +100,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-67 | [An undecidable boundary position is UNKNOWN, not silence](decisions/ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md) |
 | AD-69 | [One annotation is read once, for both readers](decisions/ad-69-one-annotation-is-read-once-for-both-readers.md) |
 | AD-65 | [A type a declared facade signature exposes is a used public entry](decisions/ad-65-a-type-a-declared-facade-signature-exposes-is-a-used.md) |
+| AD-68 | [`check` and `render` declare boundary_types, and the ten findings are declarations](decisions/ad-68-check-and-render-declare-boundarytypes-and-the-ten.md) |
 
 ## Allowed dependencies
 

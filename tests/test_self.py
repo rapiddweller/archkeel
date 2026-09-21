@@ -26,6 +26,7 @@ from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
+    BoundaryTypesRule,
     ForbiddenDependencyRule,
     Observation,
     in_scope,
@@ -154,9 +155,8 @@ def test_self_contract_covers_modules_and_analyzer_interface(
 
 def test_self_facades_record_the_ten_types_they_expose(self_observation: Observation) -> None:
     """AD-65 on this repository: the ten positions AD-63 measured in `check` and `render` are
-    recorded as reached, so declaring them can no longer collide with `interface.unused`
-    (issue #57). `check` and `render` still declare no `boundary_types` rule and none of the
-    three types is in a `public` list yet: that is issue #61's decision, not this one's."""
+    recorded as reached, so declaring them no longer collides with `interface.unused`
+    (issue #57), and AD-68 declares all three types and scopes the rule to both components."""
     exposed: dict[str, tuple[str, ...]] = {}
     for record in self_observation.records("symbols") or ():
         name = text_value(record.data.get("qualified_name"))
@@ -169,20 +169,39 @@ def test_self_facades_record_the_ten_types_they_expose(self_observation: Observa
         assert "archkeel.render.summary.Summary" in exposed[f"archkeel.render.summary.{name}"]
     contract = _contract()
     declared = {entry for item in contract.components for entry in item.public or ()}
-    assert not declared & {
+    assert {
         "archkeel.check.ports:Analyzer",
         "archkeel.check.ports:Host",
         "archkeel.render.summary:Summary",
-    }
+    } <= declared
+    scoped = {rule.source for rule in contract.rules if isinstance(rule, BoundaryTypesRule)}
+    assert scoped == {"archkeel.analyzer", "archkeel.check", "archkeel.render"}
 
 
 def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
-    """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard)."""
+    """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard).
+
+    AD-65 gave an entry a second way of being reached, and `_drafted_public` proposes only the
+    first: it reads inbound crossing imports, so a type no consumer imports but a declared
+    facade signature exposes is never proposed. AD-68 declares three of those. The guard keeps
+    its teeth by checking both readings instead of one: nothing the drafter proposes may be
+    edited away, and every extra entry has to be a type the observation records some facade
+    signature as exposing, which is not something a hand edit can invent.
+    """
     contract = _contract()
     drafted, _, _ = draft_contract(self_observation, "archkeel")
-    actual = {component.label: component.public for component in contract.components}
     proposed = {component.label: component.public for component in drafted.components}
-    assert actual == proposed
+    exposed = {
+        item
+        for record in self_observation.records("symbols") or ()
+        for item in (record.data.get("facade_types") or ())
+        if isinstance(item, str)
+    }
+    for component in contract.components:
+        entries = set(component.public or ())
+        assert set(proposed.get(component.label) or ()) <= entries, component.label
+        extra = entries - set(proposed.get(component.label) or ())
+        assert {item.replace(":", ".") for item in extra} <= exposed, (component.label, extra)
 
 
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
