@@ -202,9 +202,9 @@
     ],
     "review_scopes": [],
     "public_api": [
+      "archkeel.api:ViolationFingerprint",
       "archkeel.api:ViolationRow",
-      "archkeel.api:load_observation",
-      "archkeel.api:violation_rows"
+      "archkeel.api:load_violations"
     ],
     "public_api_provenance": [
       "docs/architecture/decisions/ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md"
