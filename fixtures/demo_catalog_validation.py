@@ -12,6 +12,7 @@ from fixtures.demo_catalog_support import (
     Variant,
     contract_component_field_appended,
     contract_component_field_set,
+    contract_declarations_field_appended,
     contract_rule_field,
     contract_rule_provenance_appended,
     contract_rule_replaced,
@@ -108,6 +109,37 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         },
         expected_violations=(),
         expected_codes=("interface.missing",),
+    ),
+    Variant(
+        id="validation-api-surface-missing",
+        section="validation",
+        item="api_surface.missing",
+        summary="Declaring shop.app.future:NotBuiltYet in declarations.public_api names a "
+        "module the scan never saw; unlike a component's public list, public_api names a "
+        "consumer outside the package, so there is no cross-component import that could ever "
+        "make an unused twin possible (AD-66, issue #58).",
+        files={
+            "architecture-contract.json": contract_declarations_field_appended(
+                "public_api", "shop.app.future:NotBuiltYet"
+            )
+        },
+        expected_violations=(),
+        expected_codes=("api_surface.missing",),
+    ),
+    Variant(
+        id="validation-api-surface-not-exported",
+        section="validation",
+        item="api_surface.missing:not_in_all",
+        summary="Declaring shop.model.entities:NotExported in declarations.public_api names a "
+        "module the scan saw whose own __all__ does not list it; the module proves the promise "
+        "absent, not merely unproven (AD-71).",
+        files={
+            "architecture-contract.json": contract_declarations_field_appended(
+                "public_api", "shop.model.entities:NotExported"
+            )
+        },
+        expected_violations=(),
+        expected_codes=("api_surface.missing",),
     ),
     Variant(
         id="validation-interface-planned-not-built",
@@ -420,6 +452,32 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
     ),
 )
 
+# AD-72: shop.app.orders declares no __all__, so neither it nor the scan's own symbols can
+# settle a promised name the module never defines. That is a limit of what the scan can prove,
+# not a proven defect (AD-67's own boundary for dynamic_call_limit/context_alias_limit), so
+# validate reports it as an analyzer-side `unknowns` record, never as a diagnostic of any kind
+# (coded or not) and never gates the exit code -- unlike the two rows above, where the module or
+# its own __all__ does prove the promise broken.
+#
+# Not a _SAMPLE_VARIANTS row: Variant and _sample_run (tests/test_architecture_demo.py) only
+# capture RunResult.diagnostics (expected_codes/expected_kinds), never the Observation itself,
+# so neither can express an expected `unknowns` record today. Forcing this into expected_kinds
+# would silently re-describe it as a diagnostic, exactly the gate this change removes. The real
+# pin lives in tests/test_validation.py, cited below as evidence instead.
+_VALIDATION_API_SURFACE_UNKNOWN = Variant(
+    id="validation-api-surface-unknown",
+    section="validation",
+    item="api_surface_unknown",
+    summary="shop.app.orders:TypoThatIsNotReal names a module the scan saw that declares no "
+    "__all__; the scan's own symbols do not record that name either, so the promise is neither "
+    "proven kept nor proven broken. The analyzer records this as an `unknowns` entry, not a "
+    "diagnostic of any kind, so validate neither gates nor passes it silently -- the generic "
+    "overlay harness only asserts RunResult.diagnostics, so it cannot show that record.",
+    files={},
+    expected_violations=(),
+    expected_codes=(),
+    evidence="tests/test_validation.py",
+)
 # AD-12 follow-up: the analyzer always folds a rule-without-subjects unknown into
 # coverage.failures too, so validate returns the analyzer's own uncoded rule_without_subjects
 # diagnostic kind before observation_diagnostics could ever attach a code. That dead branch and
@@ -566,6 +624,7 @@ _VALIDATION_FILTER_UNKNOWN = Variant(
 
 VARIANTS: tuple[Variant, ...] = (
     *_VALIDATION_CODED_ROWS,
+    _VALIDATION_API_SURFACE_UNKNOWN,
     _VALIDATION_RULE_WITHOUT_SUBJECTS,
     _VALIDATION_PARSE_ERROR,
     _VALIDATION_SCOPE_EMPTY,

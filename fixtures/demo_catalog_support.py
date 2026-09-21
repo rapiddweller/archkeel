@@ -143,6 +143,13 @@ def contract_component_field_appended(label: str, field: str, value: object) -> 
     return _dump_contract(contract)
 
 
+def contract_declarations_field_appended(field: str, value: object) -> str:
+    """Clean contract JSON with one value appended to a `declarations` list field."""
+    contract = _clean_contract()
+    contract["declarations"][field] = [*contract["declarations"][field], value]
+    return _dump_contract(contract)
+
+
 def inside_requires_replaced(label: str, entries: list[dict[str, str]]) -> str:
     """The clean `shop.store` inside contract with one sub-component's `requires` replaced.
 

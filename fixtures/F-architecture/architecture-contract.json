@@ -86,6 +86,8 @@
         "provenance": ["docs/architecture/shop.md"]
       }
     ],
+    "public_api": ["shop.app.orders:place_order"],
+    "public_api_provenance": ["docs/architecture/shop.md"],
     "public_commands": [
       {
         "id": "CMD-SHOP-PLACE-ORDER",

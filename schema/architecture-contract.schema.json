@@ -247,7 +247,7 @@
     },
     "declarations": {
       "type": "object",
-      "description": "Declarations are documented, never enforced. See docs/rules.md.",
+      "description": "Declarations are documented, and public_api is also checked for existence (AD-66). See docs/rules.md.",
       "additionalProperties": false,
       "properties": {
         "capabilities": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},

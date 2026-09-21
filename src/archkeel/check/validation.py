@@ -238,6 +238,22 @@ def _scanned_modules(observation: Observation) -> frozenset[str]:
     )
 
 
+def _literal_exports(observation: Observation) -> dict[str, frozenset[str]]:
+    """Each scanned module's literal `__all__`, absent for a module that declares none.
+
+    A module without `__all__` is not in the mapping at all, which is what lets a reader tell
+    "this module states its surface and the name is not in it" from "this module states no
+    surface", the distinction `symbols` alone cannot make for a constant or type alias.
+    """
+    return {
+        module_name: frozenset(export for export in exports if isinstance(export, str))
+        for record in observation.records("modules") or ()
+        if isinstance((module_name := record.data.get("qualified_name")), str)
+        and isinstance((exports := record.data.get("all_exports")), tuple)
+        and exports
+    }
+
+
 def _entry_module(entry: str) -> str:
     return entry.partition(":")[0]
 
@@ -382,6 +398,57 @@ def _planned_entry_diagnostics(
         for item, entry in enumerate(component.planned or ())
         if _entry_module(entry) in modules
     ]
+
+
+def public_api_diagnostics(
+    contract: ArchitectureContract, observation: Observation
+) -> tuple[Diagnostic, ...]:
+    """Flag a `declarations.public_api` entry whose module the scan never saw (AD-66).
+
+    `public_api` names the surface a consumer *outside* this package may rely on, the case
+    AD-9's component `public` never covered: `public` is one component's promise to another
+    component of the same package, held to `interface_boundary`'s crossing check, while nothing
+    inside the scan ever crosses into `public_api` the way one component imports another, so
+    there is no cross-component import to make an `interface.unused` twin possible here. The one
+    signal left to check is existence, the same one `interface.missing` already gives `public`:
+    a `public_api` entry naming a module the scan never saw is a typo or a promise the package
+    has not built yet.
+
+    A `module:Name` entry is also checked against that module's `__all__` when it declares one
+    (AD-71): a consumer imports the promised name, not its module, and a module with `__all__`
+    states its own surface, so a name outside it is proven absent rather than merely unproven.
+    A module declaring no `__all__` is judged by its module alone, because `symbols` records
+    only classes and functions and would misreport a constant or type alias as missing.
+    """
+    declarations = contract.declarations or ContractDeclarations()
+    modules = _scanned_modules(observation)
+    exports = _literal_exports(observation)
+    diagnostics = []
+    for index, entry in enumerate(declarations.public_api):
+        module, _, name = entry.partition(":")
+        pointer = f"/declarations/public_api/{index}"
+        if module not in modules:
+            diagnostics.append(
+                _diagnostic(
+                    "api_surface.missing",
+                    pointer,
+                    entry,
+                    "The declared public API entry's module has not been scanned; "
+                    "it does not exist yet.",
+                    "Build the module, correct a typo, or remove the entry until it exists.",
+                )
+            )
+        elif name and (declared := exports.get(module)) is not None and name not in declared:
+            diagnostics.append(
+                _diagnostic(
+                    "api_surface.missing",
+                    pointer,
+                    entry,
+                    "The module declares __all__ and the promised name is not in it.",
+                    "Export the name from the module, correct a typo, or remove the entry.",
+                )
+            )
+    return tuple(diagnostics)
 
 
 def interface_diagnostics(
@@ -929,6 +996,7 @@ def observation_diagnostics(
     diagnostics = [
         *closed_world_diagnostics(contract, observation),
         *interface_diagnostics(contract, observation),
+        *public_api_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]
