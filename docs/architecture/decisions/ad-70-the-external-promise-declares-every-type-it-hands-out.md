@@ -46,8 +46,9 @@ deliberately carries no second copy of `rules` and `subjects` -- one place to dr
 
 A consumer who wants more than violations has no entry now; adding one later is cheap, and it
 would carry its own declared types. This is free today because `archkeel.api` is unreleased:
-it arrived after 0.4.x, so no published promise is broken. Whether `public_api` should also
-check that the declared *symbol* exists, not just its module, is issue #58's remaining half.
+it arrived after 0.4.x, so no published promise is broken. That the declared *symbol* exists,
+not just its module, is checked by
+[AD-71](ad-71-a-promised-name-is-checked-against-the-modules-own-all.md).
 
 ## Check
 

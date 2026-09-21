@@ -284,8 +284,11 @@ def _cross_import(target_module: str, **data: object) -> dict[str, object]:
     )
 
 
-def _module(qualified_name: str) -> dict[str, object]:
-    return _record(f"MOD-{qualified_name}", kind="module", data={"qualified_name": qualified_name})
+def _module(qualified_name: str, all_exports: list[str] | None = None) -> dict[str, object]:
+    data: dict[str, object] = {"qualified_name": qualified_name}
+    if all_exports is not None:
+        data["all_exports"] = all_exports
+    return _record(f"MOD-{qualified_name}", kind="module", data=data)
 
 
 def test_undeclared_interface_is_a_diagnostic_when_a_rule_is_present() -> None:
@@ -373,6 +376,44 @@ def test_built_public_api_entry_has_no_diagnostic() -> None:
             "components": [],
             "rules": [],
             "declarations": {"public_api": ["sample.core:Widget"]},
+        }
+    )
+    observation = parse_observation(
+        _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    )
+    assert public_api_diagnostics(contract, observation) == ()
+
+
+def test_public_api_name_outside_declared_all_is_missing() -> None:
+    """AD-71: a module with `__all__` states its surface, so a name outside it is proven absent."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [],
+            "rules": [],
+            "declarations": {"public_api": ["sample.core:Widget"]},
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            modules=[_module("sample.core", all_exports=["Gadget"])],
+            imports=[],
+        )
+    )
+    diagnostics = public_api_diagnostics(contract, observation)
+    assert [item.pointer for item in diagnostics] == ["/declarations/public_api/0"]
+    assert diagnostics[0].code == "api_surface.missing"
+
+
+def test_public_api_name_is_unchecked_without_declared_all() -> None:
+    """AD-71: without `__all__` a constant or type alias would be misreported as missing."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [],
+            "rules": [],
+            "declarations": {"public_api": ["sample.core:WIDGET_LIMIT"]},
         }
     )
     observation = parse_observation(
