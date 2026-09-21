@@ -39,8 +39,8 @@ Then pick one of two modes. The architect chooses; do not choose for them.
 
 ### Interview mode: the architect decides, you ask
 
-Never write a rationale or pick allow/forbid yourself; ask, and write down the architect's
-own words as the `rationale`, with `decided_by: "architect"`.
+Never write a rationale or choose an allowed direction yourself; ask, and write down the
+architect's own words as the `rationale`, with `decided_by: "architect"`.
 
 1. Read the repository's ADRs and architecture documents before touching the contract.
 2. Propose the overall picture — components, layers and the allowed directions between them
@@ -51,20 +51,18 @@ own words as the `rationale`, with `decided_by: "architect"`.
 3. After that confirmation, ask only about conflicts (the code contradicts a document) and
    gaps (the documents are silent). Each question names the recommended option first, with
    its evidence. `init --json` returns every ordered component pair as an open decision,
-   heaviest observed edge first, each carrying `source`, `target`, `observed`,
-   `import_sites` and `options`: the exact `allowed_dependency` and `forbidden_dependency`
-   rule for that pair, missing only the `rationale` (`validate --json` carries the same open
-   decisions). Batch everything consistent with the confirmed picture into one confirmation
-   instead of asking pair by pair; never hand-build a rule id, write the chosen option
-   object verbatim except for `rationale` and `decided_by`.
+   heaviest observed edge first, with its observation and import-site evidence. Batch
+   everything consistent with the confirmed picture into one confirmation. Then encode each
+   allowed direction as a `requires` entry on its source component and add one
+   `complete_requires` rule, so absence forbids every other pair. Never treat an observed edge
+   as permission.
 4. When the architect chooses against your recommendation, ask why before writing the rule.
    Always ask when the choice contradicts a document, an earlier decision in this interview,
    or the code you observed. Write their answer as the `rationale`.
 5. Run `archkeel validate --json` and read its diagnostics by `code`, never by parsing
-   message text: a `decision.open` means step 3 is not finished for that pair; a
-   `decision.conflict` or `closed_world.duplicate` means the pair has more than one
-   decision, keep exactly one; a `rationale.placeholder` or `rationale.repeated` needs the
-   architect's real reason. A `graph.drift` is no decision: after you merged or renamed
+   message text: a `decision.open` means the contract still lacks `complete_requires`; a
+   `rationale.placeholder` or `rationale.repeated` needs the architect's real reason. A
+   `graph.drift` is no decision: after you merged or renamed
    components the marked graph in the architecture page is stale, so run
    `archkeel validate --write-graph` instead of editing it by hand; it rewrites only that
    graph's edges. When the remedy says the graph holds structure the command does not rewrite
@@ -74,9 +72,9 @@ own words as the `rationale`, with `decided_by: "architect"`.
    the rationale agent-derived in your summary to the architect and list it for them to
    confirm before it counts as decided.
 
-### Auto mode: the agent decides every open decision
+### Auto mode: the agent decides every allowed direction
 
-1. Decide every open decision yourself, in this evidence order: documents first, then the
+1. Decide every allowed direction yourself, in this evidence order: documents first, then the
    layer principles the architect already confirmed or the documents state, then your own
    judgment, labeled as judgment in the rationale.
 2. Never treat an observed edge as permission: code importing across a boundary today is not
@@ -95,19 +93,18 @@ reopened.
 
 ### Ending onboarding, either mode
 
-The interview (or the auto-mode pass) ends when `validate --json` reports no
-`decision.open`, `decision.conflict`, `rationale.placeholder`, `rationale.repeated` or
-`closed_world.duplicate` diagnostic — not when the command exits 0. A `rule.violated` or
-`closed_world.observed_forbidden` diagnostic is the architecture's own finding, not an
-onboarding step: the code still uses an edge just decided against. Show it to the architect
-with `archkeel report`. They resolve it by changing the code or by a new explicit decision
-(for example allowing the edge instead); the agent never resolves it by editing or deleting
-the rule, and never loops `validate --json` waiting for exit 0.
+The interview (or the auto-mode pass) ends when `complete_requires` closes the dependency set
+and `validate --json` reports none of `decision.open`, `rationale.placeholder` or
+`rationale.repeated` — not when the command exits 0. A `rule.violated` diagnostic is the
+architecture's own finding, not an onboarding step: the code still uses an edge the target
+omits. Show it to the architect with `archkeel report`. They resolve it by changing the code or
+changing the target; the agent never does that itself and never loops `validate --json` waiting
+for exit 0.
 
 Once it ends, run `archkeel report` and commit the three generated files (`archkeel.toml`,
 `architecture-contract.json`, `docs/architecture/architecture.md`). A remaining
-`rule.violated` or `closed_world.observed_forbidden` is follow-up code work, tracked
-separately from onboarding, not a reason to hold the commit.
+`rule.violated` is follow-up code work, tracked separately from onboarding, not a reason to
+hold the commit.
 
 Where that follow-up is long — a contract that states the target architecture the code has
 yet to reach — freeze the known violations instead of weakening the contract:
@@ -206,20 +203,21 @@ level down is recorded, so an inside declared within an inside is not read.
 ## Rule catalog (summary)
 
 Class A rules are deterministic PASS/FAIL, evaluated from one observation:
-`forbidden_dependency`, `forbidden_construct`, `external_dependency_scope`,
-`complete_assignment`, `no_component_cycles`. `allowed_dependency` adds no report
-violation; it only decides that a component pair may depend. `closed_world` — every
-ordered component pair is decided, once, by an `allowed_dependency` or a
-`forbidden_dependency` rule — is an implicit Contract 2.1 invariant, not a rule you
-declare. `forbidden_construct` and `external_dependency_scope` exempt by prefix in
+`complete_requires`, `forbidden_dependency`, `forbidden_construct`,
+`external_dependency_scope`, `complete_assignment`, `no_component_cycles`. Components list
+permitted outbound edges under `requires`; `complete_requires` makes every absent pair
+forbidden. `forbidden_construct` and `external_dependency_scope` exempt by prefix in
 `allowed_sources` and by exact name in `exact_sources`; a package root such as `pkg` goes in
 `exact_sources`, because as a prefix it exempts the whole package (AD-49). Class B
 regression checks compare an accepted observation with a candidate.
-Class C declarations (capabilities, public API, context roots, owners) are recorded and
-reported, not enforced. Class D review claims are derived and never enforced: `report` and
-`validate` count them in the terminal and under `claims` in `--json`, and the HTML report
-lists the candidates. A claim is a reading task, not a verdict; it never changes an exit code,
-and `null` for a claim means its signal was missing, which is not the same as finding nothing.
+Class C declarations are recorded and reported. `public_api` is also checked for existence,
+membership in a non-empty literal `__all__` and resolvable types exposed by declared classes and
+functions; an empty `__all__`, ambiguous bindings and unsupported annotation forms are not
+guessed. Class D review claims are derived
+and never enforced: `report` and `validate` count them in the terminal and under `claims` in
+`--json`, and the HTML report lists the candidates. A claim is a reading task, not a verdict; it
+never changes an exit code, and `null` for a claim means its signal was missing, which is not the
+same as finding nothing.
 
 Full field reference and examples:
 https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md

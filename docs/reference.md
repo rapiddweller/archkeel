@@ -73,7 +73,7 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 `report` and `check --output` write `<output-stem>.report.html` and `<output-stem>.check.html`. The suffix separates commands; the stem separates runs.
 The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
 Without `--source` and `--namespace`, `init` scans the only top-level Python package under `src/`, or under the root when there is no `src/`; when several sit side by side it scans the one whose name matches `pyproject.toml`'s `[project] name` in wheel file-name form (runs of `-`, `_` and `.` become `_`, compared case-insensitively), and otherwise exits 2 with `scope_empty`, naming the packages it found and the name it compared (AD-47).
-`init --json` and `validate --json` add `open_decisions`, heaviest observed pair first, each with its `allowed_dependency` and `forbidden_dependency` option rule (AD-15). `validate` and `report` add `agent_decisions` as `[agent, total]` decisions: one rule declaration, one `requires` entry or one declared `public` list each, at either level, and one nobody attributed counts in the total alone (AD-16, AD-50), and `violations_by_rule` as `[rule, count]` pairs with `violations_by_component_pair` as `[source, target, count]` triples, heaviest first (AD-51); a violation that crosses no component pair, such as a construct or a cycle, appears only in the first. `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
+`init --json` adds `open_decisions`, heaviest observed pair first, as evidence for choosing component `requires`; `validate --json` carries them only until the contract adds `complete_requires`, whose closed-world absence rule decides every unlisted pair (AD-15, AD-32). `validate` and `report` add `agent_decisions` as `[agent, total]` decisions: one rule declaration, one `requires` entry or one declared `public` list each, at either level, and one nobody attributed counts in the total alone (AD-16, AD-50), and `violations_by_rule` as `[rule, count]` pairs with `violations_by_component_pair` as `[source, target, count]` triples, heaviest first (AD-51); a violation that crosses no component pair, such as a construct or a cycle, appears only in the first. `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
 `validate --write-graph` rewrites the edges of the one marked component graph, `<!--
 archkeel-component-graph -->`, from the observed imports, and, where a page also carries `<!--
 archkeel-target-graph -->`, that marked target graph from `target_component_edges`: every pair a
@@ -200,6 +200,12 @@ the columnar, string-interned file on disk. Its whole promise is declared in
 `archkeel.api:ViolationFingerprint`, `archkeel.api:ViolationRow` and `archkeel.api:load_violations`,
 mirrored by `__all__` and checked against a scanned module the same way a missing `public` entry
 is (`api_surface.missing`). `load_violations(path)` reads the file and returns one typed `ViolationRow` per violation.
+For each promised name, validation requires the scanned module and, when present and non-empty,
+membership in its literal `__all__`; an empty `__all__` is not inspected. Without an inspected
+export list, a name with no scanned top-level class or function is `UNKNOWN`, not a pass. For an
+unambiguous class or function, every type the shared annotation walk can resolve in its parameters,
+return or own public fields must also be named in `public_api`. Builtins and external types are not
+package promises, and unresolved or ambiguous annotation bindings are not guessed.
 It is one call because the two it replaced only ever composed, and the `Observation` between
 them was `ir`'s own model crossing the boundary this module exists to keep stable (AD-70); `ir`
 itself performs no I/O (AD-17), so the read lives in the facade, not in `ir.codec` as AD-54
@@ -265,10 +271,9 @@ Historical evidence and reproduction commands retain the names from their pinned
 It carries two levels: the top contract at its root, and the one `COMP-STORE` names for its inside
 at `shop/store/architecture-contract.json` (AD-20).
 
-Every ordered component pair is decided by one `allowed_dependency` or `forbidden_dependency`
-rule (AD-15). D-self also checks that
-all observed modules have declared components, that new IR modules receive explicit
-analyzer prohibitions, and that analyzer imports stay within the declared IR API.
+Every ordered component pair in the shop fixture is decided by one `allowed_dependency` or
+`forbidden_dependency` rule (AD-15). D-self also checks that all observed modules have declared
+components and that analyzer imports stay within the declared IR API.
 
 ## Dependencies
 

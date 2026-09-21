@@ -177,10 +177,11 @@ The HTML report is designed for a reviewer making a merge decision:
   unknown claim, and remedy.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
-- **Claims are named, never gated on.** `report` and `validate` print what the four review
+- **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 1 unreferenced symbol, 3 components larger than their
-  level, 0 unread bindings, 0 repetitions — in the terminal and under `claims` in `--json`,
-  while the HTML report lists the candidates. None of it reaches an exit code.
+  level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
+  and under `claims` in `--json`, while the HTML report lists the candidates. None of it reaches
+  an exit code.
 
 ## Try the demo
 
@@ -447,9 +448,9 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
   exactly, never as a prefix of the modules below it.
 - **Complete and acyclic.** Every module belongs to exactly one component, and components form
   no cycle.
-- **A second level where one was owed.** `check` holds 13 modules and 23 imports between them,
+- **A second level where one was owed.** `check` holds 13 modules and 24 imports between them,
   more than the whole top level holds, so it declares a contract of its own: `entry`, `policy`
-  and `foundation`, whose crossings its `requires` entries cover at 21, 6 and 2 import sites.
+  and `foundation`, whose crossings its `requires` entries cover at 23, 6 and 2 import sites.
   The flow view opens it as a level of its own, and the one module no sub-component owns keeps
   a card of its own.
 
