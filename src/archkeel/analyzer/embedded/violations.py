@@ -1288,18 +1288,30 @@ def boundary_type_limits(
     return sorted(limits, key=lambda item: item["id"])
 
 
-def _public_api_symbol(symbols: Sequence[RawRecord], module: str, name: str) -> RawRecord | None:
-    """The one top-level `symbols` record a `module:name` public_api entry names, if any."""
-    return next(
-        (
+def _public_api_symbol(
+    symbols: Sequence[RawRecord],
+    module: str,
+    name: str,
+    origins: tuple[tuple[str, str], ...],
+    ambiguous: bool,
+) -> RawRecord | None:
+    """The one top-level symbol a `module:name` public_api entry resolves to, if any."""
+    if ambiguous:
+        return None
+    locations = ((module, name), *origins) if len(origins) == 1 else ((module, name),)
+    for location in locations:
+        candidates = [
             item
             for item in symbols
-            if item["data"].get("module") == module
-            and item["data"].get("name") == name
+            if item["data"].get("module") == location[0]
+            and item["data"].get("name") == location[1]
             and item["data"].get("parent") is None
-        ),
-        None,
-    )
+        ]
+        if len(candidates) > 1:
+            return None
+        if candidates:
+            return candidates[0]
+    return None
 
 
 def _public_api_annotations(symbol: RawRecord) -> list[str]:
@@ -1353,29 +1365,41 @@ def public_api_exposed_types(
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     exports = exports_by_module(modules)
     scanned_modules = frozenset(item["data"]["qualified_name"] for item in modules)
-    declared_origins = {
-        pair
-        for entry in public_api
-        for declared_module, _, declared_name in [entry.partition(":")]
-        for pair in _boundary_type_verdict(
+    declared_positions = {
+        entry: _boundary_type_verdict(
             declared_name,
             declared_module,
             contract,
             exports,
             imports_by_binding,
             classes_by_location,
-        ).resolved
+        )
+        for entry in public_api
+        for declared_module, _, declared_name in [entry.partition(":")]
+    }
+    declared_origins = {
+        pair for position in declared_positions.values() for pair in position.resolved
     }
     types: dict[str, list[str]] = {}
     for entry in public_api:
         module, _, name = entry.partition(":")
-        symbol = _public_api_symbol(symbols, module, name)
+        position = declared_positions[entry]
+        ambiguous = position.undecidable == "ambiguous_binding" or _binding_is_ambiguous(
+            (module, name), imports_by_binding, classes_by_location
+        )
+        symbol = _public_api_symbol(symbols, module, name, position.resolved, ambiguous)
         if symbol is None:
             continue
+        symbol_module = symbol["data"]["module"]
         resolved: set[str] = set()
         for annotation in _public_api_annotations(symbol):
             verdict = _boundary_type_verdict(
-                annotation, module, contract, exports, imports_by_binding, classes_by_location
+                annotation,
+                symbol_module,
+                contract,
+                exports,
+                imports_by_binding,
+                classes_by_location,
             )
             resolved.update(
                 f"{origin_module}:{origin_name}"
