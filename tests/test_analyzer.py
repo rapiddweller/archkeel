@@ -1525,6 +1525,47 @@ def test_boundary_types_reports_unknown_when_the_facade_has_no_subjects(tmp_path
     assert result.exit_code == 2
 
 
+def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -> None:
+    """AD-67: an undecidable position produced nothing at all, so the rule's verdict read
+    `no violation == probably fine` while the rest of the tool reads PASS/VIOLATION/UNKNOWN
+    (AD-26). The rule now names its own denominator the way `dynamic_call_limit` names the
+    call graph's: how many positions it saw, how many it decided, and how many of each
+    undecidable kind it left. `str` and `int` decide; `datetime.datetime` is a dotted name and
+    `'Later'` a forward reference, and neither resolves to a `(module, name)` this rule can
+    judge.
+    """
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:mixed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "class Later:\n"
+        "    pass\n\n\n"
+        "def mixed(name: str, when: datetime.datetime, note: 'Later', spare) -> int:\n"
+        "    return len(name) + len(str(when)) + len(str(note)) + len(str(spare))\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    limits = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert [item.rule_ids for item in limits] == [("APP-TYPES-NOT-DICT",)]
+    data = limits[0].data
+    assert (data.get("positions"), data.get("decided"), data.get("undecided")) == (5, 2, 3)
+    assert data.get("dotted_name") == 1
+    assert data.get("forward_reference") == 1
+    assert data.get("missing_annotation") == 1
+    # A position the rule cannot decide is a reported limit, not a gate: the run stays clean
+    # and the rule still holds a verdict, because it decided the positions it could.
+    assert result.observation.coverage.rules == "PASS"
+    assert result.diagnostics == ()
+    assert result.exit_code == 0
+
+
 def test_a_function_used_only_as_a_value_is_recorded_as_a_reference(tmp_path: Path) -> None:
     """AD-26: a call graph cannot see a function handed to a dict; the reference signal can."""
     contract = {

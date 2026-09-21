@@ -28,6 +28,33 @@ call result (`Repository(root).save(...)`), a receiver two attributes deep (`sel
 and an attribute of an awaited value stay unresolved. An unresolved call is not proven dynamic
 at runtime.
 
+## A facade type position is not always decidable
+
+`boundary_types` reads one annotation string per parameter and return of a declared facade
+function. It decides a builtin, a bare `dict`/`object`, and a bare name its module's import
+bindings or own class definitions resolve; it cannot decide a dotted name, a union, a
+forward-reference string, a missing annotation or a type owned by no declared component. Since
+AD-67 the undecided part is reported rather than silent: each rule files one `boundary_type_limit`
+record in `unknowns` naming the positions it saw, the positions it decided and a count per
+undecidable kind. The record reports and never gates.
+
+Measured on Archkeel's own facades with the rule widened to the whole `archkeel` namespace, 88
+declared facade functions carry 258 positions:
+
+| Outcome | Positions |
+|---|---:|
+| Decided: a violation | 36 |
+| Decided: a pass (79 builtin, 74 a declared type) | 153 |
+| Undecidable: a subscripted generic | 41 |
+| Undecidable: a union | 17 |
+| Undecidable: a type owned by no declared component | 10 |
+| Undecidable: a bare name nothing resolves | 1 |
+
+A dotted name, a forward-reference string and an unannotated position are all decidable kinds of
+undecidable; Archkeel's own facades happen to contain none. What a builtin is comes from
+`dir(builtins)` on the analyzer's own interpreter, so it is that Python build's answer, not a list
+kept by hand.
+
 ## Imports and constructs
 
 - Dynamic imports such as `importlib.import_module(name)` add no dependency edge. Forbid them with
