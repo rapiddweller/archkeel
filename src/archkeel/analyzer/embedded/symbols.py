@@ -51,6 +51,27 @@ def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordD
     }
 
 
+def _class_field_annotations(node: ast.ClassDef) -> list[RecordData]:
+    """A class's own public attribute annotations: `check.validation` (AD-70) needs the type
+    a declared class hands out through each attribute, the same way it already needs a
+    declared function's parameter and return annotations.
+
+    Only a class-body `AnnAssign` counts: that is the shape a dataclass or Pydantic field
+    always has, and the one AD-70's own example (`ViolationRow.fingerprint`) is. This is
+    narrower than `contexts._class_fields`, which also infers a field from `self.x` inside a
+    method for context/state tracking; a public API promise is about what the class declares
+    on its own, not what some method happens to assign. A private name is never part of that
+    promise either.
+    """
+    return [
+        {"name": child.target.id, "annotation": annotation_text(child.annotation)}
+        for child in node.body
+        if isinstance(child, ast.AnnAssign)
+        and isinstance(child.target, ast.Name)
+        and not child.target.id.startswith("_")
+    ]
+
+
 def _shape(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[str, int]:
     """Digest the body's node types in walk order, dropping every name and literal value.
 
@@ -129,6 +150,7 @@ def _symbol_data(
                 "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
                 "frozen_object": _class_is_frozen(node, module),
                 "symbol_category": "class",
+                "fields": _class_field_annotations(node),
             }
         )
     else:
