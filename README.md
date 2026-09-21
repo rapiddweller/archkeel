@@ -432,9 +432,9 @@ make fixtures
 [architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json)
 holds Archkeel to the rules it sells, and every rule was proven by a deliberate violation:
 
-- **Every pair decided.** Six components, so 30 ordered pairs, decided by eight `requires`
+- **Every pair decided.** Seven components, so 42 ordered pairs, decided by nine `requires`
   entries and one `complete_requires` rule: a pair no entry names is forbidden, not open. All
-  14 rules carry a rationale and are decided by the architect. The
+  16 rules carry a rationale and are decided by the architect. The
   [architecture guide](docs/architecture/archkeel.md) names the quality goal each required edge
   serves.
 - **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
