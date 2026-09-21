@@ -106,6 +106,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-66 | [`declarations.public_api` names a consumer outside the package, narrowing AD-9](decisions/ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md) |
 | AD-70 | [The external promise declares every type it hands out](decisions/ad-70-the-external-promise-declares-every-type-it-hands-out.md) |
 | AD-71 | [A promised name is checked against the module's own `__all__`](decisions/ad-71-a-promised-name-is-checked-against-the-modules-own-all.md) |
+| AD-75 | [An open report can focus on violations without changing evidence](decisions/ad-75-an-open-report-can-focus-on-violations-without-changing.md) |
 
 ## Allowed dependencies
 

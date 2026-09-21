@@ -254,6 +254,8 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
 
     assert 'id="flow"' in page
     assert 'id="flow-data"' in page
+    assert 'class="flow-violation-focus" for="flow-violations-only" hidden' in page
+    assert 'class="flow-violations-only"' in page
     data_start = page.index('id="flow-data"')
     payload = json.loads(
         page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
@@ -267,6 +269,27 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
     assert "ASSIGNMENT-COMPLETE" not in set().union(*violated)
     assert "EXTERNAL-JSON-STORE" not in set().union(*violated)
     assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
+
+
+def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "tour")
+
+    assert "data-violation-focus hidden" in page
+    assert "data-report-violations-only" in page
+    assert 'id="component-communication-detail" data-secondary-detail' in page
+    assert 'id="report-secondary-detail" data-secondary-detail' in page
+    assert 'classList.toggle("violations-only", control.checked)' in page
+    assert "flowControl.checked = control.checked" in page
+    assert 'flowControl.dispatchEvent(new Event("change"))' in page
+    # No JavaScript still gets the complete evidence: the rows and positive sections are in
+    # the document; only the initially hidden control can collapse them after explicit input.
+    assert "DEP-STORE-NO-MONEY" in page
+    assert "Component communication" in page
+    assert "Known unknowns" in page
+    assert "Complete ArchitectureIR inventory" in page
+    assert "Broken edge rules (this level)" in page
+    assert "No violating edges at this level" in page
+    assert "violationFocus.hidden = false" in page
 
 
 def test_html_report_flow_view_marks_an_undecided_edge(tmp_path: Path) -> None:

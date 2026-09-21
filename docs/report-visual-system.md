@@ -91,7 +91,9 @@ red only when the contract classifies the change as a regression or failure.
 3. The report verdict cards, always in contract order. Architecture reports show three;
    check reports add `git_predicate` and `host_order` for five total verdicts.
 4. Evidence that caused a failure or uncertainty.
-5. Complete findings, raw measurements, fingerprints, and diagnostics.
+5. Complete findings, raw measurements, fingerprints, and diagnostics. A report with violations
+   offers the AD-75 focus control at the violation table; it may hide secondary detail, never the
+   verdicts, failures or known unknowns.
 6. Reproduction metadata and analyzer/runtime versions.
 
 The three verdicts must never be averaged into one health number. A gauge such
@@ -114,6 +116,15 @@ as “architecture score 84” destroys the contract semantics.
 - Right-align numeric values.
 - Highlight only the value that caused the verdict.
 - Preserve full values in copyable text, even if the visual column truncates.
+
+### Violation focus
+
+- Use one native checkbox. Reveal it only after its script runs, so no-JavaScript output remains
+  complete.
+- `Violations only` changes the report view, not the evidence. `Violating edges only` explicitly
+  describes the narrower graph operation.
+- An empty filtered graph says “No violating edges at this level” and points to the table; it never
+  says that the whole report has no violations.
 
 ### Diagnostics
 

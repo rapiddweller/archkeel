@@ -191,6 +191,13 @@ inside declares (AD-36); `--component` matches only a top-level component, since
 rule id, `--component` against every top-level component label, whether or not either has a
 violation today.
 
+An unfiltered HTML page with violations also has a local `Violations only` control (AD-75). It
+keeps the verdicts, failures, known unknowns, violations and complete evidence access visible
+while hiding secondary report detail. The Component flow control narrows only graph edges at the
+current level; a symbol or construct violation can therefore leave that graph empty while the
+violation table remains non-empty. These controls change the open page only. They never change
+the command result or `architecture.json`, and without JavaScript the full report stays visible.
+
 ## Reading a report's violations
 
 `archkeel.api` is the declared external contract (AD-64): the one supported way to read

@@ -23,12 +23,15 @@ It catches two failure modes that finding-only diffs miss:
   the graph became blinder.
 
 <p>
-  <img src="docs/assets/archkeel-component-flow.png" alt="Component flow of the shop sample's tour variant: five components, conforming edges in teal, edges that break a declared rule dashed in red with the rule id, and the heaviest connections" width="1000">
+  <img src="docs/assets/archkeel-component-flow.png" alt="Component flow with Violating edges only checked: five components, six dashed red violated edges and seven broken edge rules at this level" width="1000">
 </p>
 
-<sub>The component flow view of the HTML report (AD-10), from <code>archkeel report</code> on the tour
-variant of <code>fixtures/F-architecture</code>: teal edges conform to the contract, dashed red edges
-break the named rule, and dotted amber edges are still undecided.</sub>
+<sub>A real negative case from the <code>fixtures/F-architecture</code> tour:
+<code>shop.store.repository</code> imports <code>Money</code> and breaks
+<code>DEP-STORE-NO-MONEY</code>. In the open HTML report, <strong>Violations only</strong> collapses
+secondary detail and leaves the verdict, failures, unknowns and evidence available; Component
+flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
+Both change the view, never the verdict or evidence.</sub>
 
 <p>
   <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
@@ -153,9 +156,10 @@ U_candidate × T_accepted <= U_accepted × T_candidate   (when both T > 0)
   order; author timestamps do not.
 - **Coverage-aware regression checks.** A disappearing edge is not mistaken
   for an improvement just because a finding disappeared with it.
-- **Explicit uncertainty.** An incomplete scan, broken lock, empty scope, or
-  runtime mismatch returns exit `2` with a diagnostic. Unknown never becomes
-  green.
+- **Explicit uncertainty.** An incomplete scan, broken lock, empty scope, or runtime mismatch
+  returns exit `2` with a diagnostic. A complete report may instead exit `0` with
+  `declared_rules: UNKNOWN` when a rule names the positions it could not decide; neither case is
+  displayed as `PASS`.
 
 Archkeel complements tests, linters, and human review. It does not replace any
 of them. Its job is narrower: keep architecture changes declared, observable,
@@ -164,10 +168,16 @@ and mechanically checkable.
 ## Review surface
 
 <p>
-  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel check report rejecting Fixture A with five independent verdicts and the failed regression checks" width="1100">
+  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel report with Violations only checked, showing the shop tour's negative findings and source evidence" width="1100">
 </p>
 
 The HTML report is designed for a reviewer making a merge decision:
+
+```bash
+archkeel report --only violations
+archkeel report --only violations --rule DEP-STORE-NO-MONEY
+archkeel report --only violations --component store
+```
 
 - **Decision first.** `PASS`, `REJECT`, or `NOT CHECKED` and one sentence explaining it are
   visible before details, in the HTML report and in the terminal.
@@ -177,6 +187,8 @@ The HTML report is designed for a reviewer making a merge decision:
   unknown claim, and remedy.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
+- **Violations can take focus.** `Violations only` works in the already-open report: it hides
+  secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 1 unreferenced symbol, 3 components larger than their
   level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
