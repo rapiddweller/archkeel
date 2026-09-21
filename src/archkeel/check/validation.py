@@ -358,55 +358,105 @@ def _planned_entry_diagnostics(
     ]
 
 
+def _published_api_types(observation: Observation) -> dict[str, tuple[str, ...]]:
+    """Each `declarations.public_api` entry mapped to the types its own signature exposes.
+
+    Read off the `declared_public_api` records `public_api_exposed_types`
+    (analyzer/embedded/violations.py, AD-70) already resolved -- `check` compares this published
+    answer against the declared set instead of deriving a second one (AD-2's open payload, AD-4's
+    one channel out of the analyzer).
+    """
+    types: dict[str, tuple[str, ...]] = {}
+    for record in observation.records("declarations") or ():
+        if record.kind != "declared_public_api":
+            continue
+        entry = text_value(record.data.get("qualified_name"))
+        exposed = record.data.get("types")
+        types[entry] = tuple(
+            item
+            for item in (exposed if isinstance(exposed, tuple) else ())
+            if isinstance(item, str)
+        )
+    return types
+
+
+def _public_api_entry_diagnostics(
+    index: int,
+    entry: str,
+    modules: frozenset[str],
+    exports: dict[str, frozenset[str]],
+    exposed_types: dict[str, tuple[str, ...]],
+    declared_api: frozenset[str],
+) -> list[Diagnostic]:
+    """One `declarations.public_api` entry's findings: existence (AD-66/AD-71) first, then
+    AD-70's signature check once the entry is known to exist. Both read as `api_surface.missing`
+    because either way a consumer was promised something this contract does not make good on.
+    """
+    module, _, name = entry.partition(":")
+    pointer = f"/declarations/public_api/{index}"
+    if module not in modules:
+        return [
+            _diagnostic(
+                "api_surface.missing",
+                pointer,
+                entry,
+                "The declared public API entry's module has not been scanned; "
+                "it does not exist yet.",
+                "Build the module, correct a typo, or remove the entry until it exists.",
+            )
+        ]
+    if name and (exported := exports.get(module)) is not None and name not in exported:
+        return [
+            _diagnostic(
+                "api_surface.missing",
+                pointer,
+                entry,
+                "The module declares __all__ and the promised name is not in it.",
+                "Export the name from the module, correct a typo, or remove the entry.",
+            )
+        ]
+    return [
+        _diagnostic(
+            "api_surface.missing",
+            pointer,
+            entry,
+            f"{entry} exposes {leaked.rpartition(':')[2]}, which declarations.public_api "
+            "does not name.",
+            f"Add {leaked} to declarations.public_api, or stop exposing it from this entry.",
+        )
+        for leaked in exposed_types.get(entry, ())
+        if leaked not in declared_api
+    ]
+
+
 def public_api_diagnostics(
     contract: ArchitectureContract, observation: Observation
 ) -> tuple[Diagnostic, ...]:
-    """Flag a `declarations.public_api` entry whose module the scan never saw (AD-66).
+    """Flag a `declarations.public_api` entry whose module the scan never saw (AD-66/AD-71), or
+    whose signature exposes a type the declarations never name (AD-70).
 
     `public_api` names the surface a consumer *outside* this package may rely on, the case
-    AD-9's component `public` never covered: `public` is one component's promise to another
-    component of the same package, held to `interface_boundary`'s crossing check, while nothing
-    inside the scan ever crosses into `public_api` the way one component imports another, so
-    there is no cross-component import to make an `interface.unused` twin possible here. The one
-    signal left to check is existence, the same one `interface.missing` already gives `public`:
-    a `public_api` entry naming a module the scan never saw is a typo or a promise the package
-    has not built yet.
-
-    A `module:Name` entry is also checked against that module's `__all__` when it declares one
-    (AD-71): a consumer imports the promised name, not its module, and a module with `__all__`
-    states its own surface, so a name outside it is proven absent rather than merely unproven.
-    A module declaring no `__all__` is judged by its module alone, because `symbols` records
-    only classes and functions and would misreport a constant or type alias as missing.
+    AD-9's component `public` never covered, so there is no cross-component import to make an
+    `interface.unused` twin possible here (see `_public_api_entry_diagnostics`). AD-70 adds a
+    second, independent signal once an entry is known to exist: a declared function's parameter
+    and return types, and a declared class's own public attribute types, must themselves be
+    named in `public_api` -- the generic form of the guard AD-58/AD-63 already hold a
+    component's *internal* facade to, pointed here at the package's *external* one. The analyzer
+    (`public_api_exposed_types`) resolves which types those are; this reads that answer rather
+    than resolving annotations a second time.
     """
     declarations = contract.declarations or ContractDeclarations()
     modules = _scanned_modules(observation)
     exports = _literal_exports(observation)
-    diagnostics = []
-    for index, entry in enumerate(declarations.public_api):
-        module, _, name = entry.partition(":")
-        pointer = f"/declarations/public_api/{index}"
-        if module not in modules:
-            diagnostics.append(
-                _diagnostic(
-                    "api_surface.missing",
-                    pointer,
-                    entry,
-                    "The declared public API entry's module has not been scanned; "
-                    "it does not exist yet.",
-                    "Build the module, correct a typo, or remove the entry until it exists.",
-                )
-            )
-        elif name and (declared := exports.get(module)) is not None and name not in declared:
-            diagnostics.append(
-                _diagnostic(
-                    "api_surface.missing",
-                    pointer,
-                    entry,
-                    "The module declares __all__ and the promised name is not in it.",
-                    "Export the name from the module, correct a typo, or remove the entry.",
-                )
-            )
-    return tuple(diagnostics)
+    exposed_types = _published_api_types(observation)
+    declared_api = frozenset(declarations.public_api)
+    return tuple(
+        diagnostic
+        for index, entry in enumerate(declarations.public_api)
+        for diagnostic in _public_api_entry_diagnostics(
+            index, entry, modules, exports, exposed_types, declared_api
+        )
+    )
 
 
 def interface_diagnostics(

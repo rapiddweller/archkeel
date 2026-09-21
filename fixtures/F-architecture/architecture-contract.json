@@ -86,7 +86,7 @@
         "provenance": ["docs/architecture/shop.md"]
       }
     ],
-    "public_api": ["shop.app.orders:place_order"],
+    "public_api": ["shop.app.orders:place_order", "shop.model.entities:Order"],
     "public_api_provenance": ["docs/architecture/shop.md"],
     "public_commands": [
       {

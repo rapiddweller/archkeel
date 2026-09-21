@@ -631,7 +631,7 @@ def _is_broad_boundary_type(annotation: str) -> bool:
 
     Restricted to what the annotation string alone decides: a generic other than `dict`, a
     dotted name, a forward-reference string and a missing annotation all stay silent rather
-    than guess. A bare named type is decided separately, by `_resolve_named_type` (AD-63).
+    than guess. A bare named type is decided separately, by `resolve_named_type` (AD-63).
     """
     return annotation in _BROAD_BOUNDARY_TYPES or annotation.startswith(("dict[", "Dict["))
 
@@ -639,7 +639,7 @@ def _is_broad_boundary_type(annotation: str) -> bool:
 _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 
 
-def _resolve_named_type(
+def resolve_named_type(
     annotation: str,
     module: str,
     imports_by_binding: dict[tuple[str, str], RecordData],
@@ -654,6 +654,11 @@ def _resolve_named_type(
     string: those stay unresolved exactly as AD-58 left them. A builtin needs no import and
     defines no symbol of its own, so it resolves to nothing here and stays silent rather than
     being matched against a fixed list that would drift from what Python actually ships.
+
+    Public (no leading underscore) because `public_api_exposed_types` (AD-70) below reuses it
+    for `declarations.public_api`'s own signatures, the package-external twin of the boundary
+    this function was written for; both read one answer instead of two annotation readers
+    drifting apart (AD-2's open payload, AD-4's one channel out of the analyzer).
     """
     if not annotation.isidentifier():
         return None
@@ -670,13 +675,14 @@ def _resolve_named_type(
     return None
 
 
-def _boundary_type_indexes(
+def boundary_type_indexes(
     symbols: Sequence[RawRecord], imports: Sequence[RawRecord]
 ) -> tuple[dict[tuple[str, str], RecordData], dict[tuple[str, str], RecordData]]:
     """Index `imports` by (module, local binding) and top-level classes by (module, name).
 
-    Both are `_resolve_named_type`'s own lookups, built once per call instead of once per
-    function checked: `boundary_types` may inspect many facade functions below one `source`.
+    Both are `resolve_named_type`'s own lookups, built once per call instead of once per
+    function checked: `boundary_types` may inspect many facade functions below one `source`,
+    and `public_api_exposed_types` every declared `public_api` entry.
     """
     imports_by_binding = {
         (data["source_module"], data["binding"]): data
@@ -703,7 +709,7 @@ def _boundary_type_reason(
     """Why one annotation violates `boundary_types`, or None when it does not (AD-58, AD-63)."""
     if _is_broad_boundary_type(annotation):
         return "instead of a typed model"
-    resolved = _resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
+    resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if resolved is None:
         return None
     origin_module, origin_name = resolved
@@ -771,7 +777,7 @@ def _boundary_types_violations(
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return []
-    imports_by_binding, classes_by_location = _boundary_type_indexes(symbols, imports)
+    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     violations: list[RawRecord] = []
     for rule in rules:
         for item in symbols:
@@ -812,6 +818,73 @@ def _boundary_types_violations(
                     )
                 )
     return sorted(violations, key=lambda item: item["id"])
+
+
+def _public_api_symbol(symbols: Sequence[RawRecord], module: str, name: str) -> RawRecord | None:
+    """The one top-level `symbols` record a `module:name` public_api entry names, if any."""
+    return next(
+        (
+            item
+            for item in symbols
+            if item["data"].get("module") == module
+            and item["data"].get("name") == name
+            and item["data"].get("parent") is None
+        ),
+        None,
+    )
+
+
+def _public_api_annotations(symbol: RawRecord) -> list[str]:
+    """AD-70's "externally visible signature": a declared function's parameter and return
+    annotations, or a declared class's own public attribute annotations (`fields`, added to
+    `symbols` for exactly this).
+    """
+    data = symbol["data"]
+    if symbol["kind"] == "class":
+        return [field["annotation"] for field in data["fields"] if field["annotation"]]
+    annotations = [
+        parameter["annotation"] for parameter in data["parameters"] if parameter["annotation"]
+    ]
+    if data["returns"]:
+        annotations.append(data["returns"])
+    return annotations
+
+
+def public_api_exposed_types(
+    public_api: Sequence[str],
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+) -> dict[str, list[str]]:
+    """Every `declarations.public_api` entry mapped to the non-builtin types its own signature
+    exposes, as `module:name` strings (AD-70) -- the package-external twin of `boundary_types`,
+    reusing its own resolution (`resolve_named_type`, AD-58/AD-63) rather than a second reading
+    of the same annotations. `check.validation` compares this published answer against the
+    declared `public_api` set and resolves nothing itself (AD-2's open payload, AD-4's one
+    channel out of the analyzer).
+
+    A type whose origin module this scan never saw -- a builtin, a stdlib or a third-party type
+    -- is not part of the promise a *scanned* package can make about itself, so it is left out
+    here rather than reported as missing; `scanned_modules` is exactly `check._scanned_modules`'
+    own source, read here instead of derived a second time.
+    """
+    if not public_api:
+        return {}
+    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    scanned_modules = frozenset(item["data"]["qualified_name"] for item in modules)
+    types: dict[str, list[str]] = {}
+    for entry in public_api:
+        module, _, name = entry.partition(":")
+        symbol = _public_api_symbol(symbols, module, name)
+        if symbol is None:
+            continue
+        resolved: set[str] = set()
+        for annotation in _public_api_annotations(symbol):
+            found = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
+            if found is not None and found[0] in scanned_modules:
+                resolved.add(f"{found[0]}:{found[1]}")
+        types[entry] = sorted(resolved)
+    return types
 
 
 def _requires_covers(source: ContractComponent, target_label: str, target_module: str) -> bool:
