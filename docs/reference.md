@@ -25,7 +25,11 @@ returns exit 2. Historical observations without runtime provenance remain readab
 The observation carries a `references` section beside `calls`: every use of a scanned symbol
 that is not a call, such as a function put into a table, passed as an argument or read as a
 property, with the symbols it resolves to (AD-26). Call metrics stay untouched, because coverage
-counts the `calls` section alone. An observation written before a section existed no longer
+counts the `calls` section alone. A function record in the `symbols` section carries
+`facade_types` when the function is part of its component's declared `public` list and at least
+one of its parameter or return annotations resolves: the dotted `module.Name` origins that
+signature exposes, resolved once by `boundary_types` (AD-63) and read back by `validate`'s
+unused-entry check (AD-65). An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 
 The checker hashes its installed Python package separately from the analyzer digest.
@@ -191,26 +195,27 @@ violation today.
 
 `archkeel.api` is the declared external contract (AD-64): the one supported way to read
 `architecture.json` outside this repository, for a CI gate that wants named fields rather than
-the columnar, string-interned file on disk. Its whole promise is `__all__`, exactly
-`ViolationRow`, `load_observation` and `violation_rows`. `load_observation(path)` reads the file
-and returns the `Observation` that `ir.codec`'s `decode_json`, `decode_canonical_model` and
-`parse_observation` would otherwise take three internal calls to build - `ir` itself performs no
-I/O (AD-17), so the read lives in the facade, not in `ir.codec` as AD-54 first placed it.
-`violation_rows(observation)` turns its `violations` section into one typed `ViolationRow` per
-violation - `fingerprint`, `source_module`, `target_module`, `symbol`, `source_component`,
-`target_component` and `evidence_ids` - instead of a positional record. A field a violation kind
+the columnar, string-interned file on disk. Its whole promise is declared in
+`architecture-contract.json`'s `declarations.public_api` (AD-66), exactly
+`archkeel.api:ViolationFingerprint`, `archkeel.api:ViolationRow` and `archkeel.api:load_violations`,
+mirrored by `__all__` and checked against a scanned module the same way a missing `public` entry
+is (`api_surface.missing`). `load_violations(path)` reads the file and returns one typed `ViolationRow` per violation.
+It is one call because the two it replaced only ever composed, and the `Observation` between
+them was `ir`'s own model crossing the boundary this module exists to keep stable (AD-70); `ir`
+itself performs no I/O (AD-17), so the read lives in the facade, not in `ir.codec` as AD-54
+first placed it. A row carries `fingerprint`, `source_module`, `target_module`, `symbol`,
+`source_component`, `target_component` and `evidence_ids` instead of a positional record. A field a violation kind
 does not carry, such as a forbidden construct's `source_module`, is `None`, never a guessed
 value.
 
 ```python
 from pathlib import Path
 
-from archkeel.api import load_observation, violation_rows
+from archkeel.api import load_violations
 
-observation = load_observation(Path("architecture.json"))
 rows = [
     (row.fingerprint, row.source_component, row.target_component)
-    for row in violation_rows(observation)
+    for row in load_violations(Path("architecture.json"))
 ]
 ```
 
@@ -222,8 +227,10 @@ every `ir` module, `ir.baseline` and `ir.codec` included - `archkeel.api` is wha
 across an `ir` refactor, not a shorthand for importing `ir` directly. `architecture-contract.json`'s
 `COMP-API` `requires` entry names *this* repository's own crossing into `ir` (AD-9, AD-32); it
 says nothing about what an outside reader may use, which is `archkeel.api.__all__` alone (AD-64).
-`archkeel.ir.codec.load_observation`, the pre-AD-64 path, is removed, not deprecated: the surface
-was days old at 0.4.x, so there is one supported way in, never two.
+`archkeel.ir.codec.load_observation`, the pre-AD-64 path, is removed, not deprecated: the
+surface was days old at 0.4.x, so there is one supported way in, never two. `ViolationFingerprint`
+is declared beside `ViolationRow` because `row.fingerprint` hands it out, and a promise whose
+type is undeclared is the leak this declaration exists to prevent (AD-70).
 
 ## Regression checks
 

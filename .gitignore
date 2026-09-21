@@ -9,3 +9,5 @@ build/
 # Local agent worktrees contain machine-specific paths.
 .claude/
 fixtures/D-self/*.html
+# `archkeel report` writes beside the working directory; the root is not a scratch space.
+/*.report.html

@@ -73,6 +73,28 @@ ALLOWED_LONG_FUNCTIONS = {
 }
 
 
+# A `git add -A` after running `archkeel report` to measure something committed `r.json`,
+# `r.report.html` and two more into the repository root, and every test still passed. The root
+# is small and changes rarely, so naming its whole contents catches any stray file rather than
+# the report shapes that happened to land this time.
+ROOT_FILES = frozenset(
+    (
+        ".gitignore",
+        ".python-version",
+        "CODE_OF_CONDUCT.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "Makefile",
+        "README.md",
+        "RELEASE_NOTES.md",
+        "architecture-contract.json",
+        "archkeel.toml",
+        "pyproject.toml",
+        "uv.lock",
+    )
+)
+
+
 def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
     for child in ast.iter_child_nodes(node):
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
@@ -190,6 +212,13 @@ def test_decision_index_matches_decision_files() -> None:
         "docs/architecture/decisions/ holds a file the index in docs/architecture/archkeel.md "
         f"does not name: {unindexed_files}"
     )
+
+
+def test_repository_root_holds_no_stray_file() -> None:
+    """Generated output is invisible to every other guard: it is valid text at a plausible path."""
+    tracked = frozenset(path.name for path in TRACKED if path.parent == ROOT)
+    assert sorted(tracked - ROOT_FILES) == []
+    assert sorted(ROOT_FILES - tracked) == []
 
 
 def test_tracked_text_has_no_local_absolute_paths() -> None:

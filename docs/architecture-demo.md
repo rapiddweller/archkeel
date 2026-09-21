@@ -56,9 +56,12 @@ run shows many violations together; every other row isolates one item.
 | class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | shop/model/promotions.py |
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |
+| class_a | boundary_types:collection_element | class-a-boundary-types-in-collection | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/batches.py, shop/cli/main.py |
 | validation | interface.undeclared | validation-interface-undeclared | validate/report run | - | interface.undeclared | architecture-contract.json |
 | validation | interface.unused | validation-interface-unused | validate/report run | - | interface.unused | architecture-contract.json |
 | validation | interface.missing | validation-interface-missing | validate/report run | - | interface.missing | architecture-contract.json |
+| validation | api_surface.missing | validation-api-surface-missing | validate/report run | - | api_surface.missing | architecture-contract.json |
+| validation | api_surface.missing:not_in_all | validation-api-surface-not-exported | validate/report run | - | api_surface.missing | architecture-contract.json |
 | validation | interface.planned_built:not yet built | validation-interface-planned-not-built | validate/report run | - | - | architecture-contract.json |
 | validation | interface.planned_built:stale marker | validation-interface-planned-built | validate/report run | - | interface.planned_built | architecture-contract.json |
 | validation | agent_decisions:agent-attributed | validation-agent-decisions-attributed | validate/report run | - | - | architecture-contract.json |
@@ -83,6 +86,7 @@ run shows many violations together; every other row isolates one item.
 | validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | shop/store/architecture-contract.json |
 | validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | shop/store/architecture-contract.json |
 | validation | contract.invalid:inside | validation-inside-contract-missing | validate/report run | - | contract.invalid | shop/store/architecture-contract.json |
+| validation | api_surface_unknown | validation-api-surface-unknown | validate/report run | - | - | architecture-contract.json |
 | validation | rule_without_subjects | validation-rule-without-subjects | validate/report run | - | - | architecture-contract.json |
 | validation | parse_error | validation-parse-error | validate/report run | - | - | shop/model/broken_syntax.py |
 | validation | scope_empty | validation-scope-empty | validate/report run | - | - | architecture-contract.json, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/model/entities.py, shop/render/text.py, shop/store/__init__.py, shop/store/backend/__init__.py, shop/store/backend/files.py, shop/store/backend/paths.py, shop/store/codec.py, shop/store/repository.py, shop/store/sqlite.py |
@@ -115,8 +119,8 @@ run shows many violations together; every other row isolates one item.
 | class_b | coverage_must_pass | class-b-coverage-must-pass | tested only | - | - | tests/test_expectation.py |
 | class_c | ContractDeclarations.capabilities | class-c-capabilities | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.review_scopes | class-c-review-scopes | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
-| class_c | ContractDeclarations.public_api | class-c-public-api | tested only | - | - | docs/rules.md |
-| class_c | ContractDeclarations.public_api_provenance | class-c-public-api-provenance | tested only | - | - | docs/rules.md |
+| class_c | ContractDeclarations.public_api | class-c-public-api | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class_c | ContractDeclarations.public_api_provenance | class-c-public-api-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.public_commands | class-c-public-commands | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.context_roots | class-c-context-roots | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.context_roots_provenance | class-c-context-roots-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |

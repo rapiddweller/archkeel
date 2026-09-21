@@ -150,7 +150,13 @@ holds `pkg.module` entries, which make every non-underscore name of that module 
 `__all__` when the module declares one, and `pkg.module:Name` entries, which make exactly one name
 public. It matches every cross-component import whose target component declares `public` and
 reports a violation unless the imported name, directly or through its re-export chain, resolves to
-a declared name; underscore names never qualify. An import a `forbidden_dependency` rule already
+a declared name; underscore names never qualify. An entry is *reached* in one of two ways, and one
+notion of `public` covers both (AD-65): a cross-component import that resolves to it, or a
+declared facade signature of any component that names the type it declares, which exposes that
+type to every consumer of the signature without an import of its own. The second reading uses the
+`facade_types` the analyzer records on each declared facade function, resolved by
+`boundary_types`' own resolution below, so the rule that asks for such a type to be declared and
+the check that asks whether declaring it was worth it read one answer, not two. An import a `forbidden_dependency` rule already
 rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). A
 complete scan, fixed source bytes and analyzer digest make the result deterministic. An empty
 `__all__` reads the same as no `__all__` at all, and aliasing during a re-export is not resolved;
@@ -172,7 +178,7 @@ A contract may name a target architecture ahead of the refactoring that builds i
 tells a facade that is not built yet from one that never will be (AD-56). An unused `public` entry
 is `interface.missing` when its module was never scanned — it names something that does not exist,
 whether that is a typo or work still to do — and stays `interface.unused` when the module exists
-but nothing imports it, unchanged from before. A `pkg.module:Name` entry is judged by its module
+but nothing reaches it, neither an import nor a declared facade signature (AD-65). A `pkg.module:Name` entry is judged by its module
 alone: the `symbols` section records only classes and functions, so treating an unmatched name as
 missing would misreport a module-level constant or type alias that the scan cannot see. A
 component's optional `planned` list holds entries in the same `pkg.module`/`pkg.module:Name` shape
@@ -220,10 +226,27 @@ an `exact_sources` entry (AD-49), and reports one violation per parameter or ret
 annotation is exactly `dict`, `Dict`, `object`, a `dict[...]`/`Dict[...]` generic, or a bare name
 that resolves, through the same import bindings `interface_boundary` reads, to a class that is
 neither an `enum` nor a `pydantic_model` by kind and that no component's own `public` list
-declares. A dotted name, a subscripted generic other than `dict`, a forward-reference string and a
-missing annotation all stay silent, because deciding any of them still needs resolving where the
-name comes from in a way AD-37 and AD-40 leave unfinished for a call's receiver and this rule
-leaves unfinished for them too (issue #9, AD-58, AD-63). A component that declares no `public` at
+declares. A known collection holding a bare name -- `list`, `tuple`, `set`, `frozenset`,
+`Sequence`, `Iterable`, `Iterator`, `Collection`, `AbstractSet` and their `typing` spellings -- is
+decided from its type parameters by that same resolution, one level in, so wrapping a parameter in
+a list no longer drops the check; a collection is only as decided as its parameters, and `dict` is
+absent because a `dict[...]` is already the broad container above (AD-67). A builtin, and a name
+resolving to an enum, a Pydantic model or a declared type, is a decided pass. A dotted name, a
+mapping, a nested subscript, a union, a forward-reference
+string, a missing annotation and a type owned by no declared component stay undecidable, because
+deciding any of them still needs resolving where the name comes from in a way AD-37 and AD-40 leave
+unfinished for a call's receiver and this rule leaves unfinished for them too (issue #9, AD-58,
+AD-63). Undecidable is no longer silent: each rule files one UNKNOWN `boundary_type_limit` record
+in `unknowns`, carrying the positions it saw, the positions it decided and a count of each
+undecidable kind, so a reader sees how much of the facade the rule actually decided instead of
+reading no violation as proof of none (AD-67, issue #59). That record reports and does not gate --
+`coverage.rules`, the diagnostics and the exit code do not move -- because a rule that decided
+nothing at all is already `rule_without_subjects`, below, and a rule that decided some of its
+positions holds the verdict those positions earned. It does move `declared_rules`: a violation-free
+observation reads UNKNOWN there, not PASS, if an undecided position's reason is a real checker limit,
+but stays PASS when every undecided position is `external_type` (a type owned by no declared
+component), since a rule with no `public` list to check that type against never had the question to
+answer (`inspect_observation`, AD-67). A component that declares no `public` at
 all has no functions for the rule to inspect, the way `interface_boundary` gives it no imports to
 check either; a `planned` entry (AD-56) is never projected into the observation, so it plays no
 part here, the same as everywhere else in the analyzer. A `source` that matches a scanned module
@@ -234,10 +257,14 @@ restricted-string match alone still fires 26 times inside `archkeel.ir`, all of 
 untyped-JSON boundary and narrowing helpers such as `text_value(value: object) -> str`; a `source`
 scoped to a component whose facade really is typed throughout, such as `archkeel.analyzer`, is how
 Archkeel's own contract adopts the rule against itself (AD-63) without a growing
-`allowed_sources` list carrying architecture knowledge it does not own. Fixed source bytes and
+`allowed_sources` list carrying architecture knowledge it does not own. The answer a violation
+asks for — declare the type in the owning component's `public` list — is a legal answer: the
+declaration is reached by the very signature that exposed it, so `interface_boundary` no longer
+calls it unused (AD-65). Fixed source bytes and
 analyzer digest make the result deterministic. Adding a `snapshot(context: dict) -> str` function
 declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
-example violation.
+example violation, and so is `summarize_all(extras: list[Extra]) -> Money`, where wrapping the
+undeclared `Extra` in a list is no longer a way out of the same finding (AD-67).
 
 ### Known violations of a target contract
 
@@ -308,15 +335,24 @@ incomplete scan produces no measurements, so the check reports NOT CHECKED inste
 
 ## Class C: declarations
 
-Fields under `declarations` preserve capabilities, review scopes, public interfaces, commands,
-context roots, paths and owners. Archkeel decodes and reports them but does not enforce them.
-`public_api` is superseded by the component `public` field and its `interface_boundary` rule
-(AD-9); it stays valid but new contracts should declare `public` per component instead.
+Fields under `declarations` preserve capabilities, review scopes, a package's external public
+API, commands, context roots, paths and owners. Archkeel decodes and reports every one of them,
+and checks every one for two structural facts: a declared name resolves inside the configured
+namespace (`reference.namespace`) and a declared provenance file exists (`reference.provenance`).
+`public_api` names the surface a consumer *outside* this package may rely on - a different thing
+from the component `public` field, which names one component's promise to another component of
+the *same* package and is held to `interface_boundary` at every crossing (AD-9). Nothing inside
+the scan crosses into `public_api` the way one component imports another, so there is no
+crossing to prove a `public_api` entry unused; there is still a module to prove it exists, so a
+`public_api` entry the scan never saw is `api_surface.missing`, the same existence check
+`interface.missing` already gives a missing `public` entry (AD-66).
 
 - **Measurement:** none; declaration records mirror the contract.
 - **Determinism:** decoding is deterministic for a valid Contract 2.0 document.
-- **Blind spots:** Archkeel makes no claim that code follows a declaration.
-- **Example:** record `sample.api` as the intended public interface.
+- **Blind spots:** Archkeel makes no claim that code follows a declaration, beyond `public_api`'s
+  existence check, which only confirms a name has not been mistyped or left unbuilt, never that a
+  consumer outside the package actually reaches it or that its signature has not moved.
+- **Example:** record `sample.api:load` as a name a consumer outside the package may rely on.
 
 A class-C entry records a judgment: a responsibility, an intended interface, a path or an owner
 that a person decided. Archkeel stores and reports it verbatim and never evaluates it, so it can

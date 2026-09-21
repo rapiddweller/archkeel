@@ -18,6 +18,7 @@ from archkeel.check.validation import (
     TARGET_GRAPH_MARKER,
     closed_world_diagnostics,
     graph_diagnostics,
+    public_api_diagnostics,
     rationale_diagnostics,
 )
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
@@ -29,6 +30,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     Observation,
     in_scope,
+    text_value,
 )
 from archkeel.ir.structure import oversized_insides
 
@@ -78,6 +80,13 @@ def self_run(tmp_path_factory: pytest.TempPathFactory) -> SelfRun:
     assert output.with_name("architecture.report.html").is_file()
     result = json.loads(run.stdout)
     assert result["diagnostics"] == []
+    # AD-67: Archkeel's own declared `boundary_types` rule does leave one `boundary_type_limit`
+    # record with 2 of its 8 positions undecided, but both are `external_type` -- `pathlib.Path`
+    # and `datetime.datetime`, types no declared component owns, so `boundary_types` has no
+    # `public` list to read them against. That is not a gap in what the checker could read (the
+    # six other undecidable kinds are); it is the question not applying. Everything the
+    # contract actually governs was decided, and there is no violation, so `declared_rules`
+    # stays PASS.
     assert result["observation_complete"] == result["declared_rules"] == "PASS"
     assert result["expectation_fulfilled"] == "n/a"
     observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
@@ -151,6 +160,30 @@ def test_self_contract_covers_modules_and_analyzer_interface(
             assert target in ANALYZER_PUBLIC_IR, (source, target)
 
 
+def test_self_facades_record_the_ten_types_they_expose(self_observation: Observation) -> None:
+    """AD-65 on this repository: the ten positions AD-63 measured in `check` and `render` are
+    recorded as reached, so declaring them can no longer collide with `interface.unused`
+    (issue #57). `check` and `render` still declare no `boundary_types` rule and none of the
+    three types is in a `public` list yet: that is issue #61's decision, not this one's."""
+    exposed: dict[str, tuple[str, ...]] = {}
+    for record in self_observation.records("symbols") or ():
+        name = text_value(record.data.get("qualified_name"))
+        types = record.data.get("facade_types")
+        if name and isinstance(types, tuple):
+            exposed[name] = tuple(item for item in types if isinstance(item, str))
+    assert "archkeel.check.ports.Analyzer" in exposed["archkeel.check.report.run_report"]
+    assert "archkeel.check.ports.Host" in exposed["archkeel.check.run.run_check"]
+    for name in ("check_summary", "init_summary", "report_summary"):
+        assert "archkeel.render.summary.Summary" in exposed[f"archkeel.render.summary.{name}"]
+    contract = _contract()
+    declared = {entry for item in contract.components for entry in item.public or ()}
+    assert not declared & {
+        "archkeel.check.ports:Analyzer",
+        "archkeel.check.ports:Host",
+        "archkeel.render.summary:Summary",
+    }
+
+
 def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
     """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard)."""
     contract = _contract()
@@ -188,6 +221,14 @@ def test_self_oversized_components_claim_still_counts_analyzer(
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:
     assert closed_world_diagnostics(_contract(), self_observation) == ()
+
+
+def test_self_public_api_declares_every_type_it_hands_out(self_observation: Observation) -> None:
+    """AD-70: `archkeel.api`, the boundary the invariant was written for, must clear whatever
+    guard closes tests/test_public_api_boundary.py's red tests -- a green regression guard, not
+    proof the guard exists. It already passes today, for the narrower reason that
+    `public_api_diagnostics` does not yet look at a declared entry's signature at all."""
+    assert public_api_diagnostics(_contract(), self_observation) == ()
 
 
 def test_contract_rationales_explain_more_than_the_rule() -> None:

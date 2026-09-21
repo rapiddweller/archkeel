@@ -14,6 +14,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ContractDeclarations,
     EvidenceClass,
+    stable_id,
 )
 
 from .bindings import collect_bindings
@@ -36,7 +37,13 @@ from .resolve import build_symbol_index
 from .source import ParsedModule, add_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
-from .violations import exports_by_module, rule_subject_failures, rule_violations
+from .violations import (
+    boundary_type_limits,
+    exports_by_module,
+    facade_signature_types,
+    rule_subject_failures,
+    rule_violations,
+)
 
 # AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
 CoveragePayload: TypeAlias = dict[str, Any]
@@ -154,6 +161,50 @@ def _analysis_limits(
     ]
 
 
+def _api_surface_limits(
+    declarations: ContractDeclarations,
+    symbols: Sequence[RawRecord],
+    module_all_exports: dict[str, set[str]],
+) -> list[RawRecord]:
+    """UNKNOWN records for a `public_api` name only `__all__` or a scanned symbol could settle.
+
+    A module the scan never saw is `check`'s own `api_surface.missing`, and one that declares
+    `__all__` is proven or disproven there too (AD-71): neither reaches here. What is left is a
+    module with no `__all__`, where a name absent from `symbols` is not proof of absence - it
+    may still be a constant or a type alias - so the analyzer records the gap as UNKNOWN rather
+    than let a module's silence pass a typo (AD-72).
+    """
+    top_level = {
+        (item["data"]["module"], item["data"]["name"])
+        for item in symbols
+        if item["data"]["parent"] is None
+    }
+    limits = []
+    for entry in declarations.public_api:
+        module, colon, name = entry.partition(":")
+        if not colon or module not in module_all_exports:
+            continue
+        if module_all_exports[module] or (module, name) in top_level:
+            continue
+        limits.append(
+            classified(
+                item_id=stable_id("UNKNOWN-API-SURFACE", module, name),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="api_surface",
+                kind="api_surface_limit",
+                title="Public API name cannot be proven present or absent",
+                subjects=[entry],
+                data={
+                    "module": module,
+                    "name": name,
+                    "reason": "The module declares no __all__ and the scan records no class "
+                    "or function of this name.",
+                },
+            )
+        )
+    return limits
+
+
 def scan_repository(
     root: Path,
     contract: ArchitectureContract,
@@ -220,6 +271,10 @@ def scan_repository(
     # (issue #56). Computed here, after module_facts exists, and handed to rule_violations too,
     # so the two share one answer to "what does __all__ narrow" instead of two computations.
     facade_exports = exports_by_module(module_facts)
+    # AD-65: a type a declared facade signature names reaches the boundary without any import,
+    # so the resolution boundary_types already runs is recorded on the facade function itself
+    # and travels to validate's unused-entry check in the observation, not in a second copy.
+    symbols = facade_signature_types(symbols, imports, contract, facade_exports)
     rule_failures = rule_subject_failures(
         contract.rules,
         module_names,
@@ -263,7 +318,16 @@ def scan_repository(
         exports_by_module=facade_exports,
     )
 
-    unknowns = [*_analysis_limits(calls, declarations, namespace), *failures, *rule_failures]
+    unknowns = [
+        *_analysis_limits(calls, declarations, namespace),
+        # AD-67: a boundary position the rule could not decide is reported, not silent. It
+        # joins the two structural limits above and never `coverage.failures`, because it
+        # says how much of a facade was decided, not that the scan was incomplete.
+        *boundary_type_limits(symbols, imports, contract, facade_exports),
+        *_api_surface_limits(declarations, symbols, module_all_exports),
+        *failures,
+        *rule_failures,
+    ]
 
     coverage = _coverage(
         paths=paths,

@@ -97,6 +97,14 @@ often explains an earlier one; the index below keeps that order.
 | AD-62 | [An annotated variable's owner is the scope it is written in, not its bare name](decisions/ad-62-an-annotated-variables-owner-is-the-scope-it-is-written-in.md) |
 | AD-63 | [boundary_types reads a component's declared public list, not a naming convention](decisions/ad-63-boundarytypes-reads-a-components-declared-public-list-not-a.md) |
 | AD-64 | [`archkeel.api` is the declared external contract, and `ir` performs no I/O](decisions/ad-64-archkeelapi-is-the-declared-external-contract-and-ir.md) |
+| AD-67 | [An undecidable boundary position is UNKNOWN, not silence](decisions/ad-67-an-undecidable-boundary-position-is-unknown-not-silence.md) |
+| AD-69 | [One annotation is read once, for both readers](decisions/ad-69-one-annotation-is-read-once-for-both-readers.md) |
+| AD-72 | [A rule that could not decide everything reports UNKNOWN](decisions/ad-72-a-rule-that-could-not-decide-everything-reports-unknown.md) |
+| AD-73 | [The external surface is judged by the same walk](decisions/ad-73-the-external-surface-is-judged-by-the-same-walk.md) |
+| AD-65 | [A type a declared facade signature exposes is a used public entry](decisions/ad-65-a-type-a-declared-facade-signature-exposes-is-a-used.md) |
+| AD-66 | [`declarations.public_api` names a consumer outside the package, narrowing AD-9](decisions/ad-66-declarationspublicapi-names-a-consumer-outside-the-package.md) |
+| AD-70 | [The external promise declares every type it hands out](decisions/ad-70-the-external-promise-declares-every-type-it-hands-out.md) |
+| AD-71 | [A promised name is checked against the module's own `__all__`](decisions/ad-71-a-promised-name-is-checked-against-the-modules-own-all.md) |
 
 ## Allowed dependencies
 

@@ -95,7 +95,12 @@ of a compensating `allowed_sources` list, which would have hidden the same gap `
 tried and reverted: `cli` never imports either name directly, only as a parameter type, so
 `interface_boundary` calls the new entry unused the moment `check`'s own `public` declares it --
 a contract-model conflict between two notions of "public", now issue #57, and adopting
-`boundary_types` for `check` and `render` is blocked on it, not on judgement. `archkeel.api`
+`boundary_types` for `check` and `render` is blocked on it, not on judgement. That sentence is
+history: [AD-65](ad-65-a-type-a-declared-facade-signature-exposes-is-a-used.md) made a type a
+declared facade signature exposes a used entry, reusing this rule's own resolution, so the
+declaration is legal now and the ten findings are open on judgement alone (issue #61). `check`
+and `render` still declare neither the three types nor the rule; read AD-65 for the current
+state of what "used" means. `archkeel.api`
 (AD-64) is not scoped
 either, and no sibling rule is declared for it: its component-level `public` is `None` -- the
 module's own `__all__` names three exports, but that is Python's own promise, not the contract's,
