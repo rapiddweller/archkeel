@@ -7,8 +7,8 @@ decided, and why the rest were undecidable — and the run's verdict carries tha
 rounding it down to "no violation found".
 
 The same question, asked of Archkeel's own promise to the outside, produced a second strand:
-`archkeel.api` is now a declared surface whose every name and every type it hands out is checked
-by the tool itself.
+`archkeel.api` is now a declared surface whose every promised name and every type from a scanned
+module that the analyzer can resolve is checked by the tool itself.
 
 ## Highlights
 
@@ -16,25 +16,32 @@ by the tool itself.
   left a position it could not read, PASS when everything the contract governs was decided, FAIL
   when something was proven wrong. A violation still outranks an unknown. Exit codes and
   diagnostics do not move: this reports, it does not gate (AD-67, AD-72).
-- **A type no component owns is not an unknown.** `pathlib.Path` and `datetime.datetime` cross
-  facades everywhere and no `public` list can answer for them, so they stay a decided pass and
-  keep their line in the breakdown. Counting them would have made PASS unreachable for any
-  repository whose facade takes a `Path` (AD-72).
+- **A type no component owns stays visible without making the verdict UNKNOWN.** `pathlib.Path`
+  and `datetime.datetime` cross facades everywhere and no `public` list can answer for them, so
+  they remain counted as `external_type` in the undecidable breakdown but do not change
+  `declared_rules`. Otherwise PASS would be unreachable for any repository whose facade takes a
+  `Path` (AD-72).
 - **`archkeel.api` is the declared external contract.** One call, `load_violations`, with the two
   types it hands out declared beside it. `ir` performs no I/O, and no internal model crosses the
   boundary (AD-64, AD-70).
-- **Every promised name and type is checked.** A `public_api` entry naming a module that does not
-  exist, or a name absent from that module's own `__all__`, is `api_surface.missing`. A name
-  nothing can settle is recorded as unknown rather than passed. And every type a declared entry's
-  signature exposes must itself be declared — checked generically, not by a test naming today's
-  names (AD-66, AD-71, AD-73).
+- **Every promised name and every resolvable exposed type from a scanned module is checked.** A
+  `public_api` entry naming a module that does not exist, or a name absent from that module's own
+  `__all__`, is `api_surface.missing`. Every type the shared annotation walk resolves from a
+  declared entry's signature must itself be declared — including signatures reached through a
+  re-export. Dotted names, mappings, nested subscripts, unions and forward-reference strings
+  remain outside that walk (AD-66, AD-71, AD-73).
 - **`boundary_types` reads a declared facade, not a naming convention.** Only a function the
   component's own `public` list covers is inspected, and a resolved type is a violation only when
   no component declares it. One walk of an annotation answers both the rule and the reachability
   reading, so the two cannot drift (AD-58, AD-63, AD-69).
+- **Ambiguous bindings stay UNKNOWN instead of depending on record order.** A name claimed by
+  distinct class or import bindings, or shared by a class or import and a function — including
+  through an ambiguous re-export chain — is counted as `ambiguous_binding`; repeating the same
+  import target remains one binding (AD-74).
 - **A violation has a name, and a baseline may hold the ones already there.** `validate
-  --baseline` reports only what is new, `--write-baseline` records today's debt, and `--against`
-  with an amendment binding exact digests fails a widening that nobody approved (AD-52, AD-61).
+  --baseline` rejects new or resolved baseline drift, `--write-baseline` records today's debt,
+  and `--against` with an amendment binding exact digests fails a widening that nobody approved
+  (AD-52, AD-61).
 - **Twelve prohibitions became one permission.** A `requires` entry may name the modules it goes
   through, so a component opens a narrow door instead of the contract listing every closed one
   (AD-42).
@@ -43,10 +50,10 @@ by the tool itself.
 
 ## Breaking changes
 
-- **Analyzer version 0.31.0.** Observations written by an earlier analyzer are not comparable;
+- **Analyzer version 0.32.0.** Observations written by an earlier analyzer are not comparable;
   `delta` refuses them rather than comparing across versions (AD-3).
-- **`declared_rules` has a third value.** A consumer that treated it as PASS-or-FAIL must handle
-  UNKNOWN. Exit codes are unchanged, so a gate reading the exit code needs no migration (AD-72).
+- **Successful runs can now report `declared_rules: UNKNOWN`.** The value already existed, but a
+  consumer that equated exit 0 with PASS must now handle it. Exit codes are unchanged (AD-72).
 - **A `public_api` entry is now checked.** A contract naming a module the scan never saw, or a
   name its module's `__all__` excludes, fails `validate` where it used to pass silently.
 - **Contract `schema_version` stays 2.1.0.** Every field added in this range is optional and no
@@ -71,9 +78,9 @@ and at this release:
 | Contract rules | 25 | 16 | Twelve prohibitions became one `requires` entry with `through` (AD-42) |
 | Components | 6 | 7 | `api`, the declared external surface (AD-64) |
 | Violations | 0 | 0 | Now including `boundary_types` against the analyzer's own facades |
-| Unresolved calls | 703 / 3982 | 424 / 4860 | A receiver whose type is statically obvious now resolves its stdlib method (AD-37, AD-40) |
+| Unresolved calls | 703 / 3982 | 426 / 4886 | A receiver whose type is statically obvious now resolves its stdlib method (AD-37, AD-40) |
 
-The unresolved ratio fell from 17.65% to 8.72% while the analyzed call count grew by 878. Two runs
+The unresolved ratio fell from 17.65% to 8.72% while the analyzed call count grew by 904. Two runs
 of `archkeel report` on the same commit write a byte-identical `architecture.json`.
 
 # Archkeel 0.4.1 — PyPI links resolve outside the repository
