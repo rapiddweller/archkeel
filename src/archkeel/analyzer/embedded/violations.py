@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+import builtins
 import sys
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Final, assert_never
+from typing import Final, NamedTuple, assert_never
 
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -638,6 +639,116 @@ def _is_broad_boundary_type(annotation: str) -> bool:
 
 _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 
+# Issue #9 names a builtin as an acceptable boundary type, and a builtin needs no import and
+# defines no symbol of its own, so `_resolve_named_type` returns nothing for one. The set comes
+# from the running interpreter rather than a list kept here, the way `resolve.py` and `calls.py`
+# already answer the same question, so one repository holds one answer to what a builtin is.
+_BUILTIN_NAMES: Final = frozenset(dir(builtins))
+
+# Why a position stayed undecided, in the order the limit record reports them (AD-67).
+_UNDECIDABLE_KINDS: Final = (
+    "missing_annotation",
+    "forward_reference",
+    "dotted_name",
+    "generic",
+    "union",
+    "unresolved_name",
+    "external_type",
+    "other",
+)
+
+
+class _Position(NamedTuple):
+    """One boundary position's verdict: a violation reason, an undecidable kind, or neither.
+
+    Neither is a decided pass. AD-63 answered all three with `None`, so a position the rule
+    could not decide was indistinguishable from one it decided clean, and the rule's verdict
+    read `no violation == probably fine` where the rest of the tool reads PASS, VIOLATION or
+    UNKNOWN (AD-26). Naming the undecidable kind is what lets the rule report its own
+    denominator instead of staying silent (AD-67).
+    """
+
+    violation: str | None = None
+    undecidable: str | None = None
+
+
+# A container whose declared element type is the whole of what actually crosses the boundary
+# (AD-67). `dict`/`Dict` are absent because AD-58 already reports a `dict[...]` as broad, and
+# `Mapping` because whether a mapping is that same broad container is a reading AD-67 leaves open.
+_COLLECTION_CONTAINERS: Final = frozenset(
+    {
+        "list",
+        "List",
+        "set",
+        "Set",
+        "frozenset",
+        "FrozenSet",
+        "tuple",
+        "Tuple",
+        "Sequence",
+        "MutableSequence",
+        "Iterable",
+        "Iterator",
+        "Collection",
+        "AbstractSet",
+    }
+)
+
+
+def _split_type_parameters(inner: str) -> list[str] | None:
+    """Split one subscript's parameters on its top-level commas.
+
+    None when the brackets do not balance, which is how `Sequence[int] | list[str]` is told
+    apart from a single subscript: both end in `]`, only one of them is one (AD-67).
+    """
+    parameters: list[str] = []
+    current = ""
+    depth = 0
+    for character in inner:
+        if character == "[":
+            depth += 1
+        elif character == "]":
+            depth -= 1
+            if depth < 0:
+                return None
+        if character == "," and depth == 0:
+            parameters.append(current.strip())
+            current = ""
+        else:
+            current += character
+    if depth:
+        return None
+    parameters.append(current.strip())
+    return parameters
+
+
+def _collection_parameters(annotation: str) -> list[str] | None:
+    """The type parameters of `Container[...]` when the container is a known collection.
+
+    None when the annotation is not exactly one such subscript, so a dotted container
+    (`typing.Sequence[X]`), a union around one and a mapping all stay where they were. The
+    `...` of `tuple[X, ...]` is an arity, not a type, and is dropped (AD-67).
+    """
+    head, bracket, rest = annotation.partition("[")
+    if not bracket or not rest.endswith("]") or head not in _COLLECTION_CONTAINERS:
+        return None
+    parameters = _split_type_parameters(rest[:-1])
+    if parameters is None:
+        return None
+    return [parameter for parameter in parameters if parameter != "..."]
+
+
+def _unresolvable_shape(annotation: str) -> str:
+    """Name why an annotation that is not one bare identifier cannot be decided (AD-67)."""
+    head = annotation.split("[", 1)[0]
+    if "." in head:
+        return "dotted_name"
+    if "[" in annotation:
+        return "generic"
+    if "|" in annotation:
+        return "union"
+    return "other"
+
 
 def _resolve_named_type(
     annotation: str,
@@ -652,8 +763,9 @@ def _resolve_named_type(
     `ObservationResult` annotation resolve the way the import itself would. Only a single bare
     identifier is attempted, never a dotted name, a subscripted generic or a forward-reference
     string: those stay unresolved exactly as AD-58 left them. A builtin needs no import and
-    defines no symbol of its own, so it resolves to nothing here and stays silent rather than
-    being matched against a fixed list that would drift from what Python actually ships.
+    defines no symbol of its own, so it still resolves to nothing here; what changed is that
+    the caller no longer reads that nothing as silence but asks the interpreter whether the
+    name is a builtin, and calls it a decided pass when it is (AD-67).
     """
     if not annotation.isidentifier():
         return None
@@ -692,31 +804,119 @@ def _boundary_type_indexes(
     return imports_by_binding, classes_by_location
 
 
-def _boundary_type_reason(
+def _boundary_type_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     imports_by_binding: dict[tuple[str, str], RecordData],
     classes_by_location: dict[tuple[str, str], RecordData],
-) -> str | None:
-    """Why one annotation violates `boundary_types`, or None when it does not (AD-58, AD-63)."""
+    *,
+    enter_collections: bool = True,
+) -> _Position:
+    """Decide one annotated position: a violation, an undecidable kind, or a pass (AD-58,
+    AD-63, AD-67).
+
+    Which annotations yield a violation is what AD-63 left, plus a known collection holding
+    one: a bare `dict`/`object` or a `dict[...]` generic, and a bare name that resolves to a
+    class no component declares and that is neither an enum nor a Pydantic model. What is new
+    is that everything else is split in two -- a builtin and a declared type are a decided
+    pass, and every remaining shape names why it could not be decided -- so the rule can
+    report its own denominator (AD-67). `enter_collections` is false for a collection's own
+    parameter, which is what keeps the resolution one level in and not a general descent.
+    """
+    if not annotation:
+        return _Position(undecidable="missing_annotation")
     if _is_broad_boundary_type(annotation):
-        return "instead of a typed model"
+        return _Position(violation="instead of a typed model")
+    if annotation.startswith(("'", '"')):
+        return _Position(undecidable="forward_reference")
+    if not annotation.isidentifier():
+        entered = (
+            _collection_verdict(
+                annotation,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+            if enter_collections
+            else None
+        )
+        if entered is not None:
+            return entered
+        return _Position(undecidable=_unresolvable_shape(annotation))
     resolved = _resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if resolved is None:
-        return None
+        # A name the imports and the module's own classes do not define is either a builtin,
+        # which issue #9 accepts, or a name this rule failed to resolve; it must not read the
+        # second as the first.
+        if annotation in _BUILTIN_NAMES:
+            return _Position()
+        return _Position(undecidable="unresolved_name")
     origin_module, origin_name = resolved
     origin_symbol = classes_by_location.get(resolved)
     class_kind = origin_symbol["class_kind"] if origin_symbol else None
+    if class_kind in _EXEMPT_CLASS_KINDS:
+        return _Position()
     origin_component = contract.component_for(origin_module)
-    if (
-        class_kind in _EXEMPT_CLASS_KINDS
-        or origin_component is None
-        or _facade_covers(origin_module, origin_name, origin_component, exports_by_module)
-    ):
+    if origin_component is None:
+        # A type from a module outside every declared component has no `public` list to be
+        # read against, so the rule has nothing to decide it with, either way.
+        return _Position(undecidable="external_type")
+    if _facade_covers(origin_module, origin_name, origin_component, exports_by_module):
+        return _Position()
+    return _Position(violation=f"which {origin_component.label} does not declare")
+
+
+def _collection_verdict(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: dict[tuple[str, str], RecordData],
+    classes_by_location: dict[tuple[str, str], RecordData],
+) -> _Position | None:
+    """Decide `Container[Name]` from its parameters, or None when it is not one (AD-67).
+
+    The refactoring hole this closes: `execute(context: InternalContext)` was reported and
+    `execute(contexts: list[InternalContext])` was silent, because a generic's parameters were
+    never inspected, so moving a parameter into a list dropped the check. The container's own
+    element type is the whole of what crosses the boundary, so it is decided by exactly the
+    `_resolve_named_type` lookup the rule already runs on a bare name -- one level in, never a
+    general descent into name resolution: a nested subscript, a dotted name, a forward
+    reference and a type no component owns stay undecidable, and now say so.
+
+    A collection is only as decided as its parameters: any one of them violating makes the
+    position a violation, and otherwise any one of them undecidable makes the position
+    undecidable.
+    """
+    parameters = _collection_parameters(annotation)
+    if parameters is None:
         return None
-    return f"which {origin_component.label} does not declare"
+    decided = [
+        (
+            parameter,
+            _boundary_type_verdict(
+                parameter,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+                enter_collections=False,
+            ),
+        )
+        for parameter in parameters
+    ]
+    for parameter, verdict in decided:
+        if verdict.violation is not None:
+            return _Position(violation=f"holding {parameter} {verdict.violation}")
+    for _parameter, verdict in decided:
+        if verdict.undecidable is not None:
+            return _Position(undecidable=verdict.undecidable)
+    return _Position()
 
 
 def _declared_facade_positions(
@@ -737,13 +937,13 @@ def _declared_facade_positions(
     component = contract.component_for(module)
     if component is None or not _facade_covers(module, name, component, exports_by_module):
         return None
+    # An unannotated position carries an empty annotation rather than being dropped: it is a
+    # position of the facade the rule cannot decide, and dropping it hid it from the rule's own
+    # denominator (AD-67).
     positions = [
-        (parameter["name"], parameter["annotation"])
-        for parameter in data["parameters"]
-        if parameter["annotation"]
+        (parameter["name"], parameter["annotation"] or "") for parameter in data["parameters"]
     ]
-    if data["returns"]:
-        positions.append(("return", data["returns"]))
+    positions.append(("return", data["returns"] or ""))
     return module, data["qualified_name"], positions
 
 
@@ -812,13 +1012,23 @@ def _resolved_position_types(
     imports_by_binding: dict[tuple[str, str], RecordData],
     classes_by_location: dict[tuple[str, str], RecordData],
 ) -> list[str]:
-    """The distinct types one function's annotated positions resolve to, dotted and sorted."""
+    """The distinct types one function's annotated positions resolve to, dotted and sorted.
+
+    One annotation is read one way here and in `_boundary_type_verdict` (AD-67): both take the
+    bare name, and both take the element of a known collection, because a type inside a
+    `list[...]` crosses the boundary exactly as the bare one does. Two readings would let
+    `boundary_types` judge `list[Payload]` while `interface_boundary` called the very entry it
+    judged unused -- the drift AD-65 exists to remove, reappearing one subscript deeper.
+    """
     names = set()
     for _, annotation in positions:
-        resolved = _resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
-        if resolved is not None:
-            origin_module, origin_name = resolved
-            names.add(f"{origin_module}.{origin_name}")
+        for candidate in (annotation, *(_collection_parameters(annotation) or ())):
+            resolved = _resolve_named_type(
+                candidate, module, imports_by_binding, classes_by_location
+            )
+            if resolved is not None:
+                origin_module, origin_name = resolved
+                names.add(f"{origin_module}.{origin_name}")
     return sorted(names)
 
 
@@ -850,14 +1060,14 @@ def _boundary_types_violations(
                 continue
             module, qualname, positions = found
             for position, annotation in positions:
-                reason = _boundary_type_reason(
+                reason = _boundary_type_verdict(
                     annotation,
                     module,
                     contract,
                     exports_by_module,
                     imports_by_binding,
                     classes_by_location,
-                )
+                ).violation
                 if reason is None:
                     continue
                 verb = "returns" if position == "return" else f"takes {position} as"
@@ -882,6 +1092,73 @@ def _boundary_types_violations(
                     )
                 )
     return sorted(violations, key=lambda item: item["id"])
+
+
+def boundary_type_limits(
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+) -> list[RawRecord]:
+    """One UNKNOWN record per `boundary_types` rule, naming how much of the facade it decided.
+
+    AD-67: an undecidable position produced nothing at all, so this rule alone read `no
+    violation == probably fine` where the rest of the tool reads PASS, VIOLATION or UNKNOWN
+    (AD-26). The record is the shape `dynamic_call_limit` already gives the call graph -- the
+    denominator the rule examined and the part of it that stayed unresolved, by kind -- rather
+    than a third mechanism.
+
+    It is filed in `unknowns` and not in `coverage.failures`, so it reports and does not gate.
+    A rule that decided *nothing* is already the gate `rule-without-subjects` owns (AD-63,
+    issue #56); a rule that decided some of its positions has a verdict those positions earned,
+    and failing the run over the remainder would make every generic and every external type in
+    a facade a build failure -- pressure to delete annotations, not to declare types.
+    """
+    rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
+    if not rules:
+        return []
+    imports_by_binding, classes_by_location = _boundary_type_indexes(symbols, imports)
+    limits: list[RawRecord] = []
+    for rule in rules:
+        counts = dict.fromkeys(_UNDECIDABLE_KINDS, 0)
+        seen = decided = 0
+        for item in symbols:
+            found = _facade_positions(item, rule, contract, exports_by_module)
+            if found is None:
+                continue
+            module, _qualified_name, positions = found
+            for _position, annotation in positions:
+                seen += 1
+                undecidable = _boundary_type_verdict(
+                    annotation,
+                    module,
+                    contract,
+                    exports_by_module,
+                    imports_by_binding,
+                    classes_by_location,
+                ).undecidable
+                if undecidable is None:
+                    decided += 1
+                else:
+                    counts[undecidable] += 1
+        if not seen:
+            # No positions at all means no declared facade function: `rule-without-subjects`
+            # already says so, and saying it twice in two vocabularies would be the third
+            # mechanism this record exists to avoid.
+            continue
+        limits.append(
+            classified(
+                item_id=stable_id("UNKNOWN-BOUNDARY-TYPES", rule.id),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="type_architecture",
+                kind="boundary_type_limit",
+                title=f"{rule.id} decided {decided} of {seen} declared facade type positions",
+                subjects=[rule.source],
+                rule_ids=[rule.id],
+                data={"positions": seen, "decided": decided, "undecided": seen - decided, **counts},
+            )
+        )
+    return sorted(limits, key=lambda item: item["id"])
 
 
 def _requires_covers(source: ContractComponent, target_label: str, target_module: str) -> bool:

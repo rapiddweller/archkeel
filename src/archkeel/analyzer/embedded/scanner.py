@@ -37,6 +37,7 @@ from .source import ParsedModule, add_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
 from .violations import (
+    boundary_type_limits,
     exports_by_module,
     facade_signature_types,
     rule_subject_failures,
@@ -272,7 +273,15 @@ def scan_repository(
         exports_by_module=facade_exports,
     )
 
-    unknowns = [*_analysis_limits(calls, declarations, namespace), *failures, *rule_failures]
+    unknowns = [
+        *_analysis_limits(calls, declarations, namespace),
+        # AD-67: a boundary position the rule could not decide is reported, not silent. It
+        # joins the two structural limits above and never `coverage.failures`, because it
+        # says how much of a facade was decided, not that the scan was incomplete.
+        *boundary_type_limits(symbols, imports, contract, facade_exports),
+        *failures,
+        *rule_failures,
+    ]
 
     coverage = _coverage(
         paths=paths,
