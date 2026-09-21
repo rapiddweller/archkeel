@@ -1,84 +1,58 @@
 # AD-66 `declarations.public_api` names a consumer outside the package
 
-AD-9's `public` names one component's promise to another component of the *same* package,
-policed at every crossing by `interface_boundary`. `declarations.public_api` names a different
-thing this repository already had a field for: the surface a consumer *outside* the package may
-rely on, the case AD-9 had no need to distinguish until AD-64 gave Archkeel itself such a
-surface, `archkeel.api`. Before this decision `public_api` was already parsed
-(`ir.codec.parse_contract`), typed (`ir.model.ContractDeclarations.public_api`), projected into
-every observation as a `declared_public_api` evidence item under `area="api_surface"`
-(`analyzer.embedded.contract`), and checked for two things every declaration gets: its name must
-resolve inside the configured namespace (`reference.namespace`) and its provenance file must
-exist (`reference.provenance`). None of that machinery was inert, and none of it checked that the
-name it declared existed, or connected it to Archkeel's own external promise: `archkeel.api`'s
-`__all__` and `docs/reference.md`'s prose only agreed with each other, held together by
-`tests/test_violations.py::test_api_all_matches_the_names_reference_md_documents` comparing one
-hard-coded set against the other, neither read from `architecture-contract.json`.
+## What changes
 
-Archkeel now declares its own `public_api`:
+Two declarations, two questions:
 
-```json
-"public_api": [
-  "archkeel.api:ViolationRow",
-  "archkeel.api:load_observation",
-  "archkeel.api:violation_rows"
-]
-```
+| Declaration | Whose promise, to whom |
+|---|---|
+| `component.public` | one component's, to another component of the same package |
+| `declarations.public_api` | the package's, to a consumer outside it |
 
-and `test_api_all_matches_the_names_reference_md_documents` reads `declarations.public_api` from
-`architecture-contract.json` and checks `archkeel.api.__all__` and the reference-doc names each
-against it, not against each other: a fourth export or a dropped one now shows up as a contract
-disagreement, checked the same way every other value this repository promises is.
+`public_api` was already parsed, typed, projected and namespace-checked. Nothing read it back
+against the module it names, and nothing connected it to Archkeel's own promise: `api.py`'s
+`__all__` and `docs/reference.md` agreed only with each other, held by a test comparing two
+hard-coded sets.
 
-`validate` gains one new existence check, `api_surface.missing`, `public_api_diagnostics` in
-`check/validation.py`: a `public_api` entry whose module the scan never saw is a typo or a
-promise the package has not built yet, the same fact `interface.missing` already reports for a
-`public` entry the scan never saw (AD-56). It reuses `_entry_module` and `_scanned_modules`
-unchanged, so a `pkg.module:Name` entry is judged by its module alone, for the reason AD-56 gave:
-`symbols` records only classes and functions, so an unmatched name there would as easily be a
-constant or a `TypeAlias` as a genuine typo. There is no `interface.unused` twin: `interface.unused`
-exists because `interface_boundary` can see every crossing that could use a `public` entry, so
-silence is evidence; nothing inside the scan crosses into `public_api` the way one component
-imports another; a consumer outside the package is not observed, so its silence proves nothing.
-Ownership and underscore checks (`reference.public_owner`, `reference.public_underscore`) stay
-`public`/`planned`-only: those exist because a `public` entry is one component's promise, so
-another component's module claiming it is a contradiction the contract can catch; `public_api`
-belongs to no component, so there is nothing for an entry to be owned by.
+Archkeel now declares its own, `validate` gains `api_surface.missing` for an entry whose module
+the scan never saw, and the `__all__`/reference test reads the contract instead of itself.
 
-Reason: issue #58 — the three names that are Archkeel's own external promise lived in `api.py`'s
-`__all__` and in `docs/reference.md`'s prose, kept in step only by a test holding two documents
-against each other, exactly the drift a contract-first tool exists to prevent everywhere else.
-AD-9 already read as though `public_api` had nothing left to say once `public` existed
-("`declarations.public_api` stays valid but is superseded"); AD-64 made that reading wrong by
-giving Archkeel a package boundary `public` cannot describe, one crossed by a consumer no scan
-observes.
+## Why
 
-Rejected: inventing a new field for an external surface, the shape the issue itself warned
-against. `declarations.public_api` and `declarations.public_api_provenance` were already in the
-schema and the model, parsed, projected and reported; the gap was that nothing read them back
-against the module they name or against `archkeel.api` itself, not that the field was the wrong
-one. Rejected: checking a `public_api` entry's `:Name` half against `symbols`, for the same
-reason AD-56 rejected it for `public` — it would misreport a module-level constant or a
-`TypeAlias` as missing forever. Rejected: holding `public_api` to the same ownership check as
-`public` (`reference.public_owner`), because that check asks whether *another component* may
-claim a name, a question that presupposes the crossing is between two components of this
-package; a `public_api` entry has no such other side within the scan to contradict it. Rejected:
-declaring `public_api` unused when no `archkeel.api`-shaped module imports it, mirroring
-`interface.unused` — the analyzer only sees this package, never the consumers `public_api`
-promises to, so absence of an internal crossing is not evidence of anything.
+[AD-9](ad-09-components-declare-their-interface.md) read as though `public_api` had nothing left
+to say once `public` existed. [AD-64](ad-64-archkeelapi-is-the-declared-external-contract-and-ir.md)
+made that wrong by giving Archkeel a package boundary `public` cannot describe: one crossed by a
+consumer no scan observes.
 
-Limit: `api_surface.missing` reads `modules` alone, the same blind spot `interface.missing`
-carries for the same reason: a `pkg.module:Name` entry whose module exists but whose name does
-not is not caught. Nothing checks that a `public_api` entry's actual Python object still matches
-what a consumer last saw, only that the module exists; `public_api_provenance`'s file-exists
-check (`reference.provenance`) and the namespace check (`reference.namespace`) are unchanged and
-apply exactly as before AD-64. `public_api` remains under `declarations`: Class C's "Archkeel
-makes no claim that code follows a declaration" (`docs/rules.md`) still describes it — existence
-is a much narrower claim than that a consumer actually reaches the name, or that the name's
-signature has not changed — so it is not promoted to Class A. Check:
-`tests/test_validation.py::test_missing_public_api_entry_is_a_diagnostic`,
-`test_built_public_api_entry_has_no_diagnostic`,
-`tests/test_violations.py::test_api_all_matches_the_names_reference_md_documents`,
-`fixtures/demo_catalog_validation.py`'s `validation-api-surface-missing` row, run by
-`tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings`; and
-`archkeel validate --root . --json` on Archkeel's own contract, which now declares `public_api`.
+That is also why there is no `interface.unused` twin here. `interface.unused` works because
+`interface_boundary` sees every crossing that could use a `public` entry, so silence is
+evidence. Nothing inside the scan crosses into `public_api`; a consumer outside is not observed,
+and its silence proves nothing.
+
+Ownership and underscore checks stay `public`-only for the same reason: they ask whether another
+component may claim a name, and a `public_api` entry has no other side within the scan.
+
+## Rejected
+
+| Alternative | Why not |
+|---|---|
+| Invent a new field for the external surface | It already existed, parsed and projected; the gap was that nothing read it back. |
+| Hold `public_api` to `reference.public_owner` | That check presupposes two components of this package on either side of the crossing. |
+| Report an unused `public_api` entry | The analyzer never sees the consumers it promises to. |
+
+## Limit
+
+Existence is a narrower claim than that a consumer reaches the name, so `public_api` stays a
+Class C declaration. This decision checked the module alone; the name itself is checked by
+[AD-71](ad-71-a-promised-name-is-checked-against-the-modules-own-all.md) and the types it hands
+out by [AD-73](ad-73-the-external-surface-is-judged-by-the-same-walk.md). The three names it
+first declared were replaced by the single `load_violations` call in
+[AD-70](ad-70-the-external-promise-declares-every-type-it-hands-out.md).
+
+## Check
+
+`tests/test_validation.py::test_missing_public_api_entry_is_a_diagnostic` and
+`test_built_public_api_entry_has_no_diagnostic`;
+`tests/test_violations.py::test_api_all_matches_the_names_reference_md_documents` reading the
+contract; the `validation-api-surface-missing` catalog row; and `archkeel validate --root .`
+on Archkeel's own contract.
