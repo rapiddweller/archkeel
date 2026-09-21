@@ -4,13 +4,17 @@
 
 `boundary_type_indexes` built its two lookups with last-write-wins over lists sorted by
 content-hash id. Python binds the textually last definition or import; the index kept whichever
-record the hash order left last. An ambiguous key now resolves to a sentinel, and the position
-is reported `ambiguous_binding` -- a new undecidable kind.
+record the hash order left last. Distinct targets or definitions now resolve to a sentinel,
+including collisions split across the import and symbol indexes. Repeating one import target
+remains one binding.
 
 | Module | Live binding | Before | Now |
 |---|---|---|---|
 | two top-level `class Order` | the second | **`KeyError`, whole scan lost** | undecidable |
 | `import Thing` from a, then from b | b's | b, or a, by hash | undecidable |
+| imported `Thing`, then local `class Thing` | the class | imported type, clean pass | undecidable |
+| `class Order`, then `def Order` | the function | **`KeyError`, whole scan lost** | undecidable |
+| the same import repeated in another scope | the same target | undecidable | one binding |
 
 ## Why
 
@@ -46,11 +50,13 @@ under test and the first is a limit of the checker.
 Ambiguity is per module and per name. A conditional definition under `if` is not seen at all
 (the collector does not descend into it), so it is not ambiguous here and never was. A name
 shadowed across modules is unaffected: only same-module collisions collapse.
+Import records carry no lexical scope; repeated identical targets collapse, while distinct
+same-name targets across scopes conservatively remain ambiguous.
 `ANALYZER_VERSION` rises to 0.32.0, because a `boundary_type_limit` breakdown can now carry a
 kind no earlier analyzer emitted.
 
 ## Check
 
-`tests/test_boundary_type_ambiguous_bindings.py` pins both directions through `observe`, the
-missing `class_kind` that made the crash possible, and -- the guard against the cause returning
--- that reversing the record order leaves the index entry identical.
+`tests/test_boundary_type_ambiguous_bindings.py` pins the collisions through `observe`, the
+missing `class_kind` that made the crash possible, identical repeated imports, and -- the guard
+against the cause returning -- that reversing record order leaves the index entry identical.

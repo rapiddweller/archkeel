@@ -4,10 +4,10 @@
 """`boundary_type_indexes` (`archkeel/analyzer/embedded/violations.py`) builds
 `imports_by_binding` and `classes_by_location` as last-write-wins dict comprehensions over
 `imports`/`symbols` in the order the scan hands them over -- sorted by content-hash id, not
-source order. A module that binds one name twice (two top-level classes of the same name, or
-two imports bound to the same local name) makes that order decide which of the two candidate
-records the index keeps, and Python's own binding rule (whichever one is textually last) is
-not what decides it.
+source order. A module with distinct definitions for one name makes that order decide which
+candidate record the index keeps, and Python's own binding rule (whichever one is textually
+last) is not what decides it. An identical import repeated is still one target and must not be
+turned into ambiguity merely because the scanner records both statements.
 
 Two consequences, pinned below:
 
@@ -21,9 +21,9 @@ Two consequences, pinned below:
      declared by its component and one not: whichever the index keeps decides the verdict,
      with no relation to which import is actually live in the module.
 
-The intended fix: a name bound twice in one module is something the analyzer cannot resolve
-from what it records, so the honest answer is unresolvable (undecidable), not a coin flip --
-never a crash, never a guessed PASS or VIOLATION.
+The intended fix: distinct bindings for one name are something the analyzer cannot resolve from
+what it records, whether they sit in one index or across imports, classes and functions. The
+honest answer is undecidable, not a coin flip -- never a crash, never a guessed verdict.
 """
 
 from __future__ import annotations
@@ -192,6 +192,167 @@ def test_ambiguous_import_binding_reports_the_position_as_undecidable_not_a_gues
     # as undecided, one of `_UNDECIDABLE_KINDS`.
     assert (data.get("positions"), data.get("decided")) == (2, 1)
     assert data.get("undecided") == 1
+
+
+def test_import_and_local_class_with_one_name_is_undecidable_through_observe(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(
+        _component("core", public=["sample.core.types:Thing"]),
+        _component("app", public=["sample.app.facade:snapshot"]),
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    (tmp_path / "sample/core/types.py").write_text("class Thing:\n    pass\n")
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from sample.core.types import Thing\n\n\n"
+        "class Thing:\n"
+        "    pass\n\n\n"
+        "def snapshot(thing: Thing) -> str:\n"
+        "    return str(thing)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    limit = next(
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    )
+    assert (limit.data.get("positions"), limit.data.get("decided")) == (2, 1)
+    assert limit.data.get("ambiguous_binding") == 1
+
+
+def test_class_and_function_with_one_name_is_undecidable_through_observe(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:snapshot"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "class Order:\n"
+        "    pass\n\n\n"
+        "def Order() -> None:\n"
+        "    return None\n\n\n"
+        "def snapshot(order: Order) -> str:\n"
+        "    return str(order)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.exit_code == 0
+    assert result.diagnostics == ()
+    assert result.observation is not None
+    limit = next(
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    )
+    assert (limit.data.get("positions"), limit.data.get("decided")) == (2, 1)
+    assert limit.data.get("ambiguous_binding") == 1
+
+
+def test_import_and_local_function_with_one_name_is_undecidable_through_observe(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(
+        _component("core", public=["sample.core.types:Thing"]),
+        _component("app", public=["sample.app.facade:snapshot"]),
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    (tmp_path / "sample/core/types.py").write_text("class Thing:\n    pass\n")
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from sample.core.types import Thing\n\n\n"
+        "def Thing() -> None:\n"
+        "    return None\n\n\n"
+        "def snapshot(thing: Thing) -> str:\n"
+        "    return str(thing)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    limit = next(
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    )
+    assert (limit.data.get("positions"), limit.data.get("decided")) == (2, 1)
+    assert limit.data.get("ambiguous_binding") == 1
+
+
+def test_ambiguous_reexport_chain_is_undecidable_through_observe(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(
+        _component("core", public=["sample.core.declared:Thing"]),
+        _component("app", public=["sample.app.facade:snapshot"]),
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/core/declared.py").write_text("class Thing:\n    pass\n")
+    (tmp_path / "sample/core/undeclared.py").write_text("class Thing:\n    pass\n")
+    (tmp_path / "sample/core/__init__.py").write_text(
+        "from sample.core.declared import Thing\n\n\n\nfrom sample.core.undeclared import Thing\n"
+    )
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from sample.core import Thing\n\n\n"
+        "def snapshot(thing: Thing) -> str:\n"
+        "    return str(thing)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    limit = next(
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    )
+    assert (limit.data.get("positions"), limit.data.get("decided")) == (2, 1)
+    assert limit.data.get("ambiguous_binding") == 1
+
+
+def test_repeated_identical_module_and_function_imports_are_not_ambiguous(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:snapshot"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from pathlib import Path\n\n\n"
+        "def helper() -> Path:\n"
+        "    from pathlib import Path\n"
+        "    return Path('.')\n\n\n"
+        "def snapshot(path: Path) -> str:\n"
+        "    return str(path)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    limit = next(
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    )
+    assert (limit.data.get("positions"), limit.data.get("decided")) == (2, 1)
+    assert limit.data.get("external_type") == 1
+    assert limit.data.get("ambiguous_binding") == 0
 
 
 def _class_symbol(module: str, name: str, marker: str) -> RawRecord:

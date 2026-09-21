@@ -646,7 +646,7 @@ _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 _BUILTIN_NAMES: Final = frozenset(dir(builtins))
 
 # Why a position stayed undecided, in the order the limit record reports them (AD-67).
-# `ambiguous_binding` (AD-71) sits next to `unresolved_name`: both are bare names that failed
+# `ambiguous_binding` (AD-74) sits next to `unresolved_name`: both are bare names that failed
 # to resolve, but one failed because nothing defines it and the other because two records do --
 # a reader who sees only the count needs the two kept apart to tell "unreadable annotation"
 # from "this name is bound twice".
@@ -766,7 +766,7 @@ def _unresolvable_shape(annotation: str) -> str:
 
 
 class _AmbiguousBinding:
-    """Sentinel for a `(module, name)` key more than one record claims.
+    """Sentinel for a `(module, name)` key more than one distinct binding claims.
 
     Nothing recorded says which import or which same-named class definition is the one Python
     actually binds -- that is `boundary_type_indexes`'s whole reason to exist -- so a key with
@@ -778,9 +778,21 @@ class _AmbiguousBinding:
 
 _AMBIGUOUS: Final = _AmbiguousBinding()
 
-# `boundary_type_indexes`'s own return shape: a `(module, name)` key maps to the one record
-# that claims it, or to `_AMBIGUOUS` when more than one does.
+# `boundary_type_indexes`'s own return shape: a `(module, name)` key maps to one binding target,
+# or to `_AMBIGUOUS` when distinct targets or definitions claim it.
 BindingIndex: TypeAlias = dict[tuple[str, str], "RecordData | _AmbiguousBinding"]
+
+
+def _binding_is_ambiguous(
+    key: tuple[str, str], imports_by_binding: BindingIndex, classes_by_location: BindingIndex
+) -> bool:
+    imported = imports_by_binding.get(key)
+    local = classes_by_location.get(key)
+    return (
+        imported is _AMBIGUOUS
+        or local is _AMBIGUOUS
+        or (imported is not None and local is not None)
+    )
 
 
 def resolve_named_type(
@@ -800,26 +812,32 @@ def resolve_named_type(
     the caller no longer reads that nothing as silence but asks the interpreter whether the
     name is a builtin, and calls it a decided pass when it is (AD-67).
 
-    Returns `_AMBIGUOUS` when the name itself is bound twice in `module` (two imports sharing a
-    binding), or when it resolves to a location two same-named class definitions both claim: a
-    name bound twice is something no record here can settle, so the caller must read it apart
-    from an ordinary unresolved name rather than pick either claimant.
+    Returns `_AMBIGUOUS` when the name has distinct bindings in `module` (imports to different
+    targets, an import and a local class, or colliding local definitions), or when it resolves
+    to a location two same-named class definitions both claim. The records carry no source order,
+    so the caller must read that apart from an unresolved name rather than pick a claimant.
     """
     if not annotation.isidentifier():
         return None
-    imported = imports_by_binding.get((module, annotation))
-    if imported is _AMBIGUOUS:
+    key = (module, annotation)
+    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
         return _AMBIGUOUS
+    imported = imports_by_binding.get(key)
+    class_entry = classes_by_location.get(key)
     if isinstance(imported, dict):
         origin = imported["origin_definition"]
         # A bare `import pkg as name` binds a module, not a name; nonsensical as a type.
         if imported["symbol"] is None or not origin:
             return None
         origin_module, _, origin_name = origin.rpartition(".")
-        if classes_by_location.get((origin_module, origin_name)) is _AMBIGUOUS:
-            return _AMBIGUOUS
+        chain = imported["reexport_chain"] or [origin]
+        for entry in chain:
+            entry_module, _, entry_name = entry.rpartition(".")
+            if _binding_is_ambiguous(
+                (entry_module, entry_name), imports_by_binding, classes_by_location
+            ):
+                return _AMBIGUOUS
         return origin_module, origin_name
-    class_entry = classes_by_location.get((module, annotation))
     if class_entry is _AMBIGUOUS:
         return _AMBIGUOUS
     if class_entry is not None:
@@ -827,15 +845,22 @@ def resolve_named_type(
     return None
 
 
-def _binding_index(entries: Iterator[tuple[str, str, RecordData]]) -> BindingIndex:
-    """Collapse `(scope, name, record)` triples into one index, marking a key `_AMBIGUOUS` the
-    moment a second record claims it -- so the final entry for that key is the same regardless
-    of which claimant `entries` happens to yield first (AD-71).
+def _binding_index(entries: Iterator[tuple[str, str, object, RecordData]]) -> BindingIndex:
+    """Index a binding once, or mark distinct targets ambiguous regardless of input order.
+
+    Repeating the same import target does not change a Python binding and keeps the first record.
+    Separate class definitions carry separate identities even when their bodies are identical
+    (AD-74).
     """
     index: BindingIndex = {}
-    for scope, name, data in entries:
+    identities: dict[tuple[str, str], object] = {}
+    for scope, name, identity, data in entries:
         key = (scope, name)
-        index[key] = _AMBIGUOUS if key in index else data
+        if key not in index:
+            index[key] = data
+            identities[key] = identity
+        elif identities[key] != identity:
+            index[key] = _AMBIGUOUS
     return index
 
 
@@ -849,21 +874,30 @@ def boundary_type_indexes(
     and `public_api_exposed_types` every declared `public_api` entry.
 
     `symbols` and `imports` arrive sorted by each record's own content-hash id, not source
-    order, so a module that binds one name twice (two same-named top-level classes, or two
-    imports sharing a binding) must not let that arrival order decide which record the index
-    keeps: `_binding_index` marks such a key `_AMBIGUOUS` instead (AD-71).
+    order, so distinct definitions sharing a binding must not let arrival order decide which
+    record wins. Repeating one import target is still one binding (AD-74).
     """
     imports_by_binding = _binding_index(
-        (data["source_module"], data["binding"], data)
+        (
+            data["source_module"],
+            data["binding"],
+            (data["symbol"] is not None, data["origin_definition"] or data["target_module"]),
+            data,
+        )
         for data in (item["data"] for item in imports)
     )
     classes_by_location = _binding_index(
-        (data["module"], data["name"], data)
+        (data["module"], data["name"], item["id"], data)
         for item in symbols
         for data in [item["data"]]
         # A nested class is never what a module-level annotation's bare name resolves to.
         if item["kind"] == "class" and data.get("parent") is None
     )
+    for item in symbols:
+        data = item["data"]
+        key = (data["module"], data["name"])
+        if item["kind"] == "function" and (key in classes_by_location or key in imports_by_binding):
+            classes_by_location[key] = _AMBIGUOUS
     return imports_by_binding, classes_by_location
 
 
@@ -916,10 +950,9 @@ def _boundary_type_verdict(
         return _Position(undecidable=_unresolvable_shape(annotation))
     resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if isinstance(resolved, _AmbiguousBinding):
-        # Two records bind this name in `module` (two imports sharing a binding, or two
-        # same-named top-level classes): Python picks whichever is textually last, and nothing
-        # the scanner recorded says which that is, so the position is undecidable, not a guess
-        # at either candidate (AD-71).
+        # Distinct records bind this name in `module`: Python picks whichever is textually last,
+        # and nothing the scanner recorded says which that is, so the position is undecidable,
+        # not a guess at either candidate (AD-74).
         return _Position(undecidable="ambiguous_binding")
     if resolved is None:
         # A name the imports and the module's own classes do not define is either a builtin,
