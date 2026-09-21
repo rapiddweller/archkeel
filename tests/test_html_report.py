@@ -18,7 +18,7 @@ from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observa
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
 from archkeel.render.html import render_architecture_html, render_check_html, render_html
-from archkeel.render.summary import check_decision_sentence, report_summary
+from archkeel.render.summary import check_decision_sentence, check_summary, report_summary
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
 
@@ -423,3 +423,18 @@ def test_logo_wordmark_reads_archkeel(name: str) -> None:
     text = ElementTree.parse(svg).find("{http://www.w3.org/2000/svg}text")
     assert text is not None
     assert "".join(text.itertext()).strip() == "archkeel"
+
+
+def test_a_check_that_could_not_decide_a_rule_does_not_claim_every_verdict_passed() -> None:
+    """AD-72 made `declared_rules` three-valued but left the banner reading the exit code alone.
+
+    The page then said both things at once: a green PASS over "all five verdicts passed", and a
+    card reading "Rules followed: NOT CHECKED". A human approves a merge from the banner.
+    """
+    result = RunResult(
+        "check", 0, "PASS", "UNKNOWN", "PASS", git_predicate="PASS", host_order="PASS"
+    )
+    assert check_summary(result).decision.label == "NOT CHECKED"
+    assert "all five verdicts passed" not in check_decision_sentence(result)
+    page = render_check_html(result, repository="sample", result_href="result.json").decode()
+    assert "all five verdicts passed" not in page
