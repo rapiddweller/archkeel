@@ -48,6 +48,9 @@ unneeded one rewrites `architecture.json` and conflicts with other branches for 
   alternatives, its limit and the tests that check it, an index row in
   [docs/architecture/archkeel.md](docs/architecture/archkeel.md), and a row in
   [docs/roadmap.md](docs/roadmap.md). Update every document that describes the old behaviour.
+  Keep it under 70 lines, which is where a test draws the line and where three quarters of the
+  existing records already are: a table for the measurement, a short section per question, and
+  the code the decision is about instead of a description of it.
 - **Keep the contract true.** A new module needs a component in `architecture-contract.json`, and a
   new import between components needs a `requires` entry with its reason. Never widen a rule to
   make a check pass.
