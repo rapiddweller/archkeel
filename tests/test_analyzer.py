@@ -1917,3 +1917,164 @@ def test_facade_types_resolve_a_collection_element(tmp_path: Path) -> None:
     assert _facade_types(result.observation) == {
         "sample.app.facade.typed": ("sample.app.ports.Widget",)
     }
+
+
+def test_boundary_types_and_facade_types_agree_across_annotation_shapes(tmp_path: Path) -> None:
+    """Regression guard (green today): `boundary_types` and `facade_types` are two readers of
+    the same `typed` signature (AD-69), and this pins that they agree on every shape below,
+    including agreeing on silence -- not merely that a refactor happened (the structural tests
+    above pin that), but that the two readings still land on the same answer.
+
+    Every `PayloadN` class lives in `facade.py` itself and is left off `app`'s declared
+    `public` list, so whenever the rule actually resolves a position to a named type, that type
+    is undeclared and the position is *always* a `boundary_types` violation -- never a builtin,
+    an enum, or a declared type. That lets "the rule resolved type T at this position" be read
+    off an observable violation (`position` in its `data`) rather than a private helper's
+    return value, and compared against "`facade_types` records T for this function"
+    (`_facade_types`). If either reader is later taught a shape the other is not -- entering
+    `Mapping[...]`, unwrapping `X | None`, walking a second subscript level -- the row for that
+    shape flips from agreement to disagreement and this test catches it.
+    """
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from collections.abc import Mapping\n"
+        "from typing import Optional\n"
+        "import datetime\n\n\n"
+        "class Payload1:\n    pass\n\n\n"
+        "class Payload2:\n    pass\n\n\n"
+        "class Payload3:\n    pass\n\n\n"
+        "class Payload4a:\n    pass\n\n\n"
+        "class Payload4b:\n    pass\n\n\n"
+        "class Payload5:\n    pass\n\n\n"
+        "class Payload6:\n    pass\n\n\n"
+        "class Payload7:\n    pass\n\n\n"
+        "def typed(\n"
+        "    payload1: Payload1,\n"
+        "    payload2: tuple[Payload2, ...],\n"
+        "    payload3: list[Payload3],\n"
+        "    union4: Payload4a | Payload4b,\n"
+        "    mapping5: Mapping[str, Payload5],\n"
+        "    optional6: Optional[Payload6],\n"
+        "    nested7: list[list[Payload7]],\n"
+        "    dotted8: datetime.datetime,\n"
+        "    forward9: 'Payload9',\n"
+        ") -> str:\n"
+        "    return ''\n\n\n"
+        "class Payload9:\n"
+        "    pass\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+
+    qualname = "sample.app.facade.typed"
+    violated_positions = {
+        item.data.get("position")
+        for item in trace_valid_violations(result.observation)
+        if item.kind == "boundary_types" and item.data.get("qualified_name") == qualname
+    }
+    facade_types = set(_facade_types(result.observation).get(qualname, ()))
+
+    # One shape per row: the candidate type(s) the rule would have to resolve, at that
+    # position, for facade_types to have any business recording them. Bare names and one level
+    # into a known collection resolve on both sides; a union, an unentered generic (`Mapping`,
+    # `Optional`), a second subscript level, a dotted attribute and a quoted forward reference
+    # resolve on neither (AD-67, AD-69's own Limit).
+    shapes: dict[str, tuple[str, ...]] = {
+        "payload1": ("sample.app.facade.Payload1",),
+        "payload2": ("sample.app.facade.Payload2",),
+        "payload3": ("sample.app.facade.Payload3",),
+        "union4": ("sample.app.facade.Payload4a", "sample.app.facade.Payload4b"),
+        "mapping5": ("sample.app.facade.Payload5",),
+        "optional6": ("sample.app.facade.Payload6",),
+        "nested7": ("sample.app.facade.Payload7",),
+        "dotted8": ("datetime.datetime",),
+        "forward9": ("sample.app.facade.Payload9",),
+    }
+    disagreements = []
+    for position, candidates in shapes.items():
+        rule_resolved = position in violated_positions
+        for candidate in candidates:
+            facade_resolved = candidate in facade_types
+            if rule_resolved != facade_resolved:
+                disagreements.append(
+                    f"{position} ({candidate}): boundary_types "
+                    f"{'resolved' if rule_resolved else 'left silent'} this position while "
+                    f"facade_types {'recorded' if facade_resolved else 'left out'} {candidate}"
+                )
+    assert disagreements == []
+    # A fixture where every row agreed by staying silent would pass vacuously; at least one
+    # shape must actually be resolved on both sides for the agreement above to mean anything.
+    assert violated_positions, (
+        "no shape here was decided at all -- the agreement check above is vacuous"
+    )
+
+
+def _violations_source_ast() -> ast.Module:
+    return ast.parse((EMBEDDED / "violations.py").read_bytes())
+
+
+def _top_level_callers(tree: ast.Module, called_name: str) -> set[str]:
+    """The module-level functions whose body directly calls `called_name`.
+
+    Walking only a top-level `FunctionDef`'s own subtree, rather than the whole module, is what
+    tells "one function calls this" apart from "this name merely appears in the file" -- and
+    doing it over `ast` rather than a text search is what tells a real call apart from the name
+    showing up in a docstring or a comment.
+    """
+    return {
+        node.name
+        for node in ast.iter_child_nodes(tree)
+        if isinstance(node, ast.FunctionDef)
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == called_name
+    }
+
+
+def test_only_one_function_resolves_an_annotations_named_type() -> None:
+    """AD-69 hand-synced two readers instead of merging them into one (the drift it names as
+    already having happened once, over `list[Type]`). `_boundary_type_verdict` (the
+    `boundary_types` rule) and `_resolved_position_types` (the `facade_types` reachability
+    reading) each call `_resolve_named_type` on their own candidate string, so a future
+    annotation shape -- `A | B`, `Mapping[str, A]`, `Optional[A]` -- has to be taught to both
+    call sites by hand, or the readings drift apart again. One shared analysis per annotation
+    means exactly one function in this module ever calls `_resolve_named_type`; a second caller
+    is the duplicated interpretation this pins against.
+    """
+    callers = _top_level_callers(_violations_source_ast(), "_resolve_named_type")
+    assert len(callers) == 1, (
+        f"_resolve_named_type is called directly from {sorted(callers)}: more than one "
+        "function derives a resolved type from an annotation, instead of one shared analysis "
+        "both `boundary_types` and `facade_types` read."
+    )
+
+
+def test_resolved_position_types_does_not_itself_walk_collection_parameters() -> None:
+    """The reachability reading must not re-implement "enter one level of a known collection":
+    that decision is `_collection_verdict`'s, made for the `boundary_types` rule. Today
+    `_resolved_position_types` calls `_collection_parameters` itself to build its own candidate
+    list, which is exactly the second, hand-kept copy of that decision AD-69 introduced to fix
+    `list[Type]`; a new collection shape taught only to the rule would again go silent on this
+    side, the same way `list[Type]` once did.
+    """
+    tree = _violations_source_ast()
+    [target] = [
+        node
+        for node in ast.iter_child_nodes(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_resolved_position_types"
+    ]
+    walks_collections = any(
+        isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "_collection_parameters"
+        for call in ast.walk(target)
+    )
+    assert not walks_collections, (
+        "_resolved_position_types calls _collection_parameters itself: it derives which "
+        "positions to resolve on its own, instead of reading the one analysis "
+        "_boundary_type_verdict already computed for the same annotation."
+    )
