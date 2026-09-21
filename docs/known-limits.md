@@ -38,7 +38,12 @@ It cannot decide a dotted name, a mapping, a nested subscript, a union, a forwar
 a missing annotation or a type owned by no declared component. Since AD-67 the undecided part is
 reported rather than silent: each rule files one `boundary_type_limit` record in `unknowns` naming
 the positions it saw, the positions it decided and a count per undecidable kind. The record reports
-and never gates.
+and never gates: it does not move `coverage.rules`, the diagnostics or the exit code. It does move
+`declared_rules`, the reported verdict a run's rules earned: a violation-free observation reads
+UNKNOWN there, not PASS, if an undecided position's reason is a real checker limit (a missing
+annotation, a union, a dotted name and the like), but stays PASS when every undecided position is a
+type owned by no declared component (`external_type`), since that question never applied to begin
+with.
 
 Measured on Archkeel's own facades with the rule widened to the whole `archkeel` namespace, 88
 declared facade functions carry 258 positions:
