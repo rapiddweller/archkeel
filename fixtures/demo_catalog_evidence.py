@@ -121,7 +121,7 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         summary="Which types cross the most component boundaries is named in the report and "
         "never gated on, so no overlay changes the clean sample's findings; measured on the "
         "clean shop sample itself, the claim names Order and str crossing two component pairs "
-        "each, and on Archkeel itself, object (ir.codec's own JSON boundary) crosses four.",
+        "each, and on Archkeel itself, object (ir.codec's own JSON boundary) crosses five.",
         files={},
         expected_violations=(),
         expected_codes=(),

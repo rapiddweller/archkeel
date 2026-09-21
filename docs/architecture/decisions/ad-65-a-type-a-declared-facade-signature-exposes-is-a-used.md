@@ -35,10 +35,11 @@ The record is written whether or not a `boundary_types` rule is declared, becaus
 belongs to every component with a facade -- otherwise `check` and `render` could not adopt the
 rule without already having it.
 
-Measured on `fixtures/D-self`: 64 declared facade functions expose 26 distinct types. Twenty-one
-are declared by their owning component. Five are not: the three AD-63 named, plus
-`datetime.datetime` and `pathlib.Path`, which belong to no component. No diagnostic anywhere
-changed, so no finding was silenced to make an entry legal.
+Measured when this was decided: 64 declared facade functions exposing 26 distinct types, of
+which five were undeclared -- the three AD-63 named, plus `datetime.datetime` and `pathlib.Path`,
+which belong to no component. No diagnostic anywhere changed, so no finding was silenced to make
+an entry legal. Later decisions added facades, so the count moves; what does not move is that a
+type a signature exposes is reached whether or not an import names it.
 
 ## Rejected
 
