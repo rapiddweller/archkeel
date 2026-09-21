@@ -141,6 +141,37 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
     </section>"""
 
 
+def _violations(items: tuple[Record, ...], observation: Observation) -> str:
+    """Render a local violations-only view without changing the CLI-selected records."""
+    if not items:
+        return (
+            '<section class="report-section"><h2>Declared-rule violations</h2>'
+            "<p>None.</p></section>"
+        )
+    rows = "".join(_record_row(item, observation) for item in items)
+    script = _asset("violations.js").decode("utf-8")
+    return f"""
+    <section class="report-section" aria-labelledby="violations-heading">
+      <h2 id="violations-heading">Declared-rule violations</h2>
+      <div class="violation-focus" data-violation-focus hidden>
+        <label for="report-violations-only">
+          <input id="report-violations-only" type="checkbox" data-report-violations-only
+                 aria-controls="component-communication-detail report-secondary-detail flow-graph">
+          Violations only
+        </label>
+        <span>Hide secondary detail; verdicts, failures, unknowns and evidence stay
+          available.</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fingerprint</th><th>Finding</th><th>Subjects</th><th>Evidence</th></tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </div>
+      <script>{script}</script>
+    </section>"""
+
+
 def _interface_name_line(item: InterfaceName) -> str:
     line = f"<code>{_text(item.name)}</code> {_text(item.kind)}"
     if item.returns:
@@ -299,6 +330,11 @@ def _flow_section(observation: Observation) -> str:
         for print and no-script use.</p>
       <div id="flow" class="flow">
         <div class="flow-toolbar">
+          <label class="flow-violation-focus" for="flow-violations-only" hidden>
+            <input id="flow-violations-only" class="flow-violations-only" type="checkbox"
+                   aria-controls="flow-graph">
+            Violating edges only
+          </label>
           <label for="flow-threshold-input">Hide edges below
             <output id="flow-threshold-value" class="flow-threshold-value">≥ 0 import sites</output>
           </label>
@@ -308,7 +344,8 @@ def _flow_section(observation: Observation) -> str:
             title="Lay the cards out again and fit them into view">Arrange</button>
         </div>
         <div class="flow-canvas">
-          <svg class="flow-graph" role="group" aria-label="Component flow diagram">
+          <svg id="flow-graph" class="flow-graph" role="group"
+               aria-label="Component flow diagram">
             <defs>
               <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
                    line: a heavy edge grew a 26px head, a light one 8px, so the size read as
@@ -473,11 +510,7 @@ def render_html(
     source_sha = observation.source.git_head if observation is not None else "UNKNOWN"
     source_digest = observation.source.source_digest if observation is not None else "UNKNOWN"
     dirty = observation.source.dirty if observation is not None else "UNKNOWN"
-    violations_html = (
-        _findings("Declared-rule violations", violations or (), observation)
-        if observation is not None
-        else ""
-    )
+    violations_html = _violations(violations or (), observation) if observation is not None else ""
     # AD-60: --only violations hides everything below but the violations table, so a large
     # repository's page stays a small review surface instead of every section at once.
     only_violations = result.report_filter is not None and result.report_filter.only_violations
@@ -532,12 +565,14 @@ def render_html(
     </section>
     {violations_html}
     {flow_html}
-    {communication_html}
+    <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
     {unknowns_html}
-    <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
-    <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
-    {structure_html}
-    {claims_html}
+    <div id="report-secondary-detail" data-secondary-detail>
+      <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
+      <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
+      {structure_html}
+      {claims_html}
+    </div>
     <section class="report-section">
       <h2>Complete ArchitectureIR inventory</h2>
       <p>{raw_link}. The JSON remains the source for complete records and evidence.</p>

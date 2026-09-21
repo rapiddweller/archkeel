@@ -1,3 +1,23 @@
+# Archkeel 0.5.1 — Violations take focus
+
+0.5.1 shortens the path from a full architecture report to the evidence that needs action.
+
+- **Focus an open report on violations.** `Violations only` hides secondary detail while keeping
+  the verdict, failures, known unknowns, violation rows and complete evidence access visible.
+- **Show only violated graph edges.** Component flow can hide conforming, undecided and observed
+  edges at the current level. An empty graph says that no violated edge exists there and points
+  back to the full violations table; it never claims that the report is clean.
+- **Evidence is unchanged.** Both controls are reversible browser views. They do not change the
+  result, totals, exit code or canonical `architecture.json`, and the full report remains usable
+  without JavaScript (AD-75).
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
 # Archkeel 0.5.0 — A rule says how much it decided
 
 0.4.0 gave a component a list of what it requires and a contract for what is inside it. 0.5.0
