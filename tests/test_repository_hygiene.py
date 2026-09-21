@@ -219,3 +219,70 @@ def test_tracked_text_carries_no_unresolved_merge_conflict() -> None:
             if any(text.startswith(marker) for marker in CONFLICT_MARKERS):
                 hits.append(f"{path.relative_to(ROOT)}:{line}")
     assert hits == [], f"unresolved merge conflict markers: {hits}"
+
+
+# The seven decision records that were already over the limit when it was drawn, each with the
+# reason it is still there. The list may only shrink: a record rewritten short comes off it, and
+# a new record never goes on, which is what makes the limit a ratchet rather than a suggestion.
+LONG_DECISIONS = {
+    "ad-48-reflection-that-writes-and-a-value-compared-with-a-string.md": "Two rule kinds in one "
+    "record, each with its own measurement.",
+    "ad-57-a-target-graph-marker-draws-the-edges-the-contract-permits.md": "Carries the marker's "
+    "own syntax and a worked graph.",
+    "ad-58-a-class-lives-where-its-symbolplacement-rule-allows-and-a.md": "Two rule kinds in one "
+    "record, with the 189-position measurement.",
+    "ad-60-report-only-rule-and-component-narrow-what-a-rendered.md": "Three flags, each with its "
+    "own before and after.",
+    "ad-61-a-widening-fails-unless-an-amendment-binds-its-exact-before.md": "Carries the "
+    "amendment format and its failure modes.",
+    "ad-62-an-annotated-variables-owner-is-the-scope-it-is-written-in.md": "Carries the scope "
+    "cases one by one.",
+    "ad-63-boundarytypes-reads-a-components-declared-public-list-not-a.md": "Records the rule's "
+    "whole re-measurement and the vacuous-rule hole it opened.",
+}
+DECISION_LINE_LIMIT = 70
+
+
+def test_decision_records_stay_readable() -> None:
+    """A decision nobody finishes reading decides nothing (AD-19's reasoning, applied here).
+
+    The median record is 27 lines and three quarters are under 46, so the limit costs the
+    house style nothing; what it stops is the drift that produced a 163-line record whose
+    reader has to hunt for what changed. A record that needs more room says why here, and
+    `LONG_DECISIONS` may only shrink.
+    """
+    decisions = sorted((ROOT / "docs/architecture/decisions").glob("ad-*.md"))
+    assert decisions, "no decision records found"
+    too_long = {
+        path.name for path in decisions if len(path.read_text().splitlines()) > DECISION_LINE_LIMIT
+    }
+    assert sorted(too_long - LONG_DECISIONS.keys()) == [], (
+        f"a decision record over {DECISION_LINE_LIMIT} lines needs a named reason in "
+        "LONG_DECISIONS, or it needs to be shorter"
+    )
+    assert sorted(LONG_DECISIONS.keys() - too_long) == [], (
+        "LONG_DECISIONS names a record that is short enough now: remove the entry"
+    )
+
+
+def test_every_decision_reference_names_a_record() -> None:
+    """`AD-64` in a comment is a promise that the record exists and says what the comment claims.
+
+    The first half is checkable and this checks it: a reference nothing backs is how a renumbered
+    or never-written record goes unnoticed. The second half is not: a quoted sentence in the same
+    sentence as a reference may belong to either record, so verifying attributions was measured,
+    produced four false positives on 66 files and no true ones, and was left to review.
+    """
+    numbers = {
+        (path.name.split("-")[1]).lstrip("0") or "0"
+        for path in (ROOT / "docs/architecture/decisions").glob("ad-*.md")
+    }
+    dangling: dict[str, list[str]] = {}
+    for path in TRACKED:
+        if path.suffix not in {".md", ".py", ".json"}:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for number in re.findall(r"\bAD-(\d+)\b", text):
+            if (number.lstrip("0") or "0") not in numbers:
+                dangling.setdefault(f"AD-{number}", []).append(str(path.relative_to(ROOT)))
+    assert dangling == {}, f"a decision reference names no record under decisions/: {dangling}"
