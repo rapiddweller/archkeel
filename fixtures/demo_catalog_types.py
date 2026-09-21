@@ -123,4 +123,49 @@ _BOUNDARY_TYPES_DECLARED = Variant(
     expected_codes=("rule.violated",),
 )
 
-VARIANTS: tuple[Variant, ...] = (_SYMBOL_PLACEMENT, _BOUNDARY_TYPES, _BOUNDARY_TYPES_DECLARED)
+_UNDECLARED_TYPE_IN_LIST_MODULE = HEADER + (
+    '"""A stray function naming an undeclared type inside a list, for the boundary-types '
+    'demo."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from shop.model.entities import Money, Order\n\n\n"
+    "class Extra:\n"
+    '    """Defined here, and never declared in shop.app\'s public list."""\n\n'
+    "    def __init__(self, detail: str) -> None:\n"
+    "        self.detail = detail\n\n\n"
+    "def summarize_all(orders: list[Order], extras: list[Extra]) -> Money:\n"
+    '    """list[Order] holds shop.model\'s own declared facade; list[Extra] holds nobody\'s."""\n'
+    "    for extra in extras:\n"
+    "        print(extra.detail)\n"
+    "    return orders[0].total()\n"
+)
+
+_BOUNDARY_TYPES_IN_COLLECTION = Variant(
+    id="class-a-boundary-types-in-collection",
+    section="class_a",
+    item="boundary_types:collection_element",
+    summary="A new shop.app.batches:summarize_all, declared in shop.app's own public list, "
+    "takes list[Order] and returns Money -- both declared in shop.model's own facade, so "
+    "APP-TYPES-NOT-DICT stays silent there -- and also takes list[Extra], whose element is a "
+    "class declared by nobody. The same mistake used to disappear by being wrapped: a bare "
+    "Extra was reported and a list[Extra] was silent, so moving a parameter into a list "
+    "dropped the check. A known collection holding a bare name is now decided by the same "
+    "resolution the rule runs on the name itself, one level in (AD-67).",
+    files={
+        "shop/app/batches.py": _UNDECLARED_TYPE_IN_LIST_MODULE,
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS.replace(
+            "from shop.app.reports import snapshot", "from shop.app.batches import summarize_all"
+        ),
+        "architecture-contract.json": contract_component_field_appended(
+            "app", "public", "shop.app.batches:summarize_all"
+        ),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
+VARIANTS: tuple[Variant, ...] = (
+    _SYMBOL_PLACEMENT,
+    _BOUNDARY_TYPES,
+    _BOUNDARY_TYPES_DECLARED,
+    _BOUNDARY_TYPES_IN_COLLECTION,
+)

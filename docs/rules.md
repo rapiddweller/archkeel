@@ -220,8 +220,13 @@ an `exact_sources` entry (AD-49), and reports one violation per parameter or ret
 annotation is exactly `dict`, `Dict`, `object`, a `dict[...]`/`Dict[...]` generic, or a bare name
 that resolves, through the same import bindings `interface_boundary` reads, to a class that is
 neither an `enum` nor a `pydantic_model` by kind and that no component's own `public` list
-declares. A builtin, and a name resolving to an enum, a Pydantic model or a declared type, is a
-decided pass. A dotted name, a subscripted generic other than `dict`, a union, a forward-reference
+declares. A known collection holding a bare name -- `list`, `tuple`, `set`, `frozenset`,
+`Sequence`, `Iterable`, `Iterator`, `Collection`, `AbstractSet` and their `typing` spellings -- is
+decided from its type parameters by that same resolution, one level in, so wrapping a parameter in
+a list no longer drops the check; a collection is only as decided as its parameters, and `dict` is
+absent because a `dict[...]` is already the broad container above (AD-67). A builtin, and a name
+resolving to an enum, a Pydantic model or a declared type, is a decided pass. A dotted name, a
+mapping, a nested subscript, a union, a forward-reference
 string, a missing annotation and a type owned by no declared component stay undecidable, because
 deciding any of them still needs resolving where the name comes from in a way AD-37 and AD-40 leave
 unfinished for a call's receiver and this rule leaves unfinished for them too (issue #9, AD-58,
@@ -245,7 +250,8 @@ Archkeel's own contract adopts the rule against itself (AD-63) without a growing
 `allowed_sources` list carrying architecture knowledge it does not own. Fixed source bytes and
 analyzer digest make the result deterministic. Adding a `snapshot(context: dict) -> str` function
 declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
-example violation.
+example violation, and so is `summarize_all(extras: list[Extra]) -> Money`, where wrapping the
+undeclared `Extra` in a list is no longer a way out of the same finding (AD-67).
 
 ### Known violations of a target contract
 

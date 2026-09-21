@@ -31,23 +31,25 @@ at runtime.
 ## A facade type position is not always decidable
 
 `boundary_types` reads one annotation string per parameter and return of a declared facade
-function. It decides a builtin, a bare `dict`/`object`, and a bare name its module's import
-bindings or own class definitions resolve; it cannot decide a dotted name, a union, a
-forward-reference string, a missing annotation or a type owned by no declared component. Since
-AD-67 the undecided part is reported rather than silent: each rule files one `boundary_type_limit`
-record in `unknowns` naming the positions it saw, the positions it decided and a count per
-undecidable kind. The record reports and never gates.
+function. It decides a builtin, a bare `dict`/`object`, a bare name its module's import bindings or
+own class definitions resolve, and a known collection (`list`, `tuple`, `set`, `frozenset`,
+`Sequence`, `Iterable`, `Iterator`, `Collection`, `AbstractSet`) holding such a name, one level in.
+It cannot decide a dotted name, a mapping, a nested subscript, a union, a forward-reference string,
+a missing annotation or a type owned by no declared component. Since AD-67 the undecided part is
+reported rather than silent: each rule files one `boundary_type_limit` record in `unknowns` naming
+the positions it saw, the positions it decided and a count per undecidable kind. The record reports
+and never gates.
 
 Measured on Archkeel's own facades with the rule widened to the whole `archkeel` namespace, 88
 declared facade functions carry 258 positions:
 
 | Outcome | Positions |
 |---|---:|
-| Decided: a violation | 36 |
-| Decided: a pass (79 builtin, 74 a declared type) | 153 |
-| Undecidable: a subscripted generic | 41 |
-| Undecidable: a union | 17 |
+| Decided: a violation | 39 |
+| Decided: a pass (79 builtin, 102 a declared type, directly or in a collection) | 181 |
+| Undecidable: a union | 18 |
 | Undecidable: a type owned by no declared component | 10 |
+| Undecidable: a nested or otherwise unentered subscript | 9 |
 | Undecidable: a bare name nothing resolves | 1 |
 
 A dotted name, a forward-reference string and an unannotated position are all decidable kinds of

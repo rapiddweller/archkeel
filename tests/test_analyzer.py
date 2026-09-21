@@ -1566,6 +1566,48 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
     assert result.exit_code == 0
 
 
+def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) -> None:
+    """AD-67: the same mistake used to disappear by being wrapped -- `payload: Payload` was
+    reported and `payloads: list[Payload]` was silent, because a generic's parameters were
+    never inspected, so refactoring a parameter into a list silently dropped the check. A
+    known collection holding a bare name is now the resolution `boundary_types` already runs,
+    applied one level in; `tuple[str, ...]` decides clean on the builtin, and
+    `list[datetime.datetime]` stays undecidable because a dotted name still is.
+    """
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:broken"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "class Payload:\n"
+        "    pass\n\n\n"
+        "def broken(\n"
+        "    payloads: list[Payload], names: tuple[str, ...], "
+        "stamps: list[datetime.datetime]\n"
+        ") -> set[Payload]:\n"
+        "    return {*payloads, *names, *stamps}\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [item.title for item in violations] == [
+        "sample.app.facade.broken returns set[Payload] holding Payload which app does not declare",
+        "sample.app.facade.broken takes payloads as list[Payload] holding Payload "
+        "which app does not declare",
+    ]
+    limits = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    data = limits[0].data
+    assert (data.get("positions"), data.get("decided"), data.get("undecided")) == (4, 3, 1)
+    # Entered, so the position is undecidable for its element's own reason, not for being a
+    # generic: `list[datetime.datetime]` is a dotted name the rule cannot resolve.
+    assert (data.get("dotted_name"), data.get("generic")) == (1, 0)
+
+
 def test_a_function_used_only_as_a_value_is_recorded_as_a_reference(tmp_path: Path) -> None:
     """AD-26: a call graph cannot see a function handed to a dict; the reference signal can."""
     contract = {

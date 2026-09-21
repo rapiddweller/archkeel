@@ -672,6 +672,72 @@ class _Position(NamedTuple):
     undecidable: str | None = None
 
 
+# A container whose declared element type is the whole of what actually crosses the boundary
+# (AD-67). `dict`/`Dict` are absent because AD-58 already reports a `dict[...]` as broad, and
+# `Mapping` because whether a mapping is that same broad container is a reading AD-67 leaves open.
+_COLLECTION_CONTAINERS: Final = frozenset(
+    {
+        "list",
+        "List",
+        "set",
+        "Set",
+        "frozenset",
+        "FrozenSet",
+        "tuple",
+        "Tuple",
+        "Sequence",
+        "MutableSequence",
+        "Iterable",
+        "Iterator",
+        "Collection",
+        "AbstractSet",
+    }
+)
+
+
+def _split_type_parameters(inner: str) -> list[str] | None:
+    """Split one subscript's parameters on its top-level commas.
+
+    None when the brackets do not balance, which is how `Sequence[int] | list[str]` is told
+    apart from a single subscript: both end in `]`, only one of them is one (AD-67).
+    """
+    parameters: list[str] = []
+    current = ""
+    depth = 0
+    for character in inner:
+        if character == "[":
+            depth += 1
+        elif character == "]":
+            depth -= 1
+            if depth < 0:
+                return None
+        if character == "," and depth == 0:
+            parameters.append(current.strip())
+            current = ""
+        else:
+            current += character
+    if depth:
+        return None
+    parameters.append(current.strip())
+    return parameters
+
+
+def _collection_parameters(annotation: str) -> list[str] | None:
+    """The type parameters of `Container[...]` when the container is a known collection.
+
+    None when the annotation is not exactly one such subscript, so a dotted container
+    (`typing.Sequence[X]`), a union around one and a mapping all stay where they were. The
+    `...` of `tuple[X, ...]` is an arity, not a type, and is dropped (AD-67).
+    """
+    head, bracket, rest = annotation.partition("[")
+    if not bracket or not rest.endswith("]") or head not in _COLLECTION_CONTAINERS:
+        return None
+    parameters = _split_type_parameters(rest[:-1])
+    if parameters is None:
+        return None
+    return [parameter for parameter in parameters if parameter != "..."]
+
+
 def _unresolvable_shape(annotation: str) -> str:
     """Name why an annotation that is not one bare identifier cannot be decided (AD-67)."""
     head = annotation.split("[", 1)[0]
@@ -744,15 +810,19 @@ def _boundary_type_verdict(
     exports_by_module: dict[str, frozenset[str]],
     imports_by_binding: dict[tuple[str, str], RecordData],
     classes_by_location: dict[tuple[str, str], RecordData],
+    *,
+    enter_collections: bool = True,
 ) -> _Position:
     """Decide one annotated position: a violation, an undecidable kind, or a pass (AD-58,
     AD-63, AD-67).
 
-    Which annotations yield a violation is exactly what AD-63 left: a bare `dict`/`object` or a
-    `dict[...]` generic, and a bare name that resolves to a class no component declares and
-    that is neither an enum nor a Pydantic model. What is new is that everything else is split
-    in two -- a builtin and a declared type are a decided pass, and every remaining shape names
-    why it could not be decided -- so the rule can report its own denominator (AD-67).
+    Which annotations yield a violation is what AD-63 left, plus a known collection holding
+    one: a bare `dict`/`object` or a `dict[...]` generic, and a bare name that resolves to a
+    class no component declares and that is neither an enum nor a Pydantic model. What is new
+    is that everything else is split in two -- a builtin and a declared type are a decided
+    pass, and every remaining shape names why it could not be decided -- so the rule can
+    report its own denominator (AD-67). `enter_collections` is false for a collection's own
+    parameter, which is what keeps the resolution one level in and not a general descent.
     """
     if not annotation:
         return _Position(undecidable="missing_annotation")
@@ -761,6 +831,20 @@ def _boundary_type_verdict(
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
     if not annotation.isidentifier():
+        entered = (
+            _collection_verdict(
+                annotation,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+            if enter_collections
+            else None
+        )
+        if entered is not None:
+            return entered
         return _Position(undecidable=_unresolvable_shape(annotation))
     resolved = _resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if resolved is None:
@@ -783,6 +867,55 @@ def _boundary_type_verdict(
     if _facade_covers(origin_module, origin_name, origin_component, exports_by_module):
         return _Position()
     return _Position(violation=f"which {origin_component.label} does not declare")
+
+
+def _collection_verdict(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: dict[tuple[str, str], RecordData],
+    classes_by_location: dict[tuple[str, str], RecordData],
+) -> _Position | None:
+    """Decide `Container[Name]` from its parameters, or None when it is not one (AD-67).
+
+    The refactoring hole this closes: `execute(context: InternalContext)` was reported and
+    `execute(contexts: list[InternalContext])` was silent, because a generic's parameters were
+    never inspected, so moving a parameter into a list dropped the check. The container's own
+    element type is the whole of what crosses the boundary, so it is decided by exactly the
+    `_resolve_named_type` lookup the rule already runs on a bare name -- one level in, never a
+    general descent into name resolution: a nested subscript, a dotted name, a forward
+    reference and a type no component owns stay undecidable, and now say so.
+
+    A collection is only as decided as its parameters: any one of them violating makes the
+    position a violation, and otherwise any one of them undecidable makes the position
+    undecidable.
+    """
+    parameters = _collection_parameters(annotation)
+    if parameters is None:
+        return None
+    decided = [
+        (
+            parameter,
+            _boundary_type_verdict(
+                parameter,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+                enter_collections=False,
+            ),
+        )
+        for parameter in parameters
+    ]
+    for parameter, verdict in decided:
+        if verdict.violation is not None:
+            return _Position(violation=f"holding {parameter} {verdict.violation}")
+    for _parameter, verdict in decided:
+        if verdict.undecidable is not None:
+            return _Position(undecidable=verdict.undecidable)
+    return _Position()
 
 
 def _facade_positions(
