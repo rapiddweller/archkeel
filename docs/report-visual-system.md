@@ -50,7 +50,7 @@ less than 10% of a page.
 | --- | --- | --- | --- |
 | `PASS` | `#C5F82A` | `✓` | The claim was checked and holds |
 | `FAIL` | `#FF6B6B` | `×` | The claim was checked and rejected |
-| `NOT CHECKED` | `#F4C95D` | `?` | Nothing was checked; evidence is missing or invalid |
+| `NOT CHECKED` | `#F4C95D` | `?` | A required verdict is `UNKNOWN`; evidence or rule evaluation is incomplete |
 | `INFO` | `#5EEAD4` | `i` | Context that does not change the verdict |
 
 Never communicate a verdict through color alone. Always render the symbol,
@@ -86,8 +86,8 @@ red only when the contract classifies the change as a regression or failure.
 ## Report hierarchy
 
 1. Logo, repository, candidate SHA, accepted SHA when available, and source digest.
-2. Decision banner: pass, reject, or unverifiable. This is an exit decision,
-   not a score.
+2. Decision banner: pass, reject, or not checked. It follows the verdicts, not the exit code
+   alone, and is not a score.
 3. The report verdict cards, always in contract order. Architecture reports show three;
    check reports add `git_predicate` and `host_order` for five total verdicts.
 4. Evidence that caused a failure or uncertainty.
