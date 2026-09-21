@@ -262,7 +262,9 @@ def project_declarations(
     here is a pure projection of `contract` and reads none of them.
     """
     declarations = contract.declarations or ContractDeclarations()
-    types_by_entry = public_api_exposed_types(declarations.public_api, symbols, imports, modules)
+    types_by_entry = public_api_exposed_types(
+        declarations.public_api, symbols, imports, modules, contract
+    )
     items: list[RawRecord] = []
     for capability in declarations.capabilities:
         items.append(

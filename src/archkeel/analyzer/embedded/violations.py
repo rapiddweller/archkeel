@@ -1193,6 +1193,8 @@ def boundary_type_limits(
             )
         )
     return sorted(limits, key=lambda item: item["id"])
+
+
 def _public_api_symbol(symbols: Sequence[RawRecord], module: str, name: str) -> RawRecord | None:
     """The one top-level `symbols` record a `module:name` public_api entry names, if any."""
     return next(
@@ -1228,13 +1230,25 @@ def public_api_exposed_types(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     modules: Sequence[RawRecord],
+    contract: ArchitectureContract,
 ) -> dict[str, list[str]]:
     """Every `declarations.public_api` entry mapped to the non-builtin types its own signature
-    exposes, as `module:name` strings (AD-70) -- the package-external twin of `boundary_types`,
-    reusing its own resolution (`resolve_named_type`, AD-58/AD-63) rather than a second reading
-    of the same annotations. `check.validation` compares this published answer against the
-    declared `public_api` set and resolves nothing itself (AD-2's open payload, AD-4's one
-    channel out of the analyzer).
+    exposes and no declared entry already names, as `module:name` strings (AD-70) -- the
+    package-external twin of `boundary_types`, reading `_boundary_type_verdict`'s own `resolved`
+    field (AD-69) rather than a second, bare-name-only reading of the same annotations: a type
+    inside `tuple[X, ...]` or `list[X]` must be as visible here as it is to `boundary_types`, or
+    the two readings disagree on silence. `check.validation` compares this published answer
+    against the declared `public_api` set and resolves nothing itself (AD-2's open payload,
+    AD-4's one channel out of the analyzer).
+
+    An identifier is always the type's *origin*, `resolved`'s own pair -- the one name that is
+    true of it regardless of which module a consumer happens to reach it through. A declared
+    entry may name that same origin directly (`shop.model.entities:Order`, where `Order` is
+    defined) or name a facade that only re-exports it (`archkeel.api:ViolationRow`, defined in
+    `archkeel.ir.baseline`); both are legitimate promises for the same type, so a declared
+    entry's own name is resolved exactly the same way, through the one shared walk, to decide
+    which origin *it* names -- `declared_origins` below -- and an exposed type already covered
+    that way is left out rather than reported as a second, redundant promise.
 
     A type whose origin module this scan never saw -- a builtin, a stdlib or a third-party type
     -- is not part of the promise a *scanned* package can make about itself, so it is left out
@@ -1244,7 +1258,21 @@ def public_api_exposed_types(
     if not public_api:
         return {}
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    exports = exports_by_module(modules)
     scanned_modules = frozenset(item["data"]["qualified_name"] for item in modules)
+    declared_origins = {
+        pair
+        for entry in public_api
+        for declared_module, _, declared_name in [entry.partition(":")]
+        for pair in _boundary_type_verdict(
+            declared_name,
+            declared_module,
+            contract,
+            exports,
+            imports_by_binding,
+            classes_by_location,
+        ).resolved
+    }
     types: dict[str, list[str]] = {}
     for entry in public_api:
         module, _, name = entry.partition(":")
@@ -1253,9 +1281,15 @@ def public_api_exposed_types(
             continue
         resolved: set[str] = set()
         for annotation in _public_api_annotations(symbol):
-            found = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
-            if found is not None and found[0] in scanned_modules:
-                resolved.add(f"{found[0]}:{found[1]}")
+            verdict = _boundary_type_verdict(
+                annotation, module, contract, exports, imports_by_binding, classes_by_location
+            )
+            resolved.update(
+                f"{origin_module}:{origin_name}"
+                for origin_module, origin_name in verdict.resolved
+                if origin_module in scanned_modules
+                and (origin_module, origin_name) not in declared_origins
+            )
         types[entry] = sorted(resolved)
     return types
 

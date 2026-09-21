@@ -458,12 +458,6 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
 # validate reports it as an analyzer-side `unknowns` record, never as a diagnostic of any kind
 # (coded or not) and never gates the exit code -- unlike the two rows above, where the module or
 # its own __all__ does prove the promise broken.
-#
-# Not a _SAMPLE_VARIANTS row: Variant and _sample_run (tests/test_architecture_demo.py) only
-# capture RunResult.diagnostics (expected_codes/expected_kinds), never the Observation itself,
-# so neither can express an expected `unknowns` record today. Forcing this into expected_kinds
-# would silently re-describe it as a diagnostic, exactly the gate this change removes. The real
-# pin lives in tests/test_validation.py, cited below as evidence instead.
 _VALIDATION_API_SURFACE_UNKNOWN = Variant(
     id="validation-api-surface-unknown",
     section="validation",
@@ -471,12 +465,15 @@ _VALIDATION_API_SURFACE_UNKNOWN = Variant(
     summary="shop.app.orders:TypoThatIsNotReal names a module the scan saw that declares no "
     "__all__; the scan's own symbols do not record that name either, so the promise is neither "
     "proven kept nor proven broken. The analyzer records this as an `unknowns` entry, not a "
-    "diagnostic of any kind, so validate neither gates nor passes it silently -- the generic "
-    "overlay harness only asserts RunResult.diagnostics, so it cannot show that record.",
-    files={},
+    "diagnostic of any kind, so validate neither gates nor passes it silently.",
+    files={
+        "architecture-contract.json": contract_declarations_field_appended(
+            "public_api", "shop.app.orders:TypoThatIsNotReal"
+        )
+    },
     expected_violations=(),
     expected_codes=(),
-    evidence="tests/test_validation.py",
+    expected_unknowns=(("api_surface_limit", "shop.app.orders:TypoThatIsNotReal"),),
 )
 # AD-12 follow-up: the analyzer always folds a rule-without-subjects unknown into
 # coverage.failures too, so validate returns the analyzer's own uncoded rule_without_subjects
