@@ -2045,9 +2045,9 @@ def test_only_one_function_resolves_an_annotations_named_type() -> None:
     means exactly one function in this module ever calls `_resolve_named_type`; a second caller
     is the duplicated interpretation this pins against.
     """
-    callers = _top_level_callers(_violations_source_ast(), "_resolve_named_type")
+    callers = _top_level_callers(_violations_source_ast(), "resolve_named_type")
     assert len(callers) == 1, (
-        f"_resolve_named_type is called directly from {sorted(callers)}: more than one "
+        f"resolve_named_type is called directly from {sorted(callers)}: more than one "
         "function derives a resolved type from an annotation, instead of one shared analysis "
         "both `boundary_types` and `facade_types` read."
     )

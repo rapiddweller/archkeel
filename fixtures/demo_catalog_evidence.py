@@ -8,8 +8,9 @@ coverage_failures or unknowns makes `Measurements.__post_init__` or `evaluate_ex
 raise instead of returning a typed FAIL, and coverage_must_pass is a fixed guardrail key, never
 a comparable dimension. See `fixtures/demo_catalog_check.py` for every scalar and guardrail
 dimension that a `check` demo can fire, and its protocol rows for `git_order`/`host_order`.
-class_c (declarations Archkeel decodes but never enforces) and class_d (not implemented) each
-cite the existing test or fixture that demonstrates them instead.
+class_c (declarations Archkeel decodes but does not check against the code beyond `public_api`'s
+existence check, catalogued as `validation-api-surface-missing`, AD-66) and class_d (not
+implemented) each cite the existing test or fixture that demonstrates them instead.
 """
 
 from __future__ import annotations
@@ -74,26 +75,16 @@ _CLASS_B_ROWS: tuple[Variant, ...] = (
     ),
 )
 
-_SUPERSEDED_DECLARATIONS = {"public_api", "public_api_provenance"}
 _CLASS_C_ROWS: tuple[Variant, ...] = tuple(
     Variant(
         id=f"class-c-{field.name.replace('_', '-')}",
         section="class_c",
         item=f"ContractDeclarations.{field.name}",
-        summary=(
-            "AD-9 supersedes public_api with per-component public interfaces, so the clean "
-            "sample intentionally leaves this field empty; see docs/rules.md."
-            if field.name in _SUPERSEDED_DECLARATIONS
-            else f"The clean sample contract populates declarations.{field.name}."
-        ),
+        summary=f"The clean sample contract populates declarations.{field.name}.",
         files={},
         expected_violations=(),
         expected_codes=(),
-        evidence=(
-            "docs/rules.md"
-            if field.name in _SUPERSEDED_DECLARATIONS
-            else "fixtures/F-architecture/architecture-contract.json"
-        ),
+        evidence="fixtures/F-architecture/architecture-contract.json",
     )
     for field in dataclass_fields(ContractDeclarations)
 )

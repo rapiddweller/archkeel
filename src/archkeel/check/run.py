@@ -60,14 +60,18 @@ _BOUNDARY_TYPE_LIMIT_TOTALS: Final = frozenset({"positions", "decided", "undecid
 
 
 def _has_undecided_boundary_position(model: Observation) -> bool:
-    """AD-67: a `boundary_type_limit` record names positions `boundary_types` could not decide.
+    """AD-67/AD-73: a record naming something the contract declares and the scan could not settle.
 
-    Scoped to that one kind, not to `unknowns` at large: `dynamic_call_limit` and
+    Scoped to those kinds, not to `unknowns` at large: `dynamic_call_limit` and
     `context_alias_limit` are standing disclaimers about the analyzer's static reach that fire
     on every run regardless of the contract, so treating any `unknowns` record as undecided
-    would make every run UNKNOWN and the PASS verdict unreachable.
+    would make every run UNKNOWN and the PASS verdict unreachable. These two fire only when a
+    contract declared something the scan then could not decide, which is the definition of
+    UNKNOWN; `api_surface_limit` carries one such entry per record and no counters to read.
     """
     for record in model.records("unknowns") or ():
+        if record.kind == "api_surface_limit":
+            return True
         if record.kind != "boundary_type_limit":
             continue
         for reason, count in record.data.entries:

@@ -18,6 +18,7 @@ from archkeel.check.validation import (
     TARGET_GRAPH_MARKER,
     closed_world_diagnostics,
     graph_diagnostics,
+    public_api_diagnostics,
     rationale_diagnostics,
 )
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
@@ -220,6 +221,14 @@ def test_self_oversized_components_claim_still_counts_analyzer(
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:
     assert closed_world_diagnostics(_contract(), self_observation) == ()
+
+
+def test_self_public_api_declares_every_type_it_hands_out(self_observation: Observation) -> None:
+    """AD-70: `archkeel.api`, the boundary the invariant was written for, must clear whatever
+    guard closes tests/test_public_api_boundary.py's red tests -- a green regression guard, not
+    proof the guard exists. It already passes today, for the narrower reason that
+    `public_api_diagnostics` does not yet look at a declared entry's signature at all."""
+    assert public_api_diagnostics(_contract(), self_observation) == ()
 
 
 def test_contract_rationales_explain_more_than_the_rule() -> None:

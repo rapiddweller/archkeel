@@ -78,6 +78,12 @@ class Variant:
     expected_violations: tuple[str, ...]
     expected_codes: tuple[DiagnosticCode, ...]
     expected_kinds: tuple[DiagnosticKind, ...] = ()
+    # (kind, subject) pairs a real run's `unknowns` records must contain (checked as a subset,
+    # not full equality: dynamic_call_limit/context_alias_limit/boundary_type_limit fire on
+    # every scan of the sample regardless of a variant's own overlay). kind alone would still
+    # pass once the analyzer named the wrong public_api entry, the failure mode AD-72 exists to
+    # surface, so each pair is checked whole.
+    expected_unknowns: tuple[tuple[str, str], ...] = ()
     evidence: str | None = None
     check: CheckExpectation | None = None
     against: AgainstExpectation | None = None
@@ -140,6 +146,13 @@ def contract_component_field_appended(label: str, field: str, value: object) -> 
     contract = _clean_contract()
     component = next(item for item in contract["components"] if item["label"] == label)
     component[field] = [*component[field], value]
+    return _dump_contract(contract)
+
+
+def contract_declarations_field_appended(field: str, value: object) -> str:
+    """Clean contract JSON with one value appended to a `declarations` list field."""
+    contract = _clean_contract()
+    contract["declarations"][field] = [*contract["declarations"][field], value]
     return _dump_contract(contract)
 
 

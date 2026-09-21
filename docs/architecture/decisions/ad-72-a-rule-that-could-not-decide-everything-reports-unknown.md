@@ -12,7 +12,7 @@ declared_rules: PASS
 | Observation | Verdict |
 |---|---|
 | a violation | FAIL |
-| no violation, a position undecidable for a checker limit | **UNKNOWN** |
+| no violation, something the contract declares left undecided | **UNKNOWN** |
 | no violation, everything the contract governs decided | PASS |
 
 A violation outranks an undecidable: a proven wrong is not an unknown.
@@ -50,7 +50,7 @@ record's breakdown either way.
 | Alternative | Why not |
 |---|---|
 | Any undecided position flips the verdict | Six existing tests, the clean demo among them, go yellow forever. Measured, not predicted. |
-| Any `unknowns` record flips it | `dynamic_call_limit` and `context_alias_limit` fire on every run; PASS would be unreachable. |
+| Any `unknowns` record flips it | `dynamic_call_limit` and `context_alias_limit` fire on every run; PASS would be unreachable. A record that fires only because the contract declared something the scan could not then settle -- `boundary_type_limit`, `api_surface_limit` (AD-73) -- does flip it. |
 | Treat `external_type` as a decided pass | Hides it. It is a limit, and the breakdown should keep saying so. |
 | Name the kinds that DO flip it | A kind added later would default to silent PASS, which is this defect again. |
 | Let UNKNOWN change the exit code | A separate decision. This reports; it does not gate. |
