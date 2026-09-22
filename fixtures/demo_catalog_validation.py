@@ -450,12 +450,23 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         section="validation",
         item="baseline.roles",
         summary="A baseline keeps its order-independent fingerprint while retaining every sorted "
-        "source/target role for directional entries; legacy 1.0 files and construct rows remain "
+        "source/target role as directional evidence; legacy 1.0 files and construct rows remain "
         "valid without roles (issue #82, AD-78).",
         files={},
         expected_violations=(),
         expected_codes=(),
         evidence="tests/test_baseline.py",
+    ),
+    Variant(
+        id="validation-baseline-role-evidence",
+        section="validation",
+        item="baseline.role_evidence",
+        summary="Changing roles with the same fingerprint and count is not neutral: "
+        "validate --against reports the drift because validation reads roles (AD-90, #108).",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_widening.py",
     ),
     Variant(
         id="validation-baseline-interface-narrowing",

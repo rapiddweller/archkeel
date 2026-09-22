@@ -47,7 +47,7 @@ class ViolationFingerprint:
 class KnownViolation:
     fingerprint: ViolationFingerprint
     count: int
-    # Explanatory direction(s); never part of `fingerprint` identity.
+    # Decision-relevant direction evidence; protected separately from fingerprint identity.
     roles: tuple[tuple[str, str], ...] = ()
 
 
@@ -202,8 +202,8 @@ def select_violations(observation: Observation, report_filter: ReportFilter) -> 
 def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:
     """Every violation this observation reports, counted per fingerprint and ordered.
 
-    Directional row fields stay explanatory metadata, collected separately so one fingerprint can
-    retain every direction it represents without changing identity.
+    Directional row fields stay separate from identity, but are semantic evidence: validation
+    uses them to prove which public entry lost its last importer (AD-85).
     """
     rows = violation_rows(observation)
     counts = Counter(row.fingerprint for row in rows)

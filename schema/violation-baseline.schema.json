@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:violation-baseline:1",
   "title": "Known-violation baseline for archkeel validate --baseline",
-  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52, AD-78). A fingerprint is the rules a violation breaks and the sorted subjects they name; roles explain directional entries without changing identity.",
+  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52, AD-78, AD-90). A fingerprint is the rules a violation breaks and the sorted subjects they name; roles are protected directional evidence without changing identity.",
   "type": "object",
   "required": [
     "schema_version",
@@ -60,7 +60,7 @@
           "items": {
             "$ref": "#/$defs/role"
           },
-          "description": "Sorted directional metadata from source_module/target_module; roles do not change the fingerprint."
+          "description": "Sorted directional evidence from source_module/target_module. Roles do not change the fingerprint, but role-only drift is protected because validation can use them."
         }
       }
     },

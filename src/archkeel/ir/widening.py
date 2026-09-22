@@ -451,18 +451,37 @@ def baseline_widenings(
     Padding it to make a new violation disappear is exactly the move a target-first workflow
     invites, so it is compared the same way every other rule is: by fingerprint, a higher count
     or a new fingerprint reported as widening, a lower or removed one left to pass silently.
+    Roles do not change fingerprint identity, but AD-85 uses them as directional evidence. Any
+    role-only change is therefore protected rather than classified as neutral metadata.
     """
-    before_counts = {item.fingerprint: item.count for item in before}
-    after_counts = {item.fingerprint: item.count for item in after}
+    before_by_fingerprint = {item.fingerprint: item for item in before}
+    after_by_fingerprint = {item.fingerprint: item for item in after}
     findings = []
     for fingerprint in sorted(
-        before_counts.keys() | after_counts.keys(), key=lambda item: (item.rules, item.subjects)
+        before_by_fingerprint.keys() | after_by_fingerprint.keys(),
+        key=lambda item: (item.rules, item.subjects),
     ):
-        before_count = before_counts.get(fingerprint, 0)
-        after_count = after_counts.get(fingerprint, 0)
+        before_item = before_by_fingerprint.get(fingerprint)
+        after_item = after_by_fingerprint.get(fingerprint)
+        before_count = before_item.count if before_item is not None else 0
+        after_count = after_item.count if after_item is not None else 0
+        name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
         if after_count > before_count:
-            name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
             findings.append(
                 f"baseline entry widened: {name} ({after_count} now, {before_count} before)"
+            )
+        if (
+            before_item is not None
+            and after_item is not None
+            and before_count == after_count
+            and before_item.roles != after_item.roles
+        ):
+            before_roles = ", ".join(
+                f"{source} -> {target}" for source, target in before_item.roles
+            )
+            after_roles = ", ".join(f"{source} -> {target}" for source, target in after_item.roles)
+            findings.append(
+                f"baseline entry roles changed: {name} "
+                f"({before_roles or 'none'} before; {after_roles or 'none'} now)"
             )
     return tuple(findings)
