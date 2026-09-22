@@ -59,7 +59,7 @@ from archkeel.ir.model import (
 from archkeel.ir.widening import Amendment, baseline_widenings, contract_widenings, verify_amendment
 
 from .git import GitError, read_blob
-from .ports import Analyzer, ScanConfig
+from .ports import Analyzer, FilesToWrite, ScanConfig
 from .report import observe_repository
 from .run import inspect_observation
 
@@ -1553,7 +1553,7 @@ def run_validate(
     write_amendment: bool = False,
     decided_by: str | None = None,
     rationale: str | None = None,
-) -> tuple[RunResult, dict[str, bytes]]:
+) -> tuple[RunResult, FilesToWrite]:
     """Validate contract structure, repository references and observed architecture.
 
     AD-46/AD-57: with `write_graph`, every rewritten graph page comes back for the caller to
@@ -1574,22 +1574,22 @@ def run_validate(
         try:
             known = parse_baseline(decode_json(baseline.read_bytes()))
         except (OSError, ValueError) as error:
-            return _baseline_invalid(baseline, error), {}
+            return _baseline_invalid(baseline, error), FilesToWrite()
     parsed_contract = _parse_contract_or_invalid(root, config)
     if isinstance(parsed_contract, RunResult):
-        return parsed_contract, {}
+        return parsed_contract, FilesToWrite()
     contract = parsed_contract
     against_ctx, against_error = _resolve_against_context(
         root, config, against, baseline, amendment, write_amendment, decided_by, rationale
     )
     if against_error is not None:
-        return against_error, {}
+        return against_error, FilesToWrite()
     references = reference_diagnostics(root, config, contract)
     if references:
-        return RunResult("validate", 2, diagnostics=references), {}
+        return RunResult("validate", 2, diagnostics=references), FilesToWrite()
     observed = _observed_or_invalid(root, config, analyzer)
     if isinstance(observed, RunResult):
-        return observed, {}
+        return observed, FilesToWrite()
     observation = observed
     diagnostics, edits = _repository_diagnostics(
         root, config, contract, observation, write_graph, baseline is None
@@ -1611,4 +1611,4 @@ def run_validate(
         edits=edits,
         exit_code=result.exit_code,
     )
-    return (result if artifact is None else replace(result, artifact=artifact)), files
+    return (result if artifact is None else replace(result, artifact=artifact)), FilesToWrite(files)

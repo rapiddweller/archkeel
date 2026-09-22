@@ -34,7 +34,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.structure import StructureMetric, scope_metrics
 
-from .ports import Analyzer, ScanConfig
+from .ports import Analyzer, FilesToWrite, ScanConfig
 from .report import observe_repository
 from .validation import COMPONENT_GRAPH_MARKER, mermaid_edges, observed_component_edges
 
@@ -289,7 +289,7 @@ def run_init(
     namespace: str | None,
     force: bool,
     analyzer: Analyzer,
-) -> tuple[RunResult, dict[str, bytes]]:
+) -> tuple[RunResult, FilesToWrite]:
     """Observe the repository and return the onboarding files without writing them."""
     if source is None or namespace is None:
         if source is not None or namespace is not None:
@@ -317,16 +317,18 @@ def run_init(
     if observed.diagnostics or observed.observation is None:
         return RunResult(
             "init", 2, diagnostics=observed.diagnostics, coverage=observed.coverage
-        ), {}
+        ), FilesToWrite()
     contract, edges, sizes = draft_contract(observed.observation, namespace)
-    files = {
-        CONFIG_PATH: (
-            f"[scan]\nroots = [{json.dumps(source)}]\nnamespace = {json.dumps(namespace)}\n"
-            f"contract = {json.dumps(CONTRACT_PATH)}\n"
-        ).encode(),
-        CONTRACT_PATH: contract_bytes(contract),
-        DOCUMENT_PATH: architecture_document(namespace, contract, edges, sizes).encode(),
-    }
+    files = FilesToWrite(
+        {
+            CONFIG_PATH: (
+                f"[scan]\nroots = [{json.dumps(source)}]\nnamespace = {json.dumps(namespace)}\n"
+                f"contract = {json.dumps(CONTRACT_PATH)}\n"
+            ).encode(),
+            CONTRACT_PATH: contract_bytes(contract),
+            DOCUMENT_PATH: architecture_document(namespace, contract, edges, sizes).encode(),
+        }
+    )
     # AD-15: init declares no dependency rule, so every ordered pair among the drafted
     # components is open; pass them in, since no contract has declared them yet.
     decisions = open_decisions(

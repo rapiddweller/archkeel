@@ -83,6 +83,9 @@
       "provenance": ["docs/architecture/archkeel.md"],
       "public": [
         "archkeel.check.git:read_blob",
+        "archkeel.check.ports:Analyzer",
+        "archkeel.check.ports:FilesToWrite",
+        "archkeel.check.ports:Host",
         "archkeel.check.ports:ScanConfig"
       ],
       "decided_by": "architect"

@@ -5,17 +5,25 @@ import json
 import shutil
 import subprocess
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
+from typing import get_args, get_origin, get_type_hints
 
 import pytest
 
 from archkeel.analyzer import observe
-from archkeel.check.onboarding import detect_source, interface_entries
+from archkeel.check.onboarding import (
+    CONFIG_PATH,
+    CONTRACT_PATH,
+    detect_source,
+    interface_entries,
+    run_init,
+)
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli import main
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
-from archkeel.ir.decisions import open_decisions
+from archkeel.ir.decisions import DOCUMENT_PATH, open_decisions
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -58,6 +66,56 @@ def _repository(root: Path, packages: tuple[str, ...] = ("archkeel",)) -> Path:
 def _init(root: Path, capsys: pytest.CaptureFixture) -> dict:
     assert main(["init", "--root", str(root), "--json"]) == 0
     return json.loads(capsys.readouterr().out)
+
+
+def _as_path_bytes(files: object) -> dict[str, bytes]:
+    """Normalize `run_init`'s written-files result into path -> bytes.
+
+    Works whether that value is the bare `dict[str, bytes]` AD-68's Limit flags (issue #59),
+    or the typed model that replaces it: the pin below is about which paths a run writes and
+    what bytes it writes into them, not about the container shape carrying that answer.
+    """
+    if isinstance(files, dict):
+        return files
+    if hasattr(files, "items"):
+        return dict(files.items())
+    return dict(files)  # type: ignore[call-overload]
+
+
+def _second_return_type(func: Callable[..., object]) -> type:
+    """The declared type of a 2-tuple return's second element, as CHECK-TYPES-DECLARED reads it.
+
+    `boundary_types` (AD-58/AD-63) judges the annotation itself, not a runtime value: a bare
+    `dict`/`Dict`/`object`, or a `dict[...]`/`Dict[...]` generic, is the violation regardless of
+    what a particular call happens to return. Reading it through `get_type_hints`/`get_origin`
+    mirrors that same judgement instead of asserting on one call's runtime type.
+    """
+    (_, files_type) = get_args(get_type_hints(func)["return"])
+    return get_origin(files_type) or files_type
+
+
+def test_run_init_declares_a_files_type_that_is_not_a_bare_dict(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-68's Limit (issue #59): `run_init` returns `tuple[RunResult, dict[str, bytes]]`, and
+    a bare `dict[str, bytes]` is exactly the untyped container CHECK-TYPES-DECLARED (AD-58)
+    exists to reject. The fix must stop the container from being a bare dict without changing
+    which files `init` writes, or what bytes end up in them: the CLI already wrote them to
+    disk once here, and calling `run_init` again on the same repository must hand back exactly
+    those bytes at exactly those paths.
+    """
+    assert _second_return_type(run_init) is not dict
+
+    root = _repository(tmp_path)
+    _init(root, capsys)
+    on_disk = {
+        path: (root / path).read_bytes() for path in (CONFIG_PATH, CONTRACT_PATH, DOCUMENT_PATH)
+    }
+
+    result, files = run_init(root, source=None, namespace=None, force=True, analyzer=observe)
+
+    assert result.exit_code == 0
+    assert _as_path_bytes(files) == on_disk
 
 
 def test_init_drafts_no_dependency_rule_but_still_drafts_structural_rules(

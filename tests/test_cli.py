@@ -87,7 +87,8 @@ def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> 
     explicit = capsys.readouterr().out
     assert explicit == default
     result = json.loads(explicit)
-    assert result["observation_complete"] == result["declared_rules"] == "PASS"
+    assert result["observation_complete"] == "PASS"
+    assert result["declared_rules"] == "UNKNOWN"  # AD-72, see test_validation.py
 
 
 def test_validate_write_graph_regenerates_both_marked_graphs(

@@ -27,6 +27,7 @@ from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
+    BoundaryTypesRule,
     ForbiddenDependencyRule,
     Observation,
     in_scope,
@@ -81,13 +82,14 @@ def self_run(tmp_path_factory: pytest.TempPathFactory) -> SelfRun:
     result = json.loads(run.stdout)
     assert result["diagnostics"] == []
     # AD-67: Archkeel's own declared `boundary_types` rule does leave one `boundary_type_limit`
-    # record with 2 of its 8 positions undecided, but both are `external_type` -- `pathlib.Path`
-    # and `datetime.datetime`, types no declared component owns, so `boundary_types` has no
-    # `public` list to read them against. That is not a gap in what the checker could read (the
-    # six other undecidable kinds are); it is the question not applying. Everything the
-    # contract actually governs was decided, and there is no violation, so `declared_rules`
-    # stays PASS.
-    assert result["observation_complete"] == result["declared_rules"] == "PASS"
+    # record per declared rule. `analyzer`'s 2 undecided are both `external_type` --
+    # `pathlib.Path` and `datetime.datetime`, types no declared component owns, so the rule has
+    # no `public` list to read them against, and that question never applied. `render` and
+    # `check`, declared here (AD-68), leave 16 positions undecided for reasons that ARE gaps in
+    # what the checker could read: 15 a union, 1 an unentered generic. So Archkeel's own run
+    # says UNKNOWN, which is the honest answer, and says it without gating (AD-72).
+    assert result["observation_complete"] == "PASS"
+    assert result["declared_rules"] == "UNKNOWN"
     assert result["expectation_fulfilled"] == "n/a"
     observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
     return SelfRun(observation, run.stdout)
@@ -162,9 +164,8 @@ def test_self_contract_covers_modules_and_analyzer_interface(
 
 def test_self_facades_record_the_ten_types_they_expose(self_observation: Observation) -> None:
     """AD-65 on this repository: the ten positions AD-63 measured in `check` and `render` are
-    recorded as reached, so declaring them can no longer collide with `interface.unused`
-    (issue #57). `check` and `render` still declare no `boundary_types` rule and none of the
-    three types is in a `public` list yet: that is issue #61's decision, not this one's."""
+    recorded as reached, so declaring them no longer collides with `interface.unused`
+    (issue #57), and AD-68 declares all three types and scopes the rule to both components."""
     exposed: dict[str, tuple[str, ...]] = {}
     for record in self_observation.records("symbols") or ():
         name = text_value(record.data.get("qualified_name"))
@@ -177,20 +178,39 @@ def test_self_facades_record_the_ten_types_they_expose(self_observation: Observa
         assert "archkeel.render.summary.Summary" in exposed[f"archkeel.render.summary.{name}"]
     contract = _contract()
     declared = {entry for item in contract.components for entry in item.public or ()}
-    assert not declared & {
+    assert {
         "archkeel.check.ports:Analyzer",
         "archkeel.check.ports:Host",
         "archkeel.render.summary:Summary",
-    }
+    } <= declared
+    scoped = {rule.source for rule in contract.rules if isinstance(rule, BoundaryTypesRule)}
+    assert scoped == {"archkeel.analyzer", "archkeel.check", "archkeel.render"}
 
 
 def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
-    """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard)."""
+    """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard).
+
+    AD-65 gave an entry a second way of being reached, and `_drafted_public` proposes only the
+    first: it reads inbound crossing imports, so a type no consumer imports but a declared
+    facade signature exposes is never proposed. AD-68 declares three of those. The guard keeps
+    its teeth by checking both readings instead of one: nothing the drafter proposes may be
+    edited away, and every extra entry has to be a type the observation records some facade
+    signature as exposing, which is not something a hand edit can invent.
+    """
     contract = _contract()
     drafted, _, _ = draft_contract(self_observation, "archkeel")
-    actual = {component.label: component.public for component in contract.components}
     proposed = {component.label: component.public for component in drafted.components}
-    assert actual == proposed
+    exposed = {
+        item
+        for record in self_observation.records("symbols") or ()
+        for item in (record.data.get("facade_types") or ())
+        if isinstance(item, str)
+    }
+    for component in contract.components:
+        entries = set(component.public or ())
+        assert set(proposed.get(component.label) or ()) <= entries, component.label
+        extra = entries - set(proposed.get(component.label) or ())
+        assert {item.replace(":", ".") for item in extra} <= exposed, (component.label, extra)
 
 
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:

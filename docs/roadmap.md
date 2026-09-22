@@ -102,6 +102,7 @@ only when its row names repository evidence.
 | A name bound twice in one module is undecidable (`ambiguous_binding`), not whichever record a content-hash sort left last: two same-named classes crashed the scan outright, and two imports of one name could pass an undeclared type as the declared one (AD-74) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_boundary_type_ambiguous_bindings.py` |
 | An open report with violations can focus on them without a rerun: one reversible control hides secondary detail but keeps verdicts, failures, UNKNOWN and complete evidence access, and Component flow can show only violated edges at its current level; neither control changes the result or canonical evidence (AD-75) | `src/archkeel/render/html.py`; `src/archkeel/render/assets/violations.js`; `src/archkeel/render/assets/flow.js`; `tests/test_html_report.py` |
 | A `public` entry is reached in two ways, not one: a cross-component import, or a declared facade signature that names the type, recorded as `facade_types` on the facade function's own symbol record by `boundary_types`' own resolution, so declaring the type such a violation asks for no longer produces `interface.unused` (AD-65, #57) | `src/archkeel/analyzer/embedded/violations.py`; `src/archkeel/analyzer/embedded/scanner.py`; `src/archkeel/check/validation.py`; `tests/test_analyzer.py`; `tests/test_validation.py`; `tests/test_self.py::test_self_facades_record_the_ten_types_they_expose` |
+| Every component that declares a facade is held to it: `check` and `render` declare `boundary_types` beside `analyzer`; `Analyzer`, `Host` and `Summary` are declared, and the two write-producing workflows return the named `FilesToWrite` mapping instead of a bare `dict[str, bytes]`. The self report has 0 violations and records the remaining checker limits as UNKNOWN (AD-68, #61) | `architecture-contract.json`; `src/archkeel/check/architecture-contract.json`; `src/archkeel/check/ports.py`; `tests/test_onboarding.py`; `tests/test_validation.py`; `tests/test_self.py`; `docs/architecture/decisions/ad-68-check-and-render-declare-boundarytypes-and-the-ten.md` |
 
 | `declarations.public_api` names the surface a consumer outside the package may rely on, narrowing AD-9's "superseded" reading of it now that AD-64 gave Archkeel such a surface; Archkeel declares its own three names, `test_api_all_matches_the_names_reference_md_documents` checks `archkeel.api.__all__` and `docs/reference.md` against that declaration instead of against each other, and a `public_api` entry the scan never saw is `api_surface.missing`, the same signal a missing `public` entry already gives (AD-66, #58) | `architecture-contract.json`; `src/archkeel/check/validation.py`; `src/archkeel/ir/model.py`; `tests/test_validation.py`; `tests/test_violations.py`; `fixtures/demo_catalog_validation.py`; `docs/architecture-demo.md` |
 | The external promise declares every type it hands out: `archkeel.api` is one call, `load_violations`, with `ViolationRow` and `ViolationFingerprint` declared beside it, so no `ir` type crosses the boundary undeclared (AD-70) | `src/archkeel/api.py`; `architecture-contract.json`; `tests/test_violations.py` |
@@ -129,13 +130,6 @@ only when its row names repository evidence.
    settled on 3. Naming each draft's size (AD-38) makes the imbalance visible but does not fix
    it: a directory-per-component draft still proposes 12 or 17 components to consolidate by
    hand, one per module, regardless of how those modules import each other.
-6. Adopt `boundary_types` for `check` and `render` and decide their ten findings (#61).
-   AD-65 made declaring the three types they expose — `Analyzer`, `Host` and `Summary` —
-   legal, so the blocker is gone; what remains is a decision about the ten positions and a
-   `draft_contract` that can propose an entry a facade signature reaches, since
-   `tests/test_self.py::test_self_contract_public_matches_drafted_proposal` holds Archkeel's
-   own `public` lists to what `init` drafts from observed imports alone.
-
 ## Later
 
 - Let a second level run on its own (AD-20): an inside is recorded, derived, judged, drawn and
