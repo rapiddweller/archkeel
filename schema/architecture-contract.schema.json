@@ -13,6 +13,7 @@
       {"$ref": "#/$defs/forbiddenDependency"}, {"$ref": "#/$defs/allowedDependency"},
       {"$ref": "#/$defs/forbiddenConstruct"},
       {"$ref": "#/$defs/externalDependencyScope"}, {"$ref": "#/$defs/completeAssignment"},
+      {"$ref": "#/$defs/rootLayout"},
       {"$ref": "#/$defs/completeExternalScope"}, {"$ref": "#/$defs/completeRequires"},
       {"$ref": "#/$defs/noComponentCycles"}, {"$ref": "#/$defs/interfaceBoundary"},
       {"$ref": "#/$defs/siblingIsolation"}, {"$ref": "#/$defs/symbolPlacement"},
@@ -165,6 +166,20 @@
         "id": {"$ref": "#/$defs/nonEmpty"},
         "kind": {"const": "complete_assignment"},
         "source": {"$ref": "#/$defs/nonEmpty"},
+        "rationale": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "decided_by": {"$ref": "#/$defs/decidedBy"}
+      }
+    },
+    "rootLayout": {
+      "type": "object",
+      "required": ["id", "kind", "root", "allowed_children", "rationale", "provenance", "decided_by"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "kind": {"const": "root_layout"},
+        "root": {"$ref": "#/$defs/nonEmpty"},
+        "allowed_children": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"}

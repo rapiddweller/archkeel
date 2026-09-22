@@ -199,8 +199,8 @@ _TOUR = Variant(
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here). Real "
-    "run: 18 rule ids and 19 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
-    "and the getattr; at validate time the same 19 rule.violated diagnostics plus 2 "
+    "run: 19 rule ids and 20 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
+    "and the getattr; at validate time the same 20 rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
     "since the marked graph never declared either edge.",
     files={
@@ -234,6 +234,7 @@ _TOUR = Variant(
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
         "MODEL-TYPES-IN-ENTITIES",
+        "ROOT-LAYOUT",
         "STORE-PEERS-ISOLATED",
         "store:STORE-REQUIRES-COMPLETE",
     ),
@@ -241,6 +242,7 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",

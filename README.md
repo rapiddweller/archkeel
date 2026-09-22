@@ -249,6 +249,9 @@ conflicts and gaps, or auto mode, where the agent decides. Every rule records `d
 reviewed yet. The prompt is in
 [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
 rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+Use `root_layout` when a package root must expose an exact set of immediate packages or modules;
+the root module and missing future children are ignored, while an unexpected child is a normal
+baselineable violation.
 When a later contract edit merges or renames components, `archkeel validate --write-graph`
 rewrites the edges of the page's marked component graph and leaves the rest of the page alone;
 a graph with a `subgraph`, a labeled edge or a style is left for you to edit by hand.
@@ -459,7 +462,7 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
 
 - **Every pair decided.** Seven components, so 42 ordered pairs, decided by nine `requires`
   entries and one `complete_requires` rule: a pair no entry names is forbidden, not open. All
-  16 rules carry a rationale and are decided by the architect. The
+  19 rules carry a rationale and are decided by the architect. The
   [architecture guide](docs/architecture/archkeel.md) names the quality goal each required edge
   serves.
 - **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is

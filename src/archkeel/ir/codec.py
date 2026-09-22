@@ -67,6 +67,7 @@ from archkeel.ir.model import (
     Record,
     RecordData,
     RequiredComponent,
+    RootLayoutRule,
     RunResult,
     Section,
     SemanticChange,
@@ -1027,6 +1028,21 @@ def _parse_complete_assignment(raw: RawJson, label: str) -> CompleteAssignmentRu
     )
 
 
+def _parse_root_layout(raw: RawJson, label: str) -> RootLayoutRule:
+    item, item_id, provenance = _contract_record(
+        raw, {"kind", "root", "allowed_children", "rationale", "decided_by"}, set(), label
+    )
+    return RootLayoutRule(
+        item_id,
+        "root_layout",
+        _nonempty(item["root"], f"{label}.root"),
+        _contract_strings(item["allowed_children"], f"{label}.allowed_children"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+    )
+
+
 def _parse_complete_external_scope(raw: RawJson, label: str) -> CompleteExternalScopeRule:
     item, item_id, provenance = _contract_record(
         raw, {"kind", "source", "rationale", "decided_by"}, set(), label
@@ -1165,6 +1181,7 @@ _RULE_PARSERS: Final[dict[str, Callable[[RawJson, str], ArchitectureRule]]] = {
     "forbidden_construct": _parse_forbidden_construct,
     "external_dependency_scope": _parse_external_dependency_scope,
     "complete_assignment": _parse_complete_assignment,
+    "root_layout": _parse_root_layout,
     "complete_external_scope": _parse_complete_external_scope,
     "complete_requires": _parse_complete_requires,
     "no_component_cycles": _parse_no_component_cycles,

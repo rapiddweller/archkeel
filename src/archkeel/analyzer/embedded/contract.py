@@ -27,6 +27,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
+    RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
 )
@@ -112,6 +113,17 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             [rule.source],
         )
         data = {"source": rule.source, "rationale": rule.rationale}
+    elif isinstance(rule, RootLayoutRule):
+        area, title, subjects = (
+            "module_topology",
+            f"Immediate children below {rule.root} are explicitly allowed",
+            [rule.root, *rule.allowed_children],
+        )
+        data = {
+            "root": rule.root,
+            "allowed_children": sorted(rule.allowed_children),
+            "rationale": rule.rationale,
+        }
     elif isinstance(rule, CompleteExternalScopeRule):
         area, title, subjects = (
             "dependencies",

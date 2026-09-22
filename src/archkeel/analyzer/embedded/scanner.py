@@ -312,6 +312,7 @@ def scan_repository(
         imports=imports,
         typing_signals=typing_signals,
         constructs=constructs,
+        packages=package_facts,
         modules=module_facts,
         symbols=symbols,
         blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),

@@ -345,6 +345,19 @@ class CompleteAssignmentRule:
 
 
 @dataclass(frozen=True, slots=True)
+class RootLayoutRule:
+    """The immediate packages or modules below a root are an exact allow-list."""
+
+    id: str
+    kind: Literal["root_layout"]
+    root: str
+    allowed_children: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: Literal["architect", "agent"]
+
+
+@dataclass(frozen=True, slots=True)
 class CompleteRequiresRule:
     """AD-32: a cross-component import no `requires` entry covers is a violation."""
 
@@ -444,6 +457,7 @@ ArchitectureRule: TypeAlias = (
     | ForbiddenConstructRule
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
+    | RootLayoutRule
     | CompleteExternalScopeRule
     | CompleteRequiresRule
     | NoComponentCyclesRule

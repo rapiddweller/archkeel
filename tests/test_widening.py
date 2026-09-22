@@ -35,6 +35,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     RequiredComponent,
+    RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
 )
@@ -105,6 +106,13 @@ def _sibling_isolation(**overrides: object) -> SiblingIsolationRule:
 def _complete_assignment(**overrides: object) -> CompleteAssignmentRule:
     base = CompleteAssignmentRule(
         "R", "complete_assignment", "pkg.a", "because", _PROVENANCE, "architect"
+    )
+    return replace(base, **overrides)
+
+
+def _root_layout(**overrides: object) -> RootLayoutRule:
+    base = RootLayoutRule(
+        "R", "root_layout", "pkg", ("pkg.a", "pkg.b"), "because", _PROVENANCE, "architect"
     )
     return replace(base, **overrides)
 
@@ -262,6 +270,20 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ),
     ("complete_assignment added", None, _complete_assignment(), False),
     ("complete_assignment removed", _complete_assignment(), None, True),
+    ("root_layout added", None, _root_layout(), False),
+    ("root_layout removed", _root_layout(), None, True),
+    (
+        "root_layout.allowed_children gained",
+        _root_layout(),
+        _root_layout(allowed_children=("pkg.a", "pkg.b", "pkg.c")),
+        True,
+    ),
+    (
+        "root_layout.allowed_children lost",
+        _root_layout(allowed_children=("pkg.a", "pkg.b", "pkg.c")),
+        _root_layout(),
+        False,
+    ),
     ("complete_external_scope added", None, _complete_external_scope(), False),
     ("complete_external_scope removed", _complete_external_scope(), None, True),
     ("no_component_cycles added", None, _no_component_cycles(), False),

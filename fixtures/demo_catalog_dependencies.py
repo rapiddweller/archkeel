@@ -138,8 +138,8 @@ _COMPLETE_ASSIGNMENT = Variant(
     item="complete_assignment",
     summary="shop/extra.py has no owning component package.",
     files={"shop/extra.py": SHOP_EXTRA},
-    expected_violations=("ASSIGNMENT-COMPLETE",),
-    expected_codes=("rule.violated",),
+    expected_violations=("ASSIGNMENT-COMPLETE", "ROOT-LAYOUT"),
+    expected_codes=("rule.violated", "rule.violated"),
 )
 _NO_COMPONENT_CYCLES = Variant(
     id="class-a-no-component-cycles",

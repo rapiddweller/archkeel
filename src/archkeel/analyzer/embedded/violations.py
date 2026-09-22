@@ -28,6 +28,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
+    RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
     in_scope,
@@ -284,6 +285,62 @@ def _assignment_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _root_layout_violations(
+    packages: Sequence[RawRecord], modules: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
+    observed = [*packages, *modules]
+    child_records: dict[str, RawRecord] = {}
+    for item in modules:
+        qualified_name = item["data"].get("qualified_name")
+        package = item["data"].get("package")
+        if isinstance(package, str):
+            child_records.setdefault(package, item)
+        if isinstance(qualified_name, str):
+            child_records[qualified_name] = item
+    for item in packages:
+        qualified_name = item["data"].get("qualified_name")
+        if isinstance(qualified_name, str):
+            child_records.setdefault(qualified_name, item)
+    for rule in rules:
+        if not isinstance(rule, RootLayoutRule):
+            continue
+        root_parts = rule.root.split(".")
+        children = sorted(
+            {
+                name
+                for item in observed
+                if isinstance(name := item["data"].get("qualified_name"), str)
+                and name != rule.root
+                and in_scope(name, rule.root)
+                and len(name.split(".")) == len(root_parts) + 1
+            }
+        )
+        for child in children:
+            if child in rule.allowed_children:
+                continue
+            item = child_records[child]
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, child),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="module_topology",
+                    kind=rule.kind,
+                    title=f"{child} is not an allowed child of {rule.root}",
+                    subjects=[child],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "root": rule.root,
+                        "child": child,
+                        "allowed_children": sorted(rule.allowed_children),
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def _module_placement_violations(
     modules: Sequence[RawRecord], contract: ArchitectureContract
 ) -> list[RawRecord]:
@@ -494,6 +551,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         | BoundaryTypesRule,
     ):
         return {"source": (rule.source,)}
+    if isinstance(rule, RootLayoutRule):
+        return {"root": (rule.root,)}
     if isinstance(rule, SymbolPlacementRule):
         scopes = {"source": (rule.source,)}
         scopes.update(
@@ -1705,6 +1764,7 @@ def rule_violations(
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
+    packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
     blank_modules: frozenset[str],
@@ -1723,6 +1783,7 @@ def rule_violations(
             *_external_completeness_violations(imports, modules, contract.rules),
             *requires_violations(imports, contract),
             *_assignment_violations(modules, contract, blank_modules),
+            *_root_layout_violations(packages, modules, contract.rules),
             *_module_placement_violations(modules, contract),
             *_component_cycle_violations(imports, contract),
             *_interface_violations(imports, contract, exports_by_module, forbidden_rejected_ids),

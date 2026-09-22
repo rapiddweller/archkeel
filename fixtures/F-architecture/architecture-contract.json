@@ -435,6 +435,21 @@
       "decided_by": "architect"
     },
     {
+      "id": "ROOT-LAYOUT",
+      "kind": "root_layout",
+      "root": "shop",
+      "allowed_children": [
+        "shop.app",
+        "shop.cli",
+        "shop.model",
+        "shop.render",
+        "shop.store"
+      ],
+      "rationale": "The shop root exposes only its declared top-level components.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",

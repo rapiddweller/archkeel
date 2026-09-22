@@ -336,6 +336,23 @@
       "decided_by": "architect"
     },
     {
+      "id": "ROOT-LAYOUT",
+      "kind": "root_layout",
+      "root": "archkeel",
+      "allowed_children": [
+        "archkeel.analyzer",
+        "archkeel.api",
+        "archkeel.check",
+        "archkeel.cli",
+        "archkeel.host",
+        "archkeel.ir",
+        "archkeel.render"
+      ],
+      "rationale": "The package root exposes only its declared top-level packages and modules.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",

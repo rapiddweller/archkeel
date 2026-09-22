@@ -36,6 +36,7 @@ from .model import (
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     RequiredComponent,
+    RootLayoutRule,
     SiblingIsolationRule,
 )
 
@@ -60,6 +61,7 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "forbidden_construct",
         "external_dependency_scope",
         "complete_assignment",
+        "root_layout",
         "complete_external_scope",
         "complete_requires",
         "no_component_cycles",
@@ -267,6 +269,18 @@ def _matched_rule_widenings(before: ArchitectureRule, after: ArchitectureRule) -
             ),
             *_generic_field_widenings(
                 subject, before, after, handled=frozenset({"include_type_checking"})
+            ),
+        ]
+    if isinstance(before, RootLayoutRule) and isinstance(after, RootLayoutRule):
+        return [
+            *_set_widenings(
+                f"{subject}.allowed_children",
+                frozenset(before.allowed_children),
+                frozenset(after.allowed_children),
+                grows_widens=True,
+            ),
+            *_generic_field_widenings(
+                subject, before, after, handled=frozenset({"allowed_children"})
             ),
         ]
     if isinstance(before, InterfaceBoundaryRule) and isinstance(after, InterfaceBoundaryRule):

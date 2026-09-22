@@ -140,6 +140,12 @@ makes the result deterministic. A module whose first line is blank but contains 
 excerpt, so its violation cannot be traced and the run reports UNKNOWN (exit 2) instead of FAIL.
 Adding `archkeel/extra.py` without a component package is an example violation.
 
+`root_layout` has `root` and an exact `allowed_children` list. It checks each observed immediate
+package or module below `root`; the root module itself is ignored, and an allowed child that is
+not yet present is not a violation. An unexpected child is a normal baselineable violation.
+Adding an allowed child widens the contract; removing one narrows it. Adding the restriction
+narrowing and removing it widening are enforced by `validate --against` (AD-86).
+
 `component.namespace` is optional. It names one of that component's `packages` as its physical
 home; `packages` remains the ownership set. Every observed module owned by the component but
 outside that namespace is a baselineable `module.placement` violation. Contracts without the

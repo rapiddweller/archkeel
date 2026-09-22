@@ -43,7 +43,7 @@ def test_load_violations_reads_the_canonical_report_bytes_back(tmp_path: Path) -
 
     rows = load_violations(report_path)
 
-    assert len(rows) == 19
+    assert len(rows) == 20
     assert all(isinstance(row, ViolationRow) for row in rows)
 
 
@@ -98,7 +98,7 @@ def test_reference_md_snippet_reads_a_report_and_lists_its_rows(tmp_path: Path) 
     ]
     # --- docs/reference.md snippet ends ---
 
-    assert len(rows) == 19
+    assert len(rows) == 20
     assert all(isinstance(fingerprint, ViolationFingerprint) for fingerprint, _, _ in rows)
 
 
