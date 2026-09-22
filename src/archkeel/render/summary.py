@@ -153,6 +153,12 @@ def _claims_line(result: RunResult) -> str:
     return f"Review claims, never a verdict: {counted}."
 
 
+def _baseline_line(result: RunResult) -> str:
+    if result.baseline_new is None or result.baseline_resolved is None:
+        return ""
+    return f"\n\nBaseline drift: {result.baseline_new} new, {result.baseline_resolved} resolved."
+
+
 def report_summary(result: RunResult) -> Summary:
     """Summarize a report or validate result, which never evaluates an expectation."""
     sentence = {
@@ -210,7 +216,10 @@ def report_summary(result: RunResult) -> Summary:
         ),
     )
     sentence += (
-        _report_filter_line(result) + _open_decisions_lines(result) + _agent_decisions_line(result)
+        _report_filter_line(result)
+        + _open_decisions_lines(result)
+        + _agent_decisions_line(result)
+        + _baseline_line(result)
     )
     return Summary(_decision_badge(result), sentence, verdicts, (), _claims_line(result))
 

@@ -869,6 +869,9 @@ class RunResult:
     host_order: Verdict | None = None
     host_source: str | None = None
     failures: tuple[str, ...] = ()
+    # AD-77: baseline drift is reported as deterministic fingerprint counts.
+    baseline_new: int | None = None
+    baseline_resolved: int | None = None
     delta: ArchitectureDelta | None = None
     provenance: CheckProvenance | None = None
     open_decisions: tuple[OpenDecision, ...] = ()

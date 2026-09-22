@@ -122,7 +122,10 @@ $ archkeel validate --baseline known-violations.json --write-baseline
 
 Review this file the way a diff of the contract itself is reviewed, and commit it. Counts must
 match the observation exactly: a higher one is a new violation, a lower one a violation someone
-already fixed, both failing the gate. A budget allowed to *exceed* the code — "no more than N
+already fixed, both failing the gate. When updating an existing file, `--write-baseline` compares
+first: resolved-only drift may be written, while new or increased fingerprints refuse the write
+unless `--accept-new` is explicit. Results expose deterministic `baseline_new` and
+`baseline_resolved` counts. A budget allowed to *exceed* the code — "no more than N
 violations of this rule" — would be worse than exact counting: it lets a violation someone
 removed go unreported, the same way an unbounded margin hides a regression a stricter one would
 catch. Exactness is what makes shrinking the file part of the change that shrinks it, not a
@@ -295,7 +298,9 @@ declared_rules: PASS
 ```
 
 An overstated baseline fails the gate exactly as an understated one does, symmetrically: running
-the old, one-entry file against the now-fixed code is a `resolved violation`, not silence —
+the old, one-entry file against the now-fixed code is a `resolved violation`, not silence. A
+resolved-only update may rewrite the file with `--write-baseline`; accepting a new or increased
+fingerprint requires `--write-baseline --accept-new` —
 
 ```
 $ archkeel validate --baseline known-violations.json   # the stale file, not rewritten

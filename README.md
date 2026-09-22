@@ -258,13 +258,18 @@ is violating it — by design. Freeze those known violations once and gate on th
 instead of weakening the contract to make it green:
 
 ```bash
-archkeel validate --baseline known-violations.json --write-baseline   # once, then review it
+archkeel validate --baseline known-violations.json --write-baseline   # initial file, then review it
 archkeel validate --baseline known-violations.json                    # in CI
+archkeel validate --baseline known-violations.json --write-baseline   # resolved-only cleanup
+archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
 ```
 
 The gate exits 1 on a violation the file does not state, and on one it states that nobody
-violates any more, so the budget only shrinks. Each entry names its violation by rule and
-subjects rather than by line, so unrelated edits above it do not move it. Running that loop day
+violates any more, so the budget only shrinks. An existing baseline is compared before a write:
+resolved-only drift may be written, while new or increased fingerprints refuse the write unless
+`--accept-new` is explicit. Results expose deterministic `baseline_new` and `baseline_resolved`
+counts. Each entry names its violation by rule and subjects rather than by line, so unrelated
+edits above it do not move it. Running that loop day
 to day — gating CI, keeping the target from widening, working the backlog down — is
 [docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md).
 
@@ -488,7 +493,8 @@ Archkeel is deliberately strict about what it can prove:
   `--namespace`. It never decides a dependency; the architect or, in auto mode, the agent does,
   and `decided_by` keeps the difference visible.
 - **Known-violation baseline:** the file is compared, never authenticated; `check`'s digest
-  chain does not cover it. `validate --against <ref>` classifies a padded entry as a widening
+  chain does not cover it. `--write-baseline` compares an existing file before updating it;
+  `--accept-new` is required to accept new or increased fingerprints. `validate --against <ref>` classifies a padded entry as a widening
   like any other and fails it without an amendment (AD-61), but only when a reviewer or CI runs
   it with `--against`; nothing forces that flag on every gate.
 - **Static observation:** runtime behavior, data flow and performance are not observed; see
