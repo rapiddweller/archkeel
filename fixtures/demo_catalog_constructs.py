@@ -141,9 +141,17 @@ _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
     + (
         '"""String-literal-compare probe for the architecture demo."""\n\n'
         "from __future__ import annotations\n\n\n"
+        "from typing import Final\n\n"
+        'EXPRESS: Final = "express"\n\n'
+        "class Methods:\n"
+        '    ECONOMY: Final = "economy"\n\n\n'
         "def shipping_cents(method: str) -> int:\n"
         '    if method == "express":\n'
         "        return 900\n"
+        "    if method == EXPRESS:\n"
+        "        return 700\n"
+        "    if method == Methods.ECONOMY:\n"
+        "        return 300\n"
         "    return 300\n"
     ),
 }
@@ -163,10 +171,16 @@ _CONSTRUCT_RULE: dict[ForbiddenConstructKind, str] = {
     )
     for kind in ForbiddenConstructKind
 }
-# any_annotation's probe carries two owner shapes (a module variable and a parameter), so it
-# alone fires its rule twice; every other probe fires once.
+# any_annotation's probe carries two owner shapes (a module variable and a parameter), and the
+# string-literal probe carries three comparisons; both preserve one diagnostic code per finding.
 _CONSTRUCT_VIOLATION_COUNT: dict[ForbiddenConstructKind, int] = {
-    kind: 2 if kind is ForbiddenConstructKind.ANY_ANNOTATION else 1
+    kind: (
+        2
+        if kind is ForbiddenConstructKind.ANY_ANNOTATION
+        else 3
+        if kind is ForbiddenConstructKind.STRING_LITERAL_COMPARE
+        else 1
+    )
     for kind in ForbiddenConstructKind
 }
 _CONSTRUCT_VARIANTS = tuple(

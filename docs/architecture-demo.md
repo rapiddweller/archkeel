@@ -28,7 +28,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | forbidden_construct:delattr | class-a-construct-delattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_delattr.py |
 | class_a | forbidden_construct:vars | class-a-construct-vars | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_vars.py |
 | class_a | forbidden_construct:dunder_dict | class-a-construct-dunder_dict | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_dunder_dict.py |
-| class_a | forbidden_construct:string_literal_compare | class-a-construct-string_literal_compare | validate/report run | CONSTRUCT-NO-STRING-LITERAL-COMPARE | rule.violated | shop/model/probe_string_literal_compare.py |
+| class_a | forbidden_construct:string_literal_compare | class-a-construct-string_literal_compare | validate/report run | CONSTRUCT-NO-STRING-LITERAL-COMPARE, CONSTRUCT-NO-STRING-LITERAL-COMPARE, CONSTRUCT-NO-STRING-LITERAL-COMPARE | rule.violated, rule.violated, rule.violated | shop/model/probe_string_literal_compare.py |
 | class_a | forbidden_construct:exact_sources | class-a-broad-except-exact | validate/report run | CONSTRUCT-NO-BROAD-EXCEPT | rule.violated | shop/cli/main.py |
 | class_a | forbidden_construct:allowed_sources | class-a-broad-except-prefix | validate/report run | - | - | architecture-contract.json, shop/cli/main.py |
 | class_a | complete_requires | class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | architecture-contract.json |

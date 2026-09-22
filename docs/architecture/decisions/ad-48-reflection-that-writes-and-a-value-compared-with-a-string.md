@@ -3,9 +3,10 @@
 `forbidden_construct` gains five constructs. `setattr`, `delattr` and `vars`
 are calls matched as written, bare or as `builtins.<name>`; `dunder_dict` is any `x.__dict__`
 read, write or delete. `string_literal_compare` is named for what it checks, syntactically, in
-exactly three forms: a comparison where `==` or `!=` has a `str` literal on one side; an `in` or
+exactly three forms: a comparison where `==` or `!=` has a `str` literal, or a proven local name
+bound once to one, on one side; an `in` or
 `not in` test whose right operand is a non-empty tuple, list or set literal holding only `str`
-literals; and a `match` statement with a `str` literal value pattern at any depth of any case
+literals or such names; and a `match` statement with a `str` literal value pattern at any depth of any case
 (`case "a":`, `case "a" | "b":`, `case ["go", x]:`). It records once per comparison node,
 however long its chain, and once per `match` statement, not per case, with `form` naming
 `compare`, `membership` or `match`, the way `placeholder_body` records its spelling ([AD-29](ad-29-a-function-that-does-nothing-is-a-claim-not-a-stub.md)). It
@@ -76,4 +77,3 @@ through `tests/contracts/valid/forbidden-construct-scoped.json`, and rejects the
 `string_dispatch` in both through `tests/contracts/invalid/construct-renamed-string-dispatch.json`;
 `tests/test_architecture_demo.py` runs the five new `class-a-construct-*` probes;
 `archkeel validate --root . --json` passes with the widened `CONSTRUCT-NO-DYNAMIC`.
-
