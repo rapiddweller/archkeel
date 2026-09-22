@@ -349,6 +349,24 @@ _COMPONENT_CASES: tuple[
         _component(role=ComponentRole.INTERFACE),
         True,
     ),
+    (
+        "namespace added",
+        _component(namespace=None),
+        _component(namespace="pkg"),
+        False,
+    ),
+    (
+        "namespace removed",
+        _component(namespace="pkg"),
+        _component(namespace=None),
+        True,
+    ),
+    (
+        "namespace changed",
+        _component(namespace="pkg"),
+        _component(namespace="pkg.other"),
+        True,
+    ),
 )
 
 

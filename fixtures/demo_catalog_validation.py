@@ -65,7 +65,33 @@ def _target_block_with_subgraph(page: str) -> str:
 
 _TARGET_PAGE_WITH_SUBGRAPH = _target_block_with_subgraph(CLEAN_SHOP_MD)
 
+
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
+    Variant(
+        id="validation-module-placement-clean",
+        section="validation",
+        item="module.placement:clean",
+        summary="A component may declare its physical namespace when every owned package is "
+        "inside that home.",
+        files={"shop/model/catalog.py": "CATALOG = True\n"},
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-module-placement",
+        section="validation",
+        item="module.placement",
+        summary="The model component keeps ownership of a second root package, but its module "
+        "sits outside the declared physical namespace; the finding is baselineable.",
+        files={
+            "architecture-contract.json": contract_component_field_appended(
+                "model", "packages", "shop.model_rules"
+            ),
+            "shop/model_rules.py": "RULES = True\n",
+        },
+        expected_violations=("COMP-MODEL",),
+        expected_codes=("rule.violated",),
+    ),
     Variant(
         id="validation-interface-undeclared",
         section="validation",

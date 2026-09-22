@@ -284,6 +284,46 @@ def _assignment_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _module_placement_violations(
+    modules: Sequence[RawRecord], contract: ArchitectureContract
+) -> list[RawRecord]:
+    """Keep ownership and physical placement separate (issue #91)."""
+    violations: list[RawRecord] = []
+    for component in contract.components:
+        if component.namespace is None:
+            continue
+        for item in modules:
+            module = item["data"]["qualified_name"]
+            if contract.component_for(module) is not component or in_scope(
+                module, component.namespace
+            ):
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", "module.placement", component.label, module),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="components",
+                    kind="module.placement",
+                    title=(
+                        f"{module} belongs to {component.label} but is outside "
+                        f"{component.namespace}"
+                    ),
+                    subjects=[module, component.namespace],
+                    evidence_ids=item["evidence_ids"],
+                    # The component declaration is the typed contract fact that owns this
+                    # derived placement restriction; no second rule namespace is needed.
+                    rule_ids=[component.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "module": module,
+                        "component": component.label,
+                        "namespace": component.namespace,
+                    },
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
 def _component_cycle_violations(
     imports: Sequence[RawRecord], contract: ArchitectureContract
 ) -> list[RawRecord]:
@@ -1506,6 +1546,7 @@ def rule_violations(
             *_external_completeness_violations(imports, modules, contract.rules),
             *requires_violations(imports, contract),
             *_assignment_violations(modules, contract, blank_modules),
+            *_module_placement_violations(modules, contract),
             *_component_cycle_violations(imports, contract),
             *_interface_violations(imports, contract, exports_by_module, forbidden_rejected_ids),
             *_sibling_violations(imports, contract.rules),

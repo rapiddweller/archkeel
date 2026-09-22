@@ -140,7 +140,8 @@ a removed `forbidden_dependency`/`forbidden_construct`/`external_dependency_scop
 `interface_boundary`/`sibling_isolation` rule, a gained `allowed_sources` or `exact_sources`
 entry, `include_type_checking` relaxed from true to false, a gained component `public` or
 `requires` entry, and a component added or removed, are each widening; every reverse is
-narrowing. A padded baseline entry - a higher count or a new fingerprint - is a widening too,
+narrowing. Adding a component `namespace` is a narrowing placement restriction; removing or
+changing it is a widening. A padded baseline entry - a higher count or a new fingerprint - is a widening too,
 compared the same way against the baseline file at `--against`. Only a rule's or a `requires`
 entry's `rationale`, and every `provenance`, are neutral; any other difference - an unrecognised
 rule kind's presence, a field no classifier names, `declarations`, `$schema` - fails closed as a

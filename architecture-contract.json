@@ -8,6 +8,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.api"],
+      "namespace": "archkeel.api",
       "requires": [
         {
           "component": "ir",
@@ -29,6 +30,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.ir"],
+      "namespace": "archkeel.ir",
       "public": [
         "archkeel.ir.baseline",
         "archkeel.ir.bindings",
@@ -62,6 +64,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.check"],
+      "namespace": "archkeel.check",
       "requires": [
         {
           "component": "ir",
@@ -95,6 +98,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.cli"],
+      "namespace": "archkeel.cli",
       "requires": [
         {
           "component": "analyzer",
@@ -127,6 +131,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.host"],
+      "namespace": "archkeel.host",
       "requires": [
         {
           "component": "ir",
@@ -148,6 +153,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.analyzer"],
+      "namespace": "archkeel.analyzer",
       "requires": [
         {
           "component": "ir",
@@ -171,6 +177,7 @@
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
       "packages": ["archkeel.render"],
+      "namespace": "archkeel.render",
       "requires": [
         {
           "component": "ir",

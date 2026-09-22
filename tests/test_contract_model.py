@@ -49,3 +49,21 @@ def test_contract_parser_rejects_distinct_records_with_duplicate_ids() -> None:
     raw["rules"][0]["id"] = raw["components"][0]["id"]
     with pytest.raises(ValueError, match="duplicate contract ID"):
         parse_contract(raw)
+
+
+def test_component_namespace_round_trips_and_must_name_an_owned_package() -> None:
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["components"][0]["namespace"] = raw["components"][0]["packages"][0]
+    contract = parse_contract(raw)
+    assert contract.components[0].namespace == "sample.core"
+    assert parse_contract(json.loads(contract_bytes(contract))) == contract
+
+    raw["components"][0]["namespace"] = "sample.other"
+    with pytest.raises(ValueError, match="must name one of"):
+        parse_contract(raw)
+
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["components"].append({**raw["components"][0], "id": "COMP-DUP"})
+    raw["components"][0]["namespace"] = "sample.core"
+    with pytest.raises(ValueError, match="identify one component package"):
+        parse_contract(raw)

@@ -44,6 +44,7 @@
         "label": {"$ref": "#/$defs/nonEmpty"},
         "role": {"enum": ["component", "interface", "contract", "projection", "foundation"]},
         "packages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "namespace": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"},
         "responsibilities": {"$ref": "#/$defs/strings"},
         "forbidden_responsibilities": {"$ref": "#/$defs/strings"},
         "provenance": {"$ref": "#/$defs/provenance"},

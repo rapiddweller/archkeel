@@ -331,6 +331,15 @@ def _requires_widenings(
     return findings
 
 
+def _namespace_widenings(subject: str, before: str | None, after: str | None) -> list[str]:
+    """A namespace adds a placement restriction; removing or changing it widens."""
+    if before is None and after is not None:
+        return []
+    if before != after:
+        return [f"{subject}.namespace changed from {before!r} to {after!r}"]
+    return []
+
+
 def _component_widenings(before: ContractComponent, after: ContractComponent) -> list[str]:
     subject = f"component {before.label!r}"
     before_public = frozenset(before.public or ())
@@ -348,8 +357,12 @@ def _component_widenings(before: ContractComponent, after: ContractComponent) ->
             for item in sorted(before_planned - after_planned - promoted)
         ],
         *_requires_widenings(subject, before.requires or (), after.requires or ()),
+        *_namespace_widenings(subject, before.namespace, after.namespace),
         *_generic_field_widenings(
-            subject, before, after, handled=frozenset({"public", "planned", "requires"})
+            subject,
+            before,
+            after,
+            handled=frozenset({"public", "planned", "requires", "namespace"}),
         ),
     ]
 
