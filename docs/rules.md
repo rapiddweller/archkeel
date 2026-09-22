@@ -186,6 +186,14 @@ then disagree with what a particular attribute returns at runtime, and `validate
 directly from `sample.cli` when `core` declares only `sample.core` as public is an example
 violation.
 
+When a schema 1.1 baseline role disappears, `validate --baseline` may use that before-evidence
+together with the fingerprint subjects to prove the exact cross-component importer that was
+removed. If the target still lists that module or symbol as `public`, only its matching
+`interface.unused` diagnostic is suppressed; `failures` reports the resolved violation and says
+to remove the unreached entry (AD-85, #80). A 1.0 baseline, an unrelated role, an
+intra-component role, or an ambiguous target cannot prove the narrowing, so the normal diagnostic
+remains.
+
 A contract may name a target architecture ahead of the refactoring that builds it, so `validate`
 tells a facade that is not built yet from one that never will be (AD-56). An unused `public` entry
 is `interface.missing` when its module was never scanned — it names something that does not exist,

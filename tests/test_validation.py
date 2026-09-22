@@ -20,6 +20,7 @@ from archkeel.check.report import observe_repository
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
+    _resolved_public_entries,
     graph_diagnostics,
     inside_diagnostics,
     interface_diagnostics,
@@ -29,14 +30,16 @@ from archkeel.check.validation import (
     run_validate,
 )
 from archkeel.cli.config import load_config
+from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
+    baseline_bytes,
     decode_canonical_model,
     decode_json,
     parse_contract,
     parse_observation,
 )
-from archkeel.ir.model import ArchitectureContract, Observation, Record
+from archkeel.ir.model import ArchitectureContract, Observation, ObservationResult, Record
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import FIXTURE_DIR
 
@@ -429,6 +432,291 @@ def test_unused_public_entry_is_a_diagnostic() -> None:
     assert diagnostics[0].code == "interface.unused"
 
 
+@pytest.mark.parametrize(
+    ("subjects", "target", "entry"),
+    [
+        (("sample.cli", "sample.core"), "sample.core", "sample.core"),
+        (("sample.cli", "sample.core.api.run"), "sample.core.api", "sample.core.api:run"),
+    ],
+)
+def test_baseline_roles_prove_the_public_entry_that_lost_its_importer(
+    subjects: tuple[str, str], target: str, entry: str
+) -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=[entry]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    known = (
+        KnownViolation(
+            ViolationFingerprint(("DEP-IMPORT",), subjects),
+            1,
+            (("sample.cli", target),),
+        ),
+    )
+
+    assert _resolved_public_entries(contract, known, ()) == (("core", entry),)
+
+
+def test_unrelated_resolved_role_does_not_suppress_public_entry() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    known = (
+        KnownViolation(
+            ViolationFingerprint(("DEP-IMPORT",), ("sample.cli", "sample.other")),
+            1,
+            (("sample.cli", "sample.other"),),
+        ),
+    )
+
+    assert _resolved_public_entries(contract, known, ()) == ()
+
+
+def test_mismatched_target_subject_does_not_suppress_public_entry() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api:run"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    known = (
+        KnownViolation(
+            ViolationFingerprint(("DEP-IMPORT",), ("sample.cli", "sample.other.run")),
+            1,
+            (("sample.cli", "sample.core.api"),),
+        ),
+    )
+
+    assert _resolved_public_entries(contract, known, ()) == ()
+
+
+def test_multiple_gone_roles_fail_closed() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component(
+                    "core",
+                    public=["sample.core.api:run", "sample.core.other:run"],
+                ),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    known = (
+        KnownViolation(
+            ViolationFingerprint(("DEP-IMPORT",), ("sample.cli", "sample.core.api.run")),
+            1,
+            (
+                ("sample.cli", "sample.core.api"),
+                ("sample.cli", "sample.core.other"),
+            ),
+        ),
+    )
+
+    assert _resolved_public_entries(contract, known, ()) == ()
+
+
+def test_remaining_importer_role_does_not_resolve_public_entry() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core", public=["sample.core.api:run"]), _component("cli")],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    fingerprint = ViolationFingerprint(("DEP-IMPORT",), ("sample.cli", "sample.core.api.run"))
+    known = (
+        KnownViolation(
+            fingerprint,
+            1,
+            (
+                ("sample.cli", "sample.core.api"),
+                ("sample.cli", "sample.core.api.extra"),
+            ),
+        ),
+    )
+    observed = (KnownViolation(fingerprint, 1, (("sample.cli", "sample.core.api.extra"),)),)
+
+    assert _resolved_public_entries(contract, known, observed) == ()
+
+
+def test_old_baseline_without_roles_cannot_suppress_public_entry() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    known = (
+        KnownViolation(ViolationFingerprint(("DEP-IMPORT",), ("sample.cli", "sample.core.api")), 1),
+    )
+
+    assert _resolved_public_entries(contract, known, ()) == ()
+
+
+def test_only_the_proven_public_entry_is_suppressed() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api", "sample.core.other"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            modules=[_module("sample.core.api"), _module("sample.core.other")],
+            imports=[],
+        )
+    )
+
+    diagnostics = interface_diagnostics(
+        contract, observation, frozenset({("core", "sample.core.api")})
+    )
+
+    assert [(item.code, item.subject) for item in diagnostics] == [
+        ("interface.unused", "sample.core.other")
+    ]
+
+
+def test_validate_reports_the_resolved_import_and_exact_interface_narrowing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component("core", public=["sample.core.api:run"]),
+            _component("cli"),
+        ],
+        "rules": [_INTERFACE_RULE],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    docs = tmp_path / "docs/architecture"
+    docs.mkdir(parents=True)
+    (docs / "sample.md").write_text(f"{COMPONENT_GRAPH_MARKER}\n```mermaid\n```\n")
+
+    raw = _model(
+        git_head="a" * 40,
+        modules=[_module("sample.core.api"), _module("sample.cli")],
+    )
+    raw["imports"] = []
+    raw["violations"] = []
+    after = parse_observation(raw)
+    before = KnownViolation(
+        ViolationFingerprint(("DEP-IMPORT",), ("sample.cli", "sample.core.api.run")),
+        1,
+        (("sample.cli", "sample.core.api"),),
+    )
+    baseline = tmp_path / "known.json"
+    baseline.write_bytes(baseline_bytes((before,)))
+    monkeypatch.setattr(
+        "archkeel.check.validation.observe_repository",
+        lambda *_args, **_kwargs: ObservationResult(after, after.coverage, ()),
+    )
+
+    result, _ = run_validate(
+        tmp_path,
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observe,
+        baseline=baseline,
+    )
+
+    assert result.exit_code == 1
+    assert result.diagnostics == ()
+    assert result.failures == (
+        "resolved violation: DEP-IMPORT | sample.cli sample.core.api.run "
+        "(0 observed, 1 in the baseline); rewrite the baseline with --write-baseline",
+        "resolved public entry: sample.core.api:run is no longer reached; remove it from "
+        "core.public",
+    )
+
+
+def test_resolved_import_with_allowed_current_import_does_not_narrow_public_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component("core", public=["sample.core.api:run"]),
+            _component("cli"),
+        ],
+        "rules": [_INTERFACE_RULE],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    docs = tmp_path / "docs/architecture"
+    docs.mkdir(parents=True)
+    (docs / "sample.md").write_text(
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n  cli --> core\n```\n"
+    )
+
+    raw = _model(
+        git_head="a" * 40,
+        modules=[_module("sample.core.api"), _module("sample.cli")],
+        imports=[
+            _cross_import(
+                "sample.core.api",
+                symbol="run",
+                reexport_chain=["sample.core.api.run"],
+                source_package="sample.cli",
+                target_package="sample.core",
+            )
+        ],
+    )
+    raw["violations"] = []
+    after = parse_observation(raw)
+    before = KnownViolation(
+        ViolationFingerprint(("DEP-IMPORT",), ("sample.cli", "sample.core.api.run")),
+        1,
+        (("sample.cli", "sample.core.api"),),
+    )
+    baseline = tmp_path / "known.json"
+    baseline.write_bytes(baseline_bytes((before,)))
+    monkeypatch.setattr(
+        "archkeel.check.validation.observe_repository",
+        lambda *_args, **_kwargs: ObservationResult(after, after.coverage, ()),
+    )
+
+    result, _ = run_validate(
+        tmp_path,
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observe,
+        baseline=baseline,
+    )
+
+    assert result.exit_code == 1
+    assert result.diagnostics == ()
+    assert result.failures == (
+        "resolved violation: DEP-IMPORT | sample.cli sample.core.api.run "
+        "(0 observed, 1 in the baseline); rewrite the baseline with --write-baseline",
+    )
+
+
 def _api_import() -> dict[str, object]:
     """One cross-component import that reaches `sample.core.api:run` the old way."""
     return _cross_import("sample.core.api", symbol="run", reexport_chain=["sample.core.api.run"])
@@ -517,6 +805,25 @@ def test_missing_public_entry_is_a_diagnostic() -> None:
     diagnostics = interface_diagnostics(contract, observation)
     assert [item.pointer for item in diagnostics] == ["/components/0/public/0"]
     assert diagnostics[0].code == "interface.missing"
+
+
+def test_resolved_entry_suppression_does_not_hide_missing_module() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core", public=["sample.core:Widget"]), _component("cli")],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(_model(git_head="a" * 40, imports=[]))
+
+    diagnostics = interface_diagnostics(
+        contract, observation, frozenset({("core", "sample.core:Widget")})
+    )
+
+    assert [(item.code, item.subject) for item in diagnostics] == [
+        ("interface.missing", "sample.core:Widget")
+    ]
 
 
 def test_missing_public_api_entry_is_a_diagnostic() -> None:

@@ -368,6 +368,12 @@ failures: ["resolved violation: DEP-STORE-NO-MONEY | shop.model.entities.Money s
 — because a budget allowed to run ahead of the code is exactly the hole a padded baseline
 exploits (AD-52, AD-61): the file must state today's debt, not yesterday's.
 
+If the resolved row is schema 1.1 and carries a `source`/`target` role, its subjects prove the
+importer and the exact public module or symbol it reached. `validate --baseline` keeps the
+resolved failure but suppresses only that matching `interface.unused` twin, and says to remove
+the now-unreached entry. A 1.0 baseline or an unrelated role cannot prove the narrowing, so the
+normal diagnostic remains (AD-85, #80).
+
 On a backlog larger than one entry, `violations_by_rule` and `violations_by_component_pair` in
 `report --json` rank it by weight without decoding anything else (AD-51); `--rule` and
 `--component` then isolate one slice to work, the same flags used to read the first report in

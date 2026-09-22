@@ -131,6 +131,11 @@ as before. The file's shape is
 Directional violation entries may add sorted `roles` objects with `source` and `target`; this
 review metadata does not change the fingerprint. Baseline schema `1.0.0` remains readable.
 
+For target-first cleanup, schema 1.1 roles can also prove that a resolved importer was the last
+reach of one exact `public` module or symbol. `validate --baseline` then keeps the resolved
+baseline failure and reports the required interface narrowing; it does not make unrelated or
+unroled entries valid (AD-85).
+
 `validate --against <ref>` classifies every difference between the contract at that Git
 revision and the one being validated - and, with `--baseline`, the baseline file there too - as
 a widening (a new permission or a dropped restriction) or a narrowing, its harmless reverse
