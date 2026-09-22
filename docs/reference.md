@@ -42,7 +42,9 @@ the evaluator verifies the running package.
 Underscore-private imports belong to the Python decoded-IR profile in `check/python_profile.py`.
 
 `root_layout` is an exact allow-list for the immediate package or module children below its
-`root`. The root module is ignored; missing allowed children are target work, not findings. An
+`root`. The parser requires each `allowed_children` entry to add exactly one name segment below
+`root`; the root itself, nested descendants, and entries under another root are contract-invalid
+(exit 2). The root module is ignored; missing allowed children are target work, not findings. An
 observed child outside the list is a baselineable violation.
 
 `declarations.compat` declares a moved-module shim as `{module, target, lifetime}`. The module

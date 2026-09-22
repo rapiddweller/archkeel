@@ -178,8 +178,8 @@
       "properties": {
         "id": {"$ref": "#/$defs/nonEmpty"},
         "kind": {"const": "root_layout"},
-        "root": {"$ref": "#/$defs/nonEmpty"},
-        "allowed_children": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "root": {"$ref": "#/$defs/nonEmpty", "description": "Package or module root whose immediate children are constrained."},
+        "allowed_children": {"type": "array", "uniqueItems": true, "description": "Exact names of immediate children of root; each entry must add exactly one name segment.", "items": {"$ref": "#/$defs/nonEmpty"}},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"}
