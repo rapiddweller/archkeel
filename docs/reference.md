@@ -16,6 +16,10 @@ need no source checkout or private package. The analyzer runs in an isolated
 subprocess and returns a typed observation at the analyzer boundary.
 D-self verifies the bundled analyzer digest recorded in `fixtures/D-self/provenance.json`.
 
+`string_literal_compare` also follows a module or class name bound exactly once to a `str` literal,
+including `Final`; imported, dynamic, conditional and reassigned names remain unknown, and Enum
+members are excluded (AD-80).
+
 The analyzer records `python_version` separately from its digest. Missing or incompatible
 `pyproject.toml` runtime requirements produce `runtime_mismatch`; AST parse errors only
 use `parse_error` after a compatible runtime check. Git snapshots carry their own project metadata.

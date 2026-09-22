@@ -1026,6 +1026,81 @@ def test_collect_constructs_detects_reflection_as_written(
             [("sample.mod", "match")],
         ),
         ('if __name__ == "__main__":\n    pass\n', []),
+        (
+            'EMPTY = ""\n\ndef f(value: str) -> bool:\n    return value == EMPTY\n',
+            [("sample.mod.f", "compare")],
+        ),
+        (
+            "from typing import Final\n"
+            'EMPTY: Final[str] = ""\n\n'
+            "def f(value: str) -> bool:\n"
+            "    return value == EMPTY\n",
+            [("sample.mod.f", "compare")],
+        ),
+        (
+            'EMPTY = ""\n\ndef f(value: str) -> bool:\n    return value in (EMPTY,)\n',
+            [("sample.mod.f", "membership")],
+        ),
+        (
+            "class Labels:\n"
+            '    EMPTY: str = ""\n\n'
+            "def f(value: str) -> bool:\n"
+            "    return value == Labels.EMPTY\n",
+            [("sample.mod.f", "compare")],
+        ),
+        (
+            "class Labels:\n"
+            '    EMPTY = ""\n\n'
+            "    def f(self, value: str) -> bool:\n"
+            "        return value == self.EMPTY\n",
+            [],
+        ),
+        (
+            "from enum import Enum\n\n"
+            "class Labels(Enum):\n"
+            '    EMPTY = ""\n\n'
+            "def f(value: str) -> bool:\n"
+            "    return value == Labels.EMPTY\n",
+            [],
+        ),
+        (
+            'EMPTY = ""\n'
+            'EMPTY = "other"\n\n'
+            "def f(value: str) -> bool:\n"
+            "    return value == EMPTY\n",
+            [],
+        ),
+        (
+            "if enabled:\n"
+            '    EMPTY = ""\n\n'
+            "def f(value: str) -> bool:\n"
+            "    return value == EMPTY\n",
+            [],
+        ),
+        (
+            "from other import EMPTY\n\ndef f(value: str) -> bool:\n    return value == EMPTY\n",
+            [],
+        ),
+        (
+            "EMPTY = read_value()\n\ndef f(value: str) -> bool:\n    return value == EMPTY\n",
+            [],
+        ),
+        (
+            "class Labels:\n"
+            '    EMPTY = ""\n'
+            '    EMPTY = "other"\n\n'
+            "def f(value: str) -> bool:\n"
+            "    return value == Labels.EMPTY\n",
+            [],
+        ),
+        (
+            "class Labels:\n"
+            '    EMPTY = ""\n\n'
+            'Labels.EMPTY = "other"\n\n'
+            "def f(value: str) -> bool:\n"
+            "    return value == Labels.EMPTY\n",
+            [],
+        ),
         ("ok = mode == 5\n", []),
         ('ok = mode == f"{x}"\n', []),
         ('ok = mode == b"a"\n', []),

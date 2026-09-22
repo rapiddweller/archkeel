@@ -111,6 +111,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-76 | [`boundary_types` and `symbol_placement` are restrictions in `--against`](decisions/ad-76-boundary-rules-are-restrictions-in-against.md) |
 | AD-77 | [An existing baseline is compared before it is written](decisions/ad-77-an-existing-baseline-is-compared-before-it-is-written.md) |
 | AD-78 | [Baseline fingerprints keep identity and record direction roles](decisions/ad-78-baseline-fingerprints-keep-identity-and-record-direction-roles.md) |
+| AD-80 | [`string_literal_compare` follows proven local string constants](decisions/ad-80-string-constant-comparisons-are-statically-resolved.md) |
 | AD-81 | [The project owns one fail-closed Make gate](decisions/ad-81-the-project-owns-one-fail-closed-make-gate.md) |
 
 ## Allowed dependencies
