@@ -304,6 +304,22 @@ explicit. A run whose baseline is exactly right exits
 be read is `baseline.invalid`, exit 2. The file's shape is
 [`schema/violation-baseline.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json).
 
+### Project gate
+
+Archkeel does not own a generic project-command configuration. Each repository owns one explicit
+Make entry point that names its locked checks and then its Archkeel validation:
+
+```make
+.PHONY: gate
+gate: check self-validate
+
+self-validate:
+	uv run --locked archkeel validate --root . --json
+```
+
+Keep commands as Make prerequisites, without pipes or output-tail filters. Make's nonzero status
+must reach CI; a later step must not mask a failed project check.
+
 ### Contract widening
 
 The easiest way to "fix" a violation in the target-first workflow above is to widen the target

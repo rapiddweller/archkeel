@@ -1,10 +1,15 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: check test lint typecheck fixtures self-observation demo demo-onboarding loop-figure demo-screenshots build smoke release-check
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding loop-figure demo-screenshots build smoke release-check
 check: lint typecheck test
 
+gate: release-check self-validate
+
 release-check: check build smoke
+
+self-validate:
+	$(UV) run --locked archkeel validate --root . --json
 
 test:
 	$(UV) run --locked python -m pytest -q
