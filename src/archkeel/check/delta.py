@@ -216,11 +216,11 @@ def _section(observation: Observation, dimension: str) -> tuple[Record, ...] | N
     records = observation.records(name)
     if records is None:
         return None
-    return (
-        crossing_imports(records, private=dimension == "private_crossings")
-        if dimension in {"api_crossings", "private_crossings"}
-        else records
-    )
+    if dimension == "private_crossings":
+        return crossing_imports(records, private=True)
+    if dimension == "api_crossings":
+        return crossing_imports(records, private=False)
+    return records
 
 
 def _delta_records(observation: Observation, dimension: str) -> tuple[_DeltaRecord, ...] | None:

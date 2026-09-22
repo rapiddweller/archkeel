@@ -222,6 +222,11 @@ def test_missing_scalar_is_unverifiable(scalar: str) -> None:
         evaluate_expectation(_typed_delta(delta), parse_expectation(_expectation_payload()))
 
 
+def test_legacy_measurements_default_new_private_access_scalar_to_zero() -> None:
+    measurements = parse_measurements(_measurements(), "legacy")
+    assert measurements.scalars.untyped_private_accesses == 0
+
+
 @pytest.mark.parametrize("invalid", [None, True, -1, 1.0, "1"])
 def test_invalid_integer_measurement_is_unverifiable(invalid: object) -> None:
     accepted = _measurements()

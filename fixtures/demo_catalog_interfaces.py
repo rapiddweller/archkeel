@@ -162,6 +162,23 @@ _INTERFACE_PACKAGE_ATTRIBUTE_OVER_SUBMODULE = Variant(
     expected_violations=("INTERFACE-BOUNDARY",),
     expected_codes=("rule.violated",),
 )
+UNTYPED_PRIVATE_ACCESS = HEADER + (
+    '"""A boundary probe with no type evidence for the runtime owner."""\n\n'
+    "from __future__ import annotations\n\n"
+    "def bump(context):\n"
+    "    return context.root._registry\n"
+)
+_INTERFACE_UNTYPED_PRIVATE_ACCESS = Variant(
+    id="class-a-private-attribute-untyped",
+    section="class_a",
+    item="private_access:untyped parameter",
+    summary="An untyped parameter reaches a private attribute; the analyzer records UNKNOWN "
+    "with the function, parameter and attribute instead of claiming component ownership.",
+    files={"shop/app/untyped_private.py": UNTYPED_PRIVATE_ACCESS},
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("private_attribute_access_limit", "shop.app.untyped_private.bump"),),
+)
 
 VARIANTS: tuple[Variant, ...] = (
     _INTERFACE_UNDERSCORE,
@@ -170,4 +187,5 @@ VARIANTS: tuple[Variant, ...] = (
     _INTERFACE_ALL_GATE,
     _INTERFACE_ACCEPTED_REEXPORT,
     _INTERFACE_PACKAGE_ATTRIBUTE_OVER_SUBMODULE,
+    _INTERFACE_UNTYPED_PRIVATE_ACCESS,
 )

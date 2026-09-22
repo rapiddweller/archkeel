@@ -490,8 +490,10 @@ Archkeel is deliberately strict about what it can prove:
 
 - **Competing implementations:** review is still required when no declared rule
   or observed regression exposes them.
-- **Private crossings:** only import records are checked. `import pkg;
-  pkg._member` is not detected.
+- **Private crossings:** private cross-package imports remain confirmed findings. A private
+  attribute rooted in an untyped or `Any` parameter is measured and named as UNKNOWN because
+  static source does not prove which component owns the runtime object. Typed parameters,
+  locals and public attributes are excluded.
 - **Precommitment:** publication order is proven; private editing order is not.
 - **Analyzer runtime:** Archkeel's Python must be at least the target
   repository's Python.

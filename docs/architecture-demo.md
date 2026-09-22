@@ -53,6 +53,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | interface_boundary:__all__ gate | class-a-interface-boundary-all-gate | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/render/discount_probe.py |
 | class_a | interface_boundary:accepted re-export | class-a-interface-boundary-accepted-reexport | validate/report run | - | - | shop/app/accepted_reexport.py |
 | class_a | interface_boundary:package attribute over submodule | class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/sqlite_probe.py, shop/store/__init__.py |
+| class_a | private_access:untyped parameter | class-a-private-attribute-untyped | validate/report run | - | - | shop/app/untyped_private.py |
 | class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | shop/model/promotions.py |
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |
@@ -117,6 +118,8 @@ run shows many violations together; every other row isolates one item.
 | class_b | GUARDRAIL_DIMENSIONS:violations | class-b-check-guardrail-violations | check run | - | - | shop/render/text.py |
 | class_b | SCALARS:private_crossings | class-b-scalar-private-crossings | check run | - | - | shop/cli/main.py |
 | class_b | GUARDRAIL_DIMENSIONS:private_crossings | class-b-guardrail-private-crossings | check run | - | - | shop/cli/main.py |
+| class_b | SCALARS:untyped_private_accesses | class-b-scalar-private-attribute-access | check run | - | - | shop/app/untyped_private.py |
+| class_b | GUARDRAIL_DIMENSIONS:unknowns:untyped attribute | class-b-guardrail-private-attribute-access | check run | - | - | shop/app/untyped_private.py |
 | class_b | SCALARS:cycle_edges | class-b-scalar-cycle-edges | check run | - | - | shop/model/uses_render.py |
 | class_b | GUARDRAIL_DIMENSIONS:cycles | class-b-check-guardrail-cycles | check run | - | - | shop/model/uses_render.py |
 | class_b | SCALARS:typing_positions | class-b-scalar-typing-positions | check run | - | - | shop/model/probe_type_ignore.py |
