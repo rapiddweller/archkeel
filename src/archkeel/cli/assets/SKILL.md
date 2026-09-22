@@ -35,6 +35,13 @@ edges, and a Mermaid graph of observed edges).
 Every rule `init` drafts carries `decided_by: "agent"` as a placeholder you must resolve, not
 an answer, and so does every component whose `public` list it drafted. It refuses to overwrite existing files without `--force`.
 
+`init` does not infer a foundation or decide where classes belong. Ask who owns a shared type
+first; foundation is not the default owner for domain enums or models. Record the architect's
+choice with the existing `symbol_placement` rule: set `source` to the package, `class_kinds` to
+the types it owns, and `exact_sources` to the chosen module (or `allowed_sources` to a package
+subtree). Follow the ownership example in the target-first guide. Run `archkeel validate` after
+adding it; a misplaced matching class is a `rule.violated`.
+
 Then pick one of two modes. The architect chooses; do not choose for them.
 
 ### Interview mode: the architect decides, you ask

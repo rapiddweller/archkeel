@@ -55,6 +55,31 @@ catch:
 }
 ```
 
+### Choose type ownership before placement
+
+`init` drafts package components. It does not infer a foundation or decide where classes belong.
+Ask who owns a shared type first. `foundation` is not the default home for domain enums or
+Pydantic models. If the architect assigns those types to `shop.model.vocabulary`, keep that
+decision in the existing `symbol_placement` rule:
+
+```json
+{
+  "id": "DOMAIN-TYPES-IN-MODEL",
+  "kind": "symbol_placement",
+  "source": "shop",
+  "class_kinds": ["enum", "pydantic_model"],
+  "exact_sources": ["shop.model.vocabulary"],
+  "rationale": "The model component owns shared domain vocabulary; foundation stays generic.",
+  "provenance": ["docs/architecture/architecture.md"],
+  "decided_by": "architect"
+}
+```
+
+`exact_sources` names one module. Use `allowed_sources` when the chosen owner is a package
+subtree. Run `archkeel validate` after adding the rule; matching classes in `shop.foundation`
+are then reported as `rule.violated`. The `class-a-symbol-placement` demo shows the same
+exact-module mechanism on the shop sample.
+
 ## 2. Get the first red report, and read it without drowning
 
 Once the target states more than the code has reached, `report` is red by design. On a repository

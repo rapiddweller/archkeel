@@ -106,6 +106,9 @@ made without the architect.
 | `architecture-contract.json` | Components, `complete_assignment`, `no_component_cycles` when acyclic, `interface_boundary` when any component has a `public` list. No dependency decision. Every drafted rule carries `decided_by: "agent"`. | Structure is deterministic; the allowed directions become component `requires` entries plus one `complete_requires` rule only after the architect confirms them. |
 | `docs/architecture/architecture.md` | Component table with each component's modules and inner edges, and a marked Mermaid graph of observed edges. | Deterministic from the observation; after a contract edit, `validate --write-graph` rewrites the graph's edges and leaves the rest of the page alone, unless the block holds a `subgraph`, a labeled edge or a style, which it leaves to a hand edit. |
 
+The [target-first guide](target-first.md) covers the ownership-first placement path when the
+target goes beyond the structure that `init` can infer.
+
 `init` also proposes AD-9 `public` entries: a component with inbound cross-component imports
 gets a `pkg.module` entry when the target module declares `__all__` or other components use at
 least half of its public names, and a `pkg.module:Name` entry per used name otherwise. A
