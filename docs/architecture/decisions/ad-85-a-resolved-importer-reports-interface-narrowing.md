@@ -9,7 +9,7 @@ The proof is intentionally narrow. A baseline without roles, an unrelated resolv
 an intra-component role, or an entry that cannot be reconstructed exactly leaves the normal
 diagnostic in place. New public entries and stale baseline entries remain fail-closed.
 
-No lifecycle state is added. Baseline roles are the existing before-evidence, and the current
-observation supplies the after-evidence.
+No lifecycle state is added. Baseline roles are protected before-evidence (AD-90), and the
+current observation supplies the after-evidence.
 
 Check: `tests/test_validation.py` and the `validation-baseline-interface-narrowing` demo row.

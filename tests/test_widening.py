@@ -458,10 +458,20 @@ def test_baseline_widening_reports_a_padded_or_new_entry() -> None:
     )
 
 
+def test_baseline_role_change_is_protected_semantic_evidence() -> None:
+    fingerprint = ViolationFingerprint(("R",), ("a", "b"))
+    before = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
+    after = (KnownViolation(fingerprint, 1, (("a", "c"),)),)
+
+    assert baseline_widenings(before, after) == (
+        "baseline entry roles changed: R | a b (a -> b before; a -> c now)",
+    )
+
+
 def test_baseline_shrinking_is_narrowing() -> None:
     fingerprint = ViolationFingerprint(("R",), ("a",))
-    before = (KnownViolation(fingerprint, 2),)
-    shrunk = (KnownViolation(fingerprint, 1),)
+    before = (KnownViolation(fingerprint, 2, (("a", "b"), ("c", "b"))),)
+    shrunk = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
     removed: tuple[KnownViolation, ...] = ()
     assert baseline_widenings(before, shrunk) == ()
     assert baseline_widenings(before, removed) == ()
@@ -648,6 +658,39 @@ def test_a_padded_baseline_entry_widens_the_contract(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "baseline entry widened: CONSTRUCT-NO-DYNAMIC | shop.model.probe.read" in " ".join(
         result.failures
+    )
+
+
+def test_role_only_baseline_drift_fails_against_with_the_same_fingerprint_and_count(
+    tmp_path: Path,
+) -> None:
+    fingerprint = ViolationFingerprint(
+        ("DEP-IMPORT",), ("shop.app.orders.summarize", "shop.cli.main")
+    )
+    root, _base = _repo_at_two_revisions(tmp_path, {})
+    baseline_path = root / "known-violations.json"
+    baseline_path.write_bytes(
+        baseline_bytes((KnownViolation(fingerprint, 1, (("shop.cli.main", "shop.app.orders"),)),))
+    )
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "baseline role")
+    base_with_baseline = _git(root, "rev-parse", "HEAD")
+    baseline_path.write_bytes(
+        baseline_bytes(
+            (KnownViolation(fingerprint, 1, (("shop.cli.main", "shop.app.orders.extra"),)),)
+        )
+    )
+
+    result, _ = run_validate(
+        root, SHOP_CONFIG, observe, against=base_with_baseline, baseline=baseline_path
+    )
+
+    assert result.exit_code == 1
+    assert (
+        "baseline entry roles changed: DEP-IMPORT | "
+        "shop.app.orders.summarize shop.cli.main "
+        "(shop.cli.main -> shop.app.orders before; "
+        "shop.cli.main -> shop.app.orders.extra now)" in result.failures
     )
 
 

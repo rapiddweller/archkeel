@@ -10,10 +10,14 @@ ArchitectureIR and HTML as remaining work. Missing evidence fails closed (AD-87)
 
 | Class | Purpose | Check outcome |
 |---|---|---|
-| A | Enforce a fact visible in one complete observation. | PASS or FAIL |
+| A | Enforce a fact visible in one complete observation. | PASS, FAIL or UNKNOWN |
 | B | Compare accepted and candidate observations. | PASS or FAIL |
 | C | Preserve declared context and validate public API promises. | Validation diagnostics, not a rule verdict |
 | D | Record a bounded human or LLM review claim. | HYPOTHESIS |
+
+Archkeel does not infer correctness. A position it sees but cannot resolve from deterministic
+evidence stays `UNKNOWN`, with its reason measured. `PASS` means no violation was found among
+the positions the rule decided; decided coverage and UNKNOWN counts remain separate (AD-90).
 
 ## Class A: deterministic rules
 
@@ -335,7 +339,8 @@ which per rule kind are the modules, the construct owner or the members of a cyc
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
 A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
 alone. Baseline schema `1.1.0` may also carry sorted `roles` objects (`source` and `target`) for
-directional violation rows; they explain every crossing and never change fingerprint identity.
+directional violation rows. They never change fingerprint identity, but they are semantic
+evidence: `validate --against` rejects any role-only change unless an amendment accepts it.
 Multiple roles are retained. Rows without a resolved direction, including construct rows, omit
 `roles`. Schema `1.0.0` remains readable. Counts must match the observation exactly: a higher one
 is a `new violation`, a lower one a `resolved violation`, both reported in `failures` with exit 1,

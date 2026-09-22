@@ -160,6 +160,8 @@ U_candidate × T_accepted <= U_accepted × T_candidate   (when both T > 0)
   returns exit `2` with a diagnostic. A complete report may instead exit `0` with
   `declared_rules: UNKNOWN` when a rule names the positions it could not decide; neither case is
   displayed as `PASS`.
+- **Verdict is not coverage.** `PASS` means no violation among positions Archkeel decided. Seen
+  positions without deterministic evidence stay `UNKNOWN` and remain counted separately.
 
 Archkeel complements tests, linters, and human review. It does not replace any
 of them. Its job is narrower: keep architecture changes declared, observable,

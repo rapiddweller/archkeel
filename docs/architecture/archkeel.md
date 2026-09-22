@@ -124,6 +124,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-86 | [`root_layout` allows only declared immediate children](decisions/ad-86-root-layout-allows-only-declared-immediate-children.md) |
 | AD-87 | [Compatibility shims are declared, logic-free and time-bounded](decisions/ad-87-compatibility-shims-are-declared-logic-free-and-timebounded.md) |
 | AD-88 | [Declared facade measurements are observations, not budgets](decisions/ad-88-declared-facade-measurements-are-observations-not-budgets.md) |
+| AD-90 | [Decision-relevant evidence is never neutral metadata](decisions/ad-90-decision-relevant-evidence-is-never-neutral-metadata.md) |
 
 ## Allowed dependencies
 

@@ -321,6 +321,23 @@ def test_a_malformed_baseline_document_is_rejected(payload: dict[str, object]) -
         parse_baseline(payload)
 
 
+def test_baseline_rejects_metadata_outside_its_semantic_fields() -> None:
+    with pytest.raises(ValueError, match="fields mismatch"):
+        parse_baseline(
+            {
+                "schema_version": BASELINE_SCHEMA_VERSION,
+                "violations": [
+                    {
+                        "rules": ["A"],
+                        "subjects": ["b"],
+                        "count": 1,
+                        "note": "not semantic evidence",
+                    }
+                ],
+            }
+        )
+
+
 def test_a_baseline_document_round_trips() -> None:
     violations = (
         KnownViolation(ViolationFingerprint(("RULE-B",), ("second",)), 3),
