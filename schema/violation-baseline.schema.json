@@ -1,18 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:violation-baseline:1",
-  "title": "Known-violation baseline for archkeel validate --baseline",
-  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52, AD-78, AD-90). A fingerprint is the rules a violation breaks and the sorted subjects they name; roles are protected directional evidence without changing identity.",
+  "title": "Validation baseline for archkeel validate --baseline",
+  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52, AD-78, AD-89, AD-90). A fingerprint is the rules a violation breaks and the sorted subjects they name; roles are protected directional evidence without changing identity. Budgets are accepted values for contract-selected deterministic measurements.",
   "type": "object",
   "required": [
     "schema_version",
-    "violations"
+    "violations",
+    "budgets"
   ],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "1.1.0",
-      "description": "Current writer schema; the reader also accepts baseline schema 1.0.0."
+      "const": "1.2.0",
+      "description": "Current writer schema; the reader also accepts baseline schemas 1.0.0 and 1.1.0."
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cycle_edges": {"type": "integer", "minimum": 0},
+        "private_crossings": {"type": "integer", "minimum": 0},
+        "typing_positions": {"type": "integer", "minimum": 0},
+        "calls_unresolved": {"type": "integer", "minimum": 0},
+        "untyped_private_accesses": {"type": "integer", "minimum": 0}
+      },
+      "description": "Exact accepted values for the measurement_budgets selected by the architecture contract."
     },
     "violations": {
       "type": "array",

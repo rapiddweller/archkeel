@@ -352,6 +352,19 @@ def project_declarations(
                 data={"steps": path.steps},
             )
         )
+    for budget in sorted(declarations.measurement_budgets, key=lambda item: item.name):
+        items.append(
+            classified(
+                item_id=f"BUDGET-{budget.name.upper()}",
+                evidence_class=EvidenceClass.DECLARED_RULE,
+                area="measurements",
+                kind="measurement_budget",
+                title=f"{budget.name} may not increase",
+                subjects=[budget.name],
+                provenance=list(budget.provenance),
+                data={"measurement": budget.name},
+            )
+        )
     items.extend(_rule_declaration(rule) for rule in contract.rules)
     for api in sorted(declarations.public_api):
         items.append(

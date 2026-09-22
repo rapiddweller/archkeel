@@ -112,8 +112,9 @@ whose own page draws both graphs and (today) has them agree; `validation-target-
 and `validation-target-graph-drift-subgraph` show the same two remedies isolated to the target marker,
 with the observed marker still passing.
 
-`validate --baseline <file>` holds the run against a file of known violations, for a contract
-that states the target architecture and so is violated by the code that has yet to reach it
+`validate --baseline <file>` holds the run against a file of known violations and selected
+measurement values, for a contract that states the target architecture and so is violated by
+the code that has yet to reach it
 (AD-52). Each entry names one violation by fingerprint — the rule ids it cites and its sorted
 `subjects`, the modules, construct owner or cycle members it is about — with the number of
 violations sharing it. No position enters a fingerprint, so an unrelated edit above a violating
@@ -125,13 +126,22 @@ and `baseline_resolved` counts. Only `rule.violated` is answered this way; every
 still exits 2, as does a baseline that cannot be read (`baseline.invalid`). `--write-baseline`
 writes the observed violations to that same path only after comparing an existing file: resolved-only
 drift may be written, while new or increased fingerprints refuse the write unless `--accept-new` is
-explicit. It writes nothing from a run that exited 2. `validate` with no `--baseline` behaves exactly
-as before. The file's shape is
+explicit. It writes nothing from a run that exited 2.
+
+`declarations.measurement_budgets` may select `cycle_edges`, `private_crossings`,
+`typing_positions`, `calls_unresolved` and `untyped_private_accesses`. Each declaration carries
+provenance. A selected value must equal the baseline: a rise is new debt; a fall must be written
+back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
+Contracts without measurement budgets behave as before. The file's shape is
 `schema/violation-baseline.schema.json`:
 
 ```json
 {
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
+  "budgets": {
+    "calls_unresolved": 12,
+    "cycle_edges": 0
+  },
   "violations": [
     {
       "count": 2,
@@ -144,7 +154,8 @@ as before. The file's shape is
 
 Directional violation entries may add sorted `roles` objects with `source` and `target`. Roles
 do not change the fingerprint, but they are protected semantic evidence because validation may
-use them. `validate --against` reports role-only drift. Baseline schema `1.0.0` remains readable.
+use them. `validate --against` reports role-only drift. Baseline schemas `1.0.0` and `1.1.0`
+remain readable.
 
 For target-first cleanup, schema 1.1 roles can also prove that a resolved importer was the last
 reach of one exact `public` module or symbol. `validate --baseline` then keeps the resolved
@@ -165,10 +176,11 @@ a removed `forbidden_dependency`/`forbidden_construct`/`external_dependency_scop
 entry, `include_type_checking` relaxed from true to false, a gained component `public` or
 `requires` entry, and a component added or removed, are each widening; every reverse is
 narrowing. Adding a component `namespace` is a narrowing placement restriction; removing or
-changing it is a widening. A padded baseline entry - a higher count or a new fingerprint - is a widening too,
-compared the same way against the baseline file at `--against`. Only a rule's or a `requires`
-entry's `rationale`, and every `provenance`, are neutral; any other difference - an unrecognised
-rule kind's presence, a field no classifier names, `declarations`, `$schema` - fails closed as a
+changing it is a widening. A padded violation entry, a raised measurement budget or a removed
+budget value is a widening too, compared against the baseline file at `--against`. Only a rule's
+or a `requires` entry's `rationale`, and every `provenance`, are neutral. Adding a measurement
+budget declaration narrows; removing one widens. Any other difference - an unrecognised rule
+kind's presence, a field no classifier names, `declarations`, `$schema` - fails closed as a
 widening. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
 each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contract_digest` - the

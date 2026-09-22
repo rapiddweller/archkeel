@@ -27,14 +27,21 @@ from archkeel.ir.codec import (
     contract_provenance_paths,
     decode_json,
     parse_amendment,
-    parse_baseline,
     parse_contract,
+    parse_validation_baseline,
 )
 from archkeel.ir.decisions import (
     agent_decisions,
     open_decisions,
     review_claims,
     violation_counts,
+)
+from archkeel.ir.measurements import (
+    MeasurementBudget,
+    RatchetError,
+    budget_regressions,
+    compare_budgets,
+    selected_budgets,
 )
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -63,10 +70,17 @@ from archkeel.ir.model import (
     in_scope,
     text_value,
 )
-from archkeel.ir.widening import Amendment, baseline_widenings, contract_widenings, verify_amendment
+from archkeel.ir.widening import (
+    Amendment,
+    baseline_widenings,
+    contract_widenings,
+    measurement_budget_widenings,
+    verify_amendment,
+)
 
 from .git import GitError, read_blob
 from .ports import Analyzer, FilesToWrite, ScanConfig
+from .ratchets import measure_python_ratchets
 from .report import observe_repository
 from .run import inspect_observation
 
@@ -1561,9 +1575,26 @@ def _baseline_invalid(path: Path, error: Exception) -> RunResult:
                 "baseline.invalid",
                 "",
                 str(path),
-                f"The known-violation baseline cannot be read: {error}",
+                f"The validation baseline cannot be read: {error}",
                 "Correct the baseline, or write it with archkeel validate --baseline "
                 "<path> --write-baseline.",
+            ),
+        ),
+    )
+
+
+def _budget_baseline_missing() -> RunResult:
+    return RunResult(
+        "validate",
+        2,
+        diagnostics=(
+            _diagnostic(
+                "baseline.invalid",
+                "/declarations/measurement_budgets",
+                "measurement_budgets",
+                "The contract selects measurement budgets but --baseline was not supplied.",
+                "Run validate with --baseline <path>; add --write-baseline to record the "
+                "current values.",
             ),
         ),
     )
@@ -1651,6 +1682,7 @@ class _AgainstContext:
     against: str | None
     contract: ArchitectureContract | None
     baseline: tuple[KnownViolation, ...]
+    budgets: tuple[MeasurementBudget, ...]
     amendment: Path | None
     write_amendment: bool
     parsed_amendment: Amendment | None
@@ -1670,12 +1702,12 @@ def _resolve_against_context(
 ) -> tuple[_AgainstContext, RunResult | None]:
     """The contract and baseline `--against` names, and `--amendment`'s record.
 
-    A missing baseline blob at that revision is not an error: the revision itself is already
-    known good once its contract parses, so a `GitError` reading the baseline path there means
-    only that the file did not exist yet, read as no prior baseline entries.
+    A missing violation baseline blob at that revision means no prior known debt. A declared
+    measurement budget is different: without its prior accepted value the comparison is not
+    decidable, so the revision is rejected instead of being treated as zero.
     """
     empty = _AgainstContext(
-        against, None, (), amendment, write_amendment, None, decided_by, rationale
+        against, None, (), (), amendment, write_amendment, None, decided_by, rationale
     )
     if against is None:
         return empty, None
@@ -1684,6 +1716,7 @@ def _resolve_against_context(
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
     against_baseline: tuple[KnownViolation, ...] = ()
+    against_budgets: tuple[MeasurementBudget, ...] = ()
     baseline_at = _baseline_at(root, baseline)
     if baseline_at is not None:
         try:
@@ -1692,14 +1725,29 @@ def _resolve_against_context(
             against_baseline_bytes = None
         if against_baseline_bytes is not None:
             try:
-                against_baseline = parse_baseline(decode_json(against_baseline_bytes))
+                parsed = parse_validation_baseline(decode_json(against_baseline_bytes))
+                against_baseline = parsed.violations
+                against_budgets = parsed.budgets
             except ValueError as error:
                 return empty, _against_invalid(against, error)
+    declared_budgets = {
+        item.name
+        for item in (against_contract.declarations or ContractDeclarations()).measurement_budgets
+    }
+    known_budgets = {item.name for item in against_budgets}
+    missing_budgets = sorted(declared_budgets - known_budgets)
+    if missing_budgets:
+        missing = ", ".join(missing_budgets)
+        return empty, _against_invalid(
+            against,
+            ValueError(f"measurement budget values are missing for: {missing}"),
+        )
     parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
     context = _AgainstContext(
         against,
         against_contract,
         against_baseline,
+        against_budgets,
         amendment,
         write_amendment,
         parsed_amendment,
@@ -1725,6 +1773,7 @@ def _widening_failures(
     contract: ArchitectureContract,
     baseline: Path | None,
     after_baseline: tuple[KnownViolation, ...],
+    after_budgets: tuple[MeasurementBudget, ...],
 ) -> tuple[str, ...]:
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
     if ctx.against is None or ctx.contract is None:
@@ -1732,6 +1781,7 @@ def _widening_failures(
     findings = list(contract_widenings(ctx.contract, contract))
     if baseline is not None:
         findings += list(baseline_widenings(ctx.baseline, after_baseline))
+        findings += list(measurement_budget_widenings(ctx.budgets, after_budgets))
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
@@ -1748,6 +1798,7 @@ def _artifact_files(
     write_baseline: bool,
     baseline: Path | None,
     violations: tuple[KnownViolation, ...],
+    budgets: tuple[MeasurementBudget, ...],
     against: _AgainstContext,
     contract: ArchitectureContract,
     edits: tuple[tuple[str, str], ...],
@@ -1763,7 +1814,7 @@ def _artifact_files(
     artifact: str | None = None
     if write_baseline and baseline is not None and exit_code != 2:
         artifact = str(baseline)
-        files[artifact] = baseline_bytes(violations)
+        files[artifact] = baseline_bytes(violations, budgets)
     if (
         against.write_amendment
         and against.contract is not None
@@ -1825,6 +1876,9 @@ def run_validate(
     increased fingerprints refuse that rewrite unless `accept_new` is explicit. Resolved-only
     drift may rewrite the file and shrinks the debt.
 
+    AD-89: `declarations.measurement_budgets` selects deterministic scalar measurements whose
+    accepted values share that baseline. A rise is new debt; a fall must rewrite the baseline.
+
     AD-61 (#11): with `against`, the contract at that Git revision - and, when `baseline` is
     also given, the baseline file there too - is compared with the one being validated;
     every widening (ir.widening.contract_widenings, ir.widening.baseline_widenings) is a
@@ -1832,16 +1886,32 @@ def run_validate(
     `write_amendment` writes that binding instead of checking it.
     """
     known: tuple[KnownViolation, ...] = ()
+    known_budgets: tuple[MeasurementBudget, ...] = ()
     baseline_exists = baseline is not None and baseline.exists()
     if baseline is not None and (not write_baseline or baseline_exists):
         try:
-            known = parse_baseline(decode_json(baseline.read_bytes()))
+            parsed_baseline = parse_validation_baseline(decode_json(baseline.read_bytes()))
+            known = parsed_baseline.violations
+            known_budgets = parsed_baseline.budgets
         except (OSError, ValueError) as error:
             return _baseline_invalid(baseline, error), FilesToWrite()
     parsed_contract = _parse_contract_or_invalid(root, config)
     if isinstance(parsed_contract, RunResult):
         return parsed_contract, FilesToWrite()
     contract = parsed_contract
+    declared_budgets = tuple(
+        item.name for item in (contract.declarations or ContractDeclarations()).measurement_budgets
+    )
+    if declared_budgets and baseline is None:
+        return _budget_baseline_missing(), FilesToWrite()
+    known_budget_names = {item.name for item in known_budgets}
+    missing_budget_names = sorted(set(declared_budgets) - known_budget_names)
+    if baseline is not None and baseline_exists and missing_budget_names and not write_baseline:
+        missing = ", ".join(missing_budget_names)
+        return _baseline_invalid(
+            baseline,
+            ValueError(f"measurement budget values are missing for: {missing}"),
+        ), FilesToWrite()
     against_ctx, against_error = _resolve_against_context(
         root, config, against, baseline, amendment, write_amendment, decided_by, rationale
     )
@@ -1867,13 +1937,29 @@ def run_validate(
         baseline is None,
         resolved_public_entries,
     )
+    try:
+        observed_budgets = selected_budgets(measure_python_ratchets(observation), declared_budgets)
+    except RatchetError as error:
+        diagnostics.append(
+            _diagnostic(
+                "observation.incomplete",
+                "",
+                "measurement_budgets",
+                f"The measurement budgets cannot be decided: {error}",
+                "Repair the analyzer evidence and retry.",
+            )
+        )
+        observed_budgets = ()
     baseline_new, baseline_resolved = (
         violation_drift_counts(known, violations) if baseline_exists else (0, 0)
     )
     comparison = compare_violations(known, violations) if baseline_exists else ()
+    budget_comparison = compare_budgets(known_budgets, observed_budgets) if baseline_exists else ()
+    budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
     baseline_failures = (
-        comparison
-        if not write_baseline or (baseline_exists and baseline_new and not accept_new)
+        (*comparison, *budget_comparison)
+        if not write_baseline
+        or (baseline_exists and (baseline_new or budget_new) and not accept_new)
         else ()
     )
     interface_narrowings = tuple(
@@ -1881,7 +1967,11 @@ def run_validate(
         for component, entry in sorted(resolved_public_entries)
     )
     widening_failures = _widening_failures(
-        against_ctx, contract, baseline, violations if write_baseline else known
+        against_ctx,
+        contract,
+        baseline,
+        violations if write_baseline else known,
+        observed_budgets if write_baseline else known_budgets,
     )
     result = _observed_result(
         observation,
@@ -1890,11 +1980,14 @@ def run_validate(
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
     )
-    write_baseline = write_baseline and (not baseline_exists or not baseline_new or accept_new)
+    write_baseline = write_baseline and (
+        not baseline_exists or not (baseline_new or budget_new) or accept_new
+    )
     files, artifact = _artifact_files(
         write_baseline=write_baseline,
         baseline=baseline,
         violations=violations,
+        budgets=observed_budgets,
         against=against_ctx,
         contract=contract,
         edits=edits,

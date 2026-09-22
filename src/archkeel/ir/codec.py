@@ -17,11 +17,21 @@ from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
 from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     LEGACY_BASELINE_SCHEMA_VERSION,
+    ROLES_BASELINE_SCHEMA_VERSION,
     KnownViolation,
+    ValidationBaseline,
     ViolationFingerprint,
 )
 from archkeel.ir.lock import AcceptedLock, LockError
-from archkeel.ir.measurements import SCALARS, Measurements, RatchetError, RatchetScalars, count
+from archkeel.ir.measurements import (
+    SCALARS,
+    MeasurementBudget,
+    MeasurementBudgetName,
+    Measurements,
+    RatchetError,
+    RatchetScalars,
+    count,
+)
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
@@ -44,6 +54,7 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractDeclarations,
     ContractInfo,
+    ContractMeasurementBudget,
     ContractOwner,
     ContractPath,
     ContractPathKind,
@@ -664,6 +675,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
                 "paths",
                 "spot_owners",
                 "compat",
+                "measurement_budgets",
             },
             "contract.declarations",
         )
@@ -714,6 +726,12 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     if len({item.module for item in compat}) != len(compat):
         raise ValueError("contract.declarations.compat modules must be unique")
+    budgets = tuple(
+        _parse_measurement_budget(value, f"measurement_budgets[{index}]")
+        for index, value in enumerate(records("measurement_budgets"))
+    )
+    if len({item.name for item in budgets}) != len(budgets):
+        raise ValueError("contract.declarations.measurement_budgets repeats a name")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     ids = [
         item.id
@@ -749,6 +767,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
             paths,
             owners,
             compat,
+            budgets,
         )
         if declarations_raw is not None
         else None,
@@ -937,6 +956,14 @@ def _parse_owner(raw: RawJson, label: str) -> ContractOwner:
     owner = _nonempty(item["owner"], f"{label}.owner")
     responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
     return ContractOwner(item_id, title, owner, responsibility, provenance)
+
+
+def _parse_measurement_budget(raw: RawJson, label: str) -> ContractMeasurementBudget:
+    item = _contract_fields(raw, {"name", "provenance"}, set(), label)
+    return ContractMeasurementBudget(
+        _measurement_budget_name(item["name"], f"{label}.name"),
+        _contract_strings(item["provenance"], f"{label}.provenance", required=True),
+    )
 
 
 def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependencyRule:
@@ -1574,6 +1601,7 @@ def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]
         declarations.public_commands,
         declarations.paths,
         declarations.spot_owners,
+        declarations.measurement_budgets,
     ):
         for record in records:
             paths.update(record.provenance)
@@ -1639,15 +1667,40 @@ def _known_violation(raw: RawJson, label: str, *, with_roles: bool) -> KnownViol
     )
 
 
-def parse_baseline(raw: object) -> tuple[KnownViolation, ...]:
-    """Read a known-violation baseline, ordered like the writer writes it (AD-52)."""
-    document = _exact(raw, {"schema_version", "violations"}, "baseline")
-    schema_version = document["schema_version"]
-    if schema_version not in {LEGACY_BASELINE_SCHEMA_VERSION, BASELINE_SCHEMA_VERSION}:
+def _measurement_budget_name(raw: object, label: str) -> MeasurementBudgetName:
+    value = _string(raw, label)
+    if value == "cycle_edges":
+        return "cycle_edges"
+    if value == "private_crossings":
+        return "private_crossings"
+    if value == "typing_positions":
+        return "typing_positions"
+    if value == "calls_unresolved":
+        return "calls_unresolved"
+    if value == "untyped_private_accesses":
+        return "untyped_private_accesses"
+    raise ValueError(f"{label} is not a supported measurement budget")
+
+
+def parse_validation_baseline(raw: object) -> ValidationBaseline:
+    """Read the violation and measurement-budget baseline written by validate."""
+    untyped = _object(raw, "baseline")
+    schema_version = untyped.get("schema_version")
+    versions = {
+        LEGACY_BASELINE_SCHEMA_VERSION,
+        ROLES_BASELINE_SCHEMA_VERSION,
+        BASELINE_SCHEMA_VERSION,
+    }
+    if schema_version not in versions:
         raise ValueError(
-            f"baseline schema {schema_version!r} cannot be read as "
-            f"{LEGACY_BASELINE_SCHEMA_VERSION} or {BASELINE_SCHEMA_VERSION}"
+            f"baseline schema {schema_version!r} cannot be read as {', '.join(sorted(versions))}"
         )
+    fields = {"schema_version", "violations", "budgets"}
+    document = _exact(
+        untyped,
+        fields if schema_version == BASELINE_SCHEMA_VERSION else fields - {"budgets"},
+        "baseline",
+    )
     entries = document["violations"]
     if not isinstance(entries, list):
         raise ValueError("baseline.violations must be an array")
@@ -1655,21 +1708,40 @@ def parse_baseline(raw: object) -> tuple[KnownViolation, ...]:
         _known_violation(
             entry,
             f"baseline.violations[{index}]",
-            with_roles=schema_version == BASELINE_SCHEMA_VERSION,
+            with_roles=schema_version != LEGACY_BASELINE_SCHEMA_VERSION,
         )
         for index, entry in enumerate(entries)
     )
     if len({item.fingerprint for item in violations}) != len(violations):
         raise ValueError("baseline.violations repeats a fingerprint; give it one count instead")
-    return tuple(
+    ordered = tuple(
         sorted(violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects))
     )
+    raw_budgets = document.get("budgets", {})
+    if not isinstance(raw_budgets, dict) or not all(isinstance(name, str) for name in raw_budgets):
+        raise ValueError("baseline.budgets must be an object")
+    budgets = tuple(
+        MeasurementBudget(
+            _measurement_budget_name(name, f"baseline.budgets.{name}"),
+            count(value, f"baseline.budgets.{name}"),
+        )
+        for name, value in sorted(raw_budgets.items())
+    )
+    return ValidationBaseline(ordered, budgets)
 
 
-def baseline_bytes(violations: tuple[KnownViolation, ...]) -> bytes:
+def parse_baseline(raw: object) -> tuple[KnownViolation, ...]:
+    """Read known violations for callers that do not consume measurement budgets."""
+    return parse_validation_baseline(raw).violations
+
+
+def baseline_bytes(
+    violations: tuple[KnownViolation, ...], budgets: tuple[MeasurementBudget, ...] = ()
+) -> bytes:
     """Write the baseline indented and one entry per line: this file is read in diffs."""
     payload = {
         "schema_version": BASELINE_SCHEMA_VERSION,
+        "budgets": {item.name: item.value for item in sorted(budgets, key=lambda x: x.name)},
         "violations": [
             {
                 "rules": list(item.fingerprint.rules),

@@ -89,6 +89,7 @@ ROOT_FILES = frozenset(
         "Makefile",
         "README.md",
         "RELEASE_NOTES.md",
+        "architecture-baseline.json",
         "architecture-contract.json",
         "archkeel.toml",
         "pyproject.toml",

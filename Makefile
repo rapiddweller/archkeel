@@ -9,7 +9,7 @@ gate: release-check self-validate
 release-check: check build smoke
 
 self-validate:
-	$(UV) run --locked archkeel validate --root . --json
+	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
 test:
 	$(UV) run --locked python -m pytest -q

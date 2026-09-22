@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Name a violation independently of its position, and compare a known-violation baseline.
+"""Name a violation independently of its position, and compare a validation baseline.
 
 AD-52: a `VIO-` id hashes the fact it cites, and a fact id hashes the source position, so an
 unrelated line inserted above a violating import renames the violation without changing the
@@ -15,6 +15,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from .interfaces import component_owners, owner_of
+from .measurements import MeasurementBudget
 from .model import (
     RULE_KINDS,
     Diagnostic,
@@ -25,7 +26,8 @@ from .model import (
     text_value,
 )
 
-BASELINE_SCHEMA_VERSION = "1.1.0"
+BASELINE_SCHEMA_VERSION = "1.2.0"
+ROLES_BASELINE_SCHEMA_VERSION = "1.1.0"
 LEGACY_BASELINE_SCHEMA_VERSION = "1.0.0"
 
 
@@ -49,6 +51,14 @@ class KnownViolation:
     count: int
     # Decision-relevant direction evidence; protected separately from fingerprint identity.
     roles: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationBaseline:
+    """Known violations and accepted values for contract-selected measurements."""
+
+    violations: tuple[KnownViolation, ...] = ()
+    budgets: tuple[MeasurementBudget, ...] = ()
 
 
 def violation_fingerprint(record: Record) -> ViolationFingerprint:

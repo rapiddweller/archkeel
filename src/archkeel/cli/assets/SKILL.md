@@ -123,8 +123,9 @@ archkeel validate --baseline known-violations.json                    # the CI g
 
 The gate fails (exit 1) on a violation the file does not state, and on one it states that
 nobody violates any more — so the budget only shrinks, and the file is rewritten in the same
-change that shrinks it. Never add a new violation to the baseline to make a run pass: that is
-the architect's decision, not the agent's (AD-52).
+change that shrinks it. `declarations.measurement_budgets` may put deterministic scalar values
+through the same loop (AD-89). Never raise either kind of debt to make a run pass without the
+architect's decision.
 
 A reviewer or a CI gate may hold your branch to this the same way, with `archkeel validate
 --against <base ref>`: it classifies every difference from the contract at that revision — a
@@ -233,8 +234,8 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md
 
 - `init`: 0 draft written, 2 not checked (with a diagnostic).
 - `validate`: 0 contract valid for this repository, 2 invalid (diagnostics with JSON
-  Pointers). With `--baseline <file>` also 1: a violation the file does not state, or one it
-  states that nobody violates any more, each named in `failures` (AD-52). With `--against
+  Pointers). With `--baseline <file>` also 1: a violation or selected measurement differs from
+  the baseline, named in `failures` (AD-52, AD-89). With `--against
   <ref>` also 1: an unamended widening, named in `failures` (AD-61, #11).
 - `report`: 0 observation complete (a rule violation is a FAIL verdict), 2 not checked.
 - `skill install claude|codex`: 0 instructions written, 2 the target file could not be updated.

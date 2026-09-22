@@ -22,6 +22,7 @@ from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
 from .baseline import KnownViolation
+from .measurements import MeasurementBudget
 from .model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -416,31 +417,51 @@ def contract_widenings(
     ]
     if before.schema != after.schema:
         findings.append(f"contract.$schema changed from {before.schema!r} to {after.schema!r}")
-    if before.declarations != after.declarations:
-        before_declarations = before.declarations or ContractDeclarations()
-        after_declarations = after.declarations or ContractDeclarations()
-        before_without_compat = replace(before_declarations, compat=())
-        after_without_compat = replace(after_declarations, compat=())
-        if before_without_compat != after_without_compat:
+    before_declarations = before.declarations or ContractDeclarations()
+    after_declarations = after.declarations or ContractDeclarations()
+    findings += _set_widenings(
+        "contract.declarations.measurement_budgets",
+        frozenset(item.name for item in before_declarations.measurement_budgets),
+        frozenset(item.name for item in after_declarations.measurement_budgets),
+        grows_widens=False,
+    )
+    before_without_handled = replace(before_declarations, compat=(), measurement_budgets=())
+    after_without_handled = replace(after_declarations, compat=(), measurement_budgets=())
+    if before_without_handled != after_without_handled:
+        findings.append("contract.declarations changed in a way this comparison does not enumerate")
+    before_compat = {item.module: item for item in before_declarations.compat}
+    after_compat = {item.module: item for item in after_declarations.compat}
+    findings.extend(
+        f"compat module {after_compat[module].module!r} added"
+        for module in sorted(set(after_compat) - set(before_compat))
+    )
+    for module in sorted(set(before_compat) & set(after_compat)):
+        old, new = before_compat[module], after_compat[module]
+        if old.target != new.target:
             findings.append(
-                "contract.declarations changed in a way this comparison does not enumerate"
+                f"compat module {module!r} changed from {old.target!r} to {new.target!r}"
             )
-        else:
-            before_map = {item.module: item for item in before_declarations.compat}
-            after_map = {item.module: item for item in after_declarations.compat}
-            findings.extend(
-                f"compat module {after_map[module].module!r} added"
-                for module in sorted(set(after_map) - set(before_map))
-            )
-            for module in sorted(set(before_map) & set(after_map)):
-                old, new = before_map[module], after_map[module]
-                if old.target != new.target:
-                    findings.append(
-                        f"compat module {module!r} changed from {old.target!r} to {new.target!r}"
-                    )
-                if old.lifetime == "migration" and new.lifetime == "permanent":
-                    findings.append(f"compat module {module!r} lifetime became permanent")
+        if old.lifetime == "migration" and new.lifetime == "permanent":
+            findings.append(f"compat module {module!r} lifetime became permanent")
     return tuple(sorted(findings))
+
+
+def measurement_budget_widenings(
+    before: tuple[MeasurementBudget, ...], after: tuple[MeasurementBudget, ...]
+) -> tuple[str, ...]:
+    """A raised or dropped accepted value widens its contract-selected measurement budget."""
+    before_values = {item.name: item.value for item in before}
+    after_values = {item.name: item.value for item in after}
+    findings = []
+    for name in sorted(before_values):
+        if name not in after_values:
+            findings.append(f"measurement budget baseline lost {name}")
+        elif after_values[name] > before_values[name]:
+            findings.append(
+                f"measurement budget widened: {name} "
+                f"({after_values[name]} now, {before_values[name]} before)"
+            )
+    return tuple(findings)
 
 
 def baseline_widenings(

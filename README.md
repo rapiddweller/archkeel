@@ -196,9 +196,9 @@ archkeel report --only violations --component store
   level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
   and under `claims` in `--json`, while the HTML report lists the candidates. None of it reaches
   an exit code.
-- **Facade shape is measured, never budgeted.** The report shows declared export counts,
+- **Facade shape stays measured, not inferred.** The report shows declared export counts,
   re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
-  width. These facts do not claim a barrel is complete; contract budgets are later work (AD-88).
+  width. These facts do not claim a barrel is complete and are not budget inputs (AD-88).
 
 ## Try the demo
 
@@ -281,10 +281,15 @@ edits above it do not move it. Running that loop day
 to day — gating CI, keeping the target from widening, working the backlog down — is
 [docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md).
 
-Schema 1.1 baseline roles also prove when a resolved importer was the last reach of one exact
-public module or symbol. `validate --baseline` reports the resolved violation, suppresses only
-that matching `interface.unused` twin, and says to remove the now-unreached entry; old 1.0 files
-and unrelated roles stay fail-closed (AD-85).
+The contract may also select deterministic scalars under `declarations.measurement_budgets`.
+Baseline schema 1.2 stores their accepted values. A rise fails; a fall must be written back.
+Archkeel uses this itself for cycle edges, private crossings, typing positions, unresolved calls
+and untyped private accesses (AD-89).
+
+Baseline roles, introduced in schema 1.1, also prove when a resolved importer was the last reach
+of one exact public module or symbol. `validate --baseline` reports the resolved violation,
+suppresses only that matching `interface.unused` twin, and says to remove the now-unreached
+entry; old 1.0 files and unrelated roles stay fail-closed (AD-85).
 
 To install it permanently instead, run `pip install archkeel`. Every command explains itself
 with `archkeel <command> --help`.
@@ -440,8 +445,8 @@ make gate
 ```
 
 This runs the locked release checks (Ruff, strict mypy, pytest, builds and smoke tests) and then
-`archkeel validate --root . --json`. CI uses this same Make entry point. `make check` remains the
-faster source, type and test loop.
+`archkeel validate --root . --baseline architecture-baseline.json --json`. CI uses this same
+Make entry point. `make check` remains the faster source, type and test loop.
 
 A change to Python code under `src/` or to an architecture contract moves the saved
 self-observation that check compares against; regenerate it with `make self-observation`. The
@@ -509,9 +514,10 @@ Archkeel is deliberately strict about what it can prove:
   `[project] name` names when several sit side by side (AD-47); other layouts need `--source` and
   `--namespace`. It never decides a dependency; the architect or, in auto mode, the agent does,
   and `decided_by` keeps the difference visible.
-- **Known-violation baseline:** the file is compared, never authenticated; `check`'s digest
+- **Validation baseline:** the file is compared, never authenticated; `check`'s digest
   chain does not cover it. `--write-baseline` compares an existing file before updating it;
-  `--accept-new` is required to accept new or increased fingerprints. `validate --against <ref>` classifies a padded entry as a widening
+  `--accept-new` is required to accept new or increased violations or measurement values.
+  `validate --against <ref>` classifies a padded entry or raised budget as a widening
   like any other and fails it without an amendment (AD-61), but only when a reviewer or CI runs
   it with `--against`; nothing forces that flag on every gate.
 - **Static observation:** runtime behavior, data flow and performance are not observed; see

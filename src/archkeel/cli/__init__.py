@@ -146,14 +146,14 @@ def build_parser() -> _Parser:
             "permits. Run it after every contract edit; --write-graph first rewrites each\n"
             "marked graph's edges, leaving the rest of the page untouched.\n\n"
             "A contract that states the target architecture is violated by the code that\n"
-            "has yet to reach it. --baseline names a file of those known violations: the\n"
-            "run then fails only on a violation the file does not state, and on one it\n"
-            "states that nobody violates any more, so the budget only shrinks.\n"
-            "--write-baseline compares an existing file before updating it: resolved-only\n"
-            "drift may be written, while new or increased fingerprints require --accept-new.\n\n"
+            "has yet to reach it. --baseline names a file of those known violations and\n"
+            "contract-selected measurement values. The run fails when either drifts.\n"
+            "--write-baseline compares an existing file before updating it: reductions may\n"
+            "be written, while new or increased debt requires --accept-new.\n\n"
             "--against <ref> classifies every difference from the contract at that Git\n"
             "revision (and, with --baseline, the baseline file there too) as a widening -\n"
-            "a new permission or a dropped restriction, including a padded baseline entry -\n"
+            "a new permission or a dropped restriction, including a padded violation or\n"
+            "raised or removed measurement budget -\n"
             "or a narrowing, its harmless reverse. A widening fails unless --amendment names\n"
             "a file recording who decided it and why, bound to this exact before/after pair;\n"
             "write it with --write-amendment, --decided-by and --rationale.\n\n"
@@ -169,7 +169,7 @@ def build_parser() -> _Parser:
             "  archkeel validate --against main --amendment widening.json\n\n"
             "Exit codes:\n"
             "  0  the contract is valid for this repository\n"
-            "  1  with --baseline: a violation is new, or a known one is resolved; with\n"
+            "  1  with --baseline: a violation or selected measurement changed; with\n"
             "     --against: an unamended widening\n"
             "  2  invalid: each diagnostic names the JSON Pointer to fix\n\n"
             f"Rules: {_DOCS}/rules.md"
@@ -185,8 +185,8 @@ def build_parser() -> _Parser:
     validate.add_argument(
         "--baseline",
         type=Path,
-        help="File of known violations. Fail only on a violation it does not state, or on "
-        "one it states that nobody violates any more.",
+        help="File of known violations and contract-selected measurement values. Fail when "
+        "either differs from the current observation.",
     )
     validate.add_argument(
         "--write-baseline",
@@ -196,7 +196,7 @@ def build_parser() -> _Parser:
     validate.add_argument(
         "--accept-new",
         action="store_true",
-        help="Allow --write-baseline to accept new or increased violations.",
+        help="Allow --write-baseline to accept new or increased debt.",
     )
     validate.add_argument(
         "--against",

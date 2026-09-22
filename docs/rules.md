@@ -338,16 +338,17 @@ Each entry names one violation by fingerprint — the rule ids it cites and its 
 which per rule kind are the modules, the construct owner or the members of a cycle — plus the
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
 A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
-alone. Baseline schema `1.1.0` may also carry sorted `roles` objects (`source` and `target`) for
-directional violation rows. They never change fingerprint identity, but they are semantic
-evidence: `validate --against` rejects any role-only change unless an amendment accepts it.
+alone. Baseline schema `1.2.0` also carries contract-selected measurement budgets and may carry
+sorted `roles` objects (`source` and `target`) for directional violation rows; they explain every
+crossing and never change fingerprint identity. They are semantic evidence: `validate --against`
+rejects any role-only change unless an amendment accepts it.
 Multiple roles are retained. Rows without a resolved direction, including construct rows, omit
-`roles`. Schema `1.0.0` remains readable. Counts must match the observation exactly: a higher one
-is a `new violation`, a lower one a `resolved violation`, both reported in `failures` with exit 1,
-so the budget only shrinks. An existing baseline is compared before a write: resolved-only drift
-may be written, while new or increased fingerprints refuse the write unless `--accept-new` is
-explicit. A run whose baseline is exactly right exits
-0, with `declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
+`roles`. Schemas `1.0.0` and `1.1.0` remain readable. Counts must match the observation exactly:
+a higher one is a `new violation`, a lower one a `resolved violation`, both reported in
+`failures` with exit 1, so the budget only shrinks. An existing baseline is compared before a
+write: resolved-only drift may be written, while new or increased fingerprints refuse the write
+unless `--accept-new` is explicit. A run whose baseline is exactly right exits 0, with
+`declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
 `decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that cannot
 be read is `baseline.invalid`, exit 2. The file's shape is
 [`schema/violation-baseline.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json).
@@ -362,7 +363,7 @@ Make entry point that names its locked checks and then its Archkeel validation:
 gate: check self-validate
 
 self-validate:
-	uv run --locked archkeel validate --root . --json
+	uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 ```
 
 Keep commands as Make prerequisites, without pipes or output-tail filters. Make's nonzero status
@@ -413,12 +414,19 @@ integer cross-multiplied ratios and semantic fingerprints.
 `coverage_failures` is measured but cannot regress between two comparable observations: an
 incomplete scan produces no measurements, so the check reports NOT CHECKED instead.
 
+`declarations.measurement_budgets` selects already-produced scalars for `validate --baseline`:
+`cycle_edges`, `private_crossings`, `typing_positions`, `calls_unresolved` and
+`untyped_private_accesses`. Baseline schema 1.2 stores their exact accepted values. A rise fails;
+a fall also fails until `--write-baseline` records it. Missing measurement evidence exits 2,
+never PASS (AD-89).
+
 ## Class C: declarations
 
 Fields under `declarations` preserve capabilities, review scopes, a package's external public
-API, commands, context roots, paths and owners. Archkeel decodes and reports every one of them,
-and checks every one for two structural facts: a declared name resolves inside the configured
-namespace (`reference.namespace`) and a declared provenance file exists (`reference.provenance`).
+API, commands, context roots, paths, owners and measurement budgets. Archkeel decodes and reports
+every one of them, and checks every one for two structural facts: a declared name resolves inside
+the configured namespace (`reference.namespace`) and a declared provenance file exists
+(`reference.provenance`).
 `public_api` names the surface a consumer *outside* this package may rely on - a different thing
 from the component `public` field, which names one component's promise to another component of
 the *same* package and is held to `interface_boundary` at every crossing (AD-9). Nothing inside
@@ -570,6 +578,7 @@ under the optional `declarations` object:
 | `context_roots_provenance` | `declarations.context_roots_provenance` |
 | `paths` | `declarations.paths` |
 | `spot_owners` | `declarations.spot_owners` |
+| `measurement_budgets` | `declarations.measurement_budgets` |
 
 Set `schema_version` to `2.1.0`. The optional `$schema` points to
 `schema/architecture-contract.schema.json`. Omit unused declaration arrays instead of copying

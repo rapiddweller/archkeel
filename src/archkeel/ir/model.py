@@ -12,7 +12,7 @@ from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Final, Literal, TypeAlias, get_args, get_type_hints
 
-from .measurements import Measurements
+from .measurements import MeasurementBudgetName, Measurements
 
 SCHEMA_VERSION = "1.3.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
@@ -259,6 +259,12 @@ class CompatibilityShim:
     module: str
     target: str
     lifetime: CompatibilityLifetime
+
+
+@dataclass(frozen=True, slots=True)
+class ContractMeasurementBudget:
+    name: MeasurementBudgetName
+    provenance: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -542,6 +548,7 @@ class ContractDeclarations:
     paths: tuple[ContractPath, ...] = ()
     spot_owners: tuple[ContractOwner, ...] = ()
     compat: tuple[CompatibilityShim, ...] = ()
+    measurement_budgets: tuple[ContractMeasurementBudget, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
