@@ -45,7 +45,10 @@ a `requires` entry (below); the two together, never redefining either marker, si
 silently change what a page already asserts. The target graph may differ from the component graph
 - a permission not yet used, or debt the code has not yet shed - without either being wrong; only a
 marker whose own edges disagree with its own source is `graph.drift`, and the diagnostic's subject
-names which marker. A page may carry either marker, both or neither; `init` never writes the target
+names which marker. The component claim calls drawn-but-unobserved edges **edges gone from code** and
+observed-but-undrawn edges **edges new in code**. The target claim uses **edges gone from contract**
+and **edges new in contract**, because it compares permissions, not imports. Both directions are
+stated explicitly. A page may carry either marker, both or neither; `init` never writes the target
 marker, since it drafts no dependency decision for `--write-graph` to draw (AD-15).
 
 `forbidden_construct` fields are `source`, `constructs` and optional `allowed_sources` and
