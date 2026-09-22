@@ -11,7 +11,9 @@ types their facades expose are declared, not hidden and not carried as debt:
 | `check` | `archkeel.check.ports:Host` | 1 parameter: `run_check` | declared, both levels |
 | `render` | `archkeel.render.summary:Summary` | 3 returns plus `print_result`'s parameter | declared |
 
-No signature changed. No baseline was written.
+`run_init` and `run_validate` now return `FilesToWrite`, a typed `Mapping[str, bytes]` port,
+instead of a bare `dict[str, bytes]`. Existing callers keep the same mapping operations. No
+baseline was written.
 
 ## Why
 
@@ -39,22 +41,30 @@ must be one the observation records a facade signature as exposing.
 
 | Alternative | Why not |
 |---|---|
-| Change the signatures | Hides a Protocol the caller must implement behind an untyped parameter: a green rule bought by making the boundary less legible. |
+| Keep the bare `dict[str, bytes]` returns | Leaves the write result as an unnamed broad container. `FilesToWrite` makes the boundary explicit while preserving mapping behavior. |
 | Carry the ten in a baseline ([AD-52](ad-52-a-violation-is-named-by-what-it-is-and-a-baseline-may-hold.md)) | Right when the architecture question is open. This one is not. |
 | Teach `_drafted_public` to propose signature types | Needs the facade list it is still proposing, and a second scan. The guard change costs nothing and keeps its teeth. |
 
-## Limit
+## Current unknowns
 
-Decides the ten positions that exist today, not the rule's reach. The collection-element reading
-in flight (issue #59) adds two findings no declaration can answer: `run_init` and `run_validate`
-both return `tuple[RunResult, dict[str, bytes]]`, and a bare `dict[...]` is the broad container
-AD-58 names. That is a signature question, left open here. `api` declares no facade, so the rule
-still does not reach it.
+The collection-element case from issue #59 is resolved by `FilesToWrite`; `run_init` and
+`run_validate` no longer expose `dict[str, bytes]`. The self report still records checker limits,
+one UNKNOWN record per declared rule:
+
+| Rule | Positions | Decided | UNKNOWN | Reasons |
+|---|---:|---:|---:|---|
+| `ANALYZER-TYPES-DECLARED` | 8 | 6 | 2 | 2 `external_type` |
+| `RENDER-TYPES-DECLARED` | 27 | 24 | 3 | 3 `union` |
+| `CHECK-TYPES-DECLARED` | 58 | 39 | 19 | 12 `union`, 6 `external_type`, 1 `generic` |
+
+These records report and do not gate. The current self report has 0 violations and
+`declared_rules: UNKNOWN`; `validate --root . --json` exits 0 with no diagnostics.
 
 ## Check
 
 | Claim | Evidence |
 |---|---|
-| The declaration is legal now | `archkeel validate --root . --json` exits 0, no diagnostics; the same three entries before AD-65 gave exit 2 with `interface.unused` and `inside.public_mismatch` |
-| Nothing is vacuous | `archkeel report` gives `declared_rules: PASS`, 0 violations, all three rules carrying subjects |
-| The contract holds it, not a test | `tests/test_self.py::test_self_facades_record_the_ten_types_they_expose` reads both the entries and the rule sources from the contract |
+| The declaration is legal now | `archkeel validate --root . --json` exits 0 with no diagnostics; `tests/test_onboarding.py::test_run_init_declares_a_files_type_that_is_not_a_bare_dict` and `tests/test_validation.py::test_run_validate_declares_a_files_type_that_is_not_a_bare_dict` pin the typed write result |
+| Unknowns stay explicit | `archkeel report` records one `boundary_type_limit` per rule with the counts above; `declared_rules` is `UNKNOWN`, not `PASS` |
+| Nothing is vacuous | The same report has 0 violations and all three rules carry subjects |
+| The contract holds it, not a test | `tests/test_self.py::test_self_facades_record_the_ten_types_they_expose` reads the entries and rule sources from the contract |
