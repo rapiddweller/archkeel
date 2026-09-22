@@ -69,15 +69,25 @@ COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
 TARGET_GRAPH_MARKER = "<!-- archkeel-target-graph -->"
 # One noun and two source phrases per marker - the claim reads "differs from X", the remedy
 # "regenerate ... from Y" - so graph.count/graph.drift read the same for both markers and a
-# diagnostic's subject always names which one it is about. The observed marker keeps AD-46's
-# own two phrasings; the target marker, new here, uses one for both.
-_GRAPH_MARKERS: tuple[tuple[str, str, str, str], ...] = (
-    (COMPONENT_GRAPH_MARKER, "component", "observed imports", "the observed component edges"),
+# diagnostic's subject always names which one it is about. Each marker also names its own
+# comparison, because the component graph compares code while the target graph compares the
+# contract.
+_GRAPH_MARKERS: tuple[tuple[str, str, str, str, str, str], ...] = (
+    (
+        COMPONENT_GRAPH_MARKER,
+        "component",
+        "observed imports",
+        "the observed component edges",
+        "edges gone from code (drawn, not observed)",
+        "edges new in code (observed, not drawn)",
+    ),
     (
         TARGET_GRAPH_MARKER,
         "target",
         "the edges the contract permits",
         "the edges the contract permits",
+        "edges gone from contract (drawn, not permitted)",
+        "edges new in contract (permitted, not drawn)",
     ),
 )
 _REPEATED_RATIONALE = re.compile(r"(?:The )?\S+ does not depend on \S+\.", re.IGNORECASE)
@@ -684,6 +694,8 @@ def _marker_diagnostics(
     noun: str,
     claim_source: str,
     remedy_source: str,
+    gone_label: str,
+    new_label: str,
     edges: frozenset[tuple[str, str]],
     documents: tuple[tuple[str, str], ...],
     *,
@@ -720,8 +732,8 @@ def _marker_diagnostics(
     )
     if declared == edges:
         return ()
-    missing = ", ".join(f"{a}->{b}" for a, b in sorted(edges - declared)) or "none"
-    extra = ", ".join(f"{a}->{b}" for a, b in sorted(declared - edges)) or "none"
+    new_edges = ", ".join(f"{a}->{b}" for a, b in sorted(edges - declared)) or "none"
+    gone_edges = ", ".join(f"{a}->{b}" for a, b in sorted(declared - edges)) or "none"
     unwritable = _unwritable_line(body)
     return (
         _diagnostic(
@@ -729,7 +741,7 @@ def _marker_diagnostics(
             "/components",
             f"{path} ({noun} graph)",
             f"The marked {noun} graph differs from {claim_source}; "
-            f"missing: {missing}; extra: {extra}.",
+            f"{gone_label}: {gone_edges}; {new_label}: {new_edges}.",
             "Run archkeel validate --write-graph to regenerate the marked Mermaid graph "
             f"from {remedy_source}."
             if unwritable is None
@@ -751,14 +763,25 @@ def graph_diagnostics(
     comparison against observed imports; the two are independent, so one may drift while the
     other passes, and each diagnostic's subject names its own marker.
     """
-    observed_marker, observed_noun, observed_claim, observed_remedy = _GRAPH_MARKERS[0]
-    target_marker, target_noun, target_claim, target_remedy = _GRAPH_MARKERS[1]
+    (
+        observed_marker,
+        observed_noun,
+        observed_claim,
+        observed_remedy,
+        observed_gone,
+        observed_new,
+    ) = _GRAPH_MARKERS[0]
+    target_marker, target_noun, target_claim, target_remedy, target_gone, target_new = (
+        _GRAPH_MARKERS[1]
+    )
     return (
         *_marker_diagnostics(
             observed_marker,
             observed_noun,
             observed_claim,
             observed_remedy,
+            observed_gone,
+            observed_new,
             observed_component_edges(contract, observation),
             documents,
             required=True,
@@ -768,6 +791,8 @@ def graph_diagnostics(
             target_noun,
             target_claim,
             target_remedy,
+            target_gone,
+            target_new,
             target_component_edges(contract),
             documents,
             required=False,

@@ -893,6 +893,52 @@ def test_target_graph_matches_the_edges_the_contract_permits() -> None:
     assert graph_diagnostics(contract, observation, documents) == ()
 
 
+def test_graph_drift_explains_edges_gone_from_code() -> None:
+    """A drawn edge absent from imports is explicitly reported as gone from code."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core"), _component("cli")],
+            "rules": [],
+        }
+    )
+    observation = parse_observation(_model(git_head="a" * 40))
+    documents = (
+        ("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n    core --> cli\n```\n"),
+    )
+
+    (drift,) = graph_diagnostics(contract, observation, documents)
+
+    assert drift.unknown_claim == (
+        "The marked component graph differs from observed imports; "
+        "edges gone from code (drawn, not observed): core->cli; "
+        "edges new in code (observed, not drawn): none."
+    )
+
+
+def test_graph_drift_explains_edges_new_in_code() -> None:
+    """An import absent from the graph is explicitly reported as new in code."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core"), _component("cli")],
+            "rules": [],
+        }
+    )
+    observation = parse_observation(
+        _model(git_head="a" * 40, imports=[_cross_import("sample.core")])
+    )
+    documents = (("sample.md", f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"),)
+
+    (drift,) = graph_diagnostics(contract, observation, documents)
+
+    assert drift.unknown_claim == (
+        "The marked component graph differs from observed imports; "
+        "edges gone from code (drawn, not observed): none; "
+        "edges new in code (observed, not drawn): cli->core."
+    )
+
+
 def test_target_graph_drift_names_the_target_marker() -> None:
     """AD-57: a stale target marker is graph.drift naming the target graph, not the observed."""
     contract = parse_contract(_contract_with_allowed_dependency("core", "cli"))
@@ -907,8 +953,39 @@ def test_target_graph_drift_names_the_target_marker() -> None:
     (drift,) = graph_diagnostics(contract, observation, documents)
     assert drift.code == "graph.drift"
     assert drift.subject == "sample.md (target graph)"
-    assert "the edges the contract permits" in drift.unknown_claim
+    assert drift.unknown_claim == (
+        "The marked target graph differs from the edges the contract permits; "
+        "edges gone from contract (drawn, not permitted): none; "
+        "edges new in contract (permitted, not drawn): core->cli."
+    )
     assert "archkeel validate --write-graph" in drift.remedy
+
+
+def test_target_graph_drift_explains_edges_gone_from_contract() -> None:
+    """A drawn target edge absent from permissions is reported as gone from contract."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("core"), _component("cli")],
+            "rules": [],
+        }
+    )
+    observation = parse_observation(_model(git_head="a" * 40))
+    documents = (
+        (
+            "sample.md",
+            f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n\n"
+            f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n    core --> cli\n```\n",
+        ),
+    )
+
+    (drift,) = graph_diagnostics(contract, observation, documents)
+
+    assert drift.unknown_claim == (
+        "The marked target graph differs from the edges the contract permits; "
+        "edges gone from contract (drawn, not permitted): core->cli; "
+        "edges new in contract (permitted, not drawn): none."
+    )
 
 
 def test_a_page_with_only_the_observed_marker_behaves_exactly_as_before() -> None:

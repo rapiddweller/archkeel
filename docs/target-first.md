@@ -243,7 +243,7 @@ call it:
 {
   "code": "graph.drift",
   "subject": "docs/architecture/shop.md (target graph)",
-  "unknown_claim": "The marked target graph differs from the edges the contract permits; missing: cli->model; extra: none."
+  "unknown_claim": "The marked target graph differs from the edges the contract permits; edges gone from contract (drawn, not permitted): none; edges new in contract (permitted, not drawn): cli->model."
 }
 ```
 
