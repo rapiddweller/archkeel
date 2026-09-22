@@ -85,6 +85,7 @@ class Variant:
     files: Mapping[str, str | None]
     expected_violations: tuple[str, ...]
     expected_codes: tuple[DiagnosticCode, ...]
+    baseline: str | None = None
     expected_kinds: tuple[DiagnosticKind, ...] = ()
     # (kind, subject) pairs a real run's `unknowns` records must contain (checked as a subset,
     # not full equality: dynamic_call_limit/context_alias_limit/boundary_type_limit fire on

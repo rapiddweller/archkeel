@@ -273,6 +273,69 @@ def _entry_module(entry: str) -> str:
     return entry.partition(":")[0]
 
 
+def _resolved_public_entries(
+    contract: ArchitectureContract,
+    known: tuple[KnownViolation, ...],
+    observed: tuple[KnownViolation, ...],
+    observation: Observation | None = None,
+) -> tuple[tuple[str, str], ...]:
+    """Return public entries proven to have lost their last importer by a 1.1 baseline.
+
+    A role is before-evidence, not an inference from a diagnostic message.  The fingerprint's
+    subjects add the imported symbol, while the role preserves source and target module
+    direction.  Older baselines have no roles and therefore cannot suppress ``interface.unused``.
+    """
+    observed_by_fingerprint = {item.fingerprint: item for item in observed}
+    resolved: set[tuple[str, str]] = set()
+    public_by_component = {
+        component.label: frozenset(component.public or ()) for component in contract.components
+    }
+    records_by_component = (
+        _imports_by_target(contract, observation) if observation is not None else {}
+    )
+    facade_types = _facade_types(observation) if observation is not None else ()
+
+    def add_if_unused(component: str, entry: str) -> None:
+        if not _entry_used(entry, records_by_component.get(component, []), facade_types):
+            resolved.add((component, entry))
+
+    for item in known:
+        if not item.roles or len(item.fingerprint.subjects) != 2:
+            continue
+        current = observed_by_fingerprint.get(item.fingerprint)
+        if current is not None:
+            continue
+        gone_roles = set(item.roles)
+        if len(gone_roles) != 1:
+            continue
+        subjects = frozenset(item.fingerprint.subjects)
+        ((source_module, target_module),) = gone_roles
+        if source_module not in subjects:
+            continue
+        target_component = contract.component_for(target_module)
+        source_component = contract.component_for(source_module)
+        if (
+            target_component is None
+            or source_component is None
+            or source_component == target_component
+        ):
+            continue
+        target_name = next((subject for subject in subjects if subject != source_module), None)
+        if target_name is None or not (
+            target_name == target_module or target_name.startswith(f"{target_module}.")
+        ):
+            continue
+        public = public_by_component[target_component.label]
+        if target_name == target_module and target_module in public:
+            add_if_unused(target_component.label, target_module)
+            continue
+        symbol = target_name.removeprefix(f"{target_module}.")
+        entry = f"{target_module}:{symbol}"
+        if entry in public:
+            add_if_unused(target_component.label, entry)
+    return tuple(sorted(resolved))
+
+
 def _entry_reached_by(entry: str, names: Iterable[JsonValue]) -> bool:
     """True when one of the dotted names reaches the entry.
 
@@ -353,6 +416,7 @@ def _public_entry_diagnostics(
     records: list[RecordData],
     modules: frozenset[str],
     facade_types: tuple[str, ...],
+    resolved_public_entries: frozenset[tuple[str, str]],
 ) -> list[Diagnostic]:
     """Split an unused `public` entry by whether its module was ever scanned (AD-56).
 
@@ -379,6 +443,8 @@ def _public_entry_diagnostics(
                     "until it exists.",
                 )
             )
+        elif (component.label, entry) in resolved_public_entries:
+            continue
         else:
             diagnostics.append(
                 _diagnostic(
@@ -520,7 +586,9 @@ def public_api_diagnostics(
 
 
 def interface_diagnostics(
-    contract: ArchitectureContract, observation: Observation
+    contract: ArchitectureContract,
+    observation: Observation,
+    resolved_public_entries: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[Diagnostic, ...]:
     """Require a declared interface for inbound imports and usage for declared entries.
 
@@ -550,7 +618,14 @@ def interface_diagnostics(
                 )
         else:
             diagnostics.extend(
-                _public_entry_diagnostics(index, component, records, modules, facade_types)
+                _public_entry_diagnostics(
+                    index,
+                    component,
+                    records,
+                    modules,
+                    facade_types,
+                    resolved_public_entries,
+                )
             )
         diagnostics.extend(
             _planned_entry_diagnostics(index, component, records, modules, facade_types)
@@ -1070,6 +1145,7 @@ def observation_diagnostics(
     documents: tuple[tuple[str, str], ...],
     *,
     report_violations: bool = True,
+    resolved_public_entries: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[Diagnostic, ...]:
     """Validate rules, closed-world coverage and architecture documentation.
 
@@ -1080,7 +1156,7 @@ def observation_diagnostics(
     inside_pointers = _inside_pointers(contract, observation)
     diagnostics = [
         *closed_world_diagnostics(contract, observation),
-        *interface_diagnostics(contract, observation),
+        *interface_diagnostics(contract, observation, resolved_public_entries),
         *public_api_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
@@ -1240,6 +1316,7 @@ def _repository_diagnostics(
     observation: Observation,
     write_graph: bool,
     report_violations: bool,
+    resolved_public_entries: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[list[Diagnostic], tuple[tuple[str, str], ...]]:
     """Every diagnostic a complete observation adds, once the contract's references hold.
 
@@ -1266,7 +1343,11 @@ def _repository_diagnostics(
     return [
         *reference_diagnostics(root, config, contract, observation),
         *observation_diagnostics(
-            contract, observation, documents, report_violations=report_violations
+            contract,
+            observation,
+            documents,
+            report_violations=report_violations,
+            resolved_public_entries=resolved_public_entries,
         ),
         *inside_diagnostics(root, contract),
     ], edits
@@ -1639,10 +1720,19 @@ def run_validate(
     if isinstance(observed, RunResult):
         return observed, FilesToWrite()
     observation = observed
-    diagnostics, edits = _repository_diagnostics(
-        root, config, contract, observation, write_graph, baseline is None
-    )
     violations = observed_violations(observation) if baseline is not None else ()
+    resolved_public_entries = frozenset(
+        _resolved_public_entries(contract, known, violations, observation)
+    )
+    diagnostics, edits = _repository_diagnostics(
+        root,
+        config,
+        contract,
+        observation,
+        write_graph,
+        baseline is None,
+        resolved_public_entries,
+    )
     baseline_new, baseline_resolved = (
         violation_drift_counts(known, violations) if baseline_exists else (0, 0)
     )
@@ -1652,13 +1742,17 @@ def run_validate(
         if not write_baseline or (baseline_exists and baseline_new and not accept_new)
         else ()
     )
+    interface_narrowings = tuple(
+        f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
+        for component, entry in sorted(resolved_public_entries)
+    )
     widening_failures = _widening_failures(
         against_ctx, contract, baseline, violations if write_baseline else known
     )
     result = _observed_result(
         observation,
         diagnostics,
-        (*baseline_failures, *widening_failures),
+        (*baseline_failures, *interface_narrowings, *widening_failures),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
     )

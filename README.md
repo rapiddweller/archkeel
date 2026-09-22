@@ -273,6 +273,11 @@ edits above it do not move it. Running that loop day
 to day — gating CI, keeping the target from widening, working the backlog down — is
 [docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md).
 
+Schema 1.1 baseline roles also prove when a resolved importer was the last reach of one exact
+public module or symbol. `validate --baseline` reports the resolved violation, suppresses only
+that matching `interface.unused` twin, and says to remove the now-unreached entry; old 1.0 files
+and unrelated roles stay fail-closed (AD-85).
+
 To install it permanently instead, run `pip install archkeel`. Every command explains itself
 with `archkeel <command> --help`.
 

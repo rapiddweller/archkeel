@@ -64,6 +64,21 @@ def _target_block_with_subgraph(page: str) -> str:
 
 
 _TARGET_PAGE_WITH_SUBGRAPH = _target_block_with_subgraph(CLEAN_SHOP_MD)
+_INTERFACE_NARROWING_CONTRACT = contract_component_field_appended(
+    "app", "public", "shop.app.orders:summarize"
+)
+_INTERFACE_NARROWING_BASELINE = """{
+  "schema_version": "1.1.0",
+  "violations": [
+    {
+      "count": 1,
+      "roles": [{"source": "shop.cli.main", "target": "shop.app.orders"}],
+      "rules": ["RESOLVED-IMPORT"],
+      "subjects": ["shop.app.orders.summarize", "shop.cli.main"]
+    }
+  ]
+}
+"""
 
 
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
@@ -441,6 +456,21 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         evidence="tests/test_baseline.py",
+    ),
+    Variant(
+        id="validation-baseline-interface-narrowing",
+        section="validation",
+        item="baseline.interface_narrowing",
+        summary="A schema 1.1 role proves which public module or symbol lost its last importer; "
+        "the resolved baseline finding stays reported while only that interface.unused twin is "
+        "suppressed (AD-85, issue #80).",
+        files={
+            "architecture-contract.json": _INTERFACE_NARROWING_CONTRACT,
+            "known-violations.json": _INTERFACE_NARROWING_BASELINE,
+        },
+        expected_violations=(),
+        expected_codes=(),
+        baseline="known-violations.json",
     ),
     Variant(
         id="validation-against-invalid",
