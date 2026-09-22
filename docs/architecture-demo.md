@@ -99,6 +99,10 @@ run shows many violations together; every other row isolates one item.
 | validation | against:widened_unamended | against-widened-unamended | validate --against run | - | - | architecture-contract.json |
 | validation | against:widened_amended | against-widened-amended | validate --against run | - | - | architecture-contract.json |
 | validation | against:narrowed_only | against-narrowed-only | validate --against run | - | - | architecture-contract.json |
+| validation | against:boundary_types_added | against-boundary-types-added | validate --against run | - | - | architecture-contract.json |
+| validation | against:symbol_placement_added | against-symbol-placement-added | validate --against run | - | - | architecture-contract.json |
+| validation | against:boundary_types_removed | against-boundary-types-removed | validate --against run | - | - | architecture-contract.json |
+| validation | against:symbol_placement_removed | against-symbol-placement-removed | validate --against run | - | - | architecture-contract.json |
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
 | protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |

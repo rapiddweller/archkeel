@@ -19,9 +19,11 @@ from archkeel.check.validation import run_validate
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import amendment_bytes, baseline_bytes, contract_digest, parse_amendment
 from archkeel.ir.model import (
+    RULE_KINDS,
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
+    BoundaryTypesRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -34,8 +36,16 @@ from archkeel.ir.model import (
     NoComponentCyclesRule,
     RequiredComponent,
     SiblingIsolationRule,
+    SymbolPlacementRule,
 )
-from archkeel.ir.widening import Amendment, baseline_widenings, contract_widenings, verify_amendment
+from archkeel.ir.widening import (
+    _PERMISSION_RULE_KINDS,
+    _RESTRICTION_RULE_KINDS,
+    Amendment,
+    baseline_widenings,
+    contract_widenings,
+    verify_amendment,
+)
 from fixtures.demo_catalog_support import apply_overlay, contract_rule_field
 
 _PROVENANCE = ("docs/architecture/shop.md",)
@@ -108,6 +118,18 @@ def _complete_external_scope(**overrides: object) -> CompleteExternalScopeRule:
 
 def _no_component_cycles(**overrides: object) -> NoComponentCyclesRule:
     base = NoComponentCyclesRule("R", "no_component_cycles", "because", _PROVENANCE, "architect")
+    return replace(base, **overrides)
+
+
+def _symbol_placement(**overrides: object) -> SymbolPlacementRule:
+    base = SymbolPlacementRule(
+        "R", "symbol_placement", "pkg", ("class",), "because", _PROVENANCE, "architect"
+    )
+    return replace(base, **overrides)
+
+
+def _boundary_types(**overrides: object) -> BoundaryTypesRule:
+    base = BoundaryTypesRule("R", "boundary_types", "pkg", "because", _PROVENANCE, "architect")
     return replace(base, **overrides)
 
 
@@ -244,6 +266,10 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("complete_external_scope removed", _complete_external_scope(), None, True),
     ("no_component_cycles added", None, _no_component_cycles(), False),
     ("no_component_cycles removed", _no_component_cycles(), None, True),
+    ("symbol_placement added", None, _symbol_placement(), False),
+    ("symbol_placement removed", _symbol_placement(), None, True),
+    ("boundary_types added", None, _boundary_types(), False),
+    ("boundary_types removed", _boundary_types(), None, True),
 )
 
 
@@ -255,6 +281,12 @@ def test_rule_kind_widening_table(
 ) -> None:
     findings = _rule_diff(before, after)
     assert bool(findings) == widens, (label, findings)
+
+
+def test_every_typed_rule_kind_has_one_widening_classification() -> None:
+    """The typed ArchitectureRule union is the source of truth for this partition."""
+    assert _PERMISSION_RULE_KINDS.isdisjoint(_RESTRICTION_RULE_KINDS)
+    assert _PERMISSION_RULE_KINDS | _RESTRICTION_RULE_KINDS == RULE_KINDS
 
 
 # --- Table-driven: one row per component-field widening/narrowing this module enumerates. ---

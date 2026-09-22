@@ -65,6 +65,8 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "no_component_cycles",
         "interface_boundary",
         "sibling_isolation",
+        "symbol_placement",
+        "boundary_types",
     }
 )
 

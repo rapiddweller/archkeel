@@ -48,7 +48,15 @@ class CheckExpectation:
 
 # Named after what the scenario demonstrates about --against (AD-61, #11): the two-revision
 # analogue of CheckScenario above, for the same reason a demo row cannot be one file overlay.
-AgainstScenario = Literal["widened_unamended", "widened_amended", "narrowed_only"]
+AgainstScenario = Literal[
+    "widened_unamended",
+    "widened_amended",
+    "narrowed_only",
+    "boundary_types_added",
+    "symbol_placement_added",
+    "boundary_types_removed",
+    "symbol_placement_removed",
+]
 
 
 @dataclass(frozen=True, slots=True)

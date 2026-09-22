@@ -303,8 +303,9 @@ archkeel validate --against origin/main
 ```
 
 Widening is a new permission or a dropped restriction; narrowing is each reverse, and always
-passes. A difference this classification does not name is reported as a widening, never passed
-over silently. A widening fails (`failures`, exit 1) unless `--amendment <path>` names a file
+passes. `boundary_types` and `symbol_placement` are restrictions too. A difference this
+classification does not name is reported as a widening, never passed over silently. A widening
+fails (`failures`, exit 1) unless `--amendment <path>` names a file
 binding its exact before/after contract digest, recording who decided it and why:
 
 ```bash
