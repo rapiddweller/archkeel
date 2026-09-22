@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
+from test_codec import raw_observation
 
 from archkeel.analyzer import observe
 from archkeel.check.report import run_report
@@ -343,3 +344,104 @@ def test_violation_drift_counts_are_deterministic() -> None:
     second = KnownViolation(ViolationFingerprint(("RULE-A",), ("first",)), 2)
 
     assert violation_drift_counts((first, second), (second,)) == (0, 1)
+
+
+def test_old_baseline_without_roles_remains_readable() -> None:
+    fingerprint = ViolationFingerprint(("BOUNDARY",), ("shop.api.load", "shop.api"))
+
+    assert parse_baseline(
+        {
+            "schema_version": "1.0.0",
+            "violations": [
+                {"rules": ["BOUNDARY"], "subjects": ["shop.api.load", "shop.api"], "count": 1}
+            ],
+        }
+    ) == (KnownViolation(fingerprint, 1),)
+
+
+def test_roles_are_sorted_and_do_not_change_fingerprint_identity() -> None:
+    violation = KnownViolation(
+        ViolationFingerprint(("BOUNDARY",), ("shop.api.load", "shop.api")),
+        1,
+        (("shop.z", "shop.a"), ("shop.a", "shop.z")),
+    )
+
+    payload = json.loads(baseline_bytes((violation,)))
+
+    assert payload["schema_version"] == BASELINE_SCHEMA_VERSION
+    assert payload["violations"][0]["roles"] == [
+        {"source": "shop.a", "target": "shop.z"},
+        {"source": "shop.z", "target": "shop.a"},
+    ]
+    assert parse_baseline(payload) == (
+        KnownViolation(
+            violation.fingerprint,
+            violation.count,
+            tuple(sorted(violation.roles)),
+        ),
+    )
+
+
+def test_one_fingerprint_keeps_multiple_interface_boundary_directions() -> None:
+    raw = raw_observation()
+    raw["violations"] = [
+        {
+            "id": "VIO-one",
+            "evidence_class": "VIOLATION",
+            "area": "api_surface",
+            "kind": "interface_boundary",
+            "title": "one",
+            "subjects": ["shop.api", "shop.api.load"],
+            "evidence_ids": [],
+            "rule_ids": ["BOUNDARY"],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {"source_module": "shop.api", "target_module": "shop.billing"},
+        },
+        {
+            "id": "VIO-two",
+            "evidence_class": "VIOLATION",
+            "area": "api_surface",
+            "kind": "interface_boundary",
+            "title": "two",
+            "subjects": ["shop.api", "shop.api.load"],
+            "evidence_ids": [],
+            "rule_ids": ["BOUNDARY"],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {"source_module": "shop.api", "target_module": "shop.orders"},
+        },
+    ]
+
+    observed = observed_violations(parse_observation(raw))
+
+    assert observed == (
+        KnownViolation(
+            ViolationFingerprint(("BOUNDARY",), ("shop.api", "shop.api.load")),
+            2,
+            (("shop.api", "shop.billing"), ("shop.api", "shop.orders")),
+        ),
+    )
+
+
+def test_construct_rows_have_no_roles() -> None:
+    raw = raw_observation()
+    raw["violations"] = [
+        {
+            "id": "VIO-construct",
+            "evidence_class": "VIOLATION",
+            "area": "constructs",
+            "kind": "forbidden_construct",
+            "title": "construct",
+            "subjects": ["shop.api.load"],
+            "evidence_ids": [],
+            "rule_ids": ["CONSTRUCT"],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {},
+        }
+    ]
+    observed = observed_violations(parse_observation(raw))
+
+    assert observed[0].roles == ()
+    assert "roles" not in json.loads(baseline_bytes(observed))["violations"][0]

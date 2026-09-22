@@ -40,8 +40,15 @@ def test_config_schema_accepts_the_parsed_repository_config() -> None:
 def test_baseline_schema_accepts_what_the_writer_writes_and_the_parser_reads() -> None:
     """AD-52: one shape for the file, checked against the executable writer and parser."""
     violations = (
-        KnownViolation(ViolationFingerprint(("CONSTRUCT-NO-DYNAMIC",), ("shop.model.read",)), 2),
-        KnownViolation(ViolationFingerprint(("DEP-RENDER-NO-STORE",), ("a", "b")), 1),
+        KnownViolation(
+            ViolationFingerprint(("CONSTRUCT-NO-DYNAMIC",), ("shop.model.read",)),
+            2,
+        ),
+        KnownViolation(
+            ViolationFingerprint(("DEP-RENDER-NO-STORE",), ("a", "b")),
+            1,
+            (("shop.render", "shop.store"),),
+        ),
     )
     schema = _schema("violation-baseline.schema.json")
     Draft202012Validator.check_schema(schema)

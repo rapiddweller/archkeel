@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:violation-baseline:1",
   "title": "Known-violation baseline for archkeel validate --baseline",
-  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52). A fingerprint is the rules a violation breaks and the sorted subjects they name; whether it still matches the observed code requires a run.",
+  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52, AD-78). A fingerprint is the rules a violation breaks and the sorted subjects they name; roles explain directional entries without changing identity.",
   "type": "object",
   "required": [
     "schema_version",
@@ -11,8 +11,8 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "1.0.0",
-      "description": "The only baseline schema this Archkeel reads."
+      "const": "1.1.0",
+      "description": "Current writer schema; the reader also accepts baseline schema 1.0.0."
     },
     "violations": {
       "type": "array",
@@ -53,6 +53,32 @@
           "type": "integer",
           "minimum": 1,
           "description": "How many violations share this fingerprint, for example two getattr calls in one function."
+        },
+        "roles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/role"
+          },
+          "description": "Sorted directional metadata from source_module/target_module; roles do not change the fingerprint."
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "target"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }

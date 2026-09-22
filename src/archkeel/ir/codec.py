@@ -14,7 +14,12 @@ from dataclasses import asdict
 from math import isfinite
 from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
 
-from archkeel.ir.baseline import BASELINE_SCHEMA_VERSION, KnownViolation, ViolationFingerprint
+from archkeel.ir.baseline import (
+    BASELINE_SCHEMA_VERSION,
+    LEGACY_BASELINE_SCHEMA_VERSION,
+    KnownViolation,
+    ViolationFingerprint,
+)
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import SCALARS, Measurements, RatchetError, RatchetScalars, count
 from archkeel.ir.model import (
@@ -1522,33 +1527,61 @@ def _record_payload(value: Record) -> dict[str, RawJson]:
     return result
 
 
-def _known_violation(raw: RawJson, label: str) -> KnownViolation:
-    value = _exact(raw, {"rules", "subjects", "count"}, label)
+def _known_violation(raw: RawJson, label: str, *, with_roles: bool) -> KnownViolation:
+    fields = {"rules", "subjects", "count"}
+    value = _object(raw, label)
+    if with_roles and set(value) not in (fields, fields | {"roles"}):
+        raise ValueError(f"{label} fields mismatch")
+    if not with_roles and set(value) != fields:
+        raise ValueError(f"{label} fields mismatch")
     occurrences = count(value["count"], f"{label}.count")
     if not occurrences:
         raise ValueError(f"{label}.count must be at least 1")
+    roles: tuple[tuple[str, str], ...] = ()
+    if with_roles and "roles" in value:
+        raw_roles = value["roles"]
+        if not isinstance(raw_roles, list):
+            raise ValueError(f"{label}.roles must be an array")
+        parsed_roles = []
+        for index, raw_role in enumerate(raw_roles):
+            role = _exact(raw_role, {"source", "target"}, f"{label}.roles[{index}]")
+            parsed_roles.append(
+                (
+                    _string(role["source"], f"{label}.roles[{index}].source"),
+                    _string(role["target"], f"{label}.roles[{index}].target"),
+                )
+            )
+        if len(set(parsed_roles)) != len(parsed_roles):
+            raise ValueError(f"{label}.roles repeats a role")
+        roles = tuple(sorted(parsed_roles))
     return KnownViolation(
         ViolationFingerprint(
             _strings(value["rules"], f"{label}.rules"),
             _strings(value["subjects"], f"{label}.subjects"),
         ),
         occurrences,
+        roles,
     )
 
 
 def parse_baseline(raw: object) -> tuple[KnownViolation, ...]:
     """Read a known-violation baseline, ordered like the writer writes it (AD-52)."""
     document = _exact(raw, {"schema_version", "violations"}, "baseline")
-    if document["schema_version"] != BASELINE_SCHEMA_VERSION:
+    schema_version = document["schema_version"]
+    if schema_version not in {LEGACY_BASELINE_SCHEMA_VERSION, BASELINE_SCHEMA_VERSION}:
         raise ValueError(
-            f"baseline schema {document['schema_version']!r} cannot be read as "
-            f"{BASELINE_SCHEMA_VERSION}"
+            f"baseline schema {schema_version!r} cannot be read as "
+            f"{LEGACY_BASELINE_SCHEMA_VERSION} or {BASELINE_SCHEMA_VERSION}"
         )
     entries = document["violations"]
     if not isinstance(entries, list):
         raise ValueError("baseline.violations must be an array")
     violations = tuple(
-        _known_violation(entry, f"baseline.violations[{index}]")
+        _known_violation(
+            entry,
+            f"baseline.violations[{index}]",
+            with_roles=schema_version == BASELINE_SCHEMA_VERSION,
+        )
         for index, entry in enumerate(entries)
     )
     if len({item.fingerprint for item in violations}) != len(violations):
@@ -1567,6 +1600,16 @@ def baseline_bytes(violations: tuple[KnownViolation, ...]) -> bytes:
                 "rules": list(item.fingerprint.rules),
                 "subjects": list(item.fingerprint.subjects),
                 "count": item.count,
+                **(
+                    {
+                        "roles": [
+                            {"source": source, "target": target}
+                            for source, target in sorted(item.roles)
+                        ]
+                    }
+                    if item.roles
+                    else {}
+                ),
             }
             for item in sorted(
                 violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects)

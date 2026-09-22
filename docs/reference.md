@@ -113,7 +113,7 @@ as before. The file's shape is
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "violations": [
     {
       "count": 2,
@@ -123,6 +123,9 @@ as before. The file's shape is
   ]
 }
 ```
+
+Directional violation entries may add sorted `roles` objects with `source` and `target`; this
+review metadata does not change the fingerprint. Baseline schema `1.0.0` remains readable.
 
 `validate --against <ref>` classifies every difference between the contract at that Git
 revision and the one being validated - and, with `--baseline`, the baseline file there too - as

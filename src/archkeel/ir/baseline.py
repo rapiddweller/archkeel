@@ -25,7 +25,8 @@ from .model import (
     text_value,
 )
 
-BASELINE_SCHEMA_VERSION = "1.0.0"
+BASELINE_SCHEMA_VERSION = "1.1.0"
+LEGACY_BASELINE_SCHEMA_VERSION = "1.0.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,15 +47,24 @@ class ViolationFingerprint:
 class KnownViolation:
     fingerprint: ViolationFingerprint
     count: int
+    # Explanatory direction(s); never part of `fingerprint` identity.
+    roles: tuple[tuple[str, str], ...] = ()
 
 
 def violation_fingerprint(record: Record) -> ViolationFingerprint:
     return ViolationFingerprint(record.rule_ids, record.subjects)
 
 
-def _ordered(counts: Counter[ViolationFingerprint]) -> tuple[KnownViolation, ...]:
+def _ordered(
+    counts: Counter[ViolationFingerprint],
+    roles: dict[ViolationFingerprint, set[tuple[str, str]]] | None = None,
+) -> tuple[KnownViolation, ...]:
     return tuple(
-        KnownViolation(fingerprint, counts[fingerprint])
+        KnownViolation(
+            fingerprint,
+            counts[fingerprint],
+            tuple(sorted(roles.get(fingerprint, set()))) if roles is not None else (),
+        )
         for fingerprint in sorted(counts, key=lambda item: (item.rules, item.subjects))
     )
 
@@ -190,8 +200,18 @@ def select_violations(observation: Observation, report_filter: ReportFilter) -> 
 
 
 def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:
-    """Every violation this observation reports, counted per fingerprint and ordered."""
-    return _ordered(Counter(row.fingerprint for row in violation_rows(observation)))
+    """Every violation this observation reports, counted per fingerprint and ordered.
+
+    Directional row fields stay explanatory metadata, collected separately so one fingerprint can
+    retain every direction it represents without changing identity.
+    """
+    rows = violation_rows(observation)
+    counts = Counter(row.fingerprint for row in rows)
+    roles: dict[ViolationFingerprint, set[tuple[str, str]]] = {}
+    for row in rows:
+        if row.source_module is not None and row.target_module is not None:
+            roles.setdefault(row.fingerprint, set()).add((row.source_module, row.target_module))
+    return _ordered(counts, roles)
 
 
 def _drift(fingerprint: ViolationFingerprint, known: int, observed: int) -> str:
