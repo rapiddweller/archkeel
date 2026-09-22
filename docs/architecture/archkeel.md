@@ -119,6 +119,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-84 | [`boundary_types` follows declared facade re-exports and one field level](decisions/ad-84-boundary-types-follow-declared-facade-reexports.md) |
 | AD-85 | [A resolved importer reports the public-interface narrowing it proves](decisions/ad-85-a-resolved-importer-reports-interface-narrowing.md) |
 | AD-86 | [`root_layout` allows only declared immediate children](decisions/ad-86-root-layout-allows-only-declared-immediate-children.md) |
+| AD-88 | [Declared facade measurements are observations, not budgets](decisions/ad-88-declared-facade-measurements-are-observations-not-budgets.md) |
 
 ## Allowed dependencies
 

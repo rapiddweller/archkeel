@@ -3,16 +3,30 @@
 # SPDX-License-Identifier: MIT
 """Unit tests for the AD-9 component communication derivation."""
 
+import json
+import shutil
+from pathlib import Path
 from typing import Any
 
 from test_delta import _model
 
+from archkeel.analyzer import observe
 from archkeel.ir.codec import parse_observation
-from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
+from archkeel.ir.interfaces import (
+    InterfaceEdge,
+    InterfaceName,
+    InterfaceProfile,
+    interface_edges,
+    interface_profile,
+)
 from archkeel.ir.model import Observation
 
+ROOT = Path(__file__).resolve().parents[1]
 
-def _declaration(label: str, packages: list[str]) -> dict[str, Any]:
+
+def _declaration(
+    label: str, packages: list[str], public: list[str] | None = None
+) -> dict[str, Any]:
     return {
         "id": f"COMP-{label}",
         "evidence_class": "DECLARED_RULE",
@@ -24,7 +38,7 @@ def _declaration(label: str, packages: list[str]) -> dict[str, Any]:
         "rule_ids": [],
         "fact_ids": [],
         "provenance": [],
-        "data": {},
+        "data": {} if public is None else {"public": public},
     }
 
 
@@ -35,6 +49,9 @@ def _import_record(
     target_module: str,
     symbol: str | None,
     origin_definition: str | None,
+    binding: str | None = None,
+    reexport: bool = False,
+    declared_in_all: bool = False,
 ) -> dict[str, Any]:
     return {
         "id": identifier,
@@ -52,6 +69,9 @@ def _import_record(
             "target_module": target_module,
             "symbol": symbol,
             "origin_definition": origin_definition,
+            "binding": binding if binding is not None else symbol,
+            "reexport": reexport,
+            "declared_in_all": declared_in_all,
             "under_type_checking": False,
         },
     }
@@ -95,16 +115,91 @@ def _symbol_record(
     }
 
 
+def _module_record(identifier: str, name: str, exports: list[str]) -> dict[str, Any]:
+    return {
+        "id": identifier,
+        "evidence_class": "FACT",
+        "area": "module_topology",
+        "kind": "module",
+        "title": name,
+        "subjects": [name],
+        "evidence_ids": [],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {"qualified_name": name, "all_exports": exports},
+    }
+
+
 def _observation(
     *,
     declarations: tuple[dict[str, Any], ...] = (),
     imports: tuple[dict[str, Any], ...] = (),
     symbols: tuple[dict[str, Any], ...] = (),
+    modules: tuple[dict[str, Any], ...] = (),
 ) -> Observation:
     raw = _model(git_head="a" * 40, imports=list(imports))
     raw["declarations"] = list(declarations)
     raw["symbols"] = list(symbols)
+    raw["modules"] = list(modules)
     return parse_observation(raw)
+
+
+def _real_barrel_profile(tmp_path: Path, consumer_source: str) -> InterfaceProfile:
+    source = tmp_path / "repo"
+    (source / "sample/model").mkdir(parents=True)
+    (source / "sample/consumer").mkdir()
+    (source / "sample/model/impl.py").write_text("class Widget:\n    pass\n")
+    (source / "sample/model/api.py").write_text(
+        'from sample.model.impl import Widget\n\n__all__ = ["Widget"]\n'
+    )
+    (source / "sample/consumer/use.py").write_text(consumer_source)
+    (source / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (source / "architecture-contract.json").write_text(
+        json.dumps(
+            {
+                "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/"
+                "schema/architecture-contract.schema.json",
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        "id": "COMP-MODEL",
+                        "label": "model",
+                        "role": "component",
+                        "packages": ["sample.model"],
+                        "public": ["sample.model.api"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["tests/test_interfaces.py"],
+                    },
+                    {
+                        "id": "COMP-CONSUMER",
+                        "label": "consumer",
+                        "role": "component",
+                        "packages": ["sample.consumer"],
+                        "public": [],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["tests/test_interfaces.py"],
+                    },
+                ],
+                "rules": [],
+            },
+            indent=2,
+        )
+    )
+    result = observe(
+        source,
+        roots=("sample",),
+        namespace="sample",
+        contract="architecture-contract.json",
+        git_head="0" * 40,
+        dirty=False,
+        contract_root=source,
+    )
+    assert result.diagnostics == ()
+    assert result.observation is not None
+    return interface_profile(result.observation)
 
 
 def test_ownership_overlap_produces_no_edge() -> None:
@@ -167,6 +262,133 @@ def test_origin_definition_follows_reexport_chain_and_reports_constants() -> Non
                 InterfaceName("pkg.b:Widget", "dataclass", (), ""),
             ),
         ),
+    )
+
+
+def test_interface_profile_measures_a_declared_barrel() -> None:
+    observation = _observation(
+        declarations=(
+            _declaration("consumer", ["pkg.consumer"]),
+            _declaration("other", ["pkg.other"]),
+            _declaration("provider", ["pkg.provider"], ["pkg.provider"]),
+        ),
+        modules=(_module_record("MOD-provider", "pkg.provider", ["Widget", "run"]),),
+        symbols=(
+            _symbol_record(
+                "SYM-run",
+                kind="function",
+                qualified_name="pkg.provider.run",
+                module="pkg.provider",
+                name="run",
+            ),
+        ),
+        imports=(
+            _import_record(
+                "IMP-barrel",
+                source_module="pkg.provider",
+                target_module="pkg.impl",
+                symbol="Widget",
+                origin_definition="pkg.impl.Widget",
+                binding="Widget",
+                declared_in_all=True,
+            ),
+            _import_record(
+                "IMP-consumer-widget",
+                source_module="pkg.consumer.mod",
+                target_module="pkg.provider",
+                symbol="Widget",
+                origin_definition="pkg.impl.Widget",
+            ),
+            _import_record(
+                "IMP-consumer-run",
+                source_module="pkg.consumer.mod",
+                target_module="pkg.provider",
+                symbol="run",
+                origin_definition="pkg.provider.run",
+            ),
+            _import_record(
+                "IMP-other-widget",
+                source_module="pkg.other.mod",
+                target_module="pkg.provider",
+                symbol="Widget",
+                origin_definition="pkg.impl.Widget",
+            ),
+        ),
+    )
+
+    profile = interface_profile(observation)
+
+    assert profile.facades[0].exported_name_count == 2
+    assert profile.facades[0].reexported_names == ("Widget",)
+    assert profile.facades[0].defined_names == ("run",)
+    assert profile.facades[0].unused_reexports == ()
+    assert {(item.name, item.consumer_count) for item in profile.exports} == {
+        ("Widget", 2),
+        ("run", 1),
+    }
+    assert {(item.source, item.target, item.width) for item in profile.coupling} == {
+        ("consumer", "provider", 2),
+        ("other", "provider", 1),
+    }
+
+
+def test_interface_profile_measures_a_real_barrel(tmp_path: Path) -> None:
+    """The shop fixture's __init__.py barrel is observed, not hand-modelled."""
+    source = tmp_path / "repo"
+    shutil.copytree(ROOT / "fixtures/F-architecture", source)
+    contract = source / "architecture-contract.json"
+    contract.write_text(
+        contract.read_text().replace(
+            '"shop.store.repository:OrderRepository"', '"shop.store:OrderRepository"'
+        )
+    )
+    result = observe(
+        source,
+        roots=("shop",),
+        namespace="shop",
+        contract="architecture-contract.json",
+        git_head="0" * 40,
+        dirty=False,
+        contract_root=source,
+    )
+    assert result.diagnostics == ()
+    assert result.observation is not None
+
+    profile = interface_profile(result.observation)
+    store = next(item for item in profile.facades if item.module == "shop.store")
+    assert store.exported_names == ("OrderRepository",)
+    assert store.reexported_names == ("OrderRepository",)
+    assert store.unused_reexports == ()
+    repository = next(item for item in profile.exports if item.module == "shop.store")
+    assert repository.consumers == ("app",)
+    coupling = next(
+        item for item in profile.coupling if item.source == "app" and item.target == "store"
+    )
+    assert "shop.store:OrderRepository" in coupling.names
+
+
+def test_interface_profile_measures_a_real_non_package_barrel(tmp_path: Path) -> None:
+    profile = _real_barrel_profile(tmp_path, "from sample.model.api import Widget\n")
+
+    barrel = next(item for item in profile.facades if item.module == "sample.model.api")
+    assert barrel.exported_names == ("Widget",)
+    assert barrel.reexported_names == ("Widget",)
+    usage = next(item for item in profile.exports if item.module == "sample.model.api")
+    assert usage.consumers == ("consumer",)
+    assert ("consumer", "model", ("sample.model.api:Widget",)) in {
+        (item.source, item.target, item.names) for item in profile.coupling
+    }
+
+
+def test_interface_profile_ignores_a_module_alias_without_attribute_use(
+    tmp_path: Path,
+) -> None:
+    profile = _real_barrel_profile(tmp_path, "import sample.model.api as api\n")
+
+    usage = next(item for item in profile.exports if item.module == "sample.model.api")
+    assert usage.consumers == ()
+    assert not any(
+        item.source == "consumer" and item.target == "model" for item in profile.coupling
     )
 
 

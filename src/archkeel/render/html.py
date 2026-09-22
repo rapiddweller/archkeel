@@ -15,7 +15,12 @@ from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
-from archkeel.ir.interfaces import InterfaceEdge, InterfaceName, interface_edges
+from archkeel.ir.interfaces import (
+    InterfaceEdge,
+    InterfaceName,
+    interface_edges,
+    interface_profile,
+)
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import Diagnostic, Observation, Record, RunResult
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
@@ -203,6 +208,62 @@ def _interfaces_section(observation: Observation) -> str:
             f"<tbody>{rows}</tbody></table></div>"
         )
     return f'<section class="report-section"><h2>Component communication</h2>{body}</section>'
+
+
+def _interface_profile_section(observation: Observation) -> str:
+    """Render AD-88 measurements without turning them into interface budgets or verdicts."""
+    profile = interface_profile(observation)
+    if not profile.facades:
+        return ""
+    facade_rows = "".join(
+        "<tr>"
+        f"<td><code>{_text(item.component)}</code></td>"
+        f"<td><code>{_text(item.module)}</code></td>"
+        f'<td class="numeric">{item.exported_name_count}</td>'
+        f'<td class="numeric">{item.reexport_count}</td>'
+        f"<td>{_text(', '.join(item.defined_names) or '—')}</td>"
+        f"<td>{_text(', '.join(item.unused_reexports) or '—')}</td>"
+        "</tr>"
+        for item in profile.facades
+    )
+    usage_rows = "".join(
+        "<tr>"
+        f"<td><code>{_text(item.component)}</code></td>"
+        f"<td><code>{_text(item.module + ':' + item.name)}</code></td>"
+        f'<td class="numeric">{item.consumer_count}</td>'
+        f"<td>{_text(', '.join(item.consumers) or '—')}</td>"
+        "</tr>"
+        for item in profile.exports
+    )
+    coupling_rows = "".join(
+        "<tr>"
+        f"<td><code>{_text(item.source)} → {_text(item.target)}</code></td>"
+        f'<td class="numeric">{item.width}</td>'
+        f"<td>{_text(', '.join(item.names) or '—')}</td>"
+        "</tr>"
+        for item in profile.coupling
+    )
+    return f"""
+    <section class="report-section">
+      <h2>Declared facade measurements</h2>
+      <p>Observed from declared facades and imports: exported-name count, re-exports, names
+      defined in the facade, unused re-exports, consumers per exported name and coupling width.
+      These are measurements only; they do not claim the facade is complete or enforce budgets
+      (AD-88).</p>
+      <h3>Facades</h3>
+      <div class="table-wrap"><table><thead><tr><th>Component</th><th>Module</th>
+      <th class="numeric">Exports</th><th class="numeric">Re-exports</th><th>Defined</th>
+      <th>Unused re-exports</th></tr></thead><tbody>{facade_rows}</tbody></table></div>
+      <h3>Export consumers</h3>
+      <div class="table-wrap"><table><thead><tr><th>Component</th><th>Export</th>
+      <th class="numeric">Consumers</th><th>Components</th></tr></thead>
+      <tbody>{usage_rows}</tbody></table></div>
+      <h3>Coupling width</h3>
+      <div class="table-wrap"><table><thead><tr><th>Component pair</th>
+      <th class="numeric">Distinct names</th><th>Names</th></tr></thead>
+      <tbody>{coupling_rows}</tbody></table></div>
+    </section>
+    """
 
 
 def _within(qualified: str, module: str) -> str:
@@ -525,6 +586,11 @@ def render_html(
     communication_html = (
         _interfaces_section(observation) if observation is not None and not only_violations else ""
     )
+    interface_profile_html = (
+        _interface_profile_section(observation)
+        if observation is not None and not only_violations
+        else ""
+    )
     measurements_html = _measurements(result.measurements)
     coverage_html = _coverage(observation)
     structure_html = (
@@ -566,6 +632,7 @@ def render_html(
     {violations_html}
     {flow_html}
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
+    <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>
     {unknowns_html}
     <div id="report-secondary-detail" data-secondary-detail>
       <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>

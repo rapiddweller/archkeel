@@ -23,6 +23,7 @@ from archkeel.check.validation import (
 )
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.digest import package_digest
+from archkeel.ir.interfaces import interface_profile
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -335,3 +336,11 @@ def test_graph_check_detects_a_missing_edge(self_observation: Observation) -> No
     assert diagnostic.pointer == "/components"
     assert "cli->render" in diagnostic.unknown_claim
     assert COMPONENT_GRAPH_MARKER in _architecture_documents()[0][1]
+
+
+def test_self_facade_profile_measures_archkeel_interfaces(self_observation: Observation) -> None:
+    """AD-88 is exercised against the repository's own declared facades."""
+    profile = interface_profile(self_observation)
+    interfaces = next(item for item in profile.facades if item.module == "archkeel.ir.interfaces")
+    assert interfaces.exported_name_count > 0
+    assert any(item.source == "analyzer" and item.target == "ir" for item in profile.coupling)
