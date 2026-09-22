@@ -103,11 +103,7 @@ def test_reference_md_snippet_reads_a_report_and_lists_its_rows(tmp_path: Path) 
 
 
 def test_api_all_matches_the_names_reference_md_documents() -> None:
-    """AD-66: `declarations.public_api` is the facade's whole promise now, not a name the
-    module and the docs happen to agree on by hand; `archkeel.api.__all__` and docs/reference.md's
-    prose (kept in lockstep with this test by hand, same as the snippet above) are each checked
-    against the contract's declaration instead of against each other, so a fourth export or a
-    dropped one shows up as contract drift before it shows up as prose drift."""
+    """AD-66: the module and docs must both match the contract's external API declaration."""
     import archkeel.api as api
 
     contract = parse_contract(json.loads((ROOT / "architecture-contract.json").read_text()))
@@ -116,9 +112,21 @@ def test_api_all_matches_the_names_reference_md_documents() -> None:
         for module in contract.declarations.public_api
         if module.partition(":")[0] == "archkeel.api"
     }
-    reference_md_names = {"ViolationFingerprint", "ViolationRow", "load_violations"}
+    reference = (ROOT / "docs/reference.md").read_text()
+    marker = "<!-- archkeel-public-api -->"
+    assert reference.count(marker) == 1
+    documented = reference.partition(marker)[2]
+    fence = "```json\n"
+    assert documented.count(fence) == 1
+    json_block, closing, _ = documented.partition(fence)[2].partition("\n```")
+    assert closing
+    documented_entries = json.loads(json_block)
+    assert isinstance(documented_entries, list)
+    assert all(isinstance(entry, str) for entry in documented_entries)
+    reference_md_names = set(documented_entries)
 
-    assert declared_names == reference_md_names
+    assert set(contract.declarations.public_api) == reference_md_names
+    assert declared_names == {entry.rpartition(":")[2] for entry in reference_md_names}
     assert set(api.__all__) == declared_names
     assert api.ViolationRow is ViolationRow
     # The promise includes the type row.fingerprint hands out, or it is undeclared (AD-70).
