@@ -276,8 +276,9 @@ The gate exits 1 on a violation the file does not state, and on one it states th
 violates any more, so the budget only shrinks. An existing baseline is compared before a write:
 resolved-only drift may be written, while new or increased fingerprints refuse the write unless
 `--accept-new` is explicit. Results expose deterministic `baseline_new` and `baseline_resolved`
-counts. Each entry names its violation by rule and subjects rather than by line, so unrelated
-edits above it do not move it. Running that loop day
+counts of changed fingerprints, not violation occurrences. One fingerprint contributes one even
+when its occurrence count changes by more than one. Each entry names its violation by rule and
+subjects rather than by line, so unrelated edits above it do not move it. Running that loop day
 to day — gating CI, keeping the target from widening, working the backlog down — is
 [docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md).
 

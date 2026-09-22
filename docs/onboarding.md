@@ -163,9 +163,10 @@ violates any more; a run whose baseline is exactly right exits 0 while `declared
 `FAIL`. Each entry is named by rule and subjects, not by line, so unrelated edits do not move
 it. Existing baselines are compared before writes: resolved-only drift may update the file, but
 new or increased fingerprints require explicit `--accept-new`. Results expose deterministic
-`baseline_new` and `baseline_resolved` counts. The agent shrinks the file by fixing violations
-and rewriting it in the same change; adding an entry to make a run pass is an architect's
-decision, and the diff is where it is reviewed.
+`baseline_new` and `baseline_resolved` counts of changed fingerprints, not violation occurrences.
+One fingerprint contributes one even when its occurrence count changes by more than one. The
+agent shrinks the file by fixing violations and rewriting it in the same change; adding an entry
+to make a run pass is an architect's decision, and the diff is where it is reviewed.
 
 Running that loop day to day — keeping the target from widening while the backlog shrinks,
 picking the next violation to fix, and landing the interfaces the target already names ahead of

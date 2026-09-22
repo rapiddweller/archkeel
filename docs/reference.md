@@ -122,11 +122,13 @@ line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Co
 the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
 violation`, both in `failures` with exit 1, so the budget only shrinks. A run whose baseline is
 exactly right exits 0 with `declared_rules: FAIL`. Results expose deterministic `baseline_new`
-and `baseline_resolved` counts. Only `rule.violated` is answered this way; every other diagnostic
-still exits 2, as does a baseline that cannot be read (`baseline.invalid`). `--write-baseline`
-writes the observed violations to that same path only after comparing an existing file: resolved-only
-drift may be written, while new or increased fingerprints refuse the write unless `--accept-new` is
-explicit. It writes nothing from a run that exited 2.
+and `baseline_resolved` counts. `baseline_new` counts fingerprints whose occurrence count rose;
+`baseline_resolved` counts fingerprints whose occurrence count fell. Each changed fingerprint
+contributes one, not its occurrence-count delta. Only `rule.violated` is answered this way; every
+other diagnostic still exits 2, as does a baseline that cannot be read (`baseline.invalid`).
+`--write-baseline` writes the observed violations to that same path only after comparing an
+existing file: resolved-only drift may be written, while new or increased fingerprints refuse
+the write unless `--accept-new` is explicit. It writes nothing from a run that exited 2.
 
 `declarations.measurement_budgets` may select `cycle_edges`, `private_crossings`,
 `typing_positions`, `calls_unresolved` and `untyped_private_accesses`. Each declaration carries

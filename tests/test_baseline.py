@@ -363,6 +363,15 @@ def test_violation_drift_counts_are_deterministic() -> None:
     assert violation_drift_counts((first, second), (second,)) == (0, 1)
 
 
+def test_violation_drift_counts_count_fingerprints_not_occurrences() -> None:
+    fingerprint = ViolationFingerprint(("RULE-A",), ("first",))
+    one = (KnownViolation(fingerprint, 1),)
+    four = (KnownViolation(fingerprint, 4),)
+
+    assert violation_drift_counts(one, four) == (1, 0)
+    assert violation_drift_counts(four, one) == (0, 1)
+
+
 def test_old_baseline_without_roles_remains_readable() -> None:
     fingerprint = ViolationFingerprint(("BOUNDARY",), ("shop.api.load", "shop.api"))
 
