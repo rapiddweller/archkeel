@@ -41,6 +41,10 @@ Delta schema 1.3.0 and expectation schema 1.2.0 bind `checker_digest`;
 the evaluator verifies the running package.
 Underscore-private imports belong to the Python decoded-IR profile in `check/python_profile.py`.
 
+`root_layout` is an exact allow-list for the immediate package or module children below its
+`root`. The root module is ignored; missing allowed children are target work, not findings. An
+observed child outside the list is a baselineable violation.
+
 ## Git predicate
 
 `check` reads `architecture-accepted.json` from B and reobserves its accepted commit M.

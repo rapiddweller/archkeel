@@ -25,6 +25,7 @@ from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
+from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import Variant
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
@@ -36,6 +37,7 @@ CATALOG: tuple[Variant, ...] = (
     *_CONSTRUCT_VARIANTS,
     *_DEPENDENCY_VARIANTS,
     *_INTERFACE_VARIANTS,
+    *_LAYOUT_VARIANTS,
     *_TYPE_VARIANTS,
     *_VALIDATION_VARIANTS,
     *_WIDENING_VARIANTS,

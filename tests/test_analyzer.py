@@ -400,6 +400,14 @@ def test_an_inside_that_leaves_the_repository_is_not_recorded(tmp_path: Path) ->
             {"core.py": "V = 1\n", "cli.py": "V = 1\n", "extra.py": "V = 1\n", "blank.py": "\n"},
         ),
         (
+            {
+                "kind": "root_layout",
+                "root": "sample",
+                "allowed_children": ["sample.core", "sample.cli"],
+            },
+            {"core.py": "V = 1\n", "cli.py": "V = 1\n", "extra.py": "V = 1\n"},
+        ),
+        (
             {"kind": "no_component_cycles"},
             {"core.py": "import sample.cli\n", "cli.py": "import sample.core\n"},
         ),
@@ -449,6 +457,30 @@ def test_class_a_rule_produces_one_traceable_violation(
     violations = trace_valid_violations(result.observation)
     assert [(item.kind, item.rule_ids) for item in violations] == [(rule["kind"], ("RULE",))]
     assert len(result.observation.records("violations") or ()) == 1
+
+
+def test_root_layout_ignores_the_root_module_and_missing_allowed_children(tmp_path: Path) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [],
+        "rules": [
+            {
+                "id": "ROOT",
+                "kind": "root_layout",
+                "root": "sample",
+                "allowed_children": [],
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/__init__.py").write_text("\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert result.observation.records("violations") == ()
 
 
 _BROAD_EXCEPT = "try:\n    pass\nexcept Exception:\n    pass\n"

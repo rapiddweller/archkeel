@@ -28,7 +28,7 @@ CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
 
 
 def _tour_root(tmp_path: Path) -> Path:
-    """AD-51's own demo: 18 rule ids, 19 violations, crossing several component pairs."""
+    """AD-51's own demo: 19 rule ids, 20 violations, crossing several component pairs."""
     tour = next(variant for variant in CATALOG if variant.id == "tour")
     return _prepare_repo(tmp_path, dict(tour.files))
 
@@ -85,7 +85,7 @@ def test_only_violations_alone_selects_every_violation(tmp_path: Path) -> None:
 
     assert result.report_filter == ReportFilter(True, None, None)
     assert result.filtered_violations is not None
-    assert len(result.filtered_violations) == 19
+    assert len(result.filtered_violations) == 20
 
 
 def test_architecture_json_bytes_are_identical_with_and_without_a_filter(tmp_path: Path) -> None:
@@ -119,9 +119,9 @@ def test_a_valid_filter_never_changes_the_verdict_the_exit_code_or_the_full_coun
     assert filtered.violations_by_rule == unfiltered.violations_by_rule
     assert filtered.violations_by_component_pair == unfiltered.violations_by_component_pair
     assert filtered.measurements is not None and unfiltered.measurements is not None
-    assert filtered.measurements.scalars.violations == 19
-    assert unfiltered.measurements.scalars.violations == 19
-    # Only one filtered violation is shown; the count above still reads all 19 (AD-60).
+    assert filtered.measurements.scalars.violations == 20
+    assert unfiltered.measurements.scalars.violations == 20
+    # Only one filtered violation is shown; the count above still reads all 20 (AD-60).
     assert filtered.filtered_violations is not None
     assert len(filtered.filtered_violations) == 1
 
@@ -197,7 +197,7 @@ def test_html_report_states_the_filter_that_produced_it(tmp_path: Path) -> None:
     ).decode()
 
     assert 'data-report-filter="true"' in page
-    assert "Filtered (rule DEP-STORE-NO-MONEY): 1 of 19 violation(s) shown." in page
+    assert "Filtered (rule DEP-STORE-NO-MONEY): 1 of 20 violation(s) shown." in page
     # A rule/component facet alone narrows the violations table; it leaves the other
     # sections in place, unlike --only violations below.
     assert "Component flow" in page
@@ -214,7 +214,7 @@ def test_only_violations_hides_every_other_section(tmp_path: Path) -> None:
     ).decode()
 
     assert 'data-report-filter="true"' in page
-    assert "Filtered (only violations): 19 of 19 violation(s) shown." in page
+    assert "Filtered (only violations): 20 of 20 violation(s) shown." in page
     assert "Declared-rule violations" in page
     assert "Component flow" not in page
     assert "Component communication" not in page
@@ -245,7 +245,7 @@ def test_terminal_summary_announces_the_filter(tmp_path: Path) -> None:
 
     sentence = report_summary(result).sentence
 
-    assert "Filtered (component store): 6 of 19 violation(s) shown." in sentence
+    assert "Filtered (component store): 6 of 20 violation(s) shown." in sentence
 
 
 def test_cli_report_json_output_is_filtered(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
@@ -275,7 +275,7 @@ def test_cli_report_json_output_is_filtered(tmp_path: Path, capsys: pytest.Captu
     assert len(result["filtered_violations"]) == 1
     assert result["filtered_violations"][0]["rule_ids"] == ["DEP-STORE-NO-MONEY"]
     # Unfiltered totals still name every violation (AD-60): the filter narrows what is shown.
-    assert result["measurements"]["scalars"]["violations"] == 19
+    assert result["measurements"]["scalars"]["violations"] == 20
     assert result["declared_rules"] == "FAIL"
     assert result["exit_code"] == 0
 

@@ -63,6 +63,9 @@ catch:
 When a component owns several root packages, keep ownership in `packages` and declare the
 intended physical home separately:
 
+Use `root_layout` when the package root itself must expose only an exact set of immediate
+packages or modules; missing future children remain target work.
+
 ```json
 {
   "label": "orders",

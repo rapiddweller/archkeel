@@ -104,8 +104,8 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
             ),
             "shop/model_rules.py": "RULES = True\n",
         },
-        expected_violations=("COMP-MODEL",),
-        expected_codes=("rule.violated",),
+        expected_violations=("COMP-MODEL", "ROOT-LAYOUT"),
+        expected_codes=("rule.violated", "rule.violated"),
     ),
     Variant(
         id="validation-interface-undeclared",
