@@ -202,8 +202,9 @@ without `--baseline`. A CI job needs nothing beyond the command already in the r
 `check` job:
 
 The confirmed `private_crossings` ratchet remains private cross-package imports. Named UNKNOWN
-private-attribute accesses from untyped or `Any` parameters are measured separately as
-`untyped_private_accesses` and in `unknowns`; no runtime component owner is inferred (AD-83).
+private-attribute accesses from untyped, unresolved, or top-level `Any` parameters are measured
+separately as `untyped_private_accesses` and in `unknowns`; nested `Any` does not erase the outer
+owner, and no runtime component owner is inferred (AD-83, AD-91).
 
 ```yaml
 - name: Hold the architecture to its target

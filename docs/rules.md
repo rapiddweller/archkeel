@@ -210,10 +210,11 @@ to remove the unreached entry (AD-85, #80). A 1.0 baseline, an unrelated role, a
 intra-component role, or an ambiguous target cannot prove the narrowing, so the normal diagnostic
 remains.
 
-Private attribute access is a separate measurement. A private expression rooted in an untyped
-or `Any` parameter produces `private_attribute_access_limit` UNKNOWN: the function, parameter and
-attribute are named, but runtime component ownership is not guessed. Typed parameters, locals
-and public attributes are excluded. The UNKNOWN contributes to the separate
+Private attribute access is a separate measurement. A private expression rooted in an untyped,
+unresolved, or top-level `Any` parameter produces `private_attribute_access_limit` UNKNOWN: the
+function, parameter and attribute are named, but runtime component ownership is not guessed. `Any`
+nested inside `list[...]`, `dict[...]` or another outer typing form does not erase that outer
+owner's deterministic type. Typed parameters, locals and public attributes are excluded. The UNKNOWN contributes to the separate
 `untyped_private_accesses` scalar and the `unknowns` delta dimension, without becoming an
 `interface_boundary` violation or changing confirmed `private_crossings` (AD-83).
 
