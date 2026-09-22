@@ -21,6 +21,7 @@ from pathlib import Path
 
 from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
+from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIANTS
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
@@ -34,6 +35,7 @@ from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
 
 CATALOG: tuple[Variant, ...] = (
     *_SHOWCASE_VARIANTS,
+    *_COMPATIBILITY_VARIANTS,
     *_CONSTRUCT_VARIANTS,
     *_DEPENDENCY_VARIANTS,
     *_INTERFACE_VARIANTS,

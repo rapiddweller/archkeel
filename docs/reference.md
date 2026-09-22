@@ -45,6 +45,12 @@ Underscore-private imports belong to the Python decoded-IR profile in `check/pyt
 `root`. The root module is ignored; missing allowed children are target work, not findings. An
 observed child outside the list is a baselineable violation.
 
+`declarations.compat` declares a moved-module shim as `{module, target, lifetime}`. The module
+and target must differ. The module must be scanned and contain only imports plus one literal
+`__all__`; every exported name must resolve only to the target, and product imports of
+the shim are invalid. `migration` entries produce a deterministic remaining-work count and list in
+ArchitectureIR and the HTML report; `permanent` entries do not.
+
 ## Git predicate
 
 `check` reads `architecture-accepted.json` from B and reobserves its accepted commit M.

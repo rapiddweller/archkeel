@@ -31,6 +31,10 @@ chain to the function definition, keeps the facade entry as the subject, and ins
 field level on declared request/result classes. Deeper or unresolved fields stay UNKNOWN; no
 recursive type resolver is implied (AD-84).
 
+When a refactoring moves a module, declare the old path in `declarations.compat` with its target
+and lifetime. A `migration` shim is visible remaining work while it protects callers; promote it
+to `permanent` only when that compatibility surface is intentional (AD-87).
+
 The architect decides `app` will eventually expose a small report facade the refactoring has not
 written yet:
 

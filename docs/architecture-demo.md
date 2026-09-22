@@ -13,6 +13,13 @@ run shows many violations together; every other row isolates one item.
 |---|---|---|---|---|---|---|
 | showcase | tour | tour | validate/report run | APP-TYPES-NOT-DICT, ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ASSERT, CONSTRUCT-NO-BROAD-EXCEPT, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, DEP-APP-NO-STORE-BACKEND, DEP-APP-NO-STORE-SQLITE, DEP-MODEL-NO-RENDER, DEP-RENDER-NO-STORE, DEP-STORE-NO-MONEY, EXTERNAL-COMPLETE, EXTERNAL-JSON-STORE, INTERFACE-BOUNDARY, MODEL-TYPES-IN-ENTITIES, ROOT-LAYOUT, STORE-PEERS-ISOLATED, store:STORE-REQUIRES-COMPLETE | closed_world.observed_forbidden, closed_world.observed_forbidden, graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | shop/app/analytics.py, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/extra.py, shop/model/entities.py, shop/model/promotions.py, shop/render/text.py, shop/store/architecture-contract.json, shop/store/repository.py, shop/store/sqlite.py |
 | clean | shop sample | clean | validate/report run | - | - | clean sample |
+| clean | compatibility:clean | class-a-compatibility-clean | validate/report run | - | - | architecture-contract.json, shop/model/legacy.py |
+| class_a | compatibility:migration-work | class-a-compatibility-migration | validate/report run | - | - | architecture-contract.json, shop/model/legacy.py |
+| class_a | compatibility:effectful-shim | class-a-compatibility-effectful | validate/report run | - | compatibility.invalid, compatibility.invalid | architecture-contract.json, shop/model/legacy.py |
+| class_a | compatibility:product-import | class-a-compatibility-product-import | validate/report run | - | compatibility.invalid | architecture-contract.json, shop/model/legacy.py, shop/model/legacy_user.py |
+| class_a | compatibility:wrong-export | class-a-compatibility-wrong-export | validate/report run | - | compatibility.invalid | architecture-contract.json, shop/model/legacy.py, shop/model/other.py |
+| validation | against:compatibility-added | against-compatibility-added | validate --against run | - | - | architecture-contract.json, shop/model/legacy.py |
+| validation | against:compatibility-promoted | against-compatibility-promoted | validate --against run | - | - | architecture-contract.json, shop/model/legacy.py |
 | class_a | forbidden_construct:getattr | class-a-construct-getattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_getattr.py |
 | class_a | forbidden_construct:hasattr | class-a-construct-hasattr | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_hasattr.py |
 | class_a | forbidden_construct:cast | class-a-construct-cast | validate/report run | CONSTRUCT-NO-DYNAMIC | rule.violated | shop/model/probe_cast.py |
@@ -144,6 +151,7 @@ run shows many violations together; every other row isolates one item.
 | class_c | ContractDeclarations.context_roots_provenance | class-c-context-roots-provenance | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.paths | class-c-paths | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.spot_owners | class-c-spot-owners | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class_c | ContractDeclarations.compat | class-c-compat | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_d | review_claims | class-d-review-claims | tested only | - | - | docs/rules.md |
 | class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |
 | class_d | type_fanin | class-d-type-fanin | tested only | - | - | docs/rules.md |

@@ -40,6 +40,7 @@ from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
     BoundaryTypesRule,
+    CompatibilityShim,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -53,6 +54,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     JsonValue,
     Observation,
+    Record,
     RecordData,
     RunResult,
     SiblingIsolationRule,
@@ -583,6 +585,137 @@ def public_api_diagnostics(
             index, entry, modules, exports, exposed_types, declared_api
         )
     )
+
+
+def _compatibility_import_diagnostics(
+    shim: CompatibilityShim,
+    pointer: str,
+    all_exports: JsonValue,
+    imports: tuple[Record, ...],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    imports_by_binding: dict[str, set[tuple[str, str | None]]] = {}
+    for item in imports:
+        binding = item.data.get("binding")
+        target = item.data.get("target_module")
+        if (
+            item.data.get("source_module") == shim.module
+            and isinstance(binding, str)
+            and binding != "*"
+            and isinstance(target, str)
+        ):
+            origin = item.data.get("origin_definition")
+            if not isinstance(origin, str):
+                origin = target if item.data.get("symbol") is None else None
+            imports_by_binding.setdefault(binding, set()).add((target, origin))
+    if not any(
+        target == shim.target
+        for imports_for_name in imports_by_binding.values()
+        for target, _origin in imports_for_name
+    ):
+        diagnostics.append(
+            _diagnostic(
+                "compatibility.invalid",
+                pointer,
+                shim.module,
+                "The compatibility module has no observed import of its declared target.",
+                "Import the target module directly from the shim.",
+            )
+        )
+    exported_names = (
+        {name for name in all_exports if isinstance(name, str)}
+        if isinstance(all_exports, tuple)
+        else set()
+    )
+    for name in exported_names:
+        imports_for_name = imports_by_binding.get(name, set())
+        origins = {origin for _target, origin in imports_for_name}
+        if (
+            {target for target, _origin in imports_for_name} != {shim.target}
+            or None in origins
+            or len(origins) != 1
+        ):
+            diagnostics.append(
+                _diagnostic(
+                    "compatibility.invalid",
+                    pointer,
+                    shim.module,
+                    "Every compatibility export must resolve only to the declared target.",
+                    "Remove unrelated or ambiguous imports, or correct the declared target.",
+                )
+            )
+            break
+    if any(
+        item.data.get("source_module") != shim.module
+        and item.data.get("target_module") == shim.module
+        for item in imports
+    ):
+        diagnostics.append(
+            _diagnostic(
+                "compatibility.invalid",
+                pointer,
+                shim.module,
+                "Product code imports a compatibility module.",
+                "Keep compatibility imports at the external boundary only.",
+            )
+        )
+    return tuple(diagnostics)
+
+
+def compatibility_diagnostics(
+    contract: ArchitectureContract, observation: Observation
+) -> tuple[Diagnostic, ...]:
+    """Check declared shims from module and import facts already produced by the scan."""
+    declarations = contract.declarations or ContractDeclarations()
+    modules = {
+        name: record.data
+        for record in observation.records("modules") or ()
+        if isinstance((name := record.data.get("qualified_name")), str)
+    }
+    imports = observation.records("imports") or ()
+    diagnostics: list[Diagnostic] = []
+    for index, shim in enumerate(declarations.compat):
+        pointer = f"/declarations/compat/{index}"
+        facts = modules.get(shim.module)
+        if facts is None:
+            diagnostics.append(
+                _diagnostic(
+                    "compatibility.invalid",
+                    pointer,
+                    shim.module,
+                    "The declared compatibility module was not scanned.",
+                    "Build the shim in the configured scan scope, or remove the declaration.",
+                )
+            )
+            continue
+        all_exports = facts.get("all_exports")
+        if (
+            facts.get("compatibility_logic_free") is not True
+            or not isinstance(all_exports, tuple)
+            or not all_exports
+        ):
+            diagnostics.append(
+                _diagnostic(
+                    "compatibility.invalid",
+                    pointer,
+                    shim.module,
+                    "A compatibility module must contain only imports and a literal __all__.",
+                    "Remove definitions and effectful statements, and declare a literal __all__.",
+                )
+            )
+        if shim.target not in modules:
+            diagnostics.append(
+                _diagnostic(
+                    "compatibility.invalid",
+                    pointer,
+                    shim.target,
+                    "The declared compatibility target was not scanned.",
+                    "Build the target module in the configured scan scope, or correct the "
+                    "declaration.",
+                )
+            )
+        diagnostics.extend(_compatibility_import_diagnostics(shim, pointer, all_exports, imports))
+    return tuple(diagnostics)
 
 
 def interface_diagnostics(
@@ -1158,6 +1291,7 @@ def observation_diagnostics(
         *closed_world_diagnostics(contract, observation),
         *interface_diagnostics(contract, observation, resolved_public_entries),
         *public_api_diagnostics(contract, observation),
+        *compatibility_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]

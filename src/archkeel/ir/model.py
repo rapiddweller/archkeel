@@ -249,6 +249,18 @@ class ContractOwner:
     provenance: tuple[str, ...]
 
 
+CompatibilityLifetime: TypeAlias = Literal["permanent", "migration"]
+
+
+@dataclass(frozen=True, slots=True)
+class CompatibilityShim:
+    """A declared old module path kept as a logic-free import compatibility shim."""
+
+    module: str
+    target: str
+    lifetime: CompatibilityLifetime
+
+
 @dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule:
     id: str
@@ -529,6 +541,7 @@ class ContractDeclarations:
     context_roots_provenance: tuple[str, ...] = ()
     paths: tuple[ContractPath, ...] = ()
     spot_owners: tuple[ContractOwner, ...] = ()
+    compat: tuple[CompatibilityShim, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -628,6 +641,7 @@ DiagnosticCode: TypeAlias = Literal[
     "observation.incomplete",
     "inside.public_mismatch",
     "inside.forbidden_import",
+    "compatibility.invalid",
 ]
 
 

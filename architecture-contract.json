@@ -234,7 +234,8 @@
         "responsibility": "Rule kinds, record shapes and scope matching stay the single source of truth every component reads.",
         "provenance": ["docs/architecture/archkeel.md"]
       }
-    ]
+    ],
+    "compat": []
   },
   "rules": [
     {

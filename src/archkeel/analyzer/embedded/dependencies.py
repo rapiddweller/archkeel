@@ -118,6 +118,7 @@ def module_records(
     module_fan_out = Counter(source for source, target in module_edge_pairs)
     module_ranks = condensation_ranks(module_names, module_edge_pairs)
     symbols_by_module = Counter(item["data"]["module"] for item in symbols)
+
     return [
         classified(
             item_id=stable_id("MOD", module.module),
@@ -136,6 +137,7 @@ def module_records(
                 "fan_out": module_fan_out[module.module],
                 "rank": module_ranks.get(module.module, 0),
                 "all_exports": sorted(module.all_exports),
+                "compatibility_logic_free": module.compatibility_logic_free,
             },
         )
         for module in parsed

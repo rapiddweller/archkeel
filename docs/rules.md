@@ -2,6 +2,12 @@
 
 Contract 2.0 separates deterministic rules, regression checks, declarations and review claims.
 
+`declarations.compat` records old module paths kept as typed compatibility shims. Each entry has
+distinct `module` and `target` values and a `lifetime` (`permanent` or `migration`). A shim must
+contain only imports and one literal `__all__`; every exported name must resolve only to the
+target, and product modules must not import the shim. Migration entries are reported in
+ArchitectureIR and HTML as remaining work. Missing evidence fails closed (AD-87).
+
 | Class | Purpose | Check outcome |
 |---|---|---|
 | A | Enforce a fact visible in one complete observation. | PASS or FAIL |

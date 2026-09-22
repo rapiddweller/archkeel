@@ -518,6 +518,24 @@ def _section_inventory(observation: Observation | None) -> str:
     )
 
 
+def _compatibility_migration_work(observation: Observation) -> str:
+    modules = sorted(
+        {
+            subject
+            for record in observation.records("declarations") or ()
+            if record.kind == "compatibility_migration_work"
+            for subject in record.subjects
+        }
+    )
+    if not modules:
+        return ""
+    items = "".join(f"<li><code>{_text(module)}</code></li>" for module in modules)
+    return (
+        '<section class="report-section"><h2>Compatibility migration work</h2>'
+        f"<p>{len(modules)} migration shim(s) remain.</p><ul>{items}</ul></section>"
+    )
+
+
 def _metadata(result: RunResult, observation: Observation | None) -> str:
     analyzer = observation.analyzer if observation is not None else None
     contract = observation.contract if observation is not None else None
@@ -580,6 +598,11 @@ def render_html(
         if observation is not None and not only_violations
         else ""
     )
+    migration_work_html = (
+        _compatibility_migration_work(observation)
+        if observation is not None and not only_violations
+        else ""
+    )
     flow_html = (
         _flow_section(observation) if observation is not None and not only_violations else ""
     )
@@ -634,6 +657,7 @@ def render_html(
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
     <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>
     {unknowns_html}
+    {migration_work_html}
     <div id="report-secondary-detail" data-secondary-detail>
       <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
       <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
