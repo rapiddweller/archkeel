@@ -179,6 +179,24 @@ without `--baseline`. A CI job needs nothing beyond the command already in the r
   run: uv run --locked archkeel validate --baseline known-violations.json
 ```
 
+For a project gate, keep the same fail-closed shape in the repository's `Makefile`: one target
+names the project's checks and the architecture check as prerequisites. There is no pipe to hide a
+status and no generic Archkeel command configuration:
+
+```make
+.PHONY: gate
+gate: project-check architecture-check
+
+project-check:
+	uv run --locked pytest -q
+
+architecture-check:
+	uv run --locked archkeel validate --baseline known-violations.json
+```
+
+CI runs `make gate`. A deliberately failing `project-check` must make `make gate` nonzero; later
+prerequisites must not turn that failure into success.
+
 ## 5. Keep the target from moving
 
 The easiest way to make a violation disappear is to widen the rule that names it instead of

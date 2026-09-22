@@ -17,8 +17,7 @@ The runtime test in `make check` also starts `python3.12`, so 3.12 must be on yo
 ## Before you push
 
 ```bash
-make check                              # Ruff, strict mypy, pytest and Archkeel's self-check
-uv run archkeel validate --root . --json  # Archkeel's own contract, exit 0
+make gate                               # locked checks and Archkeel's own contract validation
 ```
 
 ## Regenerate the self-observation

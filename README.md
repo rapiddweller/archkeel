@@ -420,13 +420,15 @@ authenticity.
 
 ## Development
 
-Run the complete project gate:
+Run the complete project gate, including Archkeel's own contract validation:
 
 ```bash
-make check
+make gate
 ```
 
-This runs Ruff, strict mypy, pytest, and Archkeel's self-check.
+This runs the locked release checks (Ruff, strict mypy, pytest, builds and smoke tests) and then
+`archkeel validate --root . --json`. CI uses this same Make entry point. `make check` remains the
+faster source, type and test loop.
 
 A change to Python code under `src/` or to an architecture contract moves the saved
 self-observation that check compares against; regenerate it with `make self-observation`. The
@@ -474,8 +476,8 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
 `make check` reobserves the repository and compares it with
 [fixtures/D-self](https://github.com/rapiddweller/archkeel/tree/main/fixtures/D-self): the
 canonical model in `architecture.json`, the digests in `provenance.json`, and the verdicts
-`report` printed in `result.json`. CI also runs `archkeel validate` and uploads the
-self-observation.
+`report` printed in `result.json`. The `gate` target adds the contract validation; CI uploads the
+self-observation separately as evidence.
 
 ## Current boundaries
 

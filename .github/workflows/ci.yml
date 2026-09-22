@@ -31,11 +31,8 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Check source and distributions
-        run: make release-check
-
-      - name: Validate Archkeel's own contract
-        run: uv run --locked archkeel validate --root . --json
+      - name: Run the locked project gate
+        run: make gate
 
       - name: Observe Archkeel
         run: >-
