@@ -244,10 +244,7 @@ def test_self_contract_closes_every_component_pair(self_observation: Observation
 
 
 def test_self_public_api_declares_every_type_it_hands_out(self_observation: Observation) -> None:
-    """AD-70: `archkeel.api`, the boundary the invariant was written for, must clear whatever
-    guard closes tests/test_public_api_boundary.py's red tests -- a green regression guard, not
-    proof the guard exists. It already passes today, for the narrower reason that
-    `public_api_diagnostics` does not yet look at a declared entry's signature at all."""
+    """AD-70: the self contract must declare every type its public API hands out."""
     assert public_api_diagnostics(_contract(), self_observation) == ()
 
 

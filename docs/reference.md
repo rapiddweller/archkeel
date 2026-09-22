@@ -203,10 +203,20 @@ the command result or `architecture.json`, and without JavaScript the full repor
 `archkeel.api` is the declared external contract (AD-64): the one supported way to read
 `architecture.json` outside this repository, for a CI gate that wants named fields rather than
 the columnar, string-interned file on disk. Its whole promise is declared in
-`architecture-contract.json`'s `declarations.public_api` (AD-66), exactly
-`archkeel.api:ViolationFingerprint`, `archkeel.api:ViolationRow` and `archkeel.api:load_violations`,
-mirrored by `__all__` and checked against a scanned module the same way a missing `public` entry
-is (`api_surface.missing`). `load_violations(path)` reads the file and returns one typed `ViolationRow` per violation.
+`architecture-contract.json`'s `declarations.public_api` (AD-66). The documented names stay
+machine-readable:
+
+<!-- archkeel-public-api -->
+```json
+[
+  "archkeel.api:ViolationFingerprint",
+  "archkeel.api:ViolationRow",
+  "archkeel.api:load_violations"
+]
+```
+
+They are mirrored by `__all__` and checked against a scanned module the same way a missing
+`public` entry is (`api_surface.missing`). `load_violations(path)` reads the file and returns one typed `ViolationRow` per violation.
 For each promised name, validation requires the scanned module and, when present and non-empty,
 membership in its literal `__all__`; an empty `__all__` is not inspected. Without an inspected
 export list, a name with no scanned top-level class or function is `UNKNOWN`, not a pass. For an
