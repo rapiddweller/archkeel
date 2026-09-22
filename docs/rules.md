@@ -215,6 +215,10 @@ whose own module falls under an `allowed_sources` prefix or equals an `exact_sou
 `class_kind` through the same blind spot `class_kind` itself carries. Declaring a `Coupon`
 dataclass in `shop.model.promotions` when `MODEL-TYPES-IN-ENTITIES` allows only
 `shop.model.entities` for a dataclass below `shop.model` is an example violation (AD-58).
+For shared types, choose the owning component before writing the rule; `foundation` is not a
+default owner for domain enums or models. Set `source` to the package and use `exact_sources`
+for the chosen module. The [target-first guide](target-first.md) has the complete contract
+fragment. `init` does not infer this decision.
 
 `boundary_types` fields are `source` and, matching `forbidden_construct`, optional
 `allowed_sources` and `exact_sources`. It states that a component's declared facade function
