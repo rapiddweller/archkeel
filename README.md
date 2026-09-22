@@ -194,6 +194,9 @@ archkeel report --only violations --component store
   level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
   and under `claims` in `--json`, while the HTML report lists the candidates. None of it reaches
   an exit code.
+- **Facade shape is measured, never budgeted.** The report shows declared export counts,
+  re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
+  width. These facts do not claim a barrel is complete; contract budgets are later work (AD-88).
 
 ## Try the demo
 

@@ -9,7 +9,13 @@ file content instead of duplicating it.
 
 from __future__ import annotations
 
-from fixtures.demo_catalog_support import HEADER, Variant
+import json
+
+from fixtures.demo_catalog_support import (
+    FIXTURE_DIR,
+    HEADER,
+    Variant,
+)
 
 MAIN_WITH_UNDERSCORE_IMPORT = HEADER + (
     '"""Argument parsing and composition; the single broad error boundary lives here."""\n\n'
@@ -28,6 +34,30 @@ MAIN_WITH_UNDERSCORE_IMPORT = HEADER + (
     "    except Exception:\n"
     "        return 1\n"
 )
+
+
+def _barrel_contract() -> str:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    store = next(item for item in contract["components"] if item["label"] == "store")
+    store["public"] = [
+        "shop.store.repository:OrderRepository",
+        "shop.store:OrderRepository",
+        "shop.store.sqlite:vacuum",
+        "shop.store.sqlite:Connection",
+    ]
+    return json.dumps(contract, indent=2) + "\n"
+
+
+def _barrel_inside_contract() -> str:
+    contract = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    repository = next(item for item in contract["components"] if item["label"] == "repository")
+    repository["public"] = [
+        "shop.store.repository:OrderRepository",
+        "shop.store:OrderRepository",
+    ]
+    return json.dumps(contract, indent=2) + "\n"
+
+
 _INTERFACE_UNDERSCORE = Variant(
     id="class-a-interface-boundary-underscore",
     section="class_a",
@@ -127,6 +157,20 @@ _INTERFACE_ACCEPTED_REEXPORT = Variant(
     expected_violations=(),
     expected_codes=(),
 )
+_INTERFACE_PROFILE_BARREL = Variant(
+    id="class-d-interface-profile-barrel",
+    section="class_d",
+    item="interface_profile:declared barrel",
+    summary="The real shop.store barrel is declared as the public facade; the observation can "
+    "measure its export shape and consumers without claiming completeness or enforcing a budget.",
+    files={
+        "architecture-contract.json": _barrel_contract(),
+        "shop/store/__init__.py": (FIXTURE_DIR / "shop/store/__init__.py").read_text(),
+        "shop/store/architecture-contract.json": _barrel_inside_contract(),
+    },
+    expected_violations=(),
+    expected_codes=(),
+)
 _STORE_INIT_WITH_SHADOWED_SQLITE = HEADER + (
     '"""Re-export the store component\'s repository entry point."""\n\n'
     "from __future__ import annotations\n\n"
@@ -186,6 +230,7 @@ VARIANTS: tuple[Variant, ...] = (
     _INTERFACE_WHOLE_MODULE,
     _INTERFACE_ALL_GATE,
     _INTERFACE_ACCEPTED_REEXPORT,
+    _INTERFACE_PROFILE_BARREL,
     _INTERFACE_PACKAGE_ATTRIBUTE_OVER_SUBMODULE,
     _INTERFACE_UNTYPED_PRIVATE_ACCESS,
 )
