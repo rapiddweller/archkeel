@@ -137,7 +137,7 @@ $ archkeel validate --baseline known-violations.json --write-baseline
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "violations": [
     { "count": 1, "rules": ["DEP-STORE-NO-MONEY"],
       "subjects": ["shop.model.entities.Money", "shop.store.repository"] }
@@ -319,7 +319,7 @@ declared_rules: PASS
 ```
 
 ```json
-{ "schema_version": "1.0.0", "violations": [] }
+{ "schema_version": "1.1.0", "violations": [] }
 ```
 
 An overstated baseline fails the gate exactly as an understated one does, symmetrically: running

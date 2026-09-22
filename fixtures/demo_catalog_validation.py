@@ -394,6 +394,18 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         evidence="tests/test_cli.py",
     ),
     Variant(
+        id="validation-baseline-roles",
+        section="validation",
+        item="baseline.roles",
+        summary="A baseline keeps its order-independent fingerprint while retaining every sorted "
+        "source/target role for directional entries; legacy 1.0 files and construct rows remain "
+        "valid without roles (issue #82, AD-78).",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_baseline.py",
+    ),
+    Variant(
         id="validation-against-invalid",
         section="validation",
         item="against.invalid",

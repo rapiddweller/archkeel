@@ -110,6 +110,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-75 | [An open report can focus on violations without changing evidence](decisions/ad-75-an-open-report-can-focus-on-violations-without-changing.md) |
 | AD-76 | [`boundary_types` and `symbol_placement` are restrictions in `--against`](decisions/ad-76-boundary-rules-are-restrictions-in-against.md) |
 | AD-77 | [An existing baseline is compared before it is written](decisions/ad-77-an-existing-baseline-is-compared-before-it-is-written.md) |
+| AD-78 | [Baseline fingerprints keep identity and record direction roles](decisions/ad-78-baseline-fingerprints-keep-identity-and-record-direction-roles.md) |
 
 ## Allowed dependencies
 
