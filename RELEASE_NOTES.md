@@ -1,3 +1,48 @@
+# Archkeel 0.6.0 — Deterministic evidence stays explicit
+
+0.6.0 narrows what Archkeel claims. Distinct possible origins stay `UNKNOWN`; multiple paths to
+one exact origin remain decidable. Verdict and measured coverage stay separate.
+
+## Highlights
+
+- **Selected measurements can be protected.** A contract may select from five existing
+  deterministic scalars. Any drift fails. Reductions can be written back; new or increased debt
+  requires explicit `--accept-new` when updating an existing baseline (AD-77, AD-89).
+- **Compatibility shims are declared.** `declarations.compat` binds an old module to one exact
+  target and a permanent or migration lifetime. The shim stays import-only and product code may
+  not depend on it (AD-87).
+- **Decision evidence is semantic evidence.** Direction roles used by validation are protected
+  from drift rather than treated as neutral metadata (AD-78, AD-90).
+- **Facade ambiguity means distinct origins.** Several aliases to one exact origin are decidable.
+  Distinct possible origins remain `UNKNOWN` (AD-84).
+- **Nested `Any` does not erase a known owner.** Only an untyped, unresolved or top-level `Any`
+  owner makes private access `UNKNOWN` (AD-91).
+- **Root layout fails at the contract boundary.** The root itself, nested descendants and entries
+  under another root are invalid `allowed_children`; validation returns exit 2 before analysis
+  (AD-86).
+
+## Compatibility
+
+- Analyzer version moves from `0.32.0` to `0.41.0`. Earlier observations are not comparable.
+- The baseline writer moves from schema `1.0.0` to `1.2.0`; the reader still accepts `1.0.0` and
+  `1.1.0`.
+- Updating an existing baseline requires `--accept-new` for new or increased debt.
+- Contract schema stays `2.1.0`. New declarations and rules are optional.
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
+## Self-observation
+
+Archkeel parses 66 of 66 source files with 100% AST coverage. It resolves 4,479 of 5,597 calls,
+partially resolves 621 and leaves 497 unresolved: 80.03% call-resolution coverage. The current
+self-check reports 0 known violations and `declared_rules: UNKNOWN`; coverage remains visible
+instead of being folded into PASS.
+
 # Archkeel 0.5.1 — Violations take focus
 
 0.5.1 shortens the path from a full architecture report to the evidence that needs action.
