@@ -63,7 +63,8 @@ run shows many violations together; every other row isolates one item.
 | validation | api_surface.missing | validation-api-surface-missing | validate/report run | - | api_surface.missing | architecture-contract.json |
 | validation | api_surface.missing:not_in_all | validation-api-surface-not-exported | validate/report run | - | api_surface.missing | architecture-contract.json |
 | validation | interface.planned_built:not yet built | validation-interface-planned-not-built | validate/report run | - | - | architecture-contract.json |
-| validation | interface.planned_built:stale marker | validation-interface-planned-built | validate/report run | - | interface.planned_built | architecture-contract.json |
+| validation | interface.planned_built:target work | validation-interface-planned-built | validate/report run | - | - | architecture-contract.json |
+| validation | interface.planned_built:reached | validation-interface-planned-built-reached | tested only | - | interface.planned_built | tests/test_validation.py |
 | validation | agent_decisions:agent-attributed | validation-agent-decisions-attributed | validate/report run | - | - | architecture-contract.json |
 | validation | rationale.placeholder | validation-rationale-placeholder | validate/report run | - | rationale.placeholder | architecture-contract.json |
 | validation | rationale.repeated | validation-rationale-repeated | validate/report run | - | rationale.repeated | architecture-contract.json |

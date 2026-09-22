@@ -306,6 +306,24 @@ _COMPONENT_CASES: tuple[
         False,
     ),
     (
+        "planned entry promoted to public",
+        _component(planned=("pkg:A",)),
+        _component(public=("pkg:A",)),
+        False,
+    ),
+    (
+        "planned entry removed",
+        _component(planned=("pkg:A",)),
+        _component(),
+        True,
+    ),
+    (
+        "public addition beside promotion",
+        _component(planned=("pkg:A",)),
+        _component(public=("pkg:A", "pkg:B")),
+        True,
+    ),
+    (
         "requires gained an edge",
         _component(requires=()),
         _component(requires=(RequiredComponent("other", "because"),)),

@@ -21,8 +21,8 @@ target-first contract goes further, once the architect decides it: a `requires` 
 `allowed_dependency` entry for an edge the refactoring will need before any module crosses it,
 and a `public` entry only for an interface that already exists. An interface the refactoring has
 not built yet belongs in `planned` instead — the same `pkg.module`/`pkg.module:Name` shape as
-`public`, disjoint from it, so `validate` stays silent about it until the module exists
-(AD-56). Declaring it `public` before it exists is a worse mistake than it looks:
+`public`, disjoint from it. `validate` stays silent until a caller reaches the entry, even if the
+module already exists (AD-56, AD-79). Declaring it `public` before it exists is a worse mistake than it looks:
 `interface.missing` reads identically whether the entry is a typo or a facade nobody has written
 yet. A violation baseline cannot hide either validation diagnostic.
 
@@ -364,14 +364,14 @@ directly (AD-54, AD-64;
 
 ## 8. Land a planned interface
 
-Once the refactoring writes the facade step 1 only promised, build it:
+Once the refactoring writes and a caller reaches the facade step 1 only promised, land it:
 
 ```python
 def NotBuiltYet() -> str:
     return "built"
 ```
 
-`archkeel validate --json` exits 2 with:
+`archkeel validate --json` exits 2 with `interface.planned_built`:
 
 ```json
 {
@@ -382,9 +382,8 @@ def NotBuiltYet() -> str:
 }
 ```
 
-The remedy is the whole fix — move the entry, drop it from `planned` — and this is a stale
-marker, not a violation: nothing has gone wrong, the target and the code have simply caught up
-with each other at this one entry.
+The remedy is the whole fix — move the entry, drop it from `planned`. A built but unused module
+does not produce this diagnostic; it is still target work (AD-79).
 
 ```diff
 -      "public": ["shop.app.orders:place_order"],

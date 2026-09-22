@@ -394,13 +394,16 @@ def _public_entry_diagnostics(
 
 
 def _planned_entry_diagnostics(
-    index: int, component: ContractComponent, modules: frozenset[str]
+    index: int,
+    component: ContractComponent,
+    records: list[RecordData],
+    modules: frozenset[str],
+    facade_types: tuple[str, ...],
 ) -> list[Diagnostic]:
-    """Flag a `planned` entry whose module the scan now sees: the marker is stale (AD-56).
+    """Flag a built `planned` entry once code actually reaches it (AD-56, #79).
 
-    A planned module the scan never saw is target work, not a finding. Needs no declared
-    `public` of its own: an architect may name a facade before the component has any live
-    interface to pair it with.
+    A built but unused module is still target work. Promotion is needed only when an import or
+    declared facade signature reaches the planned entry.
     """
     return [
         _diagnostic(
@@ -411,7 +414,7 @@ def _planned_entry_diagnostics(
             "Move the entry to public and drop it from planned.",
         )
         for item, entry in enumerate(component.planned or ())
-        if _entry_module(entry) in modules
+        if _entry_module(entry) in modules and _entry_used(entry, records, facade_types)
     ]
 
 
@@ -549,7 +552,9 @@ def interface_diagnostics(
             diagnostics.extend(
                 _public_entry_diagnostics(index, component, records, modules, facade_types)
             )
-        diagnostics.extend(_planned_entry_diagnostics(index, component, modules))
+        diagnostics.extend(
+            _planned_entry_diagnostics(index, component, records, modules, facade_types)
+        )
     return tuple(diagnostics)
 
 

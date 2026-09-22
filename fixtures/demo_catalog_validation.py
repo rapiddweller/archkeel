@@ -158,16 +158,27 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
     Variant(
         id="validation-interface-planned-built",
         section="validation",
-        item="interface.planned_built:stale marker",
-        summary="Marking shop.app.maintenance as planned when the scan already sees that "
-        "module is a stale marker (AD-56): the refactoring caught up and the contract did not.",
+        item="interface.planned_built:target work",
+        summary="Marking shop.app.maintenance as planned remains target work even though the "
+        "module exists (AD-79): promotion is required only after a caller reaches the entry.",
         files={
             "architecture-contract.json": contract_component_field_set(
                 "app", "planned", ["shop.app.maintenance"]
             )
         },
         expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-interface-planned-built-reached",
+        section="validation",
+        item="interface.planned_built:reached",
+        summary="A planned entry reached by a cross-component import is no longer only target "
+        "work; validate asks for the exact planned-to-public promotion (AD-79).",
+        files={},
+        expected_violations=(),
         expected_codes=("interface.planned_built",),
+        evidence="tests/test_validation.py",
     ),
     Variant(
         id="validation-agent-decisions-attributed",

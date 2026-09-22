@@ -333,16 +333,23 @@ def _requires_widenings(
 
 def _component_widenings(before: ContractComponent, after: ContractComponent) -> list[str]:
     subject = f"component {before.label!r}"
+    before_public = frozenset(before.public or ())
+    after_public = frozenset(after.public or ())
+    before_planned = frozenset(before.planned or ())
+    after_planned = frozenset(after.planned or ())
+    promoted = (before_planned - after_planned) & after_public
     return [
-        *_set_widenings(
-            f"{subject}.public",
-            frozenset(before.public or ()),
-            frozenset(after.public or ()),
-            grows_widens=True,
-        ),
+        *[
+            f"{subject}.public gained {item!r}"
+            for item in sorted(after_public - before_public - promoted)
+        ],
+        *[
+            f"{subject}.planned lost {item!r}"
+            for item in sorted(before_planned - after_planned - promoted)
+        ],
         *_requires_widenings(subject, before.requires or (), after.requires or ()),
         *_generic_field_widenings(
-            subject, before, after, handled=frozenset({"public", "requires"})
+            subject, before, after, handled=frozenset({"public", "planned", "requires"})
         ),
     ]
 

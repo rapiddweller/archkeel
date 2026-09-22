@@ -706,8 +706,8 @@ def test_planned_entry_not_yet_built_has_no_diagnostic() -> None:
     assert interface_diagnostics(contract, observation) == ()
 
 
-def test_planned_entry_now_built_is_a_diagnostic() -> None:
-    """AD-56: a planned entry whose module the scan now sees is a stale marker."""
+def test_planned_entry_built_but_unused_is_target_work() -> None:
+    """AD-56/#79: a built planned entry stays target work until code reaches it."""
     contract = parse_contract(
         {
             "schema_version": "2.1.0",
@@ -720,6 +720,34 @@ def test_planned_entry_now_built_is_a_diagnostic() -> None:
     )
     observation = parse_observation(
         _model(git_head="a" * 40, modules=[_module("sample.core")], imports=[])
+    )
+    assert interface_diagnostics(contract, observation) == ()
+
+
+def test_built_planned_entry_reached_by_import_needs_promotion() -> None:
+    """#79: reaching a planned entry is the point at which promotion becomes required."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=[], planned=["sample.core:Widget"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            modules=[_module("sample.core")],
+            imports=[
+                _cross_import(
+                    "sample.core",
+                    imported_names=["Widget"],
+                    reexport_chain=["sample.core.Widget"],
+                )
+            ],
+        )
     )
     diagnostics = interface_diagnostics(contract, observation)
     assert [item.pointer for item in diagnostics] == ["/components/0/planned/0"]
