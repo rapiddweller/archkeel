@@ -20,6 +20,7 @@ from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.analyzer.embedded.typing_signals import collect_typing_signals
 from archkeel.analyzer.embedded.violations import _construct_violations, requires_violations
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
+from archkeel.ir.baseline import observed_violations
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
@@ -128,13 +129,18 @@ def test_forbidden_construct_produces_a_violation_and_contract_pointer(tmp_path:
 
 
 def _component(
-    label: str, *, public: list[str] | None = None, planned: list[str] | None = None
+    label: str,
+    *,
+    public: list[str] | None = None,
+    planned: list[str] | None = None,
+    packages: list[str] | None = None,
+    namespace: str | None = None,
 ) -> dict[str, object]:
     component: dict[str, object] = {
         "id": f"COMP-{label.upper()}",
         "label": label,
         "role": "component",
-        "packages": [f"sample.{label}"],
+        "packages": packages or [f"sample.{label}"],
         "responsibilities": [],
         "forbidden_responsibilities": [],
         "provenance": ["docs/architecture/sample.md"],
@@ -143,7 +149,50 @@ def _component(
         component["public"] = public
     if planned is not None:
         component["planned"] = planned
+    if namespace is not None:
+        component["namespace"] = namespace
     return component
+
+
+def test_namespace_reports_owned_modules_outside_the_declared_physical_package(
+    tmp_path: Path,
+) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component(
+                "orders",
+                packages=["sample.orders", "sample.order_rules"],
+                namespace="sample.orders",
+            )
+        ],
+        "rules": [],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/orders.py").write_text("VALUE = 1\n")
+    (tmp_path / "sample/order_rules.py").write_text("VALUE = 2\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = result.observation.records("violations") or ()
+    assert [(item.kind, item.subjects, item.rule_ids) for item in violations] == [
+        ("module.placement", ("sample.order_rules", "sample.orders"), ("COMP-ORDERS",))
+    ]
+    assert observed_violations(result.observation)[0].fingerprint.rules == ("COMP-ORDERS",)
+
+    clean = {
+        "schema_version": "2.1.0",
+        "components": [_component("orders", namespace="sample.orders")],
+        "rules": [],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(clean))
+    (tmp_path / "sample/order_rules.py").unlink()
+    clean_result = _observe(tmp_path)
+    assert clean_result.observation is not None
+    assert not any(
+        item.kind == "module.placement"
+        for item in clean_result.observation.records("violations") or ()
+    )
 
 
 def test_rule_projection_writes_decided_by(tmp_path: Path) -> None:

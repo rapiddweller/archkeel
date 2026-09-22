@@ -55,6 +55,20 @@ catch:
 }
 ```
 
+When a component owns several root packages, keep ownership in `packages` and declare the
+intended physical home separately:
+
+```json
+{
+  "label": "orders",
+  "namespace": "shop.orders",
+  "packages": ["shop.orders", "shop.order_rules"]
+}
+```
+
+Owned modules below `shop.order_rules` are then baselineable `module.placement` findings. The
+namespace is optional, so older contracts remain ownership-only.
+
 ### Choose type ownership before placement
 
 `init` drafts package components. It does not infer a foundation or decide where classes belong.

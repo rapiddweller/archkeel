@@ -179,6 +179,9 @@ class ContractComponent:
     # AD-50: who decided this component's `public` list, and every `requires` entry that
     # names nobody of its own. None records no attribution, the way a contract read before.
     decided_by: Literal["architect", "agent"] | None = None
+    # The physical package where this component is expected to live. `packages` remains
+    # the ownership set; modules owned by this component outside `namespace` are violations.
+    namespace: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

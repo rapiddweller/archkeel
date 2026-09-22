@@ -114,6 +114,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-79 | [A planned entry is target work until code reaches it](decisions/ad-79-planned-entry-is-target-work-until-reached.md) |
 | AD-80 | [`string_literal_compare` follows proven local string constants](decisions/ad-80-string-constant-comparisons-are-statically-resolved.md) |
 | AD-81 | [The project owns one fail-closed Make gate](decisions/ad-81-the-project-owns-one-fail-closed-make-gate.md) |
+| AD-82 | [A component namespace restricts placement, not ownership](decisions/ad-82-component-namespace-is-placement-not-ownership.md) |
 
 ## Allowed dependencies
 

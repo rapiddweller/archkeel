@@ -140,6 +140,12 @@ makes the result deterministic. A module whose first line is blank but contains 
 excerpt, so its violation cannot be traced and the run reports UNKNOWN (exit 2) instead of FAIL.
 Adding `archkeel/extra.py` without a component package is an example violation.
 
+`component.namespace` is optional. It names one of that component's `packages` as its physical
+home; `packages` remains the ownership set. Every observed module owned by the component but
+outside that namespace is a baselineable `module.placement` violation. Contracts without the
+field keep the old ownership-only behavior. A namespace is a package name, not a string path or
+special case; adding it narrows `--against`, while removing or changing it widens the contract.
+
 `no_component_cycles` has no selector fields. It projects import records, including
 `TYPE_CHECKING` imports, onto components and reports each strongly connected component with two or
 more members. A complete scan and exact package assignment make the result deterministic. Imports

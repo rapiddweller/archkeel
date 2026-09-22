@@ -85,6 +85,7 @@ _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
 _PUBLIC_ENTRY = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?::[A-Za-z_][A-Za-z0-9_]*)?$"
 )
+_PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
 RawJson: TypeAlias = str | int | float | bool | None | Sequence["RawJson"] | Mapping[str, "RawJson"]
 
 _MISSING_VALUE = object()
@@ -676,6 +677,14 @@ def parse_contract(raw: object) -> ArchitectureContract:
         _parse_component(value, f"components[{index}]")
         for index, value in enumerate(components_raw)
     )
+    for component in components:
+        if (
+            component.namespace is not None
+            and sum(component.namespace in other.packages for other in components) != 1
+        ):
+            raise ValueError(
+                f"component {component.label!r}.namespace must identify one component package"
+            )
     scopes = tuple(
         _parse_review_scope(value, f"review_scopes[{index}]")
         for index, value in enumerate(records("review_scopes"))
@@ -786,7 +795,15 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     item, item_id, provenance = _contract_record(
         raw,
         {"label", "role", "packages", "responsibilities", "forbidden_responsibilities"},
-        {"capability_id", "decided_by", "inside", "planned", "public", "requires"},
+        {
+            "capability_id",
+            "decided_by",
+            "inside",
+            "planned",
+            "public",
+            "requires",
+            "namespace",
+        },
         label,
     )
     try:
@@ -825,11 +842,20 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     )
     inside = item.get("inside")
     decided_by = item.get("decided_by")
+    packages = _contract_strings(item["packages"], f"{label}.packages", required=True)
+    namespace_raw = item.get("namespace")
+    namespace = (
+        _nonempty(namespace_raw, f"{label}.namespace") if namespace_raw is not None else None
+    )
+    if namespace is not None and _PACKAGE_NAME.fullmatch(namespace) is None:
+        raise ValueError(f"{label}.namespace must be a dotted Python package")
+    if namespace is not None and namespace not in packages:
+        raise ValueError(f"{label}.namespace must name one of {label}.packages")
     return ContractComponent(
         item_id,
         _nonempty(item["label"], f"{label}.label"),
         role,
-        _contract_strings(item["packages"], f"{label}.packages", required=True),
+        packages,
         _contract_strings(item["responsibilities"], f"{label}.responsibilities"),
         _contract_strings(
             item["forbidden_responsibilities"], f"{label}.forbidden_responsibilities"
@@ -841,6 +867,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         public,
         planned,
         _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
+        namespace,
     )
 
 
