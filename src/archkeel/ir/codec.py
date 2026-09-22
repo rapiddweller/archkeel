@@ -1088,11 +1088,25 @@ def _parse_root_layout(raw: RawJson, label: str) -> RootLayoutRule:
     item, item_id, provenance = _contract_record(
         raw, {"kind", "root", "allowed_children", "rationale", "decided_by"}, set(), label
     )
+    root = _nonempty(item["root"], f"{label}.root")
+    allowed_children = _contract_strings(item["allowed_children"], f"{label}.allowed_children")
+    root_length = len(root)
+    for index, child in enumerate(allowed_children):
+        if (
+            len(child) <= root_length + 1
+            or child[:root_length] != root
+            or child[root_length] != "."
+            or any(part == "." for part in child[root_length + 1 :])
+        ):
+            raise ValueError(
+                f"{label}.allowed_children[{index}] must be exactly one immediate child "
+                f"of {label}.root"
+            )
     return RootLayoutRule(
         item_id,
         "root_layout",
-        _nonempty(item["root"], f"{label}.root"),
-        _contract_strings(item["allowed_children"], f"{label}.allowed_children"),
+        root,
+        allowed_children,
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),

@@ -192,6 +192,28 @@ def test_validate_gives_every_contract_invalid_diagnostic_a_code(tmp_path: Path)
     assert all(item.code == "contract.invalid" for item in result.diagnostics)
 
 
+def test_validate_rejects_a_non_immediate_root_layout_child(tmp_path: Path) -> None:
+    contract = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    contract["rules"] = [
+        {
+            "id": "ROOT-LAYOUT",
+            "kind": "root_layout",
+            "root": "sample",
+            "allowed_children": ["sample.core.nested"],
+            "rationale": "Probe.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+    ]
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    analyzer = Mock()
+    result, _ = run_validate(tmp_path, CONFIG, analyzer)
+    analyzer.assert_not_called()
+    assert result.exit_code == 2
+    assert result.diagnostics[0].code == "contract.invalid"
+    assert "exactly one immediate child" in result.diagnostics[0].unknown_claim
+
+
 def test_validate_sorts_namespace_and_provenance_diagnostics(tmp_path: Path) -> None:
     contract = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
     contract["components"][0]["packages"] = ["outside.x"]

@@ -64,6 +64,8 @@ run shows many violations together; every other row isolates one item.
 | class_a | private_access:untyped parameter | class-a-private-attribute-untyped | validate/report run | - | - | shop/app/untyped_private.py |
 | class_a | private_access:top-level Any owner | class-a-private-attribute-any-owner | validate/report run | - | - | architecture-contract.json, shop/app/any_private.py |
 | clean | root_layout:clean | class-a-root-layout-clean | validate/report run | - | - | clean sample |
+| clean | root_layout:nested-root | class-a-root-layout-nested-root | validate/report run | - | - | architecture-contract.json |
+| validation | root_layout:invalid-contract | validation-root-layout-invalid-child | validate/report run | - | contract.invalid | architecture-contract.json |
 | class_a | root_layout:unexpected-child | class-a-root-layout-violation | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/rogue.py |
 | class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | shop/model/promotions.py |
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |

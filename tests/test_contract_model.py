@@ -67,3 +67,38 @@ def test_component_namespace_round_trips_and_must_name_an_owned_package() -> Non
     raw["components"][0]["namespace"] = "sample.core"
     with pytest.raises(ValueError, match="identify one component package"):
         parse_contract(raw)
+
+
+@pytest.mark.parametrize("allowed_child", ["sample", "sample.core.nested", "other.core"])
+def test_root_layout_requires_each_allowed_child_to_be_immediate(allowed_child: str) -> None:
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["rules"] = [
+        {
+            "id": "ROOT-LAYOUT",
+            "kind": "root_layout",
+            "root": "sample",
+            "allowed_children": [allowed_child],
+            "rationale": "Probe.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+    ]
+    with pytest.raises(ValueError, match="exactly one immediate child"):
+        parse_contract(raw)
+
+
+def test_root_layout_accepts_a_nested_package_root() -> None:
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["rules"] = [
+        {
+            "id": "ROOT-LAYOUT",
+            "kind": "root_layout",
+            "root": "sample.core",
+            "allowed_children": ["sample.core.models"],
+            "rationale": "Probe.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+    ]
+    contract = parse_contract(raw)
+    assert contract.rules[0].root == "sample.core"

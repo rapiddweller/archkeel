@@ -483,6 +483,30 @@ def test_root_layout_ignores_the_root_module_and_missing_allowed_children(tmp_pa
     assert result.observation.records("violations") == ()
 
 
+def test_root_layout_accepts_a_nested_namespace_package_root(tmp_path: Path) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [],
+        "rules": [
+            {
+                "id": "ROOT",
+                "kind": "root_layout",
+                "root": "sample.pkg",
+                "allowed_children": ["sample.pkg.child"],
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/pkg").mkdir(parents=True)
+    (tmp_path / "sample/pkg/child.py").write_text("VALUE = 1\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert result.observation.records("violations") == ()
+
+
 _BROAD_EXCEPT = "try:\n    pass\nexcept Exception:\n    pass\n"
 
 
