@@ -140,6 +140,9 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
         and item["data"]["symbol"].startswith("_")
         and item["data"]["source_package"] != item["data"]["target_package"]
     ]
+    private_attribute_limits = [
+        item for item in scan.unknowns if item["kind"] == "private_attribute_access_limit"
+    ]
     package_cycles = [item for item in scan.cycles if item["data"]["level"] == "package"]
     module_cycles = [item for item in scan.cycles if item["data"]["level"] == "module"]
     unresolved_calls = [item for item in scan.calls if item["data"]["status"] == "unresolved"]
@@ -264,10 +267,16 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
             ),
             _metric(
                 "private_crossings",
-                "Underscore-private symbol crossings",
+                "Confirmed private symbol crossings",
                 len(private_crossings),
                 "api",
                 fact_ids=[item["id"] for item in private_crossings],
+            ),
+            _metric(
+                "untyped_private_accesses",
+                "Private attribute accesses through untyped or Any parameters",
+                len(private_attribute_limits),
+                "api",
             ),
             _metric(
                 "typing_signals",

@@ -278,13 +278,17 @@ Regression checks add these scalars to the existing record counts and fingerprin
 | --- | --- |
 | No new violations | Violation records |
 | No new cycles | Internal SCC edges, summed across observed levels |
-| No new private crossings | Private cross-package import records |
+| No new private crossings | Confirmed private cross-package imports |
 | No new typing signals | Missing boundary annotation positions; other signals count once |
 | No new unknowns | Unresolved calls; unknown record counts and fingerprints remain checked |
 | Coverage must pass | Scan failure records; any incomplete scan is unverifiable |
 
 The delta stores raw measurements for the accepted observation and candidate.
 Schema, scope, analyzer and contract must match.
+
+The Python measurement profile also carries `untyped_private_accesses`, the count of
+`private_attribute_access_limit` UNKNOWN records. Older measurement payloads without that
+scalar read as zero. This signal is not a private-crossing proof.
 
 `calls_total` is the analyzer's `calls_analyzed`. With `U = calls_unresolved` and `T = calls_total`,
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,

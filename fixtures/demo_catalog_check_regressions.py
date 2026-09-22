@@ -47,6 +47,16 @@ _PRIVATE_CROSSING = CheckExpectation(
     regressed_scalars=("violations", "private_crossings"),
     regressed_dimensions=("violations", "private_crossings"),
 )
+_PRIVATE_ATTRIBUTE_FILES = _files_of(_INTERFACE_VARIANTS, "class-a-private-attribute-untyped")
+_PRIVATE_ATTRIBUTE = CheckExpectation(
+    scenario="ordered",
+    exit_code=1,
+    expectation_fulfilled="FAIL",
+    git_predicate="PASS",
+    host_order="PASS",
+    regressed_scalars=("untyped_private_accesses",),
+    regressed_dimensions=("unknowns",),
+)
 
 _CYCLE_FILES: Mapping[str, str | None] = {
     "shop/model/uses_render.py": HEADER
@@ -142,6 +152,28 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         check=_PRIVATE_CROSSING,
+    ),
+    Variant(
+        id="class-b-scalar-private-attribute-access",
+        section="class_b",
+        item="SCALARS:untyped_private_accesses",
+        summary="An untyped parameter reaches a private attribute; the UNKNOWN record still "
+        "counts as a separate untyped_private_accesses ratchet position.",
+        files=_PRIVATE_ATTRIBUTE_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        check=_PRIVATE_ATTRIBUTE,
+    ),
+    Variant(
+        id="class-b-guardrail-private-attribute-access",
+        section="class_b",
+        item="GUARDRAIL_DIMENSIONS:unknowns:untyped attribute",
+        summary="The same UNKNOWN record regresses the unknowns delta dimension, so the "
+        "guardrail sees the measured risk without relabelling it as a private crossing.",
+        files=_PRIVATE_ATTRIBUTE_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        check=_PRIVATE_ATTRIBUTE,
     ),
     Variant(
         id="class-b-scalar-cycle-edges",

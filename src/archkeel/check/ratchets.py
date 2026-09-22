@@ -60,6 +60,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
         else:
             typing_positions += 1
     imports = _records(observation, "imports")
+    unknowns = _records(observation, "unknowns")
     for item in imports:
         symbol = item.data.get("symbol")
         source = item.data.get("source_package")
@@ -76,6 +77,9 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             typing_positions=typing_positions,
             calls_unresolved=coverage.calls_unresolved,
             coverage_failures=len(coverage.failures),
+            untyped_private_accesses=sum(
+                1 for item in unknowns if item.kind == "private_attribute_access_limit"
+            ),
         ),
         calls_total=total,
         resolution="measured" if total else "n/a",

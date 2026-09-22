@@ -194,6 +194,13 @@ to remove the unreached entry (AD-85, #80). A 1.0 baseline, an unrelated role, a
 intra-component role, or an ambiguous target cannot prove the narrowing, so the normal diagnostic
 remains.
 
+Private attribute access is a separate measurement. A private expression rooted in an untyped
+or `Any` parameter produces `private_attribute_access_limit` UNKNOWN: the function, parameter and
+attribute are named, but runtime component ownership is not guessed. Typed parameters, locals
+and public attributes are excluded. The UNKNOWN contributes to the separate
+`untyped_private_accesses` scalar and the `unknowns` delta dimension, without becoming an
+`interface_boundary` violation or changing confirmed `private_crossings` (AD-83).
+
 A contract may name a target architecture ahead of the refactoring that builds it, so `validate`
 tells a facade that is not built yet from one that never will be (AD-56). An unused `public` entry
 is `interface.missing` when its module was never scanned — it names something that does not exist,

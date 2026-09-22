@@ -13,6 +13,7 @@ SCALARS = (
     "typing_positions",
     "calls_unresolved",
     "coverage_failures",
+    "untyped_private_accesses",
 )
 
 
@@ -28,6 +29,7 @@ class RatchetScalars:
     typing_positions: int
     calls_unresolved: int
     coverage_failures: int
+    untyped_private_accesses: int = 0
 
     def items(self) -> tuple[tuple[str, int], ...]:
         return (
@@ -37,6 +39,7 @@ class RatchetScalars:
             ("typing_positions", self.typing_positions),
             ("calls_unresolved", self.calls_unresolved),
             ("coverage_failures", self.coverage_failures),
+            ("untyped_private_accesses", self.untyped_private_accesses),
         )
 
     def __post_init__(self) -> None:

@@ -67,8 +67,11 @@ kept by hand.
 
 - Dynamic imports such as `importlib.import_module(name)` add no dependency edge. Forbid them with
   the `dynamic_import` construct where boundaries must hold.
-- Only import records cross boundaries: `import pkg` followed by `pkg._member` is not a private
-  crossing.
+- Private cross-package imports remain confirmed crossings. A private attribute rooted in an
+  untyped or `Any` parameter is recorded as `private_attribute_access_limit` UNKNOWN and counted
+  in `untyped_private_accesses`; the static scan cannot prove that parameter's runtime owner.
+  Typed parameters, locals and public attributes are excluded. `import pkg` followed by
+  `pkg._member` remains outside this signal unless the expression is rooted in such a parameter.
 - `forbidden_construct` matches names as written; aliases and shadowed names are blind spots (AD-8).
 - `string_literal_compare` follows only a single, statically proven module/class binding to a
   `str` literal. Imported, conditional, dynamic or reassigned names stay unknown; Enum members,

@@ -20,7 +20,7 @@ from archkeel.ir.model import (
 from .bindings import collect_bindings
 from .calls import collect_calls
 from .constructs import collect_constructs
-from .contexts import collect_contexts
+from .contexts import collect_contexts, private_attribute_limits
 from .dependencies import (
     aggregate_edges,
     component_scope_observations,
@@ -320,6 +320,7 @@ def scan_repository(
 
     unknowns = [
         *_analysis_limits(calls, declarations, namespace),
+        *private_attribute_limits(parsed, evidence),
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.

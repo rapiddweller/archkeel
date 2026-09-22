@@ -1455,9 +1455,11 @@ def parse_measurements(raw: object, label: str) -> Measurements:
     if set(value) != {"scalars", "calls_total", "resolution"}:
         raise RatchetError(f"{label} measurement fields mismatch")
     scalars = _object(value.get("scalars"), f"{label}.scalars")
-    if set(scalars) != set(SCALARS):
+    scalar_keys = set(SCALARS)
+    legacy_scalar_keys = scalar_keys - {"untyped_private_accesses"}
+    if set(scalars) not in (scalar_keys, legacy_scalar_keys):
         raise RatchetError(f"{label}.scalars must contain exactly {SCALARS}")
-    counts = {key: count(scalars[key], f"{label}.{key}") for key in SCALARS}
+    counts = {key: count(scalars.get(key, 0), f"{label}.{key}") for key in SCALARS}
     total = count(value.get("calls_total"), f"{label}.calls_total")
     if total:
         if value.get("resolution") != "measured":
