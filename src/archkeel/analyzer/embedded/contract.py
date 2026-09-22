@@ -30,6 +30,7 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
+    stable_id,
 )
 
 from .records import RawRecord, RecordData, classified
@@ -267,6 +268,7 @@ def project_declarations(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     modules: Sequence[RawRecord],
+    contract_path: str,
 ) -> list[RawRecord]:
     """Project the contract into classified records consumed by JSON and HTML.
 
@@ -407,6 +409,39 @@ def project_declarations(
                     "owner": owner.owner,
                     "responsibility": owner.responsibility,
                 },
+            )
+        )
+    for shim in declarations.compat:
+        items.append(
+            classified(
+                item_id=stable_id("COMPAT", shim.module, shim.target),
+                evidence_class=EvidenceClass.DECLARED_RULE,
+                area="compatibility",
+                kind="compatibility_shim",
+                title=shim.module,
+                subjects=[shim.module, shim.target],
+                provenance=[contract_path],
+                data={
+                    "module": shim.module,
+                    "target": shim.target,
+                    "lifetime": shim.lifetime,
+                },
+            )
+        )
+    migration = tuple(
+        sorted(shim.module for shim in declarations.compat if shim.lifetime == "migration")
+    )
+    if migration:
+        items.append(
+            classified(
+                item_id="COMPAT-MIGRATION-WORK",
+                evidence_class=EvidenceClass.DECLARED_RULE,
+                area="compatibility",
+                kind="compatibility_migration_work",
+                title="Migration compatibility shims remain",
+                subjects=list(migration),
+                provenance=[contract_path],
+                data={"count": len(migration), "modules": list(migration)},
             )
         )
     return sorted(items, key=lambda item: item["id"])

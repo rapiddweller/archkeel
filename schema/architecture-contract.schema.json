@@ -263,7 +263,7 @@
     },
     "declarations": {
       "type": "object",
-      "description": "Declarations are documented, and public_api is also checked for existence (AD-66). See docs/rules.md.",
+      "description": "Declarations are documented, public_api is checked for existence (AD-66), and compat is checked for logic-free lifetime-bounded shims (AD-87). See docs/rules.md.",
       "additionalProperties": false,
       "properties": {
         "capabilities": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
@@ -274,7 +274,18 @@
         "context_roots": {"$ref": "#/$defs/strings"},
         "context_roots_provenance": {"$ref": "#/$defs/strings"},
         "paths": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/path"}},
-        "spot_owners": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/owner"}}
+        "spot_owners": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/owner"}},
+        "compat": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/compatibilityShim"}}
+      }
+    },
+    "compatibilityShim": {
+      "type": "object",
+      "required": ["module", "target", "lifetime"],
+      "additionalProperties": false,
+      "properties": {
+        "module": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"},
+        "target": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"},
+        "lifetime": {"enum": ["permanent", "migration"]}
       }
     },
     "capability": {

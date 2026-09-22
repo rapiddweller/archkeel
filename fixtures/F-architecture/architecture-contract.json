@@ -125,7 +125,8 @@
         "responsibility": "Order, Line and Money stay the single source of truth for order arithmetic.",
         "provenance": ["docs/architecture/shop.md"]
       }
-    ]
+    ],
+    "compat": []
   },
   "rules": [
     {

@@ -56,6 +56,8 @@ AgainstScenario = Literal[
     "symbol_placement_added",
     "boundary_types_removed",
     "symbol_placement_removed",
+    "compat_added",
+    "compat_promoted",
 ]
 
 
@@ -162,6 +164,13 @@ def contract_declarations_field_appended(field: str, value: object) -> str:
     """Clean contract JSON with one value appended to a `declarations` list field."""
     contract = _clean_contract()
     contract["declarations"][field] = [*contract["declarations"][field], value]
+    return _dump_contract(contract)
+
+
+def contract_compat_replaced(entries: list[dict[str, str]]) -> str:
+    """Clean shop contract with the declared compatibility shims replaced."""
+    contract = _clean_contract()
+    contract["declarations"]["compat"] = entries
     return _dump_contract(contract)
 
 

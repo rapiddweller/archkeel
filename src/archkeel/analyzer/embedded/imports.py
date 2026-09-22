@@ -108,6 +108,39 @@ class ImportCollector(ast.NodeVisitor):
         self.under_type_checking = False
         self.items: list[RawRecord] = []
 
+    def visit_Module(self, node: ast.Module) -> None:
+        has_all = False
+        all_literal = False
+        for index, child in enumerate(node.body):
+            if (
+                index == 0
+                and isinstance(child, ast.Expr)
+                and isinstance(child.value, ast.Constant)
+                and isinstance(child.value.value, str)
+            ):
+                continue
+            if isinstance(child, ast.Import | ast.ImportFrom):
+                continue
+            if isinstance(child, ast.Assign | ast.AnnAssign):
+                targets = child.targets if isinstance(child, ast.Assign) else (child.target,)
+                if (
+                    not has_all
+                    and len(targets) == 1
+                    and isinstance(targets[0], ast.Name)
+                    and targets[0].id == "__all__"
+                ):
+                    has_all = True
+                    all_literal = isinstance(child.value, ast.List | ast.Tuple) and all(
+                        isinstance(item, ast.Constant) and isinstance(item.value, str)
+                        for item in child.value.elts
+                    )
+                    if all_literal:
+                        continue
+            break
+        else:
+            self.module.compatibility_logic_free = has_all and all_literal
+        self.generic_visit(node)
+
     def visit_If(self, node: ast.If) -> None:
         previous = self.under_type_checking
         if _is_type_checking_test(node.test):

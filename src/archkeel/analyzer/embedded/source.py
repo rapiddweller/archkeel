@@ -62,6 +62,7 @@ class ParsedModule:
     tree: ast.Module
     aliases: dict[str, AliasBinding] = field(default_factory=dict)
     all_exports: set[str] = field(default_factory=set)
+    compatibility_logic_free: bool = False
 
 
 def _excerpt(module: ParsedModule, node: ast.AST) -> str:

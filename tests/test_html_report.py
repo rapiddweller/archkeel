@@ -67,6 +67,35 @@ def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
     assert 'src="http' not in page and 'href="http' not in page
 
 
+def test_html_report_lists_compatibility_migration_work() -> None:
+    raw = _model(git_head="a" * 40)
+    raw["declarations"] = [
+        {
+            "id": "COMPAT-MIGRATION-WORK",
+            "evidence_class": "DECLARED_RULE",
+            "area": "compatibility",
+            "kind": "compatibility_migration_work",
+            "title": "Migration compatibility shims remain",
+            "subjects": ["pkg.old"],
+            "evidence_ids": [],
+            "rule_ids": [],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {"count": 1, "modules": ["pkg.old"]},
+        }
+    ]
+    observation = parse_observation(raw)
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", coverage=observation.coverage)
+
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+
+    assert "Compatibility migration work" in page
+    assert "1 migration shim(s) remain." in page
+    assert "<code>pkg.old</code>" in page
+
+
 def test_html_report_shows_fail_headline_when_declared_rules_fail() -> None:
     """AD-14: report's exit code stays 0, but the headline must follow declared_rules."""
     raw = _model(git_head="a" * 40)

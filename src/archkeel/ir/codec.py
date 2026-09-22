@@ -33,6 +33,8 @@ from archkeel.ir.model import (
     ArchitectureRule,
     BoundaryTypesRule,
     ComparisonStatus,
+    CompatibilityLifetime,
+    CompatibilityShim,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -151,6 +153,10 @@ def _is_verdict(value: RawJson) -> TypeGuard[Verdict]:
 
 def _is_comparison_status(value: RawJson) -> TypeGuard[ComparisonStatus]:
     return value in get_args(ComparisonStatus)
+
+
+def _is_compatibility_lifetime(value: RawJson) -> TypeGuard[CompatibilityLifetime]:
+    return value in get_args(CompatibilityLifetime)
 
 
 def _percent(value: RawJson, label: str) -> float:
@@ -657,6 +663,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
                 "context_roots_provenance",
                 "paths",
                 "spot_owners",
+                "compat",
             },
             "contract.declarations",
         )
@@ -702,6 +709,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
         _parse_owner(value, f"spot_owners[{index}]")
         for index, value in enumerate(records("spot_owners"))
     )
+    compat = tuple(
+        _parse_compat(value, f"compat[{index}]") for index, value in enumerate(records("compat"))
+    )
+    if len({item.module for item in compat}) != len(compat):
+        raise ValueError("contract.declarations.compat modules must be unique")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     ids = [
         item.id
@@ -736,6 +748,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
             ),
             paths,
             owners,
+            compat,
         )
         if declarations_raw is not None
         else None,
@@ -773,6 +786,22 @@ def _parse_capability(raw: RawJson, label: str) -> ContractCapability:
     name = _nonempty(item["name"], f"{label}.name")
     title = _nonempty(item["label"], f"{label}.label")
     return ContractCapability(item_id, name, title, order, provenance)
+
+
+def _parse_compat(raw: RawJson, label: str) -> CompatibilityShim:
+    item = _contract_fields(raw, {"module", "target", "lifetime"}, set(), label)
+    module = _string(item["module"], f"{label}.module")
+    target = _string(item["target"], f"{label}.target")
+    if _PACKAGE_NAME.fullmatch(module) is None:
+        raise ValueError(f"{label}.module must be a dotted module name")
+    if _PACKAGE_NAME.fullmatch(target) is None:
+        raise ValueError(f"{label}.target must be a dotted module name")
+    if module == target:
+        raise ValueError(f"{label}.module and target must differ")
+    lifetime = item["lifetime"]
+    if not _is_compatibility_lifetime(lifetime):
+        raise ValueError(f"{label}.lifetime must be permanent or migration")
+    return CompatibilityShim(module, target, lifetime)
 
 
 def _public_entry(value: str, label: str) -> str:

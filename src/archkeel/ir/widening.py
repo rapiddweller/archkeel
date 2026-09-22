@@ -17,7 +17,7 @@ fingerprint without reading Git itself.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
@@ -30,6 +30,7 @@ from .model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ContractComponent,
+    ContractDeclarations,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -416,7 +417,29 @@ def contract_widenings(
     if before.schema != after.schema:
         findings.append(f"contract.$schema changed from {before.schema!r} to {after.schema!r}")
     if before.declarations != after.declarations:
-        findings.append("contract.declarations changed in a way this comparison does not enumerate")
+        before_declarations = before.declarations or ContractDeclarations()
+        after_declarations = after.declarations or ContractDeclarations()
+        before_without_compat = replace(before_declarations, compat=())
+        after_without_compat = replace(after_declarations, compat=())
+        if before_without_compat != after_without_compat:
+            findings.append(
+                "contract.declarations changed in a way this comparison does not enumerate"
+            )
+        else:
+            before_map = {item.module: item for item in before_declarations.compat}
+            after_map = {item.module: item for item in after_declarations.compat}
+            findings.extend(
+                f"compat module {after_map[module].module!r} added"
+                for module in sorted(set(after_map) - set(before_map))
+            )
+            for module in sorted(set(before_map) & set(after_map)):
+                old, new = before_map[module], after_map[module]
+                if old.target != new.target:
+                    findings.append(
+                        f"compat module {module!r} changed from {old.target!r} to {new.target!r}"
+                    )
+                if old.lifetime == "migration" and new.lifetime == "permanent":
+                    findings.append(f"compat module {module!r} lifetime became permanent")
     return tuple(sorted(findings))
 
 

@@ -514,6 +514,8 @@ Archkeel is deliberately strict about what it can prove:
   it with `--against`; nothing forces that flag on every gate.
 - **Static observation:** runtime behavior, data flow and performance are not observed; see
   [docs/known-limits.md](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
+- **Compatibility shims:** moved-module shims are declared in `declarations.compat`; migration
+  entries remain visible work, and logic or product imports fail closed (AD-87).
 
 ## Roadmap
 

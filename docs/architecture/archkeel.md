@@ -22,6 +22,9 @@ analyzer runtime gate, `rich` to `archkeel.render.terminal` and `rich_argparse` 
 The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`. This keeps raw AST
 records inside the analyzer and exposes typed `ObservationResult` values at its boundary.
 
+Compatibility shims are declared at the contract top level, not inferred as a generic facade:
+`declarations.compat` owns the old module, target and lifetime (AD-87).
+
 ## Decisions
 
 Each decision names its reason and the check that holds it. Code follows the decision; a change
@@ -119,6 +122,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-84 | [`boundary_types` follows declared facade re-exports and one field level](decisions/ad-84-boundary-types-follow-declared-facade-reexports.md) |
 | AD-85 | [A resolved importer reports the public-interface narrowing it proves](decisions/ad-85-a-resolved-importer-reports-interface-narrowing.md) |
 | AD-86 | [`root_layout` allows only declared immediate children](decisions/ad-86-root-layout-allows-only-declared-immediate-children.md) |
+| AD-87 | [Compatibility shims are declared, logic-free and time-bounded](decisions/ad-87-compatibility-shims-are-declared-logic-free-and-timebounded.md) |
 | AD-88 | [Declared facade measurements are observations, not budgets](decisions/ad-88-declared-facade-measurements-are-observations-not-budgets.md) |
 
 ## Allowed dependencies

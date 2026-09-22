@@ -319,14 +319,17 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
 
 
 def _declaration_records(
-    contract: ArchitectureContract, scan: ScanResult, inside_records: list[RawRecord]
+    contract: ArchitectureContract,
+    scan: ScanResult,
+    inside_records: list[RawRecord],
+    contract_path: str,
 ) -> list[RawRecord]:
     """`project_declarations` needs `scan`'s own `symbols`/`imports`/`modules` to resolve
     `declared_public_api`'s `types` (AD-70); kept out of `analyze_snapshot`'s own body only to
     keep that call a single line there.
     """
     return [
-        *project_declarations(contract, scan.symbols, scan.imports, scan.modules),
+        *project_declarations(contract, scan.symbols, scan.imports, scan.modules, contract_path),
         *inside_records,
     ]
 
@@ -345,6 +348,7 @@ def analyze_snapshot(
     """Analyze explicit source bytes and metadata without consulting Git."""
     source_root = source_root.resolve()
     declarations_root, contract_file = _contract_source(source_root, contract_root, contract_path)
+    contract_reference = contract_file.relative_to(declarations_root).as_posix()
     contract, contract_digest = load_contract(contract_file)
     inside_records, inside_digests, inside_contracts = _inside_levels(declarations_root, contract)
     scan = scan_repository(
@@ -383,11 +387,11 @@ def analyze_snapshot(
         "contract": {
             "schema_version": contract.schema_version,
             "digest": _contract_tree_digest(contract_digest, inside_digests),
-            "path": contract_file.relative_to(declarations_root).as_posix(),
+            "path": contract_reference,
         },
         "coverage": scan.coverage,
         "metrics": _metrics(scan, contract),
-        "declarations": _declaration_records(contract, scan, inside_records),
+        "declarations": _declaration_records(contract, scan, inside_records, contract_reference),
         "scope_observations": scan.scope_observations,
         "packages": scan.packages,
         "modules": scan.modules,
