@@ -4,7 +4,7 @@
 """Validate architecture measurement payloads independent of check policy."""
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, TypeAlias
 
 SCALARS = (
     "violations",
@@ -15,6 +15,24 @@ SCALARS = (
     "coverage_failures",
     "untyped_private_accesses",
 )
+
+
+MeasurementBudgetName: TypeAlias = Literal[
+    "cycle_edges",
+    "private_crossings",
+    "typing_positions",
+    "calls_unresolved",
+    "untyped_private_accesses",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class MeasurementBudget:
+    name: MeasurementBudgetName
+    value: int
+
+    def __post_init__(self) -> None:
+        count(self.value, f"budget {self.name}")
 
 
 class RatchetError(ValueError):
@@ -62,6 +80,56 @@ class Measurements:
             raise RatchetError("calls_unresolved must not exceed calls_total")
         if self.scalars.coverage_failures:
             raise RatchetError("scan must be complete without coverage failures")
+
+
+def selected_budgets(
+    measurements: Measurements, names: tuple[MeasurementBudgetName, ...]
+) -> tuple[MeasurementBudget, ...]:
+    """Project contract-selected scalar values from the one typed measurement profile."""
+    values = dict(measurements.scalars.items())
+    return tuple(MeasurementBudget(name, values[name]) for name in sorted(names))
+
+
+def compare_budgets(
+    accepted: tuple[MeasurementBudget, ...], observed: tuple[MeasurementBudget, ...]
+) -> tuple[str, ...]:
+    """Report every changed or mismatched budget; equality is the passing baseline state."""
+    before = {item.name: item.value for item in accepted}
+    after = {item.name: item.value for item in observed}
+    findings = []
+    for name in sorted(before.keys() | after.keys()):
+        if name not in before:
+            findings.append(
+                f"measurement budget {name} is not in the baseline; rewrite the baseline "
+                "with --write-baseline"
+            )
+            continue
+        if name not in after:
+            findings.append(
+                f"measurement budget {name} is no longer declared; rewrite the baseline "
+                "with --write-baseline"
+            )
+            continue
+        accepted_value = before[name]
+        observed_value = after[name]
+        if observed_value > accepted_value:
+            findings.append(
+                f"measurement budget exceeded in {name}: {accepted_value}->{observed_value}"
+            )
+        elif observed_value < accepted_value:
+            findings.append(
+                f"measurement budget reduced in {name}: {accepted_value}->{observed_value}; "
+                "rewrite the baseline with --write-baseline"
+            )
+    return tuple(findings)
+
+
+def budget_regressions(
+    accepted: tuple[MeasurementBudget, ...], observed: tuple[MeasurementBudget, ...]
+) -> int:
+    """Count observed rises; new declarations have no prior value to regress from."""
+    before = {item.name: item.value for item in accepted}
+    return sum(item.name in before and item.value > before[item.name] for item in observed)
 
 
 def compare_measurements(

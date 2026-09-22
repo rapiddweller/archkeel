@@ -87,6 +87,7 @@ _CLASS_C_ROWS: tuple[Variant, ...] = tuple(
         evidence="fixtures/F-architecture/architecture-contract.json",
     )
     for field in dataclass_fields(ContractDeclarations)
+    if field.name != "measurement_budgets"
 )
 
 _CLASS_D_ROWS: tuple[Variant, ...] = (

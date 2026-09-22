@@ -13,6 +13,7 @@ from fixtures.demo_catalog_support import (
     contract_component_field_appended,
     contract_component_field_set,
     contract_declarations_field_appended,
+    contract_measurement_budgets,
     contract_rule_field,
     contract_rule_provenance_appended,
     contract_rule_replaced,
@@ -79,6 +80,16 @@ _INTERFACE_NARROWING_BASELINE = """{
   ]
 }
 """
+_CYCLE_BUDGET_BASELINE = """{
+  "schema_version": "1.2.0",
+  "budgets": {"cycle_edges": 0},
+  "violations": []
+}
+"""
+_CYCLE_BUDGET_FILES = {
+    "architecture-contract.json": contract_measurement_budgets("cycle_edges"),
+    "architecture-baseline.json": _CYCLE_BUDGET_BASELINE,
+}
 
 
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
@@ -420,6 +431,32 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         evidence="tests/test_trace.py",
+    ),
+    Variant(
+        id="validation-measurement-budget-clean",
+        section="class_c",
+        item="ContractDeclarations.measurement_budgets",
+        summary="The contract selects cycle_edges and the baseline records the observed zero; "
+        "validate passes.",
+        files=_CYCLE_BUDGET_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
+    ),
+    Variant(
+        id="validation-measurement-budget-rise",
+        section="validation",
+        item="measurement_budget:cycle_edges",
+        summary="Two model modules form a module-level cycle. cycle_edges rises from zero to "
+        "two, so the measurement baseline fails without inventing a component-cycle rule.",
+        files={
+            **_CYCLE_BUDGET_FILES,
+            "shop/model/alpha.py": "from shop.model import beta\nVALUE = beta.VALUE\n",
+            "shop/model/beta.py": "from shop.model import alpha\nVALUE = 1\n",
+        },
+        expected_violations=(),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
     ),
     Variant(
         id="validation-baseline-invalid",

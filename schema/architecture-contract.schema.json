@@ -275,7 +275,13 @@
         "context_roots_provenance": {"$ref": "#/$defs/strings"},
         "paths": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/path"}},
         "spot_owners": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/owner"}},
-        "compat": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/compatibilityShim"}}
+        "compat": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/compatibilityShim"}},
+        "measurement_budgets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/measurementBudget"},
+          "description": "Deterministic measurement scalars whose accepted values live in the validate baseline."
+        }
       }
     },
     "compatibilityShim": {
@@ -336,6 +342,15 @@
       "properties": {
         "id": {"$ref": "#/$defs/nonEmpty"}, "label": {"$ref": "#/$defs/nonEmpty"},
         "owner": {"$ref": "#/$defs/nonEmpty"}, "responsibility": {"$ref": "#/$defs/nonEmpty"},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "measurementBudget": {
+      "type": "object",
+      "required": ["name", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"enum": ["cycle_edges", "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"]},
         "provenance": {"$ref": "#/$defs/provenance"}
       }
     }

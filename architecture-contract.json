@@ -235,7 +235,29 @@
         "provenance": ["docs/architecture/archkeel.md"]
       }
     ],
-    "compat": []
+    "compat": [],
+    "measurement_budgets": [
+      {
+        "name": "cycle_edges",
+        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+      },
+      {
+        "name": "private_crossings",
+        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+      },
+      {
+        "name": "typing_positions",
+        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+      },
+      {
+        "name": "calls_unresolved",
+        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+      },
+      {
+        "name": "untyped_private_accesses",
+        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+      }
+    ]
   },
   "rules": [
     {

@@ -174,6 +174,15 @@ def contract_compat_replaced(entries: list[dict[str, str]]) -> str:
     return _dump_contract(contract)
 
 
+def contract_measurement_budgets(*names: str) -> str:
+    """Clean contract with deterministic measurement names selected for baseline ratchets."""
+    contract = _clean_contract()
+    contract["declarations"]["measurement_budgets"] = [
+        {"name": name, "provenance": ["docs/architecture/shop.md"]} for name in names
+    ]
+    return _dump_contract(contract)
+
+
 def inside_requires_replaced(label: str, entries: list[dict[str, str]]) -> str:
     """The clean `shop.store` inside contract with one sub-component's `requires` replaced.
 

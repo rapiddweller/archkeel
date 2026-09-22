@@ -311,6 +311,20 @@ def test_baseline_interface_narrowing_runs_a_real_validate_gate(
     )
 
 
+def test_measurement_budget_demo_passes_clean_and_fails_on_a_rise(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    variants = {item.id: item for item in CATALOG}
+    clean = _sample_run(tmp_path_factory, variants["validation-measurement-budget-clean"])
+    risen = _sample_run(tmp_path_factory, variants["validation-measurement-budget-rise"])
+
+    assert (clean[4], clean[5]) == (0, ())
+    assert (risen[4], risen[5]) == (
+        1,
+        ("measurement budget exceeded in cycle_edges: 0->2",),
+    )
+
+
 @pytest.mark.parametrize("variant", _UNIQUE_CHECK_RUNS, ids=lambda v: v.id)
 def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant: Variant) -> None:
     check = variant.check

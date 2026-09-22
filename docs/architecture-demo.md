@@ -96,6 +96,8 @@ run shows many violations together; every other row isolates one item.
 | validation | contract.schema_version | validation-contract-schema-version | validate/report run | - | contract.schema_version | architecture-contract.json |
 | validation | contract.invalid | validation-contract-invalid | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
+| class_c | ContractDeclarations.measurement_budgets | validation-measurement-budget-clean | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
+| validation | measurement_budget:cycle_edges | validation-measurement-budget-rise | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
 | validation | baseline.invalid | validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
 | validation | baseline.accept_new | validation-baseline-accept-new | tested only | - | - | tests/test_cli.py |
 | validation | baseline.roles | validation-baseline-roles | tested only | - | - | tests/test_baseline.py |

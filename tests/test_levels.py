@@ -33,7 +33,8 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
     assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
         # 25, not 23, since run_init and run_validate import ports:FilesToWrite (AD-68).
         ("entry", "foundation", 25),
-        ("entry", "policy", 6),
+        # validate now reads the existing ratchet profile for selected measurement budgets.
+        ("entry", "policy", 7),
         ("policy", "foundation", 2),
     ]
 

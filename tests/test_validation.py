@@ -89,7 +89,9 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
 
 
 def test_validate_accepts_archkeel_self_contract() -> None:
-    result, _ = run_validate(ROOT, load_config(ROOT), observe)
+    result, _ = run_validate(
+        ROOT, load_config(ROOT), observe, baseline=ROOT / "architecture-baseline.json"
+    )
     assert result.exit_code == 0
     assert result.observation_complete == "PASS"
     # AD-72: declaring boundary_types for check and render leaves 16 positions the checker
@@ -104,7 +106,9 @@ def test_validate_reports_no_check_types_declared_violation_against_this_reposit
     untyped container CHECK-TYPES-DECLARED (AD-58) exists to reject. Declaring `boundary_types`
     for `check` must not leave its own two facade functions violating the rule they now carry.
     """
-    result, _ = run_validate(ROOT, load_config(ROOT), observe)
+    result, _ = run_validate(
+        ROOT, load_config(ROOT), observe, baseline=ROOT / "architecture-baseline.json"
+    )
     subjects = {diagnostic.subject for diagnostic in result.diagnostics}
     assert "CHECK-TYPES-DECLARED" not in subjects
     assert result.exit_code == 0
