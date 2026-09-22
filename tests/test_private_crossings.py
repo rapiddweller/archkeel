@@ -83,7 +83,30 @@ def test_any_alias_is_resolved_and_shadowed_alias_fails_closed(tmp_path: Path) -
         if record.kind == "private_attribute_access_limit"
     ]
     assert [(record.data.get("function"), record.data.get("parameter")) for record in limits] == [
-        ("sample.access.aliased", "ctx")
+        ("sample.access.aliased", "ctx"),
+        ("sample.access.spelling", "ctx"),
+    ]
+
+
+def test_unresolved_outer_owner_is_unknown_but_local_class_and_container_are_known(
+    tmp_path: Path,
+) -> None:
+    observation = _observe(
+        tmp_path,
+        "from typing import Any\n\n"
+        "class Context: pass\n\n"
+        "def unresolved(ctx: Unknown[Any]):\n    return ctx._unknown\n\n"
+        "def local_class(ctx: Context):\n    return ctx._local\n\n"
+        "def local_container(ctx: list[Any]):\n    return ctx._container\n",
+    )
+
+    limits = [
+        record
+        for record in observation.records("unknowns") or ()
+        if record.kind == "private_attribute_access_limit"
+    ]
+    assert [(record.data.get("function"), record.data.get("attribute")) for record in limits] == [
+        ("sample.access.unresolved", "_unknown")
     ]
 
 
@@ -134,6 +157,32 @@ def test_local_any_import_does_not_prove_annotation_alias(tmp_path: Path) -> Non
     assert [(record.data.get("function"), record.data.get("attribute")) for record in limits] == [
         ("sample.access.module_alias", "_module_secret")
     ]
+
+
+def test_nested_any_keeps_the_outer_annotation_owner(tmp_path: Path) -> None:
+    observation = _observe(
+        tmp_path,
+        "from typing import Any, Optional\n"
+        "from typing import Any as T\n"
+        "import typing\n\n"
+        "def bare(ctx: Any):\n    return ctx._bare\n\n"
+        "def qualified(ctx: typing.Any):\n    return ctx._qualified\n\n"
+        "def alias(ctx: T):\n    return ctx._alias\n\n"
+        "def list_any(ctx: list[Any]):\n    return ctx._list\n\n"
+        "def dict_any(ctx: dict[str, Any]):\n    return ctx._dict\n\n"
+        "def optional_list_any(ctx: Optional[list[Any]]):\n    return ctx._optional\n",
+    )
+
+    limits = [
+        record
+        for record in observation.records("unknowns") or ()
+        if record.kind == "private_attribute_access_limit"
+    ]
+    assert {(record.data.get("function"), record.data.get("attribute")) for record in limits} == {
+        ("sample.access.alias", "_alias"),
+        ("sample.access.bare", "_bare"),
+        ("sample.access.qualified", "_qualified"),
+    }
 
 
 def test_typed_local_and_public_access_are_excluded_and_chained_access_is_deduped(

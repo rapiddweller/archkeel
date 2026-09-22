@@ -75,8 +75,10 @@ kept by hand.
 - Dynamic imports such as `importlib.import_module(name)` add no dependency edge. Forbid them with
   the `dynamic_import` construct where boundaries must hold.
 - Private cross-package imports remain confirmed crossings. A private attribute rooted in an
-  untyped or `Any` parameter is recorded as `private_attribute_access_limit` UNKNOWN and counted
-  in `untyped_private_accesses`; the static scan cannot prove that parameter's runtime owner.
+  untyped, unresolved, or top-level `Any` parameter is recorded as
+  `private_attribute_access_limit` UNKNOWN and counted in `untyped_private_accesses`; nested
+  `Any` keeps the outer annotation owner, and the static scan cannot prove runtime ownership
+  beyond that type.
   Typed parameters, locals and public attributes are excluded. `import pkg` followed by
   `pkg._member` remains outside this signal unless the expression is rooted in such a parameter.
 - `forbidden_construct` matches names as written; aliases and shadowed names are blind spots (AD-8).

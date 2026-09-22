@@ -15,6 +15,7 @@ from fixtures.demo_catalog_support import (
     FIXTURE_DIR,
     HEADER,
     Variant,
+    contract_rule_field,
 )
 
 MAIN_WITH_UNDERSCORE_IMPORT = HEADER + (
@@ -224,6 +225,40 @@ _INTERFACE_UNTYPED_PRIVATE_ACCESS = Variant(
     expected_unknowns=(("private_attribute_access_limit", "shop.app.untyped_private.bump"),),
 )
 
+ANY_PRIVATE_ACCESS = HEADER + (
+    '"""A boundary probe distinguishing top-level and nested Any annotations."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from typing import Any, Optional\n"
+    "from typing import Any as Alias\n"
+    "import typing\n\n"
+    "def bare(context: Any):\n    return context._bare\n\n"
+    "def qualified(context: typing.Any):\n    return context._qualified\n\n"
+    "def aliased(context: Alias):\n    return context._aliased\n\n"
+    "def list_any(context: list[Any]):\n    return context._list\n\n"
+    "def dict_any(context: dict[str, Any]):\n    return context._dict\n\n"
+    "def optional_list_any(context: Optional[list[Any]]):\n    return context._optional\n"
+)
+_INTERFACE_ANY_PRIVATE_ACCESS = Variant(
+    id="class-a-private-attribute-any-owner",
+    section="class_a",
+    item="private_access:top-level Any owner",
+    summary="Only an untyped, unresolved, or top-level Any owner makes private ownership UNKNOWN; "
+    "nested Any keeps the deterministic outer annotation owner.",
+    files={
+        "architecture-contract.json": contract_rule_field(
+            "CONSTRUCT-NO-ANY", allowed_sources=["shop.app.any_private"]
+        ),
+        "shop/app/any_private.py": ANY_PRIVATE_ACCESS,
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(
+        ("private_attribute_access_limit", "shop.app.any_private.bare"),
+        ("private_attribute_access_limit", "shop.app.any_private.qualified"),
+        ("private_attribute_access_limit", "shop.app.any_private.aliased"),
+    ),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _INTERFACE_UNDERSCORE,
     _INTERFACE_UNDECLARED_SYMBOL,
@@ -233,4 +268,5 @@ VARIANTS: tuple[Variant, ...] = (
     _INTERFACE_PROFILE_BARREL,
     _INTERFACE_PACKAGE_ATTRIBUTE_OVER_SUBMODULE,
     _INTERFACE_UNTYPED_PRIVATE_ACCESS,
+    _INTERFACE_ANY_PRIVATE_ACCESS,
 )

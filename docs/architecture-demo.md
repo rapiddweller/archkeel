@@ -62,6 +62,7 @@ run shows many violations together; every other row isolates one item.
 | class_d | interface_profile:declared barrel | class-d-interface-profile-barrel | validate/report run | - | - | architecture-contract.json, shop/store/__init__.py, shop/store/architecture-contract.json |
 | class_a | interface_boundary:package attribute over submodule | class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/sqlite_probe.py, shop/store/__init__.py |
 | class_a | private_access:untyped parameter | class-a-private-attribute-untyped | validate/report run | - | - | shop/app/untyped_private.py |
+| class_a | private_access:top-level Any owner | class-a-private-attribute-any-owner | validate/report run | - | - | architecture-contract.json, shop/app/any_private.py |
 | clean | root_layout:clean | class-a-root-layout-clean | validate/report run | - | - | clean sample |
 | class_a | root_layout:unexpected-child | class-a-root-layout-violation | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/rogue.py |
 | class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | shop/model/promotions.py |

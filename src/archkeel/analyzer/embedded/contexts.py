@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 from collections.abc import Sequence
 
 from archkeel.ir.model import EvidenceClass, stable_id
@@ -28,6 +29,7 @@ _MUTATING_METHODS = {
     "sort",
     "update",
 }
+_BUILTIN_NAMES = frozenset(dir(builtins))
 
 
 def _context_simple_name(annotation: str | None, context_names: dict[str, str]) -> str | None:
@@ -187,20 +189,27 @@ def _qualified_root(node: ast.AST) -> str | None:
     return current.id if isinstance(current, ast.Name) else None
 
 
-def _annotation_is_any(
+def _annotation_owner_unknown(
     annotation: ast.AST | None,
     *,
     module: ParsedModule,
     module_aliases: frozenset[str],
     shadowed: frozenset[str],
+    module_bindings: frozenset[str],
 ) -> bool:
+    """Return whether the annotation's outer owner cannot be resolved deterministically."""
     if annotation is None:
+        return True
+    owner = annotation.value if isinstance(annotation, ast.Subscript) else annotation
+    qualified = _qualified_name(owner, module, module_aliases)
+    root = _qualified_root(owner)
+    if qualified in {"typing.Any", "typing_extensions.Any"}:
+        return root not in shadowed
+    if not isinstance(owner, ast.Name | ast.Attribute):
         return False
-    return any(
-        _qualified_name(node, module, module_aliases) in {"typing.Any", "typing_extensions.Any"}
-        and _qualified_root(node) not in shadowed
-        for node in ast.walk(annotation)
-    )
+    if root in shadowed:
+        return False
+    return root not in module.aliases and root not in module_bindings and root not in _BUILTIN_NAMES
 
 
 def _private_parameter_names(
@@ -209,6 +218,7 @@ def _private_parameter_names(
     module: ParsedModule,
     module_aliases: frozenset[str],
     shadowed: frozenset[str],
+    module_bindings: frozenset[str],
 ) -> dict[str, str]:
     arguments = [
         *function.args.posonlyargs,
@@ -224,11 +234,12 @@ def _private_parameter_names(
         for argument in arguments
         if argument.arg not in {"self", "cls"}
         if argument.annotation is None
-        or _annotation_is_any(
+        or _annotation_owner_unknown(
             argument.annotation,
             module=module,
             module_aliases=module_aliases,
             shadowed=shadowed,
+            module_bindings=module_bindings,
         )
     }
 
@@ -318,6 +329,7 @@ def private_attribute_limits(
                     | lexical_shadowed.get(id(function), frozenset())
                     | _local_binding_names(function)
                 ),
+                module_bindings=module_shadowed,
             )
             if parameters:
                 for record in _private_attribute_records(

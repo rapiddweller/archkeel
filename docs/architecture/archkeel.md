@@ -126,6 +126,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-88 | [Declared facade measurements are observations, not budgets](decisions/ad-88-declared-facade-measurements-are-observations-not-budgets.md) |
 | AD-89 | [Selected measurements share the validation baseline](decisions/ad-89-selected-measurements-share-the-validation-baseline.md) |
 | AD-90 | [Decision-relevant evidence is never neutral metadata](decisions/ad-90-decision-relevant-evidence-is-never-neutral-metadata.md) |
+| AD-91 | [Top-level owner resolution decides private ownership UNKNOWN](decisions/ad-91-only-top-level-any-makes-private-owner-unknown.md) |
 
 ## Allowed dependencies
 
