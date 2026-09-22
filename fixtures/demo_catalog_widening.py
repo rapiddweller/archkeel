@@ -27,6 +27,7 @@ from fixtures.demo_catalog_support import (
     Variant,
     apply_overlay,
     contract_rule_field,
+    contract_without_rule,
 )
 
 
@@ -87,6 +88,26 @@ _CLEAN_CONTRACT = (FIXTURE_DIR / "architecture-contract.json").read_text()
 # dropping it back to the clean sample's list is a real narrowing, not a new violation.
 _NARROWED = AgainstExpectation("narrowed_only", 0, (), base_files=_WIDEN_FILES)
 _NARROW_FILES = {"architecture-contract.json": _CLEAN_CONTRACT}
+_BOUNDARY_TYPES_ID = "APP-TYPES-NOT-DICT"
+_SYMBOL_PLACEMENT_ID = "MODEL-TYPES-IN-ENTITIES"
+_BOUNDARY_TYPES_ADDED = AgainstExpectation(
+    "boundary_types_added",
+    0,
+    (),
+    base_files={"architecture-contract.json": contract_without_rule(_BOUNDARY_TYPES_ID)},
+)
+_SYMBOL_PLACEMENT_ADDED = AgainstExpectation(
+    "symbol_placement_added",
+    0,
+    (),
+    base_files={"architecture-contract.json": contract_without_rule(_SYMBOL_PLACEMENT_ID)},
+)
+_BOUNDARY_TYPES_REMOVED = AgainstExpectation(
+    "boundary_types_removed", 1, (f"rule {_BOUNDARY_TYPES_ID} (boundary_types) removed",)
+)
+_SYMBOL_PLACEMENT_REMOVED = AgainstExpectation(
+    "symbol_placement_removed", 1, (f"rule {_SYMBOL_PLACEMENT_ID} (symbol_placement) removed",)
+)
 
 VARIANTS: tuple[Variant, ...] = (
     Variant(
@@ -121,5 +142,49 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         against=_NARROWED,
+    ),
+    Variant(
+        id="against-boundary-types-added",
+        section="validation",
+        item="against:boundary_types_added",
+        summary="Adding the boundary_types restriction is a narrowing and passes without an "
+        "amendment.",
+        files={"architecture-contract.json": _CLEAN_CONTRACT},
+        expected_violations=(),
+        expected_codes=(),
+        against=_BOUNDARY_TYPES_ADDED,
+    ),
+    Variant(
+        id="against-symbol-placement-added",
+        section="validation",
+        item="against:symbol_placement_added",
+        summary="Adding the symbol_placement restriction is a narrowing and passes without an "
+        "amendment.",
+        files={"architecture-contract.json": _CLEAN_CONTRACT},
+        expected_violations=(),
+        expected_codes=(),
+        against=_SYMBOL_PLACEMENT_ADDED,
+    ),
+    Variant(
+        id="against-boundary-types-removed",
+        section="validation",
+        item="against:boundary_types_removed",
+        summary="Removing the boundary_types restriction is a widening and fails without an "
+        "amendment.",
+        files={"architecture-contract.json": contract_without_rule(_BOUNDARY_TYPES_ID)},
+        expected_violations=(),
+        expected_codes=(),
+        against=_BOUNDARY_TYPES_REMOVED,
+    ),
+    Variant(
+        id="against-symbol-placement-removed",
+        section="validation",
+        item="against:symbol_placement_removed",
+        summary="Removing the symbol_placement restriction is a widening and fails without an "
+        "amendment.",
+        files={"architecture-contract.json": contract_without_rule(_SYMBOL_PLACEMENT_ID)},
+        expected_violations=(),
+        expected_codes=(),
+        against=_SYMBOL_PLACEMENT_REMOVED,
     ),
 )

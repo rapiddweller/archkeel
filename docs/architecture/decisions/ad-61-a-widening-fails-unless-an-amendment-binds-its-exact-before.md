@@ -6,8 +6,9 @@ function over two `ArchitectureContract` values, beside AD-52's baseline derivat
 every difference as widening or narrowing. Widening is a new permission or a dropped
 restriction: an `allowed_dependency` rule added, a `forbidden_dependency`, `forbidden_construct`,
 `external_dependency_scope`, `complete_assignment`, `complete_external_scope`,
-`complete_requires`, `no_component_cycles`, `interface_boundary` or `sibling_isolation` rule
-removed; an `allowed_sources` or `exact_sources` entry gained; a `forbidden_construct` losing a
+`complete_requires`, `no_component_cycles`, `interface_boundary`, `sibling_isolation`,
+`symbol_placement` or `boundary_types` rule removed; an `allowed_sources` or `exact_sources`
+entry gained; a `forbidden_construct` losing a
 forbidden kind; `include_type_checking` relaxed from true to false; a component's `public` or
 `requires` gaining an entry; a component added or removed. Narrowing is each reverse, and passes
 without question. Only a rule's or a `requires` entry's `rationale`, and every `provenance`, are
