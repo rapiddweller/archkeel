@@ -9,7 +9,8 @@
   New or increased fingerprints fail with exit 1 and produce no baseline artifact.
 - `--accept-new` is required to write new or increased fingerprints deliberately.
 
-The result carries deterministic fingerprint counts as `baseline_new` and `baseline_resolved`.
+The result carries deterministic counts of changed fingerprints as `baseline_new` and
+`baseline_resolved`. Each fingerprint contributes one regardless of its occurrence-count delta.
 Exit 2 diagnostics always produce no baseline artifact. `validate --baseline` without
 `--write-baseline` keeps the existing comparison behavior.
 

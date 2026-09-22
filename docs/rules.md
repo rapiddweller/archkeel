@@ -353,7 +353,9 @@ write: resolved-only drift may be written, while new or increased fingerprints r
 unless `--accept-new` is explicit. A run whose baseline is exactly right exits 0, with
 `declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
 `decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that cannot
-be read is `baseline.invalid`, exit 2. The file's shape is
+be read is `baseline.invalid`, exit 2. In JSON, `baseline_new` and `baseline_resolved` count
+fingerprints whose occurrence count rose or fell. Each changed fingerprint contributes one,
+not its occurrence-count delta. The file's shape is
 [`schema/violation-baseline.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json).
 
 ### Project gate
