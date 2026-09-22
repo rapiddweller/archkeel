@@ -26,6 +26,11 @@ module already exists (AD-56, AD-79). Declaring it `public` before it exists is 
 `interface.missing` reads identically whether the entry is a typo or a facade nobody has written
 yet. A violation baseline cannot hide either validation diagnostic.
 
+Facade entries may point at a package re-export. `boundary_types` follows the recorded export
+chain to the function definition, keeps the facade entry as the subject, and inspects one direct
+field level on declared request/result classes. Deeper or unresolved fields stay UNKNOWN; no
+recursive type resolver is implied (AD-84).
+
 The architect decides `app` will eventually expose a small report facade the refactoring has not
 written yet:
 

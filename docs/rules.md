@@ -258,7 +258,12 @@ an `exact_sources` entry (AD-49), and reports one violation per parameter or ret
 annotation is exactly `dict`, `Dict`, `object`, a `dict[...]`/`Dict[...]` generic, or a bare name
 that resolves, through the same import bindings `interface_boundary` reads, to a class that is
 neither an `enum` nor a `pydantic_model` by kind and that no component's own `public` list
-declares. A known collection holding a bare name -- `list`, `tuple`, `set`, `frozenset`,
+declares. A function re-exported by a declared facade entry is checked at its definition, while
+the violation keeps the facade module and entry as its subject. If a declared request or result
+type resolves to a scanned class, its directly declared fields are inspected one level deep with
+the same broad-type test. An ambiguous or unresolved field, or a field that would require a
+second model descent, is UNKNOWN rather than an inferred pass (AD-84). A known collection holding
+a bare name -- `list`, `tuple`, `set`, `frozenset`,
 `Sequence`, `Iterable`, `Iterator`, `Collection`, `AbstractSet` and their `typing` spellings -- is
 decided from its type parameters by that same resolution, one level in, so wrapping a parameter in
 a list no longer drops the check; a collection is only as decided as its parameters, and `dict` is

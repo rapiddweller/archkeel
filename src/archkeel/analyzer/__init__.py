@@ -12,10 +12,10 @@ from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
     RawJson,
-    canonical_json_bytes,
-    decode_json,
-    parse_observation,
 )
+from archkeel.ir.codec import canonical_json_bytes as _canonical_json_bytes
+from archkeel.ir.codec import decode_json as _decode_json
+from archkeel.ir.codec import parse_observation as _parse_observation
 from archkeel.ir.model import Diagnostic, DiagnosticKind, Observation, ObservationResult
 
 from .embedded.contract import ContractError, load_contract
@@ -140,7 +140,7 @@ def observe(
         result = subprocess.run(
             [sys.executable, "-B", "-m", "archkeel.analyzer.bridge"],
             cwd=source_root,
-            input=canonical_json_bytes(request).decode(),
+            input=_canonical_json_bytes(request).decode(),
             text=True,
             capture_output=True,
             timeout=60,
@@ -156,13 +156,13 @@ def observe(
                 f"Analyzer execution failed: {result.stderr.strip()}",
                 "Repair the analyzer failure and run report again.",
             )
-        response = decode_json(result.stdout)
+        response = _decode_json(result.stdout)
         if not isinstance(response, dict) or set(response) != {"model", "exit_code"}:
             raise ValueError("invalid analyzer response envelope")
         code = response["exit_code"]
         if type(code) is not int or code not in (0, 2):
             raise ValueError("invalid analyzer exit code")
-        model = parse_observation(response["model"])
+        model = _parse_observation(response["model"])
         diagnostics = _diagnostics(model, runtime_diagnostic(source_root, model.python_version))
         if code == 2 and not diagnostics:
             diagnostics = (

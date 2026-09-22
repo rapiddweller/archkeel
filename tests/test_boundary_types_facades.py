@@ -1,0 +1,221 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""AD-84: boundary_types follows declared facade re-exports and one model-field level."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from test_analyzer import _component, _observe
+
+from archkeel.ir.trace import trace_valid_violations
+
+
+def _contract(*public: str) -> dict[str, object]:
+    return {
+        "schema_version": "2.1.0",
+        "components": [_component("app", public=list(public))],
+        "rules": [
+            {
+                "id": "APP-TYPES-NOT-DICT",
+                "kind": "boundary_types",
+                "source": "sample.app",
+                "rationale": "Keep the declared application boundary typed.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+
+
+def _write_app(root: Path, *, init: str, impl: str) -> None:
+    (root / "contract.json").write_text(json.dumps(_contract("sample.app:run")))
+    (root / "sample/app").mkdir(parents=True)
+    (root / "sample/app/__init__.py").write_text(init)
+    (root / "sample/app/impl.py").write_text(impl)
+
+
+def test_boundary_types_checks_a_function_at_its_reexport_definition(
+    tmp_path: Path,
+) -> None:
+    """A package facade owns the subject, while the definition supplies its signature."""
+    _write_app(
+        tmp_path,
+        init="from .impl import run\n",
+        impl="def run(value: dict) -> str:\n    return str(value)\n",
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.subjects == ("sample.app", "sample.app.run")
+    assert violation.data.get("module") == "sample.app"
+    assert violation.data.get("qualified_name") == "sample.app.run"
+
+
+def test_boundary_types_uses_the_facade_in_the_rule_scope_when_reexported_twice(
+    tmp_path: Path,
+) -> None:
+    """A second declared facade must not hide the occurrence in this rule's source."""
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        **_component("app", public=["sample.a:run", "sample.app:run"]),
+                        "packages": ["sample"],
+                    }
+                ],
+                "rules": [
+                    {
+                        "id": "APP-TYPES-NOT-DICT",
+                        "kind": "boundary_types",
+                        "source": "sample.app",
+                        "rationale": "Keep the declared application boundary typed.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    (tmp_path / "sample/a").mkdir(parents=True)
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/a/__init__.py").write_text("from ..impl import run\n")
+    (tmp_path / "sample/app/__init__.py").write_text("from ..impl import run\n")
+    (tmp_path / "sample/impl.py").write_text(
+        "def run(value: dict) -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.subjects == ("sample.app", "sample.app.run")
+
+
+@pytest.mark.parametrize(
+    "init",
+    [
+        "from .impl_a import run\nfrom .impl_b import run\n",
+        "from .impl_b import run\nfrom .impl_a import run\n",
+    ],
+)
+def test_boundary_types_marks_two_reexport_origins_unknown_in_either_order(
+    tmp_path: Path, init: str
+) -> None:
+    """Two typed origins for one facade binding are ambiguous, independent of import order."""
+    (tmp_path / "contract.json").write_text(json.dumps(_contract("sample.app:run")))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text(init)
+    for name in ("impl_a", "impl_b"):
+        (tmp_path / f"sample/app/{name}.py").write_text(
+            "def run(value: dict) -> str:\n    return str(value)\n"
+        )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert limit.data.get("ambiguous_facade") == 4
+
+
+def test_boundary_types_checks_direct_fields_of_a_reexported_model(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        init="from .impl import Request, run\n",
+        impl=(
+            "class Request:\n"
+            "    metadata: dict\n\n\n"
+            "def run(value: Request) -> str:\n"
+            "    return str(value)\n"
+        ),
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps(_contract("sample.app:run", "sample.app.impl:Request"))
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.subjects == ("sample.app", "sample.app.run")
+    assert "field metadata" in violation.title
+
+
+def test_boundary_types_reports_unknown_for_a_deeper_model_field(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        init="from .impl import Inner, Request, run\n",
+        impl=(
+            "class Inner:\n"
+            "    metadata: dict\n\n\n"
+            "class Request:\n"
+            "    inner: Inner\n\n\n"
+            "def run(value: Request) -> str:\n"
+            "    return str(value)\n"
+        ),
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            _contract(
+                "sample.app:run",
+                "sample.app.impl:Request",
+                "sample.app.impl:Inner",
+            )
+        )
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert limit.data.get("nested_type") == 1
+
+
+def test_boundary_types_reports_unknown_for_an_unresolved_model_field(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        init="from .impl import Request, run\n",
+        impl=(
+            "class Request:\n"
+            "    value: Missing\n\n\n"
+            "def run(value: Request) -> str:\n"
+            "    return str(value)\n"
+        ),
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps(_contract("sample.app:run", "sample.app.impl:Request"))
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert limit.data.get("unresolved_name") == 1

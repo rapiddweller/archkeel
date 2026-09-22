@@ -513,6 +513,7 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
 def _boundary_type_subject_modules(
     rule: BoundaryTypesRule,
     symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
 ) -> frozenset[str]:
@@ -528,7 +529,8 @@ def _boundary_type_subject_modules(
     return frozenset(
         module
         for item in symbols
-        if (found := _facade_positions(item, rule, contract, exports_by_module)) is not None
+        if (found := _facade_positions(item, rule, contract, exports_by_module, imports))
+        is not None
         for module in (found[0],)
     )
 
@@ -548,6 +550,7 @@ def rule_subject_failures(
     module_names: set[str],
     *,
     symbols: Sequence[RawRecord] = (),
+    imports: Sequence[RawRecord] = (),
     contract: ArchitectureContract | None = None,
     exports_by_module: dict[str, frozenset[str]] | None = None,
 ) -> list[RawRecord]:
@@ -564,7 +567,7 @@ def rule_subject_failures(
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
             subjects = _boundary_type_subject_modules(
-                rule, symbols, contract, exports_by_module or {}
+                rule, symbols, imports, contract, exports_by_module or {}
             )
             subjects = subjects | planned_subjects
             facade_scoped = True
@@ -710,8 +713,10 @@ _UNDECIDABLE_KINDS: Final = (
     "generic",
     "union",
     "ambiguous_binding",
+    "ambiguous_facade",
     "unresolved_name",
     "external_type",
+    "nested_type",
     "other",
 )
 
@@ -961,21 +966,12 @@ def _boundary_type_verdict(
     classes_by_location: BindingIndex,
     *,
     enter_collections: bool = True,
+    enter_fields: bool = True,
 ) -> _Position:
-    """Read one annotated position once: which named types it resolves to, and this rule's
-    verdict on them -- a violation, an undecidable kind, or a pass (AD-58, AD-63, AD-67, AD-69).
+    """Resolve one annotation for both boundary_types and facade_types (AD-58, AD-69).
 
-    Which annotations yield a violation is what AD-63 left, plus a known collection holding
-    one: a bare `dict`/`object` or a `dict[...]` generic, and a bare name that resolves to a
-    class no component declares and that is neither an enum nor a Pydantic model. What is new
-    is that everything else is split in two -- a builtin and a declared type are a decided
-    pass, and every remaining shape names why it could not be decided -- so the rule can
-    report its own denominator (AD-67). `enter_collections` is false for a collection's own
-    parameter, which is what keeps the resolution one level in and not a general descent.
-
-    This is the only function that calls `resolve_named_type`: `facade_types` (AD-65) reads
-    the `resolved` field of the `_Position` returned here rather than resolving its own
-    candidate string, so the two readers of one annotation cannot drift apart again (AD-69).
+    Broad or undeclared types violate; builtins, enums and declared types pass. Other shapes
+    report their reason, with collection and field descent bounded by the two flags (AD-67, AD-84).
     """
     if not annotation:
         return _Position(undecidable="missing_annotation")
@@ -984,21 +980,16 @@ def _boundary_type_verdict(
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
     if not annotation.isidentifier():
-        entered = (
-            _collection_verdict(
-                annotation,
-                module,
-                contract,
-                exports_by_module,
-                imports_by_binding,
-                classes_by_location,
-            )
-            if enter_collections
-            else None
+        return _annotation_shape_verdict(
+            annotation,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_collections=enter_collections,
+            enter_fields=enter_fields,
         )
-        if entered is not None:
-            return entered
-        return _Position(undecidable=_unresolvable_shape(annotation))
     resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if isinstance(resolved, _AmbiguousBinding):
         # Distinct records bind this name in `module`: Python picks whichever is textually last,
@@ -1013,14 +1004,12 @@ def _boundary_type_verdict(
             return _Position()
         return _Position(undecidable="unresolved_name")
     origin_module, origin_name = resolved
-    reached = (resolved,)
+    reached: tuple[tuple[str, str], ...] = (resolved,)
     origin_symbol = classes_by_location.get(resolved)
-    # `resolve_named_type` already ruled out an ambiguous `resolved` location, so a `dict` here
-    # is the one surviving claimant and is guaranteed a `class_kind` (AD-30's fixpoint sets one
-    # on every class it processes); the `isinstance` reflects that guarantee in the type rather
-    # than papering over a subscript that could otherwise still raise.
+    # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
+    # `class_kind` (AD-30).
     class_kind = origin_symbol["class_kind"] if isinstance(origin_symbol, dict) else None
-    if class_kind in _EXEMPT_CLASS_KINDS:
+    if class_kind == "enum":
         return _Position(resolved=reached)
     origin_component = contract.component_for(origin_module)
     if origin_component is None:
@@ -1028,8 +1017,96 @@ def _boundary_type_verdict(
         # read against, so the rule has nothing to decide it with, either way.
         return _Position(undecidable="external_type", resolved=reached)
     if _facade_covers(origin_module, origin_name, origin_component, exports_by_module):
+        fields = _declared_field_verdict(
+            origin_symbol,
+            origin_module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_fields=enter_fields,
+        )
+        reached = tuple(sorted({*reached, *fields.resolved}))
+        if fields.violation is not None:
+            return _Position(violation=fields.violation, resolved=reached)
+        if fields.undecidable is not None:
+            return _Position(undecidable=fields.undecidable, resolved=reached)
+        return _Position(resolved=reached)
+    if class_kind in _EXEMPT_CLASS_KINDS:
         return _Position(resolved=reached)
     return _Position(violation=f"which {origin_component.label} does not declare", resolved=reached)
+
+
+def _annotation_shape_verdict(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    enter_collections: bool,
+    enter_fields: bool,
+) -> _Position:
+    """Resolve one supported collection shape; leave every other shape UNKNOWN."""
+    if enter_collections:
+        entered = _collection_verdict(
+            annotation,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_fields=enter_fields,
+        )
+        if entered is not None:
+            return entered
+    return _Position(undecidable=_unresolvable_shape(annotation))
+
+
+def _declared_field_verdict(
+    origin_symbol: RecordData | _AmbiguousBinding | None,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    enter_fields: bool,
+) -> _Position:
+    """Inspect one directly declared model-field level, or mark the next level UNKNOWN."""
+    if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
+        return _Position()
+    if not enter_fields:
+        return _Position(undecidable="nested_type")
+    field_verdicts: list[tuple[str, _Position]] = []
+    for field in origin_symbol["fields"]:
+        if not isinstance(field, dict) or not isinstance(field.get("name"), str):
+            continue
+        field_verdicts.append(
+            (
+                field["name"],
+                _boundary_type_verdict(
+                    field.get("annotation") or "",
+                    module,
+                    contract,
+                    exports_by_module,
+                    imports_by_binding,
+                    classes_by_location,
+                    enter_fields=False,
+                ),
+            )
+        )
+    reached: tuple[tuple[str, str], ...] = tuple(
+        sorted({pair for _, verdict in field_verdicts for pair in verdict.resolved})
+    )
+    for field_name, verdict in field_verdicts:
+        if verdict.violation is not None:
+            return _Position(violation=f"field {field_name} {verdict.violation}", resolved=reached)
+    for _field_name, verdict in field_verdicts:
+        if verdict.undecidable is not None:
+            return _Position(undecidable=verdict.undecidable, resolved=reached)
+    return _Position(resolved=reached)
 
 
 def _collection_verdict(
@@ -1039,6 +1116,8 @@ def _collection_verdict(
     exports_by_module: dict[str, frozenset[str]],
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    *,
+    enter_fields: bool = True,
 ) -> _Position | None:
     """Decide `Container[Name]` from its parameters, or None when it is not one (AD-67).
 
@@ -1070,6 +1149,7 @@ def _collection_verdict(
                 imports_by_binding,
                 classes_by_location,
                 enter_collections=False,
+                enter_fields=enter_fields,
             ),
         )
         for parameter in parameters
@@ -1088,7 +1168,18 @@ def _declared_facade_positions(
     item: RawRecord,
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
-) -> tuple[str, str, list[tuple[str, str]]] | None:
+    imports: Sequence[RawRecord] = (),
+) -> (
+    tuple[
+        str,
+        str,
+        list[tuple[str, str]],
+        str,
+        bool,
+        tuple[tuple[str, str, str], ...],
+    ]
+    | None
+):
     """The (module, qualified name, annotated positions) of one declared facade function, or
     None when the record is not a module-level function its own `component.public` covers -- a
     naming convention used to guess at that last one (AD-63). No rule is consulted: whether a
@@ -1099,9 +1190,20 @@ def _declared_facade_positions(
     if item["kind"] != "function" or data.get("symbol_category") != "function":
         return None
     module, name = data["module"], data["name"]
+    facade_entries: list[tuple[str, str, str]] = []
     component = contract.component_for(module)
-    if component is None or not _facade_covers(module, name, component, exports_by_module):
+    if component is not None and _facade_covers(module, name, component, exports_by_module):
+        facade_entries.append((module, name, module))
+
+    origin = data["qualified_name"]
+    reexport_entries, ambiguous_facade = _reexport_facade_entries(
+        origin, contract, exports_by_module, imports
+    )
+    facade_entries.extend(reexport_entries)
+    if not facade_entries:
         return None
+    facade_entries = sorted(set(facade_entries))
+    facade_module, facade_name, resolution_module = facade_entries[0]
     # An unannotated position carries an empty annotation rather than being dropped: it is a
     # position of the facade the rule cannot decide, and dropping it hid it from the rule's own
     # denominator (AD-67).
@@ -1109,7 +1211,55 @@ def _declared_facade_positions(
         (parameter["name"], parameter["annotation"] or "") for parameter in data["parameters"]
     ]
     positions.append(("return", data["returns"] or ""))
-    return module, data["qualified_name"], positions
+    return (
+        facade_module,
+        f"{facade_module}.{facade_name}",
+        positions,
+        resolution_module,
+        ambiguous_facade,
+        tuple(facade_entries),
+    )
+
+
+def _reexport_facade_entries(
+    origin: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports: Sequence[RawRecord],
+) -> tuple[list[tuple[str, str, str]], bool]:
+    """Match exact re-export facts and flag one facade binding with multiple origins."""
+    reexport_origins: dict[tuple[str, str], set[str]] = {}
+    for imported in imports:
+        imported_data = imported["data"]
+        imported_origin = imported_data.get("origin_definition")
+        if imported_data.get("reexport") and isinstance(imported_origin, str):
+            binding_key = (imported_data["source_module"], imported_data["binding"])
+            reexport_origins.setdefault(binding_key, set()).add(imported_origin)
+    ambiguous_bindings = {
+        binding for binding, origins in reexport_origins.items() if len(origins) > 1
+    }
+    ambiguous_facade = False
+    facade_entries: list[tuple[str, str, str]] = []
+    for imported in imports:
+        imported_data = imported["data"]
+        binding_key = (imported_data.get("source_module"), imported_data.get("binding"))
+        if (
+            imported_data.get("reexport")
+            and imported_data.get("origin_definition") == origin
+            and binding_key in ambiguous_bindings
+        ):
+            ambiguous_facade = True
+        if not imported_data.get("reexport") or imported_data.get("origin_definition") != origin:
+            continue
+        facade_module = imported_data["source_module"]
+        binding = imported_data["binding"]
+        resolution_module, _, _ = origin.rpartition(".")
+        for owner in contract.components:
+            if contract.component_for(facade_module) == owner and _facade_covers(
+                facade_module, binding, owner, exports_by_module
+            ):
+                facade_entries.append((facade_module, binding, resolution_module))
+    return facade_entries, ambiguous_facade
 
 
 def _facade_positions(
@@ -1117,20 +1267,31 @@ def _facade_positions(
     rule: BoundaryTypesRule,
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
-) -> tuple[str, str, list[tuple[str, str]]] | None:
+    imports: Sequence[RawRecord] = (),
+) -> tuple[str, str, list[tuple[str, str]], str, bool, tuple[tuple[str, str, str], ...]] | None:
     """The declared facade positions `rule` must check, or None when the function is out of
     scope or exempted (AD-49)."""
-    found = _declared_facade_positions(item, contract, exports_by_module)
+    found = _declared_facade_positions(item, contract, exports_by_module, imports)
     if found is None:
         return None
-    module = found[0]
-    if (
-        not in_scope(module, rule.source)
-        or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
-        or module in rule.exact_sources
-    ):
+    candidates = [
+        entry
+        for entry in found[5]
+        if in_scope(entry[0], rule.source)
+        and not any(in_scope(entry[0], allowed) for allowed in rule.allowed_sources)
+        and entry[0] not in rule.exact_sources
+    ]
+    if not candidates:
         return None
-    return found
+    facade_module, facade_name, resolution_module = sorted(candidates)[0]
+    return (
+        facade_module,
+        f"{facade_module}.{facade_name}",
+        found[2],
+        resolution_module,
+        found[4] or len(candidates) > 1,
+        found[5],
+    )
 
 
 def facade_signature_types(
@@ -1160,10 +1321,10 @@ def facade_signature_types(
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     recorded: list[RawRecord] = []
     for item in symbols:
-        found = _declared_facade_positions(item, contract, exports_by_module)
+        found = _declared_facade_positions(item, contract, exports_by_module, imports)
         names = (
             _resolved_position_types(
-                found[0],
+                found[3],
                 found[2],
                 contract,
                 exports_by_module,
@@ -1235,19 +1396,24 @@ def _boundary_types_violations(
     violations: list[RawRecord] = []
     for rule in rules:
         for item in symbols:
-            found = _facade_positions(item, rule, contract, exports_by_module)
+            found = _facade_positions(item, rule, contract, exports_by_module, imports)
             if found is None:
                 continue
-            module, qualname, positions = found
+            facade_module, qualname, positions, resolution_module, ambiguous_facade, _ = found
             for position, annotation in positions:
-                reason = _boundary_type_verdict(
-                    annotation,
-                    module,
-                    contract,
-                    exports_by_module,
-                    imports_by_binding,
-                    classes_by_location,
-                ).violation
+                verdict = (
+                    _Position(undecidable="ambiguous_facade")
+                    if ambiguous_facade
+                    else _boundary_type_verdict(
+                        annotation,
+                        resolution_module,
+                        contract,
+                        exports_by_module,
+                        imports_by_binding,
+                        classes_by_location,
+                    )
+                )
+                reason = verdict.violation
                 if reason is None:
                     continue
                 verb = "returns" if position == "return" else f"takes {position} as"
@@ -1258,14 +1424,14 @@ def _boundary_types_violations(
                         area="type_architecture",
                         kind=rule.kind,
                         title=f"{qualname} {verb} {annotation} {reason}",
-                        subjects=[qualname, module],
+                        subjects=[qualname, facade_module],
                         evidence_ids=item["evidence_ids"],
                         rule_ids=[rule.id],
                         fact_ids=[item["id"]],
                         data={
                             "source": rule.source,
                             "qualified_name": qualname,
-                            "module": module,
+                            "module": facade_module,
                             "position": position,
                             "annotation": annotation,
                         },
@@ -1303,20 +1469,31 @@ def boundary_type_limits(
         counts = dict.fromkeys(_UNDECIDABLE_KINDS, 0)
         seen = decided = 0
         for item in symbols:
-            found = _facade_positions(item, rule, contract, exports_by_module)
+            found = _facade_positions(item, rule, contract, exports_by_module, imports)
             if found is None:
                 continue
-            module, _qualified_name, positions = found
+            (
+                _facade_module,
+                _qualified_name,
+                positions,
+                resolution_module,
+                ambiguous_facade,
+                _,
+            ) = found
             for _position, annotation in positions:
                 seen += 1
-                undecidable = _boundary_type_verdict(
-                    annotation,
-                    module,
-                    contract,
-                    exports_by_module,
-                    imports_by_binding,
-                    classes_by_location,
-                ).undecidable
+                undecidable = (
+                    "ambiguous_facade"
+                    if ambiguous_facade
+                    else _boundary_type_verdict(
+                        annotation,
+                        resolution_module,
+                        contract,
+                        exports_by_module,
+                        imports_by_binding,
+                        classes_by_location,
+                    ).undecidable
+                )
                 if undecidable is None:
                     decided += 1
                 else:

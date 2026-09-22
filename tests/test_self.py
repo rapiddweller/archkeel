@@ -162,8 +162,8 @@ def test_self_contract_covers_modules_and_analyzer_interface(
             assert target in ANALYZER_PUBLIC_IR, (source, target)
 
 
-def test_self_facades_record_the_ten_types_they_expose(self_observation: Observation) -> None:
-    """AD-65 on this repository: the ten positions AD-63 measured in `check` and `render` are
+def test_self_facades_record_the_declared_types_they_expose(self_observation: Observation) -> None:
+    """AD-65 on this repository: the facade positions measured in `check` and `render` are
     recorded as reached, so declaring them no longer collides with `interface.unused`
     (issue #57), and AD-68 declares all three types and scopes the rule to both components."""
     exposed: dict[str, tuple[str, ...]] = {}
@@ -181,7 +181,9 @@ def test_self_facades_record_the_ten_types_they_expose(self_observation: Observa
     assert {
         "archkeel.check.ports:Analyzer",
         "archkeel.check.ports:Host",
+        "archkeel.render.summary:Badge",
         "archkeel.render.summary:Summary",
+        "archkeel.render.summary:VerdictRow",
     } <= declared
     scoped = {rule.source for rule in contract.rules if isinstance(rule, BoundaryTypesRule)}
     assert scoped == {"archkeel.analyzer", "archkeel.check", "archkeel.render"}
