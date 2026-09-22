@@ -46,6 +46,12 @@ type owned by no declared component (`external_type`), since that question never
 with. A `public_api` entry the scan could not settle (`api_surface_limit`) moves it the same way,
 for the same reason: the contract declared something and nothing could decide it.
 
+A package or module facade may re-export a function. The analyzer follows the recorded
+re-export chain to the definition, but keeps the declared facade as the violation subject. For a
+declared request or result class it reads direct field annotations once. A second model level,
+an ambiguous binding or an unresolved field is reported as UNKNOWN; the analyzer does not grow a
+recursive type resolver.
+
 Measured on Archkeel's own facades with the rule widened to the whole `archkeel` namespace, 88
 declared facade functions carry 258 positions:
 

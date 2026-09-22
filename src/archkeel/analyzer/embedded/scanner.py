@@ -279,6 +279,7 @@ def scan_repository(
         contract.rules,
         module_names,
         symbols=symbols,
+        imports=imports,
         contract=contract,
         exports_by_module=facade_exports,
     )

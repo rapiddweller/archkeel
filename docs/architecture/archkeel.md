@@ -116,6 +116,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-81 | [The project owns one fail-closed Make gate](decisions/ad-81-the-project-owns-one-fail-closed-make-gate.md) |
 | AD-82 | [A component namespace restricts placement, not ownership](decisions/ad-82-component-namespace-is-placement-not-ownership.md) |
 | AD-83 | [Private attribute access without owner evidence is UNKNOWN](decisions/ad-83-private-attribute-access-without-owner-evidence-is-unknown.md) |
+| AD-84 | [`boundary_types` follows declared facade re-exports and one field level](decisions/ad-84-boundary-types-follow-declared-facade-reexports.md) |
 | AD-85 | [A resolved importer reports the public-interface narrowing it proves](decisions/ad-85-a-resolved-importer-reports-interface-narrowing.md) |
 
 ## Allowed dependencies

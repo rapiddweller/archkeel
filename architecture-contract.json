@@ -186,6 +186,8 @@
       ],
       "public": [
         "archkeel.render.html",
+        "archkeel.render.summary:Badge",
+        "archkeel.render.summary:VerdictRow",
         "archkeel.render.summary:check_summary",
         "archkeel.render.summary:init_summary",
         "archkeel.render.summary:Summary",

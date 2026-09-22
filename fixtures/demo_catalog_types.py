@@ -11,7 +11,14 @@ new function a facade function at all), not the rule.
 
 from __future__ import annotations
 
-from fixtures.demo_catalog_support import HEADER, Variant, contract_component_field_appended
+import json
+
+from fixtures.demo_catalog_support import (
+    FIXTURE_DIR,
+    HEADER,
+    Variant,
+    contract_component_field_appended,
+)
 
 # Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
 ROGUE_DATACLASS_MODULE = HEADER + (
@@ -163,9 +170,97 @@ _BOUNDARY_TYPES_IN_COLLECTION = Variant(
     expected_codes=("rule.violated",),
 )
 
+_REEXPORTED_BROAD_MODULE = (
+    (FIXTURE_DIR / "shop/render/text.py").read_text().replace("order: Order", "order: dict")
+)
+
+
+def _render_reexport_contract() -> str:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    render = next(item for item in contract["components"] if item["label"] == "render")
+    render["public"] = [entry for entry in render["public"] if entry != "shop.render.text"]
+    render["public"].append("shop.render:render_order")
+    contract["rules"].append(
+        {
+            "id": "RENDER-TYPES-NOT-DICT",
+            "kind": "boundary_types",
+            "source": "shop.render",
+            "rationale": "Keep the declared render boundary typed.",
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_BOUNDARY_TYPES_REEXPORT = Variant(
+    id="class-a-boundary-types-reexport",
+    section="class_a",
+    item="boundary_types:reexport",
+    summary="The shop.render package re-exports render_order from shop.render.text. The declared "
+    "package facade owns the subject, while boundary_types reads the signature at its "
+    "definition instead of guessing from the facade name (AD-84).",
+    files={
+        "shop/render/__init__.py": HEADER
+        + (
+            '"""Re-export the render component entry."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.text import render_order\n\n"
+            '__all__ = ["render_order"]\n'
+        ),
+        "shop/render/text.py": _REEXPORTED_BROAD_MODULE,
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from shop.render.text import render_order", "from shop.render import render_order"
+        ),
+        "architecture-contract.json": _render_reexport_contract(),
+    },
+    expected_violations=("RENDER-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
+_REQUEST_MODEL_MODULE = HEADER + (
+    '"""A request model with a broad directly declared field."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from shop.model.entities import Order\n\n\n"
+    "class Request:\n"
+    "    metadata: dict\n\n\n"
+    "def handle(request: Request) -> Order:\n"
+    '    return Order(order_id="", lines=())\n'
+)
+
+
+def _request_model_contract() -> str:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    app = next(item for item in contract["components"] if item["label"] == "app")
+    app["public"].extend(["shop.app.requests:handle", "shop.app.requests:Request"])
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_BOUNDARY_TYPES_MODEL_FIELD = Variant(
+    id="class-a-boundary-types-model-field",
+    section="class_a",
+    item="boundary_types:model_field",
+    summary="A declared request model carries a directly declared metadata: dict field. "
+    "boundary_types inspects that first field level and reports the broad boundary type "
+    "without recursively guessing through deeper models (AD-84).",
+    files={
+        "shop/app/requests.py": _REQUEST_MODEL_MODULE,
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS.replace(
+            "from shop.app.reports import snapshot", "from shop.app.requests import handle"
+        ),
+        "architecture-contract.json": _request_model_contract(),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _SYMBOL_PLACEMENT,
     _BOUNDARY_TYPES,
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,
+    _BOUNDARY_TYPES_REEXPORT,
+    _BOUNDARY_TYPES_MODEL_FIELD,
 )
