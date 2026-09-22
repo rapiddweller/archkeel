@@ -69,6 +69,7 @@ run shows many violations together; every other row isolates one item.
 | class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |
 | class_a | boundary_types:collection_element | class-a-boundary-types-in-collection | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/batches.py, shop/cli/main.py |
 | class_a | boundary_types:reexport | class-a-boundary-types-reexport | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/__init__.py, shop/render/text.py |
+| class_a | boundary_types:reexport_aliases | class-a-boundary-types-reexport-aliases | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/__init__.py, shop/render/text.py |
 | class_a | boundary_types:model_field | class-a-boundary-types-model-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/requests.py, shop/cli/main.py |
 | validation | module.placement:clean | validation-module-placement-clean | validate/report run | - | - | shop/model/catalog.py |
 | validation | module.placement | validation-module-placement | validate/report run | COMP-MODEL, ROOT-LAYOUT | rule.violated, rule.violated | architecture-contract.json, shop/model_rules.py |

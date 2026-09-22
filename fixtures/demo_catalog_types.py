@@ -220,6 +220,43 @@ _BOUNDARY_TYPES_REEXPORT = Variant(
     expected_codes=("rule.violated",),
 )
 
+
+def _render_alias_contract() -> str:
+    contract = json.loads(_render_reexport_contract())
+    render = next(item for item in contract["components"] if item["label"] == "render")
+    render["public"].append("shop.render:render_alias")
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_BOUNDARY_TYPES_REEXPORT_ALIASES = Variant(
+    id="class-a-boundary-types-reexport-aliases",
+    section="class_a",
+    item="boundary_types:reexport_aliases",
+    summary="The shop.render facade exposes two aliases of the same render_order definition. "
+    "They are one semantic origin and remain decidable; only distinct possible origins are "
+    "UNKNOWN (AD-84).",
+    files={
+        "shop/render/__init__.py": HEADER
+        + (
+            '"""Re-export the render component entry under two facade aliases."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.text import render_order\n"
+            "from shop.render.text import render_order as render_alias\n\n"
+            '__all__ = ["render_order", "render_alias"]\n'
+        ),
+        "shop/render/text.py": _REEXPORTED_BROAD_MODULE,
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from shop.render.text import render_order",
+            "from shop.render import render_order, render_alias",
+        ),
+        "architecture-contract.json": _render_alias_contract(),
+    },
+    expected_violations=("RENDER-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
 _REQUEST_MODEL_MODULE = HEADER + (
     '"""A request model with a broad directly declared field."""\n\n'
     "from __future__ import annotations\n\n"
@@ -262,5 +299,6 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,
     _BOUNDARY_TYPES_REEXPORT,
+    _BOUNDARY_TYPES_REEXPORT_ALIASES,
     _BOUNDARY_TYPES_MODEL_FIELD,
 )

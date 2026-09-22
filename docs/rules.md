@@ -275,7 +275,9 @@ annotation is exactly `dict`, `Dict`, `object`, a `dict[...]`/`Dict[...]` generi
 that resolves, through the same import bindings `interface_boundary` reads, to a class that is
 neither an `enum` nor a `pydantic_model` by kind and that no component's own `public` list
 declares. A function re-exported by a declared facade entry is checked at its definition, while
-the violation keeps the facade module and entry as its subject. If a declared request or result
+the violation keeps the facade module and entry as its subject. Multiple aliases or re-export
+paths that resolve to the same exact origin are decidable as one origin; only distinct origins
+make the facade position UNKNOWN (`ambiguous_facade`). If a declared request or result
 type resolves to a scanned class, its directly declared fields are inspected one level deep with
 the same broad-type test. An ambiguous or unresolved field, or a field that would require a
 second model descent, is UNKNOWN rather than an inferred pass (AD-84). A known collection holding

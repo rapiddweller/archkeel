@@ -130,6 +130,57 @@ def test_boundary_types_marks_two_reexport_origins_unknown_in_either_order(
     assert limit.data.get("ambiguous_facade") == 4
 
 
+def test_boundary_types_accepts_two_aliases_of_one_reexport_origin(
+    tmp_path: Path,
+) -> None:
+    """Two facade aliases of one definition are decidable, not ambiguous."""
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component(
+                        "app",
+                        public=["sample.app:run", "sample.app:run_alias"],
+                    )
+                ],
+                "rules": [
+                    {
+                        "id": "APP-TYPES-NOT-DICT",
+                        "kind": "boundary_types",
+                        "source": "sample.app",
+                        "rationale": "Keep the declared application boundary typed.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text(
+        "from .impl import run\n"
+        "from .impl import run as run_alias\n"
+        "\n"
+        '__all__ = ["run", "run_alias"]\n'
+    )
+    (tmp_path / "sample/app/impl.py").write_text(
+        "def run(value: dict) -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.rule_ids == ("APP-TYPES-NOT-DICT",)
+    assert violation.subjects == ("sample.app", "sample.app.run")
+    assert not [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit" and item.data.get("ambiguous_facade")
+    ]
+
+
 def test_boundary_types_checks_direct_fields_of_a_reexported_model(
     tmp_path: Path,
 ) -> None:

@@ -1348,7 +1348,10 @@ def _facade_positions(
         f"{facade_module}.{facade_name}",
         found[2],
         resolution_module,
-        found[4] or len(candidates) > 1,
+        # Multiple facade entries can be aliases of this same function origin.  The shared
+        # re-export walk already marks a binding ambiguous only when it reaches distinct
+        # origins; candidate count is therefore not an ambiguity signal.
+        found[4],
         found[5],
     )
 
