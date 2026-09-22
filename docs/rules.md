@@ -189,8 +189,9 @@ alone: the `symbols` section records only classes and functions, so treating an 
 missing would misreport a module-level constant or type alias that the scan cannot see. A
 component's optional `planned` list holds entries in the same `pkg.module`/`pkg.module:Name` shape
 as `public`, disjoint from it: an entry the scan has not built yet is target work and gets no
-diagnostic, and one whose module the scan now sees is a stale marker, `interface.planned_built` —
-move it to `public` and drop it from `planned`. `planned` entries are held to the same ownership,
+diagnostic. A built entry remains target work until a cross-component import or a declared facade
+signature reaches it; then `interface.planned_built` asks you to move it to `public` and drop it
+from `planned` (AD-79). `planned` entries are held to the same ownership,
 underscore and namespace checks as `public` ones, but never reach the analyzer: `planned` is not
 projected into the observation, so it earns no `agent_decisions` count and takes no part in an
 AD-20 inside's public-surface match.
@@ -258,10 +259,12 @@ but stays PASS when every undecided position is `external_type` (a type owned by
 component), since a rule with no `public` list to check that type against never had the question to
 answer (`inspect_observation`, AD-67). A component that declares no `public` at
 all has no functions for the rule to inspect, the way `interface_boundary` gives it no imports to
-check either; a `planned` entry (AD-56) is never projected into the observation, so it plays no
-part here, the same as everywhere else in the analyzer. A `source` that matches a scanned module
-but whose declared facade covers no function of it reports `rule_without_subjects`, UNKNOWN, not a
-clean pass: a rule that can only pass by finding nothing to check is the same defect a declared
+check either; a `planned` entry (AD-56, AD-79) is never projected into the observation, so it plays no
+part here, the same as everywhere else in the analyzer. A module named by an exact `planned` entry
+is declared target work even before it is scanned; it avoids `rule_without_subjects` without
+becoming an observed public interface (AD-79). A scope with no matching planned entry remains no subject. A
+`source` that matches a scanned module but whose declared facade covers no function of it reports
+`rule_without_subjects`, UNKNOWN, not a clean pass: a rule that can only pass by finding nothing to check is the same defect a declared
 rule that cannot fail is everywhere else in this tool (AD-63, issue #56). Measured on Archkeel's own facades, the
 restricted-string match alone still fires 26 times inside `archkeel.ir`, all of it the codec's own
 untyped-JSON boundary and narrowing helpers such as `text_value(value: object) -> str`; a `source`

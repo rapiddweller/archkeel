@@ -1663,6 +1663,88 @@ def test_boundary_types_reports_unknown_when_the_facade_has_no_subjects(tmp_path
     assert result.exit_code == 2
 
 
+def test_boundary_types_planned_facade_is_target_work_not_unknown(tmp_path: Path) -> None:
+    """#79: a scanned planned facade is a visible target, not an empty rule scope."""
+    contract = _boundary_types_contract(_component("app", planned=["sample.app.facade:snapshot"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def snapshot(context: dict) -> str:\n    return str(context)\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert not any(
+        item.kind == "rule-without-subjects"
+        for item in result.observation.records("unknowns") or ()
+    )
+    assert result.exit_code == 0
+
+
+def test_boundary_types_unscanned_planned_facade_is_target_work(tmp_path: Path) -> None:
+    """#79: an exact planned scope is target work before its module exists."""
+    contract = _boundary_types_contract(_component("app", planned=["sample.app.future:snapshot"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def unrelated(context: dict) -> str:\n    return str(context)\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert not any(
+        item.kind == "rule-without-subjects"
+        for item in result.observation.records("unknowns") or ()
+    )
+    assert result.exit_code == 0
+
+
+def test_planned_facade_does_not_explain_an_unrelated_rule_scope(tmp_path: Path) -> None:
+    """#79: a scope with no matching planned entry still fails closed."""
+    contract = _boundary_types_contract(_component("app", planned=["sample.app.future:snapshot"]))
+    contract["rules"][0]["source"] = "sample.app.typo"
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert any(
+        item.kind == "rule-without-subjects"
+        for item in result.observation.records("unknowns") or ()
+    )
+    assert result.exit_code == 2
+
+
+def test_unscanned_planned_module_explains_a_general_rule_scope(tmp_path: Path) -> None:
+    """#79: planned subjects apply to rules beyond boundary_types."""
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component("app", planned=["sample.app.future:snapshot"])],
+        "rules": [
+            {
+                "id": "NO-GETATTR",
+                "kind": "forbidden_construct",
+                "source": "sample.app.future",
+                "constructs": ["getattr"],
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert not any(
+        item.kind == "rule-without-subjects"
+        for item in result.observation.records("unknowns") or ()
+    )
+    assert result.exit_code == 0
+
+
 def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -> None:
     """AD-67: an undecidable position produced nothing at all, so the rule's verdict read
     `no violation == probably fine` while the rest of the tool reads PASS/VIOLATION/UNKNOWN

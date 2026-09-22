@@ -493,6 +493,16 @@ def _boundary_type_subject_modules(
     )
 
 
+def _planned_subject_modules(contract: ArchitectureContract) -> frozenset[str]:
+    """Let declared target work explain a rule scope before the module exists (#79)."""
+    return frozenset(
+        module
+        for component in contract.components
+        for entry in component.planned or ()
+        for module in (entry.partition(":")[0],)
+    )
+
+
 def rule_subject_failures(
     rules: Sequence[ArchitectureRule],
     module_names: set[str],
@@ -501,19 +511,22 @@ def rule_subject_failures(
     contract: ArchitectureContract | None = None,
     exports_by_module: dict[str, frozenset[str]] | None = None,
 ) -> list[RawRecord]:
-    """Flag each rule whose scope selectors match no scanned module -- or, for `boundary_types`,
-    no function its own component's declared facade actually covers (AD-63, issue #56): a rule
-    that can only pass by finding nothing to check must report UNKNOWN, not PASS.
+    """Flag scopes with neither observed subjects nor explicitly declared target work.
+
+    For `boundary_types`, a public facade function or matching planned entry is a subject. A rule
+    that can only pass by finding neither must report UNKNOWN, not PASS (AD-63, AD-79).
     """
+    planned_subjects = _planned_subject_modules(contract) if contract is not None else frozenset()
     rule_failures: list[RawRecord] = []
     for rule in rules:
         scopes = rule_scopes(rule)
-        subjects: AbstractSet[str] = module_names
+        subjects: AbstractSet[str] = module_names | planned_subjects
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
             subjects = _boundary_type_subject_modules(
                 rule, symbols, contract, exports_by_module or {}
             )
+            subjects = subjects | planned_subjects
             facade_scoped = True
         matches = {
             side: sum(any(in_scope(module, scope) for scope in side_scopes) for module in subjects)

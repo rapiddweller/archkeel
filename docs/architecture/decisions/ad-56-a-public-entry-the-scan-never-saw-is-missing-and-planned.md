@@ -1,4 +1,4 @@
-# AD-56 A public entry the scan never saw is missing, and planned exempts it until built
+# AD-56 A public entry the scan never saw is missing, and planned exempts target work
 
 `interface_diagnostics` splits an unused `public` entry by whether its module was ever scanned.
 One the scan never saw is `interface.missing`: the contract names something that does not exist,
@@ -10,10 +10,10 @@ classes and functions, and an unmatched name there would as easily be a module-l
 a `TypeAlias` the scan cannot see as a genuine typo, so asserting "missing" from it would trade
 one false signal for another. A component gains an optional `planned` list, the same
 `pkg.module`/`pkg.module:Name` shape as `public` and disjoint from it: an entry there whose module
-the scan has not seen is target work and produces nothing, and one whose module the scan now sees
-is a stale marker, `interface.planned_built`, telling the architect to move it to `public` and
-drop it from `planned` — the same argument AD-46 makes for a component graph the world has moved
-past. `planned` needs no declared `public` of its own, since an architect may name a facade before
+the scan has not seen is target work and produces nothing. A built module is also target work until
+an import or declared facade signature reaches the entry; then `interface.planned_built` tells the
+architect to move it to `public` and drop it from `planned` (AD-79). `planned` needs no declared
+`public` of its own, since an architect may name a facade before
 the component has any live interface to pair it with, and its entries are held to the same
 ownership (`reference.public_owner`) and underscore (`reference.public_underscore`) checks as
 `public`'s, by reusing the same checks rather than writing a second pair for a second list.
@@ -45,7 +45,7 @@ entry would need no second check once built: this is a `validate`-time judgment 
 contract still promises, not a fact the scan observes, and projecting it would have cost an
 `ANALYZER_VERSION` bump for a field the analyzer never needs to know about.
 
-Limit: `interface.missing` and `interface.planned_built` both read `modules` alone, so a
+Limit: `interface.missing` reads `modules` alone, so a
 `pkg.module:Name` entry whose module exists but whose name does not — a genuine typo in the name
 half — still reads as `interface.unused`, the same blind spot `_entry_used` already carries for
 the same reason. `planned` takes no part in an AD-20 inside's public-surface match, so a level's
@@ -55,7 +55,9 @@ only their `public` lists are held equal. Nothing stops an entry from naming bot
 nothing because that is exactly what `planned` expects — so an architect who wants no finding
 until a facade exists keeps the entry in `planned` alone. Check:
 `tests/test_validation.py::test_missing_public_entry_is_a_diagnostic`,
-`test_planned_entry_not_yet_built_has_no_diagnostic`, `test_planned_entry_now_built_is_a_diagnostic`,
+`test_planned_entry_not_yet_built_has_no_diagnostic`,
+`test_planned_entry_built_but_unused_is_target_work`,
+`test_built_planned_entry_reached_by_import_needs_promotion`,
 `test_unused_public_entry_is_a_diagnostic` reading a scanned module, and
 `test_planned_entry_owned_by_another_component_is_a_diagnostic` with its underscore and namespace
 twins; `tests/test_contract_model.py`'s corpus with `tests/contracts/valid/component-planned.json`
