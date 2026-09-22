@@ -19,6 +19,7 @@ from archkeel.ir.baseline import (
     ViolationFingerprint,
     compare_violations,
     observed_violations,
+    violation_drift_counts,
 )
 from archkeel.ir.codec import (
     baseline_bytes,
@@ -128,6 +129,79 @@ def test_a_new_violation_of_the_same_rule_in_another_module_fails(tmp_path: Path
     )
 
 
+def test_updating_an_existing_baseline_refuses_new_fingerprints_by_default(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path,
+        "refuse-update",
+        {"shop/model/probe.py": PROBE, "shop/model/probe_two.py": SECOND_PROBE},
+    )
+    known = (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),)
+    baseline = _baseline_file(root, known)
+    before = baseline.read_bytes()
+
+    result, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+
+    assert (result.exit_code, result.baseline_new, result.baseline_resolved, files) == (
+        1,
+        1,
+        0,
+        {},
+    )
+    assert baseline.read_bytes() == before
+
+
+def test_accept_new_explicitly_updates_an_existing_baseline(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        "accept-update",
+        {"shop/model/probe.py": PROBE, "shop/model/probe_two.py": SECOND_PROBE},
+    )
+    baseline = _baseline_file(
+        root,
+        (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),),
+    )
+
+    result, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True, accept_new=True
+    )
+
+    assert (result.exit_code, result.baseline_new, result.baseline_resolved) == (0, 1, 0)
+    assert parse_baseline(decode_json(files[str(baseline)])) == observed_violations(_observe(root))
+
+
+def test_updating_an_existing_baseline_refuses_an_increased_count(tmp_path: Path) -> None:
+    root = _repo(tmp_path, "refuse-increase", {"shop/model/probe.py": TWICE_PROBE})
+    known = (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),)
+    baseline = _baseline_file(root, known)
+
+    result, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+
+    assert (result.exit_code, result.baseline_new, result.baseline_resolved, files) == (
+        1,
+        1,
+        0,
+        {},
+    )
+
+
+def test_updating_an_existing_baseline_allows_resolved_only_drift(tmp_path: Path) -> None:
+    root = _repo(tmp_path, "resolve-update", {"shop/model/probe.py": PROBE})
+    baseline = _baseline_file(
+        root,
+        (
+            KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),
+            KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.gone.read",)), 2),
+        ),
+    )
+
+    result, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+
+    assert (result.exit_code, result.baseline_new, result.baseline_resolved) == (0, 0, 1)
+    assert parse_baseline(decode_json(files[str(baseline)])) == observed_violations(_observe(root))
+
+
 def test_a_resolved_baseline_entry_is_reported(tmp_path: Path) -> None:
     root = _repo(tmp_path, "resolved", {"shop/model/probe.py": PROBE})
     known = (
@@ -212,9 +286,11 @@ def test_a_baseline_does_not_hide_any_other_diagnostic(tmp_path: Path) -> None:
     (root / "architecture-contract.json").write_text(json.dumps(contract))
     baseline = _baseline_file(root, observed_violations(_observe(root)))
 
-    result, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    result, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
 
     assert result.exit_code == 2
+    assert files == {}
+    assert baseline.read_bytes() == baseline_bytes(observed_violations(_observe(root)))
     assert [item.code for item in result.diagnostics] == ["rationale.placeholder"]
 
 
@@ -260,3 +336,10 @@ def test_comparison_reports_nothing_when_the_baseline_states_the_observed_counts
     violations = (KnownViolation(ViolationFingerprint(("RULE-A",), ("first",)), 2),)
 
     assert compare_violations(violations, violations) == ()
+
+
+def test_violation_drift_counts_are_deterministic() -> None:
+    first = KnownViolation(ViolationFingerprint(("RULE-B",), ("second",)), 1)
+    second = KnownViolation(ViolationFingerprint(("RULE-A",), ("first",)), 2)
+
+    assert violation_drift_counts((first, second), (second,)) == (0, 1)

@@ -149,15 +149,20 @@ has yet to reach it — `validate` is red by design and gates nothing. Freeze th
 violations rather than describing the current code in the contract (AD-52):
 
 ```bash
-archkeel validate --baseline known-violations.json --write-baseline   # once, then review it
+archkeel validate --baseline known-violations.json --write-baseline   # initial file, then review it
 archkeel validate --baseline known-violations.json                    # the CI gate
+archkeel validate --baseline known-violations.json --write-baseline   # resolved-only cleanup
+archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
 ```
 
 The gate exits 1 on a violation the file does not state, and on one it states that nobody
 violates any more; a run whose baseline is exactly right exits 0 while `declared_rules` stays
 `FAIL`. Each entry is named by rule and subjects, not by line, so unrelated edits do not move
-it. The agent shrinks the file by fixing violations and rewriting it in the same change; adding
-an entry to make a run pass is an architect's decision, and the diff is where it is reviewed.
+it. Existing baselines are compared before writes: resolved-only drift may update the file, but
+new or increased fingerprints require explicit `--accept-new`. Results expose deterministic
+`baseline_new` and `baseline_resolved` counts. The agent shrinks the file by fixing violations
+and rewriting it in the same change; adding an entry to make a run pass is an architect's
+decision, and the diff is where it is reviewed.
 
 Running that loop day to day — keeping the target from widening while the backlog shrinks,
 picking the next violation to fix, and landing the interfaces the target already names ahead of

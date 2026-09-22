@@ -382,6 +382,18 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         evidence="tests/test_baseline.py",
     ),
     Variant(
+        id="validation-baseline-accept-new",
+        section="validation",
+        item="baseline.accept_new",
+        summary="Updating an existing baseline compares first: resolved-only drift is written, "
+        "but new or increased fingerprints refuse the write unless --accept-new is explicit "
+        "(AD-77, issue #81).",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_cli.py",
+    ),
+    Variant(
         id="validation-against-invalid",
         section="validation",
         item="against.invalid",

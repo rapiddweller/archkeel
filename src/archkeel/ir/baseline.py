@@ -59,6 +59,10 @@ def _ordered(counts: Counter[ViolationFingerprint]) -> tuple[KnownViolation, ...
     )
 
 
+def _counts(violations: tuple[KnownViolation, ...]) -> dict[ViolationFingerprint, int]:
+    return {item.fingerprint: item.count for item in violations}
+
+
 @dataclass(frozen=True, slots=True)
 class ViolationRow:
     """One violation, read the way a consumer off disk wants it rather than as a raw record.
@@ -209,8 +213,8 @@ def compare_violations(
     shrinks). Both are failures, because a budget that may exceed the code lets a violation
     someone removed come back unreported.
     """
-    known_counts = {item.fingerprint: item.count for item in known}
-    observed_counts = {item.fingerprint: item.count for item in observed}
+    known_counts = _counts(known)
+    observed_counts = _counts(observed)
     return tuple(
         _drift(fingerprint, known_counts.get(fingerprint, 0), observed_counts.get(fingerprint, 0))
         for fingerprint in sorted(
@@ -219,3 +223,17 @@ def compare_violations(
         )
         if known_counts.get(fingerprint, 0) != observed_counts.get(fingerprint, 0)
     )
+
+
+def violation_drift_counts(
+    known: tuple[KnownViolation, ...], observed: tuple[KnownViolation, ...]
+) -> tuple[int, int]:
+    """Return changed fingerprint counts as `(new_or_increased, resolved_or_decreased)`."""
+    known_counts = _counts(known)
+    observed_counts = _counts(observed)
+    fingerprints = known_counts.keys() | observed_counts.keys()
+    new = sum(observed_counts.get(item, 0) > known_counts.get(item, 0) for item in fingerprints)
+    resolved = sum(
+        observed_counts.get(item, 0) < known_counts.get(item, 0) for item in fingerprints
+    )
+    return new, resolved

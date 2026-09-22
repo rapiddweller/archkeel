@@ -277,8 +277,10 @@ which case every class A rule above is violated by design until the refactoring 
 those violations instead of weakening the rules (AD-52):
 
 ```bash
-archkeel validate --baseline known-violations.json --write-baseline   # once, then review it
+archkeel validate --baseline known-violations.json --write-baseline   # initial file, then review it
 archkeel validate --baseline known-violations.json                    # the gate
+archkeel validate --baseline known-violations.json --write-baseline   # resolved-only cleanup
+archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
 ```
 
 Each entry names one violation by fingerprint — the rule ids it cites and its sorted `subjects`,
@@ -286,8 +288,9 @@ which per rule kind are the modules, the construct owner or the members of a cyc
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
 A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
 alone. Counts must match the observation exactly: a higher one is a `new violation`, a lower one
-a `resolved violation`, both reported in `failures` with exit 1, so the budget only shrinks and
-the file is rewritten in the change that shrinks it. A run whose baseline is exactly right exits
+a `resolved violation`, both reported in `failures` with exit 1, so the budget only shrinks.
+An existing baseline is compared before a write: resolved-only drift may be written, while new
+or increased fingerprints refuse the write unless `--accept-new` is explicit. A run whose baseline is exactly right exits
 0, with `declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
 `decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that cannot
 be read is `baseline.invalid`, exit 2. The file's shape is

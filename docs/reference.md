@@ -102,11 +102,13 @@ violations sharing it. No position enters a fingerprint, so an unrelated edit ab
 line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Counts must match
 the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
 violation`, both in `failures` with exit 1, so the budget only shrinks. A run whose baseline is
-exactly right exits 0 with `declared_rules: FAIL`. Only `rule.violated` is answered this way;
-every other diagnostic still exits 2, as does a baseline that cannot be read
-(`baseline.invalid`). `--write-baseline` writes the observed violations to that same path,
-indented and sorted for review, and writes nothing from a run that exited 2. `validate` with no
-`--baseline` behaves exactly as before. The file's shape is
+exactly right exits 0 with `declared_rules: FAIL`. Results expose deterministic `baseline_new`
+and `baseline_resolved` counts. Only `rule.violated` is answered this way; every other diagnostic
+still exits 2, as does a baseline that cannot be read (`baseline.invalid`). `--write-baseline`
+writes the observed violations to that same path only after comparing an existing file: resolved-only
+drift may be written, while new or increased fingerprints refuse the write unless `--accept-new` is
+explicit. It writes nothing from a run that exited 2. `validate` with no `--baseline` behaves exactly
+as before. The file's shape is
 `schema/violation-baseline.schema.json`:
 
 ```json

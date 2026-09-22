@@ -148,8 +148,9 @@ def build_parser() -> _Parser:
             "A contract that states the target architecture is violated by the code that\n"
             "has yet to reach it. --baseline names a file of those known violations: the\n"
             "run then fails only on a violation the file does not state, and on one it\n"
-            "states that nobody violates any more, so the budget only shrinks. Write the\n"
-            "file with --write-baseline, review it, and commit it.\n\n"
+            "states that nobody violates any more, so the budget only shrinks.\n"
+            "--write-baseline compares an existing file before updating it: resolved-only\n"
+            "drift may be written, while new or increased fingerprints require --accept-new.\n\n"
             "--against <ref> classifies every difference from the contract at that Git\n"
             "revision (and, with --baseline, the baseline file there too) as a widening -\n"
             "a new permission or a dropped restriction, including a padded baseline entry -\n"
@@ -161,6 +162,7 @@ def build_parser() -> _Parser:
             "  archkeel validate --json\n"
             "  archkeel validate --write-graph\n"
             "  archkeel validate --baseline known-violations.json --write-baseline\n"
+            "  archkeel validate --baseline known-violations.json --write-baseline --accept-new\n"
             "  archkeel validate --baseline known-violations.json\n"
             "  archkeel validate --against main --amendment widening.json \\\n"
             '    --write-amendment --decided-by "Jordan (architect)" --rationale "..."\n'
@@ -189,7 +191,12 @@ def build_parser() -> _Parser:
     validate.add_argument(
         "--write-baseline",
         action="store_true",
-        help="Write today's violations to --baseline instead of comparing them.",
+        help="Create or update --baseline after comparing an existing file.",
+    )
+    validate.add_argument(
+        "--accept-new",
+        action="store_true",
+        help="Allow --write-baseline to accept new or increased violations.",
     )
     validate.add_argument(
         "--against",
@@ -369,6 +376,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config = load_config(root)
                 if args.write_baseline and args.baseline is None:
                     parser.error("--write-baseline needs --baseline to name the file to write")
+                if args.accept_new and not args.write_baseline:
+                    parser.error("--accept-new needs --write-baseline")
                 if args.amendment is not None and args.against is None:
                     parser.error("--amendment needs --against to name the compared revision")
                 if args.write_amendment and args.against is None:
@@ -386,6 +395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     # --root says; the result then names the path the user will open.
                     baseline=None if args.baseline is None else args.baseline.resolve(),
                     write_baseline=args.write_baseline,
+                    accept_new=args.accept_new,
                     against=args.against,
                     amendment=None if args.amendment is None else args.amendment.resolve(),
                     write_amendment=args.write_amendment,

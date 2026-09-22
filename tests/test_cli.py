@@ -168,12 +168,30 @@ def test_validate_baseline_writes_then_gates_on_new_violations(
         "new violation: CONSTRUCT-NO-DYNAMIC | shop.model.probe_two.read "
         "(1 observed, 0 in the baseline)"
     ]
+    assert (result["baseline_new"], result["baseline_resolved"]) == (1, 0)
+    before = baseline.read_bytes()
+    assert main([*arguments, "--write-baseline"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["artifact"] is None
+    assert (result["baseline_new"], result["baseline_resolved"]) == (1, 0)
+    assert baseline.read_bytes() == before
+
+    assert main([*arguments, "--write-baseline", "--accept-new"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["artifact"] == str(baseline)
+    assert (result["baseline_new"], result["baseline_resolved"]) == (1, 0)
 
 
 def test_validate_write_baseline_needs_a_baseline_path(capsys: pytest.CaptureFixture) -> None:
     assert main(["validate", "--root", str(ROOT), "--write-baseline", "--json"]) == 2
     claim = json.loads(capsys.readouterr().out)["diagnostics"][0]["unknown_claim"]
     assert "--write-baseline needs --baseline" in claim
+
+
+def test_validate_accept_new_needs_write_baseline(capsys: pytest.CaptureFixture) -> None:
+    assert main(["validate", "--root", str(ROOT), "--accept-new", "--json"]) == 2
+    claim = json.loads(capsys.readouterr().out)["diagnostics"][0]["unknown_claim"]
+    assert "--accept-new needs --write-baseline" in claim
 
 
 def test_validate_configuration_error_has_pointer(

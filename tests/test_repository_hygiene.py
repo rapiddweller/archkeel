@@ -59,6 +59,8 @@ ALLOWED_LONG_FUNCTIONS = {
     "reasons are decided in one place per dimension.",
     "src/archkeel/check/run.py::run_check": "Sequences authentication, git and host order, both "
     "snapshots and evaluation; one with-block owns the snapshot lifetimes.",
+    "src/archkeel/check/validation.py::run_validate": "Sequences baseline, contract, observation "
+    "and artifact decisions; the branches are the validation protocol.",
     "src/archkeel/cli/__init__.py::build_parser": "Declarative argparse setup, one subparser per "
     "command; help text is the length.",
     "src/archkeel/cli/__init__.py::main": "Composition root; one error boundary maps every "

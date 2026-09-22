@@ -12,7 +12,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TypeVar
 
-from archkeel.ir.baseline import KnownViolation, compare_violations, observed_violations
+from archkeel.ir.baseline import (
+    KnownViolation,
+    compare_violations,
+    observed_violations,
+    violation_drift_counts,
+)
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
@@ -1263,7 +1268,12 @@ def _repository_diagnostics(
 
 
 def _observed_result(
-    observation: Observation, diagnostics: list[Diagnostic], failures: tuple[str, ...] = ()
+    observation: Observation,
+    diagnostics: list[Diagnostic],
+    failures: tuple[str, ...] = (),
+    *,
+    baseline_new: int | None = None,
+    baseline_resolved: int | None = None,
 ) -> RunResult:
     """The validate result once a complete observation has produced its diagnostics.
 
@@ -1299,6 +1309,8 @@ def _observed_result(
             agent_decisions=counts,
             violations_by_rule=counted.by_rule,
             violations_by_component_pair=counted.by_component_pair,
+            baseline_new=baseline_new,
+            baseline_resolved=baseline_resolved,
         )
     return RunResult(
         "validate",
@@ -1310,6 +1322,8 @@ def _observed_result(
         python_version=observation.python_version,
         measurements=measurements,
         failures=failures,
+        baseline_new=baseline_new,
+        baseline_resolved=baseline_resolved,
         open_decisions=decisions,
         agent_decisions=counts,
         claims=review_claims(observation),
@@ -1573,6 +1587,7 @@ def run_validate(
     write_graph: bool = False,
     baseline: Path | None = None,
     write_baseline: bool = False,
+    accept_new: bool = False,
     against: str | None = None,
     amendment: Path | None = None,
     write_amendment: bool = False,
@@ -1584,9 +1599,11 @@ def run_validate(
     AD-46/AD-57: with `write_graph`, every rewritten graph page comes back for the caller to
     write, the way `run_init` returns its files.
 
-    AD-52: with `baseline`, the violations that file already states are known debt, and only
-    the difference is reported - as `failures` with exit 1. `write_baseline` writes today's
-    violations to that same path instead of comparing them.
+    AD-52/AD-77: with `baseline`, the violations that file already states are known debt, and
+    only the difference is reported - as `failures` with exit 1. A missing baseline may be
+    created with `write_baseline`; an existing one is compared before it is rewritten. New or
+    increased fingerprints refuse that rewrite unless `accept_new` is explicit. Resolved-only
+    drift may rewrite the file and shrinks the debt.
 
     AD-61 (#11): with `against`, the contract at that Git revision - and, when `baseline` is
     also given, the baseline file there too - is compared with the one being validated;
@@ -1595,7 +1612,8 @@ def run_validate(
     `write_amendment` writes that binding instead of checking it.
     """
     known: tuple[KnownViolation, ...] = ()
-    if baseline is not None and not write_baseline:
+    baseline_exists = baseline is not None and baseline.exists()
+    if baseline is not None and (not write_baseline or baseline_exists):
         try:
             known = parse_baseline(decode_json(baseline.read_bytes()))
         except (OSError, ValueError) as error:
@@ -1620,13 +1638,26 @@ def run_validate(
         root, config, contract, observation, write_graph, baseline is None
     )
     violations = observed_violations(observation) if baseline is not None else ()
+    baseline_new, baseline_resolved = (
+        violation_drift_counts(known, violations) if baseline_exists else (0, 0)
+    )
+    comparison = compare_violations(known, violations) if baseline_exists else ()
     baseline_failures = (
-        () if write_baseline or baseline is None else compare_violations(known, violations)
+        comparison
+        if not write_baseline or (baseline_exists and baseline_new and not accept_new)
+        else ()
     )
     widening_failures = _widening_failures(
         against_ctx, contract, baseline, violations if write_baseline else known
     )
-    result = _observed_result(observation, diagnostics, (*baseline_failures, *widening_failures))
+    result = _observed_result(
+        observation,
+        diagnostics,
+        (*baseline_failures, *widening_failures),
+        baseline_new=baseline_new if baseline is not None else None,
+        baseline_resolved=baseline_resolved if baseline is not None else None,
+    )
+    write_baseline = write_baseline and (not baseline_exists or not baseline_new or accept_new)
     files, artifact = _artifact_files(
         write_baseline=write_baseline,
         baseline=baseline,
