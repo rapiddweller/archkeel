@@ -1421,10 +1421,37 @@ def _named_type_verdict(
     class_kind = origin_symbol["class_kind"] if isinstance(origin_symbol, dict) else None
     if class_kind == "enum":
         return _Position(resolved=reached)
+    return _owned_type_verdict(
+        origin_symbol,
+        origin_module,
+        origin_name,
+        class_kind,
+        reached,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        visited,
+        aliases_seen,
+    )
+
+
+def _owned_type_verdict(
+    origin_symbol: RecordData | _AmbiguousBinding | None,
+    origin_module: str,
+    origin_name: str,
+    class_kind: str | None,
+    reached: tuple[tuple[str, str], ...],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    visited: frozenset[tuple[str, str]],
+    aliases_seen: frozenset[tuple[str, str]],
+) -> _Position:
+    resolved = (origin_module, origin_name)
     origin_component = contract.component_for(origin_module)
     if origin_component is None:
-        # A type from a module outside every declared component has no `public` list to be
-        # read against, so the rule has nothing to decide it with, either way.
         return _Position(undecidable="external_type", resolved=reached)
     if _facade_covers(origin_module, origin_name, origin_component, exports_by_module):
         if resolved in visited:

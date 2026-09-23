@@ -92,6 +92,13 @@ def test_literal_does_not_guess_an_enum_member_or_dynamic_constant() -> None:
     assert builtin.undecidable == "other"
 
 
+def test_literal_rejects_unsupported_static_expression_shapes_as_unknown() -> None:
+    imports = {("sample", "Literal"): {"target_module": "typing", "symbol": "Literal"}}
+    for annotation in ("Literal[-1]", "Literal[b'payload']"):
+        verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, {})
+        assert verdict.violation is None and verdict.undecidable is not None
+
+
 def test_ambiguous_typing_wrapper_binding_stays_unknown() -> None:
     imports = {("sample", "Annotated"): {"target_module": "typing", "symbol": "Annotated"}}
     local = {("sample", "Annotated"): {"record_kind": "static_constant"}}

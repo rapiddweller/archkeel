@@ -2,7 +2,6 @@
 
 `boundary_types` unwraps `Annotated`, checks `Literal` constants, and follows statically
 recognized top-level aliases. Dynamic and ambiguous bindings remain UNKNOWN. On Archkeel's
-self-scan this changes `unknown_positions` from 24 to 23. The alias collector adds two
-unresolved calls to the self-scan (`calls_unresolved` 497 to 499), from its uppercase-name
-checks. The self-validation budget records those measured values; `typing_positions` is
-unchanged.
+self-scan on merged main, `unknown_positions` changes from 24 to 18 and
+`calls_unresolved` is 499. The baseline records these measured values;
+`typing_positions` remains 53.
