@@ -91,13 +91,9 @@ def test_recursive_dto_terminates_and_repeated_scans_are_deterministic(
     first_violations = trace_valid_violations(first.observation)
     repeated_violations = trace_valid_violations(repeated.observation)
     assert [item.data.get("path") for item in first_violations] == ["value.payload"]
-    assert [item.model_dump() for item in first_violations] == [
-        item.model_dump() for item in repeated_violations
-    ]
+    assert first_violations == repeated_violations
     assert _type_unknowns(first) == []
-    assert [item.model_dump() for item in first.observation.records("unknowns") or ()] == [
-        item.model_dump() for item in repeated.observation.records("unknowns") or ()
-    ]
+    assert first.observation.records("unknowns") == repeated.observation.records("unknowns")
 
 
 def test_shared_nested_dto_violations_keep_both_sibling_paths(tmp_path: Path) -> None:
@@ -120,7 +116,8 @@ def test_shared_nested_dto_violations_keep_both_sibling_paths(tmp_path: Path) ->
         "value.right.metadata",
     ]
     assert all(item.kind == "boundary_types" for item in violations)
-    assert all(item.data.get("annotation") == "dict" for item in violations)
+    assert all(item.data.get("annotation") == "Request" for item in violations)
+    assert all(item.data.get("nested_annotation") == "dict" for item in violations)
 
 
 def test_undeclared_nested_dto_is_a_violation_with_the_full_field_path(tmp_path: Path) -> None:
@@ -141,7 +138,8 @@ def test_undeclared_nested_dto_is_a_violation_with_the_full_field_path(tmp_path:
     [violation] = trace_valid_violations(result.observation)
     assert violation.kind == "boundary_types"
     assert violation.data.get("path") == "value.inner.hidden"
-    assert violation.data.get("annotation") == "Hidden"
+    assert violation.data.get("annotation") == "Request"
+    assert violation.data.get("nested_annotation") == "Hidden"
 
 
 def test_unsupported_nested_expression_stays_unknown_at_its_full_path(
@@ -161,7 +159,8 @@ def test_unsupported_nested_expression_stays_unknown_at_its_full_path(
 
     [unknown] = _type_unknowns(result)
     assert unknown.data.get("path") == "value.inner.payload"
-    assert unknown.data.get("annotation") == "Custom[dict]"
+    assert unknown.data.get("annotation") == "Request"
+    assert unknown.data.get("nested_annotation") == "Custom[dict]"
     assert unknown.data.get("reason") == "generic"
 
 
