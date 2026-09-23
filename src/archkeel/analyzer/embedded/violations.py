@@ -953,6 +953,9 @@ def _typing_wrapper_inner(
             if isinstance(value, ast.Name):
                 names.append(value.id)
                 continue
+            if isinstance(value, ast.Attribute):
+                names.append(ast.unparse(value))
+                continue
             return None
         return tuple(names)
     return None
@@ -1220,26 +1223,36 @@ def _typing_wrapper_verdict(
     )
     if not isinstance(literal, tuple):
         return None
-    verdicts = [
-        _boundary_type_verdict(
+    decided = [
+        (
             name,
-            module,
-            contract,
-            exports_by_module,
-            imports_by_binding,
-            classes_by_location,
-            enter_collections=enter_collections,
-            visited=visited,
-            enter_fields=enter_fields,
-            _aliases_seen=aliases_seen,
-            _require_static_constant=True,
+            _enum_member_verdict(
+                name,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+                visited=visited,
+                aliases_seen=aliases_seen,
+            )
+            or _boundary_type_verdict(
+                name,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+                enter_collections=enter_collections,
+                visited=visited,
+                enter_fields=enter_fields,
+                _aliases_seen=aliases_seen,
+                _require_static_constant=True,
+            ),
         )
         for name in literal
     ]
-    return next(
-        (verdict for verdict in verdicts if verdict.violation is not None),
-        next((verdict for verdict in verdicts if verdict.undecidable is not None), _Position()),
-    )
+    return _combine_position_verdicts(decided)
 
 
 def _boundary_type_verdict(
@@ -1309,6 +1322,65 @@ def _boundary_type_verdict(
         aliases_seen=_aliases_seen,
         require_static_constant=_require_static_constant,
     )
+
+
+def _enum_member_verdict(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    visited: frozenset[tuple[str, str]],
+    aliases_seen: frozenset[tuple[str, str]],
+) -> _Position | None:
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(expression, ast.Attribute) or not isinstance(expression.value, ast.Name):
+        return None
+    base = _boundary_type_verdict(
+        expression.value.id,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        visited=visited,
+        enter_fields=False,
+        _aliases_seen=aliases_seen,
+    )
+    if base.violation is not None or base.undecidable is not None:
+        return None
+    enum_origin: tuple[str, str] | None = None
+    for resolved in base.resolved:
+        symbol = classes_by_location.get(resolved)
+        if not isinstance(symbol, dict):
+            return None
+        if symbol.get("class_kind") == "enum":
+            if enum_origin is not None:
+                return None
+            enum_origin = resolved
+            continue
+        if symbol.get("record_kind") != "type_alias":
+            return None
+        alias = symbol.get("alias")
+        if not isinstance(alias, str):
+            return None
+        try:
+            alias_expression = ast.parse(alias, mode="eval").body
+        except SyntaxError:
+            return None
+        if not isinstance(alias_expression, ast.Name):
+            return None
+    if enum_origin is None:
+        return None
+    enum = classes_by_location.get(enum_origin)
+    if not isinstance(enum, dict) or expression.attr not in enum.get("enum_members", ()):
+        return None
+    return _Position(resolved=(enum_origin,))
 
 
 def _type_alias_verdict(
@@ -1691,6 +1763,10 @@ def _combined_annotation_verdict(
         )
         for parameter in parameters
     ]
+    return _combine_position_verdicts(decided)
+
+
+def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Position:
     reached = tuple(sorted({pair for _parameter, verdict in decided for pair in verdict.resolved}))
     violations = tuple(
         sorted(

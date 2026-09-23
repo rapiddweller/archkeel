@@ -86,7 +86,11 @@ def test_literal_accepts_a_statically_recorded_constant() -> None:
 
 def test_literal_does_not_guess_an_enum_member_or_dynamic_constant() -> None:
     imports = {("sample", "Literal"): {"target_module": "typing", "symbol": "Literal"}}
-    assert _typing_wrapper_inner("Literal[State.READY]", "sample", imports, {}, "Literal") is None
+    assert _typing_wrapper_inner("Literal[State.READY]", "sample", imports, {}, "Literal") == (
+        "State.READY",
+    )
+    member = _boundary_type_verdict("Literal[State.READY]", "sample", None, {}, imports, {})
+    assert member.violation is None and member.undecidable is not None
     unknown = _boundary_type_verdict("Literal[STATUS]", "sample", None, {}, imports, {})
     assert unknown.undecidable == "other"
     builtin = _boundary_type_verdict("Literal[str]", "sample", None, {}, imports, {})
