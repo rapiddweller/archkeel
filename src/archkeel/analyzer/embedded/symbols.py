@@ -233,6 +233,8 @@ def _resolve_class_kinds(
             if current != class_kind:
                 item["data"]["class_kind"] = class_kind
                 changed = True
+            if class_kind == "enum":
+                item["data"]["enum_members"] = _static_enum_members(node)
     for qualname, node in classes.items():
         item = symbol_by_name[qualname]
         # frozen_object depends on class_kind, which is final only after the fixpoint.
@@ -241,6 +243,28 @@ def _resolve_class_kinds(
             owners[qualname],
             allow_pydantic=item["data"].get("class_kind") == "pydantic_model",
         )
+
+
+def _static_enum_members(node: ast.ClassDef) -> list[str]:
+    """Return enum members assigned one literal value exactly once in the class body."""
+    assignments: dict[str, list[ast.expr | None]] = {}
+    for child in node.body:
+        value: ast.expr | None
+        if isinstance(child, ast.Assign) and len(child.targets) == 1:
+            target = child.targets[0]
+            value = child.value
+        elif isinstance(child, ast.AnnAssign):
+            target = child.target
+            value = child.value
+        else:
+            continue
+        if isinstance(target, ast.Name) and not target.id.startswith("_"):
+            assignments.setdefault(target.id, []).append(value)
+    return sorted(
+        name
+        for name, values in assignments.items()
+        if len(values) == 1 and isinstance(values[0], ast.Constant)
+    )
 
 
 def _assignment_symbol(
