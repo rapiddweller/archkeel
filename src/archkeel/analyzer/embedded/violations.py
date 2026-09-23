@@ -1226,7 +1226,16 @@ def _typing_wrapper_verdict(
     decided = [
         (
             name,
-            _enum_member_verdict(name, module, imports_by_binding, classes_by_location)
+            _enum_member_verdict(
+                name,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+                visited=visited,
+                aliases_seen=aliases_seen,
+            )
             or _boundary_type_verdict(
                 name,
                 module,
@@ -1318,8 +1327,13 @@ def _boundary_type_verdict(
 def _enum_member_verdict(
     annotation: str,
     module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    *,
+    visited: frozenset[tuple[str, str]],
+    aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position | None:
     try:
         expression = ast.parse(annotation, mode="eval").body
@@ -1327,36 +1341,25 @@ def _enum_member_verdict(
         return None
     if not isinstance(expression, ast.Attribute) or not isinstance(expression.value, ast.Name):
         return None
-    resolved = resolve_named_type(
-        expression.value.id, module, imports_by_binding, classes_by_location
+    base = _boundary_type_verdict(
+        expression.value.id,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        visited=visited,
+        enter_fields=False,
+        _aliases_seen=aliases_seen,
     )
-    seen: tuple[tuple[str, str], ...] = ()
-    while isinstance(resolved, tuple):
-        if resolved in seen:
-            return None
-        seen = (*seen, resolved)
+    for resolved in base.resolved:
         symbol = classes_by_location.get(resolved)
-        if not isinstance(symbol, dict):
-            return None
-        if symbol.get("class_kind") == "enum":
-            if expression.attr not in symbol.get("enum_members", ()):
-                return None
+        if (
+            isinstance(symbol, dict)
+            and symbol.get("class_kind") == "enum"
+            and expression.attr in symbol.get("enum_members", ())
+        ):
             return _Position(resolved=(resolved,))
-        if symbol.get("record_kind") != "type_alias":
-            return None
-        alias = symbol.get("alias")
-        if not isinstance(alias, str):
-            return None
-        try:
-            alias_expression = ast.parse(alias, mode="eval").body
-        except SyntaxError:
-            return None
-        if not isinstance(alias_expression, ast.Name):
-            return None
-        module = resolved[0]
-        resolved = resolve_named_type(
-            alias_expression.id, module, imports_by_binding, classes_by_location
-        )
     return None
 
 
