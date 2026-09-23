@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compose the canonical Python architecture report."""
+"""Compose the canonical architecture report of every analyzer profile."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from archkeel.ir.model import (
     contract_relative_path,
     stable_id,
 )
+from archkeel.ir.profiles import PROFILES, Language
 
 from .contract import (
     ContractError,
@@ -25,6 +26,7 @@ from .contract import (
     project_declarations,
     project_inside_declarations,
 )
+from .dart_scanner import scan_dart_repository
 from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified
 from .scanner import ScanResult, scan_repository
 from .violations import requires_violations
@@ -334,6 +336,24 @@ def _declaration_records(
     ]
 
 
+def _add_git_failure(scan: ScanResult, git_head: str, dirty: bool | str) -> None:
+    """Git metadata the run could not record makes the scan incomplete, never silently so."""
+    git_failure = classified(
+        item_id="UNKNOWN-GIT-REVISION",
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="analysis_coverage",
+        kind="git_metadata_failure",
+        title="Git revision metadata could not be recorded",
+        subjects=["repository"],
+        data={"git_head": git_head, "dirty": dirty},
+    )
+    scan.unknowns = sorted([*scan.unknowns, git_failure], key=lambda item: item["id"])
+    scan.coverage["failures"] = sorted(
+        [*scan.coverage["failures"], git_failure], key=lambda item: item["id"]
+    )
+    scan.coverage["status"] = "FAIL"
+
+
 def analyze_snapshot(
     source_root: Path,
     *,
@@ -344,6 +364,7 @@ def analyze_snapshot(
     source_paths: list[Path] | tuple[Path, ...] | None = None,
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
+    language: Language = "python",
 ) -> tuple[dict[str, Any], int]:
     """Analyze explicit source bytes and metadata without consulting Git."""
     source_root = source_root.resolve()
@@ -351,30 +372,22 @@ def analyze_snapshot(
     contract_reference = contract_file.relative_to(declarations_root).as_posix()
     contract, contract_digest = load_contract(contract_file)
     inside_records, inside_digests, inside_contracts = _inside_levels(declarations_root, contract)
-    scan = scan_repository(
-        source_root, contract, source_paths=source_paths, roots=roots, namespace=namespace
+    profile = PROFILES[language]
+    scan = (
+        scan_dart_repository(source_root, contract, roots=roots, namespace=namespace)
+        if language == "dart"
+        else scan_repository(
+            source_root, contract, source_paths=source_paths, roots=roots, namespace=namespace
+        )
     )
     _add_inside_violations(scan, inside_contracts)
     if git_head == "unknown" or dirty == "unknown":
-        git_failure = classified(
-            item_id="UNKNOWN-GIT-REVISION",
-            evidence_class=EvidenceClass.UNKNOWN,
-            area="analysis_coverage",
-            kind="git_metadata_failure",
-            title="Git revision metadata could not be recorded",
-            subjects=["repository"],
-            data={"git_head": git_head, "dirty": dirty},
-        )
-        scan.unknowns = sorted([*scan.unknowns, git_failure], key=lambda item: item["id"])
-        scan.coverage["failures"] = sorted(
-            [*scan.coverage["failures"], git_failure], key=lambda item: item["id"]
-        )
-        scan.coverage["status"] = "FAIL"
+        _add_git_failure(scan, git_head, dirty)
     # AD-2: mypy cannot assign TypedDict records to RawJson, so the canonical model stays open.
     model: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {
-            "name": "archkeel-python-analyzer",
+            "name": profile.analyzer,
             "version": ANALYZER_VERSION,
             "code_digest": analyzer_code_digest(),
         },
@@ -382,7 +395,7 @@ def analyze_snapshot(
             "git_head": git_head,
             "dirty": dirty,
             "source_digest": scan.source_digest,
-            "scope": [f"{source}/**/*.py" for source in roots],
+            "scope": [f"{source}/**/*{profile.source_suffix}" for source in roots],
         },
         "contract": {
             "schema_version": contract.schema_version,
@@ -412,4 +425,7 @@ def analyze_snapshot(
         "unknowns": scan.unknowns,
         "evidence": scan.evidence,
     }
+    # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
+    for section in profile.absent_sections:
+        model[section] = None
     return model, 0 if scan.coverage["status"] == "PASS" else 2

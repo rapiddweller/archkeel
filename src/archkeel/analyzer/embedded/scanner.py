@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeAlias
@@ -16,6 +17,7 @@ from archkeel.ir.model import (
     EvidenceClass,
     stable_id,
 )
+from archkeel.ir.profiles import PYTHON
 
 from .bindings import collect_bindings
 from .calls import collect_calls
@@ -34,7 +36,7 @@ from .imports import collect_imports, resolve_reexports
 from .records import RawEvidence, RawRecord, classified
 from .references import collect_references
 from .resolve import build_symbol_index
-from .source import ParsedModule, add_evidence, parse_sources
+from .source import add_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
 from .violations import (
@@ -86,11 +88,11 @@ def iter_source_paths(root: Path, *, roots: tuple[str, ...]) -> tuple[Path, ...]
     )
 
 
-def _coverage(
+def coverage_payload(
     *,
     paths: Sequence[Path],
     files_read: int,
-    parsed: Sequence[ParsedModule],
+    files_parsed: int,
     failures: Sequence[RawRecord],
     rule_failures: Sequence[RawRecord],
     calls: Sequence[RawRecord],
@@ -107,8 +109,8 @@ def _coverage(
         "rules": "FAIL" if rule_failures else "PASS",
         "files_discovered": len(paths),
         "files_read": files_read,
-        "files_parsed": len(parsed),
-        "ast_coverage_percent": round((len(parsed) / len(paths) * 100), 2) if paths else 0.0,
+        "files_parsed": files_parsed,
+        "ast_coverage_percent": round((files_parsed / len(paths) * 100), 2) if paths else 0.0,
         "failures": [
             *sorted(
                 failures,
@@ -161,10 +163,11 @@ def _analysis_limits(
     ]
 
 
-def _api_surface_limits(
+def api_surface_limits(
     declarations: ContractDeclarations,
     symbols: Sequence[RawRecord],
-    module_all_exports: dict[str, set[str]],
+    module_all_exports: Mapping[str, AbstractSet[str]],
+    reason: str,
 ) -> list[RawRecord]:
     """UNKNOWN records for a `public_api` name only `__all__` or a scanned symbol could settle.
 
@@ -194,12 +197,7 @@ def _api_surface_limits(
                 kind="api_surface_limit",
                 title="Public API name cannot be proven present or absent",
                 subjects=[entry],
-                data={
-                    "module": module,
-                    "name": name,
-                    "reason": "The module declares no __all__ and the scan records no class "
-                    "or function of this name.",
-                },
+                data={"module": module, "name": name, "reason": reason},
             )
         )
     return limits
@@ -318,6 +316,7 @@ def scan_repository(
         blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
         contract=contract,
         exports_by_module=facade_exports,
+        profile=PYTHON,
     )
     typing_signals = sorted([*typing_signals, *boundary_allowances], key=lambda item: item["id"])
 
@@ -328,15 +327,21 @@ def scan_repository(
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.
         *boundary_type_limits(symbols, imports, contract, facade_exports, evidence),
-        *_api_surface_limits(declarations, symbols, module_all_exports),
+        *api_surface_limits(
+            declarations,
+            symbols,
+            module_all_exports,
+            "The module declares no __all__ and the scan records no class or function of this "
+            "name.",
+        ),
         *failures,
         *rule_failures,
     ]
 
-    coverage = _coverage(
+    coverage = coverage_payload(
         paths=paths,
         files_read=parsed_sources.files_read,
-        parsed=parsed,
+        files_parsed=len(parsed),
         failures=failures,
         rule_failures=rule_failures,
         calls=calls,

@@ -133,6 +133,7 @@ def _observe_snapshot(
         git_head=commit,
         dirty=False,
         contract_root=declarations,
+        language=config.language,
     )
 
 

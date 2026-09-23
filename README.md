@@ -525,6 +525,8 @@ Archkeel is deliberately strict about what it can prove:
   [docs/known-limits.md](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
 - **Compatibility shims:** moved-module shims are declared in `declarations.compat`; migration
   entries remain visible work, and logic or product imports fail closed (AD-87).
+- **Dart:** `language = "dart"` checks the import graph from directive headers; what it cannot see
+  is UNKNOWN. Demo: [fixtures/G-dart](https://github.com/rapiddweller/archkeel/tree/main/fixtures/G-dart).
 
 ## Roadmap
 

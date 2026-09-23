@@ -1,0 +1,155 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-APP",
+      "label": "app",
+      "role": "component",
+      "packages": ["shop.main"],
+      "responsibilities": ["Composition root: wire the HTTP repository into the order screen and start the app."],
+      "forbidden_responsibilities": ["Order rules, persistence details and widget layout."],
+      "provenance": ["docs/architecture/shop.md"],
+      "requires": [
+        {
+          "component": "presentation",
+          "rationale": "The composition root starts the order screen."
+        },
+        {
+          "component": "data",
+          "rationale": "The composition root chooses the repository implementation the screen is given."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-PRESENTATION",
+      "label": "presentation",
+      "role": "component",
+      "packages": ["shop.presentation"],
+      "public": ["shop.presentation.order_page"],
+      "responsibilities": ["Pages and widgets that show orders."],
+      "forbidden_responsibilities": ["HTTP, JSON and deciding what an order is."],
+      "provenance": ["docs/architecture/shop.md"],
+      "requires": [
+        {
+          "component": "domain",
+          "rationale": "Widgets render the domain's orders and load them through its repository port."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-DOMAIN",
+      "label": "domain",
+      "role": "component",
+      "packages": ["shop.domain"],
+      "public": ["shop.domain.domain", "shop.domain.repository:OrderRepository"],
+      "responsibilities": ["Order entities and the repository port every implementation fulfils."],
+      "forbidden_responsibilities": ["Widgets, platform I/O and any transport."],
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-DATA",
+      "label": "data",
+      "role": "component",
+      "packages": ["shop.data"],
+      "public": ["shop.data.http_order_repository"],
+      "responsibilities": ["Load and save orders over HTTP."],
+      "forbidden_responsibilities": ["Widgets and order rules."],
+      "provenance": ["docs/architecture/shop.md"],
+      "requires": [
+        {
+          "component": "domain",
+          "rationale": "The HTTP repository implements the domain's port and builds its entities."
+        }
+      ],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "A cross-component import nobody asked for is an accident, so each component names what it needs and absence refuses the rest.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "shop",
+      "rationale": "A library without one owning component escapes every boundary rule.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "ROOT-LAYOUT",
+      "kind": "root_layout",
+      "root": "shop",
+      "allowed_children": ["shop.data", "shop.domain", "shop.main", "shop.presentation"],
+      "rationale": "lib/ holds only the entry point and the three declared layers.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Components meet only at their declared libraries and names, so reaching past a facade requires a visible contract change.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DATA-PLATFORMS-ISOLATED",
+      "kind": "sibling_isolation",
+      "members": ["shop.data.client_io", "shop.data.client_stub"],
+      "rationale": "The two platform clients are alternatives of one conditional import, so neither may depend on the other.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DEP-DOMAIN-NO-DART-IO",
+      "kind": "forbidden_dependency",
+      "source": "shop.domain",
+      "target": "dart.io",
+      "include_type_checking": true,
+      "rationale": "The domain runs unchanged in a browser build, which has no dart:io.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EXTERNAL-COMPLETE",
+      "kind": "complete_external_scope",
+      "source": "shop",
+      "rationale": "A package no rule names is a package nobody chose; the dart: core libraries are the standard library and need no rule.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EXTERNAL-FLUTTER-UI",
+      "kind": "external_dependency_scope",
+      "dependency": "flutter",
+      "allowed_sources": ["shop.main", "shop.presentation"],
+      "rationale": "Only the entry point and the widgets know Flutter, so order rules stay testable without a widget tree.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EXTERNAL-HTTP-DATA",
+      "kind": "external_dependency_scope",
+      "dependency": "http",
+      "allowed_sources": ["shop.data"],
+      "rationale": "Only the data layer speaks HTTP; everything else sees the repository port.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

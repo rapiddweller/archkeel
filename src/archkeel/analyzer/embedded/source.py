@@ -8,8 +8,10 @@ from __future__ import annotations
 import ast
 import hashlib
 from collections.abc import Iterator, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 from archkeel.ir.model import EvidenceClass, stable_id
 
@@ -50,6 +52,29 @@ class AliasBinding:
     imported_name: str | None = None
 
 
+class ScannedModule(Protocol):
+    """The plain facts the shared package and module records read of any scanned module.
+
+    Narrower than `ParsedModule` on purpose: a profile without a Python AST (AD-97) builds the
+    same records from these five fields instead of fabricating a tree it does not have.
+    """
+
+    @property
+    def rel_path(self) -> str: ...
+
+    @property
+    def module(self) -> str: ...
+
+    @property
+    def package(self) -> str: ...
+
+    @property
+    def all_exports(self) -> AbstractSet[str]: ...
+
+    @property
+    def compatibility_logic_free(self) -> bool: ...
+
+
 @dataclass
 class ParsedModule:
     path: Path
@@ -72,16 +97,29 @@ def _excerpt(module: ParsedModule, node: ast.AST) -> str:
 
 def add_evidence(evidence: dict[str, RawEvidence], module: ParsedModule, node: ast.AST) -> str:
     line, end_line, column = location(node)
+    return record_evidence(
+        evidence, module.rel_path, (line, end_line, column), _excerpt(module, node)
+    )
+
+
+def record_evidence(
+    evidence: dict[str, RawEvidence],
+    rel_path: str,
+    position: tuple[int, int, int],
+    excerpt: str,
+) -> str:
+    """File one source location as evidence; shared by every profile's reader (AD-97)."""
+    line, end_line, column = position
     # One source location is one evidence owner even when several observations
     # (for example a call and a dynamic-typing signal) refer to it.
-    evidence_id = stable_id("EVD", module.rel_path, line, end_line, column)
+    evidence_id = stable_id("EVD", rel_path, line, end_line, column)
     evidence[evidence_id] = {
         "id": evidence_id,
-        "file": module.rel_path,
+        "file": rel_path,
         "line": line,
         "end_line": end_line,
         "column": column,
-        "excerpt": _excerpt(module, node),
+        "excerpt": excerpt,
     }
     return evidence_id
 

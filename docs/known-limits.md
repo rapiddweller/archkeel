@@ -104,6 +104,24 @@ kept by hand.
   cannot own `pkg/__init__.py` without also owning every subpackage. `complete_assignment` reports
   the unowned module.
 
+## Dart profile
+
+`[scan] language = "dart"` reads directive headers only, never declarations or bodies (AD-97).
+What it cannot see is UNKNOWN or refused, never PASS:
+
+| Case | Result |
+|---|---|
+| `interface_boundary` on an import without `show` whose module is not `public`, when a `module:name` entry or an `export` of that library could make a used name public | UNKNOWN (`interface_symbol_limit`) |
+| `forbidden_dependency` with `target_symbol` on an import without `show` | UNKNOWN (`dependency_symbol_limit`) |
+| a `declarations.public_api` `module:name` entry on a scanned library | UNKNOWN (`api_surface_limit`) |
+| `symbol_placement`, `boundary_types`, `forbidden_construct` | exit 2, `rule_unsupported_by_profile` |
+| `declarations.context_roots`, a budget on `typing_positions`, `calls_unresolved`, `private_crossings` or `untyped_private_accesses` | exit 2, `rule_unsupported_by_profile` |
+| those four scalars | `null`, compared as `n/a` |
+| `unreferenced_symbols`, `unread_bindings`, `type_fanin`, `repeated_logic` | UNKNOWN: `symbols`, `references` and `bindings` are null |
+
+Own imports are exactly `package:<namespace>/...` and relative URIs; `package_config.json` is not
+read. Every alternative of a conditional import is an edge. `init` does not detect a Dart package.
+
 ## What static observation cannot decide
 
 - Runtime behavior, data flow, performance and scalability are not observed. They belong in the

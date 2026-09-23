@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Regression checks over the typed Python decoded-IR measurement profile."""
+"""Regression checks over the typed decoded-IR measurements of each analyzer profile."""
 
 from typing import Final
 
@@ -9,9 +9,11 @@ from archkeel.ir.measurements import (
     Measurements,
     RatchetError,
     RatchetScalars,
+    UnmeasurableScalar,
     compare_measurements,
 )
 from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData
+from archkeel.ir.profiles import profile_for
 
 from .python_profile import crossing_imports
 
@@ -202,6 +204,12 @@ def unknown_positions(observation: Observation) -> int:
     return total
 
 
+def _measured(
+    unmeasured: frozenset[UnmeasurableScalar], name: UnmeasurableScalar, value: int
+) -> int | None:
+    return None if name in unmeasured else value
+
+
 def measure_python_ratchets(observation: Observation) -> Measurements:
     """Project raw counts; analyzer percentages never participate in the policy."""
     coverage = observation.coverage
@@ -241,16 +249,22 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             raise RatchetError("import.symbol must be a string or null")
         if not isinstance(source, str) or not source or not isinstance(target, str) or not target:
             raise RatchetError("import packages must be non-empty strings")
+    # AD-97: a scalar the observing profile cannot see is null, so no comparison reads it as 0.
+    unmeasured = profile_for(observation.analyzer.name).unmeasured
     return Measurements(
         scalars=RatchetScalars(
             violations=len(_records(observation, "violations")),
             cycle_edges=cycle_edges,
-            private_crossings=len(crossing_imports(imports, private=True)),
-            typing_positions=typing_positions,
-            calls_unresolved=coverage.calls_unresolved,
+            private_crossings=_measured(
+                unmeasured, "private_crossings", len(crossing_imports(imports, private=True))
+            ),
+            typing_positions=_measured(unmeasured, "typing_positions", typing_positions),
+            calls_unresolved=_measured(unmeasured, "calls_unresolved", coverage.calls_unresolved),
             coverage_failures=len(coverage.failures),
-            untyped_private_accesses=sum(
-                1 for item in unknowns if item.kind == "private_attribute_access_limit"
+            untyped_private_accesses=_measured(
+                unmeasured,
+                "untyped_private_accesses",
+                sum(1 for item in unknowns if item.kind == "private_attribute_access_limit"),
             ),
             unknown_positions=unknown_positions(observation),
         ),
