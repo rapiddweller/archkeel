@@ -1337,7 +1337,7 @@ def _enum_member_verdict(
         return None
     if expression.attr not in symbol.get("enum_members", ()):
         return None
-    return _Position()
+    return _Position(resolved=(resolved,))
 
 
 def _type_alias_verdict(
