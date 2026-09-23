@@ -144,6 +144,79 @@ def test_boundary_type_limit_counts_only_its_checker_limit_kinds() -> None:
     assert _verdict(observation) == "UNKNOWN"
 
 
+def test_boundary_position_records_are_counted_once_and_must_match_aggregate() -> None:
+    detail = {
+        "module": "sample.api",
+        "qualified_name": "sample.api.fetch",
+        "position": "stamp",
+        "annotation": "datetime.datetime",
+        "reason": "dotted_name",
+        "occurrence": 0,
+    }
+    aggregate = _boundary_type_limit("BOUNDARY", positions=1, decided=0, dotted_name=1)
+    aggregate["rule_ids"] = ["BOUNDARY"]
+    aggregate["data"]["undecidable_positions"] = [detail]
+    position = _unknown("POSITION", "boundary_type_position", detail)
+    position["rule_ids"] = ["BOUNDARY"]
+
+    assert unknown_positions(_observation(aggregate, position)) == 1
+    with pytest.raises(RatchetError, match="missing or inconsistent"):
+        unknown_positions(_observation(aggregate))
+    duplicate = _unknown("POSITION-2", "boundary_type_position", detail)
+    duplicate["rule_ids"] = ["BOUNDARY"]
+    with pytest.raises(RatchetError, match="duplicate logical coordinates"):
+        unknown_positions(_observation(aggregate, position, duplicate))
+
+
+def test_new_analyzer_requires_position_details_for_boundary_aggregates() -> None:
+    record = _boundary_type_limit("BOUNDARY", positions=3, decided=1, union=2)
+    raw = _model(git_head="a" * 40, unknowns=[record])
+    raw["analyzer"]["version"] = "0.43.0"
+
+    with pytest.raises(RatchetError, match="missing position details"):
+        unknown_positions(parse_observation(raw))
+
+
+def test_malformed_analyzer_version_cannot_enable_legacy_boundary_aggregate() -> None:
+    raw = _model(
+        git_head="a" * 40,
+        unknowns=[_boundary_type_limit("BOUNDARY", positions=3, decided=1, union=2)],
+    )
+    raw["analyzer"]["version"] = "0.43"
+
+    with pytest.raises(RatchetError, match="invalid analyzer version"):
+        unknown_positions(parse_observation(raw))
+
+
+def test_boundary_aggregate_rejects_duplicate_logical_coordinates_even_when_matching() -> None:
+    detail = {
+        "module": "sample.api",
+        "qualified_name": "sample.api.fetch",
+        "position": "stamp",
+        "annotation": "datetime.datetime",
+        "reason": "dotted_name",
+        "occurrence": 0,
+    }
+    aggregate = _boundary_type_limit("BOUNDARY", positions=2, decided=0, dotted_name=2)
+    aggregate["rule_ids"] = ["BOUNDARY"]
+    aggregate["data"]["undecidable_positions"] = [detail, detail]
+    position = _unknown("POSITION-1", "boundary_type_position", detail)
+    duplicate = _unknown("POSITION-2", "boundary_type_position", detail)
+    position["rule_ids"] = duplicate["rule_ids"] = ["BOUNDARY"]
+
+    with pytest.raises(RatchetError, match="duplicate position coordinates"):
+        unknown_positions(_observation(aggregate, position, duplicate))
+
+
+def test_legacy_boundary_aggregate_without_details_remains_countable() -> None:
+    assert (
+        unknown_positions(
+            _observation(_boundary_type_limit("BOUNDARY", positions=3, decided=1, union=2))
+        )
+        == 2
+    )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [("positions", True), ("decided", -1), ("undecided", 1), ("union", True)],

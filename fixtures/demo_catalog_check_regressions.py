@@ -58,14 +58,13 @@ _PRIVATE_ATTRIBUTE = CheckExpectation(
     regressed_dimensions=("unknowns",),
 )
 
-# AD-92: widening a boundary parameter to a union leaves APP-TYPES-NOT-DICT one more position it
-# cannot decide. The contract is an accepted policy input `check` refuses to see changed, so the
-# regression has to come from code; a union adds no typing signal, so unknown_positions is the
-# only measurement that moves.
+# AD-92: adding an unresolved union member leaves APP-TYPES-NOT-DICT one more position it cannot
+# decide. The contract is an accepted policy input `check` refuses to see changed, so the
+# regression has to come from code; unknown_positions is the only measurement that moves.
 _CLEAN_ORDERS = (FIXTURE_DIR / "shop/app/orders.py").read_text()
 _UNDECIDED_FILES: Mapping[str, str | None] = {
     "shop/app/orders.py": _CLEAN_ORDERS.replace(
-        "    description: str,\n", "    description: str | None,\n"
+        "    description: str,\n", "    description: str | MissingDescription,\n"
     ).replace("Line(description=description,", "Line(description=description or order_id,")
 }
 _UNDECIDED = CheckExpectation(
@@ -75,7 +74,7 @@ _UNDECIDED = CheckExpectation(
     git_predicate="PASS",
     host_order="PASS",
     regressed_scalars=("unknown_positions",),
-    regressed_dimensions=(),
+    regressed_dimensions=("unknowns",),
 )
 
 _CYCLE_FILES: Mapping[str, str | None] = {
@@ -199,8 +198,8 @@ VARIANTS: tuple[Variant, ...] = (
         id="class-b-scalar-unknown-positions",
         section="class_b",
         item="SCALARS:unknown_positions",
-        summary="place_order's description parameter widens to str | None; APP-TYPES-NOT-DICT "
-        "cannot decide a union, so the unknown_positions ratchet scalar regresses in isolation.",
+        summary="place_order's description parameter includes an unresolved union member; "
+        "APP-TYPES-NOT-DICT leaves it undecided, so the unknown_positions scalar regresses.",
         files=_UNDECIDED_FILES,
         expected_violations=(),
         expected_codes=(),

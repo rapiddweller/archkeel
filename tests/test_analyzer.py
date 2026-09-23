@@ -4,6 +4,7 @@
 import ast
 import json
 import subprocess
+from hashlib import sha256
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,11 +19,23 @@ from archkeel.analyzer.embedded.resolve import build_symbol_index
 from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.analyzer.embedded.typing_signals import collect_typing_signals
-from archkeel.analyzer.embedded.violations import _construct_violations, requires_violations
+from archkeel.analyzer.embedded.violations import (
+    _construct_violations,
+    _union_parameters,
+    requires_violations,
+)
+from archkeel.check.delta import build_architecture_delta
 from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.baseline import observed_violations
-from archkeel.ir.codec import decode_json, parse_contract
+from archkeel.ir.codec import (
+    canonical_report_bytes,
+    decode_json,
+    delta_payload,
+    observation_payload,
+    parse_contract,
+)
+from archkeel.ir.digest import package_digest
 from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
     Coverage,
@@ -31,6 +44,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     Observation,
     ObservationResult,
+    Record,
     text_value,
 )
 from archkeel.ir.trace import trace_valid_violations
@@ -1885,12 +1899,503 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
     assert data.get("dotted_name") == 1
     assert data.get("forward_reference") == 1
     assert data.get("missing_annotation") == 1
+    assert [dict(position.entries) for position in data.get("undecidable_positions")] == [
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.mixed",
+            "position": "when",
+            "annotation": "datetime.datetime",
+            "reason": "dotted_name",
+            "occurrence": 0,
+        },
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.mixed",
+            "position": "note",
+            "annotation": "'Later'",
+            "reason": "forward_reference",
+            "occurrence": 0,
+        },
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.mixed",
+            "position": "spare",
+            "annotation": "",
+            "reason": "missing_annotation",
+            "occurrence": 0,
+        },
+    ]
     assert unknown_positions(result.observation) == 3
     # A position the rule cannot decide is a reported limit, not a gate: the run stays clean
     # and the rule still holds a verdict, because it decided the positions it could.
     assert result.observation.coverage.rules == "PASS"
     assert result.diagnostics == ()
     assert result.exit_code == 0
+
+
+def test_boundary_types_recursively_decides_nested_generic_and_union(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "def typed(values: list[tuple[str | int, ...]], "
+        "stamps: list[datetime.datetime | str]) -> str:\n"
+        "    return str((values, stamps))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert [dict(position.entries) for position in limit.data.get("undecidable_positions")] == [
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.typed",
+            "position": "stamps",
+            "annotation": "list[datetime.datetime | str]",
+            "reason": "dotted_name",
+            "occurrence": 0,
+        }
+    ]
+    totals = (limit.data.get("positions"), limit.data.get("decided"), limit.data.get("undecided"))
+    assert totals == (3, 2, 1)
+    assert result.diagnostics == ()
+    assert result.exit_code == 0
+
+
+def test_boundary_types_decides_qualified_typing_unions_and_collections(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import typing\n\n\n"
+        "def typed(optional: typing.Optional[str], union: typing.Union[str, int], "
+        "values: typing.List[tuple[str, int]], "
+        "sequence: typing.Sequence[typing.Optional[str]]) -> str:\n"
+        "    return str((optional, union, values, sequence))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert unknown_positions(result.observation) == 0
+
+
+def test_boundary_types_decides_explicit_typing_symbol_aliases(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from typing import List as L, Union as U\n\n"
+        "def typed(value: U[str, int], values: L[str]) -> str:\n"
+        "    return str((value, values))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert unknown_positions(result.observation) == 0
+
+
+def test_boundary_types_keeps_typing_dict_broad_type_violation(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import typing\n\ndef typed(value: typing.Dict[str, str]) -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("position") == "value"
+    assert violation.data.get("annotation") == "typing.Dict[str, str]"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from typing import Dict, Generic, TypeVar\n"
+        "T = TypeVar('T')\n\n"
+        "class Dict(Generic[T]):\n    pass\n\n\n"
+        "def typed(value: Dict[str, str]) -> str:\n    return str(value)\n",
+        "from __future__ import annotations\n"
+        "import typing as t\n\n"
+        "class t:\n    pass\n\n\n"
+        "def typed(value: t.Dict[str, str]) -> str:\n    return str(value)\n",
+    ],
+    ids=["local-dict-class", "local-module-alias-class"],
+)
+def test_boundary_types_does_not_treat_ambiguous_typing_dict_as_broad(
+    tmp_path: Path, source: str
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(source)
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert unknown_positions(result.observation) == 1
+    [position] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert position.data.get("reason") == "ambiguous_binding"
+
+
+def test_boundary_types_does_not_assume_unimported_typing_names(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from __future__ import annotations\n\n"
+        "def typed(value: typing.Union[str, int], values: typing.List[str], "
+        "mapping: typing.Dict[str, object]) -> str:\n"
+        "    return str((value, values))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert unknown_positions(result.observation) == 3
+
+
+def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "class Payload:\n    pass\n\n\n"
+        "def typed(value: list[str | (Payload | MissingPayload)]) -> str:\n"
+        "    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert len(trace_valid_violations(result.observation)) == 1
+    assert unknown_positions(result.observation) == 0
+
+
+def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
+    assert _union_parameters("str |", "sample.app.facade", {}) is None
+    assert _union_parameters("'str | int'", "sample.app.facade", {}) is None
+
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def typed(value: 'str | int') -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    [detail] = limit.data.get("undecidable_positions")
+    assert dict(detail.entries)["reason"] == "forward_reference"
+
+
+def test_boundary_types_does_not_guess_typing_module_aliases(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import dateutil as t\n\ndef typed(value: t.Optional[str]) -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    [detail] = limit.data.get("undecidable_positions")
+    assert dict(detail.entries)["reason"] == "dotted_name"
+
+
+def test_boundary_type_limit_details_match_counts_and_are_stable(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:inspect"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "def inspect(when: datetime.datetime, note: 'Later', missing, "
+        "names: list[str | int]) -> tuple[str, int]:\n"
+        "    return (str(when), str(note))\n"
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    report = observation_payload(result.observation)
+    [limit] = [item for item in report["unknowns"] if item["kind"] == "boundary_type_limit"]
+    details = limit["data"]["undecidable_positions"]
+    assert [(item["position"], item["reason"]) for item in details] == [
+        ("when", "dotted_name"),
+        ("note", "forward_reference"),
+        ("missing", "missing_annotation"),
+    ]
+    assert (limit["data"]["positions"], limit["data"]["decided"], limit["data"]["undecided"]) == (
+        5,
+        2,
+        len(details),
+    )
+    assert canonical_report_bytes(result.observation) == canonical_report_bytes(
+        _observe(tmp_path).observation
+    )
+
+
+def test_boundary_type_limit_keeps_each_unsupported_annotation_unknown_and_stable(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:lookup"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "class Payload:\n    pass\n\n\n"
+        "class Later:\n    pass\n\n\n"
+        "def lookup(first: datetime.datetime, second: 'Later', "
+        "quoted: 'Payload | int', malformed: Payload & int) -> str:\n"
+        "    return str(first)\n"
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    report = observation_payload(result.observation)
+    [limit] = [item for item in report["unknowns"] if item["kind"] == "boundary_type_limit"]
+    assert (limit["data"]["positions"], limit["data"]["decided"], limit["data"]["undecided"]) == (
+        5,
+        1,
+        4,
+    )
+    assert (
+        limit["data"]["dotted_name"],
+        limit["data"]["forward_reference"],
+        limit["data"]["other"],
+    ) == (
+        1,
+        2,
+        1,
+    )
+    details = limit["data"]["undecidable_positions"]
+    assert [(item["position"], item["annotation"], item["reason"]) for item in details] == [
+        ("first", "datetime.datetime", "dotted_name"),
+        ("second", "'Later'", "forward_reference"),
+        ("quoted", "'Payload | int'", "forward_reference"),
+        ("malformed", "Payload & int", "other"),
+    ]
+    assert (limit["data"]["positions"], limit["data"]["decided"], limit["data"]["undecided"]) == (
+        5,
+        1,
+        4,
+    )
+    assert canonical_report_bytes(result.observation) == canonical_report_bytes(
+        _observe(tmp_path).observation
+    )
+
+
+def test_boundary_type_walks_nested_union_for_violation_despite_unknown_sibling(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:inspect"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "class Payload:\n    pass\n\n\n"
+        "def inspect(values: list[Payload | datetime.datetime]) -> str:\n"
+        "    return str(values)\n"
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.data.get("position"), item.data.get("annotation")) for item in violations] == [
+        ("values", "list[Payload | datetime.datetime]")
+    ]
+
+
+def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:lookup"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    facade = tmp_path / "sample/app/facade.py"
+    facade.write_text(
+        "import datetime\n\n\n"
+        "class Later:\n    pass\n\n\n"
+        "def lookup(first: datetime.datetime, second: 'Later') -> str:\n"
+        "    return str(first)\n"
+    )
+
+    before = _observe(tmp_path)
+    repeated = _observe(tmp_path)
+    assert before.observation is not None and repeated.observation is not None
+
+    def positions(observation: Observation) -> list[Record]:
+        return [
+            record
+            for record in observation.records("unknowns") or ()
+            if all(
+                isinstance(record.data.get(key), str)
+                for key in ("module", "qualified_name", "position", "annotation", "reason")
+            )
+        ]
+
+    before_positions = positions(before.observation)
+    repeated_positions = positions(repeated.observation)
+    assert len(before_positions) == 2
+    assert len({record.id for record in before_positions}) == 2
+    assert [record.id for record in before_positions] == [
+        record.id for record in repeated_positions
+    ]
+    assert {record.data.get("position") for record in before_positions} == {"first", "second"}
+    assert all(record.evidence_class.value == "UNKNOWN" for record in before_positions)
+    assert {
+        record.data.get("position"): (
+            record.data.get("module"),
+            record.data.get("qualified_name"),
+            record.data.get("annotation"),
+            record.data.get("reason"),
+        )
+        for record in before_positions
+    } == {
+        "first": (
+            "sample.app.facade",
+            "sample.app.facade.lookup",
+            "datetime.datetime",
+            "dotted_name",
+        ),
+        "second": (
+            "sample.app.facade",
+            "sample.app.facade.lookup",
+            "'Later'",
+            "forward_reference",
+        ),
+    }
+
+    facade.write_text(
+        "import datetime\n\n\n"
+        "class Later:\n    pass\n\n\n"
+        "def lookup(first: str, second: 'NotThere') -> str:\n"
+        "    return first\n"
+    )
+    after = _observe(tmp_path)
+    assert after.observation is not None
+    after_positions = positions(after.observation)
+    assert len(after_positions) == 1
+    assert after_positions[0].data.get("position") == "second"
+    assert after_positions[0].data.get("annotation") == "'NotThere'"
+
+    before_bytes = canonical_report_bytes(before.observation)
+    after_bytes = canonical_report_bytes(after.observation)
+    delta = delta_payload(
+        build_architecture_delta(
+            before.observation,
+            after.observation,
+            baseline_digest=sha256(before_bytes).hexdigest(),
+            head_digest=sha256(after_bytes).hexdigest(),
+            checker_digest=package_digest(),
+        )
+    )
+    removed = [
+        item
+        for item in delta["semantic_changes"]
+        if item["dimension"] == "unknowns" and item["change"] == "removed"
+    ]
+    assert len(removed) == 1
+    assert removed[0]["before"]["data"]["position"] == "first"
+    changed_positions = [
+        item
+        for item in delta["semantic_changes"]
+        if item["dimension"] == "unknowns"
+        and item["change"] == "changed"
+        and item["before"]["kind"] == "boundary_type_position"
+    ]
+    assert len(changed_positions) == 1
+    assert changed_positions[0]["before"]["data"]["position"] == "second"
+    assert changed_positions[0]["after"]["data"]["annotation"] == "'NotThere'"
+
+
+def test_boundary_type_position_ids_survive_line_shifts_and_duplicate_definitions(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:lookup"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    facade = tmp_path / "sample/app/facade.py"
+    first = "def lookup(stamp: datetime.datetime) -> str:\n    return str(stamp)\n"
+    second = "def lookup(stamp: 'Later') -> str:\n    return str(stamp)\n"
+    facade.write_text("import datetime\n\n" + first + "\n" + second)
+    before = _observe(tmp_path)
+    assert before.observation is not None
+    records = [
+        item
+        for item in before.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert len(records) == 2
+    assert len({item.id for item in records}) == 2
+    ids_by_annotation = {item.data.get("annotation"): item.id for item in records}
+    before_bytes = canonical_report_bytes(before.observation)
+
+    facade.write_text("\n\nimport datetime\n\n" + first + "\n" + second)
+    after = _observe(tmp_path)
+    assert after.observation is not None
+    assert {
+        item.data.get("annotation"): item.id
+        for item in after.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    } == ids_by_annotation
+    after_bytes = canonical_report_bytes(after.observation)
+    delta = delta_payload(
+        build_architecture_delta(
+            before.observation,
+            after.observation,
+            baseline_digest=sha256(before_bytes).hexdigest(),
+            head_digest=sha256(after_bytes).hexdigest(),
+            checker_digest=package_digest(),
+        )
+    )
+    assert not [
+        item
+        for item in delta["semantic_changes"]
+        if item["dimension"] == "unknowns" and item["change"] in {"added", "removed", "changed"}
+    ]
 
 
 def test_boundary_types_does_not_report_a_limit_when_every_position_is_decided(

@@ -326,7 +326,7 @@ def scan_repository(
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.
-        *boundary_type_limits(symbols, imports, contract, facade_exports),
+        *boundary_type_limits(symbols, imports, contract, facade_exports, evidence),
         *_api_surface_limits(declarations, symbols, module_all_exports),
         *failures,
         *rule_failures,

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import ast
 import builtins
 import sys
 from collections import defaultdict
@@ -37,7 +38,7 @@ from archkeel.ir.model import (
 )
 
 from .graph import strongly_connected_components
-from .records import RawRecord, RecordData, classified
+from .records import RawEvidence, RawRecord, RecordData, classified
 
 
 def _forbidden_dependency_matches(
@@ -854,15 +855,81 @@ def _split_type_parameters(inner: str) -> list[str] | None:
     return parameters
 
 
-def _collection_parameters(annotation: str) -> list[str] | None:
+def _typing_module_binding(module: str, binding: str, imports_by_binding: BindingIndex) -> bool:
+    imported = imports_by_binding.get((module, binding))
+    return (
+        isinstance(imported, dict)
+        and imported["target_module"] == "typing"
+        and imported["symbol"] is None
+    )
+
+
+def _typing_dict_verdict(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> _Position | None:
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(expression, ast.Subscript):
+        return None
+    head = expression.value
+    if isinstance(head, ast.Name):
+        key = (module, head.id)
+        imported = imports_by_binding.get(key)
+        if (
+            not isinstance(imported, dict)
+            or imported["target_module"] != "typing"
+            or imported["symbol"] != "Dict"
+        ):
+            return None
+    elif (
+        isinstance(head, ast.Attribute) and head.attr == "Dict" and isinstance(head.value, ast.Name)
+    ):
+        key = (module, head.value.id)
+        if not _typing_module_binding(module, head.value.id, imports_by_binding):
+            return None
+    else:
+        return None
+    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+        return _Position(undecidable="ambiguous_binding")
+    return _Position(violation="instead of a typed model")
+
+
+def _collection_parameters(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+) -> list[str] | None:
     """The type parameters of `Container[...]` when the container is a known collection.
 
-    None when the annotation is not exactly one such subscript, so a dotted container
-    (`typing.Sequence[X]`), a union around one and a mapping all stay where they were. The
+    None when the annotation is not exactly one such subscript, so dotted containers without a
+    proven `typing` import, a union around one and a mapping all stay where they were. The
     `...` of `tuple[X, ...]` is an arity, not a type, and is dropped (AD-67).
     """
     head, bracket, rest = annotation.partition("[")
-    if not bracket or not rest.endswith("]") or head not in _COLLECTION_CONTAINERS:
+    if "." in head:
+        binding = annotation.split(".", 1)[0]
+        container = head[len(binding) + 1 :]
+        if container not in _COLLECTION_CONTAINERS or not _typing_module_binding(
+            module, binding, imports_by_binding
+        ):
+            return None
+    else:
+        container = head
+        imported = imports_by_binding.get((module, container))
+        if container not in _COLLECTION_CONTAINERS and (
+            not isinstance(imported, dict)
+            or imported["target_module"] != "typing"
+            or imported["symbol"] not in _COLLECTION_CONTAINERS
+        ):
+            return None
+        if isinstance(imported, dict) and imported["target_module"] == "typing":
+            container = imported["symbol"] or container
+    if not bracket or not rest.endswith("]") or container not in _COLLECTION_CONTAINERS:
         return None
     parameters = _split_type_parameters(rest[:-1])
     if parameters is None:
@@ -880,6 +947,49 @@ def _unresolvable_shape(annotation: str) -> str:
     if "|" in annotation:
         return "union"
     return "other"
+
+
+def _union_parameters(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+) -> list[str] | None:
+    """Return members only for syntactically valid standard union annotations."""
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return None
+    if isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr):
+        return [ast.unparse(expression.left), ast.unparse(expression.right)]
+    if not isinstance(expression, ast.Subscript):
+        return None
+    head = expression.value
+    if isinstance(head, ast.Name):
+        name = head.id
+        imported = imports_by_binding.get((module, name))
+        if (
+            not isinstance(imported, dict)
+            or imported["target_module"] != "typing"
+            or imported["symbol"] not in {"Union", "Optional"}
+        ):
+            return None
+        name = imported["symbol"]
+    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
+        if not _typing_module_binding(module, head.value.id, imports_by_binding):
+            return None
+        name = head.attr
+    else:
+        return None
+    if name not in {"Union", "Optional"}:
+        return None
+    members = (
+        list(expression.slice.elts)
+        if isinstance(expression.slice, ast.Tuple)
+        else [expression.slice]
+    )
+    if name == "Optional":
+        return [ast.unparse(members[0]), "None"] if len(members) == 1 else None
+    return [ast.unparse(member) for member in members] if len(members) >= 2 else None
 
 
 class _AmbiguousBinding:
@@ -1027,13 +1137,15 @@ def _boundary_type_verdict(
     enter_collections: bool = True,
     enter_fields: bool = True,
 ) -> _Position:
-    """Resolve one annotation for both boundary_types and facade_types (AD-58, AD-69).
-
+    """Read one annotation for boundary_types and facade_types (AD-58, AD-69).
     Broad or undeclared types violate; builtins, enums and declared types pass. Other shapes
-    report their reason, with collection and field descent bounded by the two flags (AD-67, AD-84).
+    report why undecidable, with bounded collection and field descent (AD-67, AD-84).
     """
     if not annotation:
         return _Position(undecidable="missing_annotation")
+    typing_dict = _typing_dict_verdict(annotation, module, imports_by_binding, classes_by_location)
+    if typing_dict is not None:
+        return typing_dict
     if _is_broad_boundary_type(annotation):
         return _Position(violation="instead of a typed model")
     if annotation.startswith(("'", '"')):
@@ -1107,7 +1219,18 @@ def _annotation_shape_verdict(
     enter_collections: bool,
     enter_fields: bool,
 ) -> _Position:
-    """Resolve one supported collection shape; leave every other shape UNKNOWN."""
+    """Resolve standard unions and collections recursively; leave other shapes UNKNOWN."""
+    union = _union_parameters(annotation, module, imports_by_binding)
+    if union is not None:
+        return _combined_annotation_verdict(
+            union,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_fields=enter_fields,
+        )
     if enter_collections:
         entered = _collection_verdict(
             annotation,
@@ -1194,20 +1317,43 @@ def _collection_verdict(
     that verdict, so a type past the first violating parameter is still one `facade_types`
     (AD-65) has to know about.
     """
-    parameters = _collection_parameters(annotation)
+    parameters = _collection_parameters(annotation, module, imports_by_binding)
     if parameters is None:
         return None
+    return _combined_annotation_verdict(
+        parameters,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        enter_fields=enter_fields,
+    )
+
+
+def _combined_annotation_verdict(
+    parameters: list[str],
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    enter_fields: bool,
+) -> _Position:
     decided = [
         (
             parameter,
-            _boundary_type_verdict(
+            _Position()
+            if parameter == "None"
+            else _boundary_type_verdict(
                 parameter,
                 module,
                 contract,
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
-                enter_collections=False,
+                enter_collections=True,
                 enter_fields=enter_fields,
             ),
         )
@@ -1502,49 +1648,108 @@ def _boundary_types_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _boundary_type_position_record(
+    rule: BoundaryTypesRule,
+    symbol: RawRecord,
+    detail: RecordData,
+) -> RawRecord:
+    module = detail["module"]
+    qualified_name = detail["qualified_name"]
+    position = detail["position"]
+    reason = detail["reason"]
+    occurrence = detail["occurrence"]
+    return classified(
+        item_id=stable_id(
+            "UNKNOWN-BOUNDARY-TYPE-POSITION",
+            rule.id,
+            module,
+            qualified_name,
+            occurrence,
+            position,
+        ),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="type_architecture",
+        kind="boundary_type_position",
+        title=f"{qualified_name} {position}: {reason}",
+        subjects=[rule.source, module, qualified_name],
+        evidence_ids=symbol["evidence_ids"],
+        rule_ids=[rule.id],
+        fact_ids=[symbol["id"]],
+        data=detail,
+    )
+
+
+def _boundary_type_limit_record(
+    rule: BoundaryTypesRule,
+    seen: int,
+    undecidable_positions: list[dict[str, object]],
+) -> RawRecord | None:
+    if not seen:
+        # No positions means no declared facade function; `rule-without-subjects` already says so.
+        return None
+    decided = seen - len(undecidable_positions)
+    if decided == seen:
+        return None
+    counts = dict.fromkeys(_UNDECIDABLE_KINDS, 0)
+    for detail in undecidable_positions:
+        reason = detail["reason"]
+        if isinstance(reason, str):
+            counts[reason] += 1
+    return classified(
+        item_id=stable_id("UNKNOWN-BOUNDARY-TYPES", rule.id),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="type_architecture",
+        kind="boundary_type_limit",
+        title=f"{rule.id} decided {decided} of {seen} declared facade type positions",
+        subjects=[rule.source],
+        rule_ids=[rule.id],
+        data={
+            "positions": seen,
+            "decided": decided,
+            "undecided": len(undecidable_positions),
+            **counts,
+            "undecidable_positions": undecidable_positions,
+        },
+    )
+
+
+def _symbol_source_location(
+    symbol: RawRecord, evidence: dict[str, RawEvidence]
+) -> tuple[str, int, int]:
+    item = evidence[symbol["evidence_ids"][0]]
+    return item["file"], item["line"], item["column"]
+
+
 def boundary_type_limits(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
+    evidence: dict[str, RawEvidence],
 ) -> list[RawRecord]:
-    """One UNKNOWN record per `boundary_types` rule, naming how much of the facade it decided.
-
-    AD-67: an undecidable position produced nothing at all, so this rule alone read `no
-    violation == probably fine` where the rest of the tool reads PASS, VIOLATION or UNKNOWN
-    (AD-26). The record is the shape `dynamic_call_limit` already gives the call graph -- the
-    denominator the rule examined and the part of it that stayed unresolved, by kind -- rather
-    than a third mechanism.
-
-    It is filed in `unknowns` and not in `coverage.failures`, so it reports and does not gate.
-    A rule that decided *nothing* is already the gate `rule-without-subjects` owns (AD-63,
-    issue #56); a rule that decided some of its positions has a verdict those positions earned,
-    and failing the run over the remainder would make every generic and every external type in
-    a facade a build failure -- pressure to delete annotations, not to declare types.
-    """
+    """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return []
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    ordered_symbols = sorted(symbols, key=lambda item: _symbol_source_location(item, evidence))
     limits: list[RawRecord] = []
+    positions_out: list[RawRecord] = []
     for rule in rules:
-        counts = dict.fromkeys(_UNDECIDABLE_KINDS, 0)
-        seen = decided = 0
-        for item in symbols:
+        undecidable_positions: list[dict[str, object]] = []
+        occurrences: dict[tuple[str, str], int] = {}
+        seen = 0
+        for item in ordered_symbols:
             found = _facade_positions(item, rule, contract, exports_by_module, imports)
             if found is None:
                 continue
-            (
-                _facade_module,
-                _qualified_name,
-                positions,
-                resolution_module,
-                ambiguous_facade,
-                _,
-            ) = found
-            for _position, annotation in positions:
+            module, qualified_name, positions, resolution_module, ambiguous_facade, _ = found
+            callable_key = (module, qualified_name)
+            occurrence = occurrences.get(callable_key, 0)
+            occurrences[callable_key] = occurrence + 1
+            for position, annotation in positions:
                 seen += 1
-                undecidable = (
+                reason = (
                     "ambiguous_facade"
                     if ambiguous_facade
                     else _boundary_type_verdict(
@@ -1556,30 +1761,27 @@ def boundary_type_limits(
                         classes_by_location,
                     ).undecidable
                 )
-                if undecidable is None:
-                    decided += 1
-                else:
-                    counts[undecidable] += 1
-        if not seen:
-            # No positions at all means no declared facade function: `rule-without-subjects`
-            # already says so, and saying it twice in two vocabularies would be the third
-            # mechanism this record exists to avoid.
-            continue
-        if decided == seen:
-            continue
-        limits.append(
-            classified(
-                item_id=stable_id("UNKNOWN-BOUNDARY-TYPES", rule.id),
-                evidence_class=EvidenceClass.UNKNOWN,
-                area="type_architecture",
-                kind="boundary_type_limit",
-                title=f"{rule.id} decided {decided} of {seen} declared facade type positions",
-                subjects=[rule.source],
-                rule_ids=[rule.id],
-                data={"positions": seen, "decided": decided, "undecided": seen - decided, **counts},
-            )
-        )
-    return sorted(limits, key=lambda item: item["id"])
+                if reason is not None:
+                    detail = {
+                        "module": module,
+                        "qualified_name": qualified_name,
+                        "position": position,
+                        "annotation": annotation,
+                        "reason": reason,
+                        "occurrence": occurrence,
+                    }
+                    undecidable_positions.append(detail)
+                    positions_out.append(
+                        _boundary_type_position_record(
+                            rule,
+                            item,
+                            detail,
+                        )
+                    )
+        limit = _boundary_type_limit_record(rule, seen, undecidable_positions)
+        if limit is not None:
+            limits.append(limit)
+    return sorted([*positions_out, *limits], key=lambda item: item["id"])
 
 
 def _public_api_symbol(
