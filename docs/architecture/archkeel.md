@@ -127,6 +127,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-89 | [Selected measurements share the validation baseline](decisions/ad-89-selected-measurements-share-the-validation-baseline.md) |
 | AD-90 | [Decision-relevant evidence is never neutral metadata](decisions/ad-90-decision-relevant-evidence-is-never-neutral-metadata.md) |
 | AD-91 | [Top-level owner resolution decides private ownership UNKNOWN](decisions/ad-91-only-top-level-any-makes-private-owner-unknown.md) |
+| AD-92 | [Undecided declared evidence is UNKNOWN by default and measured](decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md) |
 
 ## Allowed dependencies
 

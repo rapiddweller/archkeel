@@ -227,6 +227,26 @@ def test_legacy_measurements_default_new_private_access_scalar_to_zero() -> None
     assert measurements.scalars.untyped_private_accesses == 0
 
 
+@pytest.mark.parametrize("older", [{}, {"untyped_private_accesses": 0}])
+def test_measurements_written_before_unknown_positions_read_it_as_zero(
+    older: dict[str, int],
+) -> None:
+    """AD-92: a lock or delta written before the scalar existed stays readable, both shapes."""
+    payload = _measurements()
+    payload["scalars"] = {**payload["scalars"], **older}
+    assert parse_measurements(payload, "legacy").scalars.unknown_positions == 0
+
+
+def test_unknown_positions_round_trips_through_the_delta_codec() -> None:
+    accepted, candidate = _snapshots()
+    candidate["unknowns"] = [
+        _record("NOVEL", kind="dart_import_symbol_limit", evidence_class="UNKNOWN")
+    ]
+    head = _delta(accepted, candidate)["ratchets"]["head"]
+    assert head["scalars"]["unknown_positions"] == 1
+    assert parse_measurements(head, "head").scalars.unknown_positions == 1
+
+
 @pytest.mark.parametrize("invalid", [None, True, -1, 1.0, "1"])
 def test_invalid_integer_measurement_is_unverifiable(invalid: object) -> None:
     accepted = _measurements()

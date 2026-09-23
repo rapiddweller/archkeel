@@ -133,9 +133,9 @@ existing file: resolved-only drift may be written, while new or increased finger
 the write unless `--accept-new` is explicit. It writes nothing from a run that exited 2.
 
 `declarations.measurement_budgets` may select `cycle_edges`, `private_crossings`,
-`typing_positions`, `calls_unresolved` and `untyped_private_accesses`. Each declaration carries
-provenance. A selected value must equal the baseline: a rise is new debt; a fall must be written
-back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
+`typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
+declaration carries provenance. A selected value must equal the baseline: a rise is new debt; a
+fall must be written back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
 Contracts without measurement budgets behave as before. The file's shape is
 `schema/violation-baseline.schema.json`:
 
@@ -316,6 +316,7 @@ Regression checks add these scalars to the existing record counts and fingerprin
 | No new private crossings | Confirmed private cross-package imports |
 | No new typing signals | Missing boundary annotation positions; other signals count once |
 | No new unknowns | Unresolved calls; unknown record counts and fingerprints remain checked |
+| No new undecided positions | `unknown_positions`: what the scan left undecided (AD-92) |
 | Coverage must pass | Scan failure records; any incomplete scan is unverifiable |
 
 The delta stores raw measurements for the accepted observation and candidate.
@@ -324,6 +325,15 @@ Schema, scope, analyzer and contract must match.
 The Python measurement profile also carries `untyped_private_accesses`, the count of
 `private_attribute_access_limit` UNKNOWN records. Older measurement payloads without that
 scalar read as zero. This signal is not a private-crossing proof.
+
+`unknown_positions` counts the `unknowns` records the scan left undecided. Three standing
+disclaimers count 0: `dynamic_call_limit` and `context_alias_limit` fire on every run, and
+`private_attribute_access_limit` has the scalar above. A record that is also a coverage failure
+counts 0, a `boundary_type_limit` counts its undecided positions except `external_type`
+(AD-67), and every other kind counts its `data.undecided` integer, or 1 without one. A kind a
+new analyzer profile adds therefore counts. The same value sets `declared_rules`: a
+violation-free observation with a count above 0 is `UNKNOWN`, not `PASS`; the exit code does
+not change. Older measurement payloads without the scalar read as zero (AD-92).
 
 `calls_total` is the analyzer's `calls_analyzed`. With `U = calls_unresolved` and `T = calls_total`,
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,

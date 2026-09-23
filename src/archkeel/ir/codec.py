@@ -1543,8 +1543,10 @@ def parse_measurements(raw: object, label: str) -> Measurements:
         raise RatchetError(f"{label} measurement fields mismatch")
     scalars = _object(value.get("scalars"), f"{label}.scalars")
     scalar_keys = set(SCALARS)
-    legacy_scalar_keys = scalar_keys - {"untyped_private_accesses"}
-    if set(scalars) not in (scalar_keys, legacy_scalar_keys):
+    # Each scalar added later reads as 0 from the payloads written before it existed.
+    before_unknown_positions = scalar_keys - {"unknown_positions"}
+    before_untyped_private_accesses = before_unknown_positions - {"untyped_private_accesses"}
+    if set(scalars) not in (scalar_keys, before_unknown_positions, before_untyped_private_accesses):
         raise RatchetError(f"{label}.scalars must contain exactly {SCALARS}")
     counts = {key: count(scalars.get(key, 0), f"{label}.{key}") for key in SCALARS}
     total = count(value.get("calls_total"), f"{label}.calls_total")
@@ -1693,6 +1695,8 @@ def _measurement_budget_name(raw: object, label: str) -> MeasurementBudgetName:
         return "calls_unresolved"
     if value == "untyped_private_accesses":
         return "untyped_private_accesses"
+    if value == "unknown_positions":
+        return "unknown_positions"
     raise ValueError(f"{label} is not a supported measurement budget")
 
 

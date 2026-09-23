@@ -256,6 +256,10 @@
       {
         "name": "untyped_private_accesses",
         "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+      },
+      {
+        "name": "unknown_positions",
+        "provenance": ["docs/architecture/decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md"]
       }
     ]
   },

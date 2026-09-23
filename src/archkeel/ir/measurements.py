@@ -14,6 +14,7 @@ SCALARS = (
     "calls_unresolved",
     "coverage_failures",
     "untyped_private_accesses",
+    "unknown_positions",
 )
 
 
@@ -23,6 +24,7 @@ MeasurementBudgetName: TypeAlias = Literal[
     "typing_positions",
     "calls_unresolved",
     "untyped_private_accesses",
+    "unknown_positions",
 ]
 
 
@@ -48,6 +50,7 @@ class RatchetScalars:
     calls_unresolved: int
     coverage_failures: int
     untyped_private_accesses: int = 0
+    unknown_positions: int = 0
 
     def items(self) -> tuple[tuple[str, int], ...]:
         return (
@@ -58,6 +61,7 @@ class RatchetScalars:
             ("calls_unresolved", self.calls_unresolved),
             ("coverage_failures", self.coverage_failures),
             ("untyped_private_accesses", self.untyped_private_accesses),
+            ("unknown_positions", self.unknown_positions),
         )
 
     def __post_init__(self) -> None:

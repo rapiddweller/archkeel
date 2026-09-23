@@ -139,6 +139,7 @@ run shows many violations together; every other row isolates one item.
 | class_b | GUARDRAIL_DIMENSIONS:private_crossings | class-b-guardrail-private-crossings | check run | - | - | shop/cli/main.py |
 | class_b | SCALARS:untyped_private_accesses | class-b-scalar-private-attribute-access | check run | - | - | shop/app/untyped_private.py |
 | class_b | GUARDRAIL_DIMENSIONS:unknowns:untyped attribute | class-b-guardrail-private-attribute-access | check run | - | - | shop/app/untyped_private.py |
+| class_b | SCALARS:unknown_positions | class-b-scalar-unknown-positions | check run | - | - | shop/app/orders.py |
 | class_b | SCALARS:cycle_edges | class-b-scalar-cycle-edges | check run | - | - | shop/model/uses_render.py |
 | class_b | GUARDRAIL_DIMENSIONS:cycles | class-b-check-guardrail-cycles | check run | - | - | shop/model/uses_render.py |
 | class_b | SCALARS:typing_positions | class-b-scalar-typing-positions | check run | - | - | shop/model/probe_type_ignore.py |
