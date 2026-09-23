@@ -19,6 +19,7 @@ from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.analyzer.embedded.typing_signals import collect_typing_signals
 from archkeel.analyzer.embedded.violations import _construct_violations, requires_violations
+from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.baseline import observed_violations
 from archkeel.ir.codec import decode_json, parse_contract
@@ -1884,6 +1885,7 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
     assert data.get("dotted_name") == 1
     assert data.get("forward_reference") == 1
     assert data.get("missing_annotation") == 1
+    assert unknown_positions(result.observation) == 3
     # A position the rule cannot decide is a reported limit, not a gate: the run stays clean
     # and the rule still holds a verdict, because it decided the positions it could.
     assert result.observation.coverage.rules == "PASS"
@@ -1906,9 +1908,36 @@ def test_boundary_types_does_not_report_a_limit_when_every_position_is_decided(
     result = _observe(tmp_path)
 
     assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert unknown_positions(result.observation) == 0
     assert not any(
         item.kind == "boundary_type_limit" for item in result.observation.records("unknowns") or ()
     )
+    assert result.observation.coverage.rules == "PASS"
+
+
+def test_boundary_types_external_type_does_not_inflate_unknown_positions(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from pathlib import Path\n\n\ndef typed(path: Path) -> str:\n    return str(path)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert limit.data.get("external_type") == 1
+    assert unknown_positions(result.observation) == 0
+    assert result.observation.coverage.rules == "PASS"
 
 
 def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) -> None:
