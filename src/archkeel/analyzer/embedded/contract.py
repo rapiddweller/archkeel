@@ -190,6 +190,21 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "source": rule.source,
             "allowed_sources": sorted(rule.allowed_sources),
             **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
+            **(
+                {
+                    "allowed_positions": [
+                        {
+                            "qualified_name": item.qualified_name,
+                            "position": item.position,
+                            "field_path": item.field_path,
+                            "annotation": item.annotation,
+                        }
+                        for item in rule.allowed_positions
+                    ]
+                }
+                if rule.allowed_positions
+                else {}
+            ),
             "rationale": rule.rationale,
         }
     else:

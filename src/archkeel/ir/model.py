@@ -448,6 +448,16 @@ class SymbolPlacementRule:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundaryTypeAllowance:
+    """One exact nested field exception for a declared boundary position (#134)."""
+
+    qualified_name: str
+    position: str
+    field_path: str
+    annotation: str
+
+
+@dataclass(frozen=True, slots=True)
 class BoundaryTypesRule:
     """A component's declared facade function below `source` takes and returns no bare
     `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a type
@@ -467,6 +477,7 @@ class BoundaryTypesRule:
     decided_by: Literal["architect", "agent"]
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
+    allowed_positions: tuple[BoundaryTypeAllowance, ...] = ()
 
 
 ArchitectureRule: TypeAlias = (
