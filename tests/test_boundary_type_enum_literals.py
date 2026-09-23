@@ -116,9 +116,10 @@ def test_literal_resolves_exact_static_enum_member_through_signature(
         "choose_category().PRODUCT",
         "Category.PRODUCT",
         "Other.PRODUCT",
+        "Ignored.PRODUCT",
     ],
 )
-def test_unproven_enum_member_remains_unknown_at_nested_dto_path(
+def test_unproven_enum_member_remains_unknown_at_signature_position(
     tmp_path: Path, annotation: str
 ) -> None:
     facade = (
@@ -127,6 +128,9 @@ def test_unproven_enum_member_remains_unknown_at_nested_dto_path(
         "class AuthoringReferenceCategory(str, Enum):\n"
         "    PRODUCT = 'product'\n\n"
         "class Other:\n"
+        "    PRODUCT = 'product'\n\n"
+        "class Ignored(Enum):\n"
+        "    _ignore_ = ['PRODUCT']\n"
         "    PRODUCT = 'product'\n\n"
         "def choose_category():\n    return AuthoringReferenceCategory\n\n"
         "Category = choose_category()\n\n"
