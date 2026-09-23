@@ -26,7 +26,12 @@ from archkeel.analyzer.embedded.violations import (
 from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.baseline import observed_violations
-from archkeel.ir.codec import decode_json, parse_contract
+from archkeel.ir.codec import (
+    canonical_report_bytes,
+    decode_json,
+    observation_payload,
+    parse_contract,
+)
 from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
     Coverage,
@@ -2036,6 +2041,38 @@ def test_boundary_types_does_not_guess_typing_module_aliases(tmp_path: Path) -> 
     ]
     [detail] = limit.data.get("undecidable_positions")
     assert dict(detail.entries)["reason"] == "dotted_name"
+
+
+def test_boundary_type_limit_details_match_counts_and_are_stable(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:inspect"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "def inspect(when: datetime.datetime, note: 'Later', missing, "
+        "names: list[str | int]) -> tuple[str, int]:\n"
+        "    return (str(when), str(note))\n"
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    report = observation_payload(result.observation)
+    [limit] = [item for item in report["unknowns"] if item["kind"] == "boundary_type_limit"]
+    details = limit["data"]["undecidable_positions"]
+    assert [(item["position"], item["reason"]) for item in details] == [
+        ("when", "dotted_name"),
+        ("note", "forward_reference"),
+        ("missing", "missing_annotation"),
+    ]
+    assert (limit["data"]["positions"], limit["data"]["decided"], limit["data"]["undecided"]) == (
+        5,
+        2,
+        len(details),
+    )
+    assert canonical_report_bytes(result.observation) == canonical_report_bytes(
+        _observe(tmp_path).observation
+    )
 
 
 def test_boundary_types_does_not_report_a_limit_when_every_position_is_decided(
