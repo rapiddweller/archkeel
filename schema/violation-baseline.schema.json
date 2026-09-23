@@ -23,7 +23,8 @@
         "private_crossings": {"type": "integer", "minimum": 0},
         "typing_positions": {"type": "integer", "minimum": 0},
         "calls_unresolved": {"type": "integer", "minimum": 0},
-        "untyped_private_accesses": {"type": "integer", "minimum": 0}
+        "untyped_private_accesses": {"type": "integer", "minimum": 0},
+        "unknown_positions": {"type": "integer", "minimum": 0}
       },
       "description": "Exact accepted values for the measurement_budgets selected by the architecture contract."
     },

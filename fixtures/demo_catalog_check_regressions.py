@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
-from fixtures.demo_catalog_support import HEADER, CheckExpectation, Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, CheckExpectation, Variant
 
 
 def _files_of(variants: tuple[Variant, ...], variant_id: str) -> Mapping[str, str | None]:
@@ -56,6 +56,26 @@ _PRIVATE_ATTRIBUTE = CheckExpectation(
     host_order="PASS",
     regressed_scalars=("untyped_private_accesses",),
     regressed_dimensions=("unknowns",),
+)
+
+# AD-92: widening a boundary parameter to a union leaves APP-TYPES-NOT-DICT one more position it
+# cannot decide. The contract is an accepted policy input `check` refuses to see changed, so the
+# regression has to come from code; a union adds no typing signal, so unknown_positions is the
+# only measurement that moves.
+_CLEAN_ORDERS = (FIXTURE_DIR / "shop/app/orders.py").read_text()
+_UNDECIDED_FILES: Mapping[str, str | None] = {
+    "shop/app/orders.py": _CLEAN_ORDERS.replace(
+        "    description: str,\n", "    description: str | None,\n"
+    ).replace("Line(description=description,", "Line(description=description or order_id,")
+}
+_UNDECIDED = CheckExpectation(
+    scenario="ordered",
+    exit_code=1,
+    expectation_fulfilled="FAIL",
+    git_predicate="PASS",
+    host_order="PASS",
+    regressed_scalars=("unknown_positions",),
+    regressed_dimensions=(),
 )
 
 _CYCLE_FILES: Mapping[str, str | None] = {
@@ -174,6 +194,17 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         check=_PRIVATE_ATTRIBUTE,
+    ),
+    Variant(
+        id="class-b-scalar-unknown-positions",
+        section="class_b",
+        item="SCALARS:unknown_positions",
+        summary="place_order's description parameter widens to str | None; APP-TYPES-NOT-DICT "
+        "cannot decide a union, so the unknown_positions ratchet scalar regresses in isolation.",
+        files=_UNDECIDED_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        check=_UNDECIDED,
     ),
     Variant(
         id="class-b-scalar-cycle-edges",

@@ -6,7 +6,6 @@
 from collections.abc import Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Final
 
 from archkeel.ir.codec import canonical_report_bytes, declaration_paths, decode_json, parse_lock
 from archkeel.ir.digest import package_digest
@@ -45,45 +44,6 @@ from .ports import Analyzer, Host, ScanConfig
 from .ratchets import measure_python_ratchets
 from .snapshot import SnapshotError, materialize_git_snapshot
 
-# AD-67 refinement: `external_type` (`_boundary_type_verdict`, `violations.py`) fires once a
-# position's type resolves to a module the contract simply does not own, so `boundary_types`
-# has no `public` list to check it against -- the question does not apply, unlike the other
-# undecidable kinds (`missing_annotation`, `forward_reference`, `dotted_name`, `generic`,
-# `union`, `unresolved_name`, `other`), each a real gap in what the checker could read. Naming
-# this one exception, rather than that full list, means a kind added to `_UNDECIDABLE_KINDS`
-# later defaults to flipping the verdict: the same fail-toward-UNKNOWN default AD-67 itself
-# chose over reading "no violation" as "probably fine". Naming the included set instead would
-# let a new checker limit default to silent PASS -- the defect this change exists to fix.
-_VERDICT_NEUTRAL_UNDECIDABLE_KINDS: Final = frozenset({"external_type"})
-# The three summary fields `boundary_type_limits` always writes alongside the per-kind counts.
-_BOUNDARY_TYPE_LIMIT_TOTALS: Final = frozenset({"positions", "decided", "undecided"})
-
-
-def _has_undecided_boundary_position(model: Observation) -> bool:
-    """AD-67/AD-73: a record naming something the contract declares and the scan could not settle.
-
-    Scoped to those kinds, not to `unknowns` at large: `dynamic_call_limit` and
-    `context_alias_limit` are standing disclaimers about the analyzer's static reach that fire
-    on every run regardless of the contract, so treating any `unknowns` record as undecided
-    would make every run UNKNOWN and the PASS verdict unreachable. These two fire only when a
-    contract declared something the scan then could not decide, which is the definition of
-    UNKNOWN; `api_surface_limit` carries one such entry per record and no counters to read.
-    """
-    for record in model.records("unknowns") or ():
-        if record.kind == "api_surface_limit":
-            return True
-        if record.kind != "boundary_type_limit":
-            continue
-        for reason, count in record.data.entries:
-            if (
-                reason in _BOUNDARY_TYPE_LIMIT_TOTALS
-                or reason in _VERDICT_NEUTRAL_UNDECIDABLE_KINDS
-            ):
-                continue
-            if isinstance(count, int) and count > 0:
-                return True
-    return False
-
 
 def inspect_observation(model: Observation) -> tuple[Measurements, RuleVerdict]:
     validate_evidence_classes(model)
@@ -93,7 +53,8 @@ def inspect_observation(model: Observation) -> tuple[Measurements, RuleVerdict]:
         raise ValueError("violation records lack a complete rule/fact/source trace")
     if violations:
         return measurements, "FAIL"
-    if _has_undecided_boundary_position(model):
+    # AD-92: one count decides both the verdict and the scalar a budget can pin.
+    if measurements.scalars.unknown_positions:
         return measurements, "UNKNOWN"
     return measurements, "PASS"
 

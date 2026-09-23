@@ -44,7 +44,10 @@ UNKNOWN there, not PASS, if an undecided position's reason is a real checker lim
 annotation, a union, a dotted name and the like), but stays PASS when every undecided position is a
 type owned by no declared component (`external_type`), since that question never applied to begin
 with. A `public_api` entry the scan could not settle (`api_surface_limit`) moves it the same way,
-for the same reason: the contract declared something and nothing could decide it.
+for the same reason: the contract declared something and nothing could decide it. Since AD-92 every
+other `unknowns` kind does too, except the standing disclaimers `dynamic_call_limit`,
+`context_alias_limit` and `private_attribute_access_limit`, and the same count is the
+`unknown_positions` scalar.
 
 A package or module facade may re-export a function. The analyzer follows the recorded
 re-export chain to the definition, but keeps the declared facade as the violation subject. Alias

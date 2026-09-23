@@ -350,7 +350,7 @@
       "required": ["name", "provenance"],
       "additionalProperties": false,
       "properties": {
-        "name": {"enum": ["cycle_edges", "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"]},
+        "name": {"enum": ["cycle_edges", "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses", "unknown_positions"]},
         "provenance": {"$ref": "#/$defs/provenance"}
       }
     }

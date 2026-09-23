@@ -400,7 +400,7 @@ def test_check_html_renders_structured_regression_values() -> None:
     )
     assert check_decision_sentence(result) in page
     assert "All 3 files parsed." in page
-    assert "2 of 8 regression checks failed." in page
+    assert "2 of 9 regression checks failed." in page
     assert "calls_unresolved" in page and "0 → 1" in page
     assert "unresolved_ratio" in page and "0/2 → 1/1" in page
     regression_table = page.split("<h2>Regression checks</h2>", 1)[1].split("</table>", 1)[0]

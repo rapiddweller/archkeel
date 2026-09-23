@@ -412,7 +412,7 @@ Regression checks compare accepted and candidate observations. They include scal
 integer cross-multiplied ratios and semantic fingerprints.
 
 - **Measurement:** `calls_unresolved`, `unresolved_ratio`, typing positions, cycles, private
-  crossings, violations and coverage failures.
+  crossings, `untyped_private_accesses`, `unknown_positions`, violations and coverage failures.
 - **Determinism:** both observations must use comparable Python and analyzer versions.
 - **Blind spots:** a stable count can hide replacement of one finding by another; fingerprints
   cover supported semantic changes, not intent.
@@ -422,8 +422,9 @@ integer cross-multiplied ratios and semantic fingerprints.
 incomplete scan produces no measurements, so the check reports NOT CHECKED instead.
 
 `declarations.measurement_budgets` selects already-produced scalars for `validate --baseline`:
-`cycle_edges`, `private_crossings`, `typing_positions`, `calls_unresolved` and
-`untyped_private_accesses`. Baseline schema 1.2 stores their exact accepted values. A rise fails;
+`cycle_edges`, `private_crossings`, `typing_positions`, `calls_unresolved`,
+`untyped_private_accesses` and `unknown_positions`. Baseline schema 1.2 stores their exact
+accepted values. A rise fails;
 a fall also fails until `--write-baseline` records it. Missing measurement evidence exits 2,
 never PASS (AD-89).
 
