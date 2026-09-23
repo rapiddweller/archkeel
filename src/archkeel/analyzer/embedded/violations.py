@@ -902,6 +902,62 @@ def _typing_dict_verdict(
     return _Position(violation="instead of a typed model")
 
 
+def _typing_wrapper_inner(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    wrapper: str,
+) -> str | tuple[str, ...] | None:
+    """Return T for a statically bound typing wrapper such as Annotated[T, metadata]."""
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(expression, ast.Subscript):
+        return None
+    head = expression.value
+    if isinstance(head, ast.Name):
+        key = (module, head.id)
+        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+            return None
+        imported = imports_by_binding.get(key)
+        if not isinstance(imported, dict) or imported["target_module"] != "typing":
+            return None
+        if imported["symbol"] != wrapper:
+            return None
+    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
+        key = (module, head.value.id)
+        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+            return None
+        if head.attr != wrapper or not _typing_module_binding(
+            module, head.value.id, imports_by_binding
+        ):
+            return None
+    else:
+        return None
+    parameters = (
+        list(expression.slice.elts)
+        if isinstance(expression.slice, ast.Tuple)
+        else [expression.slice]
+    )
+    if wrapper == "Annotated" and len(parameters) >= 2:
+        return ast.unparse(parameters[0])
+    if wrapper == "Literal" and parameters:
+        names: list[str] = []
+        for value in parameters:
+            if isinstance(value, ast.Constant) and isinstance(
+                value.value, (str, int, bool, type(None))
+            ):
+                continue
+            if isinstance(value, ast.Name):
+                names.append(value.id)
+                continue
+            return None
+        return tuple(names)
+    return None
+
+
 def _collection_parameters(
     annotation: str,
     module: str,
@@ -1119,7 +1175,8 @@ def boundary_type_indexes(
         for item in symbols
         for data in [item["data"]]
         # A nested class is never what a module-level annotation's bare name resolves to.
-        if item["kind"] == "class" and data.get("parent") is None
+        if (item["kind"] == "class" and data.get("parent") is None)
+        or item["kind"] in {"type_alias", "static_constant", "dynamic_binding"}
     )
     for item in symbols:
         data = item["data"]
@@ -1127,6 +1184,62 @@ def boundary_type_indexes(
         if item["kind"] == "function" and (key in classes_by_location or key in imports_by_binding):
             classes_by_location[key] = _AMBIGUOUS
     return imports_by_binding, classes_by_location
+
+
+def _typing_wrapper_verdict(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    enter_collections: bool,
+    enter_fields: bool,
+    visited: frozenset[tuple[str, str]],
+    aliases_seen: frozenset[tuple[str, str]],
+) -> _Position | None:
+    annotated = _typing_wrapper_inner(
+        annotation, module, imports_by_binding, classes_by_location, "Annotated"
+    )
+    if isinstance(annotated, str):
+        return _boundary_type_verdict(
+            annotated,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_collections=enter_collections,
+            visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=aliases_seen,
+        )
+    literal = _typing_wrapper_inner(
+        annotation, module, imports_by_binding, classes_by_location, "Literal"
+    )
+    if not isinstance(literal, tuple):
+        return None
+    verdicts = [
+        _boundary_type_verdict(
+            name,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_collections=enter_collections,
+            visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=aliases_seen,
+            _require_static_constant=True,
+        )
+        for name in literal
+    ]
+    return next(
+        (verdict for verdict in verdicts if verdict.violation is not None),
+        next((verdict for verdict in verdicts if verdict.undecidable is not None), _Position()),
+    )
 
 
 def _boundary_type_verdict(
@@ -1139,6 +1252,9 @@ def _boundary_type_verdict(
     *,
     enter_collections: bool = True,
     visited: frozenset[tuple[str, str]] = frozenset(),
+    enter_fields: bool = True,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
+    _require_static_constant: bool = False,
 ) -> _Position:
     """Read one annotation for boundary_types and facade_types (AD-58, AD-69).
     Broad or undeclared types violate; builtins, enums and declared types pass. Other shapes
@@ -1146,6 +1262,20 @@ def _boundary_type_verdict(
     """
     if not annotation:
         return _Position(undecidable="missing_annotation")
+    wrapped = _typing_wrapper_verdict(
+        annotation,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        enter_collections=enter_collections,
+        enter_fields=enter_fields,
+        visited=visited,
+        aliases_seen=_aliases_seen,
+    )
+    if wrapped is not None:
+        return wrapped
     typing_dict = _typing_dict_verdict(annotation, module, imports_by_binding, classes_by_location)
     if typing_dict is not None:
         return typing_dict
@@ -1163,7 +1293,97 @@ def _boundary_type_verdict(
             classes_by_location,
             enter_collections=enter_collections,
             visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
         )
+    return _named_type_verdict(
+        annotation,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        enter_collections=enter_collections,
+        enter_fields=enter_fields,
+        visited=visited,
+        aliases_seen=_aliases_seen,
+        require_static_constant=_require_static_constant,
+    )
+
+
+def _type_alias_verdict(
+    symbol: RecordData | _AmbiguousBinding | None,
+    resolved: tuple[str, str],
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    enter_collections: bool,
+    enter_fields: bool,
+    visited: frozenset[tuple[str, str]],
+    aliases_seen: frozenset[tuple[str, str]],
+) -> _Position | None:
+    if not isinstance(symbol, dict) or symbol.get("record_kind") != "type_alias":
+        return None
+    reached: tuple[tuple[str, str], ...] = (resolved,)
+    alias = symbol.get("alias")
+    if resolved in aliases_seen or not isinstance(alias, str) or alias == annotation:
+        return _Position(undecidable="other", resolved=reached)
+    expanded = _boundary_type_verdict(
+        alias,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        enter_collections=enter_collections,
+        enter_fields=enter_fields,
+        visited=visited,
+        _aliases_seen=aliases_seen | {resolved},
+    )
+    return _Position(
+        violation=expanded.violation,
+        undecidable=expanded.undecidable,
+        resolved=tuple(sorted({*reached, *expanded.resolved})),
+        path=expanded.path,
+        nested_annotation=expanded.nested_annotation,
+        violations=expanded.violations,
+    )
+
+
+def _unresolved_named_verdict(annotation: str, require_static_constant: bool) -> _Position:
+    if annotation in _BUILTIN_NAMES and not require_static_constant:
+        return _Position()
+    if require_static_constant:
+        return _Position(undecidable="other")
+    return _Position(undecidable="unresolved_name")
+
+
+def _is_static_literal_constant(symbol: RecordData | _AmbiguousBinding | None) -> bool:
+    return (
+        isinstance(symbol, dict)
+        and symbol.get("record_kind") == "static_constant"
+        and isinstance(symbol.get("constant"), (str, int, bool, type(None)))
+    )
+
+
+def _named_type_verdict(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    enter_collections: bool,
+    enter_fields: bool,
+    visited: frozenset[tuple[str, str]],
+    aliases_seen: frozenset[tuple[str, str]],
+    require_static_constant: bool,
+) -> _Position:
     resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if isinstance(resolved, _AmbiguousBinding):
         # Distinct records bind this name in `module`: Python picks whichever is textually last,
@@ -1171,42 +1391,72 @@ def _boundary_type_verdict(
         # not a guess at either candidate (AD-74).
         return _Position(undecidable="ambiguous_binding")
     if resolved is None:
-        # A name the imports and the module's own classes do not define is either a builtin,
-        # which issue #9 accepts, or a name this rule failed to resolve; it must not read the
-        # second as the first. Neither reaches a named type, so `resolved` stays empty.
-        if annotation in _BUILTIN_NAMES:
-            return _Position()
-        return _Position(undecidable="unresolved_name")
-    return _resolved_type_verdict(
+        return _unresolved_named_verdict(annotation, require_static_constant)
+    origin_module, origin_name = resolved
+    reached: tuple[tuple[str, str], ...] = (resolved,)
+    origin_symbol = classes_by_location.get(resolved)
+    if require_static_constant:
+        return (
+            _Position()
+            if _is_static_literal_constant(origin_symbol)
+            else _Position(undecidable="other")
+        )
+    alias = _type_alias_verdict(
+        origin_symbol,
         resolved,
+        annotation,
+        origin_module,
         contract,
         exports_by_module,
         imports_by_binding,
         classes_by_location,
-        visited,
+        enter_collections=enter_collections,
+        enter_fields=enter_fields,
+        visited=visited,
+        aliases_seen=aliases_seen,
     )
-
-
-def _resolved_type_verdict(
-    resolved: tuple[str, str],
-    contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
-    imports_by_binding: BindingIndex,
-    classes_by_location: BindingIndex,
-    visited: frozenset[tuple[str, str]],
-) -> _Position:
-    origin_module, origin_name = resolved
-    reached: tuple[tuple[str, str], ...] = (resolved,)
-    origin_symbol = classes_by_location.get(resolved)
+    if alias is not None:
+        return alias
+    if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "static_constant":
+        return _Position(undecidable="other", resolved=reached)
+    if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "dynamic_binding":
+        return _Position(undecidable="other", resolved=reached)
     # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
     # `class_kind` (AD-30).
     class_kind = origin_symbol["class_kind"] if isinstance(origin_symbol, dict) else None
     if class_kind == "enum":
         return _Position(resolved=reached)
+    return _owned_type_verdict(
+        origin_symbol,
+        origin_module,
+        origin_name,
+        class_kind,
+        reached,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        visited,
+        aliases_seen,
+    )
+
+
+def _owned_type_verdict(
+    origin_symbol: RecordData | _AmbiguousBinding | None,
+    origin_module: str,
+    origin_name: str,
+    class_kind: str | None,
+    reached: tuple[tuple[str, str], ...],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    visited: frozenset[tuple[str, str]],
+    aliases_seen: frozenset[tuple[str, str]],
+) -> _Position:
+    resolved = (origin_module, origin_name)
     origin_component = contract.component_for(origin_module)
     if origin_component is None:
-        # A type from a module outside every declared component has no `public` list to be
-        # read against, so the rule has nothing to decide it with, either way.
         return _Position(undecidable="external_type", resolved=reached)
     if _facade_covers(origin_module, origin_name, origin_component, exports_by_module):
         if resolved in visited:
@@ -1219,6 +1469,7 @@ def _resolved_type_verdict(
             imports_by_binding,
             classes_by_location,
             visited=visited | {resolved},
+            _aliases_seen=aliases_seen,
         )
         reached = tuple(sorted({*reached, *fields.resolved}))
         if fields.violation is not None:
@@ -1253,6 +1504,8 @@ def _annotation_shape_verdict(
     *,
     enter_collections: bool,
     visited: frozenset[tuple[str, str]],
+    enter_fields: bool,
+    _aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     """Resolve standard unions and collections recursively; leave other shapes UNKNOWN."""
     union = _union_parameters(annotation, module, imports_by_binding)
@@ -1265,6 +1518,8 @@ def _annotation_shape_verdict(
             imports_by_binding,
             classes_by_location,
             visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
         )
     if enter_collections:
         entered = _collection_verdict(
@@ -1275,6 +1530,8 @@ def _annotation_shape_verdict(
             imports_by_binding,
             classes_by_location,
             visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
         )
         if entered is not None:
             return entered
@@ -1290,6 +1547,7 @@ def _declared_field_verdict(
     classes_by_location: BindingIndex,
     *,
     visited: frozenset[tuple[str, str]],
+    _aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     """Inspect all owned declared model fields, stopping recursive graphs by origin."""
     if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
@@ -1310,6 +1568,8 @@ def _declared_field_verdict(
                     imports_by_binding,
                     classes_by_location,
                     visited=visited,
+                    enter_fields=False,
+                    _aliases_seen=_aliases_seen,
                 ),
             )
         )
@@ -1364,6 +1624,8 @@ def _collection_verdict(
     classes_by_location: BindingIndex,
     *,
     visited: frozenset[tuple[str, str]] = frozenset(),
+    enter_fields: bool = True,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position | None:
     """Decide `Container[Name]` from its parameters, or None when it is not one (AD-67).
 
@@ -1392,6 +1654,8 @@ def _collection_verdict(
         imports_by_binding,
         classes_by_location,
         visited=visited,
+        enter_fields=enter_fields,
+        _aliases_seen=_aliases_seen,
     )
 
 
@@ -1404,6 +1668,8 @@ def _combined_annotation_verdict(
     classes_by_location: BindingIndex,
     *,
     visited: frozenset[tuple[str, str]],
+    enter_fields: bool,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position:
     decided = [
         (
@@ -1419,6 +1685,8 @@ def _combined_annotation_verdict(
                 classes_by_location,
                 enter_collections=True,
                 visited=visited,
+                enter_fields=enter_fields,
+                _aliases_seen=_aliases_seen,
             ),
         )
         for parameter in parameters

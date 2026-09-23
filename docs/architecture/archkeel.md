@@ -129,6 +129,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-91 | [Top-level owner resolution decides private ownership UNKNOWN](decisions/ad-91-only-top-level-any-makes-private-owner-unknown.md) |
 | AD-92 | [Undecided declared evidence is UNKNOWN by default and measured](decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md) |
 | AD-93 | [`boundary_types` follows owned declared DTO fields](decisions/ad-93-boundary-types-follow-owned-dto-fields.md) |
+| AD-94 | [Boundary types resolve statically recognized aliases](decisions/ad-94-boundary-types-resolve-static-aliases.md) |
 
 ## Allowed dependencies
 
