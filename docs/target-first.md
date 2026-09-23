@@ -27,9 +27,10 @@ module already exists (AD-56, AD-79). Declaring it `public` before it exists is 
 yet. A violation baseline cannot hide either validation diagnostic.
 
 Facade entries may point at a package re-export. `boundary_types` follows the recorded export
-chain to the function definition, keeps the facade entry as the subject, and inspects one direct
-field level on declared request/result classes. Deeper or unresolved fields stay UNKNOWN; no
-recursive type resolver is implied (AD-84).
+chain to the function definition, keeps the facade entry as the subject, and recursively inspects
+owned declared DTO fields, including fields inside known collections and unions. Recursive model
+graphs stop at a repeated class on the current field path. An undecidable nested field reports its
+signature-rooted path and field annotation (AD-93).
 
 When a refactoring moves a module, declare the old path in `declarations.compat` with its target
 and lifetime. A `migration` shim is visible remaining work while it protects callers; promote it

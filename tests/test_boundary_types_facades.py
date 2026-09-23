@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-84: boundary_types follows declared facade re-exports and one model-field level."""
+"""boundary_types follows facade re-exports and owned DTO fields."""
 
 from __future__ import annotations
 
@@ -206,7 +206,7 @@ def test_boundary_types_checks_direct_fields_of_a_reexported_model(
     assert "field metadata" in violation.title
 
 
-def test_boundary_types_reports_unknown_for_a_deeper_model_field(
+def test_boundary_types_checks_fields_of_a_nested_model(
     tmp_path: Path,
 ) -> None:
     _write_app(
@@ -216,7 +216,8 @@ def test_boundary_types_reports_unknown_for_a_deeper_model_field(
             "class Inner:\n"
             "    metadata: dict\n\n\n"
             "class Request:\n"
-            "    inner: Inner\n\n\n"
+            "    left: Inner\n"
+            "    right: Inner\n\n\n"
             "def run(value: Request) -> str:\n"
             "    return str(value)\n"
         ),
@@ -234,13 +235,56 @@ def test_boundary_types_reports_unknown_for_a_deeper_model_field(
     result = _observe(tmp_path)
 
     assert result.observation is not None
-    assert trace_valid_violations(result.observation) == ()
-    [limit] = [
-        item
-        for item in result.observation.records("unknowns") or ()
-        if item.kind == "boundary_type_limit"
-    ]
-    assert limit.data.get("nested_type") == 1
+    violations = trace_valid_violations(result.observation)
+    assert {item.data.get("path") for item in violations} == {
+        "value.left.metadata",
+        "value.right.metadata",
+    }
+    assert all("field metadata" in item.title for item in violations)
+    assert all(item.data.get("nested_annotation") == "dict" for item in violations)
+
+
+def test_boundary_types_keeps_violations_from_each_union_member(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        init="from .impl import Request, run\n",
+        impl=(
+            "class Left:\n"
+            "    metadata: dict\n\n\n"
+            "class Right:\n"
+            "    details: object\n\n\n"
+            "class Request:\n"
+            "    payload: Left | Right | dict\n\n\n"
+            "def run(value: Request) -> str:\n"
+            "    return str(value)\n"
+        ),
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            _contract(
+                "sample.app:run",
+                "sample.app.impl:Request",
+                "sample.app.impl:Left",
+                "sample.app.impl:Right",
+            )
+        )
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert {item.data.get("path") for item in violations} == {
+        "value.payload",
+        "value.payload.metadata",
+        "value.payload.details",
+    }
+    assert (
+        next(item for item in violations if item.data.get("path") == "value.payload").data.get(
+            "nested_annotation"
+        )
+        == "dict"
+    )
 
 
 def test_boundary_types_reports_unknown_for_an_unresolved_model_field(

@@ -337,9 +337,8 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
     assert result.host_order == check.host_order
 
     if not check.regressed_scalars and not check.regressed_dimensions:
-        # AD-84 inspects one direct field level. The clean shop facade contains
-        # collection-valued model fields, whose deeper model positions stay UNKNOWN.
-        assert result.declared_rules == "UNKNOWN"
+        # AD-93 resolves the clean facade's owned DTO fields through its collections.
+        assert result.declared_rules == "PASS"
         return
     delta = result.delta
     assert delta is not None
@@ -433,8 +432,8 @@ def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:
     assert run_validate(root, CONFIG, observe, write_graph=True)[1] == {}
 
     report_result, _ = run_report(root, config=CONFIG, analyzer=observe)
-    # AD-84 keeps collection-contained model fields bounded at one level.
-    assert report_result.declared_rules == "UNKNOWN"
+    # AD-93 follows collection-contained fields through the declared DTO graph.
+    assert report_result.declared_rules == "PASS"
 
 
 def test_architecture_demo_markdown_matches_generated_output() -> None:
