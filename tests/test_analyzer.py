@@ -1891,6 +1891,26 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
     assert result.exit_code == 0
 
 
+def test_boundary_types_does_not_report_a_limit_when_every_position_is_decided(
+    tmp_path: Path,
+) -> None:
+    """#126: a coverage UNKNOWN is useful only when at least one position is undecidable."""
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:lookup"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def lookup(name: str, limit: int) -> str:\n    return name[:limit]\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert not any(
+        item.kind == "boundary_type_limit" for item in result.observation.records("unknowns") or ()
+    )
+
+
 def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) -> None:
     """AD-67: the same mistake used to disappear by being wrapped -- `payload: Payload` was
     reported and `payloads: list[Payload]` was silent, because a generic's parameters were
