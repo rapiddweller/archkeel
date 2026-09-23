@@ -78,16 +78,18 @@ def test_literal_accepts_a_statically_recorded_constant() -> None:
             "constant": "ready",
         }
     }
-    assert (
-        _typing_wrapper_inner("Literal[STATUS]", "sample", imports, constants, "Literal")
-        == "<literal>"
+    assert _typing_wrapper_inner("Literal[STATUS]", "sample", imports, constants, "Literal") == (
+        "STATUS",
     )
 
 
 def test_literal_does_not_guess_an_enum_member_or_dynamic_constant() -> None:
     imports = {("sample", "Literal"): {"target_module": "typing", "symbol": "Literal"}}
     assert _typing_wrapper_inner("Literal[State.READY]", "sample", imports, {}, "Literal") is None
-    assert _typing_wrapper_inner("Literal[STATUS]", "sample", imports, {}, "Literal") is None
+    unknown = _boundary_type_verdict("Literal[STATUS]", "sample", None, {}, imports, {})
+    assert unknown.undecidable == "other"
+    builtin = _boundary_type_verdict("Literal[str]", "sample", None, {}, imports, {})
+    assert builtin.undecidable == "other"
 
 
 def test_ambiguous_typing_wrapper_binding_stays_unknown() -> None:

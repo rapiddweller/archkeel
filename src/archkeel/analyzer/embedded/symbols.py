@@ -243,6 +243,104 @@ def _resolve_class_kinds(
         )
 
 
+def _assignment_symbol(
+    module: ParsedModule,
+    node: ast.Assign | ast.AnnAssign,
+    name: str,
+    kind: str,
+    evidence: dict[str, RawEvidence],
+    **details: object,
+) -> RawRecord:
+    evidence_id = add_evidence(evidence, module, node)
+    line, _, column = location(node)
+    return classified(
+        item_id=stable_id("SYM", f"{module.module}.{name}", module.rel_path, line, column),
+        evidence_class=EvidenceClass.FACT,
+        area="repository_topology",
+        kind=kind,
+        title=name,
+        subjects=[f"{module.module}.{name}", module.module],
+        evidence_ids=[evidence_id],
+        data={
+            "record_kind": kind,
+            "qualified_name": f"{module.module}.{name}",
+            "module": module.module,
+            "name": name,
+            "parent": None,
+            "visibility": "private" if name.startswith("_") else "public_name",
+            **details,
+        },
+    )
+
+
+def _module_assignment_symbols(
+    module: ParsedModule, evidence: dict[str, RawEvidence]
+) -> list[RawRecord]:
+    aliases = {
+        node.target.id
+        for node in module.tree.body
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and _resolve_static_name(module, node.annotation) == "typing.TypeAlias"
+    }
+    symbols: list[RawRecord] = []
+    for node in module.tree.body:
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and isinstance(node.value, ast.expr)
+            and _resolve_static_name(module, node.annotation) == "typing.TypeAlias"
+        ):
+            symbols.append(
+                _assignment_symbol(
+                    module,
+                    node,
+                    node.target.id,
+                    "type_alias",
+                    evidence,
+                    alias=annotation_text(node.value),
+                )
+            )
+        elif (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id[:1].isupper()
+            and _is_static_type_alias_value(module, node.value)
+        ):
+            symbols.append(
+                _assignment_symbol(
+                    module,
+                    node,
+                    node.targets[0].id,
+                    "type_alias",
+                    evidence,
+                    alias=annotation_text(node.value),
+                )
+            )
+        elif isinstance(node, ast.Assign | ast.AnnAssign):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if not isinstance(target, ast.Name):
+                    continue
+                if isinstance(node.value, ast.Constant):
+                    symbols.append(
+                        _assignment_symbol(
+                            module,
+                            node,
+                            target.id,
+                            "static_constant",
+                            evidence,
+                            constant=node.value.value,
+                        )
+                    )
+                elif target.id[:1].isupper() or target.id in aliases:
+                    symbols.append(
+                        _assignment_symbol(module, node, target.id, "dynamic_binding", evidence)
+                    )
+    return symbols
+
+
 def collect_symbols(
     modules: Sequence[ParsedModule], evidence: dict[str, RawEvidence]
 ) -> tuple[list[RawRecord], dict[str, ast.AST], dict[str, ParsedModule]]:
@@ -301,133 +399,12 @@ def collect_symbols(
                 walk_class(module, child, parent=qualname)
 
     for module in modules:
-        explicit_alias_names = {
-            node.target.id
-            for node in module.tree.body
-            if isinstance(node, ast.AnnAssign)
-            and isinstance(node.target, ast.Name)
-            and _resolve_static_name(module, node.annotation) == "typing.TypeAlias"
-        }
         for node in module.tree.body:
             if isinstance(node, ast.ClassDef):
                 walk_class(module, node)
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 add_symbol(module, node, qualname=f"{module.module}.{node.name}", kind="function")
-            elif (
-                isinstance(node, ast.AnnAssign)
-                and isinstance(node.target, ast.Name)
-                and isinstance(node.value, ast.expr)
-                and _resolve_static_name(module, node.annotation) == "typing.TypeAlias"
-            ):
-                evidence_id = add_evidence(evidence, module, node)
-                line, _, column = location(node)
-                symbols.append(
-                    classified(
-                        item_id=stable_id(
-                            "SYM",
-                            f"{module.module}.{node.target.id}",
-                            module.rel_path,
-                            line,
-                            column,
-                        ),
-                        evidence_class=EvidenceClass.FACT,
-                        area="repository_topology",
-                        kind="type_alias",
-                        title=node.target.id,
-                        subjects=[f"{module.module}.{node.target.id}", module.module],
-                        evidence_ids=[evidence_id],
-                        data={
-                            "record_kind": "type_alias",
-                            "module": module.module,
-                            "name": node.target.id,
-                            "alias": annotation_text(node.value),
-                        },
-                    )
-                )
-            elif (
-                isinstance(node, ast.Assign)
-                and len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Name)
-                and node.targets[0].id[:1].isupper()
-                and _is_static_type_alias_value(module, node.value)
-            ):
-                evidence_id = add_evidence(evidence, module, node)
-                line, _, column = location(node)
-                alias_name = node.targets[0].id
-                symbols.append(
-                    classified(
-                        item_id=stable_id(
-                            "SYM", f"{module.module}.{alias_name}", module.rel_path, line, column
-                        ),
-                        evidence_class=EvidenceClass.FACT,
-                        area="repository_topology",
-                        kind="type_alias",
-                        title=alias_name,
-                        subjects=[f"{module.module}.{alias_name}", module.module],
-                        evidence_ids=[evidence_id],
-                        data={
-                            "record_kind": "type_alias",
-                            "module": module.module,
-                            "name": alias_name,
-                            "alias": annotation_text(node.value),
-                        },
-                    )
-                )
-            elif isinstance(node, ast.Assign | ast.AnnAssign) and isinstance(
-                node.value, ast.Constant
-            ):
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                for target in targets:
-                    if not isinstance(target, ast.Name):
-                        continue
-                    evidence_id = add_evidence(evidence, module, node)
-                    line, _, column = location(node)
-                    symbols.append(
-                        classified(
-                            item_id=stable_id(
-                                "SYM", f"{module.module}.{target.id}", module.rel_path, line, column
-                            ),
-                            evidence_class=EvidenceClass.FACT,
-                            area="repository_topology",
-                            kind="static_constant",
-                            title=target.id,
-                            subjects=[f"{module.module}.{target.id}", module.module],
-                            evidence_ids=[evidence_id],
-                            data={
-                                "record_kind": "static_constant",
-                                "module": module.module,
-                                "name": target.id,
-                                "constant": node.value.value,
-                            },
-                        )
-                    )
-            elif isinstance(node, ast.Assign | ast.AnnAssign):
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                for target in targets:
-                    if not isinstance(target, ast.Name) or not (
-                        target.id[:1].isupper() or target.id in explicit_alias_names
-                    ):
-                        continue
-                    evidence_id = add_evidence(evidence, module, node)
-                    line, _, column = location(node)
-                    symbols.append(
-                        classified(
-                            item_id=stable_id(
-                                "SYM", f"{module.module}.{target.id}", module.rel_path, line, column
-                            ),
-                            evidence_class=EvidenceClass.FACT,
-                            area="repository_topology",
-                            kind="dynamic_binding",
-                            title=target.id,
-                            subjects=[f"{module.module}.{target.id}", module.module],
-                            evidence_ids=[evidence_id],
-                            data={
-                                "record_kind": "dynamic_binding",
-                                "module": module.module,
-                                "name": target.id,
-                            },
-                        )
-                    )
+        symbols.extend(_module_assignment_symbols(module, evidence))
 
     symbol_by_name: dict[str, RawRecord] = {
         item["data"]["qualified_name"]: item for item in symbols if "qualified_name" in item["data"]
