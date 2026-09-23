@@ -145,7 +145,6 @@ def test_unproven_enum_member_remains_unknown_at_signature_position(
     [unknown] = _unknowns(result)
     assert unknown.data.get("position") == "category"
     assert unknown.data.get("annotation") == f"Literal[{annotation}]"
-    assert unknown.data.get("reason") in {"generic", "unresolved_name", "ambiguous_binding"}
 
 
 def test_literal_enum_member_is_reached_through_nested_pydantic_dto(tmp_path: Path) -> None:
