@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
+import pytest
 from test_delta import _evidence, _model, _record
 from test_expectation import _expectation_payload
 from test_git_lock import _lock
@@ -56,6 +57,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import inspect_observation, run_check
 from archkeel.check.snapshot import ArchivedSnapshot
+from archkeel.check.validation import run_validate
 from archkeel.ir.codec import canonical_report_bytes, parse_observation
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import ObservationResult
@@ -97,6 +99,37 @@ def _boundary_type_limit(
     )
 
 
+def _validate_root(root: Path) -> ScanConfig:
+    (root / "sample").mkdir()
+    provenance = root / "docs/architecture/contract.md"
+    provenance.parent.mkdir(parents=True)
+    provenance.write_text(
+        "<!-- archkeel-component-graph -->\n```mermaid\ngraph TD\n```\n", encoding="utf-8"
+    )
+    (root / "architecture-contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [],
+                "rules": [],
+                "declarations": {
+                    "capabilities": [
+                        {
+                            "id": "CAP-SAMPLE",
+                            "name": "sample",
+                            "label": "Sample",
+                            "review_order": 1,
+                            "provenance": ["docs/architecture/contract.md"],
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return ScanConfig(("sample",), "sample", "architecture-contract.json", "d" * 64)
+
+
 def test_undecided_boundary_position_with_no_violation_reports_unknown_not_pass() -> None:
     """AD-67's own decision: a relevant position left undecidable for a checker-limit reason
     (`other`, here) is UNKNOWN, never PASS, even though `violations` is empty."""
@@ -126,6 +159,100 @@ def test_undecided_positions_that_are_all_external_type_still_pass() -> None:
     )
     _, declared = inspect_observation(parse_observation(raw))
     assert declared == "PASS"
+
+
+@pytest.mark.parametrize("command", ["report", "validate"])
+@pytest.mark.parametrize(
+    ("positions", "decided", "undecided", "reason_count", "include_undecided"),
+    [
+        pytest.param(1, 0, 0, 1, True, id="undecided-zero"),
+        pytest.param(1, 0, -1, 0, True, id="undecided-negative"),
+        pytest.param(1, 0, True, 1, True, id="undecided-boolean"),
+        pytest.param(1, 0, "1", 1, True, id="undecided-string"),
+        pytest.param(1, 0, None, 1, False, id="undecided-missing"),
+        pytest.param(1, 0, 1, 0, True, id="reason-count-mismatch"),
+        pytest.param(2, 0, 1, 1, True, id="position-total-mismatch"),
+        pytest.param(-1, 0, 1, 1, True, id="negative-positions"),
+        pytest.param(True, 0, 1, 1, True, id="boolean-positions"),
+        pytest.param(1, -1, 2, 2, True, id="negative-decided"),
+        pytest.param(2, True, 1, 1, True, id="boolean-decided"),
+        pytest.param(1, 0, 1, True, True, id="boolean-reason-count"),
+    ],
+)
+def test_incoherent_boundary_type_limit_never_passes(
+    command: str,
+    positions: object,
+    decided: object,
+    undecided: object,
+    reason_count: object,
+    include_undecided: bool,
+    tmp_path: Path,
+) -> None:
+    """Aggregate fields are a contract: malformed or contradictory UNKNOWN counts fail closed."""
+    data: dict[str, object] = {
+        "positions": positions,
+        "decided": decided,
+        **dict.fromkeys(_UNDECIDABLE_KINDS, 0),
+    }
+    data["other"] = reason_count
+    if include_undecided:
+        data["undecided"] = undecided
+    raw = _model(
+        git_head="a" * 40,
+        unknowns=[
+            _record(
+                "UNKNOWN-BOUNDARY", kind="boundary_type_limit", evidence_class="UNKNOWN", data=data
+            )
+        ],
+    )
+    model = parse_observation(raw)
+    observed = ObservationResult(model, model.coverage, ())
+
+    def analyzer(*args: object, **kwargs: object) -> ObservationResult:
+        return observed
+
+    config = ScanConfig((".",), "sample", "architecture-contract.json", "d" * 64)
+    with (
+        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.report.git_bytes", return_value=b""),
+    ):
+        if command == "report":
+            result, _ = run_report(tmp_path, config=config, analyzer=analyzer)
+        else:
+            result, _ = run_validate(tmp_path, _validate_root(tmp_path), analyzer)
+
+    assert result.exit_code == 2
+
+
+@pytest.mark.parametrize("command", ["report", "validate"])
+def test_external_type_only_aggregate_stays_neutral(command: str, tmp_path: Path) -> None:
+    raw = _model(
+        git_head="a" * 40,
+        unknowns=[
+            _boundary_type_limit("UNKNOWN-BOUNDARY", positions=1, decided=0, external_type=1)
+        ],
+    )
+    model = parse_observation(raw)
+    observed = ObservationResult(model, model.coverage, ())
+
+    def analyzer(*args: object, **kwargs: object) -> ObservationResult:
+        return observed
+
+    with (
+        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.report.git_bytes", return_value=b""),
+    ):
+        if command == "report":
+            result, _ = run_report(
+                tmp_path,
+                config=ScanConfig(("sample",), "sample", "architecture-contract.json", "d" * 64),
+                analyzer=analyzer,
+            )
+        else:
+            result, _ = run_validate(tmp_path, _validate_root(tmp_path), analyzer)
+
+    assert result.diagnostics == ()
+    assert result.declared_rules == "PASS"
 
 
 def test_a_proven_violation_outranks_an_undecidable_boundary_position() -> None:
