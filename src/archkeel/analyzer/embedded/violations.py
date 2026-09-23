@@ -38,7 +38,7 @@ from archkeel.ir.model import (
 )
 
 from .graph import strongly_connected_components
-from .records import RawRecord, RecordData, classified
+from .records import RawEvidence, RawRecord, RecordData, classified
 
 
 def _forbidden_dependency_matches(
@@ -864,6 +864,31 @@ def _typing_module_binding(module: str, binding: str, imports_by_binding: Bindin
     )
 
 
+def _is_imported_typing_dict(
+    annotation: str, module: str, imports_by_binding: BindingIndex
+) -> bool:
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return False
+    if not isinstance(expression, ast.Subscript):
+        return False
+    head = expression.value
+    if isinstance(head, ast.Name):
+        imported = imports_by_binding.get((module, head.id))
+        return (
+            isinstance(imported, dict)
+            and imported["target_module"] == "typing"
+            and imported["symbol"] == "Dict"
+        )
+    return (
+        isinstance(head, ast.Attribute)
+        and head.attr == "Dict"
+        and isinstance(head.value, ast.Name)
+        and _typing_module_binding(module, head.value.id, imports_by_binding)
+    )
+
+
 def _collection_parameters(
     annotation: str,
     module: str,
@@ -1110,6 +1135,8 @@ def _boundary_type_verdict(
     if not annotation:
         return _Position(undecidable="missing_annotation")
     if _is_broad_boundary_type(annotation):
+        return _Position(violation="instead of a typed model")
+    if _is_imported_typing_dict(annotation, module, imports_by_binding):
         return _Position(violation="instead of a typed model")
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
@@ -1676,24 +1703,33 @@ def _boundary_type_limit_record(
     )
 
 
+def _symbol_source_location(
+    symbol: RawRecord, evidence: dict[str, RawEvidence]
+) -> tuple[str, int, int]:
+    item = evidence[symbol["evidence_ids"][0]]
+    return item["file"], item["line"], item["column"]
+
+
 def boundary_type_limits(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
+    evidence: dict[str, RawEvidence],
 ) -> list[RawRecord]:
     """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return []
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    ordered_symbols = sorted(symbols, key=lambda item: _symbol_source_location(item, evidence))
     limits: list[RawRecord] = []
     positions_out: list[RawRecord] = []
     for rule in rules:
         undecidable_positions: list[dict[str, object]] = []
         occurrences: dict[tuple[str, str], int] = {}
         seen = 0
-        for item in symbols:
+        for item in ordered_symbols:
             found = _facade_positions(item, rule, contract, exports_by_module, imports)
             if found is None:
                 continue

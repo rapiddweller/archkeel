@@ -88,7 +88,7 @@ def _boundary_position_key(data: RecordData) -> tuple[str, str, str, str, str, i
 
 
 def _boundary_type_undecided(
-    record: Record, position_records: tuple[Record, ...]
+    record: Record, position_records: tuple[Record, ...], analyzer_version: str
 ) -> tuple[int, set[str]]:
     positions = record.data.get("positions")
     decided = record.data.get("decided")
@@ -124,6 +124,14 @@ def _boundary_type_undecided(
     if not details_present:
         if matching:
             raise RatchetError("boundary_type_limit is missing position details")
+        try:
+            version = tuple(int(part) for part in analyzer_version.split("."))
+        except ValueError as error:
+            raise RatchetError("invalid analyzer version for boundary type details") from error
+        if len(version) != 3 or any(part < 0 for part in version):
+            raise RatchetError("invalid analyzer version for boundary type details")
+        if version >= (0, 43, 0):
+            raise RatchetError("boundary_type_limit is missing position details")
         return (
             sum(
                 value for reason, value in valid_reason_counts.items() if reason != "external_type"
@@ -140,12 +148,18 @@ def _boundary_type_undecided(
         if key[4] not in valid_reason_counts:
             raise RatchetError("boundary_type_limit has an uncounted detail reason")
         expected.append(key)
+    expected_coordinates = [(key[0], key[1], key[2], key[5]) for key in expected]
+    if len(set(expected_coordinates)) != len(expected_coordinates):
+        raise RatchetError("boundary_type_limit has duplicate position coordinates")
     if len(expected) != undecided:
         raise RatchetError("boundary_type_limit detail count mismatch")
     for reason, count in valid_reason_counts.items():
         if count != sum(1 for key in expected if key[4] == reason):
             raise RatchetError("boundary_type_limit detail reason counts mismatch")
     actual = [_boundary_position_key(item.data) for item in matching]
+    actual_coordinates = [(key[0], key[1], key[2], key[5]) for key in actual]
+    if len(set(actual_coordinates)) != len(actual_coordinates):
+        raise RatchetError("boundary_type_position has duplicate logical coordinates")
     if sorted(actual) != sorted(expected):
         raise RatchetError("boundary_type_limit detail records are missing or inconsistent")
     return (
@@ -176,7 +190,9 @@ def unknown_positions(observation: Observation) -> int:
         if record.kind == "boundary_type_position":
             continue
         if record.kind == "boundary_type_limit":
-            count, matched = _boundary_type_undecided(record, position_records)
+            count, matched = _boundary_type_undecided(
+                record, position_records, observation.analyzer.version
+            )
             total += count
             matched_positions.update(matched)
         else:

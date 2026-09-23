@@ -2006,6 +2006,23 @@ def test_boundary_types_decides_explicit_typing_symbol_aliases(tmp_path: Path) -
     assert unknown_positions(result.observation) == 0
 
 
+def test_boundary_types_keeps_typing_dict_broad_type_violation(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import typing\n\ndef typed(value: typing.Dict[str, str]) -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("position") == "value"
+    assert violation.data.get("annotation") == "typing.Dict[str, str]"
+
+
 def test_boundary_types_does_not_assume_unimported_typing_names(tmp_path: Path) -> None:
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
@@ -2013,14 +2030,15 @@ def test_boundary_types_does_not_assume_unimported_typing_names(tmp_path: Path) 
     (tmp_path / "sample/app/__init__.py").write_text("")
     (tmp_path / "sample/app/facade.py").write_text(
         "from __future__ import annotations\n\n"
-        "def typed(value: typing.Union[str, int], values: typing.List[str]) -> str:\n"
+        "def typed(value: typing.Union[str, int], values: typing.List[str], "
+        "mapping: typing.Dict[str, object]) -> str:\n"
         "    return str((value, values))\n"
     )
 
     result = _observe(tmp_path)
 
     assert result.observation is not None
-    assert unknown_positions(result.observation) == 2
+    assert unknown_positions(result.observation) == 3
 
 
 def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_path: Path) -> None:
@@ -2304,8 +2322,9 @@ def test_boundary_type_position_ids_survive_line_shifts_and_duplicate_definition
     (tmp_path / "sample/app").mkdir(parents=True)
     (tmp_path / "sample/app/__init__.py").write_text("")
     facade = tmp_path / "sample/app/facade.py"
-    definition = "def lookup(stamp: datetime.datetime) -> str:\n    return str(stamp)\n"
-    facade.write_text("import datetime\n\n" + definition + "\n" + definition)
+    first = "def lookup(stamp: datetime.datetime) -> str:\n    return str(stamp)\n"
+    second = "def lookup(stamp: 'Later') -> str:\n    return str(stamp)\n"
+    facade.write_text("import datetime\n\n" + first + "\n" + second)
     before = _observe(tmp_path)
     assert before.observation is not None
     records = [
@@ -2315,16 +2334,17 @@ def test_boundary_type_position_ids_survive_line_shifts_and_duplicate_definition
     ]
     assert len(records) == 2
     assert len({item.id for item in records}) == 2
+    ids_by_annotation = {item.data.get("annotation"): item.id for item in records}
     before_bytes = canonical_report_bytes(before.observation)
 
-    facade.write_text("\n\nimport datetime\n\n" + definition + "\n" + definition)
+    facade.write_text("\n\nimport datetime\n\n" + first + "\n" + second)
     after = _observe(tmp_path)
     assert after.observation is not None
     assert {
-        item.id
+        item.data.get("annotation"): item.id
         for item in after.observation.records("unknowns") or ()
         if item.kind == "boundary_type_position"
-    } == {item.id for item in records}
+    } == ids_by_annotation
     after_bytes = canonical_report_bytes(after.observation)
     delta = delta_payload(
         build_architecture_delta(
