@@ -1352,15 +1352,35 @@ def _enum_member_verdict(
         enter_fields=False,
         _aliases_seen=aliases_seen,
     )
+    if base.violation is not None or base.undecidable is not None:
+        return None
+    enum_origin: tuple[str, str] | None = None
     for resolved in base.resolved:
         symbol = classes_by_location.get(resolved)
-        if (
-            isinstance(symbol, dict)
-            and symbol.get("class_kind") == "enum"
-            and expression.attr in symbol.get("enum_members", ())
-        ):
-            return _Position(resolved=(resolved,))
-    return None
+        if not isinstance(symbol, dict):
+            return None
+        if symbol.get("class_kind") == "enum":
+            if enum_origin is not None:
+                return None
+            enum_origin = resolved
+            continue
+        if symbol.get("record_kind") != "type_alias":
+            return None
+        alias = symbol.get("alias")
+        if not isinstance(alias, str):
+            return None
+        try:
+            alias_expression = ast.parse(alias, mode="eval").body
+        except SyntaxError:
+            return None
+        if not isinstance(alias_expression, ast.Name):
+            return None
+    if enum_origin is None:
+        return None
+    enum = classes_by_location.get(enum_origin)
+    if not isinstance(enum, dict) or expression.attr not in enum.get("enum_members", ()):
+        return None
+    return _Position(resolved=(enum_origin,))
 
 
 def _type_alias_verdict(
