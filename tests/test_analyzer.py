@@ -1885,10 +1885,68 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
     assert data.get("dotted_name") == 1
     assert data.get("forward_reference") == 1
     assert data.get("missing_annotation") == 1
+    assert [dict(position.entries) for position in data.get("undecidable_positions")] == [
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.mixed",
+            "position": "when",
+            "annotation": "datetime.datetime",
+            "reason": "dotted_name",
+        },
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.mixed",
+            "position": "note",
+            "annotation": "'Later'",
+            "reason": "forward_reference",
+        },
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.mixed",
+            "position": "spare",
+            "annotation": "",
+            "reason": "missing_annotation",
+        },
+    ]
     assert unknown_positions(result.observation) == 3
     # A position the rule cannot decide is a reported limit, not a gate: the run stays clean
     # and the rule still holds a verdict, because it decided the positions it could.
     assert result.observation.coverage.rules == "PASS"
+    assert result.diagnostics == ()
+    assert result.exit_code == 0
+
+
+def test_boundary_types_recursively_decides_nested_generic_and_union(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "def typed(values: list[tuple[str | int, ...]], "
+        "stamps: list[datetime.datetime | str]) -> str:\n"
+        "    return str((values, stamps))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert [dict(position.entries) for position in limit.data.get("undecidable_positions")] == [
+        {
+            "module": "sample.app.facade",
+            "qualified_name": "sample.app.facade.typed",
+            "position": "stamps",
+            "annotation": "list[datetime.datetime | str]",
+            "reason": "dotted_name",
+        }
+    ]
+    totals = (limit.data.get("positions"), limit.data.get("decided"), limit.data.get("undecided"))
+    assert totals == (3, 2, 1)
     assert result.diagnostics == ()
     assert result.exit_code == 0
 

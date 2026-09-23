@@ -33,7 +33,9 @@ _STANDING_DISCLAIMERS: Final = frozenset(
 # later defaults to counting: the same fail-toward-UNKNOWN default AD-67 itself chose over
 # reading "no violation" as "probably fine". The totals `positions`, `decided` and `undecided`
 # that `boundary_type_limits` writes beside the per-kind counts would count a position twice.
-_BOUNDARY_TYPE_NEUTRAL: Final = frozenset({"external_type", "positions", "decided", "undecided"})
+_BOUNDARY_TYPE_NEUTRAL: Final = frozenset(
+    {"external_type", "positions", "decided", "undecided", "undecidable_positions"}
+)
 _BOUNDARY_TYPE_TOTALS: Final = _BOUNDARY_TYPE_NEUTRAL - {"external_type"}
 
 

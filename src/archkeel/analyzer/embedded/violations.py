@@ -882,6 +882,37 @@ def _unresolvable_shape(annotation: str) -> str:
     return "other"
 
 
+def _union_parameters(annotation: str) -> list[str] | None:
+    """Split a PEP 604 union at its top-level separators."""
+    parameters: list[str] = []
+    current = ""
+    depth = 0
+    for character in annotation:
+        if character == "[":
+            depth += 1
+        elif character == "]":
+            depth -= 1
+            if depth < 0:
+                return None
+        if character == "|" and depth == 0:
+            parameters.append(current.strip())
+            current = ""
+        else:
+            current += character
+    if depth:
+        return None
+    if not parameters:
+        head, bracket, rest = annotation.partition("[")
+        if not bracket or not rest.endswith("]") or head not in {"Union", "Optional"}:
+            return None
+        parameters = _split_type_parameters(rest[:-1]) or []
+        if head == "Optional" and len(parameters) == 1:
+            parameters.append("None")
+        return parameters if parameters and all(parameters) else None
+    parameters.append(current.strip())
+    return parameters if all(parameters) else None
+
+
 class _AmbiguousBinding:
     """Sentinel for a `(module, name)` key more than one distinct binding claims.
 
@@ -1107,7 +1138,18 @@ def _annotation_shape_verdict(
     enter_collections: bool,
     enter_fields: bool,
 ) -> _Position:
-    """Resolve one supported collection shape; leave every other shape UNKNOWN."""
+    """Resolve standard unions and collections recursively; leave other shapes UNKNOWN."""
+    union = _union_parameters(annotation)
+    if union is not None:
+        return _combined_annotation_verdict(
+            union,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_fields=enter_fields,
+        )
     if enter_collections:
         entered = _collection_verdict(
             annotation,
@@ -1197,17 +1239,40 @@ def _collection_verdict(
     parameters = _collection_parameters(annotation)
     if parameters is None:
         return None
+    return _combined_annotation_verdict(
+        parameters,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        enter_fields=enter_fields,
+    )
+
+
+def _combined_annotation_verdict(
+    parameters: list[str],
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    *,
+    enter_fields: bool,
+) -> _Position:
     decided = [
         (
             parameter,
-            _boundary_type_verdict(
+            _Position()
+            if parameter == "None"
+            else _boundary_type_verdict(
                 parameter,
                 module,
                 contract,
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
-                enter_collections=False,
+                enter_collections=True,
                 enter_fields=enter_fields,
             ),
         )
@@ -1508,43 +1573,23 @@ def boundary_type_limits(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
 ) -> list[RawRecord]:
-    """One UNKNOWN record per `boundary_types` rule, naming how much of the facade it decided.
-
-    AD-67: an undecidable position produced nothing at all, so this rule alone read `no
-    violation == probably fine` where the rest of the tool reads PASS, VIOLATION or UNKNOWN
-    (AD-26). The record is the shape `dynamic_call_limit` already gives the call graph -- the
-    denominator the rule examined and the part of it that stayed unresolved, by kind -- rather
-    than a third mechanism.
-
-    It is filed in `unknowns` and not in `coverage.failures`, so it reports and does not gate.
-    A rule that decided *nothing* is already the gate `rule-without-subjects` owns (AD-63,
-    issue #56); a rule that decided some of its positions has a verdict those positions earned,
-    and failing the run over the remainder would make every generic and every external type in
-    a facade a build failure -- pressure to delete annotations, not to declare types.
-    """
+    """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return []
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     limits: list[RawRecord] = []
     for rule in rules:
-        counts = dict.fromkeys(_UNDECIDABLE_KINDS, 0)
-        seen = decided = 0
+        undecidable_positions: list[dict[str, str]] = []
+        seen = 0
         for item in symbols:
             found = _facade_positions(item, rule, contract, exports_by_module, imports)
             if found is None:
                 continue
-            (
-                _facade_module,
-                _qualified_name,
-                positions,
-                resolution_module,
-                ambiguous_facade,
-                _,
-            ) = found
-            for _position, annotation in positions:
+            module, qualified_name, positions, resolution_module, ambiguous_facade, _ = found
+            for position, annotation in positions:
                 seen += 1
-                undecidable = (
+                reason = (
                     "ambiguous_facade"
                     if ambiguous_facade
                     else _boundary_type_verdict(
@@ -1556,10 +1601,20 @@ def boundary_type_limits(
                         classes_by_location,
                     ).undecidable
                 )
-                if undecidable is None:
-                    decided += 1
-                else:
-                    counts[undecidable] += 1
+                if reason is not None:
+                    undecidable_positions.append(
+                        {
+                            "module": module,
+                            "qualified_name": qualified_name,
+                            "position": position,
+                            "annotation": annotation,
+                            "reason": reason,
+                        }
+                    )
+        counts = dict.fromkeys(_UNDECIDABLE_KINDS, 0)
+        for detail in undecidable_positions:
+            counts[detail["reason"]] += 1
+        decided = seen - len(undecidable_positions)
         if not seen:
             # No positions at all means no declared facade function: `rule-without-subjects`
             # already says so, and saying it twice in two vocabularies would be the third
@@ -1576,7 +1631,13 @@ def boundary_type_limits(
                 title=f"{rule.id} decided {decided} of {seen} declared facade type positions",
                 subjects=[rule.source],
                 rule_ids=[rule.id],
-                data={"positions": seen, "decided": decided, "undecided": seen - decided, **counts},
+                data={
+                    "positions": seen,
+                    "decided": decided,
+                    "undecided": len(undecidable_positions),
+                    **counts,
+                    "undecidable_positions": undecidable_positions,
+                },
             )
         )
     return sorted(limits, key=lambda item: item["id"])
