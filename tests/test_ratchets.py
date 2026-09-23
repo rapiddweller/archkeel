@@ -83,6 +83,23 @@ def test_all_six_extents_preserve_raw_measurements() -> None:
     )
 
 
+def test_applied_boundary_type_allowance_fact_is_not_typing_debt() -> None:
+    model = _model(git_head="1" * 40)
+    model["typing_signals"] = [
+        _record("allowance", kind="boundary_type_allowance"),
+        _record("typing-debt", kind="any_annotation"),
+        _record(
+            "non-fact-allowance",
+            kind="boundary_type_allowance",
+            evidence_class="VIOLATION",
+        ),
+    ]
+
+    measurements = measure_python_ratchets(parse_observation(model))
+
+    assert measurements.scalars.typing_positions == 2
+
+
 @pytest.mark.parametrize(
     ("before_u", "before_t", "after_u", "after_t", "failures"),
     [

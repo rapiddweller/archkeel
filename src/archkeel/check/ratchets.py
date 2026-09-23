@@ -11,7 +11,7 @@ from archkeel.ir.measurements import (
     RatchetScalars,
     compare_measurements,
 )
-from archkeel.ir.model import Observation, Record, RecordData
+from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData
 
 from .python_profile import crossing_imports
 
@@ -225,6 +225,8 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
     )
     typing_positions = 0
     for signal in _records(observation, "typing_signals"):
+        if signal.kind == "boundary_type_allowance" and signal.evidence_class == EvidenceClass.FACT:
+            continue
         if signal.kind == "missing_cross_package_annotation":
             typing_positions += _positions(signal.data.get("positions"), "typing_signal.positions")
         else:
