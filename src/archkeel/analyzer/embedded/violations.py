@@ -803,6 +803,9 @@ class _Position(NamedTuple):
     violation: str | None = None
     undecidable: str | None = None
     resolved: tuple[tuple[str, str], ...] = ()
+    path: tuple[str, ...] = ()
+    nested_annotation: str | None = None
+    violations: tuple[tuple[str, tuple[str, ...], str | None], ...] = ()
 
 
 # A container whose declared element type is the whole of what actually crosses the boundary
@@ -1135,7 +1138,7 @@ def _boundary_type_verdict(
     classes_by_location: BindingIndex,
     *,
     enter_collections: bool = True,
-    enter_fields: bool = True,
+    visited: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position:
     """Read one annotation for boundary_types and facade_types (AD-58, AD-69).
     Broad or undeclared types violate; builtins, enums and declared types pass. Other shapes
@@ -1159,7 +1162,7 @@ def _boundary_type_verdict(
             imports_by_binding,
             classes_by_location,
             enter_collections=enter_collections,
-            enter_fields=enter_fields,
+            visited=visited,
         )
     resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if isinstance(resolved, _AmbiguousBinding):
@@ -1174,6 +1177,24 @@ def _boundary_type_verdict(
         if annotation in _BUILTIN_NAMES:
             return _Position()
         return _Position(undecidable="unresolved_name")
+    return _resolved_type_verdict(
+        resolved,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        visited,
+    )
+
+
+def _resolved_type_verdict(
+    resolved: tuple[str, str],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    visited: frozenset[tuple[str, str]],
+) -> _Position:
     origin_module, origin_name = resolved
     reached: tuple[tuple[str, str], ...] = (resolved,)
     origin_symbol = classes_by_location.get(resolved)
@@ -1188,6 +1209,8 @@ def _boundary_type_verdict(
         # read against, so the rule has nothing to decide it with, either way.
         return _Position(undecidable="external_type", resolved=reached)
     if _facade_covers(origin_module, origin_name, origin_component, exports_by_module):
+        if resolved in visited:
+            return _Position(resolved=reached)
         fields = _declared_field_verdict(
             origin_symbol,
             origin_module,
@@ -1195,13 +1218,25 @@ def _boundary_type_verdict(
             exports_by_module,
             imports_by_binding,
             classes_by_location,
-            enter_fields=enter_fields,
+            visited=visited | {resolved},
         )
         reached = tuple(sorted({*reached, *fields.resolved}))
         if fields.violation is not None:
-            return _Position(violation=fields.violation, resolved=reached)
+            return _Position(
+                violation=fields.violation,
+                resolved=reached,
+                path=fields.path,
+                nested_annotation=fields.nested_annotation,
+                violations=fields.violations,
+            )
         if fields.undecidable is not None:
-            return _Position(undecidable=fields.undecidable, resolved=reached)
+            return _Position(
+                undecidable=fields.undecidable,
+                resolved=reached,
+                path=fields.path,
+                nested_annotation=fields.nested_annotation,
+                violations=fields.violations,
+            )
         return _Position(resolved=reached)
     if class_kind in _EXEMPT_CLASS_KINDS:
         return _Position(resolved=reached)
@@ -1217,7 +1252,7 @@ def _annotation_shape_verdict(
     classes_by_location: BindingIndex,
     *,
     enter_collections: bool,
-    enter_fields: bool,
+    visited: frozenset[tuple[str, str]],
 ) -> _Position:
     """Resolve standard unions and collections recursively; leave other shapes UNKNOWN."""
     union = _union_parameters(annotation, module, imports_by_binding)
@@ -1229,7 +1264,7 @@ def _annotation_shape_verdict(
             exports_by_module,
             imports_by_binding,
             classes_by_location,
-            enter_fields=enter_fields,
+            visited=visited,
         )
     if enter_collections:
         entered = _collection_verdict(
@@ -1239,7 +1274,7 @@ def _annotation_shape_verdict(
             exports_by_module,
             imports_by_binding,
             classes_by_location,
-            enter_fields=enter_fields,
+            visited=visited,
         )
         if entered is not None:
             return entered
@@ -1254,20 +1289,19 @@ def _declared_field_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
-    enter_fields: bool,
+    visited: frozenset[tuple[str, str]],
 ) -> _Position:
-    """Inspect one directly declared model-field level, or mark the next level UNKNOWN."""
+    """Inspect all owned declared model fields, stopping recursive graphs by origin."""
     if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
         return _Position()
-    if not enter_fields:
-        return _Position(undecidable="nested_type")
-    field_verdicts: list[tuple[str, _Position]] = []
+    field_verdicts: list[tuple[str, str, _Position]] = []
     for field in origin_symbol["fields"]:
         if not isinstance(field, dict) or not isinstance(field.get("name"), str):
             continue
         field_verdicts.append(
             (
                 field["name"],
+                field.get("annotation") or "",
                 _boundary_type_verdict(
                     field.get("annotation") or "",
                     module,
@@ -1275,19 +1309,49 @@ def _declared_field_verdict(
                     exports_by_module,
                     imports_by_binding,
                     classes_by_location,
-                    enter_fields=False,
+                    visited=visited,
                 ),
             )
         )
     reached: tuple[tuple[str, str], ...] = tuple(
-        sorted({pair for _, verdict in field_verdicts for pair in verdict.resolved})
+        sorted({pair for _, _, verdict in field_verdicts for pair in verdict.resolved})
     )
-    for field_name, verdict in field_verdicts:
-        if verdict.violation is not None:
-            return _Position(violation=f"field {field_name} {verdict.violation}", resolved=reached)
-    for _field_name, verdict in field_verdicts:
+    violations: list[tuple[str, tuple[str, ...], str | None]] = []
+    for field_name, field_annotation, verdict in field_verdicts:
+        if verdict.violations:
+            violations.extend(
+                (
+                    reason,
+                    (field_name, *path),
+                    nested_annotation or field_annotation,
+                )
+                for reason, path, nested_annotation in verdict.violations
+            )
+        elif verdict.violation is not None:
+            violations.append(
+                (
+                    verdict.violation,
+                    (field_name, *verdict.path),
+                    verdict.nested_annotation or field_annotation,
+                )
+            )
+    if violations:
+        reason, path, nested_annotation = violations[0]
+        return _Position(
+            violation=reason,
+            resolved=reached,
+            path=path,
+            nested_annotation=nested_annotation,
+            violations=tuple(violations),
+        )
+    for field_name, field_annotation, verdict in field_verdicts:
         if verdict.undecidable is not None:
-            return _Position(undecidable=verdict.undecidable, resolved=reached)
+            return _Position(
+                undecidable=verdict.undecidable,
+                resolved=reached,
+                path=(field_name, *verdict.path),
+                nested_annotation=verdict.nested_annotation or field_annotation,
+            )
     return _Position(resolved=reached)
 
 
@@ -1299,7 +1363,7 @@ def _collection_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
-    enter_fields: bool = True,
+    visited: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position | None:
     """Decide `Container[Name]` from its parameters, or None when it is not one (AD-67).
 
@@ -1327,7 +1391,7 @@ def _collection_verdict(
         exports_by_module,
         imports_by_binding,
         classes_by_location,
-        enter_fields=enter_fields,
+        visited=visited,
     )
 
 
@@ -1339,7 +1403,7 @@ def _combined_annotation_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
-    enter_fields: bool,
+    visited: frozenset[tuple[str, str]],
 ) -> _Position:
     decided = [
         (
@@ -1354,18 +1418,50 @@ def _combined_annotation_verdict(
                 imports_by_binding,
                 classes_by_location,
                 enter_collections=True,
-                enter_fields=enter_fields,
+                visited=visited,
             ),
         )
         for parameter in parameters
     ]
     reached = tuple(sorted({pair for _parameter, verdict in decided for pair in verdict.resolved}))
-    for parameter, verdict in decided:
-        if verdict.violation is not None:
-            return _Position(violation=f"holding {parameter} {verdict.violation}", resolved=reached)
+    violations = tuple(
+        sorted(
+            {
+                violation
+                for parameter, verdict in decided
+                if verdict.violation is not None
+                for violation in (
+                    verdict.violations
+                    or (
+                        (
+                            f"holding {parameter} {verdict.violation}",
+                            verdict.path,
+                            verdict.nested_annotation or parameter,
+                        ),
+                    )
+                )
+            },
+            key=lambda item: (item[0], item[1], item[2] or ""),
+        )
+    )
+    if violations:
+        reason, path, nested_annotation = violations[0]
+        return _Position(
+            violation=reason,
+            resolved=reached,
+            path=path,
+            nested_annotation=nested_annotation,
+            violations=violations,
+        )
     for _parameter, verdict in decided:
         if verdict.undecidable is not None:
-            return _Position(undecidable=verdict.undecidable, resolved=reached)
+            return _Position(
+                undecidable=verdict.undecidable,
+                resolved=reached,
+                path=verdict.path,
+                nested_annotation=verdict.nested_annotation,
+                violations=verdict.violations,
+            )
     return _Position(resolved=reached)
 
 
@@ -1621,31 +1717,70 @@ def _boundary_types_violations(
                         classes_by_location,
                     )
                 )
-                reason = verdict.violation
-                if reason is None:
-                    continue
-                verb = "returns" if position == "return" else f"takes {position} as"
-                violations.append(
-                    classified(
-                        item_id=stable_id("VIO", rule.id, item["id"], position),
-                        evidence_class=EvidenceClass.VIOLATION,
-                        area="type_architecture",
-                        kind=rule.kind,
-                        title=f"{qualname} {verb} {annotation} {reason}",
-                        subjects=[qualname, facade_module],
-                        evidence_ids=item["evidence_ids"],
-                        rule_ids=[rule.id],
-                        fact_ids=[item["id"]],
-                        data={
-                            "source": rule.source,
-                            "qualified_name": qualname,
-                            "module": facade_module,
-                            "position": position,
-                            "annotation": annotation,
-                        },
+                violations.extend(
+                    _boundary_type_violation_records(
+                        rule,
+                        item,
+                        facade_module,
+                        qualname,
+                        position,
+                        annotation,
+                        verdict,
                     )
                 )
     return sorted(violations, key=lambda item: item["id"])
+
+
+def _boundary_type_violation_records(
+    rule: BoundaryTypesRule,
+    item: RawRecord,
+    facade_module: str,
+    qualname: str,
+    position: str,
+    annotation: str,
+    verdict: _Position,
+) -> list[RawRecord]:
+    if verdict.violation is None:
+        return []
+    verb = "returns" if position == "return" else f"takes {position} as"
+    findings = verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation),)
+    records: list[RawRecord] = []
+    for reason, path, nested_annotation in findings:
+        path_data = ".".join((position, *path)) if path else None
+        identity_parts = (
+            (rule.id, item["id"], position, *path, nested_annotation or "", reason)
+            if path
+            else (rule.id, item["id"], position)
+        )
+        nested_fields = " ".join(f"field {name}" for name in path)
+        field_detail = f"{nested_fields} " if nested_fields else ""
+        records.append(
+            classified(
+                item_id=stable_id("VIO", *identity_parts),
+                evidence_class=EvidenceClass.VIOLATION,
+                area="type_architecture",
+                kind=rule.kind,
+                title=f"{qualname} {verb} {annotation} {field_detail}{reason}",
+                subjects=[qualname, facade_module],
+                evidence_ids=item["evidence_ids"],
+                rule_ids=[rule.id],
+                fact_ids=[item["id"]],
+                data={
+                    "source": rule.source,
+                    "qualified_name": qualname,
+                    "module": facade_module,
+                    "position": position,
+                    "annotation": annotation,
+                    **({"path": path_data} if path_data else {}),
+                    **(
+                        {"nested_annotation": nested_annotation}
+                        if path_data and nested_annotation
+                        else {}
+                    ),
+                },
+            )
+        )
+    return records
 
 
 def _boundary_type_position_record(
@@ -1658,6 +1793,8 @@ def _boundary_type_position_record(
     position = detail["position"]
     reason = detail["reason"]
     occurrence = detail["occurrence"]
+    path = detail.get("path")
+    location = f" at {path}" if isinstance(path, str) else ""
     return classified(
         item_id=stable_id(
             "UNKNOWN-BOUNDARY-TYPE-POSITION",
@@ -1670,7 +1807,7 @@ def _boundary_type_position_record(
         evidence_class=EvidenceClass.UNKNOWN,
         area="type_architecture",
         kind="boundary_type_position",
-        title=f"{qualified_name} {position}: {reason}",
+        title=f"{qualified_name} {position}: {reason}{location}",
         subjects=[rule.source, module, qualified_name],
         evidence_ids=symbol["evidence_ids"],
         rule_ids=[rule.id],
@@ -1749,8 +1886,8 @@ def boundary_type_limits(
             occurrences[callable_key] = occurrence + 1
             for position, annotation in positions:
                 seen += 1
-                reason = (
-                    "ambiguous_facade"
+                verdict = (
+                    _Position(undecidable="ambiguous_facade")
                     if ambiguous_facade
                     else _boundary_type_verdict(
                         annotation,
@@ -1759,8 +1896,9 @@ def boundary_type_limits(
                         exports_by_module,
                         imports_by_binding,
                         classes_by_location,
-                    ).undecidable
+                    )
                 )
+                reason = verdict.undecidable
                 if reason is not None:
                     detail = {
                         "module": module,
@@ -1770,6 +1908,9 @@ def boundary_type_limits(
                         "reason": reason,
                         "occurrence": occurrence,
                     }
+                    if verdict.path:
+                        detail["path"] = ".".join((position, *verdict.path))
+                        detail["nested_annotation"] = verdict.nested_annotation or annotation
                     undecidable_positions.append(detail)
                     positions_out.append(
                         _boundary_type_position_record(

@@ -128,6 +128,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-90 | [Decision-relevant evidence is never neutral metadata](decisions/ad-90-decision-relevant-evidence-is-never-neutral-metadata.md) |
 | AD-91 | [Top-level owner resolution decides private ownership UNKNOWN](decisions/ad-91-only-top-level-any-makes-private-owner-unknown.md) |
 | AD-92 | [Undecided declared evidence is UNKNOWN by default and measured](decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md) |
+| AD-93 | [`boundary_types` follows owned declared DTO fields](decisions/ad-93-boundary-types-follow-owned-dto-fields.md) |
 
 ## Allowed dependencies
 

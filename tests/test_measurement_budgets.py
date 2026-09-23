@@ -76,11 +76,10 @@ def test_cycle_edge_budget_passes_then_blocks_a_rise(tmp_path: Path) -> None:
 def test_unknown_position_budget_blocks_a_new_undecided_promise(tmp_path: Path) -> None:
     """AD-92: `check` already failed a new `unknowns` record; `validate --baseline` kept exit 0
     until the count became a budget. A `public_api` name the sample never defines, in a module
-    without `__all__`, is one position the scan cannot decide (AD-72). The sample starts at
-    one: its `APP-TYPES-NOT-DICT` facade leaves one type position open for a checker-limit
-    reason (and one `external_type`, which does not count, AD-67)."""
+    without `__all__`, is one position the scan cannot decide (AD-72). Recursive DTO inspection
+    resolves the sample's former `nested_type` limit, leaving the initial unknown count at zero."""
     root = _repo(tmp_path, "unknown_positions")
-    baseline = _baseline(root, MeasurementBudget("unknown_positions", 1))
+    baseline = _baseline(root, MeasurementBudget("unknown_positions", 0))
 
     assert run_validate(root, CONFIG, observe, baseline=baseline)[0].exit_code == 0
 
@@ -91,7 +90,7 @@ def test_unknown_position_budget_blocks_a_new_undecided_promise(tmp_path: Path) 
     result, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
 
     assert result.exit_code == 1
-    assert result.failures == ("measurement budget exceeded in unknown_positions: 1->2",)
+    assert result.failures == ("measurement budget exceeded in unknown_positions: 0->1",)
     assert files == {}
 
     accepted, files = run_validate(
@@ -99,7 +98,7 @@ def test_unknown_position_budget_blocks_a_new_undecided_promise(tmp_path: Path) 
     )
     assert accepted.exit_code == 0
     written = parse_validation_baseline(decode_json(files[str(baseline)]))
-    assert written.budgets == (MeasurementBudget("unknown_positions", 2),)
+    assert written.budgets == (MeasurementBudget("unknown_positions", 1),)
 
 
 def test_reduced_budget_must_be_written_back(tmp_path: Path) -> None:

@@ -52,9 +52,10 @@ other `unknowns` kind does too, except the standing disclaimers `dynamic_call_li
 A package or module facade may re-export a function. The analyzer follows the recorded
 re-export chain to the definition, but keeps the declared facade as the violation subject. Alias
 paths to one exact origin are decidable; distinct possible origins are reported as
-`ambiguous_facade` UNKNOWN. For a declared request or result class it reads direct field
-annotations once. A second model level, an ambiguous binding or an unresolved field is reported
-as UNKNOWN; the analyzer does not grow a recursive type resolver.
+`ambiguous_facade` UNKNOWN. For an owned declared request or result class, it recursively checks
+declared fields and known collection or union members. A repeated class on the current path ends
+that branch. Ambiguous bindings, unresolved names and unsupported annotation shapes stay UNKNOWN;
+their records include the signature-rooted field path and the nested annotation.
 
 Measured on Archkeel's own facades with the rule widened to the whole `archkeel` namespace, 88
 declared facade functions carry 258 positions:

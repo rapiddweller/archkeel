@@ -280,8 +280,7 @@ _BOUNDARY_TYPES_MODEL_FIELD = Variant(
     section="class_a",
     item="boundary_types:model_field",
     summary="A declared request model carries a directly declared metadata: dict field. "
-    "boundary_types inspects that first field level and reports the broad boundary type "
-    "without recursively guessing through deeper models (AD-84).",
+    "boundary_types reports the broad boundary type at the request's declared field path (AD-93).",
     files={
         "shop/app/requests.py": _REQUEST_MODEL_MODULE,
         "shop/cli/main.py": _CLI_IMPORTS_REPORTS.replace(
