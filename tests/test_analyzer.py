@@ -2023,6 +2023,42 @@ def test_boundary_types_keeps_typing_dict_broad_type_violation(tmp_path: Path) -
     assert violation.data.get("annotation") == "typing.Dict[str, str]"
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from typing import Dict, Generic, TypeVar\n"
+        "T = TypeVar('T')\n\n"
+        "class Dict(Generic[T]):\n    pass\n\n\n"
+        "def typed(value: Dict[str, str]) -> str:\n    return str(value)\n",
+        "from __future__ import annotations\n"
+        "import typing as t\n\n"
+        "class t:\n    pass\n\n\n"
+        "def typed(value: t.Dict[str, str]) -> str:\n    return str(value)\n",
+    ],
+    ids=["local-dict-class", "local-module-alias-class"],
+)
+def test_boundary_types_does_not_treat_ambiguous_typing_dict_as_broad(
+    tmp_path: Path, source: str
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(source)
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert unknown_positions(result.observation) == 1
+    [position] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert position.data.get("reason") == "ambiguous_binding"
+
+
 def test_boundary_types_does_not_assume_unimported_typing_names(tmp_path: Path) -> None:
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))

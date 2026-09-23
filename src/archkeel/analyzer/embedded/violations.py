@@ -864,29 +864,39 @@ def _typing_module_binding(module: str, binding: str, imports_by_binding: Bindin
     )
 
 
-def _is_imported_typing_dict(
-    annotation: str, module: str, imports_by_binding: BindingIndex
-) -> bool:
+def _typing_dict_verdict(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> _Position | None:
     try:
         expression = ast.parse(annotation, mode="eval").body
     except SyntaxError:
-        return False
+        return None
     if not isinstance(expression, ast.Subscript):
-        return False
+        return None
     head = expression.value
     if isinstance(head, ast.Name):
-        imported = imports_by_binding.get((module, head.id))
-        return (
-            isinstance(imported, dict)
-            and imported["target_module"] == "typing"
-            and imported["symbol"] == "Dict"
-        )
-    return (
-        isinstance(head, ast.Attribute)
-        and head.attr == "Dict"
-        and isinstance(head.value, ast.Name)
-        and _typing_module_binding(module, head.value.id, imports_by_binding)
-    )
+        key = (module, head.id)
+        imported = imports_by_binding.get(key)
+        if (
+            not isinstance(imported, dict)
+            or imported["target_module"] != "typing"
+            or imported["symbol"] != "Dict"
+        ):
+            return None
+    elif (
+        isinstance(head, ast.Attribute) and head.attr == "Dict" and isinstance(head.value, ast.Name)
+    ):
+        key = (module, head.value.id)
+        if not _typing_module_binding(module, head.value.id, imports_by_binding):
+            return None
+    else:
+        return None
+    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+        return _Position(undecidable="ambiguous_binding")
+    return _Position(violation="instead of a typed model")
 
 
 def _collection_parameters(
@@ -1134,9 +1144,10 @@ def _boundary_type_verdict(
     """
     if not annotation:
         return _Position(undecidable="missing_annotation")
+    typing_dict = _typing_dict_verdict(annotation, module, imports_by_binding, classes_by_location)
+    if typing_dict is not None:
+        return typing_dict
     if _is_broad_boundary_type(annotation):
-        return _Position(violation="instead of a typed model")
-    if _is_imported_typing_dict(annotation, module, imports_by_binding):
         return _Position(violation="instead of a typed model")
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
