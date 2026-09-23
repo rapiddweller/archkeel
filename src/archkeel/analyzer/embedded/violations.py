@@ -902,6 +902,71 @@ def _typing_dict_verdict(
     return _Position(violation="instead of a typed model")
 
 
+def _typing_wrapper_inner(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    wrapper: str,
+) -> str | None:
+    """Return T for a statically bound typing wrapper such as Annotated[T, metadata]."""
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(expression, ast.Subscript):
+        return None
+    head = expression.value
+    if isinstance(head, ast.Name):
+        key = (module, head.id)
+        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+            return None
+        imported = imports_by_binding.get(key)
+        if not isinstance(imported, dict) or imported["target_module"] != "typing":
+            return None
+        if imported["symbol"] != wrapper:
+            return None
+    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
+        key = (module, head.value.id)
+        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+            return None
+        if head.attr != wrapper or not _typing_module_binding(
+            module, head.value.id, imports_by_binding
+        ):
+            return None
+    else:
+        return None
+    parameters = (
+        list(expression.slice.elts)
+        if isinstance(expression.slice, ast.Tuple)
+        else [expression.slice]
+    )
+    if wrapper == "Annotated" and len(parameters) >= 2:
+        return ast.unparse(parameters[0])
+    if wrapper == "Literal" and parameters:
+        for value in parameters:
+            if isinstance(value, ast.Constant) and isinstance(
+                value.value, (str, int, bool, type(None))
+            ):
+                continue
+            if isinstance(value, ast.Name):
+                resolved = resolve_named_type(
+                    value.id, module, imports_by_binding, classes_by_location
+                )
+                if not isinstance(resolved, tuple):
+                    return None
+                record = classes_by_location.get(resolved)
+                if not isinstance(record, dict) or record.get("record_kind") != "static_constant":
+                    return None
+                constant = record.get("constant")
+                if not isinstance(constant, (str, int, bool, type(None))):
+                    return None
+                continue
+            return None
+        return "<literal>"
+    return None
+
+
 def _collection_parameters(
     annotation: str,
     module: str,
@@ -1119,7 +1184,8 @@ def boundary_type_indexes(
         for item in symbols
         for data in [item["data"]]
         # A nested class is never what a module-level annotation's bare name resolves to.
-        if item["kind"] == "class" and data.get("parent") is None
+        if (item["kind"] == "class" and data.get("parent") is None)
+        or item["kind"] in {"type_alias", "static_constant", "dynamic_binding"}
     )
     for item in symbols:
         data = item["data"]
@@ -1139,6 +1205,8 @@ def _boundary_type_verdict(
     *,
     enter_collections: bool = True,
     visited: frozenset[tuple[str, str]] = frozenset(),
+    enter_fields: bool = True,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position:
     """Read one annotation for boundary_types and facade_types (AD-58, AD-69).
     Broad or undeclared types violate; builtins, enums and declared types pass. Other shapes
@@ -1146,6 +1214,27 @@ def _boundary_type_verdict(
     """
     if not annotation:
         return _Position(undecidable="missing_annotation")
+    annotated = _typing_wrapper_inner(
+        annotation, module, imports_by_binding, classes_by_location, "Annotated"
+    )
+    if annotated is not None:
+        return _boundary_type_verdict(
+            annotated,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_collections=enter_collections,
+            visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
+        )
+    literal = _typing_wrapper_inner(
+        annotation, module, imports_by_binding, classes_by_location, "Literal"
+    )
+    if literal == "<literal>":
+        return _Position()
     typing_dict = _typing_dict_verdict(annotation, module, imports_by_binding, classes_by_location)
     if typing_dict is not None:
         return typing_dict
@@ -1163,6 +1252,8 @@ def _boundary_type_verdict(
             classes_by_location,
             enter_collections=enter_collections,
             visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
         )
     resolved = resolve_named_type(annotation, module, imports_by_binding, classes_by_location)
     if isinstance(resolved, _AmbiguousBinding):
@@ -1198,6 +1289,30 @@ def _resolved_type_verdict(
     origin_module, origin_name = resolved
     reached: tuple[tuple[str, str], ...] = (resolved,)
     origin_symbol = classes_by_location.get(resolved)
+    if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "type_alias":
+        if resolved in _aliases_seen:
+            return _Position(undecidable="other", resolved=reached)
+        alias = origin_symbol.get("alias")
+        if not isinstance(alias, str) or alias == annotation:
+            return _Position(undecidable="other", resolved=reached)
+        expanded = _boundary_type_verdict(
+            alias,
+            origin_module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            enter_collections=enter_collections,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen | {resolved},
+        )
+        return _Position(
+            expanded.violation, expanded.undecidable, tuple(sorted({*reached, *expanded.resolved}))
+        )
+    if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "static_constant":
+        return _Position()
+    if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "dynamic_binding":
+        return _Position(undecidable="other", resolved=reached)
     # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
     # `class_kind` (AD-30).
     class_kind = origin_symbol["class_kind"] if isinstance(origin_symbol, dict) else None
@@ -1219,6 +1334,8 @@ def _resolved_type_verdict(
             imports_by_binding,
             classes_by_location,
             visited=visited | {resolved},
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
         )
         reached = tuple(sorted({*reached, *fields.resolved}))
         if fields.violation is not None:
@@ -1253,6 +1370,8 @@ def _annotation_shape_verdict(
     *,
     enter_collections: bool,
     visited: frozenset[tuple[str, str]],
+    enter_fields: bool,
+    _aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     """Resolve standard unions and collections recursively; leave other shapes UNKNOWN."""
     union = _union_parameters(annotation, module, imports_by_binding)
@@ -1265,6 +1384,8 @@ def _annotation_shape_verdict(
             imports_by_binding,
             classes_by_location,
             visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
         )
     if enter_collections:
         entered = _collection_verdict(
@@ -1275,6 +1396,8 @@ def _annotation_shape_verdict(
             imports_by_binding,
             classes_by_location,
             visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
         )
         if entered is not None:
             return entered
@@ -1290,6 +1413,8 @@ def _declared_field_verdict(
     classes_by_location: BindingIndex,
     *,
     visited: frozenset[tuple[str, str]],
+    enter_fields: bool,
+    _aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     """Inspect all owned declared model fields, stopping recursive graphs by origin."""
     if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
@@ -1310,6 +1435,9 @@ def _declared_field_verdict(
                     imports_by_binding,
                     classes_by_location,
                     visited=visited,
+                    visited=visited,
+                    enter_fields=False,
+                    _aliases_seen=_aliases_seen,
                 ),
             )
         )
@@ -1364,6 +1492,8 @@ def _collection_verdict(
     classes_by_location: BindingIndex,
     *,
     visited: frozenset[tuple[str, str]] = frozenset(),
+    enter_fields: bool = True,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position | None:
     """Decide `Container[Name]` from its parameters, or None when it is not one (AD-67).
 
@@ -1392,6 +1522,8 @@ def _collection_verdict(
         imports_by_binding,
         classes_by_location,
         visited=visited,
+        enter_fields=enter_fields,
+        _aliases_seen=_aliases_seen,
     )
 
 
@@ -1404,6 +1536,8 @@ def _combined_annotation_verdict(
     classes_by_location: BindingIndex,
     *,
     visited: frozenset[tuple[str, str]],
+    enter_fields: bool,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position:
     decided = [
         (
@@ -1419,6 +1553,8 @@ def _combined_annotation_verdict(
                 classes_by_location,
                 enter_collections=True,
                 visited=visited,
+                enter_fields=enter_fields,
+                _aliases_seen=_aliases_seen,
             ),
         )
         for parameter in parameters
