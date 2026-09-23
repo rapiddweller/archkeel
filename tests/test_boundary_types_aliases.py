@@ -108,6 +108,19 @@ def test_ambiguous_typing_wrapper_binding_stays_unknown() -> None:
     )
 
 
+def test_rebound_typing_dict_is_unknown_not_a_broad_type_violation() -> None:
+    imports = {("sample", "Dict"): {"target_module": "typing", "symbol": "Dict"}}
+    rebinding = {
+        ("sample", "Dict"): {
+            "record_kind": "dynamic_binding",
+            "module": "sample",
+            "name": "Dict",
+        }
+    }
+    verdict = _boundary_type_verdict("Dict[str, str]", "sample", None, {}, imports, rebinding)
+    assert verdict.violation is None and verdict.undecidable == "ambiguous_binding"
+
+
 def test_annotated_alias_cycle_is_unknown_and_wrapper_does_not_hide_violation() -> None:
     module = "sample.app.impl"
     imports = {
