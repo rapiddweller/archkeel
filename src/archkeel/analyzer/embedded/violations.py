@@ -1137,10 +1137,9 @@ def _boundary_type_verdict(
     enter_collections: bool = True,
     enter_fields: bool = True,
 ) -> _Position:
-    """Resolve one annotation for both boundary_types and facade_types (AD-58, AD-69).
-
+    """Read one annotation for boundary_types and facade_types (AD-58, AD-69).
     Broad or undeclared types violate; builtins, enums and declared types pass. Other shapes
-    report their reason, with collection and field descent bounded by the two flags (AD-67, AD-84).
+    report why undecidable, with bounded collection and field descent (AD-67, AD-84).
     """
     if not annotation:
         return _Position(undecidable="missing_annotation")
