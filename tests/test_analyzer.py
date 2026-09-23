@@ -2256,7 +2256,7 @@ def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
     facade.write_text(
         "import datetime\n\n\n"
         "class Later:\n    pass\n\n\n"
-        "def lookup(first: str, second: 'Later') -> str:\n"
+        "def lookup(first: str, second: 'NotThere') -> str:\n"
         "    return first\n"
     )
     after = _observe(tmp_path)
@@ -2264,6 +2264,7 @@ def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
     after_positions = positions(after.observation)
     assert len(after_positions) == 1
     assert after_positions[0].data.get("position") == "second"
+    assert after_positions[0].data.get("annotation") == "'NotThere'"
 
     before_bytes = canonical_report_bytes(before.observation)
     after_bytes = canonical_report_bytes(after.observation)
@@ -2283,6 +2284,16 @@ def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
     ]
     assert len(removed) == 1
     assert removed[0]["before"]["data"]["position"] == "first"
+    changed_positions = [
+        item
+        for item in delta["semantic_changes"]
+        if item["dimension"] == "unknowns"
+        and item["change"] == "changed"
+        and item["before"]["kind"] == "boundary_type_position"
+    ]
+    assert len(changed_positions) == 1
+    assert changed_positions[0]["before"]["data"]["position"] == "second"
+    assert changed_positions[0]["after"]["data"]["annotation"] == "'NotThere'"
 
 
 def test_boundary_type_position_ids_survive_line_shifts_and_duplicate_definitions(

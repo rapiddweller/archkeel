@@ -162,6 +162,10 @@ def test_boundary_position_records_are_counted_once_and_must_match_aggregate() -
     assert unknown_positions(_observation(aggregate, position)) == 1
     with pytest.raises(RatchetError, match="missing or inconsistent"):
         unknown_positions(_observation(aggregate))
+    duplicate = _unknown("POSITION-2", "boundary_type_position", detail)
+    duplicate["rule_ids"] = ["BOUNDARY"]
+    with pytest.raises(RatchetError, match="missing or inconsistent"):
+        unknown_positions(_observation(aggregate, position, duplicate))
 
 
 def test_legacy_boundary_aggregate_without_details_remains_countable() -> None:
