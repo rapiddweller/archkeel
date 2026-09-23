@@ -115,6 +115,7 @@ def test_literal_resolves_exact_static_enum_member_through_signature(
         "AuthoringReferenceCategory.MISSING",
         "choose_category().PRODUCT",
         "Category.PRODUCT",
+        "UnionAlias.PRODUCT",
         "Other.PRODUCT",
         "Ignored.PRODUCT",
     ],
@@ -134,6 +135,7 @@ def test_unproven_enum_member_remains_unknown_at_signature_position(
         "    PRODUCT = 'product'\n\n"
         "def choose_category():\n    return AuthoringReferenceCategory\n\n"
         "Category = choose_category()\n\n"
+        "UnionAlias = AuthoringReferenceCategory | str\n\n"
         f"def run(category: Literal[{annotation}]) -> str:\n    return str(category)\n"
     )
     _write_app(tmp_path, {"facade": facade})
