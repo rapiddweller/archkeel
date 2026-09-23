@@ -1223,27 +1223,27 @@ def _typing_wrapper_verdict(
     )
     if not isinstance(literal, tuple):
         return None
-    verdicts = [
-        _enum_member_verdict(name, module, imports_by_binding, classes_by_location)
-        or _boundary_type_verdict(
+    decided = [
+        (
             name,
-            module,
-            contract,
-            exports_by_module,
-            imports_by_binding,
-            classes_by_location,
-            enter_collections=enter_collections,
-            visited=visited,
-            enter_fields=enter_fields,
-            _aliases_seen=aliases_seen,
-            _require_static_constant=True,
+            _enum_member_verdict(name, module, imports_by_binding, classes_by_location)
+            or _boundary_type_verdict(
+                name,
+                module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+                enter_collections=enter_collections,
+                visited=visited,
+                enter_fields=enter_fields,
+                _aliases_seen=aliases_seen,
+                _require_static_constant=True,
+            ),
         )
         for name in literal
     ]
-    return next(
-        (verdict for verdict in verdicts if verdict.violation is not None),
-        next((verdict for verdict in verdicts if verdict.undecidable is not None), _Position()),
-    )
+    return _combine_position_verdicts(decided)
 
 
 def _boundary_type_verdict(
@@ -1330,14 +1330,34 @@ def _enum_member_verdict(
     resolved = resolve_named_type(
         expression.value.id, module, imports_by_binding, classes_by_location
     )
-    if not isinstance(resolved, tuple):
-        return None
-    symbol = classes_by_location.get(resolved)
-    if not isinstance(symbol, dict) or symbol.get("class_kind") != "enum":
-        return None
-    if expression.attr not in symbol.get("enum_members", ()):
-        return None
-    return _Position(resolved=(resolved,))
+    seen: tuple[tuple[str, str], ...] = ()
+    while isinstance(resolved, tuple):
+        if resolved in seen:
+            return None
+        seen = (*seen, resolved)
+        symbol = classes_by_location.get(resolved)
+        if not isinstance(symbol, dict):
+            return None
+        if symbol.get("class_kind") == "enum":
+            if expression.attr not in symbol.get("enum_members", ()):
+                return None
+            return _Position(resolved=(resolved,))
+        if symbol.get("record_kind") != "type_alias":
+            return None
+        alias = symbol.get("alias")
+        if not isinstance(alias, str):
+            return None
+        try:
+            alias_expression = ast.parse(alias, mode="eval").body
+        except SyntaxError:
+            return None
+        if not isinstance(alias_expression, ast.Name):
+            return None
+        module = resolved[0]
+        resolved = resolve_named_type(
+            alias_expression.id, module, imports_by_binding, classes_by_location
+        )
+    return None
 
 
 def _type_alias_verdict(
@@ -1720,6 +1740,10 @@ def _combined_annotation_verdict(
         )
         for parameter in parameters
     ]
+    return _combine_position_verdicts(decided)
+
+
+def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Position:
     reached = tuple(sorted({pair for _parameter, verdict in decided for pair in verdict.resolved}))
     violations = tuple(
         sorted(
