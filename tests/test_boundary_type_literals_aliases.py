@@ -86,6 +86,27 @@ def test_boundary_types_keeps_dynamic_literal_arguments_unknown_with_source_anno
     assert position.data.get("reason") == "generic"
 
 
+def test_boundary_types_treats_literal_constant_as_static_but_not_as_a_type(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        "from typing import Literal\n\n"
+        'READY = "ready"\n\n'
+        "def run(value: READY, status: Literal[READY]) -> str:\n"
+        "    return str((value, status))\n",
+        public=["sample.app.facade:run"],
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert [position.data.get("annotation") for position in _positions(result)] == ["READY"]
+    [position] = _positions(result)
+    assert position.data.get("reason") == "unresolved_name"
+
+
 def test_boundary_types_checks_union_inside_annotated_and_ignores_metadata_expression(
     tmp_path: Path,
 ) -> None:
@@ -192,3 +213,106 @@ def test_boundary_types_known_broad_type_in_annotated_alias_still_violates(
     assert violation.data.get("annotation") == "Payload"
     assert "field" not in violation.data.get("position", "")
     assert _positions(result) == []
+
+
+def test_boundary_types_alias_to_declared_dto_preserves_nested_broad_field_evidence(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        "from pydantic import BaseModel\n"
+        "from typing import TypeAlias\n\n"
+        "class Request(BaseModel):\n"
+        "    payload: dict[str, str]\n\n"
+        "RequestAlias: TypeAlias = Request\n\n"
+        "def run(value: RequestAlias) -> str:\n    return str(value)\n",
+        public=["sample.app.facade:run", "sample.app.facade:Request"],
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("annotation") == "RequestAlias"
+    assert violation.data.get("path") == "value.payload"
+    assert violation.data.get("nested_annotation") == "dict[str, str]"
+
+
+def test_boundary_types_alias_to_declared_dto_preserves_nested_unknown_field_evidence(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        "from pydantic import BaseModel\n"
+        "from typing import TypeAlias\n\n"
+        "class Request(BaseModel):\n"
+        "    payload: MissingPayload\n\n"
+        "RequestAlias: TypeAlias = Request\n\n"
+        "def run(value: RequestAlias) -> str:\n    return str(value)\n",
+        public=["sample.app.facade:run", "sample.app.facade:Request"],
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [position] = _positions(result)
+    assert position.data.get("annotation") == "RequestAlias"
+    assert position.data.get("path") == "value.payload"
+    assert position.data.get("nested_annotation") == "MissingPayload"
+
+
+def test_boundary_types_local_generic_dict_alias_is_not_the_typing_dict(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        "from typing import Dict, Generic, TypeVar\n\n"
+        "K = TypeVar('K')\n"
+        "V = TypeVar('V')\n\n"
+        "class Local(Generic[K, V]):\n    pass\n\n"
+        "Dict = Local\n\n"
+        "def typed(value: Dict[str, str]) -> str:\n    return str(value)\n",
+        public=["sample.app.facade:typed"],
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+
+
+def test_boundary_types_proven_typing_dict_remains_broad(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        "from typing import Dict\n\n"
+        "def typed(value: Dict[str, str]) -> str:\n    return str(value)\n",
+        public=["sample.app.facade:typed"],
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("annotation") == "Dict[str, str]"
+
+
+def test_boundary_types_dynamic_dict_rebinding_stays_unknown(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        "from typing import Dict, Generic, TypeVar\n\n"
+        "K = TypeVar('K')\n"
+        "V = TypeVar('V')\n\n"
+        "class Local(Generic[K, V]):\n    pass\n\n"
+        "def choose_type():\n    return Local\n\n"
+        "Dict = choose_type()\n\n"
+        "def typed(value: Dict[str, str]) -> str:\n    return str(value)\n",
+        public=["sample.app.facade:typed"],
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [position] = _positions(result)
+    assert position.data.get("annotation") == "Dict[str, str]"
