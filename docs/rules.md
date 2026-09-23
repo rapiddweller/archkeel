@@ -333,7 +333,7 @@ outer signature annotation stays in the violation record. The allowance applies 
 bare `dict` cannot match an allowance for `dict[str, JsonValue]`. Applied entries produce a
 `FACT` in `typing_signals` linked to the rule and function evidence; an unused entry emits no
 fact and has no effect. Adding an entry widens the contract and needs an amendment under
-`validate --against`; removing one narrows it (AD-94).
+`validate --against`; removing one narrows it (AD-95).
 
 ### Known violations of a target contract
 

@@ -1,4 +1,4 @@
-# AD-94 A boundary type allowance names one nested field finding
+# AD-95 A boundary type allowance names one nested field finding
 
 `boundary_types.allowed_positions` is an exact exception for an owned DTO field that crosses a
 declared facade. Its four coordinates are the facade function's `qualified_name`, signature
