@@ -4,6 +4,7 @@
 import ast
 import json
 import subprocess
+from hashlib import sha256
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,15 +24,18 @@ from archkeel.analyzer.embedded.violations import (
     _union_parameters,
     requires_violations,
 )
+from archkeel.check.delta import build_architecture_delta
 from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.baseline import observed_violations
 from archkeel.ir.codec import (
     canonical_report_bytes,
     decode_json,
+    delta_payload,
     observation_payload,
     parse_contract,
 )
+from archkeel.ir.digest import package_digest
 from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
     Coverage,
@@ -40,6 +44,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     Observation,
     ObservationResult,
+    Record,
     text_value,
 )
 from archkeel.ir.trace import trace_valid_violations
@@ -2073,6 +2078,173 @@ def test_boundary_type_limit_details_match_counts_and_are_stable(tmp_path: Path)
     assert canonical_report_bytes(result.observation) == canonical_report_bytes(
         _observe(tmp_path).observation
     )
+
+
+def test_boundary_type_limit_keeps_each_unsupported_annotation_unknown_and_stable(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:lookup"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "class Payload:\n    pass\n\n\n"
+        "class Later:\n    pass\n\n\n"
+        "def lookup(first: datetime.datetime, second: 'Later', "
+        "quoted: 'Payload | int', malformed: Payload & int) -> str:\n"
+        "    return str(first)\n"
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    report = observation_payload(result.observation)
+    [limit] = [item for item in report["unknowns"] if item["kind"] == "boundary_type_limit"]
+    assert (limit["data"]["positions"], limit["data"]["decided"], limit["data"]["undecided"]) == (
+        5,
+        1,
+        4,
+    )
+    assert (
+        limit["data"]["dotted_name"],
+        limit["data"]["forward_reference"],
+        limit["data"]["other"],
+    ) == (
+        1,
+        2,
+        1,
+    )
+    details = limit["data"]["undecidable_positions"]
+    assert [(item["position"], item["annotation"], item["reason"]) for item in details] == [
+        ("first", "datetime.datetime", "dotted_name"),
+        ("second", "'Later'", "forward_reference"),
+        ("quoted", "'Payload | int'", "forward_reference"),
+        ("malformed", "Payload & int", "other"),
+    ]
+    assert (limit["data"]["positions"], limit["data"]["decided"], limit["data"]["undecided"]) == (
+        5,
+        1,
+        4,
+    )
+    assert canonical_report_bytes(result.observation) == canonical_report_bytes(
+        _observe(tmp_path).observation
+    )
+
+
+def test_boundary_type_walks_nested_union_for_violation_despite_unknown_sibling(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:inspect"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import datetime\n\n\n"
+        "class Payload:\n    pass\n\n\n"
+        "def inspect(values: list[Payload | datetime.datetime]) -> str:\n"
+        "    return str(values)\n"
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.data.get("position"), item.data.get("annotation")) for item in violations] == [
+        ("values", "list[Payload | datetime.datetime]")
+    ]
+
+
+def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:lookup"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    facade = tmp_path / "sample/app/facade.py"
+    facade.write_text(
+        "import datetime\n\n\n"
+        "class Later:\n    pass\n\n\n"
+        "def lookup(first: datetime.datetime, second: 'Later') -> str:\n"
+        "    return str(first)\n"
+    )
+
+    before = _observe(tmp_path)
+    repeated = _observe(tmp_path)
+    assert before.observation is not None and repeated.observation is not None
+
+    def positions(observation: Observation) -> list[Record]:
+        return [
+            record
+            for record in observation.records("unknowns") or ()
+            if all(
+                isinstance(record.data.get(key), str)
+                for key in ("module", "qualified_name", "position", "annotation", "reason")
+            )
+        ]
+
+    before_positions = positions(before.observation)
+    repeated_positions = positions(repeated.observation)
+    assert len(before_positions) == 2
+    assert len({record.id for record in before_positions}) == 2
+    assert [record.id for record in before_positions] == [
+        record.id for record in repeated_positions
+    ]
+    assert {record.data.get("position") for record in before_positions} == {"first", "second"}
+    assert all(record.evidence_class.value == "UNKNOWN" for record in before_positions)
+    assert {
+        record.data.get("position"): (
+            record.data.get("module"),
+            record.data.get("qualified_name"),
+            record.data.get("annotation"),
+            record.data.get("reason"),
+        )
+        for record in before_positions
+    } == {
+        "first": (
+            "sample.app.facade",
+            "sample.app.facade.lookup",
+            "datetime.datetime",
+            "dotted_name",
+        ),
+        "second": (
+            "sample.app.facade",
+            "sample.app.facade.lookup",
+            "'Later'",
+            "forward_reference",
+        ),
+    }
+
+    facade.write_text(
+        "import datetime\n\n\n"
+        "class Later:\n    pass\n\n\n"
+        "def lookup(first: str, second: 'Later') -> str:\n"
+        "    return first\n"
+    )
+    after = _observe(tmp_path)
+    assert after.observation is not None
+    after_positions = positions(after.observation)
+    assert len(after_positions) == 1
+    assert after_positions[0].data.get("position") == "second"
+
+    before_bytes = canonical_report_bytes(before.observation)
+    after_bytes = canonical_report_bytes(after.observation)
+    delta = delta_payload(
+        build_architecture_delta(
+            before.observation,
+            after.observation,
+            baseline_digest=sha256(before_bytes).hexdigest(),
+            head_digest=sha256(after_bytes).hexdigest(),
+            checker_digest=package_digest(),
+        )
+    )
+    removed = [
+        item
+        for item in delta["semantic_changes"]
+        if item["dimension"] == "unknowns" and item["change"] == "removed"
+    ]
+    assert len(removed) == 1
+    assert removed[0]["before"]["data"]["position"] == "first"
 
 
 def test_boundary_types_does_not_report_a_limit_when_every_position_is_decided(
