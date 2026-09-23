@@ -60,7 +60,7 @@ from archkeel.check.snapshot import ArchivedSnapshot
 from archkeel.check.validation import run_validate
 from archkeel.ir.codec import canonical_report_bytes, parse_observation
 from archkeel.ir.digest import package_digest
-from archkeel.ir.model import ObservationResult
+from archkeel.ir.model import ObservationResult, RunResult
 
 # The exact eight kinds `_UNDECIDABLE_KINDS` (`archkeel/analyzer/embedded/violations.py`)
 # names, so a record built here carries the same keys a real `boundary_type_limit` does.
@@ -130,6 +130,65 @@ def _validate_root(root: Path) -> ScanConfig:
     return ScanConfig(("sample",), "sample", "architecture-contract.json", "d" * 64)
 
 
+def _run_check_snapshots(
+    tmp_path: Path,
+    *,
+    lock_raw: dict[str, Any],
+    accepted_raw: dict[str, Any],
+    candidate_raw: dict[str, Any],
+) -> RunResult:
+    lock_bytes = _lock(lock_raw)
+    lock_payload = json.loads(lock_bytes)
+    lock_payload["checker_digest"] = package_digest()
+    lock_bytes = json.dumps(lock_payload).encode()
+    observations = [parse_observation(raw) for raw in (accepted_raw, candidate_raw)]
+    analyzer = Mock(
+        side_effect=[ObservationResult(item, item.coverage, ()) for item in observations]
+    )
+    expected = _expectation_payload()
+    expected.update(
+        checker_digest=package_digest(),
+        accepted_digest=sha256(lock_bytes).hexdigest(),
+        baseline_commit="b" * 40,
+        contract_digest="b" * 64,
+        baseline_digest=sha256(canonical_report_bytes(lock_raw)).hexdigest(),
+        selected_changes=[],
+    )
+    expected_bytes = json.dumps(expected).encode()
+
+    def read_blob(root: Path, commit: str, path: str) -> bytes:
+        return expected_bytes if path == "expectation.json" else lock_bytes
+
+    with (
+        patch("archkeel.check.run.remote_tip", return_value="b" * 40),
+        patch("archkeel.check.run.read_blob", side_effect=read_blob),
+        patch("archkeel.check.run.parents", return_value=["a" * 40]),
+        patch("archkeel.check.run.changed_paths", return_value={"architecture-accepted.json"}),
+        patch("archkeel.check.run.check_git_order", return_value=()),
+        patch("archkeel.check.run.check_order", return_value=()),
+        patch("archkeel.check.run.materialize_declarations"),
+        patch(
+            "archkeel.check.run.materialize_git_snapshot",
+            side_effect=lambda *args, **kwargs: nullcontext(ArchivedSnapshot(tmp_path, "a" * 40)),
+        ),
+    ):
+        return run_check(
+            tmp_path,
+            config=ScanConfig((".",), "sample", "contract.json", "b" * 64),
+            baseline="b" * 40,
+            expectation_commit="e" * 40,
+            head="f" * 40,
+            expected_path="expectation.json",
+            expected_digest=sha256(expected_bytes).hexdigest(),
+            branch="candidate",
+            accepted_branch="main",
+            host_records_path=None,
+            environ={},
+            host=Mock(return_value=()),
+            analyzer=analyzer,
+        )
+
+
 def test_undecided_boundary_position_with_no_violation_reports_unknown_not_pass() -> None:
     """AD-67's own decision: a relevant position left undecidable for a checker-limit reason
     (`other`, here) is UNKNOWN, never PASS, even though `violations` is empty."""
@@ -172,6 +231,7 @@ def test_undecided_positions_that_are_all_external_type_still_pass() -> None:
         pytest.param(1, 0, None, 1, False, id="undecided-missing"),
         pytest.param(1, 0, 1, 0, True, id="reason-count-mismatch"),
         pytest.param(2, 0, 1, 1, True, id="position-total-mismatch"),
+        pytest.param(0, 0, 0, 0, True, id="zero-positions"),
         pytest.param(-1, 0, 1, 1, True, id="negative-positions"),
         pytest.param(True, 0, 1, 1, True, id="boolean-positions"),
         pytest.param(1, -1, 2, 2, True, id="negative-decided"),
@@ -362,57 +422,52 @@ def test_check_command_keeps_exit_code_and_diagnostics_when_coverage_is_unknown(
         git_head="a" * 40,
         unknowns=[_boundary_type_limit("UNKNOWN-BOUNDARY", positions=8, decided=6)],
     )
-    lock_bytes = _lock(raw)
-    lock_payload = json.loads(lock_bytes)
-    lock_payload["checker_digest"] = package_digest()
-    lock_bytes = json.dumps(lock_payload).encode()
-    observation = parse_observation(raw)
-    observed = ObservationResult(observation, observation.coverage, ())
-    analyzer = Mock(side_effect=[observed, observed])
-
-    expected = _expectation_payload()
-    expected.update(
-        checker_digest=package_digest(),
-        accepted_digest=sha256(lock_bytes).hexdigest(),
-        baseline_commit="b" * 40,
-        contract_digest="b" * 64,
-        baseline_digest=sha256(canonical_report_bytes(raw)).hexdigest(),
-        selected_changes=[],
+    result = _run_check_snapshots(
+        tmp_path,
+        lock_raw=raw,
+        accepted_raw=raw,
+        candidate_raw=raw,
     )
-    expected_bytes = json.dumps(expected).encode()
-
-    def read_blob(root: Path, commit: str, path: str) -> bytes:
-        return expected_bytes if path == "expectation.json" else lock_bytes
-
-    with (
-        patch("archkeel.check.run.remote_tip", return_value="b" * 40),
-        patch("archkeel.check.run.read_blob", side_effect=read_blob),
-        patch("archkeel.check.run.parents", return_value=["a" * 40]),
-        patch("archkeel.check.run.changed_paths", return_value={"architecture-accepted.json"}),
-        patch("archkeel.check.run.check_git_order", return_value=()),
-        patch("archkeel.check.run.check_order", return_value=()),
-        patch("archkeel.check.run.materialize_declarations"),
-        patch(
-            "archkeel.check.run.materialize_git_snapshot",
-            side_effect=lambda *args, **kwargs: nullcontext(ArchivedSnapshot(tmp_path, "a" * 40)),
-        ),
-    ):
-        result = run_check(
-            tmp_path,
-            config=ScanConfig((".",), "sample", "contract.json", "b" * 64),
-            baseline="b" * 40,
-            expectation_commit="e" * 40,
-            head="f" * 40,
-            expected_path="expectation.json",
-            expected_digest=sha256(expected_bytes).hexdigest(),
-            branch="candidate",
-            accepted_branch="main",
-            host_records_path=None,
-            environ={},
-            host=Mock(return_value=()),
-            analyzer=analyzer,
-        )
     assert result.exit_code == 0
     assert result.diagnostics == ()
     assert result.failures == ()
     assert result.declared_rules == "UNKNOWN"
+
+
+@pytest.mark.parametrize("stage", ["accepted", "candidate"])
+def test_check_returns_exit_two_for_incoherent_boundary_counts(tmp_path: Path, stage: str) -> None:
+    valid = _model(git_head="a" * 40)
+    malformed = _model(
+        git_head="a" * 40,
+        unknowns=[_boundary_type_limit("UNKNOWN-BOUNDARY", positions=1, decided=0)],
+    )
+    malformed["unknowns"][0]["data"]["other"] = 0
+    result = _run_check_snapshots(
+        tmp_path,
+        lock_raw=valid,
+        accepted_raw=malformed if stage == "accepted" else valid,
+        candidate_raw=malformed if stage == "candidate" else valid,
+    )
+
+    assert result.exit_code == 2
+    assert result.diagnostics[0].code == "observation.incomplete"
+    assert result.observation == parse_observation(malformed)
+
+
+def test_check_keeps_external_type_only_aggregate_neutral(tmp_path: Path) -> None:
+    raw = _model(
+        git_head="a" * 40,
+        unknowns=[
+            _boundary_type_limit("UNKNOWN-BOUNDARY", positions=1, decided=0, external_type=1)
+        ],
+    )
+    result = _run_check_snapshots(
+        tmp_path,
+        lock_raw=raw,
+        accepted_raw=raw,
+        candidate_raw=raw,
+    )
+
+    assert result.exit_code == 0
+    assert result.diagnostics == ()
+    assert result.declared_rules == "PASS"

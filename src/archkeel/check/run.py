@@ -11,7 +11,7 @@ from archkeel.ir.codec import canonical_report_bytes, declaration_paths, decode_
 from archkeel.ir.digest import package_digest
 from archkeel.ir.host_records import parse_records
 from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observation
-from archkeel.ir.measurements import Measurements
+from archkeel.ir.measurements import Measurements, RatchetError
 from archkeel.ir.model import (
     CheckProvenance,
     Diagnostic,
@@ -149,6 +149,26 @@ def _incomplete(result: ObservationResult) -> RunResult:
     )
 
 
+def _measurement_incomplete(observation: Observation, error: RatchetError) -> RunResult:
+    return RunResult(
+        "check",
+        2,
+        diagnostics=(
+            Diagnostic(
+                "contract_invalid",
+                "measurement_budgets",
+                f"The measurement budgets cannot be decided: {error}",
+                "Repair the analyzer evidence and retry.",
+                "",
+                "observation.incomplete",
+            ),
+        ),
+        coverage=observation.coverage,
+        observation=observation,
+        python_version=observation.python_version,
+    )
+
+
 def run_check(
     root: Path,
     *,
@@ -202,18 +222,25 @@ def run_check(
         accepted = accepted_result.observation
         if accepted_result.diagnostics or accepted is None:
             return _incomplete(accepted_result)
+        try:
+            accepted_measurements = measure_python_ratchets(accepted)
+        except RatchetError as error:
+            return _measurement_incomplete(accepted, error)
         verify_observation(
             lock,
             observation_digest=sha256_bytes(canonical_report_bytes(accepted)),
-            measurements=measure_python_ratchets(accepted),
+            measurements=accepted_measurements,
         )
         with materialize_git_snapshot(root, head, roots=config.roots) as after:
             candidate_result = _observe_snapshot(analyzer, after.root, head, config, declarations)
     candidate = candidate_result.observation
     if candidate_result.diagnostics or candidate is None:
         return _incomplete(candidate_result)
-    inspect_observation(accepted)
-    measurements, declared = inspect_observation(candidate)
+    try:
+        inspect_observation(accepted)
+        measurements, declared = inspect_observation(candidate)
+    except RatchetError as error:
+        return _measurement_incomplete(candidate, error)
     delta = build_architecture_delta(
         accepted,
         candidate,

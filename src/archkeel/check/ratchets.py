@@ -73,7 +73,7 @@ def _undecided(record: Record) -> int:
         if (
             not isinstance(positions, int)
             or isinstance(positions, bool)
-            or positions < 0
+            or positions <= 0
             or not isinstance(decided, int)
             or isinstance(decided, bool)
             or decided < 0
@@ -84,7 +84,7 @@ def _undecided(record: Record) -> int:
             or len(valid_reason_counts) != len(reason_counts)
             or sum(valid_reason_counts.values()) != undecided
         ):
-            return 1
+            raise RatchetError("boundary_type_limit has incoherent aggregate counts")
         return sum(
             value for reason, value in valid_reason_counts.items() if reason != "external_type"
         )

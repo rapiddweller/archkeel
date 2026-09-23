@@ -27,6 +27,7 @@ from test_delta import _evidence, _model, _record
 from archkeel.check.ratchets import compare_ratchets, measure_python_ratchets, unknown_positions
 from archkeel.check.run import inspect_observation
 from archkeel.ir.codec import parse_observation
+from archkeel.ir.measurements import RatchetError
 from archkeel.ir.model import Observation
 
 # A kind no analyzer emits today: it stands for whatever the next profile adds.
@@ -125,6 +126,13 @@ def test_boundary_type_limit_of_external_type_only_counts_nothing_and_passes() -
     assert _verdict(observation) == "PASS"
 
 
+def test_boundary_type_limit_with_all_positions_decided_counts_nothing() -> None:
+    observation = _observation(_boundary_type_limit("BOUNDARY", positions=3, decided=3))
+
+    assert unknown_positions(observation) == 0
+    assert _verdict(observation) == "PASS"
+
+
 def test_boundary_type_limit_counts_only_its_checker_limit_kinds() -> None:
     """T5: `union=2, external_type=5` is two open positions, not seven (`undecided`) nor
     fourteen (every numeric field), so the record is not read as a novel kind."""
@@ -140,15 +148,13 @@ def test_boundary_type_limit_counts_only_its_checker_limit_kinds() -> None:
     ("field", "value"),
     [("positions", True), ("decided", -1), ("undecided", 1), ("union", True)],
 )
-def test_malformed_boundary_type_limit_counts_at_least_one_unknown(
-    field: str, value: object
-) -> None:
+def test_malformed_boundary_type_limit_is_rejected(field: str, value: object) -> None:
     record = _boundary_type_limit("BOUNDARY", positions=3, decided=1, union=2)
     record["data"][field] = value
     observation = _observation(record)
 
-    assert unknown_positions(observation) >= 1
-    assert _verdict(observation) == "UNKNOWN"
+    with pytest.raises(RatchetError, match="incoherent aggregate counts"):
+        unknown_positions(observation)
 
 
 def test_each_api_surface_limit_counts_one() -> None:
