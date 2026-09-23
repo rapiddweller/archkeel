@@ -179,6 +179,17 @@ def _logical_payload(dimension: str, record: Record) -> RecordData:
             (("kind", record.kind), ("owner", data.get("owner")), ("signal", data.get("signal")))
         )
     if dimension == "unknowns":
+        if record.kind == "boundary_type_position":
+            return RecordData(
+                (
+                    ("kind", record.kind),
+                    ("rule_ids", record.rule_ids),
+                    ("module", data.get("module")),
+                    ("qualified_name", data.get("qualified_name")),
+                    ("position", data.get("position")),
+                    ("occurrence", data.get("occurrence", 0)),
+                )
+            )
         return RecordData((("kind", record.kind), ("subjects", record.subjects)))
     return RecordData((("kind", record.kind),))
 

@@ -11,7 +11,7 @@ from archkeel.ir.measurements import (
     RatchetScalars,
     compare_measurements,
 )
-from archkeel.ir.model import Observation, Record
+from archkeel.ir.model import Observation, Record, RecordData
 
 from .python_profile import crossing_imports
 
@@ -37,6 +37,9 @@ _BOUNDARY_TYPE_NEUTRAL: Final = frozenset(
     {"external_type", "positions", "decided", "undecided", "undecidable_positions"}
 )
 _BOUNDARY_TYPE_TOTALS: Final = _BOUNDARY_TYPE_NEUTRAL - {"external_type"}
+_BOUNDARY_POSITION_FIELDS: Final = frozenset(
+    {"module", "qualified_name", "position", "annotation", "reason", "occurrence"}
+)
 
 
 def _records(observation: Observation, section: str) -> tuple[Record, ...]:
@@ -57,39 +60,101 @@ def _positions(value: object, label: str) -> int:
     return len(value)
 
 
-def _undecided(record: Record) -> int:
-    if record.kind == "boundary_type_limit":
-        positions = record.data.get("positions")
-        decided = record.data.get("decided")
-        undecided = record.data.get("undecided")
-        reason_counts = {
-            reason: value
-            for reason, value in record.data.entries
-            if reason not in _BOUNDARY_TYPE_TOTALS
-        }
-        valid_reason_counts = {
-            reason: value
-            for reason, value in reason_counts.items()
-            if isinstance(value, int) and not isinstance(value, bool) and value >= 0
-        }
-        if (
-            not isinstance(positions, int)
-            or isinstance(positions, bool)
-            or positions <= 0
-            or not isinstance(decided, int)
-            or isinstance(decided, bool)
-            or decided < 0
-            or not isinstance(undecided, int)
-            or isinstance(undecided, bool)
-            or undecided < 0
-            or positions != decided + undecided
-            or len(valid_reason_counts) != len(reason_counts)
-            or sum(valid_reason_counts.values()) != undecided
-        ):
-            raise RatchetError("boundary_type_limit has incoherent aggregate counts")
-        return sum(
-            value for reason, value in valid_reason_counts.items() if reason != "external_type"
+def _boundary_position_key(data: RecordData) -> tuple[str, str, str, str, str, int]:
+    if not _BOUNDARY_POSITION_FIELDS <= frozenset(key for key, _ in data.entries):
+        raise RatchetError("boundary_type_position has incomplete coordinate data")
+    module = data.get("module")
+    qualified_name = data.get("qualified_name")
+    position = data.get("position")
+    annotation = data.get("annotation")
+    reason = data.get("reason")
+    occurrence = data.get("occurrence")
+    if (
+        not isinstance(module, str)
+        or not module
+        or not isinstance(qualified_name, str)
+        or not qualified_name
+        or not isinstance(position, str)
+        or not position
+        or not isinstance(annotation, str)
+        or not isinstance(reason, str)
+        or not reason
+        or not isinstance(occurrence, int)
+        or isinstance(occurrence, bool)
+        or occurrence < 0
+    ):
+        raise RatchetError("boundary_type_position has invalid coordinate data")
+    return module, qualified_name, position, annotation, reason, occurrence
+
+
+def _boundary_type_undecided(
+    record: Record, position_records: tuple[Record, ...]
+) -> tuple[int, set[str]]:
+    positions = record.data.get("positions")
+    decided = record.data.get("decided")
+    undecided = record.data.get("undecided")
+    reason_counts = {
+        reason: value
+        for reason, value in record.data.entries
+        if reason not in _BOUNDARY_TYPE_TOTALS
+    }
+    valid_reason_counts = {
+        reason: value
+        for reason, value in reason_counts.items()
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+    }
+    if (
+        not isinstance(positions, int)
+        or isinstance(positions, bool)
+        or positions <= 0
+        or not isinstance(decided, int)
+        or isinstance(decided, bool)
+        or decided < 0
+        or not isinstance(undecided, int)
+        or isinstance(undecided, bool)
+        or undecided < 0
+        or positions != decided + undecided
+        or len(valid_reason_counts) != len(reason_counts)
+        or sum(valid_reason_counts.values()) != undecided
+    ):
+        raise RatchetError("boundary_type_limit has incoherent aggregate counts")
+    details_present = "undecidable_positions" in dict(record.data.entries)
+    details = record.data.get("undecidable_positions")
+    matching = tuple(item for item in position_records if item.rule_ids == record.rule_ids)
+    if not details_present:
+        if matching:
+            raise RatchetError("boundary_type_limit is missing position details")
+        return (
+            sum(
+                value for reason, value in valid_reason_counts.items() if reason != "external_type"
+            ),
+            set(),
         )
+    if not isinstance(details, tuple) or not details or len(record.rule_ids) != 1:
+        raise RatchetError("boundary_type_limit has invalid position details")
+    expected: list[tuple[str, str, str, str, str, int]] = []
+    for detail in details:
+        if not isinstance(detail, RecordData):
+            raise RatchetError("boundary_type_limit has invalid position details")
+        key = _boundary_position_key(detail)
+        if key[4] not in valid_reason_counts:
+            raise RatchetError("boundary_type_limit has an uncounted detail reason")
+        expected.append(key)
+    if len(expected) != undecided:
+        raise RatchetError("boundary_type_limit detail count mismatch")
+    for reason, count in valid_reason_counts.items():
+        if count != sum(1 for key in expected if key[4] == reason):
+            raise RatchetError("boundary_type_limit detail reason counts mismatch")
+    actual = [_boundary_position_key(item.data) for item in matching]
+    if sorted(actual) != sorted(expected):
+        raise RatchetError("boundary_type_limit detail records are missing or inconsistent")
+    return (
+        sum(1 for key in expected if key[4] != "external_type"),
+        {item.id for item in matching},
+    )
+
+
+def _undecided(record: Record) -> int:
     undecided = record.data.get("undecided")
     if isinstance(undecided, int) and not isinstance(undecided, bool) and undecided > 0:
         return undecided
@@ -101,11 +166,24 @@ def unknown_positions(observation: Observation) -> int:
     """AD-92: count what the scan left undecided, except the kinds that never count."""
     # A coverage failure already makes the scan incomplete (exit 2); counting it adds nothing.
     failed = {record.id for record in observation.coverage.failures}
-    return sum(
-        _undecided(record)
-        for record in _records(observation, "unknowns")
-        if record.id not in failed and record.kind not in _STANDING_DISCLAIMERS
-    )
+    records = _records(observation, "unknowns")
+    position_records = tuple(item for item in records if item.kind == "boundary_type_position")
+    matched_positions: set[str] = set()
+    total = 0
+    for record in records:
+        if record.id in failed or record.kind in _STANDING_DISCLAIMERS:
+            continue
+        if record.kind == "boundary_type_position":
+            continue
+        if record.kind == "boundary_type_limit":
+            count, matched = _boundary_type_undecided(record, position_records)
+            total += count
+            matched_positions.update(matched)
+        else:
+            total += _undecided(record)
+    if matched_positions != {item.id for item in position_records}:
+        raise RatchetError("boundary_type_position has no matching aggregate")
+    return total
 
 
 def measure_python_ratchets(observation: Observation) -> Measurements:

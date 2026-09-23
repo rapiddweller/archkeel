@@ -74,7 +74,7 @@ _UNDECIDED = CheckExpectation(
     git_predicate="PASS",
     host_order="PASS",
     regressed_scalars=("unknown_positions",),
-    regressed_dimensions=(),
+    regressed_dimensions=("unknowns",),
 )
 
 _CYCLE_FILES: Mapping[str, str | None] = {

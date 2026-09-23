@@ -144,6 +144,35 @@ def test_boundary_type_limit_counts_only_its_checker_limit_kinds() -> None:
     assert _verdict(observation) == "UNKNOWN"
 
 
+def test_boundary_position_records_are_counted_once_and_must_match_aggregate() -> None:
+    detail = {
+        "module": "sample.api",
+        "qualified_name": "sample.api.fetch",
+        "position": "stamp",
+        "annotation": "datetime.datetime",
+        "reason": "dotted_name",
+        "occurrence": 0,
+    }
+    aggregate = _boundary_type_limit("BOUNDARY", positions=1, decided=0, dotted_name=1)
+    aggregate["rule_ids"] = ["BOUNDARY"]
+    aggregate["data"]["undecidable_positions"] = [detail]
+    position = _unknown("POSITION", "boundary_type_position", detail)
+    position["rule_ids"] = ["BOUNDARY"]
+
+    assert unknown_positions(_observation(aggregate, position)) == 1
+    with pytest.raises(RatchetError, match="missing or inconsistent"):
+        unknown_positions(_observation(aggregate))
+
+
+def test_legacy_boundary_aggregate_without_details_remains_countable() -> None:
+    assert (
+        unknown_positions(
+            _observation(_boundary_type_limit("BOUNDARY", positions=3, decided=1, union=2))
+        )
+        == 2
+    )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [("positions", True), ("decided", -1), ("undecided", 1), ("union", True)],

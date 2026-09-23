@@ -1906,6 +1906,7 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
             "position": "when",
             "annotation": "datetime.datetime",
             "reason": "dotted_name",
+            "occurrence": 0,
         },
         {
             "module": "sample.app.facade",
@@ -1913,6 +1914,7 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
             "position": "note",
             "annotation": "'Later'",
             "reason": "forward_reference",
+            "occurrence": 0,
         },
         {
             "module": "sample.app.facade",
@@ -1920,6 +1922,7 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
             "position": "spare",
             "annotation": "",
             "reason": "missing_annotation",
+            "occurrence": 0,
         },
     ]
     assert unknown_positions(result.observation) == 3
@@ -1957,6 +1960,7 @@ def test_boundary_types_recursively_decides_nested_generic_and_union(tmp_path: P
             "position": "stamps",
             "annotation": "list[datetime.datetime | str]",
             "reason": "dotted_name",
+            "occurrence": 0,
         }
     ]
     totals = (limit.data.get("positions"), limit.data.get("decided"), limit.data.get("undecided"))
@@ -1985,6 +1989,40 @@ def test_boundary_types_decides_qualified_typing_unions_and_collections(tmp_path
     assert unknown_positions(result.observation) == 0
 
 
+def test_boundary_types_decides_explicit_typing_symbol_aliases(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from typing import List as L, Union as U\n\n"
+        "def typed(value: U[str, int], values: L[str]) -> str:\n"
+        "    return str((value, values))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert unknown_positions(result.observation) == 0
+
+
+def test_boundary_types_does_not_assume_unimported_typing_names(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "from __future__ import annotations\n\n"
+        "def typed(value: typing.Union[str, int], values: typing.List[str]) -> str:\n"
+        "    return str((value, values))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert unknown_positions(result.observation) == 2
+
+
 def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_path: Path) -> None:
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
@@ -2004,8 +2042,8 @@ def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_p
 
 
 def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
-    assert _union_parameters("str |") is None
-    assert _union_parameters("'str | int'") is None
+    assert _union_parameters("str |", "sample.app.facade", {}) is None
+    assert _union_parameters("'str | int'", "sample.app.facade", {}) is None
 
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
@@ -2033,7 +2071,7 @@ def test_boundary_types_does_not_guess_typing_module_aliases(tmp_path: Path) -> 
     (tmp_path / "sample/app").mkdir(parents=True)
     (tmp_path / "sample/app/__init__.py").write_text("")
     (tmp_path / "sample/app/facade.py").write_text(
-        "import typing as t\n\n\ndef typed(value: t.Optional[str]) -> str:\n    return str(value)\n"
+        "import dateutil as t\n\ndef typed(value: t.Optional[str]) -> str:\n    return str(value)\n"
     )
 
     result = _observe(tmp_path)
@@ -2245,6 +2283,52 @@ def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
     ]
     assert len(removed) == 1
     assert removed[0]["before"]["data"]["position"] == "first"
+
+
+def test_boundary_type_position_ids_survive_line_shifts_and_duplicate_definitions(
+    tmp_path: Path,
+) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:lookup"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    facade = tmp_path / "sample/app/facade.py"
+    definition = "def lookup(stamp: datetime.datetime) -> str:\n    return str(stamp)\n"
+    facade.write_text("import datetime\n\n" + definition + "\n" + definition)
+    before = _observe(tmp_path)
+    assert before.observation is not None
+    records = [
+        item
+        for item in before.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert len(records) == 2
+    assert len({item.id for item in records}) == 2
+    before_bytes = canonical_report_bytes(before.observation)
+
+    facade.write_text("\n\nimport datetime\n\n" + definition + "\n" + definition)
+    after = _observe(tmp_path)
+    assert after.observation is not None
+    assert {
+        item.id
+        for item in after.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    } == {item.id for item in records}
+    after_bytes = canonical_report_bytes(after.observation)
+    delta = delta_payload(
+        build_architecture_delta(
+            before.observation,
+            after.observation,
+            baseline_digest=sha256(before_bytes).hexdigest(),
+            head_digest=sha256(after_bytes).hexdigest(),
+            checker_digest=package_digest(),
+        )
+    )
+    assert not [
+        item
+        for item in delta["semantic_changes"]
+        if item["dimension"] == "unknowns" and item["change"] in {"added", "removed", "changed"}
+    ]
 
 
 def test_boundary_types_does_not_report_a_limit_when_every_position_is_decided(

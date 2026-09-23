@@ -236,7 +236,7 @@ def test_boundary_type_position_detail_is_visible_in_against_delta() -> None:
     }
 
     def limit(annotation: str) -> dict[str, Any]:
-        return _record(
+        record = _record(
             "UNKNOWN-BOUNDARY",
             kind="boundary_type_limit",
             evidence_class="UNKNOWN",
@@ -252,14 +252,37 @@ def test_boundary_type_position_detail_is_visible_in_against_delta() -> None:
                         "position": "stamp",
                         "annotation": annotation,
                         "reason": "dotted_name",
+                        "occurrence": 0,
                     }
                 ],
             },
         )
+        record["rule_ids"] = ["BOUNDARY"]
+        return record
+
+    def position(annotation: str) -> dict[str, Any]:
+        record = _record(
+            "UNKNOWN-POSITION",
+            kind="boundary_type_position",
+            evidence_class="UNKNOWN",
+            data={
+                "module": "sample.api",
+                "qualified_name": "sample.api.fetch",
+                "position": "stamp",
+                "annotation": annotation,
+                "reason": "dotted_name",
+                "occurrence": 0,
+            },
+        )
+        record["rule_ids"] = ["BOUNDARY"]
+        return record
 
     delta = _delta(
-        _model(git_head="1" * 40, unknowns=[limit("datetime.datetime")]),
-        _model(git_head="2" * 40, unknowns=[limit("datetime.date")]),
+        _model(
+            git_head="1" * 40,
+            unknowns=[limit("datetime.datetime"), position("datetime.datetime")],
+        ),
+        _model(git_head="2" * 40, unknowns=[limit("datetime.date"), position("datetime.date")]),
     )
 
     changed = _semantic_change(delta, "unknowns", "changed")
@@ -267,6 +290,15 @@ def test_boundary_type_position_detail_is_visible_in_against_delta() -> None:
         "datetime.datetime"
     )
     assert changed["after"]["data"]["undecidable_positions"][0]["annotation"] == ("datetime.date")
+    position_change = next(
+        item
+        for item in delta["semantic_changes"]
+        if item["dimension"] == "unknowns"
+        and item["change"] == "changed"
+        and item["before"]["kind"] == "boundary_type_position"
+    )
+    assert position_change["before"]["data"]["annotation"] == "datetime.datetime"
+    assert position_change["after"]["data"]["annotation"] == "datetime.date"
 
 
 def test_aggregate_delta_evidence_is_bounded_and_reports_truncation() -> None:
