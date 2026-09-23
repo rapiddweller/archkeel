@@ -48,7 +48,7 @@ from archkeel.ir.widening import (
     contract_widenings,
     verify_amendment,
 )
-from fixtures.demo_catalog_support import apply_overlay, contract_rule_field
+from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_rule_field
 
 _PROVENANCE = ("docs/architecture/shop.md",)
 
@@ -751,5 +751,68 @@ def test_a_shrunk_baseline_entry_is_narrowing_and_passes(tmp_path: Path) -> None
     result, _ = run_validate(
         root, SHOP_CONFIG, observe, against=base_with_baseline, baseline=baseline_path
     )
+
+    assert (result.exit_code, result.failures) == (0, ())
+
+
+_BOUNDARY_ALLOWANCE = {
+    "qualified_name": "shop.app.orders.summarize",
+    "position": "return",
+    "field_path": "items.payload",
+    "annotation": "dict",
+}
+
+
+def _boundary_allowance_contract(allowed_positions: list[dict[str, str]]) -> str:
+    raw = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    rule = next(item for item in raw["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+    if allowed_positions:
+        rule["allowed_positions"] = allowed_positions
+    else:
+        rule.pop("allowed_positions", None)
+    return json.dumps(raw, indent=2) + "\n"
+
+
+def test_boundary_type_allowance_addition_needs_amendment(tmp_path: Path) -> None:
+    root, base = _repo_at_two_revisions(tmp_path, {})
+    apply_overlay(
+        root, {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])}
+    )
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert result.exit_code == 1
+    assert result.failures
+
+
+def test_boundary_type_allowance_broadening_needs_amendment(tmp_path: Path) -> None:
+    broader = {**_BOUNDARY_ALLOWANCE, "annotation": "dict[str, Any]"}
+    root, base = _repo_at_two_revisions(
+        tmp_path,
+        {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])},
+    )
+    apply_overlay(
+        root,
+        {
+            "architecture-contract.json": _boundary_allowance_contract(
+                [_BOUNDARY_ALLOWANCE, broader]
+            )
+        },
+    )
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert result.exit_code == 1
+    assert result.failures
+
+
+def test_boundary_type_allowance_removal_is_narrowing(tmp_path: Path) -> None:
+    root, base = _repo_at_two_revisions(
+        tmp_path,
+        {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])},
+    )
+    apply_overlay(root, {"architecture-contract.json": _boundary_allowance_contract([])})
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
 
     assert (result.exit_code, result.failures) == (0, ())
