@@ -41,6 +41,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureDelta,
     ArchitectureRule,
+    BoundaryTypeAllowance,
     BoundaryTypesRule,
     ComparisonStatus,
     CompatibilityLifetime,
@@ -1228,11 +1229,29 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "rationale", "decided_by"},
-        {"allowed_sources", "exact_sources"},
+        {"allowed_sources", "exact_sources", "allowed_positions"},
         label,
     )
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
     exact = _contract_strings(item.get("exact_sources", []), f"{label}.exact_sources")
+    raw_positions = item.get("allowed_positions", [])
+    if not isinstance(raw_positions, list):
+        raise ValueError(f"{label}.allowed_positions must be an array")
+    positions: list[BoundaryTypeAllowance] = []
+    for index, value in enumerate(raw_positions):
+        entry_label = f"{label}.allowed_positions[{index}]"
+        entry = _exact(
+            value, {"qualified_name", "position", "field_path", "annotation"}, entry_label
+        )
+        qualified_name = _nonempty(entry["qualified_name"], f"{entry_label}.qualified_name")
+        position = _nonempty(entry["position"], f"{entry_label}.position")
+        field_path = _nonempty(entry["field_path"], f"{entry_label}.field_path")
+        annotation = _nonempty(entry["annotation"], f"{entry_label}.annotation")
+        if annotation == "dict":
+            raise ValueError(f"{entry_label}.annotation cannot allow bare dict")
+        positions.append(BoundaryTypeAllowance(qualified_name, position, field_path, annotation))
+    if len(set(positions)) != len(positions):
+        raise ValueError(f"{label}.allowed_positions must contain unique entries")
     return BoundaryTypesRule(
         item_id,
         "boundary_types",
@@ -1242,6 +1261,7 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
         _decided_by(item["decided_by"], f"{label}.decided_by"),
         allowed,
         exact,
+        tuple(positions),
     )
 
 

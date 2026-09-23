@@ -23,6 +23,7 @@ from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
+    BoundaryTypeAllowance,
     BoundaryTypesRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
@@ -47,7 +48,7 @@ from archkeel.ir.widening import (
     contract_widenings,
     verify_amendment,
 )
-from fixtures.demo_catalog_support import apply_overlay, contract_rule_field
+from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_rule_field
 
 _PROVENANCE = ("docs/architecture/shop.md",)
 
@@ -157,6 +158,16 @@ def _rule_diff(before: ArchitectureRule | None, after: ArchitectureRule | None) 
         _contract(rules=() if before is None else (before,)),
         _contract(rules=() if after is None else (after,)),
     )
+
+
+def test_boundary_allowance_addition_widens_and_removal_narrows() -> None:
+    allowance = BoundaryTypeAllowance("pkg.api.run", "return", "payload", "dict[str, JsonValue]")
+
+    added = _rule_diff(_boundary_types(), _boundary_types(allowed_positions=(allowance,)))
+    assert len(added) == 1
+    assert "allowed_positions gained" in added[0]
+    assert "dict[str, JsonValue]" in added[0]
+    assert _rule_diff(_boundary_types(allowed_positions=(allowance,)), _boundary_types()) == ()
 
 
 def _component_diff(
@@ -543,10 +554,42 @@ def test_a_widening_fails_and_names_the_field(tmp_path: Path) -> None:
 
     result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
 
-    assert result.exit_code == 1
+    assert result.exit_code == 1, result.diagnostics
     assert result.diagnostics == ()
     assert result.failures == (
         "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'",
+    )
+
+
+def test_adding_an_exact_boundary_allowance_widens_against(tmp_path: Path) -> None:
+    root, base = _repo_at_two_revisions(tmp_path, {})
+    allowance = {
+        "qualified_name": "shop.app.orders.place_order",
+        "position": "return",
+        "field_path": "payload",
+        "annotation": "dict[str, JsonValue]",
+    }
+    entities_path = root / "shop/model/entities.py"
+    entities = entities_path.read_text()
+    entities = entities.replace(
+        "class Order:\n    order_id: str",
+        "class Order:\n    payload: dict[str, JsonValue]\n    order_id: str",
+    )
+    apply_overlay(
+        root,
+        {
+            "architecture-contract.json": contract_rule_field(
+                "APP-TYPES-NOT-DICT", allowed_positions=[allowance]
+            ),
+            "shop/model/entities.py": entities,
+        },
+    )
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert result.exit_code == 1, result.diagnostics
+    assert any(
+        "APP-TYPES-NOT-DICT.allowed_positions gained" in failure for failure in result.failures
     )
 
 
@@ -708,5 +751,68 @@ def test_a_shrunk_baseline_entry_is_narrowing_and_passes(tmp_path: Path) -> None
     result, _ = run_validate(
         root, SHOP_CONFIG, observe, against=base_with_baseline, baseline=baseline_path
     )
+
+    assert (result.exit_code, result.failures) == (0, ())
+
+
+_BOUNDARY_ALLOWANCE = {
+    "qualified_name": "shop.app.orders.summarize",
+    "position": "return",
+    "field_path": "items.payload",
+    "annotation": "dict[str, str]",
+}
+
+
+def _boundary_allowance_contract(allowed_positions: list[dict[str, str]]) -> str:
+    raw = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    rule = next(item for item in raw["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+    if allowed_positions:
+        rule["allowed_positions"] = allowed_positions
+    else:
+        rule.pop("allowed_positions", None)
+    return json.dumps(raw, indent=2) + "\n"
+
+
+def test_boundary_type_allowance_addition_needs_amendment(tmp_path: Path) -> None:
+    root, base = _repo_at_two_revisions(tmp_path, {})
+    apply_overlay(
+        root, {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])}
+    )
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert result.exit_code == 1
+    assert result.failures
+
+
+def test_boundary_type_allowance_broadening_needs_amendment(tmp_path: Path) -> None:
+    broader = {**_BOUNDARY_ALLOWANCE, "annotation": "dict[str, Any]"}
+    root, base = _repo_at_two_revisions(
+        tmp_path,
+        {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])},
+    )
+    apply_overlay(
+        root,
+        {
+            "architecture-contract.json": _boundary_allowance_contract(
+                [_BOUNDARY_ALLOWANCE, broader]
+            )
+        },
+    )
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert result.exit_code == 1
+    assert result.failures
+
+
+def test_boundary_type_allowance_removal_is_narrowing(tmp_path: Path) -> None:
+    root, base = _repo_at_two_revisions(
+        tmp_path,
+        {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])},
+    )
+    apply_overlay(root, {"architecture-contract.json": _boundary_allowance_contract([])})
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
 
     assert (result.exit_code, result.failures) == (0, ())

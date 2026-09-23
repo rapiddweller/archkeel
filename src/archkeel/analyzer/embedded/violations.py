@@ -1945,12 +1945,55 @@ def _resolved_position_types(
     return sorted(names)
 
 
+def _boundary_type_allowance_fact(
+    rule: BoundaryTypesRule, facade_module: str, record: RawRecord
+) -> RawRecord | None:
+    data = record["data"]
+    path = data["path"] if "path" in data else None
+    nested_annotation = data["nested_annotation"] if "nested_annotation" in data else None
+    for allowance in rule.allowed_positions:
+        if (
+            allowance.annotation == "dict"
+            or data["qualified_name"] != allowance.qualified_name
+            or data["position"] != allowance.position
+            or path != f"{allowance.position}.{allowance.field_path}"
+            or nested_annotation != allowance.annotation
+        ):
+            continue
+        return classified(
+            item_id=stable_id(
+                "TYPE",
+                rule.id,
+                record["id"],
+                allowance.qualified_name,
+                allowance.position,
+                allowance.field_path,
+                allowance.annotation,
+            ),
+            evidence_class=EvidenceClass.FACT,
+            area="type_architecture",
+            kind="boundary_type_allowance",
+            title=(f"{allowance.qualified_name} has an exact nested boundary type allowance"),
+            subjects=[allowance.qualified_name, facade_module],
+            evidence_ids=record["evidence_ids"],
+            rule_ids=[rule.id],
+            fact_ids=record["fact_ids"],
+            data={
+                "qualified_name": allowance.qualified_name,
+                "position": allowance.position,
+                "field_path": allowance.field_path,
+                "annotation": allowance.annotation,
+            },
+        )
+    return None
+
+
 def _boundary_types_violations(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
-) -> list[RawRecord]:
+) -> tuple[list[RawRecord], list[RawRecord]]:
     """AD-58, amended by AD-63: a component's declared facade function takes and returns no
     bare `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a
     type some component -- whichever one actually owns it -- already declares public.
@@ -1963,9 +2006,10 @@ def _boundary_types_violations(
     """
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
-        return []
+        return [], []
     imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     violations: list[RawRecord] = []
+    allowance_facts: list[RawRecord] = []
     for rule in rules:
         for item in symbols:
             found = _facade_positions(item, rule, contract, exports_by_module, imports)
@@ -1985,18 +2029,24 @@ def _boundary_types_violations(
                         classes_by_location,
                     )
                 )
-                violations.extend(
-                    _boundary_type_violation_records(
-                        rule,
-                        item,
-                        facade_module,
-                        qualname,
-                        position,
-                        annotation,
-                        verdict,
-                    )
+                records = _boundary_type_violation_records(
+                    rule,
+                    item,
+                    facade_module,
+                    qualname,
+                    position,
+                    annotation,
+                    verdict,
                 )
-    return sorted(violations, key=lambda item: item["id"])
+                for record in records:
+                    fact = _boundary_type_allowance_fact(rule, facade_module, record)
+                    if fact is None:
+                        violations.append(record)
+                    else:
+                        allowance_facts.append(fact)
+    return sorted(violations, key=lambda item: item["id"]), sorted(
+        allowance_facts, key=lambda item: item["id"]
+    )
 
 
 def _boundary_type_violation_records(
@@ -2386,11 +2436,14 @@ def rule_violations(
     blank_modules: frozenset[str],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
-) -> list[RawRecord]:
+) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
     forbidden_matches = list(_forbidden_dependency_matches(imports, contract.rules, components))
     forbidden_rejected_ids = frozenset(item["id"] for _, item in forbidden_matches)
+    boundary_violations, allowance_facts = _boundary_types_violations(
+        symbols, imports, contract, exports_by_module
+    )
     return sorted(
         [
             *_dependency_violations(iter(forbidden_matches)),
@@ -2405,7 +2458,7 @@ def rule_violations(
             *_interface_violations(imports, contract, exports_by_module, forbidden_rejected_ids),
             *_sibling_violations(imports, contract.rules),
             *_symbol_placement_violations(symbols, contract.rules),
-            *_boundary_types_violations(symbols, imports, contract, exports_by_module),
+            *boundary_violations,
         ],
         key=lambda item: item["id"],
-    )
+    ), allowance_facts

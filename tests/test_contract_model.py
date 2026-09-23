@@ -102,3 +102,45 @@ def test_root_layout_accepts_a_nested_package_root() -> None:
     ]
     contract = parse_contract(raw)
     assert contract.rules[0].root == "sample.core"
+
+
+def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["rules"] = [
+        {
+            "id": "BOUNDARY-TYPES",
+            "kind": "boundary_types",
+            "source": "sample.core",
+            "rationale": "Keep declared boundary types narrow.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+            "allowed_positions": [
+                {
+                    "qualified_name": "sample.core.api.run",
+                    "position": "return",
+                    "field_path": "payload",
+                    "annotation": "dict[str, JsonValue]",
+                }
+            ],
+        }
+    ]
+
+    contract = parse_contract(raw)
+    encoded = json.loads(contract_bytes(contract))
+    assert not list(VALIDATOR.iter_errors(encoded))
+    assert parse_contract(encoded) == contract
+
+    raw["rules"][0]["allowed_positions"][0]["annotation"] = "dict"
+    assert list(VALIDATOR.iter_errors(raw))
+    with pytest.raises(ValueError, match="annotation cannot allow bare dict"):
+        parse_contract(raw)
+    raw["rules"][0]["allowed_positions"][0]["annotation"] = "dict[str, JsonValue]"
+
+    raw["rules"][0]["allowed_positions"][0]["field_path"] = ""
+    with pytest.raises(ValueError, match="allowed_positions\\[0\\].field_path must not be empty"):
+        parse_contract(raw)
+
+    raw["rules"][0]["allowed_positions"][0]["field_path"] = "payload"
+    raw["rules"][0]["allowed_positions"][0]["unexpected"] = True
+    with pytest.raises(ValueError, match="fields mismatch"):
+        parse_contract(raw)

@@ -308,7 +308,7 @@ def scan_repository(
         ],
         key=lambda item: item["id"],
     )
-    violations = rule_violations(
+    violations, boundary_allowances = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
         constructs=constructs,
@@ -319,6 +319,7 @@ def scan_repository(
         contract=contract,
         exports_by_module=facade_exports,
     )
+    typing_signals = sorted([*typing_signals, *boundary_allowances], key=lambda item: item["id"])
 
     unknowns = [
         *_analysis_limits(calls, declarations, namespace),

@@ -10,30 +10,37 @@ from pathlib import Path
 
 from test_analyzer import _component, _observe
 
-from archkeel.ir.model import ObservationResult
+from archkeel.ir.model import ObservationResult, RecordData
 from archkeel.ir.trace import trace_valid_violations
 
 
-def _write_app(root: Path, *, implementation: str, declared: tuple[str, ...]) -> None:
+def _write_app(
+    root: Path,
+    *,
+    implementation: str,
+    declared: tuple[str, ...],
+    allowed_positions: tuple[dict[str, str], ...] = (),
+) -> None:
+    rule: dict[str, object] = {
+        "id": "APP-TYPES-NOT-DICT",
+        "kind": "boundary_types",
+        "source": "sample.app",
+        "rationale": "Keep the declared application boundary typed.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    if allowed_positions:
+        rule["allowed_positions"] = list(allowed_positions)
     (root / "contract.json").write_text(
         json.dumps(
             {
                 "schema_version": "2.1.0",
                 "components": [_component("app", public=list(declared))],
-                "rules": [
-                    {
-                        "id": "APP-TYPES-NOT-DICT",
-                        "kind": "boundary_types",
-                        "source": "sample.app",
-                        "rationale": "Keep the declared application boundary typed.",
-                        "provenance": ["docs/architecture/sample.md"],
-                        "decided_by": "architect",
-                    }
-                ],
+                "rules": [rule],
             }
         )
     )
-    (root / "sample/app").mkdir(parents=True)
+    (root / "sample/app").mkdir(parents=True, exist_ok=True)
     (root / "sample/app/__init__.py").write_text("")
     (root / "sample/app/impl.py").write_text(implementation)
 
@@ -180,3 +187,123 @@ def test_collection_and_union_nesting_decides_owned_dtos(tmp_path: Path) -> None
     assert result.observation is not None
     assert trace_valid_violations(result.observation) == ()
     assert _type_unknowns(result) == []
+
+
+def test_exact_nested_boundary_allowance_is_a_fact_and_leaves_bare_dict_unallowed(
+    tmp_path: Path,
+) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "return",
+        "field_path": "payload",
+        "annotation": "dict[str, JsonValue]",
+    }
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Request:\n    payload: dict[str, JsonValue]\n\n\n"
+            "def run() -> Request:\n    return Request()\n"
+        ),
+        declared=("sample.app.impl:Request", "sample.app.impl:run"),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [fact] = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    assert fact.evidence_class.value == "FACT"
+    assert fact.rule_ids == ("APP-TYPES-NOT-DICT",)
+    assert fact.data.get("field_path") == "payload"
+    assert fact.data.get("annotation") == "dict[str, JsonValue]"
+    [rule] = [
+        item
+        for item in result.observation.records("declarations") or ()
+        if item.id == "APP-TYPES-NOT-DICT"
+    ]
+    reported_allowances = rule.data.get("allowed_positions")
+    assert isinstance(reported_allowances, tuple)
+    [reported_allowance] = reported_allowances
+    assert isinstance(reported_allowance, RecordData)
+    assert all(reported_allowance.get(key) == value for key, value in allowance.items())
+
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Request:\n    payload: dict\n\n\ndef run() -> Request:\n    return Request()\n"
+        ),
+        declared=("sample.app.impl:Request", "sample.app.impl:run"),
+        allowed_positions=(allowance,),
+    )
+    bare = _observe(tmp_path)
+    assert bare.observation is not None
+    assert any(
+        item.kind == "boundary_types" and item.data.get("nested_annotation") == "dict"
+        for item in trace_valid_violations(bare.observation)
+    )
+    assert not any(
+        item.kind == "boundary_type_allowance"
+        for item in bare.observation.records("typing_signals") or ()
+    )
+
+
+def test_nested_boundary_allowance_is_exact_to_sibling_field_path(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Request:\n"
+            "    left: dict[str, JsonValue]\n"
+            "    right: dict[str, JsonValue]\n\n\n"
+            "def run() -> Request:\n    return Request()\n"
+        ),
+        declared=("sample.app.impl:Request", "sample.app.impl:run"),
+        allowed_positions=(
+            {
+                "qualified_name": "sample.app.impl.run",
+                "position": "return",
+                "field_path": "left",
+                "annotation": "dict[str, JsonValue]",
+            },
+        ),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert [(item.kind, item.data.get("path")) for item in violations] == [
+        ("boundary_types", "return.right"),
+    ]
+
+
+def test_unmatched_allowance_does_not_create_a_violation_without_source_evidence(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation="def run() -> str:\n    return ''\n",
+        declared=("sample.app.impl:run",),
+        allowed_positions=(
+            {
+                "qualified_name": "sample.app.impl.typo",
+                "position": "return",
+                "field_path": "payload",
+                "annotation": "dict[str, JsonValue]",
+            },
+        ),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert result.diagnostics == ()
+    assert trace_valid_violations(result.observation) == ()
+    assert not any(
+        item.kind == "boundary_type_allowance"
+        for item in result.observation.records("typing_signals") or ()
+    )

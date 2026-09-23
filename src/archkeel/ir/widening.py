@@ -27,6 +27,7 @@ from .model import (
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
+    BoundaryTypesRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -247,6 +248,23 @@ def _sibling_isolation_widenings(
     ]
 
 
+def _boundary_types_widenings(
+    subject: str, before: BoundaryTypesRule, after: BoundaryTypesRule
+) -> list[str]:
+    return [
+        f"{subject}.allowed_positions gained {item!r}"
+        for item in sorted(
+            set(after.allowed_positions) - set(before.allowed_positions),
+            key=lambda entry: (
+                entry.qualified_name,
+                entry.position,
+                entry.field_path,
+                entry.annotation,
+            ),
+        )
+    ]
+
+
 def _matched_rule_widenings(before: ArchitectureRule, after: ArchitectureRule) -> list[str]:
     """Dispatch by matched rule kind; a kind this module has no branch for falls closed below."""
     subject = f"rule {before.id}"
@@ -296,6 +314,13 @@ def _matched_rule_widenings(before: ArchitectureRule, after: ArchitectureRule) -
         ]
     if isinstance(before, SiblingIsolationRule) and isinstance(after, SiblingIsolationRule):
         return _sibling_isolation_widenings(subject, before, after)
+    if isinstance(before, BoundaryTypesRule) and isinstance(after, BoundaryTypesRule):
+        return [
+            *_boundary_types_widenings(subject, before, after),
+            *_generic_field_widenings(
+                subject, before, after, handled=frozenset({"allowed_positions"})
+            ),
+        ]
     if isinstance(before, CompleteAssignmentRule) and isinstance(after, CompleteAssignmentRule):
         return _generic_field_widenings(subject, before, after, handled=frozenset())
     if isinstance(before, CompleteExternalScopeRule) and isinstance(

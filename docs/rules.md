@@ -326,6 +326,15 @@ declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to
 example violation, and so is `summarize_all(extras: list[Extra]) -> Money`, where wrapping the
 undeclared `Extra` in a list is no longer a way out of the same finding (AD-67).
 
+`allowed_positions` may exempt one nested DTO finding by exact `qualified_name`, `position`,
+`field_path` and `annotation`. `field_path` is relative to the parameter or `return`; the
+outer signature annotation stays in the violation record. The allowance applies only when
+`data.path` and `nested_annotation` both match. A mismatch leaves the violation intact, and a
+bare `dict` cannot match an allowance for `dict[str, JsonValue]`. Applied entries produce a
+`FACT` in `typing_signals` linked to the rule and function evidence; an unused entry emits no
+fact and has no effect. Adding an entry widens the contract and needs an amendment under
+`validate --against`; removing one narrows it (AD-95).
+
 ### Known violations of a target contract
 
 A contract may state the architecture the code is heading for rather than the one it has, in
