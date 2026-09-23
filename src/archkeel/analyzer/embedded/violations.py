@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import ast
 import builtins
 import sys
 from collections import defaultdict
@@ -825,6 +826,9 @@ _COLLECTION_CONTAINERS: Final = frozenset(
         "AbstractSet",
     }
 )
+_TYPING_COLLECTION_CONTAINERS: Final = frozenset(
+    f"typing.{container}" for container in _COLLECTION_CONTAINERS
+)
 
 
 def _split_type_parameters(inner: str) -> list[str] | None:
@@ -857,12 +861,16 @@ def _split_type_parameters(inner: str) -> list[str] | None:
 def _collection_parameters(annotation: str) -> list[str] | None:
     """The type parameters of `Container[...]` when the container is a known collection.
 
-    None when the annotation is not exactly one such subscript, so a dotted container
-    (`typing.Sequence[X]`), a union around one and a mapping all stay where they were. The
+    None when the annotation is not exactly one such subscript, so unsupported dotted containers,
+    a union around one and a mapping all stay where they were. The
     `...` of `tuple[X, ...]` is an arity, not a type, and is dropped (AD-67).
     """
     head, bracket, rest = annotation.partition("[")
-    if not bracket or not rest.endswith("]") or head not in _COLLECTION_CONTAINERS:
+    if (
+        not bracket
+        or not rest.endswith("]")
+        or head not in _COLLECTION_CONTAINERS | _TYPING_COLLECTION_CONTAINERS
+    ):
         return None
     parameters = _split_type_parameters(rest[:-1])
     if parameters is None:
@@ -883,34 +891,34 @@ def _unresolvable_shape(annotation: str) -> str:
 
 
 def _union_parameters(annotation: str) -> list[str] | None:
-    """Split a PEP 604 union at its top-level separators."""
-    parameters: list[str] = []
-    current = ""
-    depth = 0
-    for character in annotation:
-        if character == "[":
-            depth += 1
-        elif character == "]":
-            depth -= 1
-            if depth < 0:
-                return None
-        if character == "|" and depth == 0:
-            parameters.append(current.strip())
-            current = ""
-        else:
-            current += character
-    if depth:
+    """Return members only for syntactically valid standard union annotations."""
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
         return None
-    if not parameters:
-        head, bracket, rest = annotation.partition("[")
-        if not bracket or not rest.endswith("]") or head not in {"Union", "Optional"}:
+    if isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr):
+        return [ast.unparse(expression.left), ast.unparse(expression.right)]
+    if not isinstance(expression, ast.Subscript):
+        return None
+    head = expression.value
+    if isinstance(head, ast.Name):
+        name = head.id
+    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
+        if head.value.id != "typing":
             return None
-        parameters = _split_type_parameters(rest[:-1]) or []
-        if head == "Optional" and len(parameters) == 1:
-            parameters.append("None")
-        return parameters if parameters and all(parameters) else None
-    parameters.append(current.strip())
-    return parameters if all(parameters) else None
+        name = head.attr
+    else:
+        return None
+    if name not in {"Union", "Optional"}:
+        return None
+    members = (
+        list(expression.slice.elts)
+        if isinstance(expression.slice, ast.Tuple)
+        else [expression.slice]
+    )
+    if name == "Optional":
+        return [ast.unparse(members[0]), "None"] if len(members) == 1 else None
+    return [ast.unparse(member) for member in members] if len(members) >= 2 else None
 
 
 class _AmbiguousBinding:

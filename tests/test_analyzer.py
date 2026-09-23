@@ -18,7 +18,11 @@ from archkeel.analyzer.embedded.resolve import build_symbol_index
 from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.analyzer.embedded.typing_signals import collect_typing_signals
-from archkeel.analyzer.embedded.violations import _construct_violations, requires_violations
+from archkeel.analyzer.embedded.violations import (
+    _construct_violations,
+    _union_parameters,
+    requires_violations,
+)
 from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.ir.baseline import observed_violations
@@ -1949,6 +1953,89 @@ def test_boundary_types_recursively_decides_nested_generic_and_union(tmp_path: P
     assert totals == (3, 2, 1)
     assert result.diagnostics == ()
     assert result.exit_code == 0
+
+
+def test_boundary_types_decides_qualified_typing_unions_and_collections(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import typing\n\n\n"
+        "def typed(optional: typing.Optional[str], union: typing.Union[str, int], "
+        "values: typing.List[tuple[str, int]], "
+        "sequence: typing.Sequence[typing.Optional[str]]) -> str:\n"
+        "    return str((optional, union, values, sequence))\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert unknown_positions(result.observation) == 0
+
+
+def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "class Payload:\n    pass\n\n\n"
+        "def typed(value: list[str | (Payload | MissingPayload)]) -> str:\n"
+        "    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert len(trace_valid_violations(result.observation)) == 1
+    assert unknown_positions(result.observation) == 0
+
+
+def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
+    assert _union_parameters("str |") is None
+    assert _union_parameters("'str | int'") is None
+
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def typed(value: 'str | int') -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    [detail] = limit.data.get("undecidable_positions")
+    assert dict(detail.entries)["reason"] == "forward_reference"
+
+
+def test_boundary_types_does_not_guess_typing_module_aliases(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "import typing as t\n\n\ndef typed(value: t.Optional[str]) -> str:\n    return str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    [detail] = limit.data.get("undecidable_positions")
+    assert dict(detail.entries)["reason"] == "dotted_name"
 
 
 def test_boundary_types_does_not_report_a_limit_when_every_position_is_decided(
