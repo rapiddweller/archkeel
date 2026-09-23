@@ -247,9 +247,21 @@ def _resolve_class_kinds(
 
 def _static_enum_members(node: ast.ClassDef) -> list[str]:
     """Return enum members assigned one literal value exactly once in the class body."""
-    assignments: dict[str, list[ast.expr | None]] = {}
+    assignments: dict[str, ast.expr | None] = {}
     for child in node.body:
         value: ast.expr | None
+        if isinstance(child, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "_ignore_" for target in child.targets
+        ):
+            return []
+        if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+            if child.target.id == "_ignore_":
+                return []
+        if isinstance(child, ast.Delete):
+            for target in child.targets:
+                if isinstance(target, ast.Name):
+                    assignments[target.id] = None
+            continue
         if isinstance(child, ast.Assign) and len(child.targets) == 1:
             target = child.targets[0]
             value = child.value
@@ -258,13 +270,12 @@ def _static_enum_members(node: ast.ClassDef) -> list[str]:
             value = child.value
         else:
             continue
-        if isinstance(target, ast.Name) and not target.id.startswith("_"):
-            assignments.setdefault(target.id, []).append(value)
-    return sorted(
-        name
-        for name, values in assignments.items()
-        if len(values) == 1 and isinstance(values[0], ast.Constant)
-    )
+        if isinstance(target, ast.Name) and target.id[:1] != "_":
+            if target.id in assignments:
+                assignments[target.id] = None
+            else:
+                assignments[target.id] = value
+    return sorted(name for name, value in assignments.items() if isinstance(value, ast.Constant))
 
 
 def _assignment_symbol(

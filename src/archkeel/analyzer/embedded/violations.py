@@ -953,18 +953,9 @@ def _typing_wrapper_inner(
             if isinstance(value, ast.Name):
                 names.append(value.id)
                 continue
-            if isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name):
-                resolved = resolve_named_type(
-                    value.value.id, module, imports_by_binding, classes_by_location
-                )
-                symbol = classes_by_location.get(resolved) if isinstance(resolved, tuple) else None
-                if (
-                    isinstance(symbol, dict)
-                    and symbol.get("class_kind") == "enum"
-                    and value.attr in symbol.get("enum_members", ())
-                ):
-                    names.append(ast.unparse(value))
-                    continue
+            if isinstance(value, ast.Attribute):
+                names.append(ast.unparse(value))
+                continue
             return None
         return tuple(names)
     return None
