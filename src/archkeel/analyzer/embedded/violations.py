@@ -1345,7 +1345,12 @@ def _type_alias_verdict(
         _aliases_seen=aliases_seen | {resolved},
     )
     return _Position(
-        expanded.violation, expanded.undecidable, tuple(sorted({*reached, *expanded.resolved}))
+        violation=expanded.violation,
+        undecidable=expanded.undecidable,
+        resolved=tuple(sorted({*reached, *expanded.resolved})),
+        path=expanded.path,
+        nested_annotation=expanded.nested_annotation,
+        violations=expanded.violations,
     )
 
 
@@ -1413,7 +1418,7 @@ def _named_type_verdict(
     if alias is not None:
         return alias
     if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "static_constant":
-        return _Position()
+        return _Position(undecidable="other", resolved=reached)
     if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "dynamic_binding":
         return _Position(undecidable="other", resolved=reached)
     # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries

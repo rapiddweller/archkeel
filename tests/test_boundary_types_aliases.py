@@ -16,6 +16,7 @@ from archkeel.analyzer.embedded.violations import (
     _typing_wrapper_inner,
     boundary_type_indexes,
 )
+from archkeel.ir.model import ArchitectureContract, ComponentRole, ContractComponent
 
 
 def _module(source: str) -> ParsedModule:
@@ -119,6 +120,58 @@ def test_rebound_typing_dict_is_unknown_not_a_broad_type_violation() -> None:
     }
     verdict = _boundary_type_verdict("Dict[str, str]", "sample", None, {}, imports, rebinding)
     assert verdict.violation is None and verdict.undecidable == "ambiguous_binding"
+
+
+def test_static_constant_is_not_a_type_alias() -> None:
+    constants = {
+        ("sample", "READY"): {
+            "record_kind": "static_constant",
+            "constant": "ready",
+        }
+    }
+    verdict = _boundary_type_verdict("READY", "sample", None, {}, {}, constants)
+    assert verdict.violation is None and verdict.undecidable == "other"
+
+
+def test_alias_preserves_nested_violation_and_unknown_coordinates() -> None:
+    contract = ArchitectureContract(
+        schema_version="2.1.0",
+        components=(
+            ContractComponent(
+                id="app",
+                label="app",
+                role=ComponentRole.COMPONENT,
+                packages=("sample",),
+                responsibilities=(),
+                forbidden_responsibilities=(),
+                provenance=(),
+                public=("sample:Request",),
+            ),
+        ),
+        rules=(),
+    )
+    alias = {
+        ("sample", "RequestAlias"): {
+            "record_kind": "type_alias",
+            "alias": "Request",
+        },
+        ("sample", "Request"): {
+            "record_kind": "class",
+            "class_kind": "model",
+            "fields": [{"name": "payload", "annotation": "dict[str, str]"}],
+        },
+    }
+    violation = _boundary_type_verdict("RequestAlias", "sample", contract, {}, {}, alias)
+    assert violation.violation == "instead of a typed model"
+    assert violation.path == ("payload",)
+    assert violation.nested_annotation == "dict[str, str]"
+    assert violation.violations == (("instead of a typed model", ("payload",), "dict[str, str]"),)
+
+    alias[("sample", "Request")]["fields"] = [{"name": "payload", "annotation": "Unresolved"}]
+    unknown = _boundary_type_verdict("RequestAlias", "sample", contract, {}, {}, alias)
+    assert unknown.undecidable == "unresolved_name"
+    assert unknown.path == ("payload",)
+    assert unknown.nested_annotation == "Unresolved"
 
 
 def test_annotated_alias_cycle_is_unknown_and_wrapper_does_not_hide_violation() -> None:
