@@ -104,7 +104,7 @@ def test_boundary_types_treats_literal_constant_as_static_but_not_as_a_type(
     assert trace_valid_violations(result.observation) == ()
     assert [position.data.get("annotation") for position in _positions(result)] == ["READY"]
     [position] = _positions(result)
-    assert position.data.get("reason") == "unresolved_name"
+    assert position.data.get("reason") == "other"
 
 
 def test_boundary_types_checks_union_inside_annotated_and_ignores_metadata_expression(
