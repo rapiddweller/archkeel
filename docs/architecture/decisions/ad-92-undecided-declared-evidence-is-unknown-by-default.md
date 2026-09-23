@@ -11,7 +11,7 @@ the verdict and the measurement cannot disagree.
 | id also in `coverage.failures` | 0: the scan is already incomplete, exit 2 |
 | `dynamic_call_limit`, `context_alias_limit`, `private_attribute_access_limit` | 0: standing disclaimers, or a scalar of their own |
 | `boundary_type_limit` | its per-kind counts, without the totals and without `external_type` (AD-67) |
-| any other kind | `data.undecided` when it is a non-negative integer, else 1 |
+| any other kind | `data.undecided` when it is a positive integer, else 1 |
 
 `inspect_observation` reads: a violation is `FAIL`; else a count above 0 is `UNKNOWN`; else
 `PASS`. Exit codes do not change.
@@ -45,7 +45,7 @@ flipped the verdict before, and `git_metadata_failure`, parse failures and
 
 ## Limit
 
-A record without a usable `undecided` count counts once, however many positions it covers. A
+A record without a positive `undecided` count counts once, however many positions it covers. A
 profile that wants a finer count writes `data.undecided`. A kind added to the standing
 disclaimers must argue that it fires regardless of the contract.
 

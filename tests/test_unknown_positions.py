@@ -61,7 +61,7 @@ def test_a_novel_unknowns_kind_reports_unknown_not_pass() -> None:
     ("data", "expected"),
     [
         ({"undecided": 3}, 3),
-        ({"undecided": 0}, 0),
+        ({"undecided": 0}, 1),
         # A bool is an int in Python, so `False` would otherwise read as "nothing open".
         ({"undecided": True}, 1),
         ({"undecided": False}, 1),
@@ -133,6 +133,21 @@ def test_boundary_type_limit_counts_only_its_checker_limit_kinds() -> None:
     )
 
     assert unknown_positions(observation) == 2
+    assert _verdict(observation) == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("positions", True), ("decided", -1), ("undecided", 1), ("union", True)],
+)
+def test_malformed_boundary_type_limit_counts_at_least_one_unknown(
+    field: str, value: object
+) -> None:
+    record = _boundary_type_limit("BOUNDARY", positions=3, decided=1, union=2)
+    record["data"][field] = value
+    observation = _observation(record)
+
+    assert unknown_positions(observation) >= 1
     assert _verdict(observation) == "UNKNOWN"
 
 

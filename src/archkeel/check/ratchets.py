@@ -34,6 +34,7 @@ _STANDING_DISCLAIMERS: Final = frozenset(
 # reading "no violation" as "probably fine". The totals `positions`, `decided` and `undecided`
 # that `boundary_type_limits` writes beside the per-kind counts would count a position twice.
 _BOUNDARY_TYPE_NEUTRAL: Final = frozenset({"external_type", "positions", "decided", "undecided"})
+_BOUNDARY_TYPE_TOTALS: Final = _BOUNDARY_TYPE_NEUTRAL - {"external_type"}
 
 
 def _records(observation: Observation, section: str) -> tuple[Record, ...]:
@@ -56,16 +57,39 @@ def _positions(value: object, label: str) -> int:
 
 def _undecided(record: Record) -> int:
     if record.kind == "boundary_type_limit":
-        return sum(
-            value
+        positions = record.data.get("positions")
+        decided = record.data.get("decided")
+        undecided = record.data.get("undecided")
+        reason_counts = {
+            reason: value
             for reason, value in record.data.entries
-            if reason not in _BOUNDARY_TYPE_NEUTRAL
-            and isinstance(value, int)
-            and not isinstance(value, bool)
-            and value > 0
+            if reason not in _BOUNDARY_TYPE_TOTALS
+        }
+        valid_reason_counts = {
+            reason: value
+            for reason, value in reason_counts.items()
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        }
+        if (
+            not isinstance(positions, int)
+            or isinstance(positions, bool)
+            or positions < 0
+            or not isinstance(decided, int)
+            or isinstance(decided, bool)
+            or decided < 0
+            or not isinstance(undecided, int)
+            or isinstance(undecided, bool)
+            or undecided < 0
+            or positions != decided + undecided
+            or len(valid_reason_counts) != len(reason_counts)
+            or sum(valid_reason_counts.values()) != undecided
+        ):
+            return 1
+        return sum(
+            value for reason, value in valid_reason_counts.items() if reason != "external_type"
         )
     undecided = record.data.get("undecided")
-    if isinstance(undecided, int) and not isinstance(undecided, bool) and undecided >= 0:
+    if isinstance(undecided, int) and not isinstance(undecided, bool) and undecided > 0:
         return undecided
     # A record without a usable count still names at least one position left undecided.
     return 1
