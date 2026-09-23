@@ -1565,6 +1565,8 @@ def boundary_type_limits(
             # already says so, and saying it twice in two vocabularies would be the third
             # mechanism this record exists to avoid.
             continue
+        if decided == seen:
+            continue
         limits.append(
             classified(
                 item_id=stable_id("UNKNOWN-BOUNDARY-TYPES", rule.id),
