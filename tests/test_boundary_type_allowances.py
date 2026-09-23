@@ -24,9 +24,10 @@ _DECLARED = (
 _IMPLEMENTATION = (
     "from typing import Any\n\n"
     "class Inner:\n"
-    "    allowed: dict\n"
-    "    sibling: dict\n"
-    "    changed: dict[str, Any]\n\n\n"
+    "    allowed: dict[str, str]\n"
+    "    sibling: dict[str, str]\n"
+    "    changed: dict[str, Any]\n"
+    "    bare: dict\n\n\n"
     "class Request:\n"
     "    items: Inner\n\n\n"
     "class Response:\n"
@@ -39,7 +40,7 @@ _ALLOWANCE = {
     "qualified_name": "sample.app.impl.run",
     "position": "return",
     "field_path": "items.allowed",
-    "annotation": "dict",
+    "annotation": "dict[str, str]",
 }
 
 
@@ -92,11 +93,14 @@ def test_exact_nested_allowance_leaves_sibling_position_and_changed_annotation(
         "request.items.allowed",
         "request.items.sibling",
         "request.items.changed",
+        "request.items.bare",
         "return.items.sibling",
         "return.items.changed",
+        "return.items.bare",
         "return.backup.allowed",
         "return.backup.sibling",
         "return.backup.changed",
+        "return.backup.bare",
     }
 
 

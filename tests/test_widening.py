@@ -759,7 +759,7 @@ _BOUNDARY_ALLOWANCE = {
     "qualified_name": "shop.app.orders.summarize",
     "position": "return",
     "field_path": "items.payload",
-    "annotation": "dict",
+    "annotation": "dict[str, str]",
 }
 
 
