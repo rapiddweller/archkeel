@@ -10,7 +10,6 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import TypeVar
 
 from archkeel.ir.baseline import (
@@ -84,8 +83,8 @@ from .git import GitError, archive_excluded, read_blob
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
-from .run import inspect_observation, materialize_declarations, observe_snapshot
-from .snapshot import SnapshotError, materialize_git_snapshot
+from .run import inspect_observation, observe_revision
+from .snapshot import SnapshotError
 
 COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
 # AD-57: a second, independent marker for the graph the contract permits, beside the one
@@ -1580,13 +1579,7 @@ def _unresolved_calls_since(
     leave the old scan without subjects, and a removed call names the component it had then.
     """
     try:
-        with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
-            declarations = Path(temporary)
-            materialize_declarations(root, against, config, declarations)
-            with materialize_git_snapshot(root, against, roots=config.roots) as snapshot:
-                observed = observe_snapshot(
-                    analyzer, snapshot.root, snapshot.git_head, config, declarations
-                )
+        observed = observe_revision(analyzer, root, against, config, declared_at=against)
         if observed.diagnostics or observed.observation is None:
             return None
         changes = unresolved_call_changes(observed.observation, observation)

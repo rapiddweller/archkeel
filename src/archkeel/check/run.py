@@ -118,23 +118,32 @@ def _authenticate_inputs(
     return lock, lock_bytes, expectation
 
 
-def observe_snapshot(
+def observe_revision(
     analyzer: Analyzer,
     root: Path,
-    commit: str,
+    revision: str,
     config: ScanConfig,
-    declarations: Path,
+    *,
+    declared_at: str,
 ) -> ObservationResult:
-    """Run the analyzer against one materialized git snapshot."""
-    return analyzer(
-        root,
-        roots=config.roots,
-        namespace=config.namespace,
-        contract=config.contract,
-        git_head=commit,
-        dirty=False,
-        contract_root=declarations,
-    )
+    """Observe one commit's scoped Python files under the declarations `declared_at` holds.
+
+    `check` observes the accepted commit and the candidate under the lock commit's
+    declarations; `validate --against` observes a revision under its own (AD-100).
+    """
+    with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
+        declarations = Path(temporary)
+        materialize_declarations(root, declared_at, config, declarations)
+        with materialize_git_snapshot(root, revision, roots=config.roots) as snapshot:
+            return analyzer(
+                snapshot.root,
+                roots=config.roots,
+                namespace=config.namespace,
+                contract=config.contract,
+                git_head=snapshot.git_head,
+                dirty=False,
+                contract_root=declarations,
+            )
 
 
 def _incomplete(result: ObservationResult) -> RunResult:
@@ -213,27 +222,22 @@ def run_check(
     ordering_failures = check_order(
         host_records, expectation_sha=expectation_commit, candidate_sha=head
     )
-    with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
-        declarations = Path(temporary)
-        materialize_declarations(root, baseline, config, declarations)
-        with materialize_git_snapshot(root, lock.accepted_commit, roots=config.roots) as before:
-            accepted_result = observe_snapshot(
-                analyzer, before.root, lock.accepted_commit, config, declarations
-            )
-        accepted = accepted_result.observation
-        if accepted_result.diagnostics or accepted is None:
-            return _incomplete(accepted_result)
-        try:
-            accepted_measurements = measure_python_ratchets(accepted)
-        except RatchetError as error:
-            return _measurement_incomplete(accepted, error)
-        verify_observation(
-            lock,
-            observation_digest=sha256_bytes(canonical_report_bytes(accepted)),
-            measurements=accepted_measurements,
-        )
-        with materialize_git_snapshot(root, head, roots=config.roots) as after:
-            candidate_result = observe_snapshot(analyzer, after.root, head, config, declarations)
+    accepted_result = observe_revision(
+        analyzer, root, lock.accepted_commit, config, declared_at=baseline
+    )
+    accepted = accepted_result.observation
+    if accepted_result.diagnostics or accepted is None:
+        return _incomplete(accepted_result)
+    try:
+        accepted_measurements = measure_python_ratchets(accepted)
+    except RatchetError as error:
+        return _measurement_incomplete(accepted, error)
+    verify_observation(
+        lock,
+        observation_digest=sha256_bytes(canonical_report_bytes(accepted)),
+        measurements=accepted_measurements,
+    )
+    candidate_result = observe_revision(analyzer, root, head, config, declared_at=baseline)
     candidate = candidate_result.observation
     if candidate_result.diagnostics or candidate is None:
         return _incomplete(candidate_result)
