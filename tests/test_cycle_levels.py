@@ -240,6 +240,66 @@ def _contract_json(**rule: object) -> str:
     )
 
 
+# --- A package SCC says whether a module cycle backs it or it is only the roll-up (#129). ---
+
+
+def _package_sccs(observation: Observation) -> list[tuple[tuple[str, ...], str, object]]:
+    return [
+        (item.subjects, item.title, item.data.get("backed_by"))
+        for item in observation.records("cycles") or ()
+        if item.kind == "package_scc"
+    ]
+
+
+def _metric(observation: Observation, kind: str) -> tuple[object, tuple[str, ...]]:
+    (metric,) = (item for item in observation.records("metrics") or () if item.kind == kind)
+    return metric.data.get("value"), metric.fact_ids
+
+
+def test_a_package_cycle_no_module_cycle_crosses_is_roll_up_only(tmp_path: Path) -> None:
+    """a.x -> b.y and b.z -> a.w close a package cycle; no module path closes it (#129)."""
+    sources = {
+        "a/x.py": "from sample.b import y\n",
+        "a/w.py": "VALUE = 1\n",
+        "b/y.py": "VALUE = 1\n",
+        "b/z.py": "from sample.a import w\n",
+    }
+    observation = _observe(tmp_path, sources, labels=())
+
+    assert _module_sccs(observation) == []
+    ((members, title, backed_by),) = _package_sccs(observation)
+    assert (members, title, backed_by) == (
+        ("sample.a", "sample.b"),
+        "Package cycle with 2 members, roll-up only: no module cycle crosses them",
+        (),
+    )
+    package_cycle = next(
+        item.id for item in observation.records("cycles") or () if item.kind == "package_scc"
+    )
+    assert _metric(observation, "rollup_only_package_cycles") == (1, (package_cycle,))
+
+
+def test_a_module_cycle_across_two_packages_backs_the_package_cycle(tmp_path: Path) -> None:
+    sources = {
+        "a/x.py": "from sample.b import y\n",
+        "b/y.py": "from sample.a import x\n",
+        # A module cycle inside one package backs no package cycle.
+        "a/p.py": "from sample.a import q\n",
+        "a/q.py": "from sample.a import p\n",
+    }
+    observation = _observe(tmp_path, sources, labels=())
+
+    crossing = next(
+        item.id
+        for item in observation.records("cycles") or ()
+        if item.kind == "module_scc" and item.subjects == ("sample.a.x", "sample.b.y")
+    )
+    assert _package_sccs(observation) == [
+        (("sample.a", "sample.b"), "Package cycle with 2 members", (crossing,))
+    ]
+    assert _metric(observation, "rollup_only_package_cycles") == (0, ())
+
+
 # --- The existing baseline and --against ratchet a module-level cycle count (#129, item 5). ---
 
 _MODULE_RULE = {

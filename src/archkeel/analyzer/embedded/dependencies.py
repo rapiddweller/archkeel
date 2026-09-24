@@ -205,6 +205,33 @@ def cycle_records(
     return sorted(records, key=lambda item: item["id"])
 
 
+def backed_package_cycles(
+    package_cycles: Sequence[RawRecord],
+    module_cycles: Sequence[RawRecord],
+    package_of: dict[str, str],
+) -> list[RawRecord]:
+    """Name, on each package SCC, the module SCCs that cross two or more of its packages.
+
+    AD-98: a package is a module's first two dotted segments, so `a.x -> b.y` and `b.z -> a.w`
+    close a package cycle that no module import cycle closes. Every package edge is real, but
+    the cycle is the roll-up's: `backed_by` stays empty and the title says so. A module SCC
+    inside one package never backs one.
+    """
+    records: list[RawRecord] = []
+    for cycle in package_cycles:
+        packages = set(cycle["data"]["members"])
+        backed_by = sorted(
+            module_cycle["id"]
+            for module_cycle in module_cycles
+            if len(packages & {package_of[member] for member in module_cycle["data"]["members"]})
+            > 1
+        )
+        rollup = ", roll-up only: no module cycle crosses them"
+        title = cycle["title"] if backed_by else f"{cycle['title']}{rollup}"
+        records.append({**cycle, "title": title, "data": {**cycle["data"], "backed_by": backed_by}})
+    return records
+
+
 def declared_path_observations(
     paths: Sequence[ContractPath], package_edges: Sequence[RawRecord]
 ) -> list[RawRecord]:
