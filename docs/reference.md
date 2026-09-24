@@ -245,6 +245,17 @@ inside declares (AD-36); `--component` matches only a top-level component, since
 rule id, `--component` against every top-level component label, whether or not either has a
 violation today.
 
+`report --only calls` lists every unresolved and partially resolved call instead: `--json`
+carries them as `filtered_calls`, one row each with `status`, `caller`, `path`, `line`,
+`expression`, `reason` and owning `component` (`null` when no component or several own the
+calling module), sorted by path, line, caller and expression. The rows come from the
+observation's own call records and add up to `coverage.calls_unresolved` plus
+`calls_partially_resolved`. `--component` keeps the calls its modules make; `--rule` is exit 2,
+since a call cites no rule. The HTML page shows the same rows as one table in place of the
+violations table and hides what `--only violations` hides; the terminal prints only the
+`Filtered (only calls): N unresolved or partially resolved call(s) listed.` sentence. Without
+`--only calls` the field is absent, so a default result keeps its bytes (AD-100).
+
 An unfiltered HTML page with violations also has a local `Violations only` control (AD-75). It
 keeps the verdicts, failures, known unknowns, violations and complete evidence access visible
 while hiding secondary report detail. The Component flow control narrows only graph edges at the
@@ -348,11 +359,11 @@ Missing or inconsistent measurements produce `UNKNOWN`; regressions return failu
 `check` also names the calls behind the count. `unresolved_call_changes` holds one row per
 unresolved call whose count differs between the two observations: `change` (`added` or
 `removed`), `caller`, `expression`, `reason`, owning `component`, `path`, `lines`, `before` and
-`after`. A row is keyed by module, caller and expression, not by line, so moved code is no change;
+`after`. A row is keyed by file, caller and expression, not by line, so moved code is no change;
 identical expressions in one caller form one row whose `lines` name them all, and a removed row
-names the older revision's lines. The JSON lists every row; the terminal lists at most five, and
-only on a rejected run. `report` and other `validate` runs leave the field `null`:
-`architecture.json` already holds every call with its status, reason and evidence line (AD-100).
+names the older revision's lines. The JSON lists every row; the terminal lists at most five under
+the failures, and none on a passing run. A result that compared no two revisions' calls omits the
+field (AD-100).
 
 The JSON field `ratchets` and Python identifiers such as `compare_ratchets` keep their
 existing names for compatibility. Human-readable messages use "regression check".

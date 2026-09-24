@@ -28,9 +28,10 @@ call result (`Repository(root).save(...)`), a receiver two attributes deep (`sel
 and an attribute of an awaited value stay unresolved. An unresolved call is not proven dynamic
 at runtime.
 
-A change in unresolved calls is named by module, caller and expression, not by line (AD-100). A
-renamed caller reads as one removed and one added call, and of two identical calls in one caller
-the new one cannot be told apart: the row names both lines.
+`report --only calls --json` lists every unresolved and partially resolved call with its reason
+and owning component. A change in unresolved calls is named by file, caller and expression, not
+by line (AD-100). A renamed caller reads as one removed and one added call, and of two identical
+calls in one caller the new one cannot be told apart: the row names both lines.
 
 ## A facade type position is not always decidable
 

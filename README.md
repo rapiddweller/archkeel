@@ -182,6 +182,7 @@ The HTML report is designed for a reviewer making a merge decision:
 archkeel report --only violations
 archkeel report --only violations --rule DEP-STORE-NO-MONEY
 archkeel report --only violations --component store
+archkeel report --only calls --component store   # unresolved and partial calls (AD-100)
 ```
 
 - **Decision first.** `PASS`, `REJECT`, or `NOT CHECKED` and one sentence explaining it are

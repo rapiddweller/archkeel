@@ -427,7 +427,8 @@ integer cross-multiplied ratios and semantic fingerprints.
   cover supported semantic changes, not intent.
 - **Example:** reject a candidate whose unresolved call count rises from 0 to 1.
 - **Evidence:** `unresolved_call_changes` names each added or removed unresolved call by caller,
-  expression, path and lines, keyed without the line so moved code is no change (AD-100).
+  expression, path and lines, keyed without the line so moved code is no change, and
+  `report --only calls --json` lists every unresolved and partially resolved call (AD-100).
 
 `coverage_failures` is measured but cannot regress between two comparable observations: an
 incomplete scan produces no measurements, so the check reports NOT CHECKED instead.
