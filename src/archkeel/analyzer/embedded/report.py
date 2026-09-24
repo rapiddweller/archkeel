@@ -147,6 +147,7 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
     ]
     package_cycles = [item for item in scan.cycles if item["data"]["level"] == "package"]
     module_cycles = [item for item in scan.cycles if item["data"]["level"] == "module"]
+    rollup_only = [item for item in package_cycles if not item["data"]["backed_by"]]
     unresolved_calls = [item for item in scan.calls if item["data"]["status"] == "unresolved"]
     resolved_calls = [item for item in scan.calls if item["data"]["status"] == "resolved"]
     evidence_by_id = {item["id"]: item for item in scan.evidence}
@@ -222,6 +223,14 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
                 len(package_cycles),
                 "cycles",
                 fact_ids=[item["id"] for item in package_cycles],
+            ),
+            # AD-98: a package SCC no module cycle crosses is the two-segment roll-up's.
+            _metric(
+                "rollup_only_package_cycles",
+                "Package cycles no module cycle crosses",
+                len(rollup_only),
+                "cycles",
+                fact_ids=[item["id"] for item in rollup_only],
             ),
             _metric(
                 "module_cycles",

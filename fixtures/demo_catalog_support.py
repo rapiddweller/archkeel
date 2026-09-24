@@ -59,6 +59,7 @@ AgainstScenario = Literal[
     "symbol_placement_removed",
     "compat_added",
     "compat_promoted",
+    "cycle_rule_scoped",
 ]
 
 

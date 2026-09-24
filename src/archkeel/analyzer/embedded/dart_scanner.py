@@ -20,7 +20,7 @@ from .dart_libraries import DartSources, read_dart_sources
 from .dependencies import (
     aggregate_edges,
     component_scope_observations,
-    cycle_records,
+    cycle_sections,
     declared_path_observations,
     module_records,
     package_records,
@@ -48,21 +48,25 @@ def _topology(sources: DartSources, namespace: str) -> tuple[list[RawRecord], ..
         sources.imports, level="package", internal_modules=module_names, namespace=namespace
     )
     packages = sorted({library.package for library in sources.libraries})
-    cycles = [
-        *cycle_records(
-            level="package", nodes=packages, edges=package_pairs, edge_records=package_edges
-        ),
-        *cycle_records(
-            level="module", nodes=module_names, edges=module_pairs, edge_records=module_edges
-        ),
-    ]
+    modules = module_records(
+        sources.libraries, module_names, module_pairs, [], sources.module_evidence
+    )
+    module_cycles, cycles = cycle_sections(
+        modules=modules,
+        packages=packages,
+        module_edges=module_edges,
+        module_edge_pairs=module_pairs,
+        package_edges=package_edges,
+        package_edge_pairs=package_pairs,
+    )
     return (
         module_edges,
         package_edges,
         package_records(sources.libraries, packages, package_pairs),
-        module_records(sources.libraries, module_names, module_pairs, [], sources.module_evidence),
+        modules,
         transitive_path_records(packages, package_pairs),
-        sorted(cycles, key=lambda item: item["id"]),
+        module_cycles,
+        cycles,
     )
 
 
@@ -94,7 +98,7 @@ def scan_dart_repository(
     sources = read_dart_sources(root, roots=roots, namespace=namespace)
     # An `export ... show` passes its names on exactly as a Python re-export does.
     resolve_reexports(sources.imports, {})
-    module_edges, package_edges, packages, modules, transitive, cycles = _topology(
+    module_edges, package_edges, packages, modules, transitive, module_cycles, cycles = _topology(
         sources, namespace
     )
     declarations = contract.declarations or ContractDeclarations()
@@ -109,6 +113,7 @@ def scan_dart_repository(
         modules=modules,
         symbols=[],
         blank_modules=frozenset(sources.blank_modules),
+        module_cycles=module_cycles,
         contract=contract,
         exports_by_module=facade_exports,
         profile=DART,

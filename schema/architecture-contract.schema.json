@@ -192,6 +192,8 @@
       "properties": {
         "id": {"$ref": "#/$defs/nonEmpty"},
         "kind": {"const": "no_component_cycles"},
+        "level": {"enum": ["component", "module"], "description": "Graph judged for cycles; absent means component."},
+        "components": {"type": "array", "minItems": 1, "uniqueItems": true, "description": "Declared component labels; only a cycle touching one of them is reported. Absent means every cycle.", "items": {"$ref": "#/$defs/nonEmpty"}},
         "rationale": {"$ref": "#/$defs/nonEmpty"},
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"}
