@@ -429,6 +429,7 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "provenance",
         "python_version",
         "report_filter",
+        "scan_roots",
         "violations_by_component_pair",
         "violations_by_rule",
     }
