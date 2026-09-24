@@ -4,7 +4,6 @@
 """Read immutable Git inputs and check the declaration commit's shape."""
 
 import subprocess
-from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
 
 from .snapshot import resolve_commit
@@ -46,39 +45,20 @@ def read_blob(root: Path, revision: str, path: str) -> bytes:
     return git_bytes(root, "cat-file", "blob", oid.decode())
 
 
-def archive_excluded(root: Path, paths: Iterable[str]) -> frozenset[str]:
-    """The working-tree paths `git archive` never writes: untracked ignored files and files
-    marked `export-ignore`. A snapshot of a commit cannot hold them, so a comparison of that
-    snapshot with the working tree has to leave them out (AD-100).
-    """
-    listed = "".join(f"{relative_path(path)}\0" for path in paths)
-    ignored = subprocess.run(
-        ["git", "check-ignore", "-z", "--stdin"],
-        cwd=root,
-        input=listed,
-        capture_output=True,
-        text=True,
-    )
-    attributes = subprocess.run(
-        ["git", "check-attr", "-z", "--stdin", "export-ignore"],
-        cwd=root,
-        input=listed,
-        capture_output=True,
-        text=True,
-    )
-    # check-ignore exits 1 when nothing is ignored; anything else is a failure.
-    if ignored.returncode not in {0, 1} or attributes.returncode != 0:
-        raise GitError("Git ignore rules or attributes could not be read")
-    ignored_paths: str = ignored.stdout
-    # check-attr -z answers `path NUL attribute NUL value NUL` per path.
-    answers: str = attributes.stdout
-    fields = answers.split("\0")
-    exported = {
-        path
-        for path, _, value in zip(fields[0::3], fields[1::3], fields[2::3], strict=False)
-        if value == "set"
-    }
-    return frozenset({path for path in ignored_paths.split("\0") if path} | exported)
+def _listed_paths(root: Path, *args: str) -> frozenset[str]:
+    listed: str = str(git_bytes(root, *args), "utf-8")
+    return frozenset(path for path in listed.split("\0") if path)
+
+
+def working_tree_paths(root: Path) -> frozenset[str]:
+    """Every file Git's view of the working tree holds: the tracked ones and the untracked ones
+    no ignore rule excludes. A file inside a submodule is in neither (AD-100)."""
+    return _listed_paths(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+
+
+def tracked_paths(root: Path, revision: str, roots: tuple[str, ...]) -> frozenset[str]:
+    """Every file `revision` tracks under `roots`, whatever its archive later leaves out."""
+    return _listed_paths(root, "ls-tree", "-r", "-z", "--name-only", revision, "--", *roots)
 
 
 def changed_paths(root: Path, before: str, after: str) -> set[str]:

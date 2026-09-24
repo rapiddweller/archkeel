@@ -177,29 +177,166 @@ def test_validate_against_scans_the_old_revision_under_its_own_contract(tmp_path
     assert result.unresolved_call_changes == (_added((2,)),)
 
 
-def test_files_the_archive_leaves_out_are_not_named_as_added(tmp_path: Path) -> None:
-    """The working tree holds git-ignored and export-ignore files `git archive` never writes, so
-    the old scan cannot see them; their calls must not read as new (review of #146)."""
+def _git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "-c", "protocol.file.allow=always", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _budget_repo(tmp_path: Path, files: dict[str, str], unresolved: int) -> tuple[Path, str, Path]:
+    """The shop sample plus `files`, with a committed baseline pinning `unresolved`."""
     root = _prepare_repo(
         tmp_path / "repo",
-        {
-            "architecture-contract.json": _contract_with_budgets("calls_unresolved"),
-            ".gitignore": "shop/app/generated_*.py\n",
-            ".gitattributes": "shop/app/exported_*.py export-ignore\n",
-            "shop/app/exported_vendor.py": _probe("_exported_call()"),
-        },
+        {"architecture-contract.json": _contract_with_budgets("calls_unresolved"), **files},
     )
-    (root / "shop/app/generated_pb.py").write_text(_probe("_generated_a()", "_generated_b()"))
-    baseline = _baseline(root, MeasurementBudget("calls_unresolved", 10))
-    for args in (["add", "-A"], ["-c", "commit.gpgsign=false", "commit", "-q", "-m", "baseline"]):
-        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
-    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    baseline = _baseline(root, MeasurementBudget("calls_unresolved", unresolved))
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "baseline")
+    return root, _git(root, "rev-parse", "HEAD"), baseline
+
+
+def _against(root: Path, base: str, baseline: Path) -> RunResult:
+    return run_validate(root, CONFIG, observe, baseline=baseline, against=base)[0]
+
+
+_GENERATED = "shop/app/generated_pb.py"
+_VENDORED = "shop/app/vendor/lib.py"
+
+
+def test_a_git_ignored_new_file_is_not_named_but_a_real_call_is(tmp_path: Path) -> None:
+    """`git archive` never writes an untracked ignored file, so the old scan cannot see it."""
+    root, base, baseline = _budget_repo(tmp_path, {".gitignore": "shop/app/generated_*.py\n"}, 7)
+    (root / _GENERATED).write_text(_probe("_generated_a()", "_generated_b()"))
     (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
 
-    result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
+    result = _against(root, base, baseline)
 
-    assert result.failures == (_exceeded("10->11"),)
+    assert result.failures == (_exceeded("7->10"),)
     assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_a_rise_carried_only_by_an_ignored_file_names_no_site(tmp_path: Path) -> None:
+    root, base, baseline = _budget_repo(tmp_path, {".gitignore": "shop/app/generated_*.py\n"}, 7)
+    (root / _GENERATED).write_text(_probe("_generated_a()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == ()
+
+
+def test_a_folder_the_revision_exports_ignored_is_not_named(tmp_path: Path) -> None:
+    """Git applies export-ignore to a whole folder; a per-file attribute query never sees it."""
+    root, base, baseline = _budget_repo(
+        tmp_path,
+        {
+            ".gitattributes": "shop/app/vendor export-ignore\n",
+            "shop/app/vendor/__init__.py": "",
+            _VENDORED: _probe("_vendored()"),
+        },
+        8,
+    )
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_the_revisions_own_export_ignore_decides_not_the_working_tree(tmp_path: Path) -> None:
+    """Newly marking a tracked file export-ignore must not hide the call added to it."""
+    exported = "shop/app/exported_vendor.py"
+    root, base, baseline = _budget_repo(tmp_path, {exported: _probe("pass")}, 7)
+    (root / ".gitattributes").write_text(f"{exported} export-ignore\n")
+    (root / exported).write_text(_probe("_exported_call()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == (
+        replace(
+            _added((2,)),
+            caller="shop.app.exported_vendor.probe",
+            expression="_exported_call",
+            path=exported,
+        ),
+    )
+
+
+def test_a_file_the_revision_exported_ignored_is_not_named_once_unmarked(tmp_path: Path) -> None:
+    """The reverse: the revision's archive left the file out, so its calls are on one side."""
+    exported = "shop/app/exported_vendor.py"
+    root, base, baseline = _budget_repo(
+        tmp_path,
+        {".gitattributes": f"{exported} export-ignore\n", exported: _probe("_exported_call()")},
+        8,
+    )
+    (root / ".gitattributes").write_text("*.png binary\n")
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_a_submodule_under_the_roots_is_not_named(tmp_path: Path) -> None:
+    """The archive never writes a submodule's files; asking Git about them must not fail."""
+    library = tmp_path / "library"
+    library.mkdir()
+    _git(library, "init", "-q", "-b", "main")
+    (library / "lib.py").write_text(_probe("_vendored()"))
+    _git(library, "add", "-A")
+    _git(
+        library,
+        "-c",
+        "user.email=demo@example.invalid",
+        "-c",
+        "user.name=Demo",
+        "commit",
+        "-q",
+        "-m",
+        "lib",
+    )
+    root, base, baseline = _budget_repo(tmp_path, {}, 8)
+    _git(root, "submodule", "add", "-q", str(library), "shop/app/vendor")
+    _git(root, "commit", "-q", "-m", "vendor")
+    base = _git(root, "rev-parse", "HEAD")
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_a_removed_call_under_an_ignored_path_is_still_named(tmp_path: Path) -> None:
+    """The working tree is read from disk, so a removed row is always a real change."""
+    generated = "shop/app/generated_old.py"
+    root, base, baseline = _budget_repo(tmp_path, {generated: _probe("_generated_old()")}, 8)
+    (root / ".gitignore").write_text("shop/app/generated_*.py\n")
+    _git(root, "rm", "-q", generated)
+
+    result = _against(root, base, baseline)
+
+    assert result.unresolved_call_changes == (
+        UnresolvedCallChange(
+            "removed",
+            "shop.app.generated_old.probe",
+            "_generated_old",
+            _UNBOUND,
+            "app",
+            generated,
+            (2,),
+            1,
+            0,
+        ),
+    )
 
 
 def test_a_passing_validate_against_does_not_scan_the_old_revision(tmp_path: Path) -> None:

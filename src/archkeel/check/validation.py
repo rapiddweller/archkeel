@@ -79,7 +79,7 @@ from archkeel.ir.widening import (
     verify_amendment,
 )
 
-from .git import GitError, archive_excluded, read_blob
+from .git import GitError, read_blob, tracked_paths, working_tree_paths
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
@@ -1583,11 +1583,35 @@ def _unresolved_calls_since(
         if observed.diagnostics or observed.observation is None:
             return None
         changes = unresolved_call_changes(observed.observation, observation)
-        # The snapshot holds what `git archive` writes; a file it leaves out is on one side only.
-        left_out = archive_excluded(root, {item.path for item in changes})
+        one_sided = _one_sided_paths(root, against, config, observed.observation, changes)
     except (GitError, SnapshotError, RatchetError):
         return None
-    return tuple(item for item in changes if item.path not in left_out)
+    return tuple(item for item in changes if item.change == "removed" or item.path not in one_sided)
+
+
+def _one_sided_paths(
+    root: Path,
+    against: str,
+    config: ScanConfig,
+    before: Observation,
+    changes: tuple[UnresolvedCallChange, ...],
+) -> frozenset[str]:
+    """AD-100: the added rows' files only the working-tree side can hold.
+
+    The working tree is read from disk, the revision from its `git archive` snapshot. A file
+    outside Git's view of the working tree (ignored, or inside a submodule) is never archived,
+    and a file the revision tracks but its snapshot lacks was left out by that revision's own
+    `export-ignore`. A removed row needs no such test: its file was in the snapshot.
+    """
+    added = frozenset(item.path for item in changes if item.change == "added")
+    if not added:
+        return frozenset()
+    archived = {text_value(record.data.get("file")) for record in before.records("modules") or ()}
+    tracked = tracked_paths(root, against, config.roots)
+    visible = working_tree_paths(root)
+    return frozenset(
+        path for path in added if path not in visible or (path in tracked and path not in archived)
+    )
 
 
 def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
