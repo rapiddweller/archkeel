@@ -121,6 +121,12 @@ def test_load_rejects_an_unsafe_or_missing_configuration_path(
         load_config(tmp_path, path)
 
 
+def test_an_invalid_second_configuration_is_named_by_its_own_file(tmp_path: Path) -> None:
+    (tmp_path / "archkeel-tests.toml").write_text("[scan\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="^invalid archkeel-tests.toml: "):
+        load_config(tmp_path, "archkeel-tests.toml")
+
+
 def _config_commits(tmp_path: Path) -> tuple[Path, str, str, bytes]:
     root, _ = _committed_repository(tmp_path)
     payload = b'[scan]\nroots = ["example"]\nnamespace = "example"\ncontract = "contract.json"\n'
