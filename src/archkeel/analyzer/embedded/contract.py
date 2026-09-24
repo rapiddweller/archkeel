@@ -163,8 +163,18 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "rationale": rule.rationale,
         }
     elif isinstance(rule, NoComponentCyclesRule):
-        area, title, subjects = "cycles", "Component dependencies form no cycle", []
-        data = {"rationale": rule.rationale}
+        area, subjects = "cycles", []
+        title = (
+            "Component dependencies form no cycle"
+            if rule.level is None
+            else "Module imports form no cycle"
+        )
+        # Only the fields a contract states are recorded, so a pre-AD-98 rule projects as before.
+        data = {
+            **({"level": rule.level} if rule.level is not None else {}),
+            **({"components": sorted(rule.components)} if rule.components is not None else {}),
+            "rationale": rule.rationale,
+        }
     elif isinstance(rule, SymbolPlacementRule):
         kinds = [item.value for item in rule.class_kinds]
         area, title, subjects = (

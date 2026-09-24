@@ -389,6 +389,14 @@
       "decided_by": "architect"
     },
     {
+      "id": "MODULE-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "level": "module",
+      "rationale": "Modules import in one direction, so a module is read, tested and moved after the modules it uses; the component rule alone cannot see a cycle inside one component.",
+      "provenance": ["docs/architecture/archkeel.md"],
+      "decided_by": "agent"
+    },
+    {
       "id": "COLLECTORS-ISOLATED",
       "kind": "sibling_isolation",
       "members": [

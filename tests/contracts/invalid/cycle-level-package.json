@@ -1,0 +1,1 @@
+{"schema_version":"2.1.0","components":[],"rules":[{"id":"RULE-X","kind":"no_component_cycles","level":"package","rationale":"Probe.","provenance":["docs/architecture/sample.md"],"decided_by":"architect"}]}

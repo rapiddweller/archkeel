@@ -341,6 +341,44 @@ def test_measurement_budget_demo_passes_clean_and_fails_on_a_rise(
     )
 
 
+_ROLLUP_ONLY = "Package cycle with 2 members, roll-up only: no module cycle crosses them"
+_CYCLE_ROWS = {
+    "class-a-no-component-cycles-module-hidden": [
+        ("module_scc", ("shop.model.alpha", "shop.model.beta"), "Module cycle with 2 members")
+    ],
+    "class-a-package-cycle-rollup-only": [
+        ("package_scc", ("shop.model", "shop.render"), _ROLLUP_ONLY)
+    ],
+    "class-a-package-cycle-backed": [
+        ("module_scc", ("shop.model.entities", "shop.render.text"), "Module cycle with 2 members"),
+        ("package_scc", ("shop.model", "shop.render"), "Package cycle with 2 members"),
+    ],
+}
+
+
+@pytest.mark.parametrize(("variant_id", "expected"), _CYCLE_ROWS.items())
+def test_cycle_rows_carry_the_cycles_their_summaries_describe(
+    tmp_path: Path, variant_id: str, expected: list[tuple[str, tuple[str, ...], str]]
+) -> None:
+    """AD-98 (#129): a measured cycle the catalogue describes is really in the report.
+
+    The hidden row passes the component rule while the module SCC exists; the package rows
+    show one package SCC labelled roll-up only and the same one backed by a module SCC.
+    """
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+
+    assert (
+        sorted(
+            (item.kind, item.subjects, item.title) for item in observation.records("cycles") or ()
+        )
+        == expected
+    )
+
+
 @pytest.mark.parametrize("variant", _UNIQUE_CHECK_RUNS, ids=lambda v: v.id)
 def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant: Variant) -> None:
     check = variant.check

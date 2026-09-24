@@ -26,7 +26,7 @@ from .contexts import collect_contexts, private_attribute_limits
 from .dependencies import (
     aggregate_edges,
     component_scope_observations,
-    cycle_records,
+    cycle_sections,
     declared_path_observations,
     module_records,
     package_records,
@@ -289,22 +289,13 @@ def scan_repository(
     )
 
     transitive_records = transitive_path_records(packages, package_edge_pairs)
-    cycles = sorted(
-        [
-            *cycle_records(
-                level="package",
-                nodes=packages,
-                edges=package_edge_pairs,
-                edge_records=package_edges,
-            ),
-            *cycle_records(
-                level="module",
-                nodes=module_names,
-                edges=module_edge_pairs,
-                edge_records=module_edges,
-            ),
-        ],
-        key=lambda item: item["id"],
+    module_cycles, cycles = cycle_sections(
+        modules=module_facts,
+        packages=packages,
+        module_edges=module_edges,
+        module_edge_pairs=module_edge_pairs,
+        package_edges=package_edges,
+        package_edge_pairs=package_edge_pairs,
     )
     violations, boundary_allowances = rule_violations(
         imports=imports,
@@ -314,6 +305,8 @@ def scan_repository(
         modules=module_facts,
         symbols=symbols,
         blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
+        # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
+        module_cycles=module_cycles,
         contract=contract,
         exports_by_module=facade_exports,
         profile=PYTHON,
