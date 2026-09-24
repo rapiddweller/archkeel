@@ -22,9 +22,11 @@ the positions the rule decided; decided coverage and UNKNOWN counts remain separ
 Each analyzer profile declares, in `src/archkeel/ir/profiles.py`, which rule kinds it decides,
 which it decides partly and which it cannot decide, and which scalars it does not measure. The
 Python profile decides and measures everything. The Dart profile (`language = "dart"`) decides the
-import-graph rules; `interface_boundary` and a `target_symbol` rule report UNKNOWN for an import
-without `show`; `symbol_placement`, `boundary_types`, `forbidden_construct`, `context_roots` and a
-budget on an unmeasured scalar exit 2 with `rule_unsupported_by_profile` (AD-97).
+import-graph rules, `no_component_cycles` with `level: "module"` and `components` included, because
+a library is a module and every directive edge is a FACT (AD-98); `interface_boundary` and a
+`target_symbol` rule report UNKNOWN for an import without `show`; `symbol_placement`,
+`boundary_types`, `forbidden_construct`, `context_roots` and a budget on an unmeasured scalar exit 2
+with `rule_unsupported_by_profile` (AD-97).
 
 ## Class A: deterministic rules
 

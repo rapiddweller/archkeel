@@ -217,3 +217,44 @@ def test_interface_boundary_with_show_is_decided_per_name(
         for item in observation.records("unknowns") or ()
         if item.kind == "interface_symbol_limit"
     ]
+
+
+def test_a_module_cycle_inside_one_component_fails_the_scoped_module_rule(tmp_path: Path) -> None:
+    """AD-98 on Dart: a library is a module and each directive edge is a FACT, so the module
+    level decides here too, and a `components` scope selects the cycle that touches it."""
+    root = dart_package(
+        tmp_path / "pkg",
+        {
+            "lib/ui/b.dart": _UI,
+            "lib/core/api.dart": "import 'impl.dart';\n\nclass Api {}\n",
+            "lib/core/impl.dart": "import 'package:app/core/api.dart';\n\nclass Impl {}\n",
+        },
+        components=_components(),
+        rules=[
+            rule("RULE", "no_component_cycles"),
+            rule("CORE", "no_component_cycles", level="module", components=["core"]),
+            rule("DATA", "no_component_cycles", level="module", components=["data"]),
+        ],
+    )
+    result, observation, _ = report_dart(root)
+    assert result.exit_code == 0, result.diagnostics
+    assert observation is not None
+    assert result.declared_rules == "FAIL"
+    # The component level stays acyclic; only the module rule scoped to core sees the cycle.
+    (violation,) = observation.records("violations") or ()
+    assert (violation.kind, violation.rule_ids, violation.subjects) == (
+        "module_cycle",
+        ("CORE",),
+        ("app.core.api", "app.core.impl"),
+    )
+    assert violation.data.get("edges") == (
+        ("app.core.api", "app.core.impl"),
+        ("app.core.impl", "app.core.api"),
+    )
+    evidence = {item.id: item for item in observation.evidence}
+    assert sorted(
+        f"{evidence[key].file}:{evidence[key].line}" for key in violation.evidence_ids
+    ) == [
+        "lib/core/api.dart:1",
+        "lib/core/impl.dart:1",
+    ]
