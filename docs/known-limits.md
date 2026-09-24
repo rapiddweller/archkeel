@@ -76,14 +76,16 @@ kept by hand.
 
 ## A facade budget needs names it can list
 
-A whole-module `public` entry is enumerated only when its `__all__` is one literal assignment
-and nothing else in the module touches `__all__`; `+=`, `.append`, `.extend`, a starred element
-or a second assignment make it UNKNOWN, as does no `__all__` at all, since imports and computed
-assignments are public names the scan records no symbol for. An empty literal `__all__ = []` is
-an enumerated facade of no names. A whole-module import of a facade module, a star import of a
-non-enumerated facade, and a name a facade does not list but still lets through (an empty
-`__all__` is read as none by `interface_boundary`) prove no name, so a pair budget that sees one
-is UNKNOWN until its lower bound already exceeds. A name reachable through two declared modules
+A whole-module `public` entry is enumerated only when its `__all__` is one non-empty literal
+assignment and nothing else in the module touches `__all__`; `+=`, `.append`, `.extend`, a
+starred element, a second assignment or an import bound to `__all__` make it UNKNOWN, as does no
+`__all__` at all, since imports and computed assignments are public names the scan records no
+symbol for. `__all__ = []` is UNKNOWN too, because `interface_boundary` reads it as no `__all__`
+and lets every name through. The check is static: `globals()["__all__"] = ...` or
+`sys.modules[__name__].__all__.append(...)` changes `__all__` unseen. A whole-module import of a
+facade module, a star import of a non-enumerated facade, and a name a non-enumerated facade does
+not list prove no name, so a pair budget that sees one is UNKNOWN until its lower bound already
+exceeds. A name reachable through two declared modules
 counts once per module, and `TYPE_CHECKING` imports count toward a pair. Declare `__all__` or
 `module:Name` entries, and import names explicitly (AD-99). Archkeel's own facades are whole
 modules without `__all__`, so its contract pins pair budgets only.

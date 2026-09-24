@@ -17,14 +17,16 @@ and removed names against the baseline.
 The baseline ratchet is AD-89's: baseline schema 1.3 keeps each key's accepted names under
 `facade_names` or `coupling_names` beside the scalars, and the same comparison, write and
 widening paths read them. Names, not counts, so a swap is a rise. Under `--against`, raising or
-removing `max_names` and growing an accepted name set widen.
+removing `max_names`, growing an accepted name set, and a first accepted set above the old
+contract's `max_names` for a key the old baseline did not hold widen.
 
 A facade counts `module:name` per declared module, so a definition reachable through two modules
 counts twice: each path is a name the facade promises. A module entry is enumerated only when
-analyzer 0.48.0 proves its `__all__` one literal assignment nothing else touches; `[]` is an
-enumerated facade of no names. A pair follows the re-export chain `interface_boundary` follows
-and counts `TYPE_CHECKING` imports. A whole-module import of a facade, a star of a
-non-enumerated one, and a name a facade does not list but lets through are uncounted.
+the analyzer's `all_literal` fact proves its `__all__` one non-empty literal assignment that no
+other statement or import touches. `interface_boundary` reads `__all__ = []` as no `__all__`, so
+an empty one is open too. A pair follows the re-export chain `interface_boundary` follows and
+counts `TYPE_CHECKING` imports. A whole-module import of a facade, a star of a non-enumerated
+one, and a name a non-enumerated one does not list are uncounted.
 
 A key naming no component, a facade budget on a component without `public`, a pair naming one
 component twice, a repeated key, and a pair budget without an `interface_boundary` rule that
@@ -48,8 +50,9 @@ uncounted, which would turn every internal import into UNKNOWN instead of a name
 ## Limit
 
 An absent list stays absent in the canonical contract bytes, so existing amendment digests do not
-move. `interface_boundary` still reads an empty `__all__` as none, so a name past it is uncounted
-here rather than a violation. A target below today's count passes only with a baseline.
+move. A target below today's count passes only with a baseline. The literal fact is static:
+`globals()["__all__"] = ...` or `sys.modules[__name__].__all__.append(...)` changes `__all__`
+unseen, as every dynamic binding escapes the scan.
 
 ## Check
 

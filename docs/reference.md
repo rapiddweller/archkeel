@@ -92,13 +92,14 @@ The report's declared-facade section measures export counts, re-exports, names d
 facade, unused re-exports, consumers per export and distinct exported names per component pair.
 They do not assert that a barrel is complete (AD-88). `validate` measures
 `declarations.facade_budgets` and `declarations.coupling_budgets` with the same values and
-returns each as an `interface_budgets` entry: `budget`, `subject`, `max_names`, `count`,
-`over_target`, `names`, `uncounted`, and, with `--baseline`, `new_names` and `removed_names`.
+returns each as an `interface_budgets` entry: `budget`, `subject`, `pointer`, `max_names`,
+`count`, `over_target`, `names`, `uncounted`, and, with `--baseline`, `new_names` and
+`removed_names`.
 A pair counts a name reached through a re-export chain. Without a baseline, a count over its
 target is `budget.exceeded`; with one, only a new or removed name fails. A count the scan cannot
-complete - a whole-module facade whose `__all__` is not one untouched literal, a whole-module
-import of a facade module, a star import of a non-enumerated facade, or a name a facade does not
-list but lets through - is `budget.unknown` at exit 2 (AD-99).
+complete - a whole-module facade whose `__all__` is not one untouched non-empty literal, a
+whole-module import of a facade module, a star import of a non-enumerated facade, or a name a
+non-enumerated facade does not list - is `budget.unknown` at exit 2 (AD-99).
 Without `--source` and `--namespace`, `init` scans the only top-level Python package under `src/`, or under the root when there is no `src/`; when several sit side by side it scans the one whose name matches `pyproject.toml`'s `[project] name` in wheel file-name form (runs of `-`, `_` and `.` become `_`, compared case-insensitively), and otherwise exits 2 with `scope_empty`, naming the packages it found and the name it compared (AD-47).
 `init --json` adds `open_decisions`, heaviest observed pair first, as evidence for choosing component `requires`; `validate --json` carries them only until the contract adds `complete_requires`, whose closed-world absence rule decides every unlisted pair (AD-15, AD-32). `validate` and `report` add `agent_decisions` as `[agent, total]` decisions: one rule declaration, one `requires` entry or one declared `public` list each, at either level, and one nobody attributed counts in the total alone (AD-16, AD-50), and `violations_by_rule` as `[rule, count]` pairs with `violations_by_component_pair` as `[source, target, count]` triples, heaviest first (AD-51); a violation that crosses no component pair, such as a construct or a cycle, appears only in the first. `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
 `validate --write-graph` rewrites the edges of the one marked component graph, `<!--

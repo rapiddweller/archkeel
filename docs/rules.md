@@ -447,12 +447,13 @@ too many. With `--baseline`, the file holds each budget's accepted names instead
 them is a rise in `failures` that needs `--accept-new`, a name gone is a fall until
 `--write-baseline` records it, and accepted names over the target are a known gap reported as
 `over_target`. A count the scan cannot complete is `budget.unknown` at exit 2 in both modes: a
-whole-module entry whose `__all__` is not one literal assignment nothing else changes, a
-whole-module import of a facade module, a star import of a non-enumerated facade, or a name a
-facade does not list but still lets through. A key naming no component, a budgeted facade
+whole-module entry whose `__all__` is not one non-empty literal assignment nothing else changes,
+a whole-module import of a facade module, a star import of a non-enumerated facade, or a name a
+non-enumerated facade does not list. A key naming no component, a budgeted facade
 without `public`, a pair naming one component twice, a repeated key, and a pair budget without an
 `interface_boundary` rule that includes `TYPE_CHECKING` imports are `contract.invalid`. Raising or
-removing `max_names`, or growing an accepted name set in the baseline, widens under `--against`
+removing `max_names`, growing an accepted name set in the baseline, or accepting more names than
+the old `max_names` for a key the old baseline did not hold widens under `--against`
 (AD-99).
 
 ## Class C: declarations
