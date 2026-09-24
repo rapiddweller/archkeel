@@ -1,0 +1,101 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-TEST-SUPPORT",
+      "label": "support",
+      "role": "component",
+      "packages": ["tests.support"],
+      "responsibilities": ["Builders every shop test may share."],
+      "forbidden_responsibilities": ["Test cases, and importing any of them."],
+      "provenance": ["docs/architecture/tests.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-TEST-UNIT",
+      "label": "unit",
+      "role": "component",
+      "packages": ["tests.unit"],
+      "responsibilities": ["One shop component at a time, without files on disk."],
+      "forbidden_responsibilities": ["Shared helpers, and reaching into another suite."],
+      "provenance": ["docs/architecture/tests.md"],
+      "requires": [
+        {
+          "component": "support",
+          "rationale": "Unit tests build their orders with the shared builders."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-TEST-INTEGRATION",
+      "label": "integration",
+      "role": "component",
+      "packages": ["tests.integration"],
+      "responsibilities": ["Use cases against a real store directory."],
+      "forbidden_responsibilities": ["Shared helpers, and reaching into another suite."],
+      "provenance": ["docs/architecture/tests.md"],
+      "requires": [
+        {
+          "component": "support",
+          "rationale": "Integration tests compare what they read back with the shared builders."
+        }
+      ],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "TESTS-ROOT-LAYOUT",
+      "kind": "root_layout",
+      "root": "tests",
+      "allowed_children": ["tests.integration", "tests.support", "tests.unit"],
+      "rationale": "The test root holds its three suites and nothing beside them.",
+      "provenance": ["docs/architecture/tests.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TESTS-ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "tests",
+      "rationale": "A test module no suite owns escapes every boundary below.",
+      "provenance": ["docs/architecture/tests.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TESTS-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "A suite imports another suite only where requires says so; absence forbids.",
+      "provenance": ["docs/architecture/tests.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TESTS-HELPERS-IN-SUPPORT",
+      "kind": "symbol_placement",
+      "source": "tests",
+      "class_kinds": ["class", "dataclass"],
+      "allowed_sources": ["tests.support"],
+      "rationale": "A helper class is shared, so it lives in support, not beside the test that first needed it.",
+      "provenance": ["docs/architecture/tests.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TESTS-EXTERNAL-COMPLETE",
+      "kind": "complete_external_scope",
+      "source": "tests",
+      "rationale": "Every package a test imports beyond the standard library is named by a rule.",
+      "provenance": ["docs/architecture/tests.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TESTS-EXTERNAL-SHOP",
+      "kind": "external_dependency_scope",
+      "dependency": "shop",
+      "allowed_sources": ["tests"],
+      "rationale": "The product under test is the one package every suite may import.",
+      "provenance": ["docs/architecture/tests.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

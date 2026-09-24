@@ -17,6 +17,7 @@ from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli.config import load_config
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.measurements import SCALARS, compare_measurements
 from archkeel.ir.model import (
@@ -220,7 +221,9 @@ def _prepare_repo(tmp_path: Path, files: dict[str, str | None]) -> Path:
     return root
 
 
-def _report_findings(root: Path) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
+def _report_findings(
+    root: Path, config: ScanConfig
+) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
     """Violations and `unknowns` (kind, subject) pairs, both off one decoded report model.
 
     `run_validate` never populates `RunResult.observation` on a passing run (only its
@@ -228,7 +231,7 @@ def _report_findings(root: Path) -> tuple[tuple[str, ...], tuple[tuple[str, str]
     `run_report`'s own decoded model already stands in for violations below, and carries the
     `unknowns` section too, so checking it costs no second scan of the sample.
     """
-    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    _, architecture = run_report(root, config=config, analyzer=observe)
     if architecture is None:
         return (), ()
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
@@ -264,12 +267,13 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
     if variant.id not in _SAMPLE_RUN_CACHE:
         root = _prepare_repo(tmp_path_factory.mktemp(variant.id), dict(variant.files))
         baseline = root / variant.baseline if variant.baseline is not None else None
-        validate_result, _ = run_validate(root, CONFIG, observe, baseline=baseline)
+        config = load_config(root, variant.config)
+        validate_result, _ = run_validate(root, config, observe, baseline=baseline)
         actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
         actual_kinds = tuple(
             sorted(item.kind for item in validate_result.diagnostics if item.code is None)
         )
-        actual_violations, actual_unknowns = _report_findings(root)
+        actual_violations, actual_unknowns = _report_findings(root, config)
         _SAMPLE_RUN_CACHE[variant.id] = (
             actual_codes,
             actual_kinds,
@@ -419,6 +423,71 @@ def test_target_graph_drift_leaves_the_observed_graph_untouched(tmp_path: Path) 
     assert drift.subject == "docs/architecture/shop.md (target graph)"
     assert "`subgraph composition`" in drift.remedy
     assert "by hand" in drift.remedy
+
+
+def _violation_files(root: Path, config: ScanConfig) -> set[tuple[str, str]]:
+    """(rule id, source file) for every traced violation of one report run."""
+    _, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    files = {item.id: item.file for item in observation.evidence}
+    return {
+        (item.rule_ids[0], files[evidence_id])
+        for item in trace_valid_violations(observation)
+        for evidence_id in item.evidence_ids
+    }
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        (
+            "test-scope-helper-in-unit",
+            {
+                ("TESTS-HELPERS-IN-SUPPORT", "tests/unit/orders.py"),
+                ("TESTS-REQUIRES-COMPLETE", "tests/integration/test_place_order.py"),
+            },
+        ),
+        ("test-scope-suite-crossing", {("TESTS-REQUIRES-COMPLETE", "tests/unit/test_entities.py")}),
+    ],
+)
+def test_test_scope_failures_name_the_file(
+    tmp_path: Path, variant_id: str, expected: set[tuple[str, str]]
+) -> None:
+    """#143: a helper moved out of support and a test import across suites each fail at a file."""
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    assert _violation_files(root, load_config(root, variant.config)) == expected
+
+
+def test_test_scope_leaves_the_product_scan_unchanged(tmp_path: Path) -> None:
+    """#143: the product scan reads the same bytes with or without the test scope beside it."""
+    scope_files = [
+        path.relative_to(FIXTURE_DIR).as_posix()
+        for path in (FIXTURE_DIR / "tests").rglob("*")
+        if path.is_file()
+    ]
+    scope_files += ["archkeel-tests.toml", "docs/architecture/tests.md"]
+    with_tests = _prepare_repo(tmp_path / "with", {})
+    without = _prepare_repo(tmp_path / "without", dict.fromkeys(scope_files))
+
+    observed = []
+    for root in (with_tests, without):
+        result, architecture = run_report(root, config=load_config(root), analyzer=observe)
+        assert architecture is not None
+        observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+        observed.append(
+            (
+                result.declared_rules,
+                result.measurements,
+                observation.source.scope,
+                observation.source.source_digest,
+                observation.contract.digest,
+            )
+        )
+    assert observed[0] == observed[1]
+    declared_rules, _, scope, _, _ = observed[0]
+    assert (declared_rules, scope) == ("PASS", ("shop/**/*.py",))
 
 
 def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:

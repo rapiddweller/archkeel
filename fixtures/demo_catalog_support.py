@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from archkeel.cli.config import CONFIG_PATH
 from archkeel.ir.model import DiagnosticCode, DiagnosticKind
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "F-architecture"
@@ -98,6 +99,9 @@ class Variant:
     evidence: str | None = None
     check: CheckExpectation | None = None
     against: AgainstExpectation | None = None
+    # The scan configuration the row runs, relative to the sample root (AD-101): the product's
+    # own file, or a second one that governs another scope, such as tests, beside it.
+    config: str = CONFIG_PATH
 
 
 def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:
