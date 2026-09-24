@@ -40,7 +40,7 @@ class Summary:
     regressions: tuple[Comparison, ...]
     # AD-35: the terminal's one claim line. The HTML shows the same claims as full tables.
     claims: str = ""
-    # AD-100: a heading, then one line per unresolved call site; empty unless rejected.
+    # AD-100: a heading, then one line per unresolved call site; empty without failures.
     call_sites: tuple[str, ...] = ()
 
 
@@ -158,9 +158,9 @@ def _claims_line(result: RunResult) -> str:
 
 
 def _call_site_lines(result: RunResult) -> tuple[str, ...]:
-    """Name the unresolved call sites behind a rejected run, a few at most (AD-100)."""
+    """Name the unresolved call sites behind a run's failures, a few at most (AD-100)."""
     changes = result.unresolved_call_changes
-    if result.exit_code != 1 or not changes:
+    if not result.failures or not changes:
         return ()
     added = sum(item.change == "added" for item in changes)
     lines = [f"Unresolved call sites: {added} added, {len(changes) - added} removed"]
@@ -169,12 +169,13 @@ def _call_site_lines(result: RunResult) -> tuple[str, ...]:
         where = f"{item.path}:{','.join(str(line) for line in item.lines)}"
         count = f" ({item.before}->{item.after})" if item.before and item.after else ""
         lines.append(
-            f"{sign} {where} {item.caller}: {item.expression}() "
+            f"  {sign} {where} {item.caller}: {item.expression}() "
             f"[{item.component or 'no component'}] {item.reason}{count}"
         )
     if len(changes) > _CALL_SITES_SHOWN:
         lines.append(
-            f"+{len(changes) - _CALL_SITES_SHOWN} more in the JSON result's unresolved_call_changes"
+            f"  +{len(changes) - _CALL_SITES_SHOWN} more in the JSON result's "
+            "unresolved_call_changes"
         )
     return tuple(lines)
 
