@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import math
 from collections.abc import Sequence
 
 from archkeel.ir.model import EvidenceClass, stable_id
@@ -359,6 +360,14 @@ def _module_assignment_symbols(
                 if not isinstance(target, ast.Name):
                     continue
                 if isinstance(node.value, ast.Constant):
+                    value = node.value.value
+                    # The observation is JSON: bytes, complex, Ellipsis and non-finite floats
+                    # have no JSON value, so such a constant is recorded without one (AD-102).
+                    json_value = (
+                        value is None
+                        or isinstance(value, str | int)
+                        or (isinstance(value, float) and math.isfinite(value))
+                    )
                     symbols.append(
                         _assignment_symbol(
                             module,
@@ -366,7 +375,7 @@ def _module_assignment_symbols(
                             target.id,
                             "static_constant",
                             evidence,
-                            constant=node.value.value,
+                            **({"constant": value} if json_value else {}),
                         )
                     )
                 elif target.id[:1].isupper() or target.id in aliases:

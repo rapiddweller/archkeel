@@ -316,3 +316,34 @@ def test_boundary_types_dynamic_dict_rebinding_stays_unknown(tmp_path: Path) -> 
     assert trace_valid_violations(result.observation) == ()
     [position] = _positions(result)
     assert position.data.get("annotation") == "Dict[str, str]"
+
+
+def test_a_constant_json_cannot_hold_is_observed_without_its_value(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        "from typing import Literal\n\n"
+        'READY = "ready"\n'
+        'TAG = b"Signature: 8a477f"\n'
+        "ROOT = 1j\n"
+        "MARK = ...\n"
+        "HUGE = 1e999\n\n"
+        "def run(state: Literal[READY], tag: Literal[TAG]) -> str:\n"
+        "    return str((state, tag))\n",
+        public=["sample.app.facade:run"],
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    constants = {
+        str(record.data.get("name")): dict(record.data.entries)
+        for record in result.observation.records("symbols") or ()
+        if record.kind == "static_constant"
+    }
+    assert constants["READY"]["constant"] == "ready"
+    for name in ("TAG", "ROOT", "MARK", "HUGE"):
+        assert "constant" not in constants[name]
+    # A value the observation cannot hold proves no Literal member: UNKNOWN, never PASS.
+    [position] = _positions(result)
+    assert position.data.get("annotation") == "Literal[TAG]"
+    assert position.data.get("reason") == "other"
