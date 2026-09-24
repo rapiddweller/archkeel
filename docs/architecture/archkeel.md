@@ -1,7 +1,8 @@
 # Archkeel architecture
 
 [The contract](../../architecture-contract.json) owns component boundaries. Within-component
-imports remain allowed. Every cross-component pair is either observed or forbidden.
+imports remain allowed. Every cross-component pair is either observed or forbidden. Neither
+components nor modules import in a cycle (AD-98).
 
 ## Layers
 
