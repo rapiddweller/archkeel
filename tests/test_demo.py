@@ -46,4 +46,5 @@ def test_make_demo_reproduces_all_three_outcomes(tmp_path: Path) -> None:
             "status": "unresolved",
         }
     ]
+    assert "new: handlers[key]() at sample/work.py:9;" in run.stdout
     assert "report --only calls lists 1 call(s)." in run.stdout
