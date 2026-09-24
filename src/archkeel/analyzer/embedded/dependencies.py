@@ -167,7 +167,7 @@ def transitive_path_records(
     return sorted(records, key=lambda item: item["id"])
 
 
-def cycle_records(
+def _cycle_records(
     *,
     level: str,
     nodes: Iterable[str],
@@ -205,7 +205,7 @@ def cycle_records(
     return sorted(records, key=lambda item: item["id"])
 
 
-def backed_package_cycles(
+def _backed_package_cycles(
     package_cycles: Sequence[RawRecord],
     module_cycles: Sequence[RawRecord],
     package_of: dict[str, str],
@@ -230,6 +230,37 @@ def backed_package_cycles(
         title = cycle["title"] if backed_by else f"{cycle['title']}{rollup}"
         records.append({**cycle, "title": title, "data": {**cycle["data"], "backed_by": backed_by}})
     return records
+
+
+def cycle_sections(
+    *,
+    modules: Sequence[RawRecord],
+    packages: Sequence[str],
+    module_edges: Sequence[RawRecord],
+    module_edge_pairs: Sequence[tuple[str, str]],
+    package_edges: Sequence[RawRecord],
+    package_edge_pairs: Sequence[tuple[str, str]],
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    """Return the module SCC records, and every SCC record for the `cycles` section.
+
+    The one way a profile builds SCC records (AD-98): a package SCC leaves here with its
+    `backed_by` already named, so no scan can report one the report cannot label. The module
+    SCCs come back on their own because the module-level cycle rule judges exactly these.
+    """
+    module_cycles = _cycle_records(
+        level="module",
+        nodes=[item["data"]["qualified_name"] for item in modules],
+        edges=module_edge_pairs,
+        edge_records=module_edges,
+    )
+    package_cycles = _backed_package_cycles(
+        _cycle_records(
+            level="package", nodes=packages, edges=package_edge_pairs, edge_records=package_edges
+        ),
+        module_cycles,
+        {item["data"]["qualified_name"]: item["data"]["package"] for item in modules},
+    )
+    return module_cycles, sorted([*package_cycles, *module_cycles], key=lambda item: item["id"])
 
 
 def declared_path_observations(

@@ -23,9 +23,8 @@ from .constructs import collect_constructs
 from .contexts import collect_contexts, private_attribute_limits
 from .dependencies import (
     aggregate_edges,
-    backed_package_cycles,
     component_scope_observations,
-    cycle_records,
+    cycle_sections,
     declared_path_observations,
     module_records,
     package_records,
@@ -292,17 +291,14 @@ def scan_repository(
     )
 
     transitive_records = transitive_path_records(packages, package_edge_pairs)
-    module_cycles = cycle_records(
-        level="module", nodes=module_names, edges=module_edge_pairs, edge_records=module_edges
+    module_cycles, cycles = cycle_sections(
+        modules=module_facts,
+        packages=packages,
+        module_edges=module_edges,
+        module_edge_pairs=module_edge_pairs,
+        package_edges=package_edges,
+        package_edge_pairs=package_edge_pairs,
     )
-    package_cycles = backed_package_cycles(
-        cycle_records(
-            level="package", nodes=packages, edges=package_edge_pairs, edge_records=package_edges
-        ),
-        module_cycles,
-        {module.module: module.package for module in parsed},
-    )
-    cycles = sorted([*package_cycles, *module_cycles], key=lambda item: item["id"])
     violations, boundary_allowances = rule_violations(
         imports=imports,
         typing_signals=typing_signals,

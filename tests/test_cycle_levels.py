@@ -14,6 +14,8 @@ from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 
 from archkeel.analyzer import observe
+from archkeel.analyzer.embedded.dependencies import cycle_sections
+from archkeel.analyzer.embedded.records import RawRecord, classified
 from archkeel.check.validation import run_validate
 from archkeel.ir.baseline import (
     KnownViolation,
@@ -22,7 +24,7 @@ from archkeel.ir.baseline import (
     violation_drift_counts,
 )
 from archkeel.ir.codec import contract_bytes, parse_contract
-from archkeel.ir.model import NoComponentCyclesRule, Observation, Record
+from archkeel.ir.model import EvidenceClass, NoComponentCyclesRule, Observation, Record
 from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import baseline_widenings
 from fixtures.demo_catalog_support import apply_overlay, contract_with_rule
@@ -305,6 +307,52 @@ def test_a_module_cycle_across_two_packages_backs_the_package_cycle(tmp_path: Pa
         (("sample.a", "sample.b"), "Package cycle with 2 members", (crossing,))
     ]
     assert _metric(observation, "rollup_only_package_cycles") == (0, ())
+
+
+def _edge(level: str, source: str, target: str) -> RawRecord:
+    return classified(
+        item_id=f"EDGE-{source}-{target}",
+        evidence_class=EvidenceClass.FACT,
+        area=f"{level}_topology",
+        kind=f"{level}_dependency",
+        title=f"{source} -> {target}",
+        data={"level": level, "source": source, "target": target},
+    )
+
+
+def _module(name: str) -> RawRecord:
+    package = ".".join(name.split(".")[:2])
+    return classified(
+        item_id=f"MOD-{name}",
+        evidence_class=EvidenceClass.FACT,
+        area="module_topology",
+        kind="module",
+        title=name,
+        data={"qualified_name": name, "package": package},
+    )
+
+
+def test_the_one_cycle_builder_annotates_every_package_cycle() -> None:
+    """A profile gets package SCCs only with `backed_by` (review of #144): the Dart profile
+    built them with the level-generic builder and the report's metric then raised KeyError."""
+    module_pairs = [("sample.a.x", "sample.b.y"), ("sample.b.z", "sample.a.w")]
+    package_pairs = [("sample.a", "sample.b"), ("sample.b", "sample.a")]
+
+    module_cycles, cycles = cycle_sections(
+        modules=[
+            _module(name) for name in ("sample.a.w", "sample.a.x", "sample.b.y", "sample.b.z")
+        ],
+        packages=["sample.a", "sample.b"],
+        module_edges=[_edge("module", *pair) for pair in module_pairs],
+        module_edge_pairs=module_pairs,
+        package_edges=[_edge("package", *pair) for pair in package_pairs],
+        package_edge_pairs=package_pairs,
+    )
+
+    assert module_cycles == []
+    assert [(item["kind"], item["subjects"], item["data"]["backed_by"]) for item in cycles] == [
+        ("package_scc", ["sample.a", "sample.b"], [])
+    ]
 
 
 # --- The existing baseline and --against ratchet a module-level cycle count (#129, item 5). ---
