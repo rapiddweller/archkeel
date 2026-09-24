@@ -80,7 +80,7 @@ from archkeel.ir.widening import (
     verify_amendment,
 )
 
-from .git import GitError, read_blob
+from .git import GitError, archive_excluded, read_blob
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
@@ -1589,11 +1589,14 @@ def _unresolved_calls_since(
                 observed = observe_snapshot(
                     analyzer, snapshot.root, snapshot.git_head, config, declarations
                 )
+        if observed.diagnostics or observed.observation is None:
+            return None
+        changes = unresolved_call_changes(observed.observation, observation)
+        # The snapshot holds what `git archive` writes; a file it leaves out is on one side only.
+        left_out = archive_excluded(root, {item.path for item in changes})
     except (GitError, SnapshotError):
         return None
-    if observed.diagnostics or observed.observation is None:
-        return None
-    return unresolved_call_changes(observed.observation, observation)
+    return tuple(item for item in changes if item.path not in left_out)
 
 
 def _baseline_invalid(path: Path, error: Exception) -> RunResult:

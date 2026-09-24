@@ -165,6 +165,31 @@ def test_validate_against_scans_the_old_revision_under_its_own_contract(tmp_path
     assert result.unresolved_call_changes == (_added((2,)),)
 
 
+def test_files_the_archive_leaves_out_are_not_named_as_added(tmp_path: Path) -> None:
+    """The working tree holds git-ignored and export-ignore files `git archive` never writes, so
+    the old scan cannot see them; their calls must not read as new (review of #146)."""
+    root = _prepare_repo(
+        tmp_path / "repo",
+        {
+            "architecture-contract.json": _contract_with_budgets("calls_unresolved"),
+            ".gitignore": "shop/app/generated_*.py\n",
+            ".gitattributes": "shop/app/exported_*.py export-ignore\n",
+            "shop/app/exported_vendor.py": _probe("_exported_call()"),
+        },
+    )
+    (root / "shop/app/generated_pb.py").write_text(_probe("_generated_a()", "_generated_b()"))
+    baseline = _baseline(root, MeasurementBudget("calls_unresolved", 10))
+    for args in (["add", "-A"], ["-c", "commit.gpgsign=false", "commit", "-q", "-m", "baseline"]):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
+
+    assert result.failures == ("measurement budget exceeded in calls_unresolved: 10->11",)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
 def _terminal(result: RunResult) -> str:
     console = Console(record=True, width=200, color_system=None)
     print_result(result, report_summary(result), artifacts=(), console=console)
