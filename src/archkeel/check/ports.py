@@ -10,6 +10,7 @@ from typing import Protocol
 
 from archkeel.ir.host_records import HostRecord
 from archkeel.ir.model import ObservationResult
+from archkeel.ir.profiles import Language
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +19,7 @@ class ScanConfig:
     namespace: str
     contract: str
     digest: str
+    language: Language = "python"
 
 
 class FilesToWrite(Mapping[str, bytes]):
@@ -54,6 +56,7 @@ class Analyzer(Protocol):
         git_head: str,
         dirty: bool,
         contract_root: Path,
+        language: Language,
     ) -> ObservationResult: ...
 
 

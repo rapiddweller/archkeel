@@ -17,6 +17,7 @@ from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli.config import load_config
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.measurements import SCALARS, compare_measurements
 from archkeel.ir.model import (
@@ -25,6 +26,7 @@ from archkeel.ir.model import (
     DiagnosticCode,
     DiagnosticKind,
     ForbiddenConstructKind,
+    RuleVerdict,
 )
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.architecture_demo import CATALOG, markdown
@@ -97,7 +99,7 @@ def test_tour_fires_every_class_a_rule_kind_that_can_violate(
     kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
     tour = next(variant for variant in CATALOG if variant.id == "tour")
     rule_kind = _clean_sample_rule_kind_by_id()
-    _, _, actual_violations, _, _, _ = _sample_run(tmp_path_factory, tour)
+    _, _, actual_violations, _, _, _, _ = _sample_run(tmp_path_factory, tour)
     fired_kinds = {rule_kind[rule_id] for rule_id in actual_violations}
     assert kinds - _KIND_CANNOT_VIOLATE <= fired_kinds
 
@@ -205,9 +207,11 @@ def test_evidence_paths_exist() -> None:
     assert missing == []
 
 
-def _prepare_repo(tmp_path: Path, files: dict[str, str | None]) -> Path:
+def _prepare_repo(
+    tmp_path: Path, files: dict[str, str | None], fixture: Path = FIXTURE_DIR
+) -> Path:
     root = tmp_path / "repo"
-    shutil.copytree(FIXTURE_DIR, root)
+    shutil.copytree(fixture, root)
     apply_overlay(root, files)
     for args in (
         ["git", "init", "-q", "-b", "main"],
@@ -220,17 +224,19 @@ def _prepare_repo(tmp_path: Path, files: dict[str, str | None]) -> Path:
     return root
 
 
-def _report_findings(root: Path) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
-    """Violations and `unknowns` (kind, subject) pairs, both off one decoded report model.
+def _report_findings(
+    root: Path,
+) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...], RuleVerdict]:
+    """Violations, `unknowns` (kind, subject) pairs and the declared-rules verdict of one report.
 
     `run_validate` never populates `RunResult.observation` on a passing run (only its
     diagnostics reach the caller), so `expected_unknowns` has nowhere to read from there;
     `run_report`'s own decoded model already stands in for violations below, and carries the
     `unknowns` section too, so checking it costs no second scan of the sample.
     """
-    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    report, architecture = run_report(root, config=load_config(root), analyzer=observe)
     if architecture is None:
-        return (), ()
+        return (), (), report.declared_rules
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
     violations = trace_valid_violations(observation)
     actual_violations = tuple(
@@ -243,7 +249,7 @@ def _report_findings(root: Path) -> tuple[tuple[str, ...], tuple[tuple[str, str]
             for subject in record.subjects
         )
     )
-    return actual_violations, actual_unknowns
+    return actual_violations, actual_unknowns, report.declared_rules
 
 
 # Keyed by variant id, so a variant several tests need (`tour`) is run once per session, not
@@ -255,21 +261,28 @@ _SampleRun = tuple[
     tuple[tuple[str, str], ...],
     int,
     tuple[str, ...],
+    RuleVerdict,
 ]
 _SAMPLE_RUN_CACHE: dict[str, _SampleRun] = {}
 
 
 def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _SampleRun:
-    """Actual (codes, kinds, violations, unknowns) from a real run, cached by id."""
+    """Actual (codes, kinds, violations, unknowns, ...) from a real run, cached by id.
+
+    The configuration is the variant's own sample's `archkeel.toml`, read the way the CLI reads
+    it, so a sample in another language runs exactly as a user's repository would.
+    """
     if variant.id not in _SAMPLE_RUN_CACHE:
-        root = _prepare_repo(tmp_path_factory.mktemp(variant.id), dict(variant.files))
+        root = _prepare_repo(
+            tmp_path_factory.mktemp(variant.id), dict(variant.files), variant.fixture
+        )
         baseline = root / variant.baseline if variant.baseline is not None else None
-        validate_result, _ = run_validate(root, CONFIG, observe, baseline=baseline)
+        validate_result, _ = run_validate(root, load_config(root), observe, baseline=baseline)
         actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
         actual_kinds = tuple(
             sorted(item.kind for item in validate_result.diagnostics if item.code is None)
         )
-        actual_violations, actual_unknowns = _report_findings(root)
+        actual_violations, actual_unknowns, declared_rules = _report_findings(root)
         _SAMPLE_RUN_CACHE[variant.id] = (
             actual_codes,
             actual_kinds,
@@ -277,6 +290,7 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
             actual_unknowns,
             validate_result.exit_code,
             validate_result.failures,
+            declared_rules,
         )
     return _SAMPLE_RUN_CACHE[variant.id]
 
@@ -285,8 +299,8 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
 def test_variant_produces_the_catalogued_findings(
     tmp_path_factory: pytest.TempPathFactory, variant: Variant
 ) -> None:
-    actual_codes, actual_kinds, actual_violations, actual_unknowns, _, _ = _sample_run(
-        tmp_path_factory, variant
+    actual_codes, actual_kinds, actual_violations, actual_unknowns, _, _, declared_rules = (
+        _sample_run(tmp_path_factory, variant)
     )
     assert actual_codes == variant.expected_codes
     assert actual_kinds == variant.expected_kinds
@@ -294,13 +308,15 @@ def test_variant_produces_the_catalogued_findings(
     # Subset, not equality: dynamic_call_limit/context_alias_limit/boundary_type_limit fire on
     # every sample scan regardless of this variant's own overlay (see Variant.expected_unknowns).
     assert set(variant.expected_unknowns) <= set(actual_unknowns)
+    if variant.expected_declared_rules is not None:
+        assert declared_rules == variant.expected_declared_rules
 
 
 def test_baseline_interface_narrowing_runs_a_real_validate_gate(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     variant = next(item for item in CATALOG if item.id == "validation-baseline-interface-narrowing")
-    _, _, _, _, exit_code, failures = _sample_run(tmp_path_factory, variant)
+    _, _, _, _, exit_code, failures, _ = _sample_run(tmp_path_factory, variant)
 
     assert exit_code == 1
     assert failures == (
@@ -434,6 +450,23 @@ def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:
     report_result, _ = run_report(root, config=CONFIG, analyzer=observe)
     # AD-93 follows collection-contained fields through the declared DTO graph.
     assert report_result.declared_rules == "PASS"
+
+
+def test_dart_clean_variant_is_fully_clean(tmp_path: Path) -> None:
+    """AD-97: the Dart sample's conditional, deferred and part directives add no finding.
+
+    PASS, not UNKNOWN, is the claim: any unknown besides a standing disclaimer would turn the
+    verdict UNKNOWN, so PASS proves every declared rule decided every import it saw.
+    """
+    clean = next(variant for variant in CATALOG if variant.id == "dart-clean")
+    root = _prepare_repo(tmp_path, dict(clean.files), clean.fixture)
+
+    validate_result, _ = run_validate(root, load_config(root), observe)
+    assert (validate_result.exit_code, validate_result.diagnostics) == (0, ())
+    assert run_validate(root, load_config(root), observe, write_graph=True)[1] == {}
+
+    report_result, _ = run_report(root, config=load_config(root), analyzer=observe)
+    assert (report_result.exit_code, report_result.declared_rules) == (0, "PASS")
 
 
 def test_architecture_demo_markdown_matches_generated_output() -> None:

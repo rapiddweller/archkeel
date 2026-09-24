@@ -21,6 +21,7 @@ def main() -> None:
         contract_path=Path(request["contract"]),
         roots=tuple(request["roots"]),
         namespace=request["namespace"],
+        language=request["language"],
     )
     model["python_version"] = platform.python_version()
     json.dump({"model": model, "exit_code": code}, sys.stdout, sort_keys=True)

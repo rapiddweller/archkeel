@@ -11,7 +11,8 @@
         "archkeel.analyzer.runtime",
         "archkeel.analyzer.embedded.scanner",
         "archkeel.analyzer.embedded.report",
-        "archkeel.analyzer.embedded.contract"
+        "archkeel.analyzer.embedded.contract",
+        "archkeel.analyzer.embedded.dart_scanner"
       ],
       "responsibilities": [
         "Discover and parse sources, run the collectors once per module, load the contract and assemble the observation the port publishes."
@@ -30,6 +31,11 @@
         {
           "component": "foundation",
           "rationale": "`scanner` parses sources and builds the shared symbol index before handing parsed modules to the collectors, and both `scanner` and `report` write through the shared record envelope, so orchestration reaches the same foundation the collectors it calls already depend on."
+        },
+        {
+          "component": "dart",
+          "rationale": "`dart_scanner` assembles the Dart profile's observation from the libraries and import records `dart` reads, through the same shared record functions `scanner` uses for Python, so reading a Dart header and assembling an observation stay two jobs (AD-97).",
+          "decided_by": "agent"
         }
       ],
       "public": [
@@ -70,6 +76,33 @@
       ],
       "public": [],
       "decided_by": "architect"
+    },
+    {
+      "id": "COMP-DART",
+      "label": "dart",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.embedded.dart_lexer",
+        "archkeel.analyzer.embedded.dart_directives",
+        "archkeel.analyzer.embedded.dart_libraries"
+      ],
+      "responsibilities": [
+        "Read the directive header of each Dart file, resolve its URIs to module ids and write the import records and coverage failures they prove (AD-97)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading past a file's directive header, guessing a URI it cannot resolve, or deciding a contract rule."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "requires": [
+        {
+          "component": "foundation",
+          "rationale": "A Dart import record and its evidence are written through the same `RawRecord` envelope and evidence helper a Python one is, and a module's package is the shared `package_for`, so the two profiles' records compare the same way."
+        }
+      ],
+      "public": [],
+      "decided_by": "agent"
     },
     {
       "id": "COMP-FOUNDATION",

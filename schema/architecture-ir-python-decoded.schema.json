@@ -322,7 +322,11 @@
       }
     },
     "symbols": {
-      "type": "array",
+      "$comment": "null: the analyzer profile does not observe this signal (AD-97).",
+      "type": [
+        "array",
+        "null"
+      ],
       "items": {
         "allOf": [
           {
@@ -383,7 +387,8 @@
                   "reexport_chain",
                   "origin_definition",
                   "symbol_visibility",
-                  "declared_in_all"
+                  "declared_in_all",
+                  "symbols_known"
                 ],
                 "properties": {
                   "source_module": {
@@ -444,6 +449,10 @@
                   },
                   "declared_in_all": {
                     "type": "boolean"
+                  },
+                  "symbols_known": {
+                    "type": "boolean",
+                    "description": "False when the import names no symbol, so which names cross is unknown (a Dart import without show, AD-97)."
                   }
                 },
                 "additionalProperties": false
@@ -774,7 +783,11 @@
       "description": "Actual producer Python version. Historical observations may omit it; comparison requires a known equal version."
     },
     "bindings": {
-      "type": "array",
+      "$comment": "null: the analyzer profile does not observe this signal (AD-97).",
+      "type": [
+        "array",
+        "null"
+      ],
       "items": {
         "allOf": [
           {
@@ -833,7 +846,11 @@
       }
     },
     "references": {
-      "type": "array",
+      "$comment": "null: the analyzer profile does not observe this signal (AD-97).",
+      "type": [
+        "array",
+        "null"
+      ],
       "items": {
         "allOf": [
           {

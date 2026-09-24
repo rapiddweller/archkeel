@@ -5,7 +5,10 @@ Exact rules behind the [README](../README.md). Code is the source of truth; this
 ## Configuration
 
 [schema/archkeel.schema.json](../schema/archkeel.schema.json) defines `archkeel.toml`.
-Only `[scan]` with required `roots`, `namespace` and `contract` is accepted.
+Only `[scan]` with required `roots`, `namespace` and `contract` is accepted, plus the optional
+`language`: `"python"` (the default when absent, so an existing file keeps its digest) or
+`"dart"`. For Dart, `namespace` is the pubspec `name` and `roots` is normally `["lib"]`; a
+`pubspec.yaml` whose `name:` differs from `namespace` is `parse_error` (AD-97).
 Paths are relative to the repository root. Scan roots are directories, not globs.
 The architecture schemas live once under `schema/`; builds include them as package data.
 

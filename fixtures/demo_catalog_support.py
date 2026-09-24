@@ -98,10 +98,15 @@ class Variant:
     evidence: str | None = None
     check: CheckExpectation | None = None
     against: AgainstExpectation | None = None
+    # The clean sample the overlay applies to; its own archkeel.toml configures the run.
+    fixture: Path = FIXTURE_DIR
+    # report's declared_rules verdict, checked when set: the only place an UNKNOWN that is
+    # neither a violation nor a diagnostic becomes visible, so a row demonstrating one says so.
+    expected_declared_rules: Literal["PASS", "FAIL", "UNKNOWN"] | None = None
 
 
 def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:
-    """Materialize one variant's file changes over a copy of the clean shop sample."""
+    """Materialize one variant's file changes over a copy of its clean sample."""
     for relative, content in files.items():
         target = root / relative
         if content is None:
@@ -111,8 +116,8 @@ def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:
         target.write_text(content)
 
 
-def _clean_contract() -> dict[str, Any]:
-    return json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+def _clean_contract(fixture: Path = FIXTURE_DIR) -> dict[str, Any]:
+    return json.loads((fixture / "architecture-contract.json").read_text())
 
 
 def _dump_contract(contract: dict[str, Any]) -> str:
@@ -134,9 +139,9 @@ def contract_without_rule(rule_id: str) -> str:
     return _dump_contract(contract)
 
 
-def contract_with_rule(rule: dict[str, object]) -> str:
+def contract_with_rule(rule: dict[str, object], fixture: Path = FIXTURE_DIR) -> str:
     """Clean contract JSON with one extra rule appended."""
-    contract = _clean_contract()
+    contract = _clean_contract(fixture)
     contract["rules"].append(rule)
     return _dump_contract(contract)
 
@@ -174,10 +179,10 @@ def contract_compat_replaced(entries: list[dict[str, str]]) -> str:
     return _dump_contract(contract)
 
 
-def contract_measurement_budgets(*names: str) -> str:
+def contract_measurement_budgets(*names: str, fixture: Path = FIXTURE_DIR) -> str:
     """Clean contract with deterministic measurement names selected for baseline ratchets."""
-    contract = _clean_contract()
-    contract["declarations"]["measurement_budgets"] = [
+    contract = _clean_contract(fixture)
+    contract.setdefault("declarations", {})["measurement_budgets"] = [
         {"name": name, "provenance": ["docs/architecture/shop.md"]} for name in names
     ]
     return _dump_contract(contract)
