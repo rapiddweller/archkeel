@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
-from .baseline import KnownViolation
+from .baseline import KnownViolation, cycle_contractions
 from .measurements import MeasurementBudget
 from .model import (
     AllowedDependencyRule,
@@ -525,7 +525,10 @@ def measurement_budget_widenings(
 
 
 def baseline_widenings(
-    before: tuple[KnownViolation, ...], after: tuple[KnownViolation, ...]
+    before: tuple[KnownViolation, ...],
+    after: tuple[KnownViolation, ...],
+    *,
+    cycle_rules: frozenset[str],
 ) -> tuple[str, ...]:
     """A known-violation baseline is part of the contract's surface (#11).
 
@@ -533,8 +536,10 @@ def baseline_widenings(
     invites, so it is compared the same way every other rule is: by fingerprint, a higher count
     or a new fingerprint reported as widening, a lower or removed one left to pass silently.
     Roles do not change fingerprint identity, but AD-85 uses them as directional evidence. Any
-    role-only change is therefore protected rather than classified as neutral metadata.
+    role-only change is therefore protected rather than classified as neutral metadata. A cycle
+    that replaces a baselined cycle it lies inside is that cycle contracting (AD-98): narrowing.
     """
+    contracted = cycle_contractions(before, after, cycle_rules=cycle_rules)
     before_by_fingerprint = {item.fingerprint: item for item in before}
     after_by_fingerprint = {item.fingerprint: item for item in after}
     findings = []
@@ -547,7 +552,7 @@ def baseline_widenings(
         before_count = before_item.count if before_item is not None else 0
         after_count = after_item.count if after_item is not None else 0
         name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
-        if after_count > before_count:
+        if after_count > before_count and fingerprint not in contracted:
             findings.append(
                 f"baseline entry widened: {name} ({after_count} now, {before_count} before)"
             )

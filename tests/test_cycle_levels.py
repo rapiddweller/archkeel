@@ -15,9 +15,16 @@ from test_architecture_demo import _prepare_repo
 
 from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
+from archkeel.ir.baseline import (
+    KnownViolation,
+    ViolationFingerprint,
+    compare_violations,
+    violation_drift_counts,
+)
 from archkeel.ir.codec import contract_bytes, parse_contract
 from archkeel.ir.model import NoComponentCyclesRule, Observation, Record
 from archkeel.ir.trace import trace_valid_violations
+from archkeel.ir.widening import baseline_widenings
 from fixtures.demo_catalog_support import apply_overlay, contract_with_rule
 
 _CORE_CYCLE = {
@@ -327,9 +334,9 @@ def _git(root: Path, *args: str) -> str:
     ).strip()
 
 
-def _baselined_cycle(tmp_path: Path) -> tuple[Path, Path, str]:
+def _baselined_cycle(tmp_path: Path, cycle: dict[str, str] = _ALPHA_BETA) -> tuple[Path, Path, str]:
     """The shop sample with one known model cycle, its baseline committed beside it."""
-    files = {"architecture-contract.json": contract_with_rule(_MODULE_RULE), **_ALPHA_BETA}
+    files = {"architecture-contract.json": contract_with_rule(_MODULE_RULE), **cycle}
     root = _prepare_repo(tmp_path, files)
     baseline = root / "known-violations.json"
     result, written = run_validate(
@@ -381,3 +388,84 @@ def test_against_lets_the_cycle_count_fall_but_not_rise(tmp_path: Path) -> None:
         "(1 now, 0 before)",
     )
     assert (fallen.exit_code, fallen.failures) == (0, ())
+
+
+# --- A cycle that shrinks inside a baselined one is that cycle contracting, not new (#129). ---
+
+_CYCLE_RULES = frozenset({"CYCLES"})
+
+
+def _baselined(*cycles: str) -> tuple[KnownViolation, ...]:
+    return tuple(
+        KnownViolation(ViolationFingerprint(("CYCLES",), tuple(cycle)), 1) for cycle in cycles
+    )
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "new"),
+    [
+        (("abc",), ("ab",), ()),
+        (("abcd",), ("ab", "cd"), ()),
+        (("ab",), ("abc",), ("abc",)),
+        (("abc",), ("ab", "cd"), ("cd",)),
+        # A baseline that keeps the old cycle beside its "part" is padded, not contracted.
+        (("abc",), ("abc", "ab"), ("ab",)),
+    ],
+)
+def test_a_cycle_inside_a_baselined_cycle_is_not_new(
+    before: tuple[str, ...], after: tuple[str, ...], new: tuple[str, ...]
+) -> None:
+    known, observed = _baselined(*before), _baselined(*after)
+    names = [" ".join(cycle) for cycle in new]
+
+    drift = compare_violations(known, observed, cycle_rules=_CYCLE_RULES)
+    assert [line for line in drift if line.startswith("new violation")] == [
+        f"new violation: CYCLES | {name} (1 observed, 0 in the baseline)" for name in names
+    ]
+    assert violation_drift_counts(known, observed, cycle_rules=_CYCLE_RULES)[0] == len(new)
+    assert baseline_widenings(known, observed, cycle_rules=_CYCLE_RULES) == tuple(
+        f"baseline entry widened: CYCLES | {name} (1 now, 0 before)" for name in names
+    )
+
+
+def test_a_subset_under_a_rule_that_is_no_cycle_rule_stays_new() -> None:
+    known, observed = _baselined("abc"), _baselined("ab")
+
+    assert violation_drift_counts(known, observed, cycle_rules=frozenset()) == (1, 1)
+    assert baseline_widenings(known, observed, cycle_rules=frozenset()) == (
+        "baseline entry widened: CYCLES | a b (1 now, 0 before)",
+    )
+
+
+_THREE_MODULE_CYCLE = {
+    "shop/model/alpha.py": "from shop.model import beta\nVALUE = beta.VALUE\n",
+    "shop/model/beta.py": "from shop.model import alpha, gamma\nVALUE = 1\n",
+    "shop/model/gamma.py": "from shop.model import beta\nVALUE = beta.VALUE\n",
+}
+
+
+def test_breaking_part_of_a_baselined_cycle_is_written_without_accepting_new_debt(
+    tmp_path: Path,
+) -> None:
+    root, baseline, base = _baselined_cycle(tmp_path, _THREE_MODULE_CYCLE)
+
+    apply_overlay(root, {"shop/model/gamma.py": "VALUE = 1\n"})
+    drifted, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    written, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
+    )
+    baseline.write_bytes(files[str(baseline)])
+    against, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
+
+    # The file still states the old cycle, so it must be rewritten, but nothing in it is new.
+    assert (drifted.exit_code, drifted.baseline_new, drifted.baseline_resolved) == (1, 0, 1)
+    assert drifted.failures == (
+        "contracted violation: MODEL-MODULES-ACYCLIC | shop.model.alpha shop.model.beta "
+        "(1 observed, 0 in the baseline) inside a baselined cycle; rewrite the baseline with "
+        "--write-baseline",
+        "resolved violation: MODEL-MODULES-ACYCLIC | shop.model.alpha shop.model.beta "
+        "shop.model.gamma (0 observed, 1 in the baseline); rewrite the baseline with "
+        "--write-baseline",
+    )
+    assert (written.exit_code, written.failures) == (0, ())
+    assert (against.exit_code, against.failures) == (0, ())

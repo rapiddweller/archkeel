@@ -495,10 +495,10 @@ def test_baseline_widening_reports_a_padded_or_new_entry() -> None:
     padded = (KnownViolation(fingerprint, 2),)
     new_entry = (*before, KnownViolation(ViolationFingerprint(("R",), ("b",)), 1))
 
-    assert baseline_widenings(before, padded) == (
+    assert baseline_widenings(before, padded, cycle_rules=frozenset()) == (
         "baseline entry widened: R | a (2 now, 1 before)",
     )
-    assert baseline_widenings(before, new_entry) == (
+    assert baseline_widenings(before, new_entry, cycle_rules=frozenset()) == (
         "baseline entry widened: R | b (1 now, 0 before)",
     )
 
@@ -508,7 +508,7 @@ def test_baseline_role_change_is_protected_semantic_evidence() -> None:
     before = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
     after = (KnownViolation(fingerprint, 1, (("a", "c"),)),)
 
-    assert baseline_widenings(before, after) == (
+    assert baseline_widenings(before, after, cycle_rules=frozenset()) == (
         "baseline entry roles changed: R | a b (a -> b before; a -> c now)",
     )
 
@@ -518,8 +518,8 @@ def test_baseline_shrinking_is_narrowing() -> None:
     before = (KnownViolation(fingerprint, 2, (("a", "b"), ("c", "b"))),)
     shrunk = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
     removed: tuple[KnownViolation, ...] = ()
-    assert baseline_widenings(before, shrunk) == ()
-    assert baseline_widenings(before, removed) == ()
+    assert baseline_widenings(before, shrunk, cycle_rules=frozenset()) == ()
+    assert baseline_widenings(before, removed, cycle_rules=frozenset()) == ()
 
 
 def test_verify_amendment_binds_the_exact_digest_pair() -> None:
