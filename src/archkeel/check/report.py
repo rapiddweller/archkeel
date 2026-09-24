@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import replace
 from pathlib import Path
 
-from archkeel.ir.baseline import select_violations
+from archkeel.ir.baseline import require_declared_filter, select_violations
 from archkeel.ir.codec import canonical_report_bytes, result_bytes
 from archkeel.ir.decisions import (
     agent_decisions,
@@ -16,8 +16,10 @@ from archkeel.ir.decisions import (
     violation_counts,
 )
 from archkeel.ir.model import (
+    CallRow,
     Diagnostic,
     DiagnosticError,
+    Observation,
     ObservationResult,
     ReportFilter,
     RunResult,
@@ -25,6 +27,7 @@ from archkeel.ir.model import (
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
+from .ratchets import call_rows
 from .run import inspect_observation
 from .snapshot import resolve_commit
 
@@ -61,6 +64,16 @@ def observe_repository(
     )
 
 
+def _selected_calls(model: Observation, report_filter: ReportFilter) -> tuple[CallRow, ...]:
+    """AD-100: `--only calls`, narrowed by `--component` to the calls its modules make."""
+    require_declared_filter(model, report_filter)
+    return tuple(
+        row
+        for row in call_rows(model)
+        if report_filter.component is None or row.component == report_filter.component
+    )
+
+
 def run_report(
     root: Path,
     *,
@@ -69,6 +82,7 @@ def run_report(
     only_violations: bool = False,
     rule: str | None = None,
     component: str | None = None,
+    only_calls: bool = False,
 ) -> tuple[RunResult, bytes | None]:
     """Observe, evaluate and, when a filter argument narrows it, select what the report shows.
 
@@ -82,8 +96,8 @@ def run_report(
     named exit-2 diagnostic, never a silently empty report.
     """
     report_filter = (
-        ReportFilter(only_violations, rule, component)
-        if only_violations or rule is not None or component is not None
+        ReportFilter(only_violations, rule, component, only_calls)
+        if only_violations or only_calls or rule is not None or component is not None
         else None
     )
     result = observe_repository(root, config, analyzer)
@@ -101,7 +115,14 @@ def run_report(
         try:
             measurements, declared = inspect_observation(model)
             filtered_violations = (
-                select_violations(model, report_filter) if report_filter is not None else None
+                select_violations(model, report_filter)
+                if report_filter is not None and not only_calls
+                else None
+            )
+            filtered_calls = (
+                _selected_calls(model, report_filter)
+                if report_filter is not None and only_calls
+                else None
             )
         except ValueError as error:
             command_result = replace(
@@ -127,5 +148,6 @@ def run_report(
                 violations_by_component_pair=counted.by_component_pair,
                 report_filter=report_filter,
                 filtered_violations=filtered_violations,
+                filtered_calls=filtered_calls,
             )
     return command_result, architecture

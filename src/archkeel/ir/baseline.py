@@ -162,17 +162,10 @@ def declared_components(observation: Observation) -> frozenset[str]:
     return frozenset(label for label, _ in component_owners(observation))
 
 
-def select_violations(observation: Observation, report_filter: ReportFilter) -> tuple[Record, ...]:
-    """Return the violation records `report_filter` selects, in record order (AD-60).
-
-    Built on `violation_rows` (AD-54), the one place a violation's rule ids and component pair
-    are derived, so the HTML table and `--json`'s `filtered_violations` can never select a
-    different row than the other. `rule` and `component` each narrow independently; a
-    violation matches `component` on either side of the import it crosses, source or target,
-    and a violation that crosses no pair (a construct, an unassigned module, a cycle) matches
-    no `component` filter at all. Raises `DiagnosticError` for a `rule` or `component` naming
-    nothing this observation declares, so a typo reports an error rather than an empty page a
-    reader could mistake for a clean one.
+def require_declared_filter(observation: Observation, report_filter: ReportFilter) -> None:
+    """Raise `DiagnosticError` for a `rule` or `component` naming nothing this observation
+    declares, so a typo reports an error rather than an empty page a reader could mistake for a
+    clean one (AD-60). `--only calls` checks its `component` here too (AD-100).
     """
     known_rules = declared_rule_ids(observation)
     if report_filter.rule is not None and report_filter.rule not in known_rules:
@@ -196,6 +189,20 @@ def select_violations(observation: Observation, report_filter: ReportFilter) -> 
                 "contract's own component labels, for a valid --component value.",
             )
         )
+
+
+def select_violations(observation: Observation, report_filter: ReportFilter) -> tuple[Record, ...]:
+    """Return the violation records `report_filter` selects, in record order (AD-60).
+
+    Built on `violation_rows` (AD-54), the one place a violation's rule ids and component pair
+    are derived, so the HTML table and `--json`'s `filtered_violations` can never select a
+    different row than the other. `rule` and `component` each narrow independently; a
+    violation matches `component` on either side of the import it crosses, source or target,
+    and a violation that crosses no pair (a construct, an unassigned module, a cycle) matches
+    no `component` filter at all. An undeclared `rule` or `component` raises, through
+    `require_declared_filter`.
+    """
+    require_declared_filter(observation, report_filter)
     return tuple(
         record
         for row, record in zip(

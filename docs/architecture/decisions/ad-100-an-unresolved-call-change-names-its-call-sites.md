@@ -2,26 +2,27 @@
 
 ## Decision
 
-Where Archkeel compares the calls of two revisions, the JSON result carries
-`unresolved_call_changes`: one row per unresolved call whose count differs, with `change`
-(`added` or `removed`), `caller`, `expression`, `reason`, `component`, `path`, `lines`, `before`
-and `after`. Otherwise the field is `null`.
+`call_rows` in `check/ratchets.py` reads every unresolved and partially resolved call from the
+observation's existing `calls` records and evidence: `status`, `caller`, `expression`, `reason`,
+owning `component` (`null` when unowned), `path` and `line`. It is not a second call analysis,
+and the rows must add up to the coverage counts, or the run is not checked. Two outputs use it.
 
-| Command | Compares | `unresolved_call_changes` |
+| Command | JSON field | Rows |
 | --- | --- | --- |
-| `check` | the accepted commit and the candidate it already observes | always |
-| `validate --against <ref>` with a `calls_unresolved` budget | the code at `<ref>` and the working tree | always |
-| `report`, other `validate` runs | nothing | `null` |
+| `report --only calls` (with `--component`, never `--rule`) | `filtered_calls` | every listed call |
+| `check` | `unresolved_call_changes` | unresolved calls whose count differs from the accepted commit |
+| `validate --against <ref>` with a `calls_unresolved` budget | `unresolved_call_changes` | the same, against the code at `<ref>` |
 
-A row's identity is the module, the calling scope and the call expression, never the line. Code
-that only moves is no change. Identical expressions in one caller share one identity: the row
-counts them, and `lines` names every line on the side holding more. Only `unresolved` calls count,
-the status behind `calls_unresolved`; partially resolved calls feed no regression check.
+Both fields are opt-in and absent otherwise, so a default result keeps its bytes. A change row
+has `change` (`added` or `removed`), `caller`, `expression`, `reason`, `component`, `path`,
+`lines`, `before` and `after`. Its identity is the file, the calling scope and the call
+expression, never the line, so code that only moves is no change. Identical expressions in one
+caller share one identity: the row counts them, and `lines` names every line on the side holding
+more. Only `unresolved` calls are compared, the status behind `calls_unresolved`.
 
-`unresolved_call_changes` in `check/ratchets.py` reads the observation's existing `calls` records
-and their evidence; it is not a second call analysis. The rows must add up to `calls_unresolved`,
-or the run is not checked. A passing run's terminal stays as it was; a rejected one adds a heading
-and at most five rows, then the number left for the JSON.
+The terminal names at most five change rows, below the run's failures and through the same print,
+and nothing on a passing run. `--only calls` also draws its rows as one HTML table in place of
+the violations table and the sections `--only violations` hides (AD-60).
 
 ## Why
 
@@ -29,7 +30,8 @@ Issue #131: on DATAMIMIC CE an agent saw `unresolved +1` during a refactoring an
 the call by hand. On the shop sample, `origin/main` printed only
 `measurement budget exceeded in calls_unresolved: 7->8`, `measurement budget widened:
 calls_unresolved (8 now, 7 before)` under `--against`, and `regression check failed in
-calls_unresolved: 7->8` in `check`.
+calls_unresolved: 7->8` in `check`; `architecture.json` is string-table encoded and names no
+component, so an agent could not list the calls either.
 
 ## Rejected
 
@@ -39,9 +41,7 @@ calls_unresolved: 7->8` in `check`.
 - **The call list in the validation baseline**, so that plain `validate --baseline` can name a
   site. Archkeel's own baseline would grow from 242 bytes by 74 KB (427 identities), DATAMIMIC's
   by about 1,288 entries, and every renamed caller would churn it.
-- **Every unresolved and partially resolved call in the default `--json`.** D-self would add
-  1,157 rows to a 1.2 KB result. `architecture.json` already holds each call with its caller,
-  expression, reason, status and evidence line.
+- **Every call row in the default `--json`.** D-self would add 1,157 rows to a 1.2 KB result.
 - **Observing `--against`'s code on every run.** It doubles the cost for contracts that gate
   nothing on calls.
 
@@ -51,12 +51,13 @@ A renamed caller or a call moved to another function is one removed and one adde
 identical calls in one caller, the new one cannot be told apart. Plain `validate --baseline`
 still reports the count; `--against <ref>` names the sites. Both `--against` scans read the
 working tree's contract, so a removed row names today's component; a revision whose source
-cannot be observed completely leaves the field `null`. The check HTML page does not list sites.
+cannot be observed completely leaves the field absent. The check HTML page lists no sites.
 
 ## Check
 
-`tests/test_unresolved_call_sites.py` covers an added and a removed call, a moved call, two
-identical calls, `validate --against` with and without the budget, a revision that cannot be
-scanned and the capped terminal list.
-The `SCALARS:calls_unresolved` check row in `tests/test_architecture_demo.py` asserts
-`shop/app/probe_unresolved.py:10`, and every other check row asserts no change.
+`tests/test_unresolved_call_sites.py` covers an added, removed, moved and doubled call,
+`validate --against` with and without the budget, an unscannable revision, the capped terminal
+list, `report --only calls` with `--component`, `--rule` and the HTML table, and a default
+result without either field. The `SCALARS:calls_unresolved` check row asserts
+`shop/app/probe_unresolved.py:10`; `make demo` case A asserts the `--only calls` row
+`handlers[key]` at `sample/work.py:9` (`tests/test_demo.py`).

@@ -1544,6 +1544,11 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         payload["filtered_violations"] = [
             _record_payload(record) for record in result.filtered_violations
         ]
+    # AD-100: opt-in call evidence is absent rather than null when nothing was compared or
+    # listed, so a default result keeps its bytes.
+    for optional in ("unresolved_call_changes", "filtered_calls"):
+        if payload[optional] is None:
+            del payload[optional]
     if result.observation is not None:
         payload["observation"] = observation_payload(result.observation)
     if result.coverage is not None:

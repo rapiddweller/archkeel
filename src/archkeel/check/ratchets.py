@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Regression checks over the typed Python decoded-IR measurement profile."""
 
-from dataclasses import dataclass
 from typing import Final
 
 from archkeel.ir.interfaces import component_owners, owner_of
@@ -14,6 +13,8 @@ from archkeel.ir.measurements import (
     compare_measurements,
 )
 from archkeel.ir.model import (
+    CallRow,
+    CallStatus,
     EvidenceClass,
     Observation,
     Record,
@@ -281,26 +282,23 @@ def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[s
     )
 
 
-@dataclass(frozen=True, slots=True)
-class _UnresolvedCall:
-    reason: str
-    path: str
-    line: int
+def call_rows(observation: Observation) -> tuple[CallRow, ...]:
+    """Every unresolved and partially resolved call, from the `calls` records (AD-100).
 
-
-def _unresolved_calls(
-    observation: Observation,
-) -> dict[tuple[str, str, str], tuple[_UnresolvedCall, ...]]:
-    """Group the unresolved call records by module, caller and expression (AD-100).
-
-    The groups must add up to the `calls_unresolved` scalar, so the sites named for a change
-    are exactly the ones that moved the count.
+    The rows must add up to the coverage counts, so a listed or compared call is exactly one
+    the measurements counted.
     """
     evidence = {item.id: item for item in observation.evidence}
-    grouped: dict[tuple[str, str, str], tuple[_UnresolvedCall, ...]] = {}
+    owners = component_owners(observation)
+    rows: list[CallRow] = []
     for record in _records(observation, "calls"):
         data = record.data
-        if data.get("status") != "unresolved":
+        status: CallStatus
+        if data.get("status") == "unresolved":
+            status = "unresolved"
+        elif data.get("status") == "partially_resolved":
+            status = "partially_resolved"
+        else:
             continue
         module = text_value(data.get("source_module"))
         caller = text_value(data.get("source_scope"))
@@ -309,13 +307,29 @@ def _unresolved_calls(
         sites = [evidence[item] for item in record.evidence_ids if item in evidence]
         if not (module and caller and expression and reason) or len(sites) != 1:
             raise RatchetError("unresolved call lacks its caller, expression, reason or line")
-        key = (module, caller, expression)
-        grouped[key] = (
-            *grouped.get(key, ()),
-            _UnresolvedCall(reason, sites[0].file, sites[0].line),
+        component = owner_of(module, owners)
+        rows.append(
+            CallRow(status, caller, expression, reason, component, sites[0].file, sites[0].line)
         )
-    if sum(len(calls) for calls in grouped.values()) != observation.coverage.calls_unresolved:
-        raise RatchetError("unresolved call records do not add up to calls_unresolved")
+    unresolved = sum(row.status == "unresolved" for row in rows)
+    coverage = observation.coverage
+    if (unresolved, len(rows) - unresolved) != (
+        coverage.calls_unresolved,
+        coverage.calls_partially_resolved,
+    ):
+        raise RatchetError("call records do not add up to the coverage call counts")
+    return tuple(
+        sorted(rows, key=lambda row: (row.path, row.line, row.caller, row.expression, row.status))
+    )
+
+
+def _unresolved_calls(observation: Observation) -> dict[tuple[str, str, str], tuple[CallRow, ...]]:
+    """Group the unresolved calls by file, caller and expression, the identity AD-100 compares."""
+    grouped: dict[tuple[str, str, str], tuple[CallRow, ...]] = {}
+    for row in call_rows(observation):
+        if row.status == "unresolved":
+            key = (row.path, row.caller, row.expression)
+            grouped[key] = (*grouped.get(key, ()), row)
     return grouped
 
 
@@ -324,23 +338,22 @@ def unresolved_call_changes(
 ) -> tuple[UnresolvedCallChange, ...]:
     """Name every unresolved call whose count differs between two observations (AD-100)."""
     old, new = _unresolved_calls(before), _unresolved_calls(after)
-    old_owners, new_owners = component_owners(before), component_owners(after)
     changes = []
-    for module, caller, expression in {*old, *new}:
-        was = old.get((module, caller, expression), ())
-        now = new.get((module, caller, expression), ())
+    for path, caller, expression in {*old, *new}:
+        was = old.get((path, caller, expression), ())
+        now = new.get((path, caller, expression), ())
         if len(was) == len(now):
             continue
         added = len(now) > len(was)
-        calls, owners = (now, new_owners) if added else (was, old_owners)
+        calls = now if added else was
         changes.append(
             UnresolvedCallChange(
                 "added" if added else "removed",
                 caller,
                 expression,
                 calls[0].reason,
-                owner_of(module, owners),
-                calls[0].path,
+                calls[0].component,
+                path,
                 tuple(sorted(call.line for call in calls)),
                 len(was),
                 len(now),

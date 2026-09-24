@@ -899,13 +899,39 @@ class ReportFilter:
     only_violations: bool = False
     rule: str | None = None
     component: str | None = None
+    # AD-100: list the unresolved and partially resolved calls instead of the violations.
+    only_calls: bool = False
+
+    def __post_init__(self) -> None:
+        if self.only_calls and (self.only_violations or self.rule is not None):
+            raise ValueError("--only calls lists calls, which cite no rule: drop --rule")
+
+
+CallStatus: TypeAlias = Literal["unresolved", "partially_resolved"]
+
+
+@dataclass(frozen=True, slots=True)
+class CallRow:
+    """AD-100: one call the analyzer could not resolve to exactly one target.
+
+    Read from the observation's own `calls` record and its evidence line. `component` owns the
+    calling module, None when no component or several claim it.
+    """
+
+    status: CallStatus
+    caller: str
+    expression: str
+    reason: str
+    component: str | None
+    path: str
+    line: int
 
 
 @dataclass(frozen=True, slots=True)
 class UnresolvedCallChange:
     """AD-100: one unresolved call whose count differs between two compared revisions.
 
-    Its identity is the module, the calling scope and the call expression, never the line, so
+    Its identity is the file, the calling scope and the call expression, never the line, so
     code that only moves is no change. Identical expressions in one caller share that identity
     and differ by count; `lines` then names every line of it on the side holding more, because
     which one is new cannot be decided. A removed call's lines are those of the older revision.
@@ -962,6 +988,8 @@ class RunResult:
     # AD-100: the call sites behind a calls_unresolved change; None when no two revisions'
     # calls were compared.
     unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None
+    # AD-100: `report --only calls`, every unresolved and partially resolved call it selects.
+    filtered_calls: tuple[CallRow, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

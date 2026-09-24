@@ -130,10 +130,18 @@ def _report_filter_line(result: RunResult) -> str:
     facets = []
     if report_filter.only_violations:
         facets.append("only violations")
+    if report_filter.only_calls:
+        facets.append("only calls")
     if report_filter.rule is not None:
         facets.append(f"rule {report_filter.rule}")
     if report_filter.component is not None:
         facets.append(f"component {report_filter.component}")
+    if result.filtered_calls is not None:
+        listed = len(result.filtered_calls)
+        return (
+            f"\n\nFiltered ({', '.join(facets)}): {listed} unresolved or partially resolved "
+            "call(s) listed."
+        )
     shown = len(result.filtered_violations) if result.filtered_violations is not None else 0
     total = result.measurements.scalars.violations if result.measurements is not None else shown
     return f"\n\nFiltered ({', '.join(facets)}): {shown} of {total} violation(s) shown."

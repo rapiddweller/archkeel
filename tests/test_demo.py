@@ -34,3 +34,16 @@ def test_make_demo_reproduces_all_three_outcomes(tmp_path: Path) -> None:
         assert str(html) in run.stdout
         assert html.is_file()
     assert len(list(output.glob("*.check.html"))) == 3
+    # AD-100: case A's `report --only calls` lists the one call the refactor left unresolved.
+    assert results["A"]["calls"] == [
+        {
+            "caller": "sample.work.run",
+            "component": None,
+            "expression": "handlers[key]",
+            "line": 9,
+            "path": "sample/work.py",
+            "reason": "expression is dynamic",
+            "status": "unresolved",
+        }
+    ]
+    assert "report --only calls lists 1 call(s)." in run.stdout

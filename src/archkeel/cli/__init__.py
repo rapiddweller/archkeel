@@ -118,10 +118,13 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--only",
-        choices=["violations"],
-        help="Show only the declared-rule violations table: hide component flow, component "
-        "communication, review claims and size and coupling, for a small review surface on a "
-        "large repository. --json also stops here, without those sections' data (AD-60).",
+        choices=["violations", "calls"],
+        help="violations: show only the declared-rule violations table, hiding component flow, "
+        "component communication, review claims and size and coupling, for a small review "
+        "surface on a large repository (AD-60). calls: list every unresolved and partially "
+        "resolved call with its status, caller, path, line, expression, reason and component, "
+        "as --json's filtered_calls and one HTML table; combines with --component, not --rule "
+        "(AD-100).",
     )
     report.add_argument(
         "--rule",
@@ -346,6 +349,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     config=config,
                     analyzer=observe,
                     only_violations=args.only == "violations",
+                    only_calls=args.only == "calls",
                     rule=args.rule,
                     component=args.component,
                 )
