@@ -902,10 +902,6 @@ class ReportFilter:
     # AD-100: list the unresolved and partially resolved calls instead of the violations.
     only_calls: bool = False
 
-    def __post_init__(self) -> None:
-        if self.only_calls and (self.only_violations or self.rule is not None):
-            raise ValueError("--only calls lists calls, which cite no rule: drop --rule")
-
 
 CallStatus: TypeAlias = Literal["unresolved", "partially_resolved"]
 

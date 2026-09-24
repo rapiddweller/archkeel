@@ -344,6 +344,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command == "report":
                 config = load_config(root)
                 subject = str(root)
+                if args.only == "calls" and args.rule is not None:
+                    parser.error(
+                        "--rule narrows violations; --only calls lists calls, which cite no rule"
+                    )
                 result, architecture = run_report(
                     root,
                     config=config,

@@ -323,9 +323,12 @@ def test_report_only_calls_honours_component_and_rejects_rule(
     assert code == 2
     assert result["diagnostics"][0]["kind"] == "filter_unknown"  # type: ignore[index]
 
-    # A call cites no rule, so --rule has nothing to narrow.
-    code, _ = _cli(capsys, *only_calls, "--rule", "DEP-STORE-NO-MONEY", "--json")
+    # A call cites no rule, so --rule has nothing to narrow: refused like any flag conflict.
+    code, result = _cli(capsys, *only_calls, "--rule", "DEP-STORE-NO-MONEY", "--json")
     assert code == 2
+    assert result["diagnostics"][0]["unknown_claim"].endswith(  # type: ignore[index]
+        "--rule narrows violations; --only calls lists calls, which cite no rule"
+    )
 
 
 def test_default_report_json_carries_no_call_list(
