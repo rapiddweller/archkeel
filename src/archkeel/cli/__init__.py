@@ -25,7 +25,7 @@ from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from .config import load_check_config, load_config
+from .config import CONFIG_PATH, load_check_config, load_config
 from .skill import install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -86,11 +86,20 @@ def build_parser() -> _Parser:
         # A source checkout on PYTHONPATH has no distribution metadata.
         installed = "from source without package metadata"
     parser.add_argument("--version", action="version", version=f"archkeel {installed}")
-    parser.set_defaults(command=None, json=False)
+    parser.set_defaults(command=None, json=False, config=CONFIG_PATH)
     commands = parser.add_subparsers(dest="command", title="commands", metavar="<command>")
+    # The two commands that read a scan configuration from the working tree share one option.
+    configured = _Parser(add_help=False)
+    configured.add_argument(
+        "--config",
+        default=CONFIG_PATH,
+        help="Scan configuration, relative to --root. Default: archkeel.toml. A second file "
+        "scans a second namespace, such as tests, against its own contract (AD-101).",
+    )
 
     report = commands.add_parser(
         "report",
+        parents=[configured],
         help="Observe the repository and write architecture evidence.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
@@ -103,7 +112,9 @@ def build_parser() -> _Parser:
             "  archkeel report\n"
             "  archkeel report --output build/architecture.json --json\n"
             "  archkeel report --only violations --rule DEP-STORE-NO-MONEY --json\n"
-            "  archkeel report --component store\n\n"
+            "  archkeel report --component store\n"
+            "  archkeel report --config archkeel-tests.toml \\\n"
+            "    --output test-artifacts/tests/architecture.json\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
             "  2  not checked: configuration, tool or source evidence is missing, or --rule or\n"
@@ -140,6 +151,7 @@ def build_parser() -> _Parser:
 
     validate = commands.add_parser(
         "validate",
+        parents=[configured],
         help="Validate the architecture contract for this repository.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
@@ -170,7 +182,8 @@ def build_parser() -> _Parser:
             "  archkeel validate --baseline known-violations.json\n"
             "  archkeel validate --against main --amendment widening.json \\\n"
             '    --write-amendment --decided-by "Jordan (architect)" --rationale "..."\n'
-            "  archkeel validate --against main --amendment widening.json\n\n"
+            "  archkeel validate --against main --amendment widening.json\n"
+            "  archkeel validate --config archkeel-tests.toml\n\n"
             "Exit codes:\n"
             "  0  the contract is valid for this repository\n"
             "  1  with --baseline: a violation or selected measurement changed; with\n"
@@ -339,7 +352,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 0
         root = args.root.resolve()
-        subject = str(root / "archkeel.toml")
+        subject = str(root / args.config)
         with progress(f"archkeel {command}: observing {root.name}"):
             if command == "init":
                 subject = str(root)
@@ -352,7 +365,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     language=args.language,
                 )
             elif command == "report":
-                config = load_config(root)
+                config = load_config(root, args.config)
                 subject = str(root)
                 if args.only == "calls" and args.rule is not None:
                     parser.error(
@@ -367,6 +380,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     rule=args.rule,
                     component=args.component,
                 )
+                result = replace(result, scan_roots=config.roots)
                 if architecture is not None:
                     artifact = args.output or root / "test-artifacts/architecture/architecture.json"
                     artifact.parent.mkdir(parents=True, exist_ok=True)
@@ -391,7 +405,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                     artifacts.extend((artifact, report_html))
             elif command == "validate":
-                config = load_config(root)
+                config = load_config(root, args.config)
                 if args.write_baseline and args.baseline is None:
                     parser.error("--write-baseline needs --baseline to name the file to write")
                 if args.accept_new and not args.write_baseline:
@@ -420,6 +434,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     decided_by=args.decided_by,
                     rationale=args.rationale,
                 )
+                result = replace(result, scan_roots=config.roots)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
@@ -438,6 +453,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     host=load_gitlab_records,
                     analyzer=observe,
                 )
+                result = replace(result, scan_roots=config.roots)
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))

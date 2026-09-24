@@ -299,6 +299,40 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("complete_external_scope removed", _complete_external_scope(), None, True),
     ("no_component_cycles added", None, _no_component_cycles(), False),
     ("no_component_cycles removed", _no_component_cycles(), None, True),
+    ("module-level cycle rule added", None, _no_component_cycles(level="module"), False),
+    ("module-level cycle rule removed", _no_component_cycles(level="module"), None, True),
+    # Neither level implies the other (AD-98), so a level change either way is a widening.
+    (
+        "cycle level component to module",
+        _no_component_cycles(),
+        _no_component_cycles(level="module"),
+        True,
+    ),
+    (
+        "cycle level module to component",
+        _no_component_cycles(level="module"),
+        _no_component_cycles(),
+        True,
+    ),
+    (
+        "cycle scope introduced",
+        _no_component_cycles(),
+        _no_component_cycles(components=("a",)),
+        True,
+    ),
+    ("cycle scope removed", _no_component_cycles(components=("a",)), _no_component_cycles(), False),
+    (
+        "cycle scope lost a component",
+        _no_component_cycles(components=("a", "b")),
+        _no_component_cycles(components=("a",)),
+        True,
+    ),
+    (
+        "cycle scope gained a component",
+        _no_component_cycles(components=("a",)),
+        _no_component_cycles(components=("a", "b")),
+        False,
+    ),
     ("symbol_placement added", None, _symbol_placement(), False),
     ("symbol_placement removed", _symbol_placement(), None, True),
     ("boundary_types added", None, _boundary_types(), False),
@@ -461,10 +495,10 @@ def test_baseline_widening_reports_a_padded_or_new_entry() -> None:
     padded = (KnownViolation(fingerprint, 2),)
     new_entry = (*before, KnownViolation(ViolationFingerprint(("R",), ("b",)), 1))
 
-    assert baseline_widenings(before, padded) == (
+    assert baseline_widenings(before, padded, cycle_rules=frozenset()) == (
         "baseline entry widened: R | a (2 now, 1 before)",
     )
-    assert baseline_widenings(before, new_entry) == (
+    assert baseline_widenings(before, new_entry, cycle_rules=frozenset()) == (
         "baseline entry widened: R | b (1 now, 0 before)",
     )
 
@@ -474,7 +508,7 @@ def test_baseline_role_change_is_protected_semantic_evidence() -> None:
     before = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
     after = (KnownViolation(fingerprint, 1, (("a", "c"),)),)
 
-    assert baseline_widenings(before, after) == (
+    assert baseline_widenings(before, after, cycle_rules=frozenset()) == (
         "baseline entry roles changed: R | a b (a -> b before; a -> c now)",
     )
 
@@ -484,8 +518,8 @@ def test_baseline_shrinking_is_narrowing() -> None:
     before = (KnownViolation(fingerprint, 2, (("a", "b"), ("c", "b"))),)
     shrunk = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
     removed: tuple[KnownViolation, ...] = ()
-    assert baseline_widenings(before, shrunk) == ()
-    assert baseline_widenings(before, removed) == ()
+    assert baseline_widenings(before, shrunk, cycle_rules=frozenset()) == ()
+    assert baseline_widenings(before, removed, cycle_rules=frozenset()) == ()
 
 
 def test_verify_amendment_binds_the_exact_digest_pair() -> None:

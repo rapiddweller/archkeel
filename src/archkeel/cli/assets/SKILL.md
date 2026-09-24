@@ -216,7 +216,9 @@ level down is recorded, so an inside declared within an inside is not read.
 
 Class A rules are deterministic PASS/FAIL, evaluated from one observation:
 `complete_requires`, `forbidden_dependency`, `forbidden_construct`,
-`external_dependency_scope`, `complete_assignment`, `no_component_cycles`. Components list
+`external_dependency_scope`, `complete_assignment`, `no_component_cycles`. A
+`no_component_cycles` rule with `level: "module"` and an optional `components` list judges import
+cycles between modules, which the component level cannot see (AD-98). Components list
 permitted outbound edges under `requires`; `complete_requires` makes every absent pair
 forbidden. `forbidden_construct` and `external_dependency_scope` exempt by prefix in
 `allowed_sources` and by exact name in `exact_sources`; a package root such as `pkg` goes in

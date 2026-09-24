@@ -110,7 +110,17 @@ kept by hand.
 
 - `package_dependency` records name packages by their first two dotted segments. Component
   decisions and dependency rules use module-level edges and are not affected; the package records
-  are coarse below that depth.
+  are coarse below that depth. Declared components nested below one such package collapse into it,
+  so a `package_scc` can join components the component graph keeps apart. Such a record says so:
+  its `backed_by` names no module SCC and its title ends in `roll-up only`. A package SCC is backed
+  when a module SCC has members in two of its packages, and then all of it reads as backed: a
+  package SCC can be partly roll-up, as in `{dm, dm.domains, dm.engine}` where one module SCC
+  crosses two of the packages and the third joins only through the roll-up. `backed_by` names the
+  module SCC to read; it does not say every package is in it. `no_component_cycles` has no `package`
+  level: its `component` level is the roll-up along declared boundaries, and its `module` level
+  judges the uncollapsed graph (AD-98).
+- `no_component_cycles` at `level: "module"` counts `TYPE_CHECKING` imports like the component
+  level does; a cycle closed only by annotations is still reported.
 - A package's `__init__` module belongs to the component that owns the package, so a component
   cannot own `pkg/__init__.py` without also owning every subpackage. `complete_assignment` reports
   the unowned module.
@@ -148,6 +158,31 @@ prefix and `show` names.
 library that lists it, so the profile records its directives as that library's, and no part file
 is a module. No package there has a conditional or deferred import; `fixtures/G-dart` and its
 tests cover those.
+
+## One run observes one scope
+
+A run scans the roots and the one namespace its configuration names, and nothing else. A test
+tree beside the product is outside the product scan: a green product run names the roots it
+read (`All source files under shop were read and parsed; no source file beside them was
+read.`) and proves nothing about the tests. A second configuration governs them as their own
+scope (AD-101), which leaves these limits:
+
+- Inside the test scope the product is an external package. `external_dependency_scope` decides
+  which suites import it, by its top-level name only. A `forbidden_dependency` that targets one
+  product module, such as `shop.store.sqlite` from `tests.unit`, is `reference.namespace`
+  (exit 2).
+- `symbol_placement` matches classes by kind, never functions. A helper function or a pytest
+  fixture moved into a suite is caught only by the layout and `requires` rules, when its move
+  adds a module or an import they reject. A pytest-style `class TestOrders` is a class too, so
+  a suite that writes its cases as classes lists only its helper kinds in `class_kinds`, or
+  allows the modules that hold such cases.
+- Duplicated tests and whether a result equals its expected output are behaviour. The test
+  suite and its oracle decide them, not the import graph.
+- `check` compares one configuration against one accepted lock; the test scope is gated by
+  `validate`.
+- `report` writes to `test-artifacts/architecture/architecture.json` unless `--output` names
+  another path, whatever `--config` names, so a test-scope report without its own `--output`
+  replaces the product report.
 
 ## What static observation cannot decide
 

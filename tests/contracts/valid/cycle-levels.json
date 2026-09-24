@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": ["sample.core"],
+      "responsibilities": ["Own stable domain data."],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "role": "component",
+      "packages": ["sample.cli"],
+      "responsibilities": ["Compose the command line application."],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/sample.md"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "COMPONENTS-ACYCLIC",
+      "kind": "no_component_cycles",
+      "level": "component",
+      "rationale": "Components stay layered so each one can be replaced in dependency order.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CORE-MODULES-ACYCLIC",
+      "kind": "no_component_cycles",
+      "level": "module",
+      "components": ["core"],
+      "rationale": "Core modules import in one direction so each can be read on its own.",
+      "provenance": ["docs/architecture/sample.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

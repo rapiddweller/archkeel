@@ -225,7 +225,7 @@ def _prepare_repo(
 
 
 def _report_findings(
-    root: Path,
+    root: Path, config: ScanConfig
 ) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...], RuleVerdict]:
     """Violations, `unknowns` (kind, subject) pairs and the declared-rules verdict of one report.
 
@@ -234,7 +234,7 @@ def _report_findings(
     `run_report`'s own decoded model already stands in for violations below, and carries the
     `unknowns` section too, so checking it costs no second scan of the sample.
     """
-    report, architecture = run_report(root, config=load_config(root), analyzer=observe)
+    report, architecture = run_report(root, config=config, analyzer=observe)
     if architecture is None:
         return (), (), report.declared_rules
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
@@ -277,12 +277,13 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
             tmp_path_factory.mktemp(variant.id), dict(variant.files), variant.fixture
         )
         baseline = root / variant.baseline if variant.baseline is not None else None
-        validate_result, _ = run_validate(root, load_config(root), observe, baseline=baseline)
+        config = load_config(root, variant.config)
+        validate_result, _ = run_validate(root, config, observe, baseline=baseline)
         actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
         actual_kinds = tuple(
             sorted(item.kind for item in validate_result.diagnostics if item.code is None)
         )
-        actual_violations, actual_unknowns, declared_rules = _report_findings(root)
+        actual_violations, actual_unknowns, declared_rules = _report_findings(root, config)
         _SAMPLE_RUN_CACHE[variant.id] = (
             actual_codes,
             actual_kinds,
@@ -338,6 +339,44 @@ def test_measurement_budget_demo_passes_clean_and_fails_on_a_rise(
     assert (risen[4], risen[5]) == (
         1,
         ("measurement budget exceeded in cycle_edges: 0->2",),
+    )
+
+
+_ROLLUP_ONLY = "Package cycle with 2 members, roll-up only: no module cycle crosses them"
+_CYCLE_ROWS = {
+    "class-a-no-component-cycles-module-hidden": [
+        ("module_scc", ("shop.model.alpha", "shop.model.beta"), "Module cycle with 2 members")
+    ],
+    "class-a-package-cycle-rollup-only": [
+        ("package_scc", ("shop.model", "shop.render"), _ROLLUP_ONLY)
+    ],
+    "class-a-package-cycle-backed": [
+        ("module_scc", ("shop.model.entities", "shop.render.text"), "Module cycle with 2 members"),
+        ("package_scc", ("shop.model", "shop.render"), "Package cycle with 2 members"),
+    ],
+}
+
+
+@pytest.mark.parametrize(("variant_id", "expected"), _CYCLE_ROWS.items())
+def test_cycle_rows_carry_the_cycles_their_summaries_describe(
+    tmp_path: Path, variant_id: str, expected: list[tuple[str, tuple[str, ...], str]]
+) -> None:
+    """AD-98 (#129): a measured cycle the catalogue describes is really in the report.
+
+    The hidden row passes the component rule while the module SCC exists; the package rows
+    show one package SCC labelled roll-up only and the same one backed by a module SCC.
+    """
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+
+    assert (
+        sorted(
+            (item.kind, item.subjects, item.title) for item in observation.records("cycles") or ()
+        )
+        == expected
     )
 
 
@@ -444,6 +483,76 @@ def test_target_graph_drift_leaves_the_observed_graph_untouched(tmp_path: Path) 
     assert drift.subject == "docs/architecture/shop.md (target graph)"
     assert "`subgraph composition`" in drift.remedy
     assert "by hand" in drift.remedy
+
+
+def _violation_files(root: Path, config: ScanConfig) -> set[tuple[str, str]]:
+    """(rule id, source file) for every traced violation of one report run."""
+    _, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    files = {item.id: item.file for item in observation.evidence}
+    return {
+        (item.rule_ids[0], files[evidence_id])
+        for item in trace_valid_violations(observation)
+        for evidence_id in item.evidence_ids
+    }
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        (
+            "test-scope-helper-in-unit",
+            {
+                ("TESTS-EXTERNAL-SHOP", "tests/unit/orders.py"),
+                ("TESTS-HELPERS-IN-SUPPORT", "tests/unit/orders.py"),
+                ("TESTS-REQUIRES-COMPLETE", "tests/integration/test_place_order.py"),
+            },
+        ),
+        ("test-scope-suite-crossing", {("TESTS-REQUIRES-COMPLETE", "tests/unit/test_entities.py")}),
+        (
+            "test-scope-unit-imports-product",
+            {("TESTS-EXTERNAL-SHOP", "tests/unit/test_entities.py")},
+        ),
+    ],
+)
+def test_test_scope_failures_name_the_file(
+    tmp_path: Path, variant_id: str, expected: set[tuple[str, str]]
+) -> None:
+    """#143: a moved helper, a suite crossing and a suite importing the product fail at a file."""
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    assert _violation_files(root, load_config(root, variant.config)) == expected
+
+
+def test_test_scope_leaves_the_product_scan_unchanged(tmp_path: Path) -> None:
+    """#143: the product scan reads the same bytes with or without the test scope beside it."""
+    scope_files = [
+        path.relative_to(FIXTURE_DIR).as_posix()
+        for path in (FIXTURE_DIR / "tests").rglob("*")
+        if path.is_file()
+    ]
+    scope_files += ["archkeel-tests.toml", "docs/architecture/tests.md"]
+    with_tests = _prepare_repo(tmp_path / "with", {})
+    without = _prepare_repo(tmp_path / "without", dict.fromkeys(scope_files))
+
+    observed = []
+    for root in (with_tests, without):
+        result, architecture = run_report(root, config=load_config(root), analyzer=observe)
+        assert architecture is not None
+        observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+        observed.append(
+            (
+                result.declared_rules,
+                result.measurements,
+                observation.source.scope,
+                observation.source.source_digest,
+                observation.contract.digest,
+            )
+        )
+    assert observed[0] == observed[1]
+    declared_rules, _, scope, _, _ = observed[0]
+    assert (declared_rules, scope) == ("PASS", ("shop/**/*.py",))
 
 
 def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:

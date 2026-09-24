@@ -353,14 +353,14 @@ def test_a_baseline_document_round_trips() -> None:
 def test_comparison_reports_nothing_when_the_baseline_states_the_observed_counts() -> None:
     violations = (KnownViolation(ViolationFingerprint(("RULE-A",), ("first",)), 2),)
 
-    assert compare_violations(violations, violations) == ()
+    assert compare_violations(violations, violations, cycle_rules=frozenset()) == ()
 
 
 def test_violation_drift_counts_are_deterministic() -> None:
     first = KnownViolation(ViolationFingerprint(("RULE-B",), ("second",)), 1)
     second = KnownViolation(ViolationFingerprint(("RULE-A",), ("first",)), 2)
 
-    assert violation_drift_counts((first, second), (second,)) == (0, 1)
+    assert violation_drift_counts((first, second), (second,), cycle_rules=frozenset()) == (0, 1)
 
 
 def test_violation_drift_counts_count_fingerprints_not_occurrences() -> None:
@@ -368,8 +368,8 @@ def test_violation_drift_counts_count_fingerprints_not_occurrences() -> None:
     one = (KnownViolation(fingerprint, 1),)
     four = (KnownViolation(fingerprint, 4),)
 
-    assert violation_drift_counts(one, four) == (1, 0)
-    assert violation_drift_counts(four, one) == (0, 1)
+    assert violation_drift_counts(one, four, cycle_rules=frozenset()) == (1, 0)
+    assert violation_drift_counts(four, one, cycle_rules=frozenset()) == (0, 1)
 
 
 def test_old_baseline_without_roles_remains_readable() -> None:

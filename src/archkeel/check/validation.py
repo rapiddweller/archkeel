@@ -60,6 +60,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     JsonValue,
+    NoComponentCyclesRule,
     Observation,
     Record,
     RecordData,
@@ -1844,19 +1845,25 @@ def _resolve_amendment(
         return None, _amendment_invalid(amendment, error)
 
 
+def _cycle_rule_ids(contract: ArchitectureContract) -> frozenset[str]:
+    """The rules whose violation subjects are one SCC's members, so a subset contracts (AD-98)."""
+    return frozenset(rule.id for rule in contract.rules if isinstance(rule, NoComponentCyclesRule))
+
+
 def _widening_failures(
     ctx: _AgainstContext,
     contract: ArchitectureContract,
     baseline: Path | None,
     after_baseline: tuple[KnownViolation, ...],
     after_budgets: tuple[MeasurementBudget, ...],
+    cycle_rules: frozenset[str],
 ) -> tuple[str, ...]:
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
     if ctx.against is None or ctx.contract is None:
         return ()
     findings = list(contract_widenings(ctx.contract, contract))
     if baseline is not None:
-        findings += list(baseline_widenings(ctx.baseline, after_baseline))
+        findings += list(baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules))
         findings += list(measurement_budget_widenings(ctx.budgets, after_budgets))
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
@@ -2026,10 +2033,15 @@ def run_validate(
             )
         )
         observed_budgets = ()
+    cycle_rules = _cycle_rule_ids(contract)
     baseline_new, baseline_resolved = (
-        violation_drift_counts(known, violations) if baseline_exists else (0, 0)
+        violation_drift_counts(known, violations, cycle_rules=cycle_rules)
+        if baseline_exists
+        else (0, 0)
     )
-    comparison = compare_violations(known, violations) if baseline_exists else ()
+    comparison = (
+        compare_violations(known, violations, cycle_rules=cycle_rules) if baseline_exists else ()
+    )
     budget_comparison = (
         compare_budgets(known_budgets, observed_budgets, against=against is not None)
         if baseline_exists
@@ -2052,6 +2064,7 @@ def run_validate(
         baseline,
         violations if write_baseline else known,
         observed_budgets if write_baseline else known_budgets,
+        cycle_rules,
     )
     result = _observed_result(
         observation,

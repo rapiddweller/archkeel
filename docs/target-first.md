@@ -177,7 +177,8 @@ Review this file the way a diff of the contract itself is reviewed, and commit i
 match the observation exactly: a higher one is a new violation, a lower one a violation someone
 already fixed, both failing the gate. When updating an existing file, `--write-baseline` compares
 first: resolved-only drift may be written, while new or increased fingerprints refuse the write
-unless `--accept-new` is explicit. Results expose deterministic `baseline_new` and
+unless `--accept-new` is explicit. A cycle that shrank inside a baselined cycle is not new: it is
+written like resolved drift (AD-98). Results expose deterministic `baseline_new` and
 `baseline_resolved` counts of changed fingerprints, not violation occurrences. One fingerprint
 contributes one even when its occurrence count changes by more than one. A budget allowed to
 *exceed* the code — "no more than N violations of this rule" — would be worse than exact
@@ -230,6 +231,42 @@ architecture-check:
 
 CI runs `make gate`. A deliberately failing `project-check` must make `make gate` nonzero; later
 prerequisites must not turn that failure into success.
+
+### Govern the tests as a second scope
+
+The product scan reads only its own roots, and its scan-complete reason says so. When the
+tests' layout and imports are part of the target, give them a second configuration beside
+`archkeel.toml` with their own namespace and contract, and gate it as its own target (AD-101):
+
+```toml
+# archkeel-tests.toml
+[scan]
+roots = ["tests"]
+namespace = "tests"
+contract = "tests/architecture-contract.json"
+```
+
+```make
+architecture-check:
+	uv run --locked archkeel validate --baseline known-violations.json
+	uv run --locked archkeel validate --config archkeel-tests.toml
+```
+
+The existing rule kinds cover the deterministic part: `root_layout` and `complete_assignment`
+for the suite layout, `symbol_placement` for where helper classes live, `complete_requires`
+for which suite imports which, and `external_dependency_scope` for which suites import the
+product. The shop sample's [test contract](../fixtures/F-architecture/docs/architecture/tests.md)
+is a worked example; the `test-scope-*` rows in [the demo catalog](architecture-demo.md) show a
+moved helper, a suite crossing and a unit test importing the product each fail at their file.
+Duplicated tests and result equivalence stay with the test suite and its oracle
+([known limits](known-limits.md)).
+
+`report` writes to the same default path whichever configuration it reads, so give the test
+scope's report its own, or it replaces the product report:
+
+```
+archkeel report --config archkeel-tests.toml --output test-artifacts/tests/architecture.json
+```
 
 ## 5. Keep the target from moving
 

@@ -9,13 +9,16 @@ import hashlib
 import re
 import tomllib
 from pathlib import Path, PurePosixPath
+from typing import Final
 
 from archkeel.check.git import read_blob
 from archkeel.check.ports import ScanConfig
 
+CONFIG_PATH: Final = "archkeel.toml"
+
 
 class ConfigError(ValueError):
-    """Raised when archkeel.toml is invalid or unsafe for a repository."""
+    """Raised when a scan configuration is invalid or unsafe for a repository."""
 
 
 _NAMESPACE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
@@ -39,12 +42,12 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     return value
 
 
-def parse_config(payload: bytes) -> ScanConfig:
-    """Parse and validate config syntax without touching the filesystem."""
+def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
+    """Parse and validate config syntax without touching the filesystem; `name` is the file."""
     try:
         raw = tomllib.loads(payload.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
-        raise ConfigError(f"invalid archkeel.toml: {exc}") from exc
+        raise ConfigError(f"invalid {name}: {exc}") from exc
     if set(raw) != {"scan"} or not isinstance(raw["scan"], dict):
         raise ConfigError("configuration must contain only [scan]")
     scan = raw["scan"]
@@ -93,18 +96,22 @@ def _contained(root: Path, relative: str, *, field: str) -> Path:
     return target
 
 
-def load_config(root: Path) -> ScanConfig:
-    """Load archkeel.toml and validate paths against the repository filesystem."""
+def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
+    """Load a scan configuration and validate paths against the repository filesystem.
+
+    `path` names a second file for a second scope at the same root, such as a test tree with
+    its own namespace and contract; one [scan] still holds one namespace (AD-101).
+    """
     repository = root.resolve()
-    config_path = repository / "archkeel.toml"
+    config_path = repository / _path(path, field="--config", allow_dot=False)
     try:
         config_path.resolve().relative_to(repository)
         payload = config_path.read_bytes()
     except ValueError as exc:
-        raise ConfigError("archkeel.toml escapes repository root") from exc
+        raise ConfigError(f"{path} escapes repository root") from exc
     except OSError as exc:
-        raise ConfigError(f"cannot read archkeel.toml: {exc}") from exc
-    config = parse_config(payload)
+        raise ConfigError(f"cannot read {path}: {exc}") from exc
+    config = parse_config(payload, path)
     for relative in config.roots:
         target = _contained(repository, relative, field="scan.roots")
         if not target.is_dir():
@@ -117,7 +124,7 @@ def load_config(root: Path) -> ScanConfig:
 
 def load_check_config(root: Path, baseline: str, head: str) -> ScanConfig:
     """Use the accepted Git blob and reject a candidate policy change."""
-    payload = read_blob(root, baseline, "archkeel.toml")
-    if payload != read_blob(root, head, "archkeel.toml"):
-        raise ConfigError("candidate changed accepted policy input: archkeel.toml")
+    payload = read_blob(root, baseline, CONFIG_PATH)
+    if payload != read_blob(root, head, CONFIG_PATH):
+        raise ConfigError(f"candidate changed accepted policy input: {CONFIG_PATH}")
     return parse_config(payload)

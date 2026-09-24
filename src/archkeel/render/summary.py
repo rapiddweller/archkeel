@@ -200,6 +200,22 @@ def _baseline_line(result: RunResult) -> str:
     return f"\n\nBaseline drift: {result.baseline_new} new, {result.baseline_resolved} resolved."
 
 
+def _roots_reason(scan_roots: tuple[str, ...]) -> str:
+    """Name the roots a scan read, so its PASS is not taken to cover code beside them (AD-101)."""
+    return (
+        f"All source files under {', '.join(scan_roots)} were read and parsed; "
+        "no source file beside them was read."
+    )
+
+
+def _observation_reason(result: RunResult) -> str:
+    if result.observation_complete != "PASS":
+        return "The configured source scope could not be observed completely."
+    if result.scan_roots is None:
+        return "All configured source files were read and parsed."
+    return _roots_reason(result.scan_roots)
+
+
 def report_summary(result: RunResult) -> Summary:
     """Summarize a report or validate result, which never evaluates an expectation."""
     sentence = {
@@ -228,11 +244,6 @@ def report_summary(result: RunResult) -> Summary:
             "The requested deterministic checks completed, but declared rules could not be "
             "evaluated completely."
         )
-    observation_reason = (
-        "All configured source files were read and parsed."
-        if result.observation_complete == "PASS"
-        else "The configured source scope could not be observed completely."
-    )
     rules_reason = {
         "PASS": "No declared-rule violation was found.",
         "FAIL": "At least one declared rule was violated.",
@@ -246,7 +257,10 @@ def report_summary(result: RunResult) -> Summary:
     }[result.expectation_fulfilled]
     verdicts = (
         VerdictRow(
-            "Scan complete", "observation_complete", result.observation_complete, observation_reason
+            "Scan complete",
+            "observation_complete",
+            result.observation_complete,
+            _observation_reason(result),
         ),
         VerdictRow("Rules followed", "declared_rules", result.declared_rules, rules_reason),
         VerdictRow(
@@ -376,6 +390,8 @@ def _check_verdict_reason(
             "git_predicate": "Git ancestry or the expectation path failed validation.",
             "host_order": "Expectation published after first submission.",
         }[key]
+    if key == "observation_complete" and result.scan_roots is not None:
+        return _roots_reason(result.scan_roots)
     if key == "observation_complete" and result.coverage is not None:
         return f"All {result.coverage.files_parsed} files parsed."
     return {

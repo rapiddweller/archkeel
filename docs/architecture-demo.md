@@ -53,6 +53,10 @@ demo-dart`.
 | class_a | external_dependency_scope | class-a-external-dependency-scope | validate/report run | EXTERNAL-JSON-STORE | rule.violated | shop/app/reporting.py |
 | class_a | complete_assignment | class-a-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/extra.py |
 | class_a | no_component_cycles | class-a-no-component-cycles | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
+| class_a | no_component_cycles:module_hidden | class-a-no-component-cycles-module-hidden | validate/report run | - | - | shop/model/alpha.py, shop/model/beta.py |
+| class_a | no_component_cycles:module | class-a-no-component-cycles-module | validate/report run | MODEL-MODULES-ACYCLIC | rule.violated | architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
+| class_a | no_component_cycles:package_rollup_only | class-a-package-cycle-rollup-only | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
+| class_a | no_component_cycles:package_backed | class-a-package-cycle-backed | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/entities.py |
 | class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |
 | class_a | closed_world:duplicate | class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
@@ -71,6 +75,11 @@ demo-dart`.
 | clean | root_layout:nested-root | class-a-root-layout-nested-root | validate/report run | - | - | architecture-contract.json |
 | validation | root_layout:invalid-contract | validation-root-layout-invalid-child | validate/report run | - | contract.invalid | architecture-contract.json |
 | class_a | root_layout:unexpected-child | class-a-root-layout-violation | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/rogue.py |
+| clean | test_scope:clean | test-scope-clean | validate/report --config archkeel-tests.toml run | - | - | clean sample |
+| class_a | symbol_placement:test-helper-outside-support | test-scope-helper-in-unit | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-REQUIRES-COMPLETE | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | tests/integration/test_place_order.py, tests/support/orders.py, tests/unit/orders.py, tests/unit/test_entities.py |
+| class_a | root_layout:test-helper-at-root | test-scope-helper-at-root | validate/report --config archkeel-tests.toml run | TESTS-ASSIGNMENT-COMPLETE, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-ROOT-LAYOUT | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | tests/integration/test_place_order.py, tests/orders.py, tests/support/orders.py, tests/unit/test_entities.py |
+| class_a | complete_requires:test-suite-crossing | test-scope-suite-crossing | validate/report --config archkeel-tests.toml run | TESTS-REQUIRES-COMPLETE | graph.drift, rule.violated | tests/unit/test_entities.py |
+| class_a | external_dependency_scope:test-suite-imports-product | test-scope-unit-imports-product | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP | rule.violated | tests/unit/test_entities.py |
 | class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | shop/model/promotions.py |
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |
@@ -135,6 +144,7 @@ demo-dart`.
 | validation | against:symbol_placement_added | against-symbol-placement-added | validate --against run | - | - | architecture-contract.json |
 | validation | against:boundary_types_removed | against-boundary-types-removed | validate --against run | - | - | architecture-contract.json |
 | validation | against:symbol_placement_removed | against-symbol-placement-removed | validate --against run | - | - | architecture-contract.json |
+| validation | against:cycle_rule_scoped | against-cycle-rule-scoped | validate --against run | - | - | architecture-contract.json |
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
 | protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |
