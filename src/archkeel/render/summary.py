@@ -170,11 +170,10 @@ def _call_site_lines(result: RunResult) -> tuple[str, ...]:
     named (AD-100)."""
     if not result.failures:
         return ()
-    if result.unresolved_call_note is not None:
-        return (f"Unresolved call sites: {result.unresolved_call_note}",)
+    note = result.unresolved_call_note
     changes = result.unresolved_call_changes
     if not changes:
-        return ()
+        return () if note is None else (f"Unresolved call sites: {note}",)
     added = sum(item.change == "added" for item in changes)
     lines = [f"Unresolved call sites: {added} added, {len(changes) - added} removed"]
     for item in changes[:_CALL_SITES_SHOWN]:
@@ -190,6 +189,8 @@ def _call_site_lines(result: RunResult) -> tuple[str, ...]:
             f"  +{len(changes) - _CALL_SITES_SHOWN} more in the JSON result's "
             "unresolved_call_changes"
         )
+    if note is not None:
+        lines.append(f"  {note}")
     return tuple(lines)
 
 

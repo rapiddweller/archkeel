@@ -1568,10 +1568,22 @@ def _observed_result(
     )
 
 
+_UNCOMPARED = "the --against revision's calls could not be compared, so no call site is named"
+_ONE_SIDED = (
+    "added calls in files only the working tree holds (git-ignored, inside a submodule, or "
+    "export-ignore at the --against revision) are not named"
+)
+_NOTHING_DIFFERS = (
+    "no unresolved call differs from the --against revision; the accepted value does not match "
+    "that revision's code"
+)
+
+
 def _unresolved_calls_since(
     root: Path, config: ScanConfig, analyzer: Analyzer, against: str, observation: Observation
-) -> tuple[UnresolvedCallChange, ...] | None:
-    """AD-100: the unresolved calls whose count differs from the code at `against`.
+) -> tuple[tuple[UnresolvedCallChange, ...] | None, str | None]:
+    """AD-100: the unresolved calls whose count differs from the code at `against`, and why
+    any of them goes unnamed.
 
     None when that revision's source cannot be observed completely: the sites explain a
     finding, they never decide one. The revision is scanned under its own contract, the way
@@ -1581,12 +1593,17 @@ def _unresolved_calls_since(
     try:
         observed = observe_revision(analyzer, root, against, config, declared_at=against)
         if observed.diagnostics or observed.observation is None:
-            return None
+            return None, _UNCOMPARED
         changes = unresolved_call_changes(observed.observation, observation)
         one_sided = _one_sided_paths(root, config, observed.observation, changes)
     except (GitError, SnapshotError, RatchetError):
-        return None
-    return tuple(item for item in changes if item.change == "removed" or item.path not in one_sided)
+        return None, _UNCOMPARED
+    named = tuple(
+        item for item in changes if item.change == "removed" or item.path not in one_sided
+    )
+    if len(named) < len(changes):
+        return named, _ONE_SIDED
+    return named, None if named else _NOTHING_DIFFERS
 
 
 def _one_sided_paths(
@@ -2043,15 +2060,7 @@ def run_validate(
         and observed_calls is not None
         and accepted_calls != {observed_calls}
     ):
-        changes = _unresolved_calls_since(root, config, analyzer, against, observation)
-        note = None
-        if changes is None:
-            note = "the --against revision's calls could not be compared, so no call site is named"
-        elif not changes:
-            note = (
-                "no unresolved call differs from the --against revision outside files only the "
-                "working tree holds (git-ignored, export-ignore, submodules)"
-            )
+        changes, note = _unresolved_calls_since(root, config, analyzer, against, observation)
         result = replace(result, unresolved_call_changes=changes, unresolved_call_note=note)
     write_baseline = write_baseline and (
         not baseline_exists or not (baseline_new or budget_new) or accept_new

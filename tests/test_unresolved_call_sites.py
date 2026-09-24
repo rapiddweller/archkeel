@@ -33,8 +33,12 @@ from fixtures.demo_catalog_check_regressions import VARIANTS as CHECK_REGRESSION
 
 _PROBE_PATH = "shop/app/probe_unresolved.py"
 _ONE_SIDED_NOTE = (
-    "no unresolved call differs from the --against revision outside files only the working "
-    "tree holds (git-ignored, export-ignore, submodules)"
+    "added calls in files only the working tree holds (git-ignored, inside a submodule, or "
+    "export-ignore at the --against revision) are not named"
+)
+_STALE_NOTE = (
+    "no unresolved call differs from the --against revision; the accepted value does not match "
+    "that revision's code"
 )
 _UNCOMPARED_NOTE = "the --against revision's calls could not be compared, so no call site is named"
 _CALLER = "shop.app.probe_unresolved.probe"
@@ -408,6 +412,42 @@ def test_a_new_call_in_an_archived_file_asks_git_nothing(
     result = _against(root, base, baseline)
 
     assert result.unresolved_call_changes == (_added((2, 3), 1, 2),)
+
+
+def test_calls_left_out_are_noted_beside_the_calls_named(tmp_path: Path) -> None:
+    """The note follows what was dropped, not whether the list happens to be empty."""
+    legacy = "shop/app/legacy.py"
+    root, base, baseline = _budget_repo(
+        tmp_path,
+        {".gitignore": "shop/app/generated_*.py\n", legacy: _probe("_legacy()")},
+        8,
+    )
+    (root / legacy).write_text(_probe("VALUE = 1"))
+    (root / _GENERATED).write_text(_probe("_generated_a()", "_generated_b()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (
+        UnresolvedCallChange(
+            "removed", "shop.app.legacy.probe", "_legacy", _UNBOUND, "app", legacy, (2,), 1, 0
+        ),
+    )
+    assert result.unresolved_call_note == _ONE_SIDED_NOTE
+    shown = _terminal(result)
+    assert "Unresolved call sites: 0 added, 1 removed" in shown
+    assert f"  {_ONE_SIDED_NOTE}" in shown
+
+
+def test_a_baseline_that_does_not_match_the_revision_is_named_as_such(tmp_path: Path) -> None:
+    """Nothing differs from the revision's code, so no ignored file is to blame."""
+    root, base, baseline = _budget_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")}, 7)
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == ()
+    assert result.unresolved_call_note == _STALE_NOTE
 
 
 def test_a_passing_validate_against_does_not_scan_the_old_revision(tmp_path: Path) -> None:
