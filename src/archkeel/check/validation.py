@@ -1780,15 +1780,14 @@ def _widening_failures(
     baseline: Path | None,
     after_baseline: tuple[KnownViolation, ...],
     after_budgets: tuple[MeasurementBudget, ...],
+    cycle_rules: frozenset[str],
 ) -> tuple[str, ...]:
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
     if ctx.against is None or ctx.contract is None:
         return ()
     findings = list(contract_widenings(ctx.contract, contract))
     if baseline is not None:
-        findings += list(
-            baseline_widenings(ctx.baseline, after_baseline, cycle_rules=_cycle_rule_ids(contract))
-        )
+        findings += list(baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules))
         findings += list(measurement_budget_widenings(ctx.budgets, after_budgets))
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
@@ -1985,6 +1984,7 @@ def run_validate(
         baseline,
         violations if write_baseline else known,
         observed_budgets if write_baseline else known_budgets,
+        cycle_rules,
     )
     result = _observed_result(
         observation,

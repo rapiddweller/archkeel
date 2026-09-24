@@ -5,8 +5,9 @@
 complete_assignment, no_component_cycles and closed_world/decision rows.
 
 `REPOSITORY_WITH_MONEY_IMPORT` and `SHOP_EXTRA` are public so `demo_catalog_showcase` can
-reuse this family's file content instead of duplicating it; `module_cycle_rule` is public so
-`demo_catalog_widening` scopes the same rule this family shows failing.
+reuse this family's file content instead of duplicating it; `module_cycle_rule` and
+`MODEL_MODULE_CYCLE` are public so `demo_catalog_widening` and the AD-98 tests reuse the rule and
+the cycle this family shows failing.
 """
 
 from __future__ import annotations
@@ -183,7 +184,7 @@ _NO_COMPONENT_CYCLES = Variant(
     expected_codes=("rule.violated",),
 )
 # Two model modules importing each other: a cycle inside one component (#129).
-_MODEL_MODULE_CYCLE = {
+MODEL_MODULE_CYCLE = {
     "shop/model/alpha.py": "from shop.model import beta\nVALUE = beta.VALUE\n",
     "shop/model/beta.py": "from shop.model import alpha\nVALUE = 1\n",
 }
@@ -209,7 +210,7 @@ _MODULE_CYCLE_HIDDEN = Variant(
     summary="shop.model.alpha and shop.model.beta import each other. The cycle stays inside "
     "the model component, so COMPONENT-NO-CYCLES passes while the report measures a "
     "two-module SCC: the risk a component-only target hides (#129).",
-    files=_MODEL_MODULE_CYCLE,
+    files=MODEL_MODULE_CYCLE,
     expected_violations=(),
     expected_codes=(),
 )
@@ -221,7 +222,7 @@ _MODULE_CYCLE = Variant(
     "level module scoped to the model component: it fails naming both members and the two "
     "imports that close the cycle (AD-98).",
     files={
-        **_MODEL_MODULE_CYCLE,
+        **MODEL_MODULE_CYCLE,
         "architecture-contract.json": contract_with_rule(module_cycle_rule(components=["model"])),
     },
     expected_violations=("MODEL-MODULES-ACYCLIC",),

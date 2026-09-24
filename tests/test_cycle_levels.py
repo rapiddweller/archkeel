@@ -27,6 +27,7 @@ from archkeel.ir.codec import contract_bytes, parse_contract
 from archkeel.ir.model import EvidenceClass, NoComponentCyclesRule, Observation, Record
 from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import baseline_widenings
+from fixtures.demo_catalog_dependencies import MODEL_MODULE_CYCLE, module_cycle_rule
 from fixtures.demo_catalog_support import apply_overlay, contract_with_rule
 
 _CORE_CYCLE = {
@@ -357,19 +358,6 @@ def test_the_one_cycle_builder_annotates_every_package_cycle() -> None:
 
 # --- The existing baseline and --against ratchet a module-level cycle count (#129, item 5). ---
 
-_MODULE_RULE = {
-    "id": "MODEL-MODULES-ACYCLIC",
-    "kind": "no_component_cycles",
-    "level": "module",
-    "components": ["model"],
-    "rationale": "Model modules import in one direction so each can be read on its own.",
-    "provenance": ["docs/architecture/shop.md"],
-    "decided_by": "architect",
-}
-_ALPHA_BETA = {
-    "shop/model/alpha.py": "from shop.model import beta\nVALUE = beta.VALUE\n",
-    "shop/model/beta.py": "from shop.model import alpha\nVALUE = 1\n",
-}
 _GAMMA_DELTA = {
     "shop/model/gamma.py": "from shop.model import delta\nVALUE = delta.VALUE\n",
     "shop/model/delta.py": "from shop.model import gamma\nVALUE = 1\n",
@@ -382,9 +370,12 @@ def _git(root: Path, *args: str) -> str:
     ).strip()
 
 
-def _baselined_cycle(tmp_path: Path, cycle: dict[str, str] = _ALPHA_BETA) -> tuple[Path, Path, str]:
+def _baselined_cycle(
+    tmp_path: Path, cycle: dict[str, str] = MODEL_MODULE_CYCLE
+) -> tuple[Path, Path, str]:
     """The shop sample with one known model cycle, its baseline committed beside it."""
-    files = {"architecture-contract.json": contract_with_rule(_MODULE_RULE), **cycle}
+    rule = module_cycle_rule(components=["model"])
+    files = {"architecture-contract.json": contract_with_rule(rule), **cycle}
     root = _prepare_repo(tmp_path, files)
     baseline = root / "known-violations.json"
     result, written = run_validate(
