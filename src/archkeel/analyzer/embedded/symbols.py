@@ -9,6 +9,7 @@ import ast
 import hashlib
 import json
 from collections.abc import Sequence
+from types import EllipsisType
 
 from archkeel.ir.model import EvidenceClass, stable_id
 
@@ -309,7 +310,7 @@ def _assignment_symbol(
     )
 
 
-def _json_literal(value: object) -> bool:
+def _json_literal(value: str | bytes | int | float | complex | EllipsisType | None) -> bool:
     """Whether the observation, UTF-8 JSON, can hold a constant's value (AD-102).
 
     Asking the encoder itself also rules out what a type check misses: a `str` with a lone
