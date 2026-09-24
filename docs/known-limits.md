@@ -115,7 +115,17 @@ modules without `__all__`, so its contract pins pair budgets only.
 
 - `package_dependency` records name packages by their first two dotted segments. Component
   decisions and dependency rules use module-level edges and are not affected; the package records
-  are coarse below that depth.
+  are coarse below that depth. Declared components nested below one such package collapse into it,
+  so a `package_scc` can join components the component graph keeps apart. Such a record says so:
+  its `backed_by` names no module SCC and its title ends in `roll-up only`. A package SCC is backed
+  when a module SCC has members in two of its packages, and then all of it reads as backed: a
+  package SCC can be partly roll-up, as in `{dm, dm.domains, dm.engine}` where one module SCC
+  crosses two of the packages and the third joins only through the roll-up. `backed_by` names the
+  module SCC to read; it does not say every package is in it. `no_component_cycles` has no `package`
+  level: its `component` level is the roll-up along declared boundaries, and its `module` level
+  judges the uncollapsed graph (AD-98).
+- `no_component_cycles` at `level: "module"` counts `TYPE_CHECKING` imports like the component
+  level does; a cycle closed only by annotations is still reported.
 - A package's `__init__` module belongs to the component that owns the package, so a component
   cannot own `pkg/__init__.py` without also owning every subpackage. `complete_assignment` reports
   the unowned module.

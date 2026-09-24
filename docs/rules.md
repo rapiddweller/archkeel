@@ -22,9 +22,11 @@ the positions the rule decided; decided coverage and UNKNOWN counts remain separ
 Each analyzer profile declares, in `src/archkeel/ir/profiles.py`, which rule kinds it decides,
 which it decides partly and which it cannot decide, and which scalars it does not measure. The
 Python profile decides and measures everything. The Dart profile (`language = "dart"`) decides the
-import-graph rules; `interface_boundary` and a `target_symbol` rule report UNKNOWN for an import
-without `show`; `symbol_placement`, `boundary_types`, `forbidden_construct`, `context_roots` and a
-budget on an unmeasured scalar exit 2 with `rule_unsupported_by_profile` (AD-97).
+import-graph rules, `no_component_cycles` with `level: "module"` and `components` included, because
+a library is a module and every directive edge is a FACT (AD-98); `interface_boundary` and a
+`target_symbol` rule report UNKNOWN for an import without `show`; `symbol_placement`,
+`boundary_types`, `forbidden_construct`, `context_roots` and a budget on an unmeasured scalar exit 2
+with `rule_unsupported_by_profile` (AD-97).
 
 ## Class A: deterministic rules
 
@@ -171,11 +173,36 @@ outside that namespace is a baselineable `module.placement` violation. Contracts
 field keep the old ownership-only behavior. A namespace is a package name, not a string path or
 special case; adding it narrows `--against`, while removing or changing it widens the contract.
 
-`no_component_cycles` has no selector fields. It projects import records, including
-`TYPE_CHECKING` imports, onto components and reports each strongly connected component with two or
-more members. A complete scan and exact package assignment make the result deterministic. Imports
-between unowned modules are invisible; combine it with `complete_assignment`. Importing
-`sample.cli` from `sample.core` while `sample.cli` imports `sample.core` is an example violation.
+`no_component_cycles` has two optional fields, `level` and `components` (AD-98). Without them it
+projects import records, including `TYPE_CHECKING` imports, onto components and reports each
+strongly connected component with two or more members. A complete scan and exact package
+assignment make the result deterministic. Imports between unowned modules are invisible; combine
+it with `complete_assignment`. Importing `sample.cli` from `sample.core` while `sample.cli` imports
+`sample.core` is an example violation.
+
+`level: "module"` judges the module graph instead: each `module_scc` record the report measures is
+one `module_cycle` violation. It names the SCC's members, its `edges` and, as facts and evidence,
+every import between two members; each of those imports closes a cycle. A module cycle inside one
+component is invisible to the component level, and a component cycle need not be a module cycle,
+so a contract that cares about both declares two rules. `components` lists declared component
+labels and reports only a cycle with a member under one of their packages (at the component
+level, a member that is one of them); the cycle is still reported whole, unowned members
+included. Matching by package prefix rather than by owner keeps a member that two overlapping
+components both claim inside the scope. The default `level` is `component`, which the canonical contract
+omits. A violation's fingerprint is its rule and members, so `--baseline` holds known SCCs and
+fails on a new one. A cycle whose members are a strict subset of a baselined cycle is that cycle
+contracting: `validate` reports a `contracted violation` to write back, `--write-baseline` needs
+no `--accept-new` for it, and under `--against` the replacement narrows the baseline. Splitting
+`{a, b, c}` into `{a, b}` contracts; `{a, b, c}` into `{a, b}` and `{c, d}` makes `{c, d}` new.
+Under `--against`, changing `level` in either direction, adding a `components` scope and dropping
+a listed component widen the contract; removing the scope and listing another component narrow
+it. Two `sample.core` modules importing each other is an example module-level violation that the
+component level passes.
+
+The report's `package_scc` records roll modules up by their first two dotted segments, so two
+packages can form a cycle that no import cycle closes. Each record's `backed_by` names the module
+SCCs with members in two or more of its packages; an empty list marks the cycle `roll-up only` in
+its title and in the `rollup_only_package_cycles` metric.
 
 `interface_boundary` has the optional field `include_type_checking` (default `true`) and no
 selector fields; it applies wherever a component declares `public`. A component's optional

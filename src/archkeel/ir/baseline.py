@@ -12,6 +12,7 @@ already on the record, and that is what this module derives, counts and compares
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from .interfaces import component_owners, owner_of
@@ -83,6 +84,57 @@ def _ordered(
 
 def _counts(violations: tuple[KnownViolation, ...]) -> dict[ViolationFingerprint, int]:
     return {item.fingerprint: item.count for item in violations}
+
+
+@dataclass(frozen=True, slots=True)
+class CycleIdentity:
+    """One SCC: what it is judged under, and its members.
+
+    `key` is the level of a measured SCC and the rule ids of a cycle violation. Removing imports
+    only shrinks or splits an SCC, so one whose members are a strict subset of a known SCC under
+    the same key is that SCC contracting, not a new cycle. `check`'s delta and the baseline
+    (AD-98) share `is_contraction` for that answer.
+    """
+
+    key: tuple[str, ...]
+    members: frozenset[str]
+
+
+def is_contraction(cycle: CycleIdentity, known: Iterable[CycleIdentity]) -> bool:
+    """True when `cycle` is a strict subset of one `known` cycle under the same key."""
+    return any(cycle.key == old.key and cycle.members < old.members for old in known)
+
+
+def _cycle(fingerprint: ViolationFingerprint) -> CycleIdentity:
+    return CycleIdentity(fingerprint.rules, frozenset(fingerprint.subjects))
+
+
+def cycle_contractions(
+    known: tuple[KnownViolation, ...],
+    observed: tuple[KnownViolation, ...],
+    *,
+    cycle_rules: frozenset[str],
+) -> frozenset[ViolationFingerprint]:
+    """The observed cycle fingerprints that are a baselined cycle contracting (AD-98).
+
+    A fingerprint qualifies only under a `no_component_cycles` rule, whose subjects are the
+    members of one SCC, and only inside a baselined cycle whose own count fell: a baseline that
+    keeps the old cycle beside a part of it is padded, not contracted.
+    """
+    known_counts, observed_counts = _counts(known), _counts(observed)
+    fallen = [
+        _cycle(item.fingerprint)
+        for item in known
+        if set(item.fingerprint.rules) <= cycle_rules
+        and observed_counts.get(item.fingerprint, 0) < item.count
+    ]
+    return frozenset(
+        item.fingerprint
+        for item in observed
+        if set(item.fingerprint.rules) <= cycle_rules
+        and item.count > known_counts.get(item.fingerprint, 0)
+        and is_contraction(_cycle(item.fingerprint), fallen)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,16 +278,22 @@ def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:
     return _ordered(counts, roles)
 
 
-def _drift(fingerprint: ViolationFingerprint, known: int, observed: int) -> str:
+def _drift(fingerprint: ViolationFingerprint, known: int, observed: int, contracted: bool) -> str:
     name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
     counted = f"({observed} observed, {known} in the baseline)"
+    rewrite = "rewrite the baseline with --write-baseline"
+    if contracted:
+        return f"contracted violation: {name} {counted} inside a baselined cycle; {rewrite}"
     if observed > known:
         return f"new violation: {name} {counted}"
-    return f"resolved violation: {name} {counted}; rewrite the baseline with --write-baseline"
+    return f"resolved violation: {name} {counted}; {rewrite}"
 
 
 def compare_violations(
-    known: tuple[KnownViolation, ...], observed: tuple[KnownViolation, ...]
+    known: tuple[KnownViolation, ...],
+    observed: tuple[KnownViolation, ...],
+    *,
+    cycle_rules: frozenset[str],
 ) -> tuple[str, ...]:
     """One line per fingerprint the baseline states wrongly, new violations and resolved ones.
 
@@ -247,8 +305,14 @@ def compare_violations(
     """
     known_counts = _counts(known)
     observed_counts = _counts(observed)
+    contracted = cycle_contractions(known, observed, cycle_rules=cycle_rules)
     return tuple(
-        _drift(fingerprint, known_counts.get(fingerprint, 0), observed_counts.get(fingerprint, 0))
+        _drift(
+            fingerprint,
+            known_counts.get(fingerprint, 0),
+            observed_counts.get(fingerprint, 0),
+            fingerprint in contracted,
+        )
         for fingerprint in sorted(
             known_counts.keys() | observed_counts.keys(),
             key=lambda item: (item.rules, item.subjects),
@@ -258,13 +322,23 @@ def compare_violations(
 
 
 def violation_drift_counts(
-    known: tuple[KnownViolation, ...], observed: tuple[KnownViolation, ...]
+    known: tuple[KnownViolation, ...],
+    observed: tuple[KnownViolation, ...],
+    *,
+    cycle_rules: frozenset[str],
 ) -> tuple[int, int]:
-    """Return changed fingerprint counts as `(new_or_increased, resolved_or_decreased)`."""
+    """Return changed fingerprint counts as `(new_or_increased, resolved_or_decreased)`.
+
+    A contracted cycle is neither; the baselined cycle it shrank from counts as resolved.
+    """
     known_counts = _counts(known)
     observed_counts = _counts(observed)
+    contracted = cycle_contractions(known, observed, cycle_rules=cycle_rules)
     fingerprints = known_counts.keys() | observed_counts.keys()
-    new = sum(observed_counts.get(item, 0) > known_counts.get(item, 0) for item in fingerprints)
+    new = sum(
+        observed_counts.get(item, 0) > known_counts.get(item, 0) and item not in contracted
+        for item in fingerprints
+    )
     resolved = sum(
         observed_counts.get(item, 0) < known_counts.get(item, 0) for item in fingerprints
     )

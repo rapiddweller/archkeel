@@ -490,8 +490,8 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
 - **Confined dependencies.** `packaging` only in the analyzer runtime gate, `rich` only in the
   terminal view, `rich_argparse` only in the CLI's root module: each names its one module
   exactly, never as a prefix of the modules below it.
-- **Complete and acyclic.** Every module belongs to exactly one component, and components form
-  no cycle.
+- **Complete and acyclic.** Every module belongs to exactly one component, and neither
+  components nor modules form a cycle.
 - **A second level where one was owed.** `check` holds 13 modules and 24 imports between them,
   more than the whole top level holds, so it declares a contract of its own: `entry`, `policy`
   and `foundation`, whose crossings its `requires` entries cover at 23, 6 and 2 import sites.

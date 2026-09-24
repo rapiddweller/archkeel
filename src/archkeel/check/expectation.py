@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
 
+from archkeel.ir.baseline import CycleIdentity, is_contraction
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import ArchitectureDelta, DeltaProvenance, Projection, SemanticChange
 
@@ -76,14 +77,6 @@ class ExpectationResult:
     """Governance result; failures are deterministic policy mismatches (exit 1)."""
 
     failures: tuple[str, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class _CycleIdentity:
-    """Exact SCC identity needed to distinguish contraction from a new cycle."""
-
-    level: str
-    members: frozenset[str]
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -236,11 +229,11 @@ def _require_dimension_counts(
 def _index_semantic_changes(
     semantic_changes: tuple[SemanticChange, ...],
 ) -> tuple[
-    dict[tuple[str, str, str], tuple[int, int]], list[_CycleIdentity], dict[str, _CycleIdentity]
+    dict[tuple[str, str, str], tuple[int, int]], list[CycleIdentity], dict[str, CycleIdentity]
 ]:
     actual_changes: dict[tuple[str, str, str], tuple[int, int]] = {}
-    removed_cycles: list[_CycleIdentity] = []
-    added_cycles: dict[str, _CycleIdentity] = {}
+    removed_cycles: list[CycleIdentity] = []
+    added_cycles: dict[str, CycleIdentity] = {}
     for index, change in enumerate(semantic_changes):
         if change.dimension not in SUPPORTED_DIMENSIONS:
             raise ExpectationError(
@@ -294,8 +287,8 @@ def _match_selected_changes(
 def _guardrail_failures(
     dimension_counts: dict[str, tuple[int, int]],
     actual_changes: dict[tuple[str, str, str], tuple[int, int]],
-    added_cycles: dict[str, _CycleIdentity],
-    removed_cycles: list[_CycleIdentity],
+    added_cycles: dict[str, CycleIdentity],
+    removed_cycles: list[CycleIdentity],
     declared: set[tuple[str, str, str]],
 ) -> list[str]:
     failures = []
@@ -312,7 +305,7 @@ def _guardrail_failures(
             added_fingerprints = [
                 fingerprint
                 for fingerprint in added_fingerprints
-                if not _is_cycle_contraction(added_cycles[fingerprint], removed_cycles)
+                if not is_contraction(added_cycles[fingerprint], removed_cycles)
             ]
         if dimension == "dependency_edges":
             # AD-44: unlike the other five, a named edge is not itself a regression; only
@@ -338,7 +331,7 @@ def _undeclared_change_failures(
     ]
 
 
-def _parse_cycle_identity(projection: Projection | None, *, index: int) -> _CycleIdentity:
+def _parse_cycle_identity(projection: Projection | None, *, index: int) -> CycleIdentity:
     if projection is None:
         raise ExpectationError(f"semantic_changes[{index}] requires a cycle projection")
     level = _require_nonempty_string(
@@ -355,12 +348,7 @@ def _parse_cycle_identity(projection: Projection | None, *, index: int) -> _Cycl
         raise ExpectationError(
             f"semantic_changes[{index}].data.members must not contain duplicates"
         )
-    return _CycleIdentity(level=level, members=frozenset(members))
-
-
-def _is_cycle_contraction(added: _CycleIdentity, removed: list[_CycleIdentity]) -> bool:
-    """Return true only when HEAD retains a strict subset of one baseline SCC."""
-    return any(added.level == old.level and added.members < old.members for old in removed)
+    return CycleIdentity((level,), frozenset(members))
 
 
 def _parse_selected_change(raw: object, *, index: int) -> ExpectedSemanticChange:

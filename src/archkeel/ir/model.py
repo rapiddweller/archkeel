@@ -426,11 +426,20 @@ class CompleteExternalScopeRule:
 
 @dataclass(frozen=True, slots=True)
 class NoComponentCyclesRule:
+    """No import cycle at the declared level, among cycles touching `components` (AD-98).
+
+    `level` None is the component level every contract before AD-98 declares, and
+    `components` None is every cycle at that level: both stay absent from the canonical
+    contract, so its bytes and AD-61's amendment digest do not move for existing contracts.
+    """
+
     id: str
     kind: Literal["no_component_cycles"]
     rationale: str
     provenance: tuple[str, ...]
     decided_by: Literal["architect", "agent"]
+    level: Literal["module"] | None = None
+    components: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

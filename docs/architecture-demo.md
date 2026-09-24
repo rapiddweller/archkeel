@@ -53,6 +53,10 @@ demo-dart`.
 | class_a | external_dependency_scope | class-a-external-dependency-scope | validate/report run | EXTERNAL-JSON-STORE | rule.violated | shop/app/reporting.py |
 | class_a | complete_assignment | class-a-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/extra.py |
 | class_a | no_component_cycles | class-a-no-component-cycles | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
+| class_a | no_component_cycles:module_hidden | class-a-no-component-cycles-module-hidden | validate/report run | - | - | shop/model/alpha.py, shop/model/beta.py |
+| class_a | no_component_cycles:module | class-a-no-component-cycles-module | validate/report run | MODEL-MODULES-ACYCLIC | rule.violated | architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
+| class_a | no_component_cycles:package_rollup_only | class-a-package-cycle-rollup-only | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
+| class_a | no_component_cycles:package_backed | class-a-package-cycle-backed | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/entities.py |
 | class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |
 | class_a | closed_world:duplicate | class-a-closed-world-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
@@ -142,6 +146,7 @@ demo-dart`.
 | validation | against:boundary_types_removed | against-boundary-types-removed | validate --against run | - | - | architecture-contract.json |
 | validation | against:symbol_placement_removed | against-symbol-placement-removed | validate --against run | - | - | architecture-contract.json |
 | validation | against:budget_raised | against-facade-budget-raised | validate --against run | - | - | architecture-contract.json |
+| validation | against:cycle_rule_scoped | against-cycle-rule-scoped | validate --against run | - | - | architecture-contract.json |
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
 | protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |

@@ -59,6 +59,7 @@ AgainstScenario = Literal[
     "compat_added",
     "compat_promoted",
     "budget_raised",
+    "cycle_rule_scoped",
 ]
 
 

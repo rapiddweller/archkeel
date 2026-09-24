@@ -1,7 +1,8 @@
 # Archkeel architecture
 
 [The contract](../../architecture-contract.json) owns component boundaries. Within-component
-imports remain allowed. Every cross-component pair is either observed or forbidden.
+imports remain allowed. Every cross-component pair is either observed or forbidden. Neither
+components nor modules import in a cycle (AD-98).
 
 ## Layers
 
@@ -133,6 +134,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-95 | [A boundary type allowance names one nested field finding](decisions/ad-95-boundary-type-allowances-match-one-nested-field.md) |
 | AD-96 | [Boundary types resolve proven enum members in Literal](decisions/ad-96-boundary-types-resolve-enum-literals.md) |
 | AD-97 | [A Dart profile observes directives, and what it cannot see is UNKNOWN](decisions/ad-97-a-dart-profile-observes-directives-and-what-it-cannot-see-is-unknown.md) |
+| AD-98 | [A cycle rule names the level and the components it holds acyclic](decisions/ad-98-a-cycle-rule-names-the-level-and-scope-it-holds-acyclic.md) |
 | AD-99 | [Facade and coupling budgets are contract ceilings](decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md) |
 
 ## Allowed dependencies

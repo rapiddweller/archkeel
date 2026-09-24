@@ -21,6 +21,7 @@ from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
 from archkeel.ir.model import RunResult
 from fixtures.demo_catalog_check import CONFIG
+from fixtures.demo_catalog_dependencies import module_cycle_rule
 from fixtures.demo_catalog_support import (
     FIXTURE_DIR,
     AgainstExpectation,
@@ -28,6 +29,7 @@ from fixtures.demo_catalog_support import (
     apply_overlay,
     contract_interface_budgets,
     contract_rule_field,
+    contract_with_rule,
     contract_without_rule,
 )
 
@@ -114,6 +116,13 @@ _BUDGET_RAISED = AgainstExpectation(
 )
 _SYMBOL_PLACEMENT_REMOVED = AgainstExpectation(
     "symbol_placement_removed", 1, (f"rule {_SYMBOL_PLACEMENT_ID} (symbol_placement) removed",)
+)
+# AD-98: scoping a module-level cycle rule to one component stops judging every other cycle.
+_CYCLE_RULE_SCOPED = AgainstExpectation(
+    "cycle_rule_scoped",
+    1,
+    ("rule MODEL-MODULES-ACYCLIC.components scoped to ['model']",),
+    base_files={"architecture-contract.json": contract_with_rule(module_cycle_rule())},
 )
 
 VARIANTS: tuple[Variant, ...] = (
@@ -204,5 +213,21 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         against=_BUDGET_RAISED,
+    ),
+    Variant(
+        id="against-cycle-rule-scoped",
+        section="validation",
+        item="against:cycle_rule_scoped",
+        summary="A module-level no_component_cycles rule gains a components scope since the "
+        "compared revision: it now judges fewer cycles, a widening that fails without an "
+        "amendment.",
+        files={
+            "architecture-contract.json": contract_with_rule(
+                module_cycle_rule(components=["model"])
+            )
+        },
+        expected_violations=(),
+        expected_codes=(),
+        against=_CYCLE_RULE_SCOPED,
     ),
 )
