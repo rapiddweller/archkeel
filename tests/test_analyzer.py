@@ -2910,6 +2910,10 @@ def test_resolved_position_types_does_not_itself_walk_collection_parameters() ->
         ('import sys\nif sys.platform:\n    __all__ = ["A"]\n', False),
         ('__all__ = ["A"]\n\ndef extend() -> None:\n    __all__.append("B")\n', False),
         ("__all__ = names()\n", False),
+        ('__all__ = ["A"]\nfrom m import __all__\n', False),
+        ('__all__ = ["A"]\nimport m as __all__\n', False),
+        ("from m import names as __all__\n", False),
+        ('import __all__\n__all__ = ["A"]\n', False),
     ],
 )
 def test_all_is_one_literal_only_when_nothing_else_touches_it(source: str, literal: bool) -> None:

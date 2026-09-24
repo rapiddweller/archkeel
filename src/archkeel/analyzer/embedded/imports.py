@@ -297,14 +297,22 @@ def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str,
 
 def all_is_one_literal(tree: ast.Module) -> bool:
     """True when `__all__` is bound once, at top level, to a literal of strings, and no other
-    statement anywhere in the module names it (AD-99).
+    statement anywhere in the module names or imports it (AD-99).
 
     `literal_all_exports` reads every literal it finds and skips `+=`, `.append`, `.extend` and
-    starred elements, so only this proves its answer is the module's whole `__all__`.
+    starred elements, so only this proves its answer is the module's whole `__all__`. A string
+    such as `globals()["__all__"]` stays out of reach, as every dynamic binding does.
     """
     references = [
         node for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == "__all__"
     ]
+    if any(
+        "__all__" in (alias.asname, alias.name)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        for alias in node.names
+    ):
+        return False
     values: list[ast.expr | None] = []
     for node in tree.body:
         if isinstance(node, ast.Assign) and node.targets == references:
