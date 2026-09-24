@@ -1624,7 +1624,7 @@ def _one_sided_paths(
     if not added:
         return frozenset()
     tracked = tracked_paths(root, before.source.git_head, config.roots)
-    visible = working_tree_paths(root)
+    visible = working_tree_paths(root, config.roots)
     return frozenset(path for path in added if path not in visible or path in tracked)
 
 

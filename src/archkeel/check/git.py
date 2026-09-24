@@ -54,10 +54,12 @@ def _listed_paths(root: Path, *args: str) -> frozenset[str]:
     return frozenset(path for path in listed.split("\0") if path)
 
 
-def working_tree_paths(root: Path) -> frozenset[str]:
-    """Every file Git's view of the working tree holds: the tracked ones and the untracked ones
-    no ignore rule excludes. A file inside a submodule is in neither (AD-100)."""
-    return _listed_paths(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+def working_tree_paths(root: Path, roots: tuple[str, ...]) -> frozenset[str]:
+    """Every file under `roots` in Git's view of the working tree: the tracked ones and the
+    untracked ones no ignore rule excludes. A file inside a submodule is in neither (AD-100)."""
+    return _listed_paths(
+        root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *roots
+    )
 
 
 def tracked_paths(root: Path, revision: str, roots: tuple[str, ...]) -> frozenset[str]:

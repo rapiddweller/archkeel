@@ -357,16 +357,20 @@ def test_a_removed_call_under_an_ignored_path_is_still_named(tmp_path: Path) -> 
 
 
 def test_a_file_name_git_cannot_decode_never_decides_the_run(tmp_path: Path) -> None:
-    """A name that is not UTF-8 is a Git listing the comparison cannot read, not a crash."""
+    """A name that is not UTF-8 is a Git listing the comparison cannot read, not a crash; the
+    listing covers the scan roots only, so one outside them costs nothing."""
     root, base, baseline = _budget_repo(tmp_path, {}, 7)
     (root / os.fsdecode(b"docs-caf\xe9.txt")).write_text("notes\n")
     (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
 
-    result = _against(root, base, baseline)
+    outside = _against(root, base, baseline)
+    (root / os.fsdecode(b"shop/app/notes-caf\xe9.txt")).write_text("notes\n")
+    inside = _against(root, base, baseline)
 
-    assert (result.exit_code, result.failures) == (1, (_exceeded("7->8"),))
-    assert result.unresolved_call_changes is None
-    assert result.unresolved_call_note == _UNCOMPARED_NOTE
+    assert outside.failures == inside.failures == (_exceeded("7->8"),)
+    assert outside.unresolved_call_changes == (_added((2,)),)
+    assert (inside.exit_code, inside.unresolved_call_changes) == (1, None)
+    assert inside.unresolved_call_note == _UNCOMPARED_NOTE
 
 
 def test_a_file_the_revision_archived_is_always_compared(tmp_path: Path) -> None:
