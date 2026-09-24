@@ -23,6 +23,7 @@ import pytest
 from test_dart_directives import (
     LIBRARIES,
     component,
+    dart_config,
     dart_package,
     observe_dart,
     report_dart,
@@ -32,6 +33,7 @@ from test_dart_directives import (
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import render_result, run_report
+from archkeel.check.validation import run_validate
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation, Record
 
@@ -295,6 +297,44 @@ def test_budget_on_a_measured_scalar_is_accepted(tmp_path: Path) -> None:
     )
     result, _, _ = report_dart(root)
     assert result.exit_code == 0, result.diagnostics
+
+
+@pytest.mark.parametrize(
+    ("field", "entry"),
+    [
+        ("facade_budgets", {"component": "core", "max_names": 9, "provenance": ["docs/app.md"]}),
+        (
+            "coupling_budgets",
+            {"source": "ui", "target": "core", "max_names": 9, "provenance": ["docs/app.md"]},
+        ),
+    ],
+)
+def test_facade_and_coupling_budgets_are_unverifiable(
+    tmp_path: Path, field: str, entry: dict[str, object]
+) -> None:
+    """AD-99 on AD-97: Dart has no `__all__` and its public names are UNKNOWN, so a facade or
+    pair count would find nothing and read as within any budget."""
+    root = dart_package(
+        tmp_path / "pkg",
+        {"lib/ui/b.dart": "import 'package:app/core/api.dart';\n\nclass B {}\n"},
+        components=[
+            component("core", public=["app.core.api"]),
+            component("ui", requires=[{"component": "core", "rationale": "Probe."}]),
+            component("data"),
+        ],
+        rules=[rule("RULE", "interface_boundary")],
+        declarations={field: [entry]},
+    )
+
+    reported, _, _ = report_dart(root)
+    validated, _ = run_validate(root, dart_config(), observe)
+
+    for result in (reported, validated):
+        assert result.exit_code == 2
+        assert any(
+            item.kind == "rule_unsupported_by_profile" and item.subject == f"declarations.{field}"
+            for item in result.diagnostics
+        ), result.diagnostics
 
 
 # ---------------------------------------------------------------------------------------------

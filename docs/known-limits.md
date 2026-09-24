@@ -132,6 +132,7 @@ What it cannot see is UNKNOWN or refused, never PASS:
 | a `declarations.public_api` `module:name` entry on a scanned library | UNKNOWN (`api_surface_limit`) |
 | `symbol_placement`, `boundary_types`, `forbidden_construct` | exit 2, `rule_unsupported_by_profile` |
 | `declarations.context_roots`, a budget on `typing_positions`, `calls_unresolved`, `private_crossings` or `untyped_private_accesses` | exit 2, `rule_unsupported_by_profile` |
+| `declarations.facade_budgets` or `declarations.coupling_budgets`: Dart has no `__all__` and its public names are UNKNOWN (AD-99) | exit 2, `rule_unsupported_by_profile` |
 | those four scalars | `null`, compared as `n/a` |
 | `unreferenced_symbols`, `unread_bindings`, `type_fanin`, `repeated_logic` | UNKNOWN: `symbols`, `references` and `bindings` are null |
 

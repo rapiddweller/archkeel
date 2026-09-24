@@ -31,6 +31,8 @@ one, and a name a non-enumerated one does not list are uncounted.
 A key naming no component, a facade budget on a component without `public`, a pair naming one
 component twice, a repeated key, and a pair budget without an `interface_boundary` rule that
 includes `TYPE_CHECKING` imports are `contract.invalid`; so is a budget in an inside contract.
+The Dart profile has no `__all__` and names no imported symbol it cannot see (AD-97), so either
+list is `rule_unsupported_by_profile` there, exit 2.
 
 ## Why
 

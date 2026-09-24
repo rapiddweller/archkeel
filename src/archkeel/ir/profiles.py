@@ -15,7 +15,7 @@ from typing import Final, Literal, TypeAlias
 from .measurements import UnmeasurableScalar
 
 Language: TypeAlias = Literal["python", "dart"]
-DeclarationField: TypeAlias = Literal["context_roots"]
+DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupling_budgets"]
 ObservedSection: TypeAlias = Literal["symbols", "references", "bindings"]
 
 PYTHON_ANALYZER: Final = "archkeel-python-analyzer"
@@ -50,7 +50,8 @@ DART: Final = Profile(
     analyzer=DART_ANALYZER,
     source_suffix=".dart",
     unsupported_rules=frozenset({"symbol_placement", "boundary_types", "forbidden_construct"}),
-    unsupported_declarations=frozenset({"context_roots"}),
+    # AD-99: Dart has no `__all__` and its public names are UNKNOWN, so no facade count exists.
+    unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
     unmeasured=frozenset(
         {"typing_positions", "calls_unresolved", "private_crossings", "untyped_private_accesses"}
     ),

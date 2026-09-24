@@ -13,7 +13,7 @@ of what each profile decides; the analyzer gates on it and `check` measures from
 | `import`/`export` with `show a, b` | one record per name, `symbols_known: true`, decided like Python |
 | without `show` (or with `hide` only) | one record, `symbol: null`, `symbols_known: false` |
 | `interface_boundary` or `forbidden_dependency` + `target_symbol` it cannot decide | `interface_symbol_limit` / `dependency_symbol_limit`, UNKNOWN |
-| `symbol_placement`, `boundary_types`, `forbidden_construct`, `context_roots`, a budget on an unmeasured scalar | `rule_unsupported_by_profile`, exit 2 |
+| `symbol_placement`, `boundary_types`, `forbidden_construct`, `context_roots`, a budget on an unmeasured scalar, a facade or coupling budget (AD-99) | `rule_unsupported_by_profile`, exit 2 |
 | `typing_positions`, `calls_unresolved`, `private_crossings`, `untyped_private_accesses` | `null`, compared as `n/a` |
 | `symbols`, `references`, `bindings` | `null`, so every claim built on them is UNKNOWN |
 | header outside the grammar, unresolvable URI, orphan part, id collision, pubspec name mismatch | `parse_error`, exit 2 |
