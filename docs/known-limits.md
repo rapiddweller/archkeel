@@ -122,6 +122,22 @@ What it cannot see is UNKNOWN or refused, never PASS:
 Own imports are exactly `package:<namespace>/...` and relative URIs; `package_config.json` is not
 read. Every alternative of a conditional import is an edge. `init` does not detect a Dart package.
 
+The edges were compared with the official parser on a real Flutter repository. A script outside
+this repository listed every directive with `package:analyzer` 14.4.0 (`parseString`, Dart SDK
+3.13.4) and resolved relative and `package:<name>/` URIs to files under `lib/`. Its list was
+diffed with the import records of `archkeel report` by library, directive line, kind, target,
+prefix and `show` names.
+
+| [flutter/samples](https://github.com/flutter/samples) at `8a4cf1db16d52741f0e59e1bfe818723430c35bc` | Libraries | Import and export edges | Differences |
+|---|---:|---:|---|
+| `compass_app/app` (data, domain, ui layers) | 89 | 433 | none |
+| all 35 packages with a `lib/` | 312 | 1,183 | none |
+
+`part` directives (22 in `compass_app`, 64 in all) are no edge by design: a part belongs to the
+library that lists it, so the profile records its directives as that library's, and no part file
+is a module. No package there has a conditional or deferred import; `fixtures/G-dart` and its
+tests cover those.
+
 ## What static observation cannot decide
 
 - Runtime behavior, data flow, performance and scalability are not observed. They belong in the
