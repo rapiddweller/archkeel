@@ -361,6 +361,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     rule=args.rule,
                     component=args.component,
                 )
+                result = replace(result, scan_roots=config.roots)
                 if architecture is not None:
                     artifact = args.output or root / "test-artifacts/architecture/architecture.json"
                     artifact.parent.mkdir(parents=True, exist_ok=True)
@@ -414,6 +415,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     decided_by=args.decided_by,
                     rationale=args.rationale,
                 )
+                result = replace(result, scan_roots=config.roots)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"

@@ -181,6 +181,18 @@ def test_terminal_view_counts_every_review_claim_without_a_verdict() -> None:
     assert all(len(line) <= 80 for line in _render(result, summary, 80).splitlines())
 
 
+def test_scan_complete_names_the_roots_it_read() -> None:
+    """AD-101: a PASS over the product roots says so, and says nothing beside them was read."""
+    result = RunResult("validate", 0, "PASS", "PASS", "n/a", scan_roots=("shop",))
+    (scan, *_) = report_summary(result).verdicts
+    assert scan.reason == (
+        "All source files under shop were read and parsed; nothing beside them was observed."
+    )
+    assert scan.reason in _render(result, report_summary(result), 200)
+    unscoped = report_summary(RunResult("report", 0, "PASS", "PASS", "n/a")).verdicts[0]
+    assert unscoped.reason == "All configured source files were read and parsed."
+
+
 def test_terminal_view_omits_the_claim_line_when_no_claim_was_derived() -> None:
     assert report_summary(RunResult("report", 0, "PASS", "PASS", "n/a")).claims == ""
 
