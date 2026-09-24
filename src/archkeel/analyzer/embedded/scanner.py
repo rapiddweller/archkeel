@@ -291,6 +291,9 @@ def scan_repository(
     )
 
     transitive_records = transitive_path_records(packages, package_edge_pairs)
+    module_cycles = cycle_records(
+        level="module", nodes=module_names, edges=module_edge_pairs, edge_records=module_edges
+    )
     cycles = sorted(
         [
             *cycle_records(
@@ -299,12 +302,7 @@ def scan_repository(
                 edges=package_edge_pairs,
                 edge_records=package_edges,
             ),
-            *cycle_records(
-                level="module",
-                nodes=module_names,
-                edges=module_edge_pairs,
-                edge_records=module_edges,
-            ),
+            *module_cycles,
         ],
         key=lambda item: item["id"],
     )
@@ -316,6 +314,8 @@ def scan_repository(
         modules=module_facts,
         symbols=symbols,
         blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
+        # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
+        module_cycles=module_cycles,
         contract=contract,
         exports_by_module=facade_exports,
     )

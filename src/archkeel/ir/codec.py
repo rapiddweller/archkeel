@@ -734,6 +734,14 @@ def parse_contract(raw: object) -> ArchitectureContract:
     if len({item.name for item in budgets}) != len(budgets):
         raise ValueError("contract.declarations.measurement_budgets repeats a name")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
+    labels = {component.label for component in components}
+    for index, rule in enumerate(rules):
+        if isinstance(rule, NoComponentCyclesRule) and rule.components is not None:
+            unknown = sorted(set(rule.components) - labels)
+            if unknown:
+                raise ValueError(
+                    f"rules[{index}].components names no declared component: {unknown}"
+                )
     ids = [
         item.id
         for group in (capabilities, components, scopes, commands, paths, owners, rules)
@@ -1145,16 +1153,32 @@ def _parse_complete_requires(raw: RawJson, label: str) -> CompleteRequiresRule:
     )
 
 
+def _cycle_level(raw: RawJson, label: str) -> Literal["module"] | None:
+    """Narrow to the Literal by value; the default component level parses to absent (AD-98)."""
+    value = _nonempty(raw, label)
+    if value == "component":
+        return None
+    if value == "module":
+        return "module"
+    raise ValueError(f"{label} must be component or module")
+
+
 def _parse_no_component_cycles(raw: RawJson, label: str) -> NoComponentCyclesRule:
     item, item_id, provenance = _contract_record(
-        raw, {"kind", "rationale", "decided_by"}, set(), label
+        raw, {"kind", "rationale", "decided_by"}, {"level", "components"}, label
     )
+    level = item.get("level")
+    components = item.get("components")
     return NoComponentCyclesRule(
         item_id,
         "no_component_cycles",
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),
+        _cycle_level(level, f"{label}.level") if level is not None else None,
+        _contract_strings(components, f"{label}.components", required=True)
+        if components is not None
+        else None,
     )
 
 

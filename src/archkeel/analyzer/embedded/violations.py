@@ -11,7 +11,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Final, NamedTuple, TypeAlias, assert_never
+from typing import Final, Literal, NamedTuple, TypeAlias, assert_never
 
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -382,10 +382,20 @@ def _module_placement_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _cycle_rules(
+    contract: ArchitectureContract, level: Literal["module"] | None
+) -> list[NoComponentCyclesRule]:
+    return [
+        rule
+        for rule in contract.rules
+        if isinstance(rule, NoComponentCyclesRule) and rule.level == level
+    ]
+
+
 def _component_cycle_violations(
     imports: Sequence[RawRecord], contract: ArchitectureContract
 ) -> list[RawRecord]:
-    rules = [rule for rule in contract.rules if isinstance(rule, NoComponentCyclesRule)]
+    rules = _cycle_rules(contract, None)
     if not rules:
         return []
     edge_imports: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
@@ -421,7 +431,65 @@ def _component_cycle_violations(
                 data={"members": members},
             )
             for rule in rules
+            # AD-98: a scope selects the cycles that touch one of its components.
+            if rule.components is None or any(label in rule.components for label in members)
         )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+def _module_cycle_violations(
+    module_cycles: Sequence[RawRecord], imports: Sequence[RawRecord], contract: ArchitectureContract
+) -> list[RawRecord]:
+    """One violation per module SCC the report measures, when it touches the rule's scope.
+
+    AD-98: the rule judges the `module_scc` records themselves, so its verdict and the
+    report's cycle measurement are one graph. Every import between two members closes a
+    cycle, because inside an SCC each edge's target reaches its source again; those imports
+    are the violation's facts and their source lines its evidence.
+    """
+    violations: list[RawRecord] = []
+    for rule in _cycle_rules(contract, "module"):
+        scope = (
+            None
+            if rule.components is None
+            else [
+                package
+                for component in contract.components
+                if component.label in rule.components
+                for package in component.packages
+            ]
+        )
+        for cycle in module_cycles:
+            members: list[str] = cycle["data"]["members"]
+            if scope is not None and not any(
+                in_scope(member, package) for member in members for package in scope
+            ):
+                continue
+            member_set = set(members)
+            closing = [
+                item
+                for item in imports
+                if item["data"]["source_module"] in member_set
+                and item["data"]["target_module"] in member_set
+                and item["data"]["source_module"] != item["data"]["target_module"]
+            ]
+            edges = sorted(
+                {(item["data"]["source_module"], item["data"]["target_module"]) for item in closing}
+            )
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, *members),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="cycles",
+                    kind="module_cycle",
+                    title=f"Module cycle: {' ↔ '.join(members)}",
+                    subjects=members,
+                    evidence_ids=[key for item in closing for key in item["evidence_ids"]],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"] for item in closing],
+                    data={"members": members, "edges": [list(edge) for edge in edges]},
+                )
+            )
     return sorted(violations, key=lambda item: item["id"])
 
 
@@ -2510,6 +2578,7 @@ def rule_violations(
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
     blank_modules: frozenset[str],
+    module_cycles: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
 ) -> tuple[list[RawRecord], list[RawRecord]]:
@@ -2531,6 +2600,7 @@ def rule_violations(
             *_root_layout_violations(packages, modules, contract.rules),
             *_module_placement_violations(modules, contract),
             *_component_cycle_violations(imports, contract),
+            *_module_cycle_violations(module_cycles, imports, contract),
             *_interface_violations(imports, contract, exports_by_module, forbidden_rejected_ids),
             *_sibling_violations(imports, contract.rules),
             *_symbol_placement_violations(symbols, contract.rules),

@@ -265,6 +265,41 @@ def _boundary_types_widenings(
     ]
 
 
+def _no_component_cycles_widenings(
+    subject: str, before: NoComponentCyclesRule, after: NoComponentCyclesRule
+) -> list[str]:
+    """AD-98: judging fewer cycles widens, and so does any level change.
+
+    Neither level implies the other: `a1 -> b1` and `b2 -> a2` close a component cycle through
+    modules that form none, and one component can hold a module cycle while no component
+    cycle exists.
+    """
+    old_level, new_level = before.level or "component", after.level or "component"
+    level = (
+        [f"{subject}.level changed from {old_level} to {new_level}"]
+        if old_level != new_level
+        else []
+    )
+    if after.components is None:
+        scope: list[str] = []
+    elif before.components is None:
+        scope = [f"{subject}.components scoped to {sorted(after.components)}"]
+    else:
+        scope = _set_widenings(
+            f"{subject}.components",
+            frozenset(before.components),
+            frozenset(after.components),
+            grows_widens=False,
+        )
+    return [
+        *level,
+        *scope,
+        *_generic_field_widenings(
+            subject, before, after, handled=frozenset({"level", "components"})
+        ),
+    ]
+
+
 def _matched_rule_widenings(before: ArchitectureRule, after: ArchitectureRule) -> list[str]:
     """Dispatch by matched rule kind; a kind this module has no branch for falls closed below."""
     subject = f"rule {before.id}"
@@ -328,7 +363,7 @@ def _matched_rule_widenings(before: ArchitectureRule, after: ArchitectureRule) -
     ):
         return _generic_field_widenings(subject, before, after, handled=frozenset())
     if isinstance(before, NoComponentCyclesRule) and isinstance(after, NoComponentCyclesRule):
-        return _generic_field_widenings(subject, before, after, handled=frozenset())
+        return _no_component_cycles_widenings(subject, before, after)
     # Fail closed: a rule type this dispatch does not recognise is never assumed safe.
     return (
         [f"{subject} changed in a way this comparison does not enumerate"]
