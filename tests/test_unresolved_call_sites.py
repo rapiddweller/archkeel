@@ -17,6 +17,7 @@ from test_architecture_demo import CONFIG, _prepare_repo
 from test_measurement_budgets import _baseline, _contract_with_budgets
 
 from archkeel.analyzer import observe
+from archkeel.check import validation
 from archkeel.check.ratchets import unresolved_call_changes
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
@@ -362,6 +363,51 @@ def test_a_file_name_git_cannot_decode_never_decides_the_run(tmp_path: Path) -> 
     assert (result.exit_code, result.failures) == (1, (_exceeded("7->8"),))
     assert result.unresolved_call_changes is None
     assert result.unresolved_call_note == _UNCOMPARED_NOTE
+
+
+def test_a_file_the_revision_archived_is_always_compared(tmp_path: Path) -> None:
+    """Untracking and ignoring a file the old snapshot holds must not hide a call added to it."""
+    generated = "shop/app/generated_old.py"
+    root, base, baseline = _budget_repo(tmp_path, {generated: _probe("_generated_old()")}, 8)
+    (root / ".gitignore").write_text("shop/app/generated_*.py\n")
+    _git(root, "rm", "-q", "--cached", generated)
+    (root / generated).write_text(_probe("_generated_old()", "_generated_new()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (
+        UnresolvedCallChange(
+            "added",
+            "shop.app.generated_old.probe",
+            "_generated_new",
+            _UNBOUND,
+            "app",
+            generated,
+            (3,),
+            0,
+            1,
+        ),
+    )
+    assert result.unresolved_call_note is None
+
+
+def test_a_new_call_in_an_archived_file_asks_git_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only a file the old snapshot lacks needs Git's listings; an existing one never does."""
+    root, base, baseline = _budget_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")}, 8)
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()", "_unbound_probe()"))
+
+    def no_listing(*args: object) -> frozenset[str]:
+        raise AssertionError(f"unexpected Git listing {args}")
+
+    monkeypatch.setattr(validation, "working_tree_paths", no_listing)
+    monkeypatch.setattr(validation, "tracked_paths", no_listing)
+
+    result = _against(root, base, baseline)
+
+    assert result.unresolved_call_changes == (_added((2, 3), 1, 2),)
 
 
 def test_a_passing_validate_against_does_not_scan_the_old_revision(tmp_path: Path) -> None:
