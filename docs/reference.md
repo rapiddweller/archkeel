@@ -136,8 +136,9 @@ the write unless `--accept-new` is explicit. It writes nothing from a run that e
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
 declaration carries provenance. A selected value must equal the baseline: a rise is new debt; a
 fall must be written back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
-The file stores values, not call sites, so a `calls_unresolved` rise reads `measurement budget
-exceeded in calls_unresolved: 7->8; validate --against <ref> names the call sites` (AD-100).
+The file stores values, not call sites, so without `--against` a `calls_unresolved` rise reads
+`measurement budget exceeded in calls_unresolved: 7->8; validate --against <ref> names the call
+sites` (AD-100).
 Contracts without measurement budgets behave as before. The file's shape is
 `schema/violation-baseline.schema.json`:
 
@@ -197,9 +198,12 @@ written for one change does not verify against a different one. `--write-amendme
 cannot be read is `against.invalid`, exit 2. When a run fails and the observed
 `calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
 at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
-passing run pays for no second scan. Files `git archive` leaves out (untracked git-ignored, or
-`export-ignore`) exist on the working-tree side only and are not compared; a revision that cannot
-be scanned leaves the field `null` (AD-100). `validate` without `--against` is unchanged. The
+passing run pays for no second scan. An added row is dropped when its file is outside Git's view
+of the working tree (`git ls-files --cached --others --exclude-standard`: ignored, or inside a
+submodule) or when the revision tracks it but its archive left it out (its own `export-ignore`),
+since those files exist on the working-tree side only; a removed row is always kept. A rise carried
+only by such files, a revision that cannot be scanned, and call records that do not add up name no
+site, and `unresolved_call_note` says which (AD-100). `validate` without `--against` is unchanged. The
 file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json):
 
@@ -366,8 +370,10 @@ unresolved call whose count differs between the two observations: `change` (`add
 identical expressions in one caller form one row whose `lines` name them all, and a removed row
 names the older revision's lines. The JSON lists every row; the terminal lists at most five under
 the failures, and none on a passing run. The field reads `null` in a result that compared no two
-revisions' calls, or whose call records do not add up to the coverage counts; that never changes
-the verdict (AD-100).
+revisions' calls. Where a comparison names no site (call records that do not add up, a revision
+that cannot be scanned, a rise carried only by files the working tree alone holds),
+`unresolved_call_note` says why, in the result and under the terminal's failures; the verdict
+never changes (AD-100).
 
 The JSON field `ratchets` and Python identifiers such as `compare_ratchets` keep their
 existing names for compatibility. Human-readable messages use "regression check".

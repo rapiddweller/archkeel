@@ -32,8 +32,10 @@ at runtime.
 and owning component. A change in unresolved calls is named by file, caller and expression, not
 by line (AD-100). A renamed caller reads as one removed and one added call, a renamed or moved
 file as all of its calls removed and added, and of two identical calls in one caller the new one
-cannot be told apart: the row names both lines. `validate --against` does not compare a file
-`git archive` leaves out, an untracked git-ignored or `export-ignore` one.
+cannot be told apart: the row names both lines. `validate --against` names no site for a rise
+carried by a git-ignored file, a file inside a submodule, or one the `--against` revision marks
+`export-ignore`: its archive never holds them, and `unresolved_call_note` says so. With `--root`
+below the Git top level the revision cannot be archived, and the field stays `null`.
 
 ## A facade type position is not always decidable
 

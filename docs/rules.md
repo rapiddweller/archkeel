@@ -438,8 +438,9 @@ incomplete scan produces no measurements, so the check reports NOT CHECKED inste
 `untyped_private_accesses` and `unknown_positions`. Baseline schema 1.2 stores their exact
 accepted values. A rise fails;
 a fall also fails until `--write-baseline` records it. Missing measurement evidence exits 2,
-never PASS (AD-89). The baseline stores values only; a `calls_unresolved` rise says so, and on
-a failing run `--against <ref>` names the call sites behind the change (AD-100).
+never PASS (AD-89). The baseline stores values only; without `--against` a `calls_unresolved`
+rise says so, and on a failing run `--against <ref>` names the call sites behind the change, or
+says why it names none (AD-100).
 
 ## Class C: declarations
 

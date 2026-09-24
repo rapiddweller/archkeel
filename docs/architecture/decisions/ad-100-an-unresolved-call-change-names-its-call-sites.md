@@ -20,15 +20,17 @@ expression, never the line, so code that only moves is no change. Identical expr
 caller share one identity: the row counts them, and `lines` names every line on the side holding
 more. Only `unresolved` calls are compared, the status behind `calls_unresolved`.
 
-`validate --against` scans `<ref>`'s `git archive` snapshot under `<ref>`'s own contract, through
-the `materialize_declarations` `check` uses. Rows whose file the archive never writes
-(untracked git-ignored, or `export-ignore`) are dropped. The second scan runs only when the run
-fails and the observed `calls_unresolved` differs from an accepted value. Records that do not add
-up, or a revision that cannot be scanned, leave the field `null` and the verdict as it was: the
-sites explain a finding, they never decide one. A plain `validate --baseline` rise says that
-`--against <ref>` names the sites.
+`validate --against` observes `<ref>`'s `git archive` snapshot under `<ref>`'s own contract, through
+`observe_revision`, the helper `check` uses; only a failing run whose `calls_unresolved` moved from
+an accepted value pays for it. The working tree is read from disk, so a removed row is always real.
+An added row is dropped when its file is outside `git ls-files --cached --others
+--exclude-standard` (ignored, or inside a submodule), or tracked at `<ref>` (`git ls-tree`) but
+absent from the snapshot: what `<ref>`'s own `export-ignore` left out, folders included.
+Unscannable revisions and records that do not add up leave the field `null`, and the verdict as
+it was: the sites explain a finding, they never decide one. `unresolved_call_note` then says why
+no site is named, as it does for an empty list. Without `--against` the rise points at it.
 
-The terminal lists at most five change rows below the failures, through the same print.
+The terminal lists at most five change rows, or the note, below the failures.
 `--only calls` draws its rows as one HTML table in place of the violations table and hides the
 sections `--only violations` hides.
 
@@ -54,14 +56,14 @@ before)` under `--against`, and `regression check failed in calls_unresolved: 7-
 
 A renamed caller, a call moved to another function, and a renamed or moved file are removed and
 added rows, a file's rows all at once. Of two identical calls in one caller, the new one cannot
-be told apart. A file the archive leaves out is not compared at all. The check HTML page lists
-no sites.
+be told apart. A rise carried by a git-ignored, submodule or `<ref>`-export-ignored file names no
+site. `--root` below the Git top level leaves the field `null`. The check HTML lists no sites.
 
 ## Check
 
 `tests/test_unresolved_call_sites.py`: added, removed, moved and doubled calls; `--against` under
-`<ref>`'s own contract, with archive-excluded files, on a passing run (one scan), with records
-that do not add up (also for `check`) and an unscannable revision; the capped terminal list;
+`<ref>`'s contract, with ignored, submodule, folder and revision-attribute cases, a passing run,
+unaddable records (also `check`), an unscannable revision, the notes; the capped terminal list;
 `--only calls` with `--component`, `--rule` and HTML; null fields by default. The
 `SCALARS:calls_unresolved` check row asserts `shop/app/probe_unresolved.py:10`; `make demo` case A
 asserts `handlers[key]` at `sample/work.py:9` (`tests/test_demo.py`).
