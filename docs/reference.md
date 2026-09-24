@@ -267,7 +267,10 @@ observation's own call records and add up to `coverage.calls_unresolved` plus
 since a call cites no rule. The HTML page shows the same rows as one table in place of the
 violations table and hides what `--only violations` hides; the terminal prints only the
 `Filtered (only calls): N unresolved or partially resolved call(s) listed.` sentence. Without
-`--only calls` the field reads `null`, like `filtered_violations` (AD-100).
+`--only calls` the field reads `null`, like `filtered_violations` (AD-100). The Dart profile
+measures no calls (AD-97), so `--only calls` on a Dart scan is exit 2
+`rule_unsupported_by_profile` rather than an empty list, and `check` leaves
+`unresolved_call_changes` `null` there.
 
 An unfiltered HTML page with violations also has a local `Violations only` control (AD-75). It
 keeps the verdicts, failures, known unknowns, violations and complete evidence access visible

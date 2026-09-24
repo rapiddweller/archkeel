@@ -27,7 +27,7 @@ from archkeel.ir.model import (
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
-from .ratchets import call_rows
+from .ratchets import call_rows, calls_measured
 from .run import inspect_observation
 from .snapshot import resolve_commit
 
@@ -66,7 +66,21 @@ def observe_repository(
 
 
 def _selected_calls(model: Observation, report_filter: ReportFilter) -> tuple[CallRow, ...]:
-    """AD-100: `--only calls`, narrowed by `--component` to the calls its modules make."""
+    """AD-100: `--only calls`, narrowed by `--component` to the calls its modules make.
+
+    A profile that does not measure calls has none to list, and an empty list would read as a
+    count it never took: refused like an unsupported rule (AD-97).
+    """
+    if not calls_measured(model):
+        raise DiagnosticError(
+            Diagnostic(
+                "rule_unsupported_by_profile",
+                "--only calls",
+                f"The {model.analyzer.name} profile does not measure calls, so it has none "
+                "to list.",
+                "Drop --only calls; only the Python profile lists unresolved calls.",
+            )
+        )
     require_declared_filter(model, report_filter)
     return tuple(
         row

@@ -42,7 +42,7 @@ from .git import (
 )
 from .ordering import check_order
 from .ports import Analyzer, Host, ScanConfig
-from .ratchets import measure_python_ratchets, unresolved_call_changes
+from .ratchets import calls_measured, measure_python_ratchets, unresolved_call_changes
 from .snapshot import SnapshotError, materialize_git_snapshot
 
 
@@ -249,12 +249,13 @@ def run_check(
         return _measurement_incomplete(candidate, error)
     # AD-100: the sites explain a regression and never decide one, so call records that do not
     # add up leave them unnamed instead of leaving the whole check unchecked.
-    call_changes: tuple[UnresolvedCallChange, ...] | None
+    call_changes: tuple[UnresolvedCallChange, ...] | None = None
     call_note = None
     try:
-        call_changes = unresolved_call_changes(accepted, candidate)
+        # AD-97: a profile that does not measure calls compares none, rather than claiming none.
+        if calls_measured(candidate):
+            call_changes = unresolved_call_changes(accepted, candidate)
     except RatchetError:
-        call_changes = None
         call_note = (
             "the call records do not add up to the coverage counts, so no call site is named"
         )

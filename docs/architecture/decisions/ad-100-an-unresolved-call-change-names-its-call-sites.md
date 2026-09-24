@@ -6,7 +6,8 @@
 observation's existing `calls` records and evidence: `status`, `caller`, `expression`, `reason`,
 owning `component` (`null` when unowned), `path` and `line`. It is not a second call analysis,
 and the rows must add up to the coverage counts. Two result fields use it; both are `null` when
-unused, like every optional result field (AD-60).
+unused, like every optional result field (AD-60). The Dart profile measures no calls (AD-97):
+`--only calls` there is exit 2 `rule_unsupported_by_profile`, and `check` compares none.
 
 | Command | JSON field | Rows |
 | --- | --- | --- |

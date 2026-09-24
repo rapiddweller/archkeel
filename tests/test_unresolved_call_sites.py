@@ -5,6 +5,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from dataclasses import replace
@@ -18,7 +19,7 @@ from test_measurement_budgets import _baseline, _contract_with_budgets
 
 from archkeel.analyzer import observe
 from archkeel.check import validation
-from archkeel.check.ratchets import unresolved_call_changes
+from archkeel.check.ratchets import calls_measured, unresolved_call_changes
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
@@ -645,3 +646,48 @@ def test_report_help_says_component_narrows_violations_or_calls() -> None:
 
     words = " ".join(result.stdout.split())
     assert "Narrow the violations, or with --only calls the calls," in words
+
+
+def test_a_dart_scan_refuses_to_list_calls_it_never_measured(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-97: the Dart profile does not measure calls, so an empty list would claim a count it
+    never took; --only calls is refused the way an unsupported rule is (exit 2)."""
+    root = tmp_path / "dart"
+    shutil.copytree(Path(__file__).parents[1] / "fixtures/G-dart", root)
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "add", "-A")
+    _git(
+        root,
+        "-c",
+        "user.email=d@example.invalid",
+        "-c",
+        "user.name=D",
+        "commit",
+        "-q",
+        "-m",
+        "dart",
+    )
+
+    code, result = _cli(capsys, "report", "--root", str(root), "--only", "calls", "--json")
+    plain_code, plain = _cli(capsys, "report", "--root", str(root), "--json")
+
+    assert code == 2
+    (diagnostic,) = result["diagnostics"]  # type: ignore[misc]
+    assert diagnostic["kind"] == "rule_unsupported_by_profile"
+    assert diagnostic["subject"] == "--only calls"
+    assert result["filtered_calls"] is None
+    # Without the flag the report runs, and neither call field claims anything.
+    assert plain_code == 0
+    assert (plain["filtered_calls"], plain["unresolved_call_changes"]) == (None, None)
+    observed = observe(
+        root,
+        roots=("lib",),
+        namespace="shop",
+        contract="architecture-contract.json",
+        git_head="0" * 40,
+        dirty=False,
+        contract_root=root,
+        language="dart",
+    ).observation
+    assert observed is not None and not calls_measured(observed)
