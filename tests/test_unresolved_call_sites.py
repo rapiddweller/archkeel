@@ -29,6 +29,11 @@ from fixtures.demo_catalog_check import build_and_run_check
 from fixtures.demo_catalog_check_regressions import VARIANTS as CHECK_REGRESSIONS
 
 _PROBE_PATH = "shop/app/probe_unresolved.py"
+_ONE_SIDED_NOTE = (
+    "no unresolved call differs from the --against revision outside files only the working "
+    "tree holds (git-ignored, export-ignore, submodules)"
+)
+_UNCOMPARED_NOTE = "the --against revision's calls could not be compared, so no call site is named"
 _CALLER = "shop.app.probe_unresolved.probe"
 _UNBOUND = "name has no statically indexed binding"
 
@@ -119,6 +124,7 @@ def test_validate_against_names_the_call_behind_a_calls_unresolved_rise(tmp_path
 
     assert result.failures == (_exceeded("7->8"),)
     assert result.unresolved_call_changes == (_added((2,)),)
+    assert result.unresolved_call_note is None
     # Without --against there is no second revision to name the site from.
     alone, _ = run_validate(root, CONFIG, observe, baseline=baseline)
     assert alone.failures == result.failures
@@ -149,6 +155,8 @@ def test_an_unobservable_against_revision_leaves_the_sites_unnamed_not_the_findi
 
     assert result.failures == (_exceeded("7->8"),)
     assert result.unresolved_call_changes is None
+    assert result.unresolved_call_note == _UNCOMPARED_NOTE
+    assert f"Unresolved call sites: {_UNCOMPARED_NOTE}" in _terminal(result)
 
 
 def test_validate_against_scans_the_old_revision_under_its_own_contract(tmp_path: Path) -> None:
@@ -227,6 +235,9 @@ def test_a_rise_carried_only_by_an_ignored_file_names_no_site(tmp_path: Path) ->
 
     assert result.failures == (_exceeded("7->8"),)
     assert result.unresolved_call_changes == ()
+    # Not silence: the terminal says why no site is named.
+    assert result.unresolved_call_note == _ONE_SIDED_NOTE
+    assert f"Unresolved call sites: {_ONE_SIDED_NOTE}" in _terminal(result)
 
 
 def test_a_folder_the_revision_exports_ignored_is_not_named(tmp_path: Path) -> None:
@@ -389,6 +400,9 @@ def test_call_rows_that_do_not_add_up_leave_check_sites_unnamed(tmp_path: Path) 
     assert result.exit_code == 1
     assert "regression check failed in calls_unresolved: 8->9" in result.failures
     assert result.unresolved_call_changes is None
+    assert result.unresolved_call_note == (
+        "the call records do not add up to the coverage counts, so no call site is named"
+    )
 
 
 def _terminal(result: RunResult) -> str:

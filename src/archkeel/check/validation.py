@@ -2042,12 +2042,16 @@ def run_validate(
         and observed_calls is not None
         and accepted_calls != {observed_calls}
     ):
-        result = replace(
-            result,
-            unresolved_call_changes=_unresolved_calls_since(
-                root, config, analyzer, against, observation
-            ),
-        )
+        changes = _unresolved_calls_since(root, config, analyzer, against, observation)
+        note = None
+        if changes is None:
+            note = "the --against revision's calls could not be compared, so no call site is named"
+        elif not changes:
+            note = (
+                "no unresolved call differs from the --against revision outside files only the "
+                "working tree holds (git-ignored, export-ignore, submodules)"
+            )
+        result = replace(result, unresolved_call_changes=changes, unresolved_call_note=note)
     write_baseline = write_baseline and (
         not baseline_exists or not (baseline_new or budget_new) or accept_new
     )

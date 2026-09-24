@@ -249,10 +249,14 @@ def run_check(
     # AD-100: the sites explain a regression and never decide one, so call records that do not
     # add up leave them unnamed instead of leaving the whole check unchecked.
     call_changes: tuple[UnresolvedCallChange, ...] | None
+    call_note = None
     try:
         call_changes = unresolved_call_changes(accepted, candidate)
     except RatchetError:
         call_changes = None
+        call_note = (
+            "the call records do not add up to the coverage counts, so no call site is named"
+        )
     delta = build_architecture_delta(
         accepted,
         candidate,
@@ -280,4 +284,5 @@ def run_check(
             baseline, expectation_commit, head, sha256_bytes(lock_bytes), expected_digest
         ),
         unresolved_call_changes=call_changes,
+        unresolved_call_note=call_note,
     )

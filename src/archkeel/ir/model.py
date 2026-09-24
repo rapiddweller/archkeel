@@ -984,6 +984,9 @@ class RunResult:
     # AD-100: the call sites behind a calls_unresolved change; None when no two revisions'
     # calls were compared.
     unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None
+    # AD-100: why a run that compared calls names no call site; None when it names them or
+    # compared none.
+    unresolved_call_note: str | None = None
     # AD-100: `report --only calls`, every unresolved and partially resolved call it selects.
     filtered_calls: tuple[CallRow, ...] | None = None
 

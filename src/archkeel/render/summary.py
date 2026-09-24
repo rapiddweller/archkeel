@@ -166,9 +166,14 @@ def _claims_line(result: RunResult) -> str:
 
 
 def _call_site_lines(result: RunResult) -> tuple[str, ...]:
-    """Name the unresolved call sites behind a run's failures, a few at most (AD-100)."""
+    """Name the unresolved call sites behind a run's failures, a few at most, or why none is
+    named (AD-100)."""
+    if not result.failures:
+        return ()
+    if result.unresolved_call_note is not None:
+        return (f"Unresolved call sites: {result.unresolved_call_note}",)
     changes = result.unresolved_call_changes
-    if not result.failures or not changes:
+    if not changes:
         return ()
     added = sum(item.change == "added" for item in changes)
     lines = [f"Unresolved call sites: {added} added, {len(changes) - added} removed"]
