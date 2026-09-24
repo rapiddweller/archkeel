@@ -9,9 +9,12 @@ import hashlib
 import re
 import tomllib
 from pathlib import Path, PurePosixPath
+from typing import Final
 
 from archkeel.check.git import read_blob
 from archkeel.check.ports import ScanConfig
+
+CONFIG_PATH: Final = "archkeel.toml"
 
 
 class ConfigError(ValueError):
@@ -86,17 +89,21 @@ def _contained(root: Path, relative: str, *, field: str) -> Path:
     return target
 
 
-def load_config(root: Path) -> ScanConfig:
-    """Load archkeel.toml and validate paths against the repository filesystem."""
+def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
+    """Load a scan configuration and validate paths against the repository filesystem.
+
+    `path` names a second file for a second scope at the same root, such as a test tree with
+    its own namespace and contract; one [scan] still holds one namespace (AD-101).
+    """
     repository = root.resolve()
-    config_path = repository / "archkeel.toml"
+    config_path = repository / _path(path, field="--config", allow_dot=False)
     try:
         config_path.resolve().relative_to(repository)
         payload = config_path.read_bytes()
     except ValueError as exc:
-        raise ConfigError("archkeel.toml escapes repository root") from exc
+        raise ConfigError(f"{path} escapes repository root") from exc
     except OSError as exc:
-        raise ConfigError(f"cannot read archkeel.toml: {exc}") from exc
+        raise ConfigError(f"cannot read {path}: {exc}") from exc
     config = parse_config(payload)
     for relative in config.roots:
         target = _contained(repository, relative, field="scan.roots")

@@ -84,6 +84,43 @@ def test_load_accepts_existing_contained_paths(tmp_path: Path) -> None:
     assert load_config(tmp_path).namespace == "backend"
 
 
+def test_load_reads_a_second_configuration_at_the_same_root(tmp_path: Path) -> None:
+    """AD-101: a second file beside archkeel.toml scans its own namespace against its own
+    contract, so a test tree is governed without widening the product scan."""
+    for name in ("shop", "tests"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "contract.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "archkeel.toml").write_bytes(
+        b'[scan]\nroots = ["shop"]\nnamespace = "shop"\ncontract = "shop/contract.json"\n'
+    )
+    (tmp_path / "archkeel-tests.toml").write_bytes(
+        b'[scan]\nroots = ["tests"]\nnamespace = "tests"\ncontract = "tests/contract.json"\n'
+    )
+    assert load_config(tmp_path).roots == ("shop",)
+    tests = load_config(tmp_path, "archkeel-tests.toml")
+    assert (tests.roots, tests.namespace, tests.contract) == (
+        ("tests",),
+        "tests",
+        "tests/contract.json",
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "message"),
+    [
+        ("../archkeel.toml", "--config must be a safe POSIX relative path"),
+        ("/etc/archkeel.toml", "--config must be a safe POSIX relative path"),
+        (".", "--config must be a safe POSIX relative path"),
+        ("missing.toml", "cannot read missing.toml"),
+    ],
+)
+def test_load_rejects_an_unsafe_or_missing_configuration_path(
+    tmp_path: Path, path: str, message: str
+) -> None:
+    with pytest.raises(ConfigError, match=message):
+        load_config(tmp_path, path)
+
+
 def _config_commits(tmp_path: Path) -> tuple[Path, str, str, bytes]:
     root, _ = _committed_repository(tmp_path)
     payload = b'[scan]\nroots = ["example"]\nnamespace = "example"\ncontract = "contract.json"\n'
