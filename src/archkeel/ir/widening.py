@@ -450,9 +450,17 @@ def contract_widenings(
         frozenset(item.name for item in after_declarations.measurement_budgets),
         grows_widens=False,
     )
-    before_without_handled = replace(before_declarations, compat=(), measurement_budgets=())
-    after_without_handled = replace(after_declarations, compat=(), measurement_budgets=())
-    if before_without_handled != after_without_handled:
+    findings += _ceiling_widenings(
+        "facade budget",
+        {item.subject: item.max_names for item in before_declarations.facade_budgets},
+        {item.subject: item.max_names for item in after_declarations.facade_budgets},
+    )
+    findings += _ceiling_widenings(
+        "coupling budget",
+        {item.subject: item.max_names for item in before_declarations.coupling_budgets},
+        {item.subject: item.max_names for item in after_declarations.coupling_budgets},
+    )
+    if _unenumerated(before_declarations) != _unenumerated(after_declarations):
         findings.append("contract.declarations changed in a way this comparison does not enumerate")
     before_compat = {item.module: item for item in before_declarations.compat}
     after_compat = {item.module: item for item in after_declarations.compat}
@@ -469,6 +477,24 @@ def contract_widenings(
         if old.lifetime == "migration" and new.lifetime == "permanent":
             findings.append(f"compat module {module!r} lifetime became permanent")
     return tuple(sorted(findings))
+
+
+def _unenumerated(declarations: ContractDeclarations) -> ContractDeclarations:
+    """The declarations no classifier above compares field by field."""
+    return replace(
+        declarations, compat=(), measurement_budgets=(), facade_budgets=(), coupling_budgets=()
+    )
+
+
+def _ceiling_widenings(kind: str, before: dict[str, int], after: dict[str, int]) -> list[str]:
+    """AD-99: a raised or removed ceiling widens; a lowered or added one narrows."""
+    findings = []
+    for subject in sorted(before):
+        if subject not in after:
+            findings.append(f"{kind} {subject} removed")
+        elif after[subject] > before[subject]:
+            findings.append(f"{kind} {subject} raised from {before[subject]} to {after[subject]}")
+    return findings
 
 
 def measurement_budget_widenings(

@@ -36,6 +36,7 @@ from archkeel.ir.decisions import (
     review_claims,
     violation_counts,
 )
+from archkeel.ir.interfaces import interface_profile
 from archkeel.ir.measurements import (
     MeasurementBudget,
     RatchetError,
@@ -780,6 +781,78 @@ def interface_diagnostics(
     return tuple(diagnostics)
 
 
+def _budget_diagnostic(
+    pointer: str,
+    subject: str,
+    label: str,
+    limit: int,
+    names: tuple[str, ...],
+    uncounted: tuple[str, ...],
+) -> Diagnostic | None:
+    counted = f"{label} counts {'at least ' if uncounted else ''}{len(names)} "
+    counted += "name" if len(names) == 1 else "names"
+    if len(names) > limit:
+        return _diagnostic(
+            "budget.exceeded",
+            pointer,
+            subject,
+            f"{counted}, {len(names) - limit} over max_names {limit}: {', '.join(names)}.",
+            "Remove names until max_names holds; raising max_names widens the contract.",
+        )
+    if uncounted:
+        return _diagnostic(
+            "budget.unknown",
+            pointer,
+            subject,
+            f"{counted} against max_names {limit}; not enumerated: {', '.join(uncounted)}.",
+            "Give the facade a literal __all__ or module:Name entries, and import the used "
+            "names explicitly.",
+        )
+    return None
+
+
+def interface_budget_diagnostics(
+    contract: ArchitectureContract, observation: Observation
+) -> tuple[Diagnostic, ...]:
+    """AD-99: hold each declared facade and pair ceiling to AD-88's one measurement.
+
+    A budget counts names, not which of them are too many, so an exceeded one lists them all.
+    A count the scan cannot complete is UNKNOWN unless its lower bound already exceeds.
+    """
+    declarations = contract.declarations or ContractDeclarations()
+    if not declarations.facade_budgets and not declarations.coupling_budgets:
+        return ()
+    profile = interface_profile(observation)
+    findings = []
+    for index, facade_budget in enumerate(declarations.facade_budgets):
+        facades = [item for item in profile.facades if item.component == facade_budget.component]
+        names = sorted(f"{item.module}:{name}" for item in facades for name in item.exported_names)
+        findings.append(
+            _budget_diagnostic(
+                f"/declarations/facade_budgets/{index}",
+                facade_budget.subject,
+                f"The {facade_budget.component} facade",
+                facade_budget.max_names,
+                tuple(names),
+                tuple(item.module for item in facades if not item.enumerated),
+            )
+        )
+    pairs = {(item.source, item.target): item for item in profile.coupling}
+    for index, pair_budget in enumerate(declarations.coupling_budgets):
+        pair = pairs.get((pair_budget.source, pair_budget.target))
+        findings.append(
+            _budget_diagnostic(
+                f"/declarations/coupling_budgets/{index}",
+                pair_budget.subject,
+                f"The {pair_budget.subject} pair",
+                pair_budget.max_names,
+                pair.names if pair is not None else (),
+                pair.uncounted if pair is not None else (),
+            )
+        )
+    return tuple(item for item in findings if item is not None)
+
+
 def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
     """Reject placeholder rationales and rationales that only repeat the rule."""
     diagnostics = []
@@ -1072,6 +1145,14 @@ def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, .
             (f"/declarations/spot_owners/{index}/provenance", item.provenance)
             for index, item in enumerate(declarations.spot_owners)
         ),
+        *(
+            (f"/declarations/facade_budgets/{index}/provenance", item.provenance)
+            for index, item in enumerate(declarations.facade_budgets)
+        ),
+        *(
+            (f"/declarations/coupling_budgets/{index}/provenance", item.provenance)
+            for index, item in enumerate(declarations.coupling_budgets)
+        ),
         ("/declarations/public_api_provenance", declarations.public_api_provenance),
         ("/declarations/context_roots_provenance", declarations.context_roots_provenance),
     )
@@ -1306,6 +1387,7 @@ def observation_diagnostics(
         *interface_diagnostics(contract, observation, resolved_public_entries),
         *public_api_diagnostics(contract, observation),
         *compatibility_diagnostics(contract, observation),
+        *interface_budget_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]
@@ -1382,13 +1464,29 @@ def _denied_by_absence(
     return rule.id
 
 
+def _inside_budgets(pointer: str, inside: str, inner: ArchitectureContract) -> list[Diagnostic]:
+    """AD-99: the level above measures only its own components, so nothing holds these."""
+    declarations = inner.declarations or ContractDeclarations()
+    if not declarations.facade_budgets and not declarations.coupling_budgets:
+        return []
+    return [
+        _diagnostic(
+            "contract.invalid",
+            pointer,
+            inside,
+            "The inside declares facade or coupling budgets, which the level above never measures.",
+            "Declare the budget in the top-level contract, whose components it can name.",
+        )
+    ]
+
+
 def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
     """AD-20: hold a component and the contract describing its inside to each other.
 
-    Two checks, and only two: the levels must agree on the component's public surface, and
-    the inside must not grant itself what the level above denies the component. Grants are
-    read from the inside's `allowed_dependency` rules; an `external_dependency_scope` there
-    is not yet compared, which stays a blind spot.
+    Two checks: the levels must agree on the component's public surface, and the inside must
+    not grant itself what the level above denies the component. Grants are read from the
+    inside's `allowed_dependency` rules; an `external_dependency_scope` there is not yet
+    compared, which stays a blind spot. AD-99 adds that the inside declares no budget.
     """
     repository = root.resolve()
     diagnostics: list[Diagnostic] = []
@@ -1421,6 +1519,7 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
                 )
             )
             continue
+        diagnostics.extend(_inside_budgets(pointer, component.inside, inner))
         declared = frozenset(component.public or ())
         inside = _inside_public(inner)
         if declared != inside:

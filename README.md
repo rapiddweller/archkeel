@@ -198,7 +198,9 @@ archkeel report --only violations --component store
   an exit code.
 - **Facade shape stays measured, not inferred.** The report shows declared export counts,
   re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
-  width. These facts do not claim a barrel is complete and are not budget inputs (AD-88).
+  width. These facts do not claim a barrel is complete (AD-88). A contract may cap one facade's
+  names or one component pair's imported names; `validate` then lists every counted name when a
+  cap is exceeded, and a count it cannot complete is UNKNOWN, never PASS (AD-99).
 
 ## Try the demo
 
@@ -285,7 +287,9 @@ to day — gating CI, keeping the target from widening, working the backlog down
 The contract may also select deterministic scalars under `declarations.measurement_budgets`.
 Baseline schema 1.2 stores their accepted values. A rise fails; a fall must be written back.
 Archkeel uses this itself for cycle edges, private crossings, typing positions, unresolved calls
-and untyped private accesses (AD-89).
+and untyped private accesses (AD-89). Facade and coupling ceilings live in the contract instead:
+`declarations.facade_budgets` and `declarations.coupling_budgets` need no baseline, and raising
+one widens the contract (AD-99).
 
 Baseline roles, introduced in schema 1.1, also prove when a resolved importer was the last reach
 of one exact public module or symbol. `validate --baseline` reports the resolved violation,

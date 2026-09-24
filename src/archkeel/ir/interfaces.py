@@ -38,6 +38,9 @@ class FacadeMetric:
     reexported_names: tuple[str, ...]
     defined_names: tuple[str, ...]
     unused_reexports: tuple[str, ...]
+    # AD-99: False for a whole-module entry without a literal `__all__`: its imports and
+    # computed assignments are public names the scan records no symbol for.
+    enumerated: bool
 
     @property
     def exported_name_count(self) -> int:
@@ -69,6 +72,10 @@ class CouplingWidth:
     source: str
     target: str
     names: tuple[str, ...]
+    # AD-99: imports that reach the target without naming what they use - a whole module, a
+    # star outside an enumerated facade, or a name a non-enumerated facade does not list - so
+    # `width` is a lower bound while this is not empty.
+    uncounted: tuple[str, ...]
 
     @property
     def width(self) -> int:
@@ -274,10 +281,43 @@ def _declared_facades(
                 tuple(sorted(facade_reexports)),
                 tuple(sorted(local)),
                 (),
+                declared is not None or bool(all_exports.get(module)),
             )
         )
 
     return tuple(facade_rows), exported
+
+
+def _facade_use(
+    target: str,
+    module: str,
+    data: RecordData,
+    exported: dict[tuple[str, str], frozenset[str]],
+    open_facades: frozenset[tuple[str, str]],
+) -> tuple[tuple[tuple[str, str], ...], str | None]:
+    """The facade names one cross-component import reaches, or the import it cannot count.
+
+    A named import walks its re-export chain to the first declared facade name, the way
+    `interface_boundary` accepts it (AD-9, AD-84). A whole-module import, a star outside an
+    enumerated facade and a name a non-enumerated facade does not list prove no name (AD-99).
+    """
+    symbol = data.get("symbol")
+    if not isinstance(symbol, str):
+        return (), module
+    if symbol == "*":
+        names = exported.get((target, module))
+        if names is None or (target, module) in open_facades:
+            return (), f"{module}:*"
+        return tuple((module, name) for name in sorted(names)), None
+    chain = data.get("reexport_chain")
+    entries = [item for item in chain if isinstance(item, str)] if isinstance(chain, tuple) else []
+    for entry in entries or [f"{module}.{symbol}"]:
+        owner, _, name = entry.rpartition(".")
+        if name in exported.get((target, owner), frozenset()):
+            return ((owner, name),), None
+        if (target, owner) in open_facades and not name.startswith("_"):
+            return (), f"{owner}:{name}"
+    return (), None
 
 
 def _profile_parts(
@@ -289,8 +329,12 @@ def _profile_parts(
 ]:
     components = component_owners(observation)
     facade_rows, exported = _declared_facades(observation)
+    open_facades = frozenset(
+        (row.component, row.module) for row in facade_rows if not row.enumerated
+    )
     consumers: dict[tuple[str, str, str], set[str]] = defaultdict(set)
     pair_names: dict[tuple[str, str], set[str]] = defaultdict(set)
+    uncounted: dict[tuple[str, str], set[str]] = defaultdict(set)
     for record in observation.records("imports") or ():
         data = record.data
         source_module = data.get("source_module")
@@ -301,22 +345,12 @@ def _profile_parts(
         target = owner_of(target_module, components)
         if source is None or target is None or source == target:
             continue
-        facade = (target, target_module)
-        names = exported.get(facade)
-        if names is None:
-            continue
-        symbol = data.get("symbol")
-        if symbol == "*":
-            used = names
-        elif symbol is None:
-            continue
-        elif isinstance(symbol, str):
-            used = frozenset({symbol}) & names
-        else:
-            continue
-        for name in used:
-            consumers[(target, target_module, name)].add(source)
-            pair_names[(source, target)].add(f"{target_module}:{name}")
+        used, unproven = _facade_use(target, target_module, data, exported, open_facades)
+        if unproven is not None:
+            uncounted[(source, target)].add(unproven)
+        for module, name in used:
+            consumers[(target, module, name)].add(source)
+            pair_names[(source, target)].add(f"{module}:{name}")
 
     measured_facades = [
         FacadeMetric(
@@ -330,6 +364,7 @@ def _profile_parts(
                 for name in row.reexported_names
                 if not consumers[(row.component, row.module, name)]
             ),
+            row.enumerated,
         )
         for row in facade_rows
     ]
@@ -339,8 +374,8 @@ def _profile_parts(
         for name in sorted(exported[(component, module)])
     )
     coupling_rows = tuple(
-        CouplingWidth(source, target, tuple(sorted(names)))
-        for (source, target), names in sorted(pair_names.items())
+        CouplingWidth(*pair, tuple(sorted(pair_names[pair])), tuple(sorted(uncounted[pair])))
+        for pair in sorted(pair_names.keys() | uncounted.keys())
     )
     return tuple(measured_facades), export_rows, coupling_rows
 

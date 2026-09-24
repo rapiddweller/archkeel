@@ -26,6 +26,7 @@ from fixtures.demo_catalog_support import (
     AgainstExpectation,
     Variant,
     apply_overlay,
+    contract_interface_budgets,
     contract_rule_field,
     contract_without_rule,
 )
@@ -104,6 +105,12 @@ _SYMBOL_PLACEMENT_ADDED = AgainstExpectation(
 )
 _BOUNDARY_TYPES_REMOVED = AgainstExpectation(
     "boundary_types_removed", 1, (f"rule {_BOUNDARY_TYPES_ID} (boundary_types) removed",)
+)
+_BUDGET_RAISED = AgainstExpectation(
+    "budget_raised",
+    1,
+    ("facade budget model raised from 5 to 6",),
+    base_files={"architecture-contract.json": contract_interface_budgets((("model", 5),))},
 )
 _SYMBOL_PLACEMENT_REMOVED = AgainstExpectation(
     "symbol_placement_removed", 1, (f"rule {_SYMBOL_PLACEMENT_ID} (symbol_placement) removed",)
@@ -186,5 +193,16 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         against=_SYMBOL_PLACEMENT_REMOVED,
+    ),
+    Variant(
+        id="against-facade-budget-raised",
+        section="validation",
+        item="against:budget_raised",
+        summary="The model facade budget rises from five to six names to make room for one "
+        "more export: a widening that fails without an amendment (AD-99).",
+        files={"architecture-contract.json": contract_interface_budgets((("model", 6),))},
+        expected_violations=(),
+        expected_codes=(),
+        against=_BUDGET_RAISED,
     ),
 )

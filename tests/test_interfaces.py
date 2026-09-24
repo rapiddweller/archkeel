@@ -52,6 +52,7 @@ def _import_record(
     binding: str | None = None,
     reexport: bool = False,
     declared_in_all: bool = False,
+    reexport_chain: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "id": identifier,
@@ -73,6 +74,7 @@ def _import_record(
             "reexport": reexport,
             "declared_in_all": declared_in_all,
             "under_type_checking": False,
+            **({"reexport_chain": reexport_chain} if reexport_chain is not None else {}),
         },
     }
 
@@ -380,16 +382,70 @@ def test_interface_profile_measures_a_real_non_package_barrel(tmp_path: Path) ->
     }
 
 
-def test_interface_profile_ignores_a_module_alias_without_attribute_use(
-    tmp_path: Path,
-) -> None:
+def test_interface_profile_counts_no_name_for_a_module_alias(tmp_path: Path) -> None:
+    """A whole-module import proves no name use; AD-99 records it as uncounted instead."""
     profile = _real_barrel_profile(tmp_path, "import sample.model.api as api\n")
 
     usage = next(item for item in profile.exports if item.module == "sample.model.api")
     assert usage.consumers == ()
-    assert not any(
-        item.source == "consumer" and item.target == "model" for item in profile.coupling
+    assert [
+        (item.names, item.uncounted)
+        for item in profile.coupling
+        if item.source == "consumer" and item.target == "model"
+    ] == [((), ("sample.model.api",))]
+
+
+def test_interface_profile_follows_a_reexport_to_the_declared_facade_name() -> None:
+    """AD-99: `from pkg.b import Widget` reaches the declared `pkg.b.impl:Widget` entry."""
+    observation = _observation(
+        declarations=(
+            _declaration("a", ["pkg.a"]),
+            _declaration("b", ["pkg.b"], ["pkg.b.impl:Widget", "pkg.b.open"]),
+        ),
+        imports=(
+            _import_record(
+                "IMP-chain",
+                source_module="pkg.a.mod",
+                target_module="pkg.b",
+                symbol="Widget",
+                origin_definition="pkg.b.impl.Widget",
+                reexport_chain=["pkg.b.Widget", "pkg.b.impl.Widget"],
+            ),
+            _import_record(
+                "IMP-star",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.impl",
+                symbol="*",
+                origin_definition=None,
+            ),
+            _import_record(
+                "IMP-unrecorded",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.open",
+                symbol="LIMIT",
+                origin_definition="pkg.b.open.LIMIT",
+            ),
+            _import_record(
+                "IMP-private",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.open",
+                symbol="_hidden",
+                origin_definition="pkg.b.open._hidden",
+            ),
+        ),
     )
+
+    profile = interface_profile(observation)
+
+    assert [(item.module, item.enumerated) for item in profile.facades] == [
+        ("pkg.b.impl", True),
+        ("pkg.b.open", False),
+    ]
+    assert [(item.names, item.uncounted) for item in profile.coupling] == [
+        (("pkg.b.impl:Widget",), ("pkg.b.open:LIMIT",))
+    ]
+    widget = next(item for item in profile.exports if item.name == "Widget")
+    assert widget.consumers == ("a",)
 
 
 def test_typed_and_untyped_function_signatures() -> None:

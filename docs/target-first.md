@@ -36,6 +36,13 @@ When a refactoring moves a module, declare the old path in `declarations.compat`
 and lifetime. A `migration` shim is visible remaining work while it protects callers; promote it
 to `permanent` only when that compatibility surface is intentional (AD-87).
 
+To keep a facade or a coupling from growing while the refactoring converges, cap it:
+`declarations.facade_budgets` limits the names a component's `public` modules export, and
+`declarations.coupling_budgets` the facade names one component imports from another. No baseline
+holds an exceeded budget, so a cap below today's count fails until the code reaches it. Ratchet
+instead: set `max_names` to today's count and lower it as names go. Lowering narrows; raising is
+a widening under `--against` (AD-99).
+
 The architect decides `app` will eventually expose a small report facade the refactoring has not
 written yet:
 

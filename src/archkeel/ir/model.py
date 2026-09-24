@@ -268,6 +268,33 @@ class ContractMeasurementBudget:
 
 
 @dataclass(frozen=True, slots=True)
+class FacadeBudget:
+    """AD-99: the most names one component's declared facade may export."""
+
+    component: str
+    max_names: int
+    provenance: tuple[str, ...]
+
+    @property
+    def subject(self) -> str:
+        return self.component
+
+
+@dataclass(frozen=True, slots=True)
+class CouplingBudget:
+    """AD-99: the most facade names `source` may import from `target`'s declared facade."""
+
+    source: str
+    target: str
+    max_names: int
+    provenance: tuple[str, ...]
+
+    @property
+    def subject(self) -> str:
+        return f"{self.source} -> {self.target}"
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule:
     id: str
     kind: Literal["forbidden_dependency"]
@@ -560,6 +587,8 @@ class ContractDeclarations:
     spot_owners: tuple[ContractOwner, ...] = ()
     compat: tuple[CompatibilityShim, ...] = ()
     measurement_budgets: tuple[ContractMeasurementBudget, ...] = ()
+    facade_budgets: tuple[FacadeBudget, ...] = ()
+    coupling_budgets: tuple[CouplingBudget, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -660,6 +689,8 @@ DiagnosticCode: TypeAlias = Literal[
     "inside.public_mismatch",
     "inside.forbidden_import",
     "compatibility.invalid",
+    "budget.exceeded",
+    "budget.unknown",
 ]
 
 

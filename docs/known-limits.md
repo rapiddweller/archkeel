@@ -74,6 +74,15 @@ undecidable; Archkeel's own facades happen to contain none. What a builtin is co
 `dir(builtins)` on the analyzer's own interpreter, so it is that Python build's answer, not a list
 kept by hand.
 
+## A facade budget needs names it can list
+
+A whole-module `public` entry without a literal `__all__` also exposes its imports and computed
+assignments, which the scan records no symbol for, so a facade budget on it is UNKNOWN. A
+whole-module or star import proves no name, so a pair budget that sees one is UNKNOWN until its
+lower bound already exceeds. Declare `__all__` or `module:Name` entries, and import names
+explicitly (AD-99). Archkeel's own facades are whole modules without `__all__`, so its contract
+pins pair budgets only.
+
 ## Imports and constructs
 
 - Dynamic imports such as `importlib.import_module(name)` add no dependency edge. Forbid them with

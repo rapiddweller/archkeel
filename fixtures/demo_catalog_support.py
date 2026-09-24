@@ -58,6 +58,7 @@ AgainstScenario = Literal[
     "symbol_placement_removed",
     "compat_added",
     "compat_promoted",
+    "budget_raised",
 ]
 
 
@@ -179,6 +180,24 @@ def contract_measurement_budgets(*names: str) -> str:
     contract = _clean_contract()
     contract["declarations"]["measurement_budgets"] = [
         {"name": name, "provenance": ["docs/architecture/shop.md"]} for name in names
+    ]
+    return _dump_contract(contract)
+
+
+def contract_interface_budgets(
+    facades: tuple[tuple[str, int], ...] = (),
+    pairs: tuple[tuple[str, str, int], ...] = (),
+) -> str:
+    """Clean contract with facade and component-pair name ceilings (AD-99)."""
+    contract = _clean_contract()
+    provenance = ["docs/architecture/shop.md"]
+    contract["declarations"]["facade_budgets"] = [
+        {"component": component, "max_names": limit, "provenance": provenance}
+        for component, limit in facades
+    ]
+    contract["declarations"]["coupling_budgets"] = [
+        {"source": source, "target": target, "max_names": limit, "provenance": provenance}
+        for source, target, limit in pairs
     ]
     return _dump_contract(contract)
 

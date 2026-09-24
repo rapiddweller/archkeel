@@ -211,7 +211,7 @@ def _interfaces_section(observation: Observation) -> str:
 
 
 def _interface_profile_section(observation: Observation) -> str:
-    """Render AD-88 measurements without turning them into interface budgets or verdicts."""
+    """Render AD-88 measurements; `validate`, not the report, judges AD-99 budgets."""
     profile = interface_profile(observation)
     if not profile.facades:
         return ""
@@ -239,7 +239,8 @@ def _interface_profile_section(observation: Observation) -> str:
         "<tr>"
         f"<td><code>{_text(item.source)} → {_text(item.target)}</code></td>"
         f'<td class="numeric">{item.width}</td>'
-        f"<td>{_text(', '.join(item.names) or '—')}</td>"
+        f"<td>{_text(', '.join(item.names) or '—')}"
+        f"{_text('; not counted: ' + ', '.join(item.uncounted)) if item.uncounted else ''}</td>"
         "</tr>"
         for item in profile.coupling
     )
@@ -248,8 +249,8 @@ def _interface_profile_section(observation: Observation) -> str:
       <h2>Declared facade measurements</h2>
       <p>Observed from declared facades and imports: exported-name count, re-exports, names
       defined in the facade, unused re-exports, consumers per exported name and coupling width.
-      These are measurements only; they do not claim the facade is complete or enforce budgets
-      (AD-88).</p>
+      They do not claim a barrel is complete (AD-88); <code>validate</code> holds declared
+      facade and coupling budgets to them (AD-99).</p>
       <h3>Facades</h3>
       <div class="table-wrap"><table><thead><tr><th>Component</th><th>Module</th>
       <th class="numeric">Exports</th><th class="numeric">Re-exports</th><th>Defined</th>

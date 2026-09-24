@@ -90,8 +90,12 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
 The report's declared-facade section measures export counts, re-exports, names defined in each
 facade, unused re-exports, consumers per export and distinct exported names per component pair.
-These are observations only; they do not assert that a barrel is complete or enforce a budget
-(AD-88).
+They do not assert that a barrel is complete (AD-88). `validate` holds
+`declarations.facade_budgets` and `declarations.coupling_budgets` to the same values: a pair
+counts a name reached through a re-export chain, an exceeded budget is `budget.exceeded` naming
+every counted name, and a count the scan cannot complete - a whole-module facade without a
+literal `__all__`, or a whole-module or star import - is `budget.unknown`. Both exit 2 and no
+baseline holds them (AD-99).
 Without `--source` and `--namespace`, `init` scans the only top-level Python package under `src/`, or under the root when there is no `src/`; when several sit side by side it scans the one whose name matches `pyproject.toml`'s `[project] name` in wheel file-name form (runs of `-`, `_` and `.` become `_`, compared case-insensitively), and otherwise exits 2 with `scope_empty`, naming the packages it found and the name it compared (AD-47).
 `init --json` adds `open_decisions`, heaviest observed pair first, as evidence for choosing component `requires`; `validate --json` carries them only until the contract adds `complete_requires`, whose closed-world absence rule decides every unlisted pair (AD-15, AD-32). `validate` and `report` add `agent_decisions` as `[agent, total]` decisions: one rule declaration, one `requires` entry or one declared `public` list each, at either level, and one nobody attributed counts in the total alone (AD-16, AD-50), and `violations_by_rule` as `[rule, count]` pairs with `violations_by_component_pair` as `[source, target, count]` triples, heaviest first (AD-51); a violation that crosses no component pair, such as a construct or a cycle, appears only in the first. `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
 `validate --write-graph` rewrites the edges of the one marked component graph, `<!--
@@ -183,9 +187,10 @@ narrowing. Adding a component `namespace` is a narrowing placement restriction; 
 changing it is a widening. A padded violation entry, a raised measurement budget or a removed
 budget value is a widening too, compared against the baseline file at `--against`. Only a rule's
 or a `requires` entry's `rationale`, and every `provenance`, are neutral. Adding a measurement
-budget declaration narrows; removing one widens. Any other difference - an unrecognised rule
-kind's presence, a field no classifier names, `declarations`, `$schema` - fails closed as a
-widening. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
+budget declaration narrows; removing one widens. Raising a facade or coupling budget's
+`max_names`, or removing the entry, widens; lowering or adding one narrows (AD-99). Any other
+difference - an unrecognised rule kind's presence, a field no classifier names, `declarations`,
+`$schema` - fails closed as a widening. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
 each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contract_digest` - the
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment

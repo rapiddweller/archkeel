@@ -437,13 +437,23 @@ accepted values. A rise fails;
 a fall also fails until `--write-baseline` records it. Missing measurement evidence exits 2,
 never PASS (AD-89).
 
+`declarations.facade_budgets` and `declarations.coupling_budgets` are contract ceilings, not
+baseline values. `{component, max_names}` caps the names a component's `public` modules export;
+`{source, target, max_names}` caps the target facade names the source imports, following
+re-export chains the way `interface_boundary` does. An exceeded budget is `budget.exceeded` and
+lists every counted name, because a count cannot say which names are too many. A count the scan
+cannot complete is `budget.unknown`: a whole-module `public` entry without a literal `__all__`, a
+whole-module import, or a star import outside an enumerated facade. Both exit 2 with or without
+`--baseline`. A key naming no component, a budgeted facade without `public`, or a repeated key is
+`contract.invalid`. Raising or removing a ceiling widens under `--against` (AD-99).
+
 ## Class C: declarations
 
 Fields under `declarations` preserve capabilities, review scopes, a package's external public
-API, commands, context roots, paths, owners and measurement budgets. Archkeel decodes and reports
-every one of them, and checks every one for two structural facts: a declared name resolves inside
-the configured namespace (`reference.namespace`) and a declared provenance file exists
-(`reference.provenance`).
+API, commands, context roots, paths, owners, measurement budgets and facade and coupling
+budgets. Archkeel decodes and reports every one of them, and checks every one for two structural
+facts: a declared name resolves inside the configured namespace (`reference.namespace`) and a
+declared provenance file exists (`reference.provenance`).
 `public_api` names the surface a consumer *outside* this package may rely on - a different thing
 from the component `public` field, which names one component's promise to another component of
 the *same* package and is held to `interface_boundary` at every crossing (AD-9). Nothing inside

@@ -60,6 +60,7 @@ from archkeel.ir.model import (
     ContractPath,
     ContractPathKind,
     ContractReviewScope,
+    CouplingBudget,
     Coverage,
     DeltaCoverage,
     DeltaProvenance,
@@ -68,6 +69,7 @@ from archkeel.ir.model import (
     Evidence,
     EvidenceClass,
     ExternalDependencyScopeRule,
+    FacadeBudget,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -677,6 +679,8 @@ def parse_contract(raw: object) -> ArchitectureContract:
                 "spot_owners",
                 "compat",
                 "measurement_budgets",
+                "facade_budgets",
+                "coupling_budgets",
             },
             "contract.declarations",
         )
@@ -733,6 +737,15 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     if len({item.name for item in budgets}) != len(budgets):
         raise ValueError("contract.declarations.measurement_budgets repeats a name")
+    facade_budgets = tuple(
+        _parse_facade_budget(value, f"facade_budgets[{index}]")
+        for index, value in enumerate(records("facade_budgets"))
+    )
+    coupling_budgets = tuple(
+        _parse_coupling_budget(value, f"coupling_budgets[{index}]")
+        for index, value in enumerate(records("coupling_budgets"))
+    )
+    _check_interface_budgets(components, facade_budgets, coupling_budgets)
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     ids = [
         item.id
@@ -769,6 +782,8 @@ def parse_contract(raw: object) -> ArchitectureContract:
             owners,
             compat,
             budgets,
+            facade_budgets,
+            coupling_budgets,
         )
         if declarations_raw is not None
         else None,
@@ -965,6 +980,59 @@ def _parse_measurement_budget(raw: RawJson, label: str) -> ContractMeasurementBu
         _measurement_budget_name(item["name"], f"{label}.name"),
         _contract_strings(item["provenance"], f"{label}.provenance", required=True),
     )
+
+
+def _parse_facade_budget(raw: RawJson, label: str) -> FacadeBudget:
+    item = _contract_fields(raw, {"component", "max_names", "provenance"}, set(), label)
+    return FacadeBudget(
+        _nonempty(item["component"], f"{label}.component"),
+        _count(item["max_names"], f"{label}.max_names"),
+        _contract_strings(item["provenance"], f"{label}.provenance", required=True),
+    )
+
+
+def _parse_coupling_budget(raw: RawJson, label: str) -> CouplingBudget:
+    item = _contract_fields(raw, {"source", "target", "max_names", "provenance"}, set(), label)
+    return CouplingBudget(
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["target"], f"{label}.target"),
+        _count(item["max_names"], f"{label}.max_names"),
+        _contract_strings(item["provenance"], f"{label}.provenance", required=True),
+    )
+
+
+def _budget_component(public: dict[str, bool], label: str, component: str, *, facade: bool) -> None:
+    if component not in public:
+        raise ValueError(f"contract.declarations.{label} names no component: {component!r}")
+    if facade and not public[component]:
+        raise ValueError(f"contract.declarations.{label} {component!r} declares no public facade")
+
+
+def _check_interface_budgets(
+    components: tuple[ContractComponent, ...],
+    facades: tuple[FacadeBudget, ...],
+    pairs: tuple[CouplingBudget, ...],
+) -> None:
+    """AD-99: a budget counts a declared facade, so an unknown key is an error, not a PASS."""
+    public = {item.label: item.public is not None for item in components}
+    for index, budget in enumerate(facades):
+        _budget_component(
+            public, f"facade_budgets[{index}].component", budget.component, facade=True
+        )
+    for index, pair in enumerate(pairs):
+        _budget_component(public, f"coupling_budgets[{index}].source", pair.source, facade=False)
+        _budget_component(public, f"coupling_budgets[{index}].target", pair.target, facade=True)
+        if pair.source == pair.target:
+            raise ValueError(
+                f"contract.declarations.coupling_budgets[{index}] names one component twice"
+            )
+    for key, subjects in (
+        ("facade_budgets", [item.subject for item in facades]),
+        ("coupling_budgets", [item.subject for item in pairs]),
+    ):
+        repeated = sorted({subject for subject in subjects if subjects.count(subject) > 1})
+        if repeated:
+            raise ValueError(f"contract.declarations.{key} repeats {repeated[0]!r}")
 
 
 def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependencyRule:
@@ -1638,6 +1706,8 @@ def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]
         declarations.paths,
         declarations.spot_owners,
         declarations.measurement_budgets,
+        declarations.facade_budgets,
+        declarations.coupling_budgets,
     ):
         for record in records:
             paths.update(record.provenance)
