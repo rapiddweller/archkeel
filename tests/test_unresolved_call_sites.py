@@ -24,6 +24,7 @@ from archkeel.ir.model import Observation, ObservationResult, RunResult, Unresol
 from archkeel.render.html import render_architecture_html
 from archkeel.render.summary import report_summary
 from archkeel.render.terminal import print_result
+from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_check import build_and_run_check
 from fixtures.demo_catalog_check_regressions import VARIANTS as CHECK_REGRESSIONS
 
@@ -355,9 +356,12 @@ def test_default_report_json_carries_no_call_list(
 def test_only_calls_page_shows_the_call_table_instead_of_the_other_sections(
     tmp_path: Path,
 ) -> None:
-    root = _prepare_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")})
+    # The tour's violations make the report FAIL, the case whose failure text named the table.
+    tour = next(variant for variant in CATALOG if variant.id == "tour")
+    root = _prepare_repo(tmp_path, {**tour.files, _PROBE_PATH: _probe("_unbound_probe()")})
     result, architecture = run_report(root, config=CONFIG, analyzer=observe, only_calls=True)
     assert architecture is not None and result.filtered_calls is not None
+    assert result.declared_rules == "FAIL"
 
     page = render_architecture_html(
         result, architecture, repository="shop", architecture_href="architecture.json"
@@ -366,6 +370,8 @@ def test_only_calls_page_shows_the_call_table_instead_of_the_other_sections(
     assert "Unresolved and partially resolved calls" in page
     assert f"<code>{_PROBE_PATH}:2</code>" in page
     assert "Declared-rule violations" not in page
+    assert "see declared-rule violations below" not in page
+    assert "--only calls hides the declared-rule violations" in page
     assert "Component flow" not in page
     listed = len(result.filtered_calls)
     assert (

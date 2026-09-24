@@ -596,9 +596,14 @@ def render_html(
         diagnostics = "<p>None.</p>"
     failures = "".join(f"<li><code>{_text(item)}</code></li>" for item in result.failures)
     if not failures:
+        # AD-100: --only calls draws its call table where the violations table would be.
+        where = (
+            "--only calls hides the declared-rule violations"
+            if result.filtered_calls is not None
+            else "see declared-rule violations below"
+        )
         failures = (
-            "<li>Report mode does not evaluate an expectation; see declared-rule violations "
-            "below.</li>"
+            f"<li>Report mode does not evaluate an expectation; {where}.</li>"
             if report_violates_rules(result)
             else "<li>None.</li>"
         )
@@ -624,37 +629,31 @@ def render_html(
     )
     # AD-60: --only violations hides everything below but the violations table, so a large
     # repository's page stays a small review surface instead of every section at once; --only
-    # calls hides the same sections (AD-100).
-    only_violations = result.report_filter is not None and (
+    # calls hides the same sections (AD-100). `focused` is either one.
+    focused = result.report_filter is not None and (
         result.report_filter.only_violations or result.report_filter.only_calls
     )
     unknowns_html = (
         _findings("Known unknowns", unknowns or (), observation)
-        if observation is not None and not only_violations
+        if observation is not None and not focused
         else ""
     )
     migration_work_html = (
         _compatibility_migration_work(observation)
-        if observation is not None and not only_violations
+        if observation is not None and not focused
         else ""
     )
-    flow_html = (
-        _flow_section(observation) if observation is not None and not only_violations else ""
-    )
+    flow_html = _flow_section(observation) if observation is not None and not focused else ""
     communication_html = (
-        _interfaces_section(observation) if observation is not None and not only_violations else ""
+        _interfaces_section(observation) if observation is not None and not focused else ""
     )
     interface_profile_html = (
-        _interface_profile_section(observation)
-        if observation is not None and not only_violations
-        else ""
+        _interface_profile_section(observation) if observation is not None and not focused else ""
     )
     measurements_html = _measurements(result.measurements)
     coverage_html = _coverage(observation)
-    structure_html = (
-        _structure(observation) if observation is not None and not only_violations else ""
-    )
-    claims_html = _claims(observation) if observation is not None and not only_violations else ""
+    structure_html = _structure(observation) if observation is not None and not focused else ""
+    claims_html = _claims(observation) if observation is not None and not focused else ""
     inventory_html = _section_inventory(observation)
     metadata_html = _metadata(result, observation)
     raw_link = (
@@ -687,8 +686,7 @@ def render_html(
       <h3>Failures</h3><ul class="failure-list">{failures}</ul>
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
-    {violations_html}
-    {calls_html}
+    {violations_html}{calls_html}
     {flow_html}
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
     <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>
