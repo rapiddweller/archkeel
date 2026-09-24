@@ -6,11 +6,11 @@ default stays `archkeel.toml`. A repository that keeps its tests beside the prod
 root, the test namespace and the test contract. The product configuration and contract do not
 change. Each run is one scope with one namespace, as before (#143).
 
-A report or validate result records the `scan_roots` it read, and the "Scan complete" reason
-names them: `All source files under shop were read and parsed; nothing beside them was
-observed.` Before, the terminal and HTML said "All configured source files were read and
-parsed", and only `architecture.json` recorded `source.scope`, so a green product run could be
-read as covering the tests beside it.
+A report, validate or check result records the `scan_roots` it read, and the "Scan complete"
+reason names them: `All source files under shop were read and parsed; no source file beside
+them was read.` Before, the terminal and HTML said "All configured source files were read and
+parsed" or "All N files parsed", and only `architecture.json` recorded `source.scope`, so a
+green product run could be read as covering the tests beside it.
 
 ## Why a file, not a framework
 

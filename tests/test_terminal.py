@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+from collections.abc import Callable
 from dataclasses import replace
 
 import pytest
@@ -181,16 +182,33 @@ def test_terminal_view_counts_every_review_claim_without_a_verdict() -> None:
     assert all(len(line) <= 80 for line in _render(result, summary, 80).splitlines())
 
 
-def test_scan_complete_names_the_roots_it_read() -> None:
-    """AD-101: a PASS over the product roots says so, and says nothing beside them was read."""
-    result = RunResult("validate", 0, "PASS", "PASS", "n/a", scan_roots=("shop",))
-    (scan, *_) = report_summary(result).verdicts
-    assert scan.reason == (
-        "All source files under shop were read and parsed; nothing beside them was observed."
-    )
-    assert scan.reason in _render(result, report_summary(result), 200)
+_ROOTS_REASON = (
+    "All source files under shop were read and parsed; no source file beside them was read."
+)
+
+
+@pytest.mark.parametrize(
+    ("result", "summarize"),
+    [
+        (RunResult("validate", 0, "PASS", "PASS", "n/a", scan_roots=("shop",)), report_summary),
+        (replace(FAILED_CHECK, scan_roots=("shop",)), check_summary),
+    ],
+    ids=["validate", "check"],
+)
+def test_scan_complete_names_the_roots_it_read(
+    result: RunResult, summarize: Callable[[RunResult], Summary]
+) -> None:
+    """AD-101: every command that scans says which roots, so a PASS never covers the tests."""
+    (scan, *_) = summarize(result).verdicts
+    assert scan.reason == _ROOTS_REASON
+    assert scan.reason in _render(result, summarize(result), 200)
+
+
+def test_scan_complete_without_recorded_roots_keeps_its_old_reason() -> None:
     unscoped = report_summary(RunResult("report", 0, "PASS", "PASS", "n/a")).verdicts[0]
     assert unscoped.reason == "All configured source files were read and parsed."
+    (check_scan, *_) = check_summary(FAILED_CHECK).verdicts
+    assert check_scan.reason == "The configured source scope was parsed."
 
 
 def test_terminal_view_omits_the_claim_line_when_no_claim_was_derived() -> None:

@@ -108,8 +108,8 @@ kept by hand.
 
 A run scans the roots and the one namespace its configuration names, and nothing else. A test
 tree beside the product is outside the product scan: a green product run names the roots it
-read (`All source files under shop were read and parsed; nothing beside them was observed.`)
-and proves nothing about the tests. A second configuration governs them as their own scope
+read (`All source files under shop were read and parsed; no source file beside them was
+read.`) and proves nothing about the tests. A second configuration governs them as their own scope
 (AD-101), which leaves these limits:
 
 - Inside the test scope the product is an external package. `external_dependency_scope` decides

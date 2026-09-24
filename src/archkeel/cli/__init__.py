@@ -434,6 +434,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     host=load_gitlab_records,
                     analyzer=observe,
                 )
+                result = replace(result, scan_roots=config.roots)
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))
