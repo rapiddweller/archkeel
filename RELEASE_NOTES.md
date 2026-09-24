@@ -22,9 +22,10 @@ Archkeel cannot decide stays `UNKNOWN` or is refused with exit 2; it never reads
 - **Tests can be a second scope.** `--config` selects a second configuration at the same root,
   for example a test contract next to the product one. Results name the roots they read, so a
   green product scan no longer suggests that tests were checked (AD-101).
-- **A `bytes` constant no longer stops the analyzer.** A module-level `bytes`, `complex`, `...`
-  or non-finite `float` constant is recorded without its value, so packages such as pytest scan;
-  such a constant proves no `Literal` member (AD-102).
+- **Constants JSON cannot hold no longer stop the analyzer.** A module-level `bytes`, `complex`
+  or `...` constant, a `str` with a lone surrogate, a huge `int` or a non-finite `float` is
+  recorded without its value, so packages such as pytest and pygments scan; such a constant
+  proves no `Literal` member (AD-102).
 
 ## Compatibility
 
