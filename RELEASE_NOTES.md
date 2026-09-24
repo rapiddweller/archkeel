@@ -1,3 +1,55 @@
+# Archkeel 0.7.0 — Dart layers and targets you can hold
+
+0.7.0 adds a Dart profile and turns four report-only observations into contract targets. What
+Archkeel cannot decide stays `UNKNOWN` or is refused with exit 2; it never reads PASS.
+
+## Highlights
+
+- **Dart and Flutter import graphs.** `[scan] language = "dart"` checks a package's layers from
+  its directive headers, with no Dart SDK and no new dependency. Rules that need types are
+  refused with exit 2. On `flutter/samples` the edges match the official Dart parser: 433 of 433
+  in `compass_app`, 1,183 of 1,183 across 35 packages (AD-97).
+- **Module cycles can be a target.** `no_component_cycles` takes `level: "module"` and a
+  `components` scope. A violation names the members and the imports that close the cycle. A
+  cycle that shrinks inside a baselined one counts as progress, not new debt. A package cycle
+  says whether a module cycle backs it or whether it is only a roll-up artifact (AD-98).
+- **Facade and coupling budgets.** `facade_budgets` and `coupling_budgets` set a target for a
+  facade's exported names or a component pair's imported names. The baseline records the
+  accepted names, so a new name fails by name and freed room cannot be reused silently (AD-99).
+- **Unresolved calls are named.** A `calls_unresolved` rise in `check` or
+  `validate --against <ref>` lists the added and removed call sites. `report --only calls` lists
+  every unresolved and partially resolved call with its component (AD-100).
+- **Tests can be a second scope.** `--config` selects a second configuration at the same root,
+  for example a test contract next to the product one. Results name the roots they read, so a
+  green product scan no longer suggests that tests were checked (AD-101).
+
+## Compatibility
+
+- Analyzer version moves from `0.47.0` to `0.50.0`. Earlier observations are not comparable.
+- The baseline writer moves to schema `1.3.0` for keyed budget names; the reader still accepts
+  `1.0.0` to `1.2.0`.
+- Contract schema stays `2.1.0`. New fields and declarations are optional; existing contracts
+  keep their canonical bytes and amendment digests.
+- Result JSON gains keys that are `null` when unused: `scan_roots`, `interface_budgets`,
+  `unresolved_call_changes`, `unresolved_call_note` and `filtered_calls`.
+- The Dart profile refuses `symbol_placement`, `boundary_types`, `forbidden_construct`,
+  `context_roots`, facade and coupling budgets, budgets on scalars it does not measure, and
+  `report --only calls` with exit 2 `rule_unsupported_by_profile`.
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
+## Self-observation
+
+Archkeel parses 71 of 71 source files with 100% AST coverage. It resolves 5,355 of 6,673 calls,
+partially resolves 816 and leaves 502 unresolved: 80.25% call-resolution coverage. The self-check
+reports 0 known violations, holds its own modules acyclic and pins six coupling budgets;
+`declared_rules` stays `UNKNOWN` because 18 positions remain undecided.
+
 # Archkeel 0.6.0 — Deterministic evidence stays explicit
 
 0.6.0 narrows what Archkeel claims. Distinct possible origins stay `UNKNOWN`; multiple paths to
