@@ -325,6 +325,23 @@ def test_measurement_budget_demo_passes_clean_and_fails_on_a_rise(
     )
 
 
+def test_the_hidden_module_cycle_row_is_measured_while_the_component_rule_passes(
+    tmp_path: Path,
+) -> None:
+    """AD-98 (#129): the catalogue's PASS row really carries the module SCC it describes."""
+    variant = next(
+        item for item in CATALOG if item.id == "class-a-no-component-cycles-module-hidden"
+    )
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+
+    assert [
+        item.subjects for item in observation.records("cycles") or () if item.kind == "module_scc"
+    ] == [("shop.model.alpha", "shop.model.beta")]
+
+
 @pytest.mark.parametrize("variant", _UNIQUE_CHECK_RUNS, ids=lambda v: v.id)
 def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant: Variant) -> None:
     check = variant.check
