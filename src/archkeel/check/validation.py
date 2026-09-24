@@ -1511,7 +1511,6 @@ def _observed_result(
     *,
     baseline_new: int | None = None,
     baseline_resolved: int | None = None,
-    unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None,
 ) -> RunResult:
     """The validate result once a complete observation has produced its diagnostics.
 
@@ -1567,7 +1566,6 @@ def _observed_result(
         claims=review_claims(observation),
         violations_by_rule=counted.by_rule,
         violations_by_component_pair=counted.by_component_pair,
-        unresolved_call_changes=unresolved_call_changes,
     )
 
 
@@ -1594,9 +1592,13 @@ def _unresolved_calls_since(
         changes = unresolved_call_changes(observed.observation, observation)
         # The snapshot holds what `git archive` writes; a file it leaves out is on one side only.
         left_out = archive_excluded(root, {item.path for item in changes})
-    except (GitError, SnapshotError):
+    except (GitError, SnapshotError, RatchetError):
         return None
     return tuple(item for item in changes if item.path not in left_out)
+
+
+def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
+    return next((item.value for item in budgets if item.name == "calls_unresolved"), None)
 
 
 def _baseline_invalid(path: Path, error: Exception) -> RunResult:
@@ -2006,20 +2008,29 @@ def run_validate(
         violations if write_baseline else known,
         observed_budgets if write_baseline else known_budgets,
     )
-    # AD-100: a calls_unresolved budget names its call sites against the other revision's code.
-    call_changes = (
-        _unresolved_calls_since(root, config, analyzer, against, observation)
-        if against is not None and "calls_unresolved" in declared_budgets and not diagnostics
-        else None
-    )
     result = _observed_result(
         observation,
         diagnostics,
         (*baseline_failures, *interface_narrowings, *widening_failures),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
-        unresolved_call_changes=call_changes,
     )
+    # AD-100: a failing run whose calls_unresolved value moved from an accepted one names the
+    # call sites against the other revision's code; only such a run pays for the second scan.
+    observed_calls = _calls_unresolved(observed_budgets)
+    accepted_calls = {_calls_unresolved(known_budgets), _calls_unresolved(against_ctx.budgets)}
+    if (
+        against is not None
+        and result.exit_code == 1
+        and observed_calls is not None
+        and accepted_calls != {observed_calls}
+    ):
+        result = replace(
+            result,
+            unresolved_call_changes=_unresolved_calls_since(
+                root, config, analyzer, against, observation
+            ),
+        )
     write_baseline = write_baseline and (
         not baseline_exists or not (baseline_new or budget_new) or accept_new
     )

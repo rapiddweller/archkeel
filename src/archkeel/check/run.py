@@ -20,6 +20,7 @@ from archkeel.ir.model import (
     ObservationResult,
     RuleVerdict,
     RunResult,
+    UnresolvedCallChange,
 )
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
@@ -239,9 +240,15 @@ def run_check(
     try:
         inspect_observation(accepted)
         measurements, declared = inspect_observation(candidate)
-        call_changes = unresolved_call_changes(accepted, candidate)
     except RatchetError as error:
         return _measurement_incomplete(candidate, error)
+    # AD-100: the sites explain a regression and never decide one, so call records that do not
+    # add up leave them unnamed instead of leaving the whole check unchecked.
+    call_changes: tuple[UnresolvedCallChange, ...] | None
+    try:
+        call_changes = unresolved_call_changes(accepted, candidate)
+    except RatchetError:
+        call_changes = None
     delta = build_architecture_delta(
         accepted,
         candidate,

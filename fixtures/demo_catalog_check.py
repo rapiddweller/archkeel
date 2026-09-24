@@ -25,7 +25,7 @@ from pathlib import Path
 from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
-from archkeel.check.ports import ScanConfig
+from archkeel.check.ports import Analyzer, ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.run import run_check
 from archkeel.ir.codec import canonical_report_bytes
@@ -66,9 +66,15 @@ def _unused_host(
 
 
 def build_and_run_check(
-    tmp_path: Path, files: Mapping[str, str | None], scenario: CheckScenario
+    tmp_path: Path,
+    files: Mapping[str, str | None],
+    scenario: CheckScenario,
+    analyzer: Analyzer = observe,
 ) -> RunResult:
-    """Run the M -> B -> E -> H protocol for one scenario and return the typed check result."""
+    """Run the M -> B -> E -> H protocol for one scenario and return the typed check result.
+
+    `analyzer` observes every revision, the lock's included, so a test can hand in a variant.
+    """
     root = tmp_path / "root"
     shutil.copytree(FIXTURE_DIR, root)
     origin = tmp_path / "origin.git"
@@ -81,7 +87,7 @@ def build_and_run_check(
     _git(root, "commit", "-q", "-m", "accepted code")
     accepted_commit = _git(root, "rev-parse", "HEAD")
 
-    accepted_result = observe(
+    accepted_result = analyzer(
         root,
         roots=CONFIG.roots,
         namespace=CONFIG.namespace,
@@ -114,7 +120,7 @@ def build_and_run_check(
     shutil.copytree(root / "shop", preview / "shop")
     shutil.copyfile(root / "pyproject.toml", preview / "pyproject.toml")
     apply_overlay(preview, files)
-    planned_result = observe(
+    planned_result = analyzer(
         preview,
         roots=CONFIG.roots,
         namespace=CONFIG.namespace,
@@ -200,7 +206,7 @@ def build_and_run_check(
         host_records_path=host_path,
         environ={},
         host=_unused_host,
-        analyzer=observe,
+        analyzer=analyzer,
     )
 
 

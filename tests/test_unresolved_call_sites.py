@@ -7,6 +7,7 @@ import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 from rich.console import Console
@@ -19,10 +20,12 @@ from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.ir.measurements import MeasurementBudget
-from archkeel.ir.model import Observation, RunResult, UnresolvedCallChange
+from archkeel.ir.model import Observation, ObservationResult, RunResult, UnresolvedCallChange
 from archkeel.render.html import render_architecture_html
 from archkeel.render.summary import report_summary
 from archkeel.render.terminal import print_result
+from fixtures.demo_catalog_check import build_and_run_check
+from fixtures.demo_catalog_check_regressions import VARIANTS as CHECK_REGRESSIONS
 
 _PROBE_PATH = "shop/app/probe_unresolved.py"
 _CALLER = "shop.app.probe_unresolved.probe"
@@ -188,6 +191,58 @@ def test_files_the_archive_leaves_out_are_not_named_as_added(tmp_path: Path) -> 
 
     assert result.failures == ("measurement budget exceeded in calls_unresolved: 10->11",)
     assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_a_passing_validate_against_does_not_scan_the_old_revision(tmp_path: Path) -> None:
+    """The second scan costs a whole observation, so only a failing run pays it."""
+    root, base, baseline = _against_repo(tmp_path, "calls_unresolved")
+    (root / _PROBE_PATH).unlink()
+    scans: list[Path] = []
+
+    def counting(source_root: Path, **options: Any) -> ObservationResult:
+        scans.append(source_root)
+        return observe(source_root, **options)
+
+    result, _ = run_validate(root, CONFIG, counting, baseline=baseline, against=base)
+
+    assert (result.exit_code, result.unresolved_call_changes, len(scans)) == (0, None, 1)
+
+
+def _miscounted(source_root: Path, **options: Any) -> ObservationResult:
+    """The analyzer with one resolved call recounted as unresolved: the call records no longer
+    add up to the coverage counts, while the counts themselves stay consistent."""
+    observed = observe(source_root, **options)
+    assert observed.observation is not None and observed.coverage is not None
+    coverage = replace(
+        observed.coverage,
+        calls_resolved=observed.coverage.calls_resolved - 1,
+        calls_unresolved=observed.coverage.calls_unresolved + 1,
+    )
+    return ObservationResult(
+        replace(observed.observation, coverage=coverage), coverage, observed.diagnostics
+    )
+
+
+def test_call_rows_that_do_not_add_up_leave_validate_sites_unnamed(tmp_path: Path) -> None:
+    """The sites explain a finding and never decide one: the budget failure stays as it is."""
+    root, base, baseline = _against_repo(tmp_path, "calls_unresolved")
+
+    result, _ = run_validate(root, CONFIG, _miscounted, baseline=baseline, against=base)
+
+    assert result.exit_code == 1
+    assert result.failures == ("measurement budget exceeded in calls_unresolved: 7->9",)
+    assert result.unresolved_call_changes is None
+
+
+def test_call_rows_that_do_not_add_up_leave_check_sites_unnamed(tmp_path: Path) -> None:
+    row = next(item for item in CHECK_REGRESSIONS if item.item == "SCALARS:calls_unresolved")
+    assert row.check is not None
+
+    result = build_and_run_check(tmp_path, row.files, row.check.scenario, analyzer=_miscounted)
+
+    assert result.exit_code == 1
+    assert "regression check failed in calls_unresolved: 8->9" in result.failures
+    assert result.unresolved_call_changes is None
 
 
 def _terminal(result: RunResult) -> str:
