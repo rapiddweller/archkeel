@@ -351,6 +351,19 @@ def test_a_removed_call_under_an_ignored_path_is_still_named(tmp_path: Path) -> 
     )
 
 
+def test_a_file_name_git_cannot_decode_never_decides_the_run(tmp_path: Path) -> None:
+    """A name that is not UTF-8 is a Git listing the comparison cannot read, not a crash."""
+    root, base, baseline = _budget_repo(tmp_path, {}, 7)
+    (root / os.fsdecode(b"docs-caf\xe9.txt")).write_text("notes\n")
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert (result.exit_code, result.failures) == (1, (_exceeded("7->8"),))
+    assert result.unresolved_call_changes is None
+    assert result.unresolved_call_note == _UNCOMPARED_NOTE
+
+
 def test_a_passing_validate_against_does_not_scan_the_old_revision(tmp_path: Path) -> None:
     """The second scan costs a whole observation, so only a failing run pays it."""
     root, base, baseline = _against_repo(tmp_path, "calls_unresolved")

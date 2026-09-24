@@ -46,7 +46,11 @@ def read_blob(root: Path, revision: str, path: str) -> bytes:
 
 
 def _listed_paths(root: Path, *args: str) -> frozenset[str]:
-    listed: str = str(git_bytes(root, *args), "utf-8")
+    try:
+        listed: str = str(git_bytes(root, *args), "utf-8")
+    except UnicodeDecodeError as error:
+        # A path no reader can match is missing evidence, the same as a failed Git call.
+        raise GitError(f"Git listed a path that is not UTF-8: {' '.join(args[:2])}") from error
     return frozenset(path for path in listed.split("\0") if path)
 
 
