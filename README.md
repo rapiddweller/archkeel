@@ -142,6 +142,9 @@ regression check failed in calls_unresolved: 0->1
 regression check failed in unresolved_ratio: 0/2->1/1
 ```
 
+The same result names the call behind the count in `unresolved_call_changes`: `handlers[key]`
+in `sample.work.run` at `sample/work.py:9`, reason `expression is dynamic` (AD-100).
+
 Archkeel compares raw measurements as well as finding counts and fingerprints.
 The ratio check uses integer cross-multiplication, never rounded percentages:
 
@@ -285,7 +288,8 @@ to day — gating CI, keeping the target from widening, working the backlog down
 The contract may also select deterministic scalars under `declarations.measurement_budgets`.
 Baseline schema 1.2 stores their accepted values. A rise fails; a fall must be written back.
 Archkeel uses this itself for cycle edges, private crossings, typing positions, unresolved calls
-and untyped private accesses (AD-89).
+and untyped private accesses (AD-89). With `--against <ref>`, a `calls_unresolved` change names
+its call sites (AD-100).
 
 Baseline roles, introduced in schema 1.1, also prove when a resolved importer was the last reach
 of one exact public module or symbol. `validate --baseline` reports the resolved violation,

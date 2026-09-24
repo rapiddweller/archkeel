@@ -136,6 +136,8 @@ the write unless `--accept-new` is explicit. It writes nothing from a run that e
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
 declaration carries provenance. A selected value must equal the baseline: a rise is new debt; a
 fall must be written back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
+The file stores values, not call sites: add `--against <ref>` to name the calls behind a
+`calls_unresolved` finding (AD-100).
 Contracts without measurement budgets behave as before. The file's shape is
 `schema/violation-baseline.schema.json`:
 
@@ -192,7 +194,9 @@ way the lock binds its own inputs - with free-text `decided_by` and `rationale`.
 written for one change does not verify against a different one. `--write-amendment`, with
 `--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
 `--amendment` file is `amendment.invalid`, exit 2; an `--against` revision or its contract that
-cannot be read is `against.invalid`, exit 2. `validate` without `--against` is unchanged. The
+cannot be read is `against.invalid`, exit 2. When the contract selects the `calls_unresolved`
+budget, `--against` also observes the code at that revision and reports
+`unresolved_call_changes` (AD-100). `validate` without `--against` is unchanged. The
 file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json):
 
@@ -340,6 +344,15 @@ checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.
 Zero total means `resolution: n/a`; the absolute regression check still applies.
 Missing or inconsistent measurements produce `UNKNOWN`; regressions return failures.
+
+`check` also names the calls behind the count. `unresolved_call_changes` holds one row per
+unresolved call whose count differs between the two observations: `change` (`added` or
+`removed`), `caller`, `expression`, `reason`, owning `component`, `path`, `lines`, `before` and
+`after`. A row is keyed by module, caller and expression, not by line, so moved code is no change;
+identical expressions in one caller form one row whose `lines` name them all, and a removed row
+names the older revision's lines. The JSON lists every row; the terminal lists at most five, and
+only on a rejected run. `report` and other `validate` runs leave the field `null`:
+`architecture.json` already holds every call with its status, reason and evidence line (AD-100).
 
 The JSON field `ratchets` and Python identifiers such as `compare_ratchets` keep their
 existing names for compatibility. Human-readable messages use "regression check".

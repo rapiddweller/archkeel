@@ -426,6 +426,8 @@ integer cross-multiplied ratios and semantic fingerprints.
 - **Blind spots:** a stable count can hide replacement of one finding by another; fingerprints
   cover supported semantic changes, not intent.
 - **Example:** reject a candidate whose unresolved call count rises from 0 to 1.
+- **Evidence:** `unresolved_call_changes` names each added or removed unresolved call by caller,
+  expression, path and lines, keyed without the line so moved code is no change (AD-100).
 
 `coverage_failures` is measured but cannot regress between two comparable observations: an
 incomplete scan produces no measurements, so the check reports NOT CHECKED instead.
@@ -435,7 +437,8 @@ incomplete scan produces no measurements, so the check reports NOT CHECKED inste
 `untyped_private_accesses` and `unknown_positions`. Baseline schema 1.2 stores their exact
 accepted values. A rise fails;
 a fall also fails until `--write-baseline` records it. Missing measurement evidence exits 2,
-never PASS (AD-89).
+never PASS (AD-89). The baseline stores values only; with the `calls_unresolved` budget,
+`--against <ref>` names the call sites behind a change (AD-100).
 
 ## Class C: declarations
 
