@@ -28,6 +28,17 @@ call result (`Repository(root).save(...)`), a receiver two attributes deep (`sel
 and an attribute of an awaited value stay unresolved. An unresolved call is not proven dynamic
 at runtime.
 
+`report --only calls --json` lists every unresolved and partially resolved call with its reason
+and owning component. A change in unresolved calls is named by file, caller and expression, not
+by line (AD-100). A renamed caller reads as one removed and one added call, a renamed or moved
+file as all of its calls removed and added, and of two identical calls in one caller the new one
+cannot be told apart: the row names both lines. `validate --against` names no site for a call
+in a new file that is git-ignored, inside a submodule, or marked `export-ignore` by the
+`--against` revision: its archive never holds such a file, and `unresolved_call_note` says so. A
+file the revision's snapshot already holds is always compared. With `--root` below the Git top
+level the revision cannot be archived, and a file name under the scan roots that is not UTF-8
+leaves Git's listing unreadable; either way the field stays `null`, with a note.
+
 ## A facade type position is not always decidable
 
 `boundary_types` reads one annotation string per parameter and return of a declared facade

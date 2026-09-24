@@ -20,6 +20,7 @@ from archkeel.ir.model import (
     ObservationResult,
     RuleVerdict,
     RunResult,
+    UnresolvedCallChange,
 )
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
@@ -41,7 +42,7 @@ from .git import (
 )
 from .ordering import check_order
 from .ports import Analyzer, Host, ScanConfig
-from .ratchets import measure_python_ratchets
+from .ratchets import calls_measured, measure_python_ratchets, unresolved_call_changes
 from .snapshot import SnapshotError, materialize_git_snapshot
 
 
@@ -117,24 +118,33 @@ def _authenticate_inputs(
     return lock, lock_bytes, expectation
 
 
-def _observe_snapshot(
+def observe_revision(
     analyzer: Analyzer,
     root: Path,
-    commit: str,
+    revision: str,
     config: ScanConfig,
-    declarations: Path,
+    *,
+    declared_at: str,
 ) -> ObservationResult:
-    """Run the analyzer against one materialized git snapshot."""
-    return analyzer(
-        root,
-        roots=config.roots,
-        namespace=config.namespace,
-        contract=config.contract,
-        git_head=commit,
-        dirty=False,
-        contract_root=declarations,
-        language=config.language,
-    )
+    """Observe one commit's scoped Python files under the declarations `declared_at` holds.
+
+    `check` observes the accepted commit and the candidate under the lock commit's
+    declarations; `validate --against` observes a revision under its own (AD-100).
+    """
+    with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
+        declarations = Path(temporary)
+        materialize_declarations(root, declared_at, config, declarations)
+        with materialize_git_snapshot(root, revision, roots=config.roots) as snapshot:
+            return analyzer(
+                snapshot.root,
+                roots=config.roots,
+                namespace=config.namespace,
+                contract=config.contract,
+                git_head=snapshot.git_head,
+                dirty=False,
+                contract_root=declarations,
+                language=config.language,
+            )
 
 
 def _incomplete(result: ObservationResult) -> RunResult:
@@ -213,27 +223,22 @@ def run_check(
     ordering_failures = check_order(
         host_records, expectation_sha=expectation_commit, candidate_sha=head
     )
-    with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
-        declarations = Path(temporary)
-        materialize_declarations(root, baseline, config, declarations)
-        with materialize_git_snapshot(root, lock.accepted_commit, roots=config.roots) as before:
-            accepted_result = _observe_snapshot(
-                analyzer, before.root, lock.accepted_commit, config, declarations
-            )
-        accepted = accepted_result.observation
-        if accepted_result.diagnostics or accepted is None:
-            return _incomplete(accepted_result)
-        try:
-            accepted_measurements = measure_python_ratchets(accepted)
-        except RatchetError as error:
-            return _measurement_incomplete(accepted, error)
-        verify_observation(
-            lock,
-            observation_digest=sha256_bytes(canonical_report_bytes(accepted)),
-            measurements=accepted_measurements,
-        )
-        with materialize_git_snapshot(root, head, roots=config.roots) as after:
-            candidate_result = _observe_snapshot(analyzer, after.root, head, config, declarations)
+    accepted_result = observe_revision(
+        analyzer, root, lock.accepted_commit, config, declared_at=baseline
+    )
+    accepted = accepted_result.observation
+    if accepted_result.diagnostics or accepted is None:
+        return _incomplete(accepted_result)
+    try:
+        accepted_measurements = measure_python_ratchets(accepted)
+    except RatchetError as error:
+        return _measurement_incomplete(accepted, error)
+    verify_observation(
+        lock,
+        observation_digest=sha256_bytes(canonical_report_bytes(accepted)),
+        measurements=accepted_measurements,
+    )
+    candidate_result = observe_revision(analyzer, root, head, config, declared_at=baseline)
     candidate = candidate_result.observation
     if candidate_result.diagnostics or candidate is None:
         return _incomplete(candidate_result)
@@ -242,6 +247,18 @@ def run_check(
         measurements, declared = inspect_observation(candidate)
     except RatchetError as error:
         return _measurement_incomplete(candidate, error)
+    # AD-100: the sites explain a regression and never decide one, so call records that do not
+    # add up leave them unnamed instead of leaving the whole check unchecked.
+    call_changes: tuple[UnresolvedCallChange, ...] | None = None
+    call_note = None
+    try:
+        # AD-97: a profile that does not measure calls compares none, rather than claiming none.
+        if calls_measured(candidate):
+            call_changes = unresolved_call_changes(accepted, candidate)
+    except RatchetError:
+        call_note = (
+            "the call records do not add up to the coverage counts, so no call site is named"
+        )
     delta = build_architecture_delta(
         accepted,
         candidate,
@@ -268,4 +285,6 @@ def run_check(
         provenance=CheckProvenance(
             baseline, expectation_commit, head, sha256_bytes(lock_bytes), expected_digest
         ),
+        unresolved_call_changes=call_changes,
+        unresolved_call_note=call_note,
     )

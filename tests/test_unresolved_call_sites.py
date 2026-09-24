@@ -1,0 +1,693 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""AD-100: a change in unresolved calls names the call sites behind the count (#131)."""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+from dataclasses import replace
+from pathlib import Path
+from typing import Any
+
+import pytest
+from rich.console import Console
+from test_architecture_demo import CONFIG, _prepare_repo
+from test_measurement_budgets import _baseline, _contract_with_budgets
+
+from archkeel.analyzer import observe
+from archkeel.check import validation
+from archkeel.check.ratchets import calls_measured, unresolved_call_changes
+from archkeel.check.report import run_report
+from archkeel.check.validation import run_validate
+from archkeel.cli import main
+from archkeel.ir.measurements import MeasurementBudget
+from archkeel.ir.model import Observation, ObservationResult, RunResult, UnresolvedCallChange
+from archkeel.render.html import render_architecture_html
+from archkeel.render.summary import report_summary
+from archkeel.render.terminal import print_result
+from fixtures.architecture_demo import CATALOG
+from fixtures.demo_catalog_check import build_and_run_check
+from fixtures.demo_catalog_check_regressions import VARIANTS as CHECK_REGRESSIONS
+
+_PROBE_PATH = "shop/app/probe_unresolved.py"
+_ONE_SIDED_NOTE = (
+    "added calls in files only the working tree holds (git-ignored, inside a submodule, or "
+    "export-ignore at the --against revision) are not named"
+)
+_STALE_NOTE = (
+    "no unresolved call differs from the --against revision; the accepted value does not match "
+    "that revision's code"
+)
+_UNCOMPARED_NOTE = "the --against revision's calls could not be compared, so no call site is named"
+_CALLER = "shop.app.probe_unresolved.probe"
+_UNBOUND = "name has no statically indexed binding"
+
+
+def _probe(*body: str) -> str:
+    return "def probe() -> None:\n" + "".join(f"    {line}\n" for line in body)
+
+
+def _observe(root: Path, files: dict[str, str]) -> Observation:
+    for relative, content in files.items():
+        (root / relative).write_text(content)
+    observed = observe(
+        root,
+        roots=CONFIG.roots,
+        namespace=CONFIG.namespace,
+        contract=CONFIG.contract,
+        git_head="0" * 40,
+        dirty=False,
+        contract_root=root,
+    )
+    assert observed.observation is not None, observed.diagnostics
+    return observed.observation
+
+
+def _exceeded(values: str, *, hint: bool = False) -> str:
+    # The baseline stores the value alone; without --against the finding says which flag names
+    # the sites, with it the sites themselves follow.
+    finding = f"measurement budget exceeded in calls_unresolved: {values}"
+    return f"{finding}; validate --against <ref> names the call sites" if hint else finding
+
+
+def _added(lines: tuple[int, ...], before: int = 0, after: int = 1) -> UnresolvedCallChange:
+    return UnresolvedCallChange(
+        "added", _CALLER, "_unbound_probe", _UNBOUND, "app", _PROBE_PATH, lines, before, after
+    )
+
+
+def test_an_added_unresolved_call_names_its_caller_line_reason_and_component(
+    tmp_path: Path,
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+    before = _observe(root, {})
+    after = _observe(root, {_PROBE_PATH: _probe("_unbound_probe()")})
+
+    assert unresolved_call_changes(before, after) == (_added((2,)),)
+    assert unresolved_call_changes(after, before) == (
+        replace(_added((2,)), change="removed", before=1, after=0),
+    )
+
+
+def test_moving_an_unresolved_call_adds_and_removes_nothing(tmp_path: Path) -> None:
+    root = _prepare_repo(tmp_path, {})
+    before = _observe(root, {_PROBE_PATH: _probe("_unbound_probe()")})
+    moved = _observe(root, {_PROBE_PATH: "\n\n\n" + _probe("VALUE = 1", "_unbound_probe()")})
+
+    assert unresolved_call_changes(before, moved) == ()
+
+
+def test_identical_calls_in_one_caller_are_counted_not_told_apart(tmp_path: Path) -> None:
+    """Which of two identical calls is new is undecidable, so both lines are named."""
+    root = _prepare_repo(tmp_path, {})
+    before = _observe(root, {_PROBE_PATH: _probe("_unbound_probe()")})
+    after = _observe(root, {_PROBE_PATH: _probe("_unbound_probe()", "_unbound_probe()")})
+
+    assert unresolved_call_changes(before, after) == (_added((2, 3), 1, 2),)
+
+
+def _against_repo(
+    tmp_path: Path, *budgets: str, base_files: dict[str, str] | None = None
+) -> tuple[Path, str, Path]:
+    root = _prepare_repo(
+        tmp_path / "repo",
+        {"architecture-contract.json": _contract_with_budgets(*budgets), **(base_files or {})},
+    )
+    baseline = _baseline(root, MeasurementBudget("calls_unresolved", 7))
+    for args in (["add", "-A"], ["-c", "commit.gpgsign=false", "commit", "-q", "-m", "baseline"]):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+    return root, base, baseline
+
+
+def test_validate_against_names_the_call_behind_a_calls_unresolved_rise(tmp_path: Path) -> None:
+    root, base, baseline = _against_repo(tmp_path, "calls_unresolved")
+
+    result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+    assert result.unresolved_call_note is None
+    # Without --against there is no second revision to name the site from.
+    alone, _ = run_validate(root, CONFIG, observe, baseline=baseline)
+    assert alone.failures == (_exceeded("7->8", hint=True),)
+    assert alone.unresolved_call_changes is None
+
+
+def test_validate_against_compares_calls_only_under_a_calls_unresolved_budget(
+    tmp_path: Path,
+) -> None:
+    root, base, _ = _against_repo(tmp_path)
+
+    result, _ = run_validate(root, CONFIG, observe, against=base)
+
+    assert result.unresolved_call_changes is None
+
+
+def test_an_unobservable_against_revision_leaves_the_sites_unnamed_not_the_finding(
+    tmp_path: Path,
+) -> None:
+    """The sites explain a finding; a revision that cannot be scanned never decides one."""
+    broken = "shop/app/broken.py"
+    root, base, baseline = _against_repo(
+        tmp_path, "calls_unresolved", base_files={broken: "def broken(:\n"}
+    )
+    (root / broken).unlink()
+
+    result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes is None
+    assert result.unresolved_call_note == _UNCOMPARED_NOTE
+    assert f"Unresolved call sites: {_UNCOMPARED_NOTE}" in _terminal(result)
+
+
+def test_validate_against_scans_the_old_revision_under_its_own_contract(tmp_path: Path) -> None:
+    """A rule naming a module only the new code has would leave the old scan without subjects
+    under today's contract, and the sites would silently vanish (review of #146)."""
+    root, base, baseline = _against_repo(tmp_path, "calls_unresolved")
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["rules"].append(
+        {
+            "id": "DEP-PROBE-NO-CLI",
+            "kind": "forbidden_dependency",
+            "source": "shop.app.probe_unresolved",
+            "target": "shop.cli",
+            "include_type_checking": True,
+            "rationale": "The probe stays independent of command-line composition.",
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    contract_path.write_text(json.dumps(contract, indent=2) + "\n")
+
+    result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def _git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "-c", "protocol.file.allow=always", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _budget_repo(tmp_path: Path, files: dict[str, str], unresolved: int) -> tuple[Path, str, Path]:
+    """The shop sample plus `files`, with a committed baseline pinning `unresolved`."""
+    root = _prepare_repo(
+        tmp_path / "repo",
+        {"architecture-contract.json": _contract_with_budgets("calls_unresolved"), **files},
+    )
+    baseline = _baseline(root, MeasurementBudget("calls_unresolved", unresolved))
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "baseline")
+    return root, _git(root, "rev-parse", "HEAD"), baseline
+
+
+def _against(root: Path, base: str, baseline: Path) -> RunResult:
+    return run_validate(root, CONFIG, observe, baseline=baseline, against=base)[0]
+
+
+_GENERATED = "shop/app/generated_pb.py"
+_VENDORED = "shop/app/vendor/lib.py"
+
+
+def test_a_git_ignored_new_file_is_not_named_but_a_real_call_is(tmp_path: Path) -> None:
+    """`git archive` never writes an untracked ignored file, so the old scan cannot see it."""
+    root, base, baseline = _budget_repo(tmp_path, {".gitignore": "shop/app/generated_*.py\n"}, 7)
+    (root / _GENERATED).write_text(_probe("_generated_a()", "_generated_b()"))
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("7->10"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_a_rise_carried_only_by_an_ignored_file_names_no_site(tmp_path: Path) -> None:
+    root, base, baseline = _budget_repo(tmp_path, {".gitignore": "shop/app/generated_*.py\n"}, 7)
+    (root / _GENERATED).write_text(_probe("_generated_a()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == ()
+    # Not silence: the terminal says why no site is named.
+    assert result.unresolved_call_note == _ONE_SIDED_NOTE
+    assert f"Unresolved call sites: {_ONE_SIDED_NOTE}" in _terminal(result)
+
+
+def test_a_folder_the_revision_exports_ignored_is_not_named(tmp_path: Path) -> None:
+    """Git applies export-ignore to a whole folder; a per-file attribute query never sees it."""
+    root, base, baseline = _budget_repo(
+        tmp_path,
+        {
+            ".gitattributes": "shop/app/vendor export-ignore\n",
+            "shop/app/vendor/__init__.py": "",
+            _VENDORED: _probe("_vendored()"),
+        },
+        8,
+    )
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_the_revisions_own_export_ignore_decides_not_the_working_tree(tmp_path: Path) -> None:
+    """Newly marking a tracked file export-ignore must not hide the call added to it."""
+    exported = "shop/app/exported_vendor.py"
+    root, base, baseline = _budget_repo(tmp_path, {exported: _probe("pass")}, 7)
+    (root / ".gitattributes").write_text(f"{exported} export-ignore\n")
+    (root / exported).write_text(_probe("_exported_call()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == (
+        replace(
+            _added((2,)),
+            caller="shop.app.exported_vendor.probe",
+            expression="_exported_call",
+            path=exported,
+        ),
+    )
+
+
+def test_a_file_the_revision_exported_ignored_is_not_named_once_unmarked(tmp_path: Path) -> None:
+    """The reverse: the revision's archive left the file out, so its calls are on one side."""
+    exported = "shop/app/exported_vendor.py"
+    root, base, baseline = _budget_repo(
+        tmp_path,
+        {".gitattributes": f"{exported} export-ignore\n", exported: _probe("_exported_call()")},
+        8,
+    )
+    (root / ".gitattributes").write_text("*.png binary\n")
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_a_submodule_under_the_roots_is_not_named(tmp_path: Path) -> None:
+    """The archive never writes a submodule's files; asking Git about them must not fail."""
+    library = tmp_path / "library"
+    library.mkdir()
+    _git(library, "init", "-q", "-b", "main")
+    (library / "lib.py").write_text(_probe("_vendored()"))
+    _git(library, "add", "-A")
+    _git(
+        library,
+        "-c",
+        "user.email=demo@example.invalid",
+        "-c",
+        "user.name=Demo",
+        "commit",
+        "-q",
+        "-m",
+        "lib",
+    )
+    root, base, baseline = _budget_repo(tmp_path, {}, 8)
+    _git(root, "submodule", "add", "-q", str(library), "shop/app/vendor")
+    _git(root, "commit", "-q", "-m", "vendor")
+    base = _git(root, "rev-parse", "HEAD")
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
+def test_a_removed_call_under_an_ignored_path_is_still_named(tmp_path: Path) -> None:
+    """The working tree is read from disk, so a removed row is always a real change."""
+    generated = "shop/app/generated_old.py"
+    root, base, baseline = _budget_repo(tmp_path, {generated: _probe("_generated_old()")}, 8)
+    (root / ".gitignore").write_text("shop/app/generated_*.py\n")
+    _git(root, "rm", "-q", generated)
+
+    result = _against(root, base, baseline)
+
+    assert result.unresolved_call_changes == (
+        UnresolvedCallChange(
+            "removed",
+            "shop.app.generated_old.probe",
+            "_generated_old",
+            _UNBOUND,
+            "app",
+            generated,
+            (2,),
+            1,
+            0,
+        ),
+    )
+
+
+def test_a_file_name_git_cannot_decode_never_decides_the_run(tmp_path: Path) -> None:
+    """A name that is not UTF-8 is a Git listing the comparison cannot read, not a crash; the
+    listing covers the scan roots only, so one outside them costs nothing."""
+    root, base, baseline = _budget_repo(tmp_path, {}, 7)
+    (root / os.fsdecode(b"docs-caf\xe9.txt")).write_text("notes\n")
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()"))
+
+    outside = _against(root, base, baseline)
+    (root / os.fsdecode(b"shop/app/notes-caf\xe9.txt")).write_text("notes\n")
+    inside = _against(root, base, baseline)
+
+    assert outside.failures == inside.failures == (_exceeded("7->8"),)
+    assert outside.unresolved_call_changes == (_added((2,)),)
+    assert (inside.exit_code, inside.unresolved_call_changes) == (1, None)
+    assert inside.unresolved_call_note == _UNCOMPARED_NOTE
+
+
+def test_a_file_the_revision_archived_is_always_compared(tmp_path: Path) -> None:
+    """Untracking and ignoring a file the old snapshot holds must not hide a call added to it."""
+    generated = "shop/app/generated_old.py"
+    root, base, baseline = _budget_repo(tmp_path, {generated: _probe("_generated_old()")}, 8)
+    (root / ".gitignore").write_text("shop/app/generated_*.py\n")
+    _git(root, "rm", "-q", "--cached", generated)
+    (root / generated).write_text(_probe("_generated_old()", "_generated_new()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (
+        UnresolvedCallChange(
+            "added",
+            "shop.app.generated_old.probe",
+            "_generated_new",
+            _UNBOUND,
+            "app",
+            generated,
+            (3,),
+            0,
+            1,
+        ),
+    )
+    assert result.unresolved_call_note is None
+
+
+def test_a_new_call_in_an_archived_file_asks_git_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only a file the old snapshot lacks needs Git's listings; an existing one never does."""
+    root, base, baseline = _budget_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")}, 8)
+    (root / _PROBE_PATH).write_text(_probe("_unbound_probe()", "_unbound_probe()"))
+
+    def no_listing(*args: object) -> frozenset[str]:
+        raise AssertionError(f"unexpected Git listing {args}")
+
+    monkeypatch.setattr(validation, "working_tree_paths", no_listing)
+    monkeypatch.setattr(validation, "tracked_paths", no_listing)
+
+    result = _against(root, base, baseline)
+
+    assert result.unresolved_call_changes == (_added((2, 3), 1, 2),)
+
+
+def test_calls_left_out_are_noted_beside_the_calls_named(tmp_path: Path) -> None:
+    """The note follows what was dropped, not whether the list happens to be empty."""
+    legacy = "shop/app/legacy.py"
+    root, base, baseline = _budget_repo(
+        tmp_path,
+        {".gitignore": "shop/app/generated_*.py\n", legacy: _probe("_legacy()")},
+        8,
+    )
+    (root / legacy).write_text(_probe("VALUE = 1"))
+    (root / _GENERATED).write_text(_probe("_generated_a()", "_generated_b()"))
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("8->9"),)
+    assert result.unresolved_call_changes == (
+        UnresolvedCallChange(
+            "removed", "shop.app.legacy.probe", "_legacy", _UNBOUND, "app", legacy, (2,), 1, 0
+        ),
+    )
+    assert result.unresolved_call_note == _ONE_SIDED_NOTE
+    shown = _terminal(result)
+    assert "Unresolved call sites: 0 added, 1 removed" in shown
+    assert f"  {_ONE_SIDED_NOTE}" in shown
+
+
+def test_a_baseline_that_does_not_match_the_revision_is_named_as_such(tmp_path: Path) -> None:
+    """Nothing differs from the revision's code, so no ignored file is to blame."""
+    root, base, baseline = _budget_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")}, 7)
+
+    result = _against(root, base, baseline)
+
+    assert result.failures == (_exceeded("7->8"),)
+    assert result.unresolved_call_changes == ()
+    assert result.unresolved_call_note == _STALE_NOTE
+
+
+def test_a_passing_validate_against_does_not_scan_the_old_revision(tmp_path: Path) -> None:
+    """The second scan costs a whole observation, so only a failing run pays it."""
+    root, base, baseline = _against_repo(tmp_path, "calls_unresolved")
+    (root / _PROBE_PATH).unlink()
+    scans: list[Path] = []
+
+    def counting(source_root: Path, **options: Any) -> ObservationResult:
+        scans.append(source_root)
+        return observe(source_root, **options)
+
+    result, _ = run_validate(root, CONFIG, counting, baseline=baseline, against=base)
+
+    assert (result.exit_code, result.unresolved_call_changes, len(scans)) == (0, None, 1)
+
+
+def _miscounted(source_root: Path, **options: Any) -> ObservationResult:
+    """The analyzer with one resolved call recounted as unresolved: the call records no longer
+    add up to the coverage counts, while the counts themselves stay consistent."""
+    observed = observe(source_root, **options)
+    assert observed.observation is not None and observed.coverage is not None
+    coverage = replace(
+        observed.coverage,
+        calls_resolved=observed.coverage.calls_resolved - 1,
+        calls_unresolved=observed.coverage.calls_unresolved + 1,
+    )
+    return ObservationResult(
+        replace(observed.observation, coverage=coverage), coverage, observed.diagnostics
+    )
+
+
+def test_call_rows_that_do_not_add_up_leave_validate_sites_unnamed(tmp_path: Path) -> None:
+    """The sites explain a finding and never decide one: the budget failure stays as it is."""
+    root, base, baseline = _against_repo(tmp_path, "calls_unresolved")
+
+    result, _ = run_validate(root, CONFIG, _miscounted, baseline=baseline, against=base)
+
+    assert result.exit_code == 1
+    assert result.failures == (_exceeded("7->9"),)
+    assert result.unresolved_call_changes is None
+
+
+def test_call_rows_that_do_not_add_up_leave_check_sites_unnamed(tmp_path: Path) -> None:
+    row = next(item for item in CHECK_REGRESSIONS if item.item == "SCALARS:calls_unresolved")
+    assert row.check is not None
+
+    result = build_and_run_check(tmp_path, row.files, row.check.scenario, analyzer=_miscounted)
+
+    assert result.exit_code == 1
+    assert "regression check failed in calls_unresolved: 8->9" in result.failures
+    assert result.unresolved_call_changes is None
+    assert result.unresolved_call_note == (
+        "the call records do not add up to the coverage counts, so no call site is named"
+    )
+
+
+def _terminal(result: RunResult) -> str:
+    console = Console(record=True, width=200, color_system=None)
+    print_result(result, report_summary(result), artifacts=(), console=console)
+    return console.export_text()
+
+
+def test_terminal_names_call_sites_only_on_failure_and_caps_the_list() -> None:
+    changes = tuple(replace(_added((line,)), caller=f"{_CALLER}{line}") for line in range(1, 8))
+    failed = RunResult("validate", 1, failures=("regressed",), unresolved_call_changes=changes)
+
+    shown = _terminal(failed)
+
+    assert "Unresolved call sites: 7 added, 0 removed" in shown
+    assert f"+ {_PROBE_PATH}:1 {_CALLER}1: _unbound_probe() [app] {_UNBOUND}" in shown
+    assert f"{_CALLER}5:" in shown and f"{_CALLER}6:" not in shown
+    assert "+2 more in the JSON result's unresolved_call_changes" in shown
+    assert "Unresolved call sites" not in _terminal(replace(failed, exit_code=0, failures=()))
+
+
+def _cli(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, dict[str, object]]:
+    code = main(list(args))
+    return code, json.loads(capsys.readouterr().out)
+
+
+_PROBE_ROW = {
+    "caller": _CALLER,
+    "component": "app",
+    "expression": "_unbound_probe",
+    "line": 2,
+    "path": _PROBE_PATH,
+    "reason": _UNBOUND,
+    "status": "unresolved",
+}
+
+
+def test_report_only_calls_lists_every_unresolved_and_partially_resolved_call(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Issue #131, first bullet: opt-in, so the default result keeps its size (AD-100)."""
+    root = _prepare_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")})
+
+    code, result = _cli(capsys, "report", "--root", str(root), "--only", "calls", "--json")
+
+    assert code == 0
+    rows = result["filtered_calls"]
+    coverage = result["coverage"]
+    assert isinstance(rows, list) and isinstance(coverage, dict)
+    assert len(rows) == coverage["calls_unresolved"] + coverage["calls_partially_resolved"]
+    assert {row["status"] for row in rows} == {"unresolved", "partially_resolved"}
+    assert _PROBE_ROW in rows
+    assert rows == sorted(
+        rows, key=lambda row: (row["path"], row["line"], row["caller"], row["expression"])
+    )
+    assert result["report_filter"] == {
+        "only_violations": False,
+        "rule": None,
+        "component": None,
+        "only_calls": True,
+    }
+    assert result["filtered_violations"] is None
+
+
+def test_report_only_calls_honours_component_and_rejects_rule(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _prepare_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")})
+    only_calls = ("report", "--root", str(root), "--only", "calls")
+
+    code, result = _cli(capsys, *only_calls, "--component", "app", "--json")
+    assert code == 0
+    rows = result["filtered_calls"]
+    assert isinstance(rows, list) and _PROBE_ROW in rows
+    assert {row["component"] for row in rows} == {"app"}
+
+    code, result = _cli(capsys, *only_calls, "--component", "nowhere", "--json")
+    assert code == 2
+    assert result["diagnostics"][0]["kind"] == "filter_unknown"  # type: ignore[index]
+
+    # A call cites no rule, so --rule has nothing to narrow: refused like any flag conflict.
+    code, result = _cli(capsys, *only_calls, "--rule", "DEP-STORE-NO-MONEY", "--json")
+    assert code == 2
+    assert result["diagnostics"][0]["unknown_claim"].endswith(  # type: ignore[index]
+        "--rule narrows violations; --only calls lists calls, which cite no rule"
+    )
+
+
+def test_default_report_json_carries_no_call_list(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Present and null, the way every optional result field reads when unused (AD-60)."""
+    root = _prepare_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")})
+
+    code, result = _cli(capsys, "report", "--root", str(root), "--json")
+
+    assert code == 0
+    assert result["filtered_calls"] is None
+    assert result["unresolved_call_changes"] is None
+
+
+def test_only_calls_page_shows_the_call_table_instead_of_the_other_sections(
+    tmp_path: Path,
+) -> None:
+    # The tour's violations make the report FAIL, the case whose failure text named the table.
+    tour = next(variant for variant in CATALOG if variant.id == "tour")
+    root = _prepare_repo(tmp_path, {**tour.files, _PROBE_PATH: _probe("_unbound_probe()")})
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe, only_calls=True)
+    assert architecture is not None and result.filtered_calls is not None
+    assert result.declared_rules == "FAIL"
+
+    page = render_architecture_html(
+        result, architecture, repository="shop", architecture_href="architecture.json"
+    ).decode()
+
+    assert "Unresolved and partially resolved calls" in page
+    assert f"<code>{_PROBE_PATH}:2</code>" in page
+    assert "Declared-rule violations" not in page
+    assert "see declared-rule violations below" not in page
+    assert "--only calls hides the declared-rule violations" in page
+    assert "Component flow" not in page
+    listed = len(result.filtered_calls)
+    assert (
+        f"Filtered (only calls): {listed} unresolved or partially resolved call(s) listed."
+        in report_summary(result).sentence
+    )
+
+
+def test_report_help_says_component_narrows_violations_or_calls() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "archkeel.cli", "report", "--help"],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "COLUMNS": "200"},
+    )
+
+    words = " ".join(result.stdout.split())
+    assert "Narrow the violations, or with --only calls the calls," in words
+
+
+def test_a_dart_scan_refuses_to_list_calls_it_never_measured(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-97: the Dart profile does not measure calls, so an empty list would claim a count it
+    never took; --only calls is refused the way an unsupported rule is (exit 2)."""
+    root = tmp_path / "dart"
+    shutil.copytree(Path(__file__).parents[1] / "fixtures/G-dart", root)
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "add", "-A")
+    _git(
+        root,
+        "-c",
+        "user.email=d@example.invalid",
+        "-c",
+        "user.name=D",
+        "commit",
+        "-q",
+        "-m",
+        "dart",
+    )
+
+    code, result = _cli(capsys, "report", "--root", str(root), "--only", "calls", "--json")
+    plain_code, plain = _cli(capsys, "report", "--root", str(root), "--json")
+
+    assert code == 2
+    (diagnostic,) = result["diagnostics"]  # type: ignore[misc]
+    assert diagnostic["kind"] == "rule_unsupported_by_profile"
+    assert diagnostic["subject"] == "--only calls"
+    assert result["filtered_calls"] is None
+    # Without the flag the report runs, and neither call field claims anything.
+    assert plain_code == 0
+    assert (plain["filtered_calls"], plain["unresolved_call_changes"]) == (None, None)
+    observed = observe(
+        root,
+        roots=("lib",),
+        namespace="shop",
+        contract="architecture-contract.json",
+        git_head="0" * 40,
+        dirty=False,
+        contract_root=root,
+        language="dart",
+    ).observation
+    assert observed is not None and not calls_measured(observed)

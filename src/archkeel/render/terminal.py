@@ -111,8 +111,8 @@ def print_result(
         output.print(regressions)
     if result.failures:
         output.print(Text("Failures", style="bold"))
-        for failure in result.failures:
-            output.print(Text(f"  • {failure}"))
+        for line in (*(f"• {failure}" for failure in result.failures), *summary.call_sites):
+            output.print(Text(f"  {line}"))
     for diagnostic in result.diagnostics:
         output.print(_diagnostic(diagnostic))
     for path in artifacts:

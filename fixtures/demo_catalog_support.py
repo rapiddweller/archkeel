@@ -45,6 +45,8 @@ class CheckExpectation:
     host_order: Literal["PASS", "FAIL"]
     regressed_scalars: tuple[str, ...] = ()
     regressed_dimensions: tuple[str, ...] = ()
+    # AD-100: (change, path, lines, expression) of each unresolved call whose count differs.
+    unresolved_calls: tuple[tuple[str, str, tuple[int, ...], str], ...] = ()
 
 
 # Named after what the scenario demonstrates about --against (AD-61, #11): the two-revision

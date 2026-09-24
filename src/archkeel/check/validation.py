@@ -72,6 +72,7 @@ from archkeel.ir.model import (
     RunResult,
     SiblingIsolationRule,
     SymbolPlacementRule,
+    UnresolvedCallChange,
     contract_relative_path,
     in_scope,
     text_value,
@@ -85,11 +86,12 @@ from archkeel.ir.widening import (
     verify_amendment,
 )
 
-from .git import GitError, read_blob
+from .git import GitError, read_blob, tracked_paths, working_tree_paths
 from .ports import Analyzer, FilesToWrite, ScanConfig
-from .ratchets import measure_python_ratchets
+from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
-from .run import inspect_observation
+from .run import inspect_observation, observe_revision
+from .snapshot import SnapshotError
 
 COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
 # AD-57: a second, independent marker for the graph the contract permits, beside the one
@@ -1694,6 +1696,70 @@ def _observed_result(
     )
 
 
+_UNCOMPARED = "the --against revision's calls could not be compared, so no call site is named"
+_ONE_SIDED = (
+    "added calls in files only the working tree holds (git-ignored, inside a submodule, or "
+    "export-ignore at the --against revision) are not named"
+)
+_NOTHING_DIFFERS = (
+    "no unresolved call differs from the --against revision; the accepted value does not match "
+    "that revision's code"
+)
+
+
+def _unresolved_calls_since(
+    root: Path, config: ScanConfig, analyzer: Analyzer, against: str, observation: Observation
+) -> tuple[tuple[UnresolvedCallChange, ...] | None, str | None]:
+    """AD-100: the unresolved calls whose count differs from the code at `against`, and why
+    any of them goes unnamed.
+
+    None when that revision's source cannot be observed completely: the sites explain a
+    finding, they never decide one. The revision is scanned under its own contract, the way
+    `check` scans its accepted commit, so a rule naming a module only the new code has cannot
+    leave the old scan without subjects, and a removed call names the component it had then.
+    """
+    try:
+        observed = observe_revision(analyzer, root, against, config, declared_at=against)
+        if observed.diagnostics or observed.observation is None:
+            return None, _UNCOMPARED
+        changes = unresolved_call_changes(observed.observation, observation)
+        one_sided = _one_sided_paths(root, config, observed.observation, changes)
+    except (GitError, SnapshotError, RatchetError):
+        return None, _UNCOMPARED
+    named = tuple(
+        item for item in changes if item.change == "removed" or item.path not in one_sided
+    )
+    if len(named) < len(changes):
+        return named, _ONE_SIDED
+    return named, None if named else _NOTHING_DIFFERS
+
+
+def _one_sided_paths(
+    root: Path,
+    config: ScanConfig,
+    before: Observation,
+    changes: tuple[UnresolvedCallChange, ...],
+) -> frozenset[str]:
+    """AD-100: the added rows' files only the working-tree side can hold.
+
+    The working tree is read from disk, the revision from its `git archive` snapshot. A file the
+    snapshot holds is on both sides and always compared, and so is a removed row's. Of the rest,
+    a file outside Git's view of the working tree (ignored, or inside a submodule) is never
+    archived, and one the revision tracks was left out by its own `export-ignore`.
+    """
+    archived = {text_value(record.data.get("file")) for record in before.records("modules") or ()}
+    added = frozenset(item.path for item in changes if item.change == "added") - archived
+    if not added:
+        return frozenset()
+    tracked = tracked_paths(root, before.source.git_head, config.roots)
+    visible = working_tree_paths(root, config.roots)
+    return frozenset(path for path in added if path not in visible or path in tracked)
+
+
+def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
+    return next((item.value for item in budgets if item.name == "calls_unresolved"), None)
+
+
 def _baseline_invalid(path: Path, error: Exception) -> RunResult:
     return RunResult(
         "validate",
@@ -2108,7 +2174,11 @@ def run_validate(
     comparison = (
         compare_violations(known, violations, cycle_rules=cycle_rules) if baseline_exists else ()
     )
-    budget_comparison = compare_budgets(known_budgets, observed_budgets) if baseline_exists else ()
+    budget_comparison = (
+        compare_budgets(known_budgets, observed_budgets, against=against is not None)
+        if baseline_exists
+        else ()
+    )
     budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
     baseline_failures = (
         (*comparison, *budget_comparison)
@@ -2136,6 +2206,18 @@ def run_validate(
         baseline_resolved=baseline_resolved if baseline is not None else None,
         interface_budgets=budget_results or None,
     )
+    # AD-100: a failing run whose calls_unresolved value moved from an accepted one names the
+    # call sites against the other revision's code; only such a run pays for the second scan.
+    observed_calls = _calls_unresolved(observed_budgets)
+    accepted_calls = {_calls_unresolved(known_budgets), _calls_unresolved(against_ctx.budgets)}
+    if (
+        against is not None
+        and result.exit_code == 1
+        and observed_calls is not None
+        and accepted_calls != {observed_calls}
+    ):
+        changes, note = _unresolved_calls_since(root, config, analyzer, against, observation)
+        result = replace(result, unresolved_call_changes=changes, unresolved_call_note=note)
     write_baseline = write_baseline and (
         not baseline_exists or not (baseline_new or budget_new) or accept_new
     )

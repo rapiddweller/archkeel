@@ -129,10 +129,13 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--only",
-        choices=["violations"],
-        help="Show only the declared-rule violations table: hide component flow, component "
-        "communication, review claims and size and coupling, for a small review surface on a "
-        "large repository. --json also stops here, without those sections' data (AD-60).",
+        choices=["violations", "calls"],
+        help="violations: show only the declared-rule violations table, hiding component flow, "
+        "component communication, review claims and size and coupling, for a small review "
+        "surface on a large repository (AD-60). calls: list every unresolved and partially "
+        "resolved call with its status, caller, path, line, expression, reason and component, "
+        "as --json's filtered_calls and one HTML table; combines with --component, not --rule "
+        "(AD-100).",
     )
     report.add_argument(
         "--rule",
@@ -141,8 +144,9 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--component",
-        help="Show only violations whose crossing touches this component, as source or "
-        "target. Unknown to this contract: exit 2.",
+        help="Narrow the violations, or with --only calls the calls, to this component: a "
+        "violation whose crossing touches it as source or target, a call its modules make. "
+        "Unknown to this contract: exit 2.",
     )
 
     validate = commands.add_parser(
@@ -363,11 +367,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command == "report":
                 config = load_config(root, args.config)
                 subject = str(root)
+                if args.only == "calls" and args.rule is not None:
+                    parser.error(
+                        "--rule narrows violations; --only calls lists calls, which cite no rule"
+                    )
                 result, architecture = run_report(
                     root,
                     config=config,
                     analyzer=observe,
                     only_violations=args.only == "violations",
+                    only_calls=args.only == "calls",
                     rule=args.rule,
                     component=args.component,
                 )

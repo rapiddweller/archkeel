@@ -115,6 +115,7 @@ demo-dart`.
 | validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
 | class_c | ContractDeclarations.measurement_budgets | validation-measurement-budget-clean | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
 | validation | measurement_budget:cycle_edges | validation-measurement-budget-rise | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
+| validation | measurement_budget:calls_unresolved --against | validation-measurement-budget-call-sites | tested only | - | - | tests/test_unresolved_call_sites.py |
 | class_c | ContractDeclarations.facade_budgets | validation-facade-budget-clean | validate/report run | - | - | architecture-contract.json |
 | class_c | ContractDeclarations.coupling_budgets | validation-coupling-budget-clean | validate/report run | - | - | architecture-contract.json |
 | validation | budget.exceeded | validation-facade-budget-exceeded | validate/report run | - | budget.exceeded | architecture-contract.json, shop/model/entities.py |

@@ -31,10 +31,14 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
         ("policy", 3),
     ]
     assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
-        # 25, not 23, since run_init and run_validate import ports:FilesToWrite (AD-68).
-        ("entry", "foundation", 25),
-        # validate now reads the existing ratchet profile for selected measurement budgets.
-        ("entry", "policy", 7),
+        # 25, not 23, since run_init and run_validate import ports:FilesToWrite (AD-68); 28
+        # since validate observes the `--against` revision's snapshot and asks Git which files
+        # its archive leaves out (AD-100).
+        ("entry", "foundation", 28),
+        # validate now reads the existing ratchet profile for selected measurement budgets;
+        # check and validate also import unresolved_call_changes, report call_rows, and report and
+        # check ask calls_measured whether the profile measures calls at all (AD-100, AD-97).
+        ("entry", "policy", 12),
         ("policy", "foundation", 2),
     ]
 

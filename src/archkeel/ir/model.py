@@ -965,6 +965,49 @@ class ReportFilter:
     only_violations: bool = False
     rule: str | None = None
     component: str | None = None
+    # AD-100: list the unresolved and partially resolved calls instead of the violations.
+    only_calls: bool = False
+
+
+CallStatus: TypeAlias = Literal["unresolved", "partially_resolved"]
+
+
+@dataclass(frozen=True, slots=True)
+class CallRow:
+    """AD-100: one call the analyzer could not resolve to exactly one target.
+
+    Read from the observation's own `calls` record and its evidence line. `component` owns the
+    calling module, None when no component or several claim it.
+    """
+
+    status: CallStatus
+    caller: str
+    expression: str
+    reason: str
+    component: str | None
+    path: str
+    line: int
+
+
+@dataclass(frozen=True, slots=True)
+class UnresolvedCallChange:
+    """AD-100: one unresolved call whose count differs between two compared revisions.
+
+    Its identity is the file, the calling scope and the call expression, never the line, so
+    code that only moves is no change. Identical expressions in one caller share that identity
+    and differ by count; `lines` then names every line of it on the side holding more, because
+    which one is new cannot be decided. A removed call's lines are those of the older revision.
+    """
+
+    change: Literal["added", "removed"]
+    caller: str
+    expression: str
+    reason: str
+    component: str | None
+    path: str
+    lines: tuple[int, ...]
+    before: int
+    after: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -1004,6 +1047,14 @@ class RunResult:
     # AD-60: the violation records `report_filter` selects, the same ones the HTML table
     # shows; None whenever no filter was given, so an unfiltered result's shape is unchanged.
     filtered_violations: tuple[Record, ...] | None = None
+    # AD-100: the call sites behind a calls_unresolved change; None when no two revisions'
+    # calls were compared.
+    unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None
+    # AD-100: why a run that compared calls names no call site; None when it names them or
+    # compared none.
+    unresolved_call_note: str | None = None
+    # AD-100: `report --only calls`, every unresolved and partially resolved call it selects.
+    filtered_calls: tuple[CallRow, ...] | None = None
     # AD-99: every declared facade and pair budget `validate` measured; None when none exists.
     interface_budgets: tuple[InterfaceBudgetResult, ...] | None = None
     # AD-101: the scan.roots a report, validate or check run read. A verdict covers these and

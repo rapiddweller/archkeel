@@ -142,6 +142,9 @@ regression check failed in calls_unresolved: 0->1
 regression check failed in unresolved_ratio: 0/2->1/1
 ```
 
+The same result names the call behind the count in `unresolved_call_changes`: `handlers[key]`
+in `sample.work.run` at `sample/work.py:9`, reason `expression is dynamic` (AD-100).
+
 Archkeel compares raw measurements as well as finding counts and fingerprints.
 The ratio check uses integer cross-multiplication, never rounded percentages:
 
@@ -179,6 +182,7 @@ The HTML report is designed for a reviewer making a merge decision:
 archkeel report --only violations
 archkeel report --only violations --rule DEP-STORE-NO-MONEY
 archkeel report --only violations --component store
+archkeel report --only calls --component store   # unresolved and partial calls (AD-100)
 ```
 
 - **Decision first.** `PASS`, `REJECT`, or `NOT CHECKED` and one sentence explaining it are
@@ -293,6 +297,7 @@ calls and untyped private accesses (AD-89). Facade and coupling budgets put a ta
 contract (`declarations.facade_budgets`, `declarations.coupling_budgets`); baseline schema 1.3
 adds each one's accepted names, so a new name fails while a known gap to the target passes
 (AD-99).
+With `--against <ref>`, a `calls_unresolved` change names its call sites (AD-100).
 
 Baseline roles, introduced in schema 1.1, also prove when a resolved importer was the last reach
 of one exact public module or symbol. `validate --baseline` reports the resolved violation,

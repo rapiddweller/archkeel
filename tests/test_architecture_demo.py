@@ -404,6 +404,15 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
     assert result.expectation_fulfilled == check.expectation_fulfilled
     assert result.git_predicate == check.git_predicate
     assert result.host_order == check.host_order
+    # AD-100: check compares both revisions' calls, so every row names its changed call sites.
+    assert result.unresolved_call_changes is not None
+    assert (
+        tuple(
+            (item.change, item.path, item.lines, item.expression)
+            for item in result.unresolved_call_changes
+        )
+        == check.unresolved_calls
+    )
 
     if not check.regressed_scalars and not check.regressed_dimensions:
         # AD-93 resolves the clean facade's owned DTO fields through its collections.

@@ -125,6 +125,10 @@ _UNRESOLVED = CheckExpectation(
     host_order="PASS",
     regressed_scalars=("calls_unresolved", "unresolved_ratio"),
     regressed_dimensions=(),
+    # AD-100: the count names its call site, not only 7->8.
+    unresolved_calls=(
+        ("added", "shop/app/probe_unresolved.py", (10,), "_totally_unbound_shop_demo_symbol"),
+    ),
 )
 
 VARIANTS: tuple[Variant, ...] = (

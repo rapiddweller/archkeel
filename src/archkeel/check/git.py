@@ -45,6 +45,28 @@ def read_blob(root: Path, revision: str, path: str) -> bytes:
     return git_bytes(root, "cat-file", "blob", oid.decode())
 
 
+def _listed_paths(root: Path, *args: str) -> frozenset[str]:
+    try:
+        listed: str = str(git_bytes(root, *args), "utf-8")
+    except UnicodeDecodeError as error:
+        # A path no reader can match is missing evidence, the same as a failed Git call.
+        raise GitError(f"Git listed a path that is not UTF-8: {' '.join(args[:2])}") from error
+    return frozenset(path for path in listed.split("\0") if path)
+
+
+def working_tree_paths(root: Path, roots: tuple[str, ...]) -> frozenset[str]:
+    """Every file under `roots` in Git's view of the working tree: the tracked ones and the
+    untracked ones no ignore rule excludes. A file inside a submodule is in neither (AD-100)."""
+    return _listed_paths(
+        root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *roots
+    )
+
+
+def tracked_paths(root: Path, revision: str, roots: tuple[str, ...]) -> frozenset[str]:
+    """Every file `revision` tracks under `roots`, whatever its archive later leaves out."""
+    return _listed_paths(root, "ls-tree", "-r", "-z", "--name-only", revision, "--", *roots)
+
+
 def changed_paths(root: Path, before: str, after: str) -> set[str]:
     return {
         value.decode()

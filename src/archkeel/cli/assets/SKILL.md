@@ -128,6 +128,11 @@ through the same loop (AD-89). `declarations.facade_budgets` and
 `declarations.coupling_budgets` set name targets in the contract, and the baseline holds their
 accepted names (AD-99).
 Never raise any of them to make a run pass without the architect's decision.
+When `calls_unresolved` rises, rerun with `--against <base ref>`, as the
+finding says: `unresolved_call_changes` names each added and removed unresolved call with its
+caller, path, lines, expression, reason and component (AD-100). `report --only calls --json` lists every
+unresolved and partially resolved call as `filtered_calls`; add `--component <label>` for one
+component's calls.
 
 A reviewer or a CI gate may hold your branch to this the same way, with `archkeel validate
 --against <base ref>`: it classifies every difference from the contract at that revision — a

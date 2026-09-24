@@ -6,13 +6,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Final, Literal, TypeAlias
 
 from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.model import DraftedComponentSize, RunResult
 
 State: TypeAlias = Literal["pass", "fail", "info", "unknown"]
 Comparison: TypeAlias = tuple[str, str, str, str]
+# AD-100: a rejected run names this many unresolved call sites; the JSON result names all.
+_CALL_SITES_SHOWN: Final = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +40,8 @@ class Summary:
     regressions: tuple[Comparison, ...]
     # AD-35: the terminal's one claim line. The HTML shows the same claims as full tables.
     claims: str = ""
+    # AD-100: a heading, then one line per unresolved call site; empty without failures.
+    call_sites: tuple[str, ...] = ()
 
 
 def badge(value: str) -> Badge:
@@ -126,10 +130,18 @@ def _report_filter_line(result: RunResult) -> str:
     facets = []
     if report_filter.only_violations:
         facets.append("only violations")
+    if report_filter.only_calls:
+        facets.append("only calls")
     if report_filter.rule is not None:
         facets.append(f"rule {report_filter.rule}")
     if report_filter.component is not None:
         facets.append(f"component {report_filter.component}")
+    if result.filtered_calls is not None:
+        listed = len(result.filtered_calls)
+        return (
+            f"\n\nFiltered ({', '.join(facets)}): {listed} unresolved or partially resolved "
+            "call(s) listed."
+        )
     shown = len(result.filtered_violations) if result.filtered_violations is not None else 0
     total = result.measurements.scalars.violations if result.measurements is not None else shown
     return f"\n\nFiltered ({', '.join(facets)}): {shown} of {total} violation(s) shown."
@@ -151,6 +163,35 @@ def _claims_line(result: RunResult) -> str:
         )
     )
     return f"Review claims, never a verdict: {counted}."
+
+
+def _call_site_lines(result: RunResult) -> tuple[str, ...]:
+    """Name the unresolved call sites behind a run's failures, a few at most, or why none is
+    named (AD-100)."""
+    if not result.failures:
+        return ()
+    note = result.unresolved_call_note
+    changes = result.unresolved_call_changes
+    if not changes:
+        return () if note is None else (f"Unresolved call sites: {note}",)
+    added = sum(item.change == "added" for item in changes)
+    lines = [f"Unresolved call sites: {added} added, {len(changes) - added} removed"]
+    for item in changes[:_CALL_SITES_SHOWN]:
+        sign = "+" if item.change == "added" else "-"
+        where = f"{item.path}:{','.join(str(line) for line in item.lines)}"
+        count = f" ({item.before}->{item.after})" if item.before and item.after else ""
+        lines.append(
+            f"  {sign} {where} {item.caller}: {item.expression}() "
+            f"[{item.component or 'no component'}] {item.reason}{count}"
+        )
+    if len(changes) > _CALL_SITES_SHOWN:
+        lines.append(
+            f"  +{len(changes) - _CALL_SITES_SHOWN} more in the JSON result's "
+            "unresolved_call_changes"
+        )
+    if note is not None:
+        lines.append(f"  {note}")
+    return tuple(lines)
 
 
 def _baseline_line(result: RunResult) -> str:
@@ -245,7 +286,14 @@ def report_summary(result: RunResult) -> Summary:
         + _baseline_line(result)
         + _budget_line(result)
     )
-    return Summary(_decision_badge(result), sentence, verdicts, (), _claims_line(result))
+    return Summary(
+        _decision_badge(result),
+        sentence,
+        verdicts,
+        (),
+        _claims_line(result),
+        _call_site_lines(result),
+    )
 
 
 def _largest_draft(
@@ -294,7 +342,13 @@ def check_summary(result: RunResult) -> Summary:
         VerdictRow(label, key, value, _check_verdict_reason(result, key, value, regressions))
         for label, key, value in _check_verdict_values(result)
     )
-    return Summary(_decision_badge(result), check_decision_sentence(result), verdicts, regressions)
+    return Summary(
+        _decision_badge(result),
+        check_decision_sentence(result),
+        verdicts,
+        regressions,
+        call_sites=_call_site_lines(result),
+    )
 
 
 def _check_verdict_values(result: RunResult) -> tuple[tuple[str, str, str], ...]:

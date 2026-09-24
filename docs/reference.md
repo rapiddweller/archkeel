@@ -159,6 +159,9 @@ fingerprints refuse the write unless `--accept-new` is explicit. It writes nothi
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
 declaration carries provenance. A selected value must equal the baseline: a rise is new debt; a
 fall must be written back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
+The file stores values, not call sites, so without `--against` a `calls_unresolved` rise reads
+`measurement budget exceeded in calls_unresolved: 7->8; validate --against <ref> names the call
+sites` (AD-100).
 Contracts without measurement budgets behave as before. A declared facade or coupling budget
 needs no baseline, but with one the file holds its accepted names under `facade_names` or
 `coupling_names`: a name outside them fails as a rise, a name gone as a fall (AD-99). The file's
@@ -223,7 +226,18 @@ way the lock binds its own inputs - with free-text `decided_by` and `rationale`.
 written for one change does not verify against a different one. `--write-amendment`, with
 `--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
 `--amendment` file is `amendment.invalid`, exit 2; an `--against` revision or its contract that
-cannot be read is `against.invalid`, exit 2. `validate` without `--against` is unchanged. The
+cannot be read is `against.invalid`, exit 2. When a run fails and the observed
+`calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
+at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
+passing run pays for no second scan. Removed rows and rows in files the revision's snapshot
+holds are always kept. An added row in a file the snapshot lacks is dropped when the file is
+outside Git's view of the working tree under the scan roots (`git ls-files --cached --others
+--exclude-standard`: ignored, or inside a submodule) or when the revision tracks it but its
+archive left it out (its own `export-ignore`): such files exist on the working-tree side only.
+`unresolved_call_note` says when rows were dropped, when nothing differs from the revision (the
+accepted value does not match its code), and when nothing could be compared: a revision that
+cannot be scanned, a Git listing with a non-UTF-8 file name, or call records that do not add up
+(AD-100). `validate` without `--against` is unchanged. The
 file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json):
 
@@ -271,6 +285,20 @@ inside declares (AD-36); `--component` matches only a top-level component, since
 `filter_unknown`, exit 2, not a silently empty page: `--rule` validates against every declared
 rule id, `--component` against every top-level component label, whether or not either has a
 violation today.
+
+`report --only calls` lists every unresolved and partially resolved call instead: `--json`
+carries them as `filtered_calls`, one row each with `status`, `caller`, `path`, `line`,
+`expression`, `reason` and owning `component` (`null` when no component or several own the
+calling module), sorted by path, line, caller and expression. The rows come from the
+observation's own call records and add up to `coverage.calls_unresolved` plus
+`calls_partially_resolved`. `--component` keeps the calls its modules make; `--rule` is exit 2,
+since a call cites no rule. The HTML page shows the same rows as one table in place of the
+violations table and hides what `--only violations` hides; the terminal prints only the
+`Filtered (only calls): N unresolved or partially resolved call(s) listed.` sentence. Without
+`--only calls` the field reads `null`, like `filtered_violations` (AD-100). The Dart profile
+measures no calls (AD-97), so `--only calls` on a Dart scan is exit 2
+`rule_unsupported_by_profile` rather than an empty list, and `check` leaves
+`unresolved_call_changes` `null` there.
 
 An unfiltered HTML page with violations also has a local `Violations only` control (AD-75). It
 keeps the verdicts, failures, known unknowns, violations and complete evidence access visible
@@ -371,6 +399,18 @@ checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.
 Zero total means `resolution: n/a`; the absolute regression check still applies.
 Missing or inconsistent measurements produce `UNKNOWN`; regressions return failures.
+
+`check` also names the calls behind the count. `unresolved_call_changes` holds one row per
+unresolved call whose count differs between the two observations: `change` (`added` or
+`removed`), `caller`, `expression`, `reason`, owning `component`, `path`, `lines`, `before` and
+`after`. A row is keyed by file, caller and expression, not by line, so moved code is no change;
+identical expressions in one caller form one row whose `lines` name them all, and a removed row
+names the older revision's lines. The JSON lists every row; the terminal lists at most five under
+the failures, and none on a passing run. The field reads `null` in a result that compared no two
+revisions' calls. Where a comparison leaves rows unnamed (call records that do not add up, a
+revision that cannot be scanned, added calls in files the working tree alone holds, nothing that
+differs from the revision), `unresolved_call_note` says why, in the result and under the
+terminal's failures; the verdict never changes (AD-100).
 
 The JSON field `ratchets` and Python identifiers such as `compare_ratchets` keep their
 existing names for compatibility. Human-readable messages use "regression check".

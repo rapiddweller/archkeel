@@ -5,6 +5,7 @@
 
 from typing import Final
 
+from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.measurements import (
     Measurements,
     RatchetError,
@@ -12,7 +13,16 @@ from archkeel.ir.measurements import (
     UnmeasurableScalar,
     compare_measurements,
 )
-from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData
+from archkeel.ir.model import (
+    CallRow,
+    CallStatus,
+    EvidenceClass,
+    Observation,
+    Record,
+    RecordData,
+    UnresolvedCallChange,
+    text_value,
+)
 from archkeel.ir.profiles import profile_for
 
 from .python_profile import crossing_imports
@@ -282,5 +292,95 @@ def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[s
                 accepted, candidate
             )
             if status == "FAIL"
+        )
+    )
+
+
+def calls_measured(observation: Observation) -> bool:
+    """Whether the observing profile measures calls at all; the Dart profile does not (AD-97)."""
+    return "calls_unresolved" not in profile_for(observation.analyzer.name).unmeasured
+
+
+def call_rows(observation: Observation) -> tuple[CallRow, ...]:
+    """Every unresolved and partially resolved call, from the `calls` records (AD-100).
+
+    The rows must add up to the coverage counts, so a listed or compared call is exactly one
+    the measurements counted.
+    """
+    evidence = {item.id: item for item in observation.evidence}
+    owners = component_owners(observation)
+    rows: list[CallRow] = []
+    for record in _records(observation, "calls"):
+        data = record.data
+        status: CallStatus
+        if data.get("status") == "unresolved":
+            status = "unresolved"
+        elif data.get("status") == "partially_resolved":
+            status = "partially_resolved"
+        else:
+            continue
+        module = text_value(data.get("source_module"))
+        caller = text_value(data.get("source_scope"))
+        expression = text_value(data.get("expression"))
+        reason = text_value(data.get("reason"))
+        sites = [evidence[item] for item in record.evidence_ids if item in evidence]
+        if not (module and caller and expression and reason) or len(sites) != 1:
+            raise RatchetError("unresolved call lacks its caller, expression, reason or line")
+        component = owner_of(module, owners)
+        rows.append(
+            CallRow(status, caller, expression, reason, component, sites[0].file, sites[0].line)
+        )
+    unresolved = sum(row.status == "unresolved" for row in rows)
+    coverage = observation.coverage
+    if (unresolved, len(rows) - unresolved) != (
+        coverage.calls_unresolved,
+        coverage.calls_partially_resolved,
+    ):
+        raise RatchetError("call records do not add up to the coverage call counts")
+    return tuple(
+        sorted(rows, key=lambda row: (row.path, row.line, row.caller, row.expression, row.status))
+    )
+
+
+def _unresolved_calls(observation: Observation) -> dict[tuple[str, str, str], tuple[CallRow, ...]]:
+    """Group the unresolved calls by file, caller and expression, the identity AD-100 compares."""
+    grouped: dict[tuple[str, str, str], tuple[CallRow, ...]] = {}
+    for row in call_rows(observation):
+        if row.status == "unresolved":
+            key = (row.path, row.caller, row.expression)
+            grouped[key] = (*grouped.get(key, ()), row)
+    return grouped
+
+
+def unresolved_call_changes(
+    before: Observation, after: Observation
+) -> tuple[UnresolvedCallChange, ...]:
+    """Name every unresolved call whose count differs between two observations (AD-100)."""
+    old, new = _unresolved_calls(before), _unresolved_calls(after)
+    changes = []
+    for path, caller, expression in {*old, *new}:
+        was = old.get((path, caller, expression), ())
+        now = new.get((path, caller, expression), ())
+        if len(was) == len(now):
+            continue
+        added = len(now) > len(was)
+        calls = now if added else was
+        changes.append(
+            UnresolvedCallChange(
+                "added" if added else "removed",
+                caller,
+                expression,
+                calls[0].reason,
+                calls[0].component,
+                path,
+                tuple(sorted(call.line for call in calls)),
+                len(was),
+                len(now),
+            )
+        )
+    return tuple(
+        sorted(
+            changes,
+            key=lambda item: (item.change, item.path, item.lines, item.caller, item.expression),
         )
     )

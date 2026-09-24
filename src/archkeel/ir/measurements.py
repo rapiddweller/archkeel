@@ -136,12 +136,17 @@ def selected_budgets(
 
 
 def compare_budgets(
-    accepted: tuple[MeasurementBudget, ...], observed: tuple[MeasurementBudget, ...]
+    accepted: tuple[MeasurementBudget, ...],
+    observed: tuple[MeasurementBudget, ...],
+    *,
+    against: bool,
 ) -> tuple[str, ...]:
     """Report every changed or mismatched budget; equality is the passing baseline state.
 
     A keyed budget (AD-99) rises by any name the baseline does not hold and falls by any name
     it holds that is gone, whatever the count does, so freed room cannot be reused unseen.
+    `against` says the run compares a second revision, which names a calls_unresolved rise's
+    call sites itself; without it the finding points at the flag that does (AD-100).
     """
     before = {item.label: item for item in accepted}
     after = {item.label: item for item in observed}
@@ -172,9 +177,11 @@ def compare_budgets(
         accepted_value = before[label].value
         observed_value = after[label].value
         if observed_value > accepted_value:
-            findings.append(
-                f"measurement budget exceeded in {label}: {accepted_value}->{observed_value}"
-            )
+            finding = f"measurement budget exceeded in {label}: {accepted_value}->{observed_value}"
+            if label == "calls_unresolved" and not against:
+                # AD-100: the baseline holds the value alone; a second revision names the sites.
+                finding += "; validate --against <ref> names the call sites"
+            findings.append(finding)
         elif observed_value < accepted_value:
             findings.append(
                 f"measurement budget reduced in {label}: {accepted_value}->{observed_value}; "

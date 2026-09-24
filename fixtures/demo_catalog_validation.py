@@ -484,6 +484,18 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         baseline="architecture-baseline.json",
     ),
     Variant(
+        id="validation-measurement-budget-call-sites",
+        section="validation",
+        item="measurement_budget:calls_unresolved --against",
+        summary="A new call to an unbound name raises calls_unresolved 7->8; with --against the "
+        "base commit, unresolved_call_changes names it at shop/app/probe_unresolved.py:2 with "
+        "its caller, reason and component, which the baseline's bare value cannot (AD-100).",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_unresolved_call_sites.py",
+    ),
+    Variant(
         id="validation-facade-budget-clean",
         section="class_c",
         item="ContractDeclarations.facade_budgets",

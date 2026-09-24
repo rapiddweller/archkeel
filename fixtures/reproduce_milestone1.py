@@ -28,6 +28,16 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.digest import package_digest
 
+# AD-100: `report --only calls` on case A's candidate lists the call the refactor made dynamic.
+CASE_A_CALL = {
+    "caller": "sample.work.run",
+    "component": None,
+    "expression": "handlers[key]",
+    "line": 9,
+    "path": "sample/work.py",
+    "reason": "expression is dynamic",
+    "status": "unresolved",
+}
 DEMO_CASES = {
     "A": (1, None),
     "B": (1, "The expectation was published after the first candidate submission."),
@@ -251,6 +261,14 @@ def reproduce(output: Path) -> dict:
             "failures": result["failures"],
             "ratchets": result["delta"]["ratchets"],
         }
+        if case == "A":
+            listed = command(
+                ["report", "--root", str(root), "--only", "calls", "--output"]
+                + [str(output / "A-candidate.json")],
+                expected=0,
+                label="A-calls",
+            )
+            results["A"]["calls"] = listed["filtered_calls"]
         if case == "B":
             missing = command(args, expected=2, label="B-missing-host")
             results["B-missing-host"] = {
@@ -260,6 +278,7 @@ def reproduce(output: Path) -> dict:
     assert results["A"]["host_order"] == "PASS" and all(
         "regression check failed" in item for item in results["A"]["failures"]
     )
+    assert CASE_A_CALL in results["A"]["calls"]
     assert results["B"]["failures"] == [
         "expectation was not published before the first candidate submission"
     ]
@@ -289,11 +308,18 @@ def print_summary(output: Path) -> None:
             candidate = result["delta"]["ratchets"]["head"]
             baseline_unresolved = baseline["scalars"]["calls_unresolved"]
             candidate_unresolved = candidate["scalars"]["calls_unresolved"]
+            sites = ", ".join(
+                f"{item['expression']}() at {item['path']}:{item['lines'][0]}"
+                for item in result["unresolved_call_changes"]
+                if item["change"] == "added"
+            )
+            listed = json.loads((output / "A-calls.stdout.json").read_bytes())["filtered_calls"]
             description = (
                 f"The call graph gets blinder: calls_unresolved "
                 f"{baseline_unresolved}->{candidate_unresolved}, unresolved_ratio "
                 f"{baseline_unresolved}/{baseline['calls_total']}->"
-                f"{candidate_unresolved}/{candidate['calls_total']}."
+                f"{candidate_unresolved}/{candidate['calls_total']}; new: {sites}; "
+                f"report --only calls lists {len(listed)} call(s)."
             )
         print(
             f"{case} · {expected} · {actual} · {verdicts} · {description} · "

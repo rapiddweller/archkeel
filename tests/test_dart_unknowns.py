@@ -474,7 +474,16 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "scan_roots",
         "violations_by_component_pair",
         "violations_by_rule",
+        # AD-100: the call-site fields, null on a report that compared and listed no calls.
+        "filtered_calls",
+        "unresolved_call_changes",
+        "unresolved_call_note",
     }
+    assert (
+        payload["filtered_calls"],
+        payload["unresolved_call_changes"],
+        payload["unresolved_call_note"],
+    ) == (None, None, None)
     claims = payload["claims"]
     assert isinstance(claims, dict)
     assert claims["unreferenced_symbols"] is not None
