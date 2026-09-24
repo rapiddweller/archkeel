@@ -47,6 +47,11 @@ Every rule the test scope needs already exists: `root_layout`, `complete_assignm
 - Duplicated tests and result equivalence are behaviour, not import facts. They stay in the
   test and oracle gate.
 - CI runs each scope. A pass of one says nothing about the other.
+- `report`'s default output path does not depend on `--config`, so a test-scope report needs
+  its own `--output`, such as `test-artifacts/tests/architecture.json`; the help and docs say
+  so. A default derived from the file name was not chosen: it would guess a path per name.
+- `symbol_placement` sees classes only: a moved helper function or fixture is caught by the
+  layout and `requires` rules, and a pytest `class TestX` counts as a class.
 - One more `add_argument` call on the local `_Parser` is one more unresolved call, so
   Archkeel's own `calls_unresolved` budget moves from 499 to 500.
 

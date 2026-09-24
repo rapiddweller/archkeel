@@ -14,7 +14,10 @@ to it. One file holds one namespace, so a test tree beside the product is a seco
 own file, contract and run, such as `archkeel validate --config archkeel-tests.toml`; the
 product's file and contract stay as they are (AD-101). Each result records the `scan_roots` it
 read, and its scan-complete reason names them, so a pass says what it covered. `check` reads
-`archkeel.toml` only, because its accepted lock binds one configuration digest.
+`archkeel.toml` only, because its accepted lock binds one configuration digest. `report` writes
+`test-artifacts/architecture/architecture.json` whatever `--config` names, so a second scope's
+report takes its own `--output`, such as `test-artifacts/tests/architecture.json`; without it
+the test report replaces the product report.
 
 ## Analyzer and runtime
 

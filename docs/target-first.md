@@ -256,8 +256,16 @@ for the suite layout, `symbol_placement` for where helper classes live, `complet
 for which suite imports which, and `external_dependency_scope` for which suites import the
 product. The shop sample's [test contract](../fixtures/F-architecture/docs/architecture/tests.md)
 is a worked example; the `test-scope-*` rows in [the demo catalog](architecture-demo.md) show a
-moved helper and a suite crossing each fail at their file. Duplicated tests and result
-equivalence stay with the test suite and its oracle ([known limits](known-limits.md)).
+moved helper, a suite crossing and a unit test importing the product each fail at their file.
+Duplicated tests and result equivalence stay with the test suite and its oracle
+([known limits](known-limits.md)).
+
+`report` writes to the same default path whichever configuration it reads, so give the test
+scope's report its own, or it replaces the product report:
+
+```
+archkeel report --config archkeel-tests.toml --output test-artifacts/tests/architecture.json
+```
 
 ## 5. Keep the target from moving
 

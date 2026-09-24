@@ -109,17 +109,25 @@ kept by hand.
 A run scans the roots and the one namespace its configuration names, and nothing else. A test
 tree beside the product is outside the product scan: a green product run names the roots it
 read (`All source files under shop were read and parsed; no source file beside them was
-read.`) and proves nothing about the tests. A second configuration governs them as their own scope
-(AD-101), which leaves these limits:
+read.`) and proves nothing about the tests. A second configuration governs them as their own
+scope (AD-101), which leaves these limits:
 
 - Inside the test scope the product is an external package. `external_dependency_scope` decides
   which suites import it, by its top-level name only. A `forbidden_dependency` that targets one
   product module, such as `shop.store.sqlite` from `tests.unit`, is `reference.namespace`
   (exit 2).
+- `symbol_placement` matches classes by kind, never functions. A helper function or a pytest
+  fixture moved into a suite is caught only by the layout and `requires` rules, when its move
+  adds a module or an import they reject. A pytest-style `class TestOrders` is a class too, so
+  a suite that writes its cases as classes lists only its helper kinds in `class_kinds`, or
+  allows the modules that hold such cases.
 - Duplicated tests and whether a result equals its expected output are behaviour. The test
   suite and its oracle decide them, not the import graph.
 - `check` compares one configuration against one accepted lock; the test scope is gated by
   `validate`.
+- `report` writes to `test-artifacts/architecture/architecture.json` unless `--output` names
+  another path, whatever `--config` names, so a test-scope report without its own `--output`
+  replaces the product report.
 
 ## What static observation cannot decide
 
