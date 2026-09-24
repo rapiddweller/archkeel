@@ -51,8 +51,14 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     if set(raw) != {"scan"} or not isinstance(raw["scan"], dict):
         raise ConfigError("configuration must contain only [scan]")
     scan = raw["scan"]
-    if set(scan) != _REQUIRED_SCAN:
-        raise ConfigError("[scan] must contain exactly roots, namespace, and contract")
+    if set(scan) - {"language"} != _REQUIRED_SCAN:
+        raise ConfigError(
+            "[scan] must contain exactly roots, namespace, and contract, and optionally language"
+        )
+    # AD-97: absent means Python, so an existing archkeel.toml keeps its bytes and its digest.
+    language = scan.get("language", "python")
+    if language != "python" and language != "dart":
+        raise ConfigError('scan.language must be "python" or "dart"')
     roots_raw = scan["roots"]
     if not isinstance(roots_raw, list) or not roots_raw:
         raise ConfigError("scan.roots must be a non-empty list")
@@ -69,13 +75,14 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
                 raise ConfigError("scan.roots must not overlap")
     namespace = scan["namespace"]
     if not isinstance(namespace, str) or _NAMESPACE.fullmatch(namespace) is None:
-        raise ConfigError("scan.namespace must be an ASCII dotted Python namespace")
+        raise ConfigError("scan.namespace must be an ASCII dotted namespace")
     contract = _path(scan["contract"], field="scan.contract", allow_dot=False)
     return ScanConfig(
         roots=canonical_roots,
         namespace=namespace,
         contract=PurePosixPath(contract).as_posix(),
         digest=hashlib.sha256(payload).hexdigest(),
+        language=language,
     )
 
 

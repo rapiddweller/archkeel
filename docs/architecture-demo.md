@@ -9,6 +9,10 @@ Regenerate with `python -m fixtures.architecture_demo --markdown`.
 The `showcase` row below (`tour`) is the default demo view: it applies many overlays at once so one
 run shows many violations together; every other row isolates one item.
 
+Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style package scanned with
+`language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them as one story with `make
+demo-dart`.
+
 | Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |
 |---|---|---|---|---|---|---|
 | showcase | tour | tour | validate/report run | APP-TYPES-NOT-DICT, ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ASSERT, CONSTRUCT-NO-BROAD-EXCEPT, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, DEP-APP-NO-STORE-BACKEND, DEP-APP-NO-STORE-SQLITE, DEP-MODEL-NO-RENDER, DEP-RENDER-NO-STORE, DEP-STORE-NO-MONEY, EXTERNAL-COMPLETE, EXTERNAL-JSON-STORE, INTERFACE-BOUNDARY, MODEL-TYPES-IN-ENTITIES, ROOT-LAYOUT, STORE-PEERS-ISOLATED, store:STORE-REQUIRES-COMPLETE | closed_world.observed_forbidden, closed_world.observed_forbidden, graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | shop/app/analytics.py, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/extra.py, shop/model/entities.py, shop/model/promotions.py, shop/render/text.py, shop/store/architecture-contract.json, shop/store/repository.py, shop/store/sqlite.py |
@@ -125,6 +129,7 @@ run shows many violations together; every other row isolates one item.
 | validation | missing_tool | validation-missing-tool | tested only | - | - | tests/test_analyzer.py |
 | validation | timeout | validation-timeout | tested only | - | - | tests/test_analyzer.py |
 | validation | incomparable_runtime | validation-incomparable-runtime | tested only | - | - | tests/test_runtime_delta.py |
+| validation | rule_unsupported_by_profile | validation-rule-unsupported-by-profile | tested only | - | - | tests/test_dart_profile.py |
 | validation | existing_files | validation-existing-files | tested only | - | - | tests/test_onboarding.py |
 | validation | filter_unknown | validation-filter-unknown | tested only | - | - | tests/test_report_filter.py |
 | validation | against:widened_unamended | against-widened-unamended | validate --against run | - | - | architecture-contract.json |
@@ -168,3 +173,15 @@ run shows many violations together; every other row isolates one item.
 | class_d | review_claims | class-d-review-claims | tested only | - | - | docs/rules.md |
 | class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |
 | class_d | type_fanin | class-d-type-fanin | tested only | - | - | docs/rules.md |
+| clean | dart:clean | dart-clean | validate/report run | - | - | G-dart: clean sample |
+| class_a | dart:forbidden_dependency | dart-forbidden-dart-io | validate/report run | DEP-DOMAIN-NO-DART-IO | rule.violated | G-dart: lib/domain/repository.dart |
+| class_a | dart:complete_requires | dart-complete-requires | validate/report run | REQUIRES-COMPLETE | graph.drift, rule.violated | G-dart: lib/data/http_order_repository.dart |
+| class_a | dart:no_component_cycles | dart-component-cycle | validate/report run | COMPONENT-NO-CYCLES, REQUIRES-COMPLETE | graph.drift, rule.violated, rule.violated | G-dart: lib/domain/repository.dart |
+| class_a | dart:complete_assignment | dart-complete-assignment | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | G-dart: lib/util/strings.dart |
+| class_a | dart:external_dependency_scope | dart-external-scope | validate/report run | EXTERNAL-HTTP-DATA | rule.violated | G-dart: lib/presentation/order_tile.dart |
+| class_a | dart:interface_boundary:show | dart-interface-show | validate/report run | INTERFACE-BOUNDARY | rule.violated | G-dart: lib/presentation/order_tile.dart |
+| class_a | dart:interface_boundary:unknown | dart-interface-unknown | validate/report run | - | - | G-dart: lib/presentation/order_tile.dart |
+| validation | dart:rule_unsupported_by_profile:rule | dart-unsupported-rule | validate/report run | - | - | G-dart: architecture-contract.json |
+| validation | dart:rule_unsupported_by_profile:measurement_budget | dart-unsupported-budget | validate/report run | - | - | G-dart: architecture-baseline.json, architecture-contract.json |
+| validation | dart:parse_error | dart-unreadable-header | validate/report run | - | - | G-dart: lib/presentation/order_badge.dart |
+| showcase | dart:tour | dart-tour | validate/report run | ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, DEP-DOMAIN-NO-DART-IO, EXTERNAL-HTTP-DATA, INTERFACE-BOUNDARY, REQUIRES-COMPLETE, REQUIRES-COMPLETE, ROOT-LAYOUT | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | G-dart: lib/data/http_order_repository.dart, lib/domain/repository.dart, lib/presentation/order_tile.dart, lib/util/strings.dart |

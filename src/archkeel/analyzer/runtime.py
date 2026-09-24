@@ -16,7 +16,7 @@ def runtime_diagnostic(root: Path, python_version: str | None) -> Diagnostic | N
     subject = f"python {python_version or 'unknown'}; requires-python unavailable"
     remedy = "Run Archkeel with a Python matching the target's requires-python."
     try:
-        path = root / "pyproject.toml"
+        path: Path = root / "pyproject.toml"
         if not path.resolve().is_relative_to(root.resolve()):
             raise ValueError("pyproject.toml escapes the scanned root")
         project = tomllib.loads(path.read_text(encoding="utf-8")).get("project")

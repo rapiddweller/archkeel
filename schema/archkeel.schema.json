@@ -30,7 +30,15 @@
         "namespace": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])",
-          "description": "ASCII dotted Python package prefix used for internal imports."
+          "description": "ASCII dotted package prefix used for internal imports; for Dart, the pubspec name."
+        },
+        "language": {
+          "enum": [
+            "python",
+            "dart"
+          ],
+          "default": "python",
+          "description": "Source language of the scan roots. Absent means python (AD-97)."
         },
         "contract": {
           "$ref": "#/$defs/relativePath",

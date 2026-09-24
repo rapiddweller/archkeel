@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding loop-figure demo-screenshots build smoke release-check
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart loop-figure demo-screenshots build smoke release-check
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -17,6 +17,7 @@ test:
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
+	fixtures/reproduce_dart.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
 
 lint:
@@ -37,6 +38,9 @@ demo:
 
 demo-onboarding:
 	@$(UV) run --locked python -m fixtures.reproduce_onboarding
+
+demo-dart:
+	@$(UV) run --locked python -m fixtures.reproduce_dart
 
 # The figure is derived from the run above, so a test compares it with a fresh render.
 loop-figure:

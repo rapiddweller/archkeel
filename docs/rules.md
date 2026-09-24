@@ -19,6 +19,13 @@ Archkeel does not infer correctness. A position it sees but cannot resolve from 
 evidence stays `UNKNOWN`, with its reason measured. `PASS` means no violation was found among
 the positions the rule decided; decided coverage and UNKNOWN counts remain separate (AD-90).
 
+Each analyzer profile declares, in `src/archkeel/ir/profiles.py`, which rule kinds it decides,
+which it decides partly and which it cannot decide, and which scalars it does not measure. The
+Python profile decides and measures everything. The Dart profile (`language = "dart"`) decides the
+import-graph rules; `interface_boundary` and a `target_symbol` rule report UNKNOWN for an import
+without `show`; `symbol_placement`, `boundary_types`, `forbidden_construct`, `context_roots` and a
+budget on an unmeasured scalar exit 2 with `rule_unsupported_by_profile` (AD-97).
+
 ## Class A: deterministic rules
 
 `complete_requires` is the compact closed-world invariant Archkeel uses itself (AD-32): each
