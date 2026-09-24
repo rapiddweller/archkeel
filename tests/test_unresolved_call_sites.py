@@ -52,6 +52,14 @@ def _observe(root: Path, files: dict[str, str]) -> Observation:
     return observed.observation
 
 
+def _exceeded(values: str) -> str:
+    # The baseline stores the value alone; the finding says which flag names the sites.
+    return (
+        f"measurement budget exceeded in calls_unresolved: {values}; "
+        "validate --against <ref> names the call sites"
+    )
+
+
 def _added(lines: tuple[int, ...], before: int = 0, after: int = 1) -> UnresolvedCallChange:
     return UnresolvedCallChange(
         "added", _CALLER, "_unbound_probe", _UNBOUND, "app", _PROBE_PATH, lines, before, after
@@ -108,7 +116,7 @@ def test_validate_against_names_the_call_behind_a_calls_unresolved_rise(tmp_path
 
     result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
 
-    assert result.failures == ("measurement budget exceeded in calls_unresolved: 7->8",)
+    assert result.failures == (_exceeded("7->8"),)
     assert result.unresolved_call_changes == (_added((2,)),)
     # Without --against there is no second revision to name the site from.
     alone, _ = run_validate(root, CONFIG, observe, baseline=baseline)
@@ -138,7 +146,7 @@ def test_an_unobservable_against_revision_leaves_the_sites_unnamed_not_the_findi
 
     result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
 
-    assert result.failures == ("measurement budget exceeded in calls_unresolved: 7->8",)
+    assert result.failures == (_exceeded("7->8"),)
     assert result.unresolved_call_changes is None
 
 
@@ -164,7 +172,7 @@ def test_validate_against_scans_the_old_revision_under_its_own_contract(tmp_path
 
     result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
 
-    assert result.failures == ("measurement budget exceeded in calls_unresolved: 7->8",)
+    assert result.failures == (_exceeded("7->8"),)
     assert result.unresolved_call_changes == (_added((2,)),)
 
 
@@ -189,7 +197,7 @@ def test_files_the_archive_leaves_out_are_not_named_as_added(tmp_path: Path) -> 
 
     result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
 
-    assert result.failures == ("measurement budget exceeded in calls_unresolved: 10->11",)
+    assert result.failures == (_exceeded("10->11"),)
     assert result.unresolved_call_changes == (_added((2,)),)
 
 
@@ -230,7 +238,7 @@ def test_call_rows_that_do_not_add_up_leave_validate_sites_unnamed(tmp_path: Pat
     result, _ = run_validate(root, CONFIG, _miscounted, baseline=baseline, against=base)
 
     assert result.exit_code == 1
-    assert result.failures == ("measurement budget exceeded in calls_unresolved: 7->9",)
+    assert result.failures == (_exceeded("7->9"),)
     assert result.unresolved_call_changes is None
 
 

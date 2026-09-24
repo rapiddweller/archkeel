@@ -117,9 +117,11 @@ def compare_budgets(
         accepted_value = before[name]
         observed_value = after[name]
         if observed_value > accepted_value:
-            findings.append(
-                f"measurement budget exceeded in {name}: {accepted_value}->{observed_value}"
-            )
+            finding = f"measurement budget exceeded in {name}: {accepted_value}->{observed_value}"
+            if name == "calls_unresolved":
+                # AD-100: the baseline holds the value alone; a second revision names the sites.
+                finding += "; validate --against <ref> names the call sites"
+            findings.append(finding)
         elif observed_value < accepted_value:
             findings.append(
                 f"measurement budget reduced in {name}: {accepted_value}->{observed_value}; "
