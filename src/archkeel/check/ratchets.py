@@ -3,15 +3,24 @@
 # SPDX-License-Identifier: MIT
 """Regression checks over the typed Python decoded-IR measurement profile."""
 
+from dataclasses import dataclass
 from typing import Final
 
+from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.measurements import (
     Measurements,
     RatchetError,
     RatchetScalars,
     compare_measurements,
 )
-from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData
+from archkeel.ir.model import (
+    EvidenceClass,
+    Observation,
+    Record,
+    RecordData,
+    UnresolvedCallChange,
+    text_value,
+)
 
 from .python_profile import crossing_imports
 
@@ -268,5 +277,78 @@ def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[s
                 accepted, candidate
             )
             if status == "FAIL"
+        )
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _UnresolvedCall:
+    reason: str
+    path: str
+    line: int
+
+
+def _unresolved_calls(
+    observation: Observation,
+) -> dict[tuple[str, str, str], tuple[_UnresolvedCall, ...]]:
+    """Group the unresolved call records by module, caller and expression (AD-100).
+
+    The groups must add up to the `calls_unresolved` scalar, so the sites named for a change
+    are exactly the ones that moved the count.
+    """
+    evidence = {item.id: item for item in observation.evidence}
+    grouped: dict[tuple[str, str, str], tuple[_UnresolvedCall, ...]] = {}
+    for record in _records(observation, "calls"):
+        data = record.data
+        if data.get("status") != "unresolved":
+            continue
+        module = text_value(data.get("source_module"))
+        caller = text_value(data.get("source_scope"))
+        expression = text_value(data.get("expression"))
+        reason = text_value(data.get("reason"))
+        sites = [evidence[item] for item in record.evidence_ids if item in evidence]
+        if not (module and caller and expression and reason) or len(sites) != 1:
+            raise RatchetError("unresolved call lacks its caller, expression, reason or line")
+        key = (module, caller, expression)
+        grouped[key] = (
+            *grouped.get(key, ()),
+            _UnresolvedCall(reason, sites[0].file, sites[0].line),
+        )
+    if sum(len(calls) for calls in grouped.values()) != observation.coverage.calls_unresolved:
+        raise RatchetError("unresolved call records do not add up to calls_unresolved")
+    return grouped
+
+
+def unresolved_call_changes(
+    before: Observation, after: Observation
+) -> tuple[UnresolvedCallChange, ...]:
+    """Name every unresolved call whose count differs between two observations (AD-100)."""
+    old, new = _unresolved_calls(before), _unresolved_calls(after)
+    old_owners, new_owners = component_owners(before), component_owners(after)
+    changes = []
+    for module, caller, expression in {*old, *new}:
+        was = old.get((module, caller, expression), ())
+        now = new.get((module, caller, expression), ())
+        if len(was) == len(now):
+            continue
+        added = len(now) > len(was)
+        calls, owners = (now, new_owners) if added else (was, old_owners)
+        changes.append(
+            UnresolvedCallChange(
+                "added" if added else "removed",
+                caller,
+                expression,
+                calls[0].reason,
+                owner_of(module, owners),
+                calls[0].path,
+                tuple(sorted(call.line for call in calls)),
+                len(was),
+                len(now),
+            )
+        )
+    return tuple(
+        sorted(
+            changes,
+            key=lambda item: (item.change, item.path, item.lines, item.caller, item.expression),
         )
     )

@@ -66,6 +66,7 @@ from archkeel.ir.model import (
     RunResult,
     SiblingIsolationRule,
     SymbolPlacementRule,
+    UnresolvedCallChange,
     contract_relative_path,
     in_scope,
     text_value,
@@ -80,9 +81,10 @@ from archkeel.ir.widening import (
 
 from .git import GitError, read_blob
 from .ports import Analyzer, FilesToWrite, ScanConfig
-from .ratchets import measure_python_ratchets
+from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
-from .run import inspect_observation
+from .run import inspect_observation, observe_snapshot
+from .snapshot import SnapshotError, materialize_git_snapshot
 
 COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
 # AD-57: a second, independent marker for the graph the contract permits, beside the one
@@ -1508,6 +1510,7 @@ def _observed_result(
     *,
     baseline_new: int | None = None,
     baseline_resolved: int | None = None,
+    unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None,
 ) -> RunResult:
     """The validate result once a complete observation has produced its diagnostics.
 
@@ -1563,7 +1566,27 @@ def _observed_result(
         claims=review_claims(observation),
         violations_by_rule=counted.by_rule,
         violations_by_component_pair=counted.by_component_pair,
+        unresolved_call_changes=unresolved_call_changes,
     )
+
+
+def _unresolved_calls_since(
+    root: Path, config: ScanConfig, analyzer: Analyzer, against: str, observation: Observation
+) -> tuple[UnresolvedCallChange, ...] | None:
+    """AD-100: the unresolved calls whose count differs from the code at `against`.
+
+    None when that revision's source cannot be observed completely: the sites explain a
+    finding, they never decide one. The working tree's contract serves both scans, so a
+    removed call's component carries today's label.
+    """
+    try:
+        with materialize_git_snapshot(root, against, roots=config.roots) as snapshot:
+            observed = observe_snapshot(analyzer, snapshot.root, snapshot.git_head, config, root)
+    except SnapshotError:
+        return None
+    if observed.diagnostics or observed.observation is None:
+        return None
+    return unresolved_call_changes(observed.observation, observation)
 
 
 def _baseline_invalid(path: Path, error: Exception) -> RunResult:
@@ -1973,12 +1996,19 @@ def run_validate(
         violations if write_baseline else known,
         observed_budgets if write_baseline else known_budgets,
     )
+    # AD-100: a calls_unresolved budget names its call sites against the other revision's code.
+    call_changes = (
+        _unresolved_calls_since(root, config, analyzer, against, observation)
+        if against is not None and "calls_unresolved" in declared_budgets and not diagnostics
+        else None
+    )
     result = _observed_result(
         observation,
         diagnostics,
         (*baseline_failures, *interface_narrowings, *widening_failures),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
+        unresolved_call_changes=call_changes,
     )
     write_baseline = write_baseline and (
         not baseline_exists or not (baseline_new or budget_new) or accept_new

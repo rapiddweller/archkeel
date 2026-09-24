@@ -113,6 +113,9 @@ def print_result(
         output.print(Text("Failures", style="bold"))
         for failure in result.failures:
             output.print(Text(f"  • {failure}"))
+    if summary.call_sites:
+        heading, *sites = summary.call_sites
+        output.print(Text.assemble((heading, "bold"), *(f"\n  {site}" for site in sites)))
     for diagnostic in result.diagnostics:
         output.print(_diagnostic(diagnostic))
     for path in artifacts:

@@ -902,6 +902,27 @@ class ReportFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class UnresolvedCallChange:
+    """AD-100: one unresolved call whose count differs between two compared revisions.
+
+    Its identity is the module, the calling scope and the call expression, never the line, so
+    code that only moves is no change. Identical expressions in one caller share that identity
+    and differ by count; `lines` then names every line of it on the side holding more, because
+    which one is new cannot be decided. A removed call's lines are those of the older revision.
+    """
+
+    change: Literal["added", "removed"]
+    caller: str
+    expression: str
+    reason: str
+    component: str | None
+    path: str
+    lines: tuple[int, ...]
+    before: int
+    after: int
+
+
+@dataclass(frozen=True, slots=True)
 class RunResult:
     command: str
     exit_code: Literal[0, 1, 2]
@@ -938,6 +959,9 @@ class RunResult:
     # AD-60: the violation records `report_filter` selects, the same ones the HTML table
     # shows; None whenever no filter was given, so an unfiltered result's shape is unchanged.
     filtered_violations: tuple[Record, ...] | None = None
+    # AD-100: the call sites behind a calls_unresolved change; None when no two revisions'
+    # calls were compared.
+    unresolved_call_changes: tuple[UnresolvedCallChange, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

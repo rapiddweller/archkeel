@@ -289,11 +289,16 @@ def print_summary(output: Path) -> None:
             candidate = result["delta"]["ratchets"]["head"]
             baseline_unresolved = baseline["scalars"]["calls_unresolved"]
             candidate_unresolved = candidate["scalars"]["calls_unresolved"]
+            sites = ", ".join(
+                f"{item['expression']}() at {item['path']}:{item['lines'][0]}"
+                for item in result["unresolved_call_changes"]
+                if item["change"] == "added"
+            )
             description = (
                 f"The call graph gets blinder: calls_unresolved "
                 f"{baseline_unresolved}->{candidate_unresolved}, unresolved_ratio "
                 f"{baseline_unresolved}/{baseline['calls_total']}->"
-                f"{candidate_unresolved}/{candidate['calls_total']}."
+                f"{candidate_unresolved}/{candidate['calls_total']}; new: {sites}."
             )
         print(
             f"{case} · {expected} · {actual} · {verdicts} · {description} · "

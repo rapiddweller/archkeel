@@ -41,7 +41,7 @@ from .git import (
 )
 from .ordering import check_order
 from .ports import Analyzer, Host, ScanConfig
-from .ratchets import measure_python_ratchets
+from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .snapshot import SnapshotError, materialize_git_snapshot
 
 
@@ -117,7 +117,7 @@ def _authenticate_inputs(
     return lock, lock_bytes, expectation
 
 
-def _observe_snapshot(
+def observe_snapshot(
     analyzer: Analyzer,
     root: Path,
     commit: str,
@@ -216,7 +216,7 @@ def run_check(
         declarations = Path(temporary)
         materialize_declarations(root, baseline, config, declarations)
         with materialize_git_snapshot(root, lock.accepted_commit, roots=config.roots) as before:
-            accepted_result = _observe_snapshot(
+            accepted_result = observe_snapshot(
                 analyzer, before.root, lock.accepted_commit, config, declarations
             )
         accepted = accepted_result.observation
@@ -232,13 +232,14 @@ def run_check(
             measurements=accepted_measurements,
         )
         with materialize_git_snapshot(root, head, roots=config.roots) as after:
-            candidate_result = _observe_snapshot(analyzer, after.root, head, config, declarations)
+            candidate_result = observe_snapshot(analyzer, after.root, head, config, declarations)
     candidate = candidate_result.observation
     if candidate_result.diagnostics or candidate is None:
         return _incomplete(candidate_result)
     try:
         inspect_observation(accepted)
         measurements, declared = inspect_observation(candidate)
+        call_changes = unresolved_call_changes(accepted, candidate)
     except RatchetError as error:
         return _measurement_incomplete(candidate, error)
     delta = build_architecture_delta(
@@ -267,4 +268,5 @@ def run_check(
         provenance=CheckProvenance(
             baseline, expectation_commit, head, sha256_bytes(lock_bytes), expected_digest
         ),
+        unresolved_call_changes=call_changes,
     )

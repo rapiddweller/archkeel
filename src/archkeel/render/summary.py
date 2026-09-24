@@ -6,13 +6,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Final, Literal, TypeAlias
 
 from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.model import DraftedComponentSize, RunResult
 
 State: TypeAlias = Literal["pass", "fail", "info", "unknown"]
 Comparison: TypeAlias = tuple[str, str, str, str]
+# AD-100: a rejected run names this many unresolved call sites; the JSON result names all.
+_CALL_SITES_SHOWN: Final = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +40,8 @@ class Summary:
     regressions: tuple[Comparison, ...]
     # AD-35: the terminal's one claim line. The HTML shows the same claims as full tables.
     claims: str = ""
+    # AD-100: a heading, then one line per unresolved call site; empty unless rejected.
+    call_sites: tuple[str, ...] = ()
 
 
 def badge(value: str) -> Badge:
@@ -153,6 +157,28 @@ def _claims_line(result: RunResult) -> str:
     return f"Review claims, never a verdict: {counted}."
 
 
+def _call_site_lines(result: RunResult) -> tuple[str, ...]:
+    """Name the unresolved call sites behind a rejected run, a few at most (AD-100)."""
+    changes = result.unresolved_call_changes
+    if result.exit_code != 1 or not changes:
+        return ()
+    added = sum(item.change == "added" for item in changes)
+    lines = [f"Unresolved call sites: {added} added, {len(changes) - added} removed"]
+    for item in changes[:_CALL_SITES_SHOWN]:
+        sign = "+" if item.change == "added" else "-"
+        where = f"{item.path}:{','.join(str(line) for line in item.lines)}"
+        count = f" ({item.before}->{item.after})" if item.before and item.after else ""
+        lines.append(
+            f"{sign} {where} {item.caller}: {item.expression}() "
+            f"[{item.component or 'no component'}] {item.reason}{count}"
+        )
+    if len(changes) > _CALL_SITES_SHOWN:
+        lines.append(
+            f"+{len(changes) - _CALL_SITES_SHOWN} more in the JSON result's unresolved_call_changes"
+        )
+    return tuple(lines)
+
+
 def _baseline_line(result: RunResult) -> str:
     if result.baseline_new is None or result.baseline_resolved is None:
         return ""
@@ -221,7 +247,14 @@ def report_summary(result: RunResult) -> Summary:
         + _agent_decisions_line(result)
         + _baseline_line(result)
     )
-    return Summary(_decision_badge(result), sentence, verdicts, (), _claims_line(result))
+    return Summary(
+        _decision_badge(result),
+        sentence,
+        verdicts,
+        (),
+        _claims_line(result),
+        _call_site_lines(result),
+    )
 
 
 def _largest_draft(
@@ -270,7 +303,13 @@ def check_summary(result: RunResult) -> Summary:
         VerdictRow(label, key, value, _check_verdict_reason(result, key, value, regressions))
         for label, key, value in _check_verdict_values(result)
     )
-    return Summary(_decision_badge(result), check_decision_sentence(result), verdicts, regressions)
+    return Summary(
+        _decision_badge(result),
+        check_decision_sentence(result),
+        verdicts,
+        regressions,
+        call_sites=_call_site_lines(result),
+    )
 
 
 def _check_verdict_values(result: RunResult) -> tuple[tuple[str, str, str], ...]:

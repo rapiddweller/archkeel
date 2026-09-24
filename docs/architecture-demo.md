@@ -102,6 +102,7 @@ run shows many violations together; every other row isolates one item.
 | validation | observation.incomplete | validation-observation-incomplete | tested only | - | - | tests/test_trace.py |
 | class_c | ContractDeclarations.measurement_budgets | validation-measurement-budget-clean | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
 | validation | measurement_budget:cycle_edges | validation-measurement-budget-rise | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
+| validation | measurement_budget:calls_unresolved --against | validation-measurement-budget-call-sites | tested only | - | - | tests/test_unresolved_call_sites.py |
 | validation | baseline.invalid | validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
 | validation | baseline.accept_new | validation-baseline-accept-new | tested only | - | - | tests/test_cli.py |
 | validation | baseline.roles | validation-baseline-roles | tested only | - | - | tests/test_baseline.py |
