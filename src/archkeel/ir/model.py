@@ -1006,6 +1006,9 @@ class RunResult:
     filtered_violations: tuple[Record, ...] | None = None
     # AD-99: every declared facade and pair budget `validate` measured; None when none exists.
     interface_budgets: tuple[InterfaceBudgetResult, ...] | None = None
+    # AD-101: the scan.roots a report, validate or check run read. A verdict covers these and
+    # no source beside them, such as a test tree another configuration governs.
+    scan_roots: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

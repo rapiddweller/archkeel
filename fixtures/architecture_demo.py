@@ -19,6 +19,7 @@ import sys
 import textwrap
 from pathlib import Path
 
+from archkeel.cli.config import CONFIG_PATH
 from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
 from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIANTS
@@ -30,6 +31,7 @@ from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import FIXTURE_DIR, Variant
+from fixtures.demo_catalog_test_scope import VARIANTS as _TEST_SCOPE_VARIANTS
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
 from fixtures.demo_catalog_validation import VARIANTS as _VALIDATION_VARIANTS
 from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
@@ -41,6 +43,7 @@ CATALOG: tuple[Variant, ...] = (
     *_DEPENDENCY_VARIANTS,
     *_INTERFACE_VARIANTS,
     *_LAYOUT_VARIANTS,
+    *_TEST_SCOPE_VARIANTS,
     *_TYPE_VARIANTS,
     *_VALIDATION_VARIANTS,
     *_WIDENING_VARIANTS,
@@ -77,6 +80,8 @@ def _demo_type(variant: Variant) -> str:
         return "validate --against run"
     if variant.evidence is not None:
         return "tested only"
+    if variant.config != CONFIG_PATH:
+        return f"validate/report --config {variant.config} run"
     return "validate/report run"
 
 

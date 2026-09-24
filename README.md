@@ -226,6 +226,7 @@ and what the gate says when an agent crosses a boundary inside the level.
 make demo-onboarding
 archkeel validate --root fixtures/F-architecture   # exit 0, both levels
 archkeel report   --root fixtures/F-architecture   # PASS, 0 violations
+archkeel validate --root fixtures/F-architecture --config archkeel-tests.toml   # its tests' own scope
 ```
 
 Every violation the tool can find has a catalogued variant that produces it, listed in
@@ -527,6 +528,9 @@ Archkeel is deliberately strict about what it can prove:
   `validate --against <ref>` classifies a padded entry or raised budget as a widening
   like any other and fails it without an amendment (AD-61), but only when a reviewer or CI runs
   it with `--against`; nothing forces that flag on every gate.
+- **Scan scope:** a run observes the roots and the one namespace its configuration names, and
+  its scan-complete reason names those roots. Tests beside the product are a second scope with
+  their own `--config` file and contract (AD-101); a green product run says nothing about them.
 - **Static observation:** runtime behavior, data flow and performance are not observed; see
   [docs/known-limits.md](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
 - **Compatibility shims:** moved-module shims are declared in `declarations.compat`; migration
