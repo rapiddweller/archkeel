@@ -125,9 +125,9 @@ The gate fails (exit 1) on a violation the file does not state, and on one it st
 nobody violates any more — so the budget only shrinks, and the file is rewritten in the same
 change that shrinks it. `declarations.measurement_budgets` may put deterministic scalar values
 through the same loop (AD-89). Never raise either kind of debt to make a run pass without the
-architect's decision. When `calls_unresolved` rises, rerun with `--against <base ref>`:
-`unresolved_call_changes` names each added and removed unresolved call with its caller, path,
-lines, expression, reason and component (AD-100). `report --only calls --json` lists every
+architect's decision. When `calls_unresolved` rises, rerun with `--against <base ref>`, as the
+finding says: `unresolved_call_changes` names each added and removed unresolved call with its
+caller, path, lines, expression, reason and component (AD-100). `report --only calls --json` lists every
 unresolved and partially resolved call as `filtered_calls`; add `--component <label>` for one
 component's calls.
 

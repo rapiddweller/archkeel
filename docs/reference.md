@@ -136,8 +136,8 @@ the write unless `--accept-new` is explicit. It writes nothing from a run that e
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
 declaration carries provenance. A selected value must equal the baseline: a rise is new debt; a
 fall must be written back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
-The file stores values, not call sites: add `--against <ref>` to name the calls behind a
-`calls_unresolved` finding (AD-100).
+The file stores values, not call sites, so a `calls_unresolved` rise reads `measurement budget
+exceeded in calls_unresolved: 7->8; validate --against <ref> names the call sites` (AD-100).
 Contracts without measurement budgets behave as before. The file's shape is
 `schema/violation-baseline.schema.json`:
 
@@ -194,9 +194,12 @@ way the lock binds its own inputs - with free-text `decided_by` and `rationale`.
 written for one change does not verify against a different one. `--write-amendment`, with
 `--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
 `--amendment` file is `amendment.invalid`, exit 2; an `--against` revision or its contract that
-cannot be read is `against.invalid`, exit 2. When the contract selects the `calls_unresolved`
-budget, `--against` also observes the code at that revision and reports
-`unresolved_call_changes` (AD-100). `validate` without `--against` is unchanged. The
+cannot be read is `against.invalid`, exit 2. When a run fails and the observed
+`calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
+at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
+passing run pays for no second scan. Files `git archive` leaves out (untracked git-ignored, or
+`export-ignore`) exist on the working-tree side only and are not compared; a revision that cannot
+be scanned leaves the field `null` (AD-100). `validate` without `--against` is unchanged. The
 file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json):
 
@@ -254,7 +257,7 @@ observation's own call records and add up to `coverage.calls_unresolved` plus
 since a call cites no rule. The HTML page shows the same rows as one table in place of the
 violations table and hides what `--only violations` hides; the terminal prints only the
 `Filtered (only calls): N unresolved or partially resolved call(s) listed.` sentence. Without
-`--only calls` the field is absent, so a default result keeps its bytes (AD-100).
+`--only calls` the field reads `null`, like `filtered_violations` (AD-100).
 
 An unfiltered HTML page with violations also has a local `Violations only` control (AD-75). It
 keeps the verdicts, failures, known unknowns, violations and complete evidence access visible
@@ -362,8 +365,9 @@ unresolved call whose count differs between the two observations: `change` (`add
 `after`. A row is keyed by file, caller and expression, not by line, so moved code is no change;
 identical expressions in one caller form one row whose `lines` name them all, and a removed row
 names the older revision's lines. The JSON lists every row; the terminal lists at most five under
-the failures, and none on a passing run. A result that compared no two revisions' calls omits the
-field (AD-100).
+the failures, and none on a passing run. The field reads `null` in a result that compared no two
+revisions' calls, or whose call records do not add up to the coverage counts; that never changes
+the verdict (AD-100).
 
 The JSON field `ratchets` and Python identifiers such as `compare_ratchets` keep their
 existing names for compatibility. Human-readable messages use "regression check".

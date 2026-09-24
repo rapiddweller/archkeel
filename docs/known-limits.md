@@ -30,8 +30,10 @@ at runtime.
 
 `report --only calls --json` lists every unresolved and partially resolved call with its reason
 and owning component. A change in unresolved calls is named by file, caller and expression, not
-by line (AD-100). A renamed caller reads as one removed and one added call, and of two identical
-calls in one caller the new one cannot be told apart: the row names both lines.
+by line (AD-100). A renamed caller reads as one removed and one added call, a renamed or moved
+file as all of its calls removed and added, and of two identical calls in one caller the new one
+cannot be told apart: the row names both lines. `validate --against` does not compare a file
+`git archive` leaves out, an untracked git-ignored or `export-ignore` one.
 
 ## A facade type position is not always decidable
 
