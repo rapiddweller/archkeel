@@ -948,6 +948,9 @@ class RunResult:
     # AD-60: the violation records `report_filter` selects, the same ones the HTML table
     # shows; None whenever no filter was given, so an unfiltered result's shape is unchanged.
     filtered_violations: tuple[Record, ...] | None = None
+    # AD-101: the scan.roots a report, validate or check run read. A verdict covers these and
+    # no source beside them, such as a test tree another configuration governs.
+    scan_roots: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

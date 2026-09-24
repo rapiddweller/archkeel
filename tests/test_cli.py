@@ -81,6 +81,32 @@ def test_report_missing_config_is_unknown(tmp_path: Path, capsys: pytest.Capture
     assert result["expectation_fulfilled"] == "UNKNOWN"
 
 
+def test_config_selects_a_second_scope_and_every_result_names_its_roots(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-101: the shop sample's tests/ is checked by its own file at the same root, and a
+    result names the roots it scanned, so a green product run is not read as covering tests."""
+    root = _prepare_repo(tmp_path, {})
+    tests = ["--root", str(root), "--config", "archkeel-tests.toml"]
+
+    assert main(["validate", "--root", str(root), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["shop"]
+    assert main(["validate", *tests, "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["tests"]
+
+    output = tmp_path / "tests.json"
+    assert main(["report", *tests, "--output", str(output), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["tests"]
+    architecture = json.loads(output.read_text())
+    assert architecture["source"]["scope"] == ["tests/**/*.py"]
+    assert architecture["contract"]["path"] == "tests/architecture-contract.json"
+
+    assert main(["validate", "--root", str(root), "--config", "missing.toml", "--json"]) == 2
+    diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
+    assert diagnostic["subject"] == str(root / "missing.toml")
+    assert "cannot read missing.toml" in diagnostic["unknown_claim"]
+
+
 def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> None:
     baseline = str(ROOT / "architecture-baseline.json")
     assert main(["validate", "--root", str(ROOT), "--baseline", baseline]) == 0

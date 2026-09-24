@@ -29,6 +29,8 @@ def test_make_demo_reproduces_all_three_outcomes(tmp_path: Path) -> None:
         html = output / f"{case}-check.stdout.check.html"
         result = json.loads(result_path.read_bytes())
         assert result["exit_code"] == expected
+        # AD-101: a check names the roots it scanned, like report and validate.
+        assert result["scan_roots"] == ["sample"]
         assert f"{case} · {expected} · {expected} ·" in run.stdout
         assert str(result_path) in run.stdout
         assert str(html) in run.stdout
