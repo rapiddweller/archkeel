@@ -58,12 +58,11 @@ def _observe(root: Path, files: dict[str, str]) -> Observation:
     return observed.observation
 
 
-def _exceeded(values: str) -> str:
-    # The baseline stores the value alone; the finding says which flag names the sites.
-    return (
-        f"measurement budget exceeded in calls_unresolved: {values}; "
-        "validate --against <ref> names the call sites"
-    )
+def _exceeded(values: str, *, hint: bool = False) -> str:
+    # The baseline stores the value alone; without --against the finding says which flag names
+    # the sites, with it the sites themselves follow.
+    finding = f"measurement budget exceeded in calls_unresolved: {values}"
+    return f"{finding}; validate --against <ref> names the call sites" if hint else finding
 
 
 def _added(lines: tuple[int, ...], before: int = 0, after: int = 1) -> UnresolvedCallChange:
@@ -127,7 +126,7 @@ def test_validate_against_names_the_call_behind_a_calls_unresolved_rise(tmp_path
     assert result.unresolved_call_note is None
     # Without --against there is no second revision to name the site from.
     alone, _ = run_validate(root, CONFIG, observe, baseline=baseline)
-    assert alone.failures == result.failures
+    assert alone.failures == (_exceeded("7->8", hint=True),)
     assert alone.unresolved_call_changes is None
 
 

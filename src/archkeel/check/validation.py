@@ -2006,7 +2006,11 @@ def run_validate(
         violation_drift_counts(known, violations) if baseline_exists else (0, 0)
     )
     comparison = compare_violations(known, violations) if baseline_exists else ()
-    budget_comparison = compare_budgets(known_budgets, observed_budgets) if baseline_exists else ()
+    budget_comparison = (
+        compare_budgets(known_budgets, observed_budgets, against=against is not None)
+        if baseline_exists
+        else ()
+    )
     budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
     baseline_failures = (
         (*comparison, *budget_comparison)
