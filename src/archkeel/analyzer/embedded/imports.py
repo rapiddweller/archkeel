@@ -252,6 +252,7 @@ def collect_imports(
     imports: list[RawRecord] = []
     for module in parsed:
         module.all_exports = literal_all_exports(module.tree)
+        module.all_literal = all_is_one_literal(module.tree)
         collector = ImportCollector(
             module, module_names, evidence, package_bindings, namespace=namespace
         )
@@ -292,6 +293,28 @@ def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str,
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()
         )
+
+
+def all_is_one_literal(tree: ast.Module) -> bool:
+    """True when `__all__` is bound once, at top level, to a literal of strings, and no other
+    statement anywhere in the module names it (AD-99).
+
+    `literal_all_exports` reads every literal it finds and skips `+=`, `.append`, `.extend` and
+    starred elements, so only this proves its answer is the module's whole `__all__`.
+    """
+    references = [
+        node for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == "__all__"
+    ]
+    values: list[ast.expr | None] = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and node.targets == references:
+            values.append(node.value)
+        elif isinstance(node, ast.AnnAssign) and [node.target] == references:
+            values.append(node.value)
+    value = values[0] if len(values) == 1 else None
+    return isinstance(value, ast.List | ast.Tuple) and all(
+        isinstance(item, ast.Constant) and isinstance(item.value, str) for item in value.elts
+    )
 
 
 def literal_all_exports(tree: ast.Module) -> set[str]:

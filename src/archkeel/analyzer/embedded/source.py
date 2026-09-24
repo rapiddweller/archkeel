@@ -62,6 +62,8 @@ class ParsedModule:
     tree: ast.Module
     aliases: dict[str, AliasBinding] = field(default_factory=dict)
     all_exports: set[str] = field(default_factory=set)
+    # AD-99: `all_exports` is the module's whole `__all__`, bound once to a literal.
+    all_literal: bool = False
     compatibility_logic_free: bool = False
 
 
