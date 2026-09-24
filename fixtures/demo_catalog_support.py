@@ -61,6 +61,7 @@ AgainstScenario = Literal[
     "symbol_placement_removed",
     "compat_added",
     "compat_promoted",
+    "budget_raised",
     "cycle_rule_scoped",
 ]
 
@@ -193,6 +194,40 @@ def contract_measurement_budgets(*names: str, fixture: Path = FIXTURE_DIR) -> st
         {"name": name, "provenance": ["docs/architecture/shop.md"]} for name in names
     ]
     return _dump_contract(contract)
+
+
+def contract_interface_budgets(
+    facades: tuple[tuple[str, int], ...] = (),
+    pairs: tuple[tuple[str, str, int], ...] = (),
+) -> str:
+    """Clean contract with facade and component-pair name targets (AD-99); none omits a list."""
+    contract = _clean_contract()
+    provenance = ["docs/architecture/shop.md"]
+    if facades:
+        contract["declarations"]["facade_budgets"] = [
+            {"component": component, "max_names": limit, "provenance": provenance}
+            for component, limit in facades
+        ]
+    if pairs:
+        contract["declarations"]["coupling_budgets"] = [
+            {"source": source, "target": target, "max_names": limit, "provenance": provenance}
+            for source, target, limit in pairs
+        ]
+    return _dump_contract(contract)
+
+
+def entities_with(name: str, all_statement: str | None = None) -> str:
+    """The shop's `shop.model.entities` with one more dataclass exported (AD-99).
+
+    Without `all_statement` the class joins the literal `__all__`; with it, that statement is
+    appended instead, for the forms that extend `__all__` after its literal assignment.
+    """
+    source = (FIXTURE_DIR / "shop/model/entities.py").read_text()
+    if all_statement is None:
+        source = source.replace('"LinePayload"]', f'"LinePayload", "{name}"]')
+    else:
+        source += f"\n{all_statement}\n"
+    return source + f"\n\n@dataclass(frozen=True, slots=True)\nclass {name}:\n    cents: int\n"
 
 
 def inside_requires_replaced(label: str, entries: list[dict[str, str]]) -> str:

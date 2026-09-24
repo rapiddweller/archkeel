@@ -116,6 +116,13 @@ demo-dart`.
 | class_c | ContractDeclarations.measurement_budgets | validation-measurement-budget-clean | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
 | validation | measurement_budget:cycle_edges | validation-measurement-budget-rise | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
 | validation | measurement_budget:calls_unresolved --against | validation-measurement-budget-call-sites | tested only | - | - | tests/test_unresolved_call_sites.py |
+| class_c | ContractDeclarations.facade_budgets | validation-facade-budget-clean | validate/report run | - | - | architecture-contract.json |
+| class_c | ContractDeclarations.coupling_budgets | validation-coupling-budget-clean | validate/report run | - | - | architecture-contract.json |
+| validation | budget.exceeded | validation-facade-budget-exceeded | validate/report run | - | budget.exceeded | architecture-contract.json, shop/model/entities.py |
+| validation | budget.exceeded:coupling | validation-coupling-budget-exceeded | validate/report run | - | budget.exceeded | architecture-contract.json, shop/app/export.py |
+| validation | budget.unknown | validation-facade-budget-unknown | validate/report run | - | budget.unknown | architecture-contract.json |
+| validation | budget.target_first | validation-facade-budget-target-first | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
+| validation | budget.ratchet | validation-facade-budget-ratchet | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/entities.py |
 | validation | baseline.invalid | validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
 | validation | baseline.accept_new | validation-baseline-accept-new | tested only | - | - | tests/test_cli.py |
 | validation | baseline.roles | validation-baseline-roles | tested only | - | - | tests/test_baseline.py |
@@ -144,6 +151,7 @@ demo-dart`.
 | validation | against:symbol_placement_added | against-symbol-placement-added | validate --against run | - | - | architecture-contract.json |
 | validation | against:boundary_types_removed | against-boundary-types-removed | validate --against run | - | - | architecture-contract.json |
 | validation | against:symbol_placement_removed | against-symbol-placement-removed | validate --against run | - | - | architecture-contract.json |
+| validation | against:budget_raised | against-facade-budget-raised | validate --against run | - | - | architecture-contract.json |
 | validation | against:cycle_rule_scoped | against-cycle-rule-scoped | validate --against run | - | - | architecture-contract.json |
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |

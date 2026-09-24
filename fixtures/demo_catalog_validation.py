@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
+from archkeel.ir.codec import baseline_bytes
+from archkeel.ir.measurements import MeasurementBudget
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
     HEADER,
@@ -13,6 +15,7 @@ from fixtures.demo_catalog_support import (
     contract_component_field_appended,
     contract_component_field_set,
     contract_declarations_field_appended,
+    contract_interface_budgets,
     contract_measurement_budgets,
     contract_rule_field,
     contract_rule_provenance_appended,
@@ -21,6 +24,7 @@ from fixtures.demo_catalog_support import (
     contract_with_rule,
     contract_without_component_field_and_rule,
     contract_without_top_field,
+    entities_with,
     inside_contract,
 )
 
@@ -90,6 +94,27 @@ _CYCLE_BUDGET_FILES = {
     "architecture-contract.json": contract_measurement_budgets("cycle_edges"),
     "architecture-baseline.json": _CYCLE_BUDGET_BASELINE,
 }
+
+# AD-99: the shop's measured values are the ceilings; the model facade exports five names and
+# app imports three from model and three from store, OrderRepository through the store barrel.
+_FACADE_BUDGET = contract_interface_budgets((("model", 5),))
+_COUPLING_BUDGET = contract_interface_budgets(pairs=(("app", "model", 3), ("app", "store", 3)))
+_ENTITIES_WITH_DISCOUNT = entities_with("Discount")
+# The accepted names of today's model facade, frozen the way --write-baseline records them.
+_MODEL_NAMES = tuple(
+    f"shop.model.entities:{name}"
+    for name in ("Line", "LinePayload", "Money", "Order", "OrderPayload")
+)
+_MODEL_BASELINE = baseline_bytes(
+    (), (MeasurementBudget("facade_names", len(_MODEL_NAMES), "model", _MODEL_NAMES),)
+).decode()
+_APP_READS_PAYLOADS = HEADER + (
+    '"""Export use case reading the serialised order shape."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from shop.model.entities import OrderPayload\n\n\n"
+    "def payload_id(payload: OrderPayload) -> str:\n"
+    '    return payload["order_id"]\n'
+)
 
 
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
@@ -469,6 +494,94 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         evidence="tests/test_unresolved_call_sites.py",
+    ),
+    Variant(
+        id="validation-facade-budget-clean",
+        section="class_c",
+        item="ContractDeclarations.facade_budgets",
+        summary="The contract caps the model facade at the five names it exports; validate "
+        "passes without a baseline (AD-99).",
+        files={"architecture-contract.json": _FACADE_BUDGET},
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-coupling-budget-clean",
+        section="class_c",
+        item="ContractDeclarations.coupling_budgets",
+        summary="The contract caps app -> model and app -> store at three facade names each; "
+        "OrderRepository counts through the store barrel's re-export (AD-99).",
+        files={"architecture-contract.json": _COUPLING_BUDGET},
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-facade-budget-exceeded",
+        section="validation",
+        item="budget.exceeded",
+        summary="The model facade adds Discount to __all__. Without a baseline, six names over "
+        "the target of five are a diagnostic that lists all six (AD-99).",
+        files={
+            "architecture-contract.json": _FACADE_BUDGET,
+            "shop/model/entities.py": _ENTITIES_WITH_DISCOUNT,
+        },
+        expected_violations=(),
+        expected_codes=("budget.exceeded",),
+    ),
+    Variant(
+        id="validation-coupling-budget-exceeded",
+        section="validation",
+        item="budget.exceeded:coupling",
+        summary="A new app module imports OrderPayload. app -> model now uses four model "
+        "names against a budget of three, and the diagnostic names the pair and all four.",
+        files={
+            "architecture-contract.json": _COUPLING_BUDGET,
+            "shop/app/export.py": _APP_READS_PAYLOADS,
+        },
+        expected_violations=(),
+        expected_codes=("budget.exceeded",),
+    ),
+    Variant(
+        id="validation-facade-budget-unknown",
+        section="validation",
+        item="budget.unknown",
+        summary="A budget on render counts shop.render.text, a whole module without __all__. "
+        "Its imports and computed names are not enumerated, so the budget is UNKNOWN at exit "
+        "2, not PASS.",
+        files={"architecture-contract.json": contract_interface_budgets((("render", 1),))},
+        expected_violations=(),
+        expected_codes=("budget.unknown",),
+    ),
+    Variant(
+        id="validation-facade-budget-target-first",
+        section="validation",
+        item="budget.target_first",
+        summary="The contract targets four model names while the baseline accepts today's five. "
+        "The gap is known, so validate --baseline passes and reports the model facade 1 over "
+        "its target (AD-99).",
+        files={
+            "architecture-contract.json": contract_interface_budgets((("model", 4),)),
+            "architecture-baseline.json": _MODEL_BASELINE,
+        },
+        expected_violations=(),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
+    ),
+    Variant(
+        id="validation-facade-budget-ratchet",
+        section="validation",
+        item="budget.ratchet",
+        summary="The baseline accepts five model names and Discount joins __all__. The new name "
+        "is a rise that validate --baseline names, whatever the target; --write-baseline "
+        "needs --accept-new to take it (AD-99).",
+        files={
+            "architecture-contract.json": _FACADE_BUDGET,
+            "architecture-baseline.json": _MODEL_BASELINE,
+            "shop/model/entities.py": _ENTITIES_WITH_DISCOUNT,
+        },
+        expected_violations=(),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
     ),
     Variant(
         id="validation-baseline-invalid",

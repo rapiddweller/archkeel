@@ -386,13 +386,14 @@ Each entry names one violation by fingerprint — the rule ids it cites and its 
 which per rule kind are the modules, the construct owner or the members of a cycle — plus the
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
 A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
-alone. Baseline schema `1.2.0` also carries contract-selected measurement budgets and may carry
-sorted `roles` objects (`source` and `target`) for directional violation rows; they explain every
-crossing and never change fingerprint identity. They are semantic evidence: `validate --against`
+alone. Baseline schema `1.3.0` also carries contract-selected measurement budgets, the accepted
+names of each facade and coupling budget, and may carry sorted `roles` objects (`source` and
+`target`) for directional violation rows; they explain every crossing and never change
+fingerprint identity. They are semantic evidence: `validate --against`
 rejects any role-only change unless an amendment accepts it.
 Multiple roles are retained. Rows without a resolved direction, including construct rows, omit
-`roles`. Schemas `1.0.0` and `1.1.0` remain readable. Counts must match the observation exactly:
-a higher one is a `new violation`, a lower one a `resolved violation`, both reported in
+`roles`. Schemas `1.0.0`, `1.1.0` and `1.2.0` remain readable. Counts must match the observation
+exactly: a higher one is a `new violation`, a lower one a `resolved violation`, both reported in
 `failures` with exit 1, so the budget only shrinks. An existing baseline is compared before a
 write: resolved-only drift may be written, while new or increased fingerprints refuse the write
 unless `--accept-new` is explicit. A run whose baseline is exactly right exits 0, with
@@ -469,20 +470,39 @@ incomplete scan produces no measurements, so the check reports NOT CHECKED inste
 
 `declarations.measurement_budgets` selects already-produced scalars for `validate --baseline`:
 `cycle_edges`, `private_crossings`, `typing_positions`, `calls_unresolved`,
-`untyped_private_accesses` and `unknown_positions`. Baseline schema 1.2 stores their exact
-accepted values. A rise fails;
-a fall also fails until `--write-baseline` records it. Missing measurement evidence exits 2,
-never PASS (AD-89). The baseline stores values only; without `--against` a `calls_unresolved`
-rise says so, and on a failing run `--against <ref>` names the call sites behind the change, or
-says why it names none (AD-100).
+`untyped_private_accesses` and `unknown_positions`. Baseline schema 1.2 and later stores their
+exact accepted values. A rise fails; a fall also fails until `--write-baseline` records it.
+Missing measurement evidence exits 2, never PASS (AD-89). The baseline stores values only; without
+`--against` a `calls_unresolved` rise says so, and on a failing run `--against <ref>` names the call
+sites behind the change, or says why it names none (AD-100).
+
+`declarations.facade_budgets` and `declarations.coupling_budgets` state targets.
+`{component, max_names}` targets the `module:name` entries a component's `public` modules export;
+`{source, target, max_names}` the target facade names the source imports, following re-export
+chains the way `interface_boundary` does and counting `TYPE_CHECKING` imports. A name reachable
+through two declared modules counts once per module. Without `--baseline`, a count over
+`max_names` is `budget.exceeded`, listing every counted name because a count cannot say which are
+too many. With `--baseline`, the file holds each budget's accepted names instead: a name outside
+them is a rise in `failures` that needs `--accept-new`, a name gone is a fall until
+`--write-baseline` records it, and accepted names over the target are a known gap reported as
+`over_target`. A count the scan cannot complete is `budget.unknown` at exit 2 in both modes: a
+whole-module entry whose `__all__` is not one non-empty literal assignment nothing else changes,
+a whole-module import of a facade module, a star import of a non-enumerated facade, or a name a
+non-enumerated facade does not list. A key naming no component, a budgeted facade
+without `public`, a pair naming one component twice, a repeated key, and a pair budget without an
+`interface_boundary` rule that includes `TYPE_CHECKING` imports are `contract.invalid`. Raising or
+removing `max_names`, growing an accepted name set in the baseline, or accepting more names than
+the old `max_names` for a key the old baseline did not hold widens under `--against`
+(AD-99).
 
 ## Class C: declarations
 
 Fields under `declarations` preserve capabilities, review scopes, a package's external public
-API, commands, context roots, paths, owners and measurement budgets. Archkeel decodes and reports
-every one of them, and checks every one for two structural facts: a declared name resolves inside
-the configured namespace (`reference.namespace`) and a declared provenance file exists
-(`reference.provenance`).
+API, commands, context roots, paths, owners, measurement budgets and facade and coupling
+budgets. Archkeel decodes every one of them and reports all but the facade and coupling budgets,
+which only `validate` reads. It checks every one for two structural facts: a declared name
+resolves inside the configured namespace (`reference.namespace`) and a declared provenance file
+exists (`reference.provenance`).
 `public_api` names the surface a consumer *outside* this package may rely on - a different thing
 from the component `public` field, which names one component's promise to another component of
 the *same* package and is held to `interface_boundary` at every crossing (AD-9). Nothing inside

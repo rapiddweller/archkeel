@@ -85,6 +85,22 @@ undecidable; Archkeel's own facades happen to contain none. What a builtin is co
 `dir(builtins)` on the analyzer's own interpreter, so it is that Python build's answer, not a list
 kept by hand.
 
+## A facade budget needs names it can list
+
+A whole-module `public` entry is enumerated only when its `__all__` is one non-empty literal
+assignment and nothing else in the module touches `__all__`; `+=`, `.append`, `.extend`, a
+starred element, a second assignment or an import bound to `__all__` make it UNKNOWN, as does no
+`__all__` at all, since imports and computed assignments are public names the scan records no
+symbol for. `__all__ = []` is UNKNOWN too, because `interface_boundary` reads it as no `__all__`
+and lets every name through. The check is static: `globals()["__all__"] = ...` or
+`sys.modules[__name__].__all__.append(...)` changes `__all__` unseen. A whole-module import of a
+facade module, a star import of a non-enumerated facade, and a name a non-enumerated facade does
+not list prove no name, so a pair budget that sees one is UNKNOWN until its lower bound already
+exceeds. A name reachable through two declared modules
+counts once per module, and `TYPE_CHECKING` imports count toward a pair. Declare `__all__` or
+`module:Name` entries, and import names explicitly (AD-99). Archkeel's own facades are whole
+modules without `__all__`, so its contract pins pair budgets only.
+
 ## Imports and constructs
 
 - Dynamic imports such as `importlib.import_module(name)` add no dependency edge. Forbid them with
@@ -137,6 +153,7 @@ What it cannot see is UNKNOWN or refused, never PASS:
 | a `declarations.public_api` `module:name` entry on a scanned library | UNKNOWN (`api_surface_limit`) |
 | `symbol_placement`, `boundary_types`, `forbidden_construct` | exit 2, `rule_unsupported_by_profile` |
 | `declarations.context_roots`, a budget on `typing_positions`, `calls_unresolved`, `private_crossings` or `untyped_private_accesses` | exit 2, `rule_unsupported_by_profile` |
+| `declarations.facade_budgets` or `declarations.coupling_budgets`: Dart has no `__all__` and its public names are UNKNOWN (AD-99) | exit 2, `rule_unsupported_by_profile` |
 | those four scalars | `null`, compared as `n/a` |
 | `unreferenced_symbols`, `unread_bindings`, `type_fanin`, `repeated_logic` | UNKNOWN: `symbols`, `references` and `bindings` are null |
 

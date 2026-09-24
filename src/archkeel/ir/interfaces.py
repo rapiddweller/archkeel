@@ -8,7 +8,16 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .model import FUNCTION_KINDS, Observation, Record, RecordData, in_scope
+from .measurements import NameBudgetKind
+from .model import (
+    FUNCTION_KINDS,
+    ContractDeclarations,
+    InterfaceBudgetResult,
+    Observation,
+    Record,
+    RecordData,
+    in_scope,
+)
 
 _CLASS_KINDS = frozenset({"dataclass", "protocol", "enum"})
 
@@ -38,6 +47,10 @@ class FacadeMetric:
     reexported_names: tuple[str, ...]
     defined_names: tuple[str, ...]
     unused_reexports: tuple[str, ...]
+    # AD-99: False for a whole-module entry whose `__all__` the analyzer did not prove to be one
+    # non-empty literal: its imports, computed assignments or later `__all__` additions go
+    # unlisted, and `interface_boundary` reads an empty `__all__` as none at all.
+    enumerated: bool
 
     @property
     def exported_name_count(self) -> int:
@@ -69,6 +82,10 @@ class CouplingWidth:
     source: str
     target: str
     names: tuple[str, ...]
+    # AD-99: imports that reach the target without naming what they use - a whole module, a
+    # star outside an enumerated facade, or a name a non-enumerated facade does not list - so
+    # `width` is a lower bound while this is not empty.
+    uncounted: tuple[str, ...]
 
     @property
     def width(self) -> int:
@@ -227,6 +244,16 @@ def _literal_exports(observation: Observation) -> dict[str, frozenset[str]]:
     }
 
 
+def _literal_all_modules(observation: Observation) -> frozenset[str]:
+    """Modules whose `__all__` the analyzer proved to be bound once to a literal (AD-99)."""
+    return frozenset(
+        module
+        for record in observation.records("modules") or ()
+        if record.data.get("all_literal") is True
+        and isinstance((module := record.data.get("qualified_name")), str)
+    )
+
+
 def _reexports(observation: Observation) -> dict[str, frozenset[str]]:
     names: dict[str, set[str]] = defaultdict(set)
     for record in observation.records("imports") or ():
@@ -248,18 +275,18 @@ def _declared_facades(
 ) -> tuple[tuple[FacadeMetric, ...], dict[tuple[str, str], frozenset[str]]]:
     declarations = _facade_declarations(observation)
     all_exports = _literal_exports(observation)
+    literal = _literal_all_modules(observation)
     symbols = _public_symbol_names(observation)
     reexports = _reexports(observation)
     exported: dict[tuple[str, str], frozenset[str]] = {}
     facade_rows: list[FacadeMetric] = []
     for (component, module), declared in sorted(declarations.items()):
-        names = (
-            all_exports.get(module, frozenset())
-            if declared is None and all_exports.get(module)
-            else declared
-            if declared is not None
-            else symbols.get(module, frozenset()) | reexports.get(module, frozenset())
-        )
+        if declared is not None:
+            names = declared
+        elif all_exports.get(module):
+            names = all_exports.get(module, frozenset())
+        else:
+            names = symbols.get(module, frozenset()) | reexports.get(module, frozenset())
         names = frozenset(name for name in names if name and not name.startswith("_"))
         local = frozenset(name for name in symbols.get(module, frozenset()) if name in names)
         facade_reexports = frozenset(
@@ -274,10 +301,50 @@ def _declared_facades(
                 tuple(sorted(facade_reexports)),
                 tuple(sorted(local)),
                 (),
+                # `interface_boundary` reads an empty `__all__` as none, so it lists nothing.
+                declared is not None or (module in literal and bool(all_exports.get(module))),
             )
         )
 
     return tuple(facade_rows), exported
+
+
+def _facade_use(
+    target: str,
+    module: str,
+    data: RecordData,
+    exported: dict[tuple[str, str], frozenset[str]],
+    open_facades: frozenset[tuple[str, str]],
+) -> tuple[tuple[tuple[str, str], ...], str | None]:
+    """The facade names one cross-component import reaches, or the import it cannot count.
+
+    A named import walks its re-export chain to the first declared facade name, the way
+    `interface_boundary` accepts it (AD-9, AD-84). Past the facade an import is that rule's
+    finding, not a width. A whole-module import of a facade, a star of a non-enumerated one and
+    a name a non-enumerated one does not list prove no name (AD-99).
+    """
+    symbol = data.get("symbol")
+    if not isinstance(symbol, str):
+        return (), module if (target, module) in exported else None
+    if symbol == "*":
+        names = exported.get((target, module))
+        if names is None:
+            return (), None
+        if (target, module) in open_facades:
+            return (), f"{module}:*"
+        return tuple((module, name) for name in sorted(names)), None
+    chain = data.get("reexport_chain")
+    entries = [item for item in chain if isinstance(item, str)] if isinstance(chain, tuple) else []
+    for entry in entries or [f"{module}.{symbol}"]:
+        owner, _, name = entry.rpartition(".")
+        names = exported.get((target, owner))
+        if names is None:
+            continue
+        if name in names:
+            return ((owner, name),), None
+        if not name.startswith("_") and (target, owner) in open_facades:
+            return (), f"{owner}:{name}"
+    return (), None
 
 
 def _profile_parts(
@@ -289,8 +356,12 @@ def _profile_parts(
 ]:
     components = component_owners(observation)
     facade_rows, exported = _declared_facades(observation)
+    open_facades = frozenset(
+        (row.component, row.module) for row in facade_rows if not row.enumerated
+    )
     consumers: dict[tuple[str, str, str], set[str]] = defaultdict(set)
     pair_names: dict[tuple[str, str], set[str]] = defaultdict(set)
+    uncounted: dict[tuple[str, str], set[str]] = defaultdict(set)
     for record in observation.records("imports") or ():
         data = record.data
         source_module = data.get("source_module")
@@ -301,22 +372,12 @@ def _profile_parts(
         target = owner_of(target_module, components)
         if source is None or target is None or source == target:
             continue
-        facade = (target, target_module)
-        names = exported.get(facade)
-        if names is None:
-            continue
-        symbol = data.get("symbol")
-        if symbol == "*":
-            used = names
-        elif symbol is None:
-            continue
-        elif isinstance(symbol, str):
-            used = frozenset({symbol}) & names
-        else:
-            continue
-        for name in used:
-            consumers[(target, target_module, name)].add(source)
-            pair_names[(source, target)].add(f"{target_module}:{name}")
+        used, unproven = _facade_use(target, target_module, data, exported, open_facades)
+        if unproven is not None:
+            uncounted[(source, target)].add(unproven)
+        for module, name in used:
+            consumers[(target, module, name)].add(source)
+            pair_names[(source, target)].add(f"{module}:{name}")
 
     measured_facades = [
         FacadeMetric(
@@ -330,6 +391,7 @@ def _profile_parts(
                 for name in row.reexported_names
                 if not consumers[(row.component, row.module, name)]
             ),
+            row.enumerated,
         )
         for row in facade_rows
     ]
@@ -339,8 +401,8 @@ def _profile_parts(
         for name in sorted(exported[(component, module)])
     )
     coupling_rows = tuple(
-        CouplingWidth(source, target, tuple(sorted(names)))
-        for (source, target), names in sorted(pair_names.items())
+        CouplingWidth(*pair, tuple(sorted(pair_names[pair])), tuple(sorted(uncounted[pair])))
+        for pair in sorted(pair_names.keys() | uncounted.keys())
     )
     return tuple(measured_facades), export_rows, coupling_rows
 
@@ -349,3 +411,57 @@ def interface_profile(observation: Observation) -> InterfaceProfile:
     """Measure declared facades, export consumers and coupling width from one observation."""
     facades, exports, coupling = _profile_parts(observation)
     return InterfaceProfile(facades, exports, coupling)
+
+
+def interface_budgets(
+    declarations: ContractDeclarations, observation: Observation
+) -> tuple[InterfaceBudgetResult, ...]:
+    """Measure each declared facade and pair budget with this profile (AD-99).
+
+    A facade counts every `module:name` its component's declared modules export; a pair counts
+    the facade names its source imports from its target. Neither compares with a baseline.
+    """
+    profile = interface_profile(observation)
+    pairs = {(item.source, item.target): item for item in profile.coupling}
+    results = []
+    for index, facade in enumerate(declarations.facade_budgets or ()):
+        rows = [item for item in profile.facades if item.component == facade.component]
+        results.append(
+            _budget_result(
+                "facade_names",
+                facade.subject,
+                f"/declarations/facade_budgets/{index}",
+                facade.max_names,
+                tuple(
+                    sorted(f"{row.module}:{name}" for row in rows for name in row.exported_names)
+                ),
+                tuple(row.module for row in rows if not row.enumerated),
+            )
+        )
+    for index, pair in enumerate(declarations.coupling_budgets or ()):
+        width = pairs.get((pair.source, pair.target))
+        results.append(
+            _budget_result(
+                "coupling_names",
+                pair.subject,
+                f"/declarations/coupling_budgets/{index}",
+                pair.max_names,
+                width.names if width is not None else (),
+                width.uncounted if width is not None else (),
+            )
+        )
+    return tuple(results)
+
+
+def _budget_result(
+    budget: NameBudgetKind,
+    subject: str,
+    pointer: str,
+    max_names: int,
+    names: tuple[str, ...],
+    uncounted: tuple[str, ...],
+) -> InterfaceBudgetResult:
+    over_target = max(0, len(names) - max_names)
+    return InterfaceBudgetResult(
+        budget, subject, pointer, max_names, len(names), over_target, names, uncounted
+    )

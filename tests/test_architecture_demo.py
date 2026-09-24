@@ -342,6 +342,20 @@ def test_measurement_budget_demo_passes_clean_and_fails_on_a_rise(
     )
 
 
+def test_facade_budget_demo_holds_a_known_gap_and_names_a_new_name(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    variants = {item.id: item for item in CATALOG}
+    held = _sample_run(tmp_path_factory, variants["validation-facade-budget-target-first"])
+    risen = _sample_run(tmp_path_factory, variants["validation-facade-budget-ratchet"])
+
+    assert (held[4], held[5]) == (0, ())
+    assert (risen[4], risen[5]) == (
+        1,
+        ("measurement budget exceeded in facade_names model: new shop.model.entities:Discount",),
+    )
+
+
 _ROLLUP_ONLY = "Package cycle with 2 members, roll-up only: no module cycle crosses them"
 _CYCLE_ROWS = {
     "class-a-no-component-cycles-module-hidden": [

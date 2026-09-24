@@ -200,6 +200,15 @@ def _baseline_line(result: RunResult) -> str:
     return f"\n\nBaseline drift: {result.baseline_new} new, {result.baseline_resolved} resolved."
 
 
+def _budget_line(result: RunResult) -> str:
+    """AD-99: the distance each facade or pair budget still has to its target."""
+    gaps = [item for item in result.interface_budgets or () if item.over_target]
+    if not gaps:
+        return ""
+    listed = ", ".join(f"{item.subject} {item.over_target} over" for item in gaps)
+    return f"\n\nBudgets not at their target: {listed}."
+
+
 def _roots_reason(scan_roots: tuple[str, ...]) -> str:
     """Name the roots a scan read, so its PASS is not taken to cover code beside them (AD-101)."""
     return (
@@ -275,6 +284,7 @@ def report_summary(result: RunResult) -> Summary:
         + _open_decisions_lines(result)
         + _agent_decisions_line(result)
         + _baseline_line(result)
+        + _budget_line(result)
     )
     return Summary(
         _decision_badge(result),

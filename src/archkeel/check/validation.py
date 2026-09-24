@@ -10,7 +10,7 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TypeVar
+from typing import Final, TypeVar
 
 from archkeel.ir.baseline import (
     KnownViolation,
@@ -36,11 +36,15 @@ from archkeel.ir.decisions import (
     review_claims,
     violation_counts,
 )
+from archkeel.ir.interfaces import interface_budgets
 from archkeel.ir.measurements import (
     MeasurementBudget,
+    NameBudgetKind,
     RatchetError,
+    budget_label,
     budget_regressions,
     compare_budgets,
+    name_drift,
     selected_budgets,
 )
 from archkeel.ir.model import (
@@ -59,6 +63,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    InterfaceBudgetResult,
     JsonValue,
     NoComponentCyclesRule,
     Observation,
@@ -788,6 +793,90 @@ def interface_diagnostics(
     return tuple(diagnostics)
 
 
+_BUDGET_NOUNS: Final[dict[NameBudgetKind, str]] = {
+    "facade_names": "facade",
+    "coupling_names": "pair",
+}
+
+
+def interface_budget_diagnostics(
+    results: tuple[InterfaceBudgetResult, ...], *, report_exceeded: bool
+) -> tuple[Diagnostic, ...]:
+    """AD-99: a budget over its target, or one the scan cannot count.
+
+    A budget counts names, not which of them are too many, so an exceeded one lists them all.
+    With a baseline its accepted names answer the target instead, the way AD-52 answers a
+    violation, so only an uncountable budget is left to report there.
+    """
+    diagnostics = []
+    for item in results:
+        counted = (
+            f"The {item.subject} {_BUDGET_NOUNS[item.budget]} counts "
+            f"{'at least ' if item.uncounted else ''}{item.count} "
+            f"{'name' if item.count == 1 else 'names'}"
+        )
+        if report_exceeded and item.over_target:
+            diagnostics.append(
+                _diagnostic(
+                    "budget.exceeded",
+                    item.pointer,
+                    item.subject,
+                    f"{counted}, {item.over_target} over max_names {item.max_names}: "
+                    f"{', '.join(item.names)}.",
+                    "Remove names until max_names holds; raising max_names widens the contract.",
+                )
+            )
+        elif item.uncounted:
+            diagnostics.append(
+                _diagnostic(
+                    "budget.unknown",
+                    item.pointer,
+                    item.subject,
+                    f"{counted} against max_names {item.max_names}; not enumerated: "
+                    f"{', '.join(item.uncounted)}.",
+                    "Give the facade a literal __all__ or module:Name entries, and import the "
+                    "used names explicitly.",
+                )
+            )
+    return tuple(diagnostics)
+
+
+def _name_budget_targets(declarations: ContractDeclarations) -> dict[str, int]:
+    """Each declared facade and pair budget's `max_names`, by its baseline label (AD-99)."""
+    return {
+        **{
+            budget_label("facade_names", item.subject): item.max_names
+            for item in declarations.facade_budgets or ()
+        },
+        **{
+            budget_label("coupling_names", item.subject): item.max_names
+            for item in declarations.coupling_budgets or ()
+        },
+    }
+
+
+def _name_budget(item: InterfaceBudgetResult) -> MeasurementBudget:
+    """The accepted-name ratchet one measured budget writes to the baseline (AD-99)."""
+    return MeasurementBudget(item.budget, item.count, item.subject, item.names)
+
+
+def _compared_budgets(
+    results: tuple[InterfaceBudgetResult, ...], accepted: tuple[MeasurementBudget, ...]
+) -> tuple[InterfaceBudgetResult, ...]:
+    """Each result with the names it adds to and drops from the baseline's accepted set."""
+    held = {budget.label: budget for budget in accepted}
+    compared = []
+    for item in results:
+        observed = _name_budget(item)
+        before = held.get(observed.label)
+        if before is None:
+            compared.append(item)
+            continue
+        new, removed = name_drift(before, observed)
+        compared.append(replace(item, new_names=new, removed_names=removed))
+    return tuple(compared)
+
+
 def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
     """Reject placeholder rationales and rationales that only repeat the rule."""
     diagnostics = []
@@ -1079,6 +1168,14 @@ def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, .
         *(
             (f"/declarations/spot_owners/{index}/provenance", item.provenance)
             for index, item in enumerate(declarations.spot_owners)
+        ),
+        *(
+            (f"/declarations/facade_budgets/{index}/provenance", item.provenance)
+            for index, item in enumerate(declarations.facade_budgets or ())
+        ),
+        *(
+            (f"/declarations/coupling_budgets/{index}/provenance", item.provenance)
+            for index, item in enumerate(declarations.coupling_budgets or ())
         ),
         ("/declarations/public_api_provenance", declarations.public_api_provenance),
         ("/declarations/context_roots_provenance", declarations.context_roots_provenance),
@@ -1395,13 +1492,29 @@ def _denied_by_absence(
     return rule.id
 
 
+def _inside_budgets(pointer: str, inside: str, inner: ArchitectureContract) -> list[Diagnostic]:
+    """AD-99: the level above measures only its own components, so nothing holds these."""
+    declarations = inner.declarations or ContractDeclarations()
+    if not declarations.facade_budgets and not declarations.coupling_budgets:
+        return []
+    return [
+        _diagnostic(
+            "contract.invalid",
+            pointer,
+            inside,
+            "The inside declares facade or coupling budgets, which the level above never measures.",
+            "Declare the budget in the top-level contract, whose components it can name.",
+        )
+    ]
+
+
 def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
     """AD-20: hold a component and the contract describing its inside to each other.
 
-    Two checks, and only two: the levels must agree on the component's public surface, and
-    the inside must not grant itself what the level above denies the component. Grants are
-    read from the inside's `allowed_dependency` rules; an `external_dependency_scope` there
-    is not yet compared, which stays a blind spot.
+    Two checks: the levels must agree on the component's public surface, and the inside must
+    not grant itself what the level above denies the component. Grants are read from the
+    inside's `allowed_dependency` rules; an `external_dependency_scope` there is not yet
+    compared, which stays a blind spot. AD-99 adds that the inside declares no budget.
     """
     repository = root.resolve()
     diagnostics: list[Diagnostic] = []
@@ -1434,6 +1547,7 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
                 )
             )
             continue
+        diagnostics.extend(_inside_budgets(pointer, component.inside, inner))
         declared = frozenset(component.public or ())
         inside = _inside_public(inner)
         if declared != inside:
@@ -1521,6 +1635,7 @@ def _observed_result(
     *,
     baseline_new: int | None = None,
     baseline_resolved: int | None = None,
+    interface_budgets: tuple[InterfaceBudgetResult, ...] | None = None,
 ) -> RunResult:
     """The validate result once a complete observation has produced its diagnostics.
 
@@ -1558,6 +1673,7 @@ def _observed_result(
             violations_by_component_pair=counted.by_component_pair,
             baseline_new=baseline_new,
             baseline_resolved=baseline_resolved,
+            interface_budgets=interface_budgets,
         )
     return RunResult(
         "validate",
@@ -1576,6 +1692,7 @@ def _observed_result(
         claims=review_claims(observation),
         violations_by_rule=counted.by_rule,
         violations_by_component_pair=counted.by_component_pair,
+        interface_budgets=interface_budgets,
     )
 
 
@@ -1807,11 +1924,11 @@ def _resolve_against_context(
                 against_budgets = parsed.budgets
             except ValueError as error:
                 return empty, _against_invalid(against, error)
-    declared_budgets = {
+    declared_budgets: set[str] = {
         item.name
         for item in (against_contract.declarations or ContractDeclarations()).measurement_budgets
     }
-    known_budgets = {item.name for item in against_budgets}
+    known_budgets = {item.label for item in against_budgets}
     missing_budgets = sorted(declared_budgets - known_budgets)
     if missing_budgets:
         missing = ", ".join(missing_budgets)
@@ -1864,7 +1981,13 @@ def _widening_failures(
     findings = list(contract_widenings(ctx.contract, contract))
     if baseline is not None:
         findings += list(baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules))
-        findings += list(measurement_budget_widenings(ctx.budgets, after_budgets))
+        findings += list(
+            measurement_budget_widenings(
+                ctx.budgets,
+                after_budgets,
+                _name_budget_targets(ctx.contract.declarations or ContractDeclarations()),
+            )
+        )
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
@@ -1982,13 +2105,12 @@ def run_validate(
     if isinstance(parsed_contract, RunResult):
         return parsed_contract, FilesToWrite()
     contract = parsed_contract
-    declared_budgets = tuple(
-        item.name for item in (contract.declarations or ContractDeclarations()).measurement_budgets
-    )
+    declarations = contract.declarations or ContractDeclarations()
+    declared_budgets = tuple(item.name for item in declarations.measurement_budgets)
     if declared_budgets and baseline is None:
         return _budget_baseline_missing(), FilesToWrite()
-    known_budget_names = {item.name for item in known_budgets}
-    missing_budget_names = sorted(set(declared_budgets) - known_budget_names)
+    declared_labels = {*declared_budgets, *_name_budget_targets(declarations)}
+    missing_budget_names = sorted(declared_labels - {item.label for item in known_budgets})
     if baseline is not None and baseline_exists and missing_budget_names and not write_baseline:
         missing = ", ".join(missing_budget_names)
         return _baseline_invalid(
@@ -2033,6 +2155,16 @@ def run_validate(
             )
         )
         observed_budgets = ()
+    budget_results = interface_budgets(declarations, observation)
+    budget_diagnostics = interface_budget_diagnostics(
+        budget_results, report_exceeded=baseline is None
+    )
+    observed_budgets = (
+        *observed_budgets,
+        *(_name_budget(item) for item in budget_results if not item.uncounted),
+    )
+    if baseline_exists:
+        budget_results = _compared_budgets(budget_results, known_budgets)
     cycle_rules = _cycle_rule_ids(contract)
     baseline_new, baseline_resolved = (
         violation_drift_counts(known, violations, cycle_rules=cycle_rules)
@@ -2068,10 +2200,11 @@ def run_validate(
     )
     result = _observed_result(
         observation,
-        diagnostics,
+        [*diagnostics, *budget_diagnostics],
         (*baseline_failures, *interface_narrowings, *widening_failures),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
+        interface_budgets=budget_results or None,
     )
     # AD-100: a failing run whose calls_unresolved value moved from an accepted one names the
     # call sites against the other revision's code; only such a run pays for the second scan.

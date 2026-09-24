@@ -14,7 +14,7 @@ from test_delta import _model, _record
 from archkeel.analyzer import observe
 from archkeel.analyzer.embedded.calls import collect_calls
 from archkeel.analyzer.embedded.constructs import collect_constructs
-from archkeel.analyzer.embedded.imports import collect_imports
+from archkeel.analyzer.embedded.imports import all_is_one_literal, collect_imports
 from archkeel.analyzer.embedded.resolve import build_symbol_index
 from archkeel.analyzer.embedded.source import ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
@@ -2894,3 +2894,28 @@ def test_resolved_position_types_does_not_itself_walk_collection_parameters() ->
         "positions to resolve on its own, instead of reading the one analysis "
         "_boundary_type_verdict already computed for the same annotation."
     )
+
+
+@pytest.mark.parametrize(
+    ("source", "literal"),
+    [
+        ('__all__ = ["A", "B"]\n', True),
+        ('__all__: tuple[str, ...] = ("A",)\n', True),
+        ("__all__ = []\n", True),
+        ("A = 1\n", False),
+        ('__all__ = ["A"]\n__all__ += ["B"]\n', False),
+        ('__all__ = ["A"]\n__all__.append("B")\n', False),
+        ('B = ["B"]\n__all__ = ["A", *B]\n', False),
+        ('__all__ = ["A"]\n__all__ = ["A", "B"]\n', False),
+        ('import sys\nif sys.platform:\n    __all__ = ["A"]\n', False),
+        ('__all__ = ["A"]\n\ndef extend() -> None:\n    __all__.append("B")\n', False),
+        ("__all__ = names()\n", False),
+        ('__all__ = ["A"]\nfrom m import __all__\n', False),
+        ('__all__ = ["A"]\nimport m as __all__\n', False),
+        ("from m import names as __all__\n", False),
+        ('import __all__\n__all__ = ["A"]\n', False),
+    ],
+)
+def test_all_is_one_literal_only_when_nothing_else_touches_it(source: str, literal: bool) -> None:
+    """AD-99: `literal_all_exports` skips extensions, so only this proves a whole `__all__`."""
+    assert all_is_one_literal(ast.parse(source)) is literal

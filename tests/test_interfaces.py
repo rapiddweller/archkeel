@@ -52,6 +52,7 @@ def _import_record(
     binding: str | None = None,
     reexport: bool = False,
     declared_in_all: bool = False,
+    reexport_chain: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "id": identifier,
@@ -73,6 +74,7 @@ def _import_record(
             "reexport": reexport,
             "declared_in_all": declared_in_all,
             "under_type_checking": False,
+            **({"reexport_chain": reexport_chain} if reexport_chain is not None else {}),
         },
     }
 
@@ -115,7 +117,10 @@ def _symbol_record(
     }
 
 
-def _module_record(identifier: str, name: str, exports: list[str]) -> dict[str, Any]:
+def _module_record(
+    identifier: str, name: str, exports: list[str], *, all_literal: bool | None = None
+) -> dict[str, Any]:
+    literal = {} if all_literal is None else {"all_literal": all_literal}
     return {
         "id": identifier,
         "evidence_class": "FACT",
@@ -127,7 +132,7 @@ def _module_record(identifier: str, name: str, exports: list[str]) -> dict[str, 
         "rule_ids": [],
         "fact_ids": [],
         "provenance": [],
-        "data": {"qualified_name": name, "all_exports": exports},
+        "data": {"qualified_name": name, "all_exports": exports, **literal},
     }
 
 
@@ -380,16 +385,148 @@ def test_interface_profile_measures_a_real_non_package_barrel(tmp_path: Path) ->
     }
 
 
-def test_interface_profile_ignores_a_module_alias_without_attribute_use(
-    tmp_path: Path,
-) -> None:
+def test_interface_profile_counts_no_name_for_a_module_alias(tmp_path: Path) -> None:
+    """A whole-module import proves no name use; AD-99 records it as uncounted instead."""
     profile = _real_barrel_profile(tmp_path, "import sample.model.api as api\n")
 
     usage = next(item for item in profile.exports if item.module == "sample.model.api")
     assert usage.consumers == ()
-    assert not any(
-        item.source == "consumer" and item.target == "model" for item in profile.coupling
+    assert [
+        (item.names, item.uncounted)
+        for item in profile.coupling
+        if item.source == "consumer" and item.target == "model"
+    ] == [((), ("sample.model.api",))]
+
+
+def test_interface_profile_follows_a_reexport_to_the_declared_facade_name() -> None:
+    """AD-99: `from pkg.b import Widget` reaches the declared `pkg.b.impl:Widget` entry."""
+    observation = _observation(
+        declarations=(
+            _declaration("a", ["pkg.a"]),
+            _declaration("b", ["pkg.b"], ["pkg.b.impl:Widget", "pkg.b.open"]),
+        ),
+        imports=(
+            _import_record(
+                "IMP-chain",
+                source_module="pkg.a.mod",
+                target_module="pkg.b",
+                symbol="Widget",
+                origin_definition="pkg.b.impl.Widget",
+                reexport_chain=["pkg.b.Widget", "pkg.b.impl.Widget"],
+            ),
+            _import_record(
+                "IMP-star",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.impl",
+                symbol="*",
+                origin_definition=None,
+            ),
+            _import_record(
+                "IMP-unrecorded",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.open",
+                symbol="LIMIT",
+                origin_definition="pkg.b.open.LIMIT",
+            ),
+            _import_record(
+                "IMP-private",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.open",
+                symbol="_hidden",
+                origin_definition="pkg.b.open._hidden",
+            ),
+        ),
     )
+
+    profile = interface_profile(observation)
+
+    assert [(item.module, item.enumerated) for item in profile.facades] == [
+        ("pkg.b.impl", True),
+        ("pkg.b.open", False),
+    ]
+    assert [(item.names, item.uncounted) for item in profile.coupling] == [
+        (("pkg.b.impl:Widget",), ("pkg.b.open:LIMIT",))
+    ]
+    widget = next(item for item in profile.exports if item.name == "Widget")
+    assert widget.consumers == ("a",)
+
+
+def test_interface_profile_trusts_all_only_when_the_analyzer_proved_it_literal() -> None:
+    """AD-99: `all_exports` alone cannot tell a literal from one a later statement extends; the
+    analyzer's `all_literal` fact decides. An empty `__all__` stays open, the way
+    `interface_boundary` reads it."""
+    observation = _observation(
+        declarations=(
+            _declaration("b", ["pkg.b"], ["pkg.b.empty", "pkg.b.extended", "pkg.b.legacy"]),
+        ),
+        modules=(
+            _module_record("MOD-empty", "pkg.b.empty", [], all_literal=True),
+            _module_record("MOD-extended", "pkg.b.extended", ["A"], all_literal=False),
+            _module_record("MOD-legacy", "pkg.b.legacy", ["A"]),
+        ),
+        symbols=(
+            _symbol_record(
+                "SYM-helper",
+                kind="function",
+                qualified_name="pkg.b.empty.helper",
+                module="pkg.b.empty",
+                name="helper",
+            ),
+        ),
+    )
+
+    assert [
+        (item.module, item.exported_names, item.enumerated)
+        for item in interface_profile(observation).facades
+    ] == [
+        ("pkg.b.empty", ("helper",), False),
+        ("pkg.b.extended", ("A",), False),
+        ("pkg.b.legacy", ("A",), False),
+    ]
+
+
+def test_interface_profile_has_no_coupling_row_past_a_facade() -> None:
+    """Review D: a target without a facade, or a module outside it, is interface_boundary's
+    finding, not a coupling width: main shows no row for either, and neither does AD-99."""
+    observation = _observation(
+        declarations=(
+            _declaration("a", ["pkg.a"]),
+            _declaration("b", ["pkg.b"]),
+            _declaration("c", ["pkg.c"], ["pkg.c.api:Widget"]),
+        ),
+        imports=(
+            _import_record(
+                "IMP-b-whole",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.mod",
+                symbol=None,
+                origin_definition=None,
+            ),
+            _import_record(
+                "IMP-b-name",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.mod",
+                symbol="Thing",
+                origin_definition="pkg.b.mod.Thing",
+            ),
+            _import_record(
+                "IMP-c-internal",
+                source_module="pkg.a.mod",
+                target_module="pkg.c.internal",
+                symbol=None,
+                origin_definition=None,
+            ),
+            _import_record(
+                "IMP-c-star",
+                source_module="pkg.a.mod",
+                target_module="pkg.c.internal",
+                symbol="*",
+                origin_definition=None,
+            ),
+        ),
+    )
+
+    assert interface_profile(observation).coupling == ()
 
 
 def test_typed_and_untyped_function_signatures() -> None:
