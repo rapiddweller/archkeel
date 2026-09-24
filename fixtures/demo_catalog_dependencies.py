@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
+    FIXTURE_DIR,
     HEADER,
     Variant,
     contract_rule_field,
@@ -224,6 +225,40 @@ _MODULE_CYCLE = Variant(
         "architecture-contract.json": contract_with_rule(module_cycle_rule(components=["model"])),
     },
     expected_violations=("MODEL-MODULES-ACYCLIC",),
+    expected_codes=("rule.violated",),
+)
+_PACKAGE_CYCLE_ROLLUP_ONLY = Variant(
+    id="class-a-package-cycle-rollup-only",
+    section="class_a",
+    item="no_component_cycles:package_rollup_only",
+    summary="The class-a-no-component-cycles overlay: shop.model.uses_render imports "
+    "shop.render.text, which imports shop.model.entities. shop.model and shop.render form a "
+    "package SCC, but no module cycle crosses them, so the package cycle record is labelled "
+    "roll-up only and backed by no module SCC (AD-98).",
+    files=_NO_COMPONENT_CYCLES.files,
+    expected_violations=("COMPONENT-NO-CYCLES",),
+    expected_codes=("rule.violated",),
+)
+_ENTITIES = (FIXTURE_DIR / "shop/model/entities.py").read_text()
+_PACKAGE_CYCLE_BACKED = Variant(
+    id="class-a-package-cycle-backed",
+    section="class_a",
+    item="no_component_cycles:package_backed",
+    summary="shop.model.entities imports shop.render.text back, so the module SCC "
+    "{shop.model.entities, shop.render.text} crosses both packages: the same package SCC is "
+    "backed by that module SCC and carries no roll-up label (AD-98).",
+    files={
+        **{
+            path: content
+            for path, content in _NO_COMPONENT_CYCLES.files.items()
+            if path != "shop/model/uses_render.py"
+        },
+        "shop/model/entities.py": _ENTITIES.replace(
+            "from typing import TypedDict\n",
+            "from typing import TypedDict\n\nfrom shop.render import text as _render_probe\n",
+        ),
+    },
+    expected_violations=("COMPONENT-NO-CYCLES",),
     expected_codes=("rule.violated",),
 )
 _DECISION_OPEN = Variant(
@@ -521,6 +556,8 @@ VARIANTS: tuple[Variant, ...] = (
     _NO_COMPONENT_CYCLES,
     _MODULE_CYCLE_HIDDEN,
     _MODULE_CYCLE,
+    _PACKAGE_CYCLE_ROLLUP_ONLY,
+    _PACKAGE_CYCLE_BACKED,
     _DECISION_OPEN,
     _CLOSED_WORLD_DUPLICATE,
     _ALLOWED_DEPENDENCY_DUPLICATE,
