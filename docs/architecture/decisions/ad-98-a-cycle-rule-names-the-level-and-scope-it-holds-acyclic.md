@@ -12,8 +12,9 @@
   already measures becomes one `module_cycle` violation: `subjects` and `data.members` are the SCC,
   `data.edges` its module edges, and the facts are every import between two members, each with
   its `path:line` evidence. Inside an SCC every such import closes a cycle.
-- `components` lists declared labels. A cycle is reported when one member belongs to a listed
-  component, and it is reported whole. An undeclared label is `contract.invalid`.
+- `components` lists declared labels. A cycle is reported whole when one member is a listed
+  component, or at `module` lies under one of their packages; no ownership test can drop a
+  member two components overlap on. An undeclared label is `contract.invalid`.
 - Without either field the rule, its records and the canonical contract bytes are unchanged, so
   AD-61 amendment digests of existing contracts still verify. An explicit `"component"` parses to
   the same absent value.
@@ -55,7 +56,9 @@ scope and a dropped component are widenings: neither level implies the other (`a
 
 `TYPE_CHECKING` imports close module cycles as they close component cycles; there is no
 `include_type_checking` flag yet. A contraction is recognised only under a rule the current
-contract declares as `no_component_cycles`.
+contract declares as `no_component_cycles`. One module SCC crossing any two packages backs the
+whole package SCC: in `{dm, dm.domains, dm.engine}` a third package joined only by the roll-up
+reads as backed. `backed_by` says which module SCC to read, not that every package is in it.
 
 ## Check
 

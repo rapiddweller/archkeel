@@ -176,8 +176,10 @@ one `module_cycle` violation. It names the SCC's members, its `edges` and, as fa
 every import between two members; each of those imports closes a cycle. A module cycle inside one
 component is invisible to the component level, and a component cycle need not be a module cycle,
 so a contract that cares about both declares two rules. `components` lists declared component
-labels and reports only a cycle with a member owned by one of them; the cycle is still reported
-whole, unowned members included. The default `level` is `component`, which the canonical contract
+labels and reports only a cycle with a member under one of their packages (at the component
+level, a member that is one of them); the cycle is still reported whole, unowned members
+included. Matching by package prefix rather than by owner keeps a member that two overlapping
+components both claim inside the scope. The default `level` is `component`, which the canonical contract
 omits. A violation's fingerprint is its rule and members, so `--baseline` holds known SCCs and
 fails on a new one. A cycle whose members are a strict subset of a baselined cycle is that cycle
 contracting: `validate` reports a `contracted violation` to write back, `--write-baseline` needs
