@@ -104,6 +104,23 @@ kept by hand.
   cannot own `pkg/__init__.py` without also owning every subpackage. `complete_assignment` reports
   the unowned module.
 
+## One run observes one scope
+
+A run scans the roots and the one namespace its configuration names, and nothing else. A test
+tree beside the product is outside the product scan: a green product run names the roots it
+read (`All source files under shop were read and parsed; nothing beside them was observed.`)
+and proves nothing about the tests. A second configuration governs them as their own scope
+(AD-101), which leaves these limits:
+
+- Inside the test scope the product is an external package. `external_dependency_scope` decides
+  which suites import it, by its top-level name only. A `forbidden_dependency` that targets one
+  product module, such as `shop.store.sqlite` from `tests.unit`, is `reference.namespace`
+  (exit 2).
+- Duplicated tests and whether a result equals its expected output are behaviour. The test
+  suite and its oracle decide them, not the import graph.
+- `check` compares one configuration against one accepted lock; the test scope is gated by
+  `validate`.
+
 ## What static observation cannot decide
 
 - Runtime behavior, data flow, performance and scalability are not observed. They belong in the

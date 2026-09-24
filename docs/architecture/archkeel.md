@@ -132,6 +132,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-94 | [Boundary types resolve statically recognized aliases](decisions/ad-94-boundary-types-resolve-static-aliases.md) |
 | AD-95 | [A boundary type allowance names one nested field finding](decisions/ad-95-boundary-type-allowances-match-one-nested-field.md) |
 | AD-96 | [Boundary types resolve proven enum members in Literal](decisions/ad-96-boundary-types-resolve-enum-literals.md) |
+| AD-101 | [A second configuration governs a second scope at the same root](decisions/ad-101-a-second-configuration-governs-a-second-scope.md) |
 
 ## Allowed dependencies
 
