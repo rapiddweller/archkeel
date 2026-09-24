@@ -22,10 +22,13 @@ Archkeel cannot decide stays `UNKNOWN` or is refused with exit 2; it never reads
 - **Tests can be a second scope.** `--config` selects a second configuration at the same root,
   for example a test contract next to the product one. Results name the roots they read, so a
   green product scan no longer suggests that tests were checked (AD-101).
+- **A `bytes` constant no longer stops the analyzer.** A module-level `bytes`, `complex`, `...`
+  or non-finite `float` constant is recorded without its value, so packages such as pytest scan;
+  such a constant proves no `Literal` member (AD-102).
 
 ## Compatibility
 
-- Analyzer version moves from `0.47.0` to `0.50.0`. Earlier observations are not comparable.
+- Analyzer version moves from `0.47.0` to `0.51.0`. Earlier observations are not comparable.
 - The baseline writer moves to schema `1.3.0` for keyed budget names; the reader still accepts
   `1.0.0` to `1.2.0`.
 - Contract schema stays `2.1.0`. New fields and declarations are optional; existing contracts
@@ -45,8 +48,8 @@ pip install --upgrade archkeel
 
 ## Self-observation
 
-Archkeel parses 71 of 71 source files with 100% AST coverage. It resolves 5,355 of 6,673 calls,
-partially resolves 816 and leaves 502 unresolved: 80.25% call-resolution coverage. The self-check
+Archkeel parses 71 of 71 source files with 100% AST coverage. It resolves 5,358 of 6,675 calls,
+partially resolves 815 and leaves 502 unresolved: 80.27% call-resolution coverage. The self-check
 reports 0 known violations, holds its own modules acyclic and pins six coupling budgets;
 `declared_rules` stays `UNKNOWN` because 18 positions remain undecided.
 
