@@ -49,8 +49,8 @@ pip install --upgrade archkeel
 
 ## Self-observation
 
-Archkeel parses 71 of 71 source files with 100% AST coverage. It resolves 5,358 of 6,675 calls,
-partially resolves 815 and leaves 502 unresolved: 80.27% call-resolution coverage. The self-check
+Archkeel parses 71 of 71 source files with 100% AST coverage. It resolves 5,358 of 6,676 calls,
+partially resolves 816 and leaves 502 unresolved: 80.26% call-resolution coverage. The self-check
 reports 0 known violations, holds its own modules acyclic and pins six coupling budgets;
 `declared_rules` stays `UNKNOWN` because 18 positions remain undecided.
 
