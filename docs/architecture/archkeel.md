@@ -132,6 +132,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-94 | [Boundary types resolve statically recognized aliases](decisions/ad-94-boundary-types-resolve-static-aliases.md) |
 | AD-95 | [A boundary type allowance names one nested field finding](decisions/ad-95-boundary-type-allowances-match-one-nested-field.md) |
 | AD-96 | [Boundary types resolve proven enum members in Literal](decisions/ad-96-boundary-types-resolve-enum-literals.md) |
+| AD-98 | [A cycle rule names the level and the components it holds acyclic](decisions/ad-98-a-cycle-rule-names-the-level-and-scope-it-holds-acyclic.md) |
 
 ## Allowed dependencies
 

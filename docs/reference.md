@@ -180,7 +180,8 @@ a removed `forbidden_dependency`/`forbidden_construct`/`external_dependency_scop
 entry, `include_type_checking` relaxed from true to false, a gained component `public` or
 `requires` entry, and a component added or removed, are each widening; every reverse is
 narrowing. Adding a component `namespace` is a narrowing placement restriction; removing or
-changing it is a widening. A padded violation entry, a raised measurement budget or a removed
+changing it is a widening. A `no_component_cycles` rule's `level` changing either way, a new
+`components` scope and a component dropped from it are widenings (AD-98). A padded violation entry, a raised measurement budget or a removed
 budget value is a widening too, compared against the baseline file at `--against`. Only a rule's
 or a `requires` entry's `rationale`, and every `provenance`, are neutral. Adding a measurement
 budget declaration narrows; removing one widens. Any other difference - an unrecognised rule

@@ -164,11 +164,26 @@ outside that namespace is a baselineable `module.placement` violation. Contracts
 field keep the old ownership-only behavior. A namespace is a package name, not a string path or
 special case; adding it narrows `--against`, while removing or changing it widens the contract.
 
-`no_component_cycles` has no selector fields. It projects import records, including
-`TYPE_CHECKING` imports, onto components and reports each strongly connected component with two or
-more members. A complete scan and exact package assignment make the result deterministic. Imports
-between unowned modules are invisible; combine it with `complete_assignment`. Importing
-`sample.cli` from `sample.core` while `sample.cli` imports `sample.core` is an example violation.
+`no_component_cycles` has two optional fields, `level` and `components` (AD-98). Without them it
+projects import records, including `TYPE_CHECKING` imports, onto components and reports each
+strongly connected component with two or more members. A complete scan and exact package
+assignment make the result deterministic. Imports between unowned modules are invisible; combine
+it with `complete_assignment`. Importing `sample.cli` from `sample.core` while `sample.cli` imports
+`sample.core` is an example violation.
+
+`level: "module"` judges the module graph instead: each `module_scc` record the report measures is
+one `module_cycle` violation. It names the SCC's members, its `edges` and, as facts and evidence,
+every import between two members; each of those imports closes a cycle. A module cycle inside one
+component is invisible to the component level, and a component cycle need not be a module cycle,
+so a contract that cares about both declares two rules. `components` lists declared component
+labels and reports only a cycle with a member owned by one of them; the cycle is still reported
+whole, unowned members included. The default `level` is `component`, which the canonical contract
+omits. A violation's fingerprint is its rule and members, so `--baseline` holds known SCCs and
+fails on a new one; breaking part of a known SCC leaves a smaller one with new members, written
+with `--accept-new`. Under `--against`, changing `level` in either direction, adding a
+`components` scope and dropping a listed component widen the contract; removing the scope and
+listing another component narrow it. Two `sample.core` modules importing each other is an example
+module-level violation that the component level passes.
 
 `interface_boundary` has the optional field `include_type_checking` (default `true`) and no
 selector fields; it applies wherever a component declares `public`. A component's optional

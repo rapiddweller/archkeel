@@ -99,7 +99,12 @@ kept by hand.
 
 - `package_dependency` records name packages by their first two dotted segments. Component
   decisions and dependency rules use module-level edges and are not affected; the package records
-  are coarse below that depth.
+  are coarse below that depth. Declared components nested below one such package collapse into it,
+  so a `package_scc` can join components the component graph keeps apart. `no_component_cycles`
+  therefore has no `package` level: its `component` level is the roll-up along declared
+  boundaries, and its `module` level judges the uncollapsed graph (AD-98).
+- `no_component_cycles` at `level: "module"` counts `TYPE_CHECKING` imports like the component
+  level does; a cycle closed only by annotations is still reported.
 - A package's `__init__` module belongs to the component that owns the package, so a component
   cannot own `pkg/__init__.py` without also owning every subpackage. `complete_assignment` reports
   the unowned module.
