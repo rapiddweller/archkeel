@@ -2,59 +2,59 @@
 
 ## Decision
 
-`declarations.facade_budgets` caps the names one component's declared facade exports.
-`declarations.coupling_budgets` caps the facade names one component imports from another. Each
-entry states `max_names` and its provenance. `validate` measures both with AD-88's
-`interface_profile`, the same derivation the report shows:
+`declarations.facade_budgets` sets a target for the names one component's facade exports;
+`declarations.coupling_budgets` for the facade names one component imports from another. Each
+entry states `max_names` and provenance. `validate` measures both with AD-88's
+`interface_profile`, the derivation the report shows, and returns every budget as a structured
+`interface_budgets` entry: subject, count, `max_names`, `over_target`, names, uncounted, and new
+and removed names against the baseline.
 
-| entry | counts | undecided when |
-| --- | --- | --- |
-| `{component, max_names}` | distinct `module:name` the component's `public` modules export | a whole-module entry has no literal `__all__`, or was not scanned |
-| `{source, target, max_names}` | distinct target facade names `source` imports, through the re-export chain `interface_boundary` follows | `source` imports a target module whole, stars a module that is no enumerated facade, or names what a non-enumerated facade does not list |
+| run | over `max_names` | name outside the accepted set | accepted name gone | undecided |
+| --- | --- | --- | --- | --- |
+| no `--baseline` | `budget.exceeded`, exit 2 | - | - | `budget.unknown`, exit 2 |
+| `--baseline` | known gap, `over_target` | rise, exit 1, needs `--accept-new` | fall, exit 1 until written | `budget.unknown`, exit 2 |
 
-A count over `max_names` is `budget.exceeded`. The diagnostic names the facade or pair, the
-count, the excess and every counted name: a budget counts names, not which of them are too many.
-An undecided count is `budget.unknown`, unless its lower bound already exceeds. Both exit 2, with
-or without `--baseline`; a baseline cannot hold them. A key that names no component, a facade
-budget on a component without `public`, a pair whose target has none or that names one
-component twice, and a repeated key are `contract.invalid`. An inside contract may not declare
-either list, because the level above measures only its own components.
+The baseline ratchet is AD-89's: baseline schema 1.3 keeps each key's accepted names under
+`facade_names` or `coupling_names` beside the scalars, and the same comparison, write and
+widening paths read them. Names, not counts, so a swap is a rise. Under `--against`, raising or
+removing `max_names` and growing an accepted name set widen.
 
-Under `--against`, raising `max_names` or removing an entry widens; lowering or adding narrows.
+A facade counts `module:name` per declared module, so a definition reachable through two modules
+counts twice: each path is a name the facade promises. A module entry is enumerated only when
+analyzer 0.48.0 proves its `__all__` one literal assignment nothing else touches; `[]` is an
+enumerated facade of no names. A pair follows the re-export chain `interface_boundary` follows
+and counts `TYPE_CHECKING` imports. A whole-module import of a facade, a star of a
+non-enumerated one, and a name a facade does not list but lets through are uncounted.
+
+A key naming no component, a facade budget on a component without `public`, a pair naming one
+component twice, a repeated key, and a pair budget without an `interface_boundary` rule that
+includes `TYPE_CHECKING` imports are `contract.invalid`; so is a budget in an inside contract.
 
 ## Why
 
-AD-88 measured facade width and coupling but gave the contract no way to hold them, so a branch
-could reach zero declared violations with an oversized surface (#130). Reusing the measurement
-keeps the report and the verdict on one count. Following the re-export chain makes a pair count
-what `interface_boundary` accepts: `from shop.store import OrderRepository` uses
-`shop.store.repository:OrderRepository`, which AD-88 had dropped.
+AD-88 measured facades and coupling but the contract could not hold them, so a branch could reach
+zero declared violations with an oversized surface (#130). A pair counts only names reached
+through the facade; the required `interface_boundary` rule makes every import past it a finding,
+so no bypass is silently uncounted. Requiring the rule was chosen over counting bypasses as
+uncounted, which would turn every internal import into UNKNOWN instead of a named violation.
 
 ## Rejected
 
-- **Baseline-pinned keyed values, the way AD-89 pins scalars.** The contract value already is
-  the accepted value, and `--against` already treats raising it as a widening. A second number
-  per key in the baseline could disagree with it, and would need a baseline schema change.
-- **Excess names as baseline violations.** Which names are excess is not decidable from a
-  count, so such a fingerprint has no stable subjects.
-- **A rule kind in the analyzer.** The analyzer works on raw records and would need a second
-  facade derivation.
+- **Only the contract value.** A fall leaves room a later name reuses unseen, and a target below
+  today's count could not gate CI at all.
+- **Excess names as baseline violations.** Which names are excess is not decidable from a count.
+- **A rule kind in the analyzer.** It works on raw records and would need a second derivation.
 
 ## Limit
 
-`max_names` is a ceiling. A count below it leaves headroom a later change may use without a
-contract diff. A strict ratchet keeps `max_names` at the measured count and lowers it as names
-go; each lowering is a narrowing. A target below today's count fails until the code reaches it.
-
-Archkeel's own facades are whole modules without `__all__`, so it pins coupling budgets only:
-the pairs its contract already keeps narrow, `api -> ir`, `host -> ir` and `cli`'s four edges.
-The width from `analyzer`, `check` and `render` into `ir`'s shared vocabulary grows with each
-rule kind; a ceiling there would be bookkeeping, not a decision.
+An absent list stays absent in the canonical contract bytes, so existing amendment digests do not
+move. `interface_boundary` still reads an empty `__all__` as none, so a name past it is uncounted
+here rather than a violation. A target below today's count passes only with a baseline.
 
 ## Check
 
-`tests/test_facade_budgets.py` covers pass, exceeded names, the re-export count, UNKNOWN, the
-baseline, contract errors, widening and the inside contract; `tests/test_interfaces.py` the
-chain and uncounted imports. The demo rows `validation-facade-budget-*`,
-`validation-coupling-budget-*` and `against-facade-budget-raised` run the shop sample, and
-`make self-validate` holds Archkeel's own pair budgets.
+`tests/test_facade_budgets.py` covers targets, the ratchet, UNKNOWN forms, contract errors and
+widening; `tests/test_interfaces.py` the chain, the literal fact and facade-less targets. The
+`validation-facade-budget-*`, `validation-coupling-budget-*` and `against-facade-budget-raised`
+demo rows run the shop sample; `make self-validate` holds Archkeel's six narrow pairs. Its
+facades have no `__all__`, so it declares no facade budget.

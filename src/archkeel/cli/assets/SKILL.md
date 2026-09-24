@@ -125,7 +125,8 @@ The gate fails (exit 1) on a violation the file does not state, and on one it st
 nobody violates any more — so the budget only shrinks, and the file is rewritten in the same
 change that shrinks it. `declarations.measurement_budgets` may put deterministic scalar values
 through the same loop (AD-89). `declarations.facade_budgets` and
-`declarations.coupling_budgets` cap facade and component-pair names in the contract itself (AD-99).
+`declarations.coupling_budgets` set name targets in the contract, and the baseline holds their
+accepted names (AD-99).
 Never raise any of them to make a run pass without the architect's decision.
 
 A reviewer or a CI gate may hold your branch to this the same way, with `archkeel validate

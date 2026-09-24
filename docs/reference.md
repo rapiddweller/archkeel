@@ -90,12 +90,15 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
 The report's declared-facade section measures export counts, re-exports, names defined in each
 facade, unused re-exports, consumers per export and distinct exported names per component pair.
-They do not assert that a barrel is complete (AD-88). `validate` holds
-`declarations.facade_budgets` and `declarations.coupling_budgets` to the same values: a pair
-counts a name reached through a re-export chain, an exceeded budget is `budget.exceeded` naming
-every counted name, and a count the scan cannot complete - a whole-module facade without a
-literal `__all__`, or a whole-module or star import - is `budget.unknown`. Both exit 2 and no
-baseline holds them (AD-99).
+They do not assert that a barrel is complete (AD-88). `validate` measures
+`declarations.facade_budgets` and `declarations.coupling_budgets` with the same values and
+returns each as an `interface_budgets` entry: `budget`, `subject`, `max_names`, `count`,
+`over_target`, `names`, `uncounted`, and, with `--baseline`, `new_names` and `removed_names`.
+A pair counts a name reached through a re-export chain. Without a baseline, a count over its
+target is `budget.exceeded`; with one, only a new or removed name fails. A count the scan cannot
+complete - a whole-module facade whose `__all__` is not one untouched literal, a whole-module
+import of a facade module, a star import of a non-enumerated facade, or a name a facade does not
+list but lets through - is `budget.unknown` at exit 2 (AD-99).
 Without `--source` and `--namespace`, `init` scans the only top-level Python package under `src/`, or under the root when there is no `src/`; when several sit side by side it scans the one whose name matches `pyproject.toml`'s `[project] name` in wheel file-name form (runs of `-`, `_` and `.` become `_`, compared case-insensitively), and otherwise exits 2 with `scope_empty`, naming the packages it found and the name it compared (AD-47).
 `init --json` adds `open_decisions`, heaviest observed pair first, as evidence for choosing component `requires`; `validate --json` carries them only until the contract adds `complete_requires`, whose closed-world absence rule decides every unlisted pair (AD-15, AD-32). `validate` and `report` add `agent_decisions` as `[agent, total]` decisions: one rule declaration, one `requires` entry or one declared `public` list each, at either level, and one nobody attributed counts in the total alone (AD-16, AD-50), and `violations_by_rule` as `[rule, count]` pairs with `violations_by_component_pair` as `[source, target, count]` triples, heaviest first (AD-51); a violation that crosses no component pair, such as a construct or a cycle, appears only in the first. `init --json` also adds `draft_sizes`, one `{label, modules, inner_edges}` entry per drafted component, from the same aggregation `report`'s structure metrics use (AD-38); the terminal names whichever one uniquely leads by modules, or that none does.
 `validate --write-graph` rewrites the edges of the one marked component graph, `<!--
@@ -140,14 +143,17 @@ the write unless `--accept-new` is explicit. It writes nothing from a run that e
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
 declaration carries provenance. A selected value must equal the baseline: a rise is new debt; a
 fall must be written back. A contract selecting budgets without `--baseline`, or an incomplete measurement, exits 2.
-Contracts without measurement budgets behave as before. The file's shape is
-`schema/violation-baseline.schema.json`:
+Contracts without measurement budgets behave as before. A declared facade or coupling budget
+needs no baseline, but with one the file holds its accepted names under `facade_names` or
+`coupling_names`: a name outside them fails as a rise, a name gone as a fall (AD-99). The file's
+shape is `schema/violation-baseline.schema.json`:
 
 ```json
 {
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "budgets": {
     "calls_unresolved": 12,
+    "coupling_names": {"app -> model": ["shop.model.entities:Money", "shop.model.entities:Order"]},
     "cycle_edges": 0
   },
   "violations": [
@@ -188,7 +194,8 @@ changing it is a widening. A padded violation entry, a raised measurement budget
 budget value is a widening too, compared against the baseline file at `--against`. Only a rule's
 or a `requires` entry's `rationale`, and every `provenance`, are neutral. Adding a measurement
 budget declaration narrows; removing one widens. Raising a facade or coupling budget's
-`max_names`, or removing the entry, widens; lowering or adding one narrows (AD-99). Any other
+`max_names`, or removing the entry, widens, and so does a baseline that accepts a name its
+`--against` revision did not; lowering or adding one narrows (AD-99). Any other
 difference - an unrecognised rule kind's presence, a field no classifier names, `declarations`,
 `$schema` - fails closed as a widening. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
