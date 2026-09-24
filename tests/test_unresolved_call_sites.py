@@ -139,6 +139,32 @@ def test_an_unobservable_against_revision_leaves_the_sites_unnamed_not_the_findi
     assert result.unresolved_call_changes is None
 
 
+def test_validate_against_scans_the_old_revision_under_its_own_contract(tmp_path: Path) -> None:
+    """A rule naming a module only the new code has would leave the old scan without subjects
+    under today's contract, and the sites would silently vanish (review of #146)."""
+    root, base, baseline = _against_repo(tmp_path, "calls_unresolved")
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["rules"].append(
+        {
+            "id": "DEP-PROBE-NO-CLI",
+            "kind": "forbidden_dependency",
+            "source": "shop.app.probe_unresolved",
+            "target": "shop.cli",
+            "include_type_checking": True,
+            "rationale": "The probe stays independent of command-line composition.",
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    contract_path.write_text(json.dumps(contract, indent=2) + "\n")
+
+    result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
+
+    assert result.failures == ("measurement budget exceeded in calls_unresolved: 7->8",)
+    assert result.unresolved_call_changes == (_added((2,)),)
+
+
 def _terminal(result: RunResult) -> str:
     console = Console(record=True, width=200, color_system=None)
     print_result(result, report_summary(result), artifacts=(), console=console)

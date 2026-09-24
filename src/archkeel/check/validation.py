@@ -10,6 +10,7 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TypeVar
 
 from archkeel.ir.baseline import (
@@ -83,7 +84,7 @@ from .git import GitError, read_blob
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
-from .run import inspect_observation, observe_snapshot
+from .run import inspect_observation, materialize_declarations, observe_snapshot
 from .snapshot import SnapshotError, materialize_git_snapshot
 
 COMPONENT_GRAPH_MARKER = "<!-- archkeel-component-graph -->"
@@ -1576,13 +1577,19 @@ def _unresolved_calls_since(
     """AD-100: the unresolved calls whose count differs from the code at `against`.
 
     None when that revision's source cannot be observed completely: the sites explain a
-    finding, they never decide one. The working tree's contract serves both scans, so a
-    removed call's component carries today's label.
+    finding, they never decide one. The revision is scanned under its own contract, the way
+    `check` scans its accepted commit, so a rule naming a module only the new code has cannot
+    leave the old scan without subjects, and a removed call names the component it had then.
     """
     try:
-        with materialize_git_snapshot(root, against, roots=config.roots) as snapshot:
-            observed = observe_snapshot(analyzer, snapshot.root, snapshot.git_head, config, root)
-    except SnapshotError:
+        with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
+            declarations = Path(temporary)
+            materialize_declarations(root, against, config, declarations)
+            with materialize_git_snapshot(root, against, roots=config.roots) as snapshot:
+                observed = observe_snapshot(
+                    analyzer, snapshot.root, snapshot.git_head, config, declarations
+                )
+    except (GitError, SnapshotError):
         return None
     if observed.diagnostics or observed.observation is None:
         return None
