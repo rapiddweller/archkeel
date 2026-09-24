@@ -23,12 +23,13 @@ from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
 from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIANTS
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
+from fixtures.demo_catalog_dart import VARIANTS as _DART_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
-from fixtures.demo_catalog_support import Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, Variant
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
 from fixtures.demo_catalog_validation import VARIANTS as _VALIDATION_VARIANTS
 from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
@@ -46,6 +47,7 @@ CATALOG: tuple[Variant, ...] = (
     *_CHECK_PROTOCOL_VARIANTS,
     *_CHECK_REGRESSION_VARIANTS,
     *_EVIDENCE_VARIANTS,
+    *_DART_VARIANTS,
 )
 
 _INTRO = (
@@ -59,6 +61,11 @@ _INTRO = (
 _SHOWCASE_NOTE = (
     "The `showcase` row below (`tour`) is the default demo view: it applies many overlays "
     "at once so one run shows many violations together; every other row isolates one item."
+)
+_DART_NOTE = (
+    "Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style package "
+    'scanned with `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them '
+    "as one story with `make demo-dart`."
 )
 
 
@@ -82,13 +89,19 @@ def markdown() -> str:
         "",
         *textwrap.wrap(_SHOWCASE_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
+        *textwrap.wrap(_DART_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
+        "",
         "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
         "|---|---|---|---|---|---|---|",
     ]
     for variant in CATALOG:
         violations = ", ".join(variant.expected_violations) or "-"
         codes = ", ".join(variant.expected_codes) or "-"
-        reference = variant.evidence or ", ".join(sorted(variant.files)) or "clean sample"
+        # A row on another sample names it, so its file paths are not read as the shop's.
+        sample = "" if variant.fixture == FIXTURE_DIR else f"{variant.fixture.name}: "
+        reference = variant.evidence or sample + (
+            ", ".join(sorted(variant.files)) or "clean sample"
+        )
         lines.append(
             f"| {variant.section} | {variant.item} | {variant.id} | {_demo_type(variant)} | "
             f"{violations} | {codes} | {reference} |"

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Dependency edge, cycle, and declared-scope aggregation for the Python architecture scanner."""
+"""Dependency edge, cycle, and declared-scope aggregation shared by every scanner profile."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from archkeel.ir.model import ContractComponent, ContractPath, EvidenceClass, in
 
 from .graph import condensation_ranks, strongly_connected_components, transitive_paths
 from .records import RawRecord, classified
-from .source import ParsedModule
+from .source import ScannedModule
 
 
 def _top_level_scope(module: str) -> str | None:
@@ -71,7 +71,7 @@ def aggregate_edges(
 
 
 def package_records(
-    parsed: Sequence[ParsedModule],
+    parsed: Sequence[ScannedModule],
     packages: Sequence[str],
     package_edge_pairs: Sequence[tuple[str, str]],
 ) -> list[RawRecord]:
@@ -107,7 +107,7 @@ def package_records(
 
 
 def module_records(
-    parsed: Sequence[ParsedModule],
+    parsed: Sequence[ScannedModule],
     module_names: set[str],
     module_edge_pairs: Sequence[tuple[str, str]],
     symbols: Sequence[RawRecord],

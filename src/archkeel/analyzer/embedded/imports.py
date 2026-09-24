@@ -235,6 +235,9 @@ class ImportCollector(ast.NodeVisitor):
                     "relative_level": relative_level,
                     "under_type_checking": self.under_type_checking,
                     "reexport": self.module.path.name == "__init__.py",
+                    # A Python import always names what it binds; a Dart import without `show`
+                    # does not, and every rule reading `symbol` must tell the two apart (AD-97).
+                    "symbols_known": True,
                 },
             )
         )

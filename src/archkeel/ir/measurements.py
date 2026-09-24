@@ -4,7 +4,7 @@
 """Validate architecture measurement payloads independent of check policy."""
 
 from dataclasses import dataclass
-from typing import Literal, TypeAlias, get_args
+from typing import Final, Literal, TypeAlias, get_args
 
 SCALARS = (
     "violations",
@@ -26,6 +26,16 @@ MeasurementBudgetName: TypeAlias = Literal[
     "untyped_private_accesses",
     "unknown_positions",
 ]
+# AD-97: the scalars a profile may not measure at all; each reads `None` then, never 0.
+UnmeasurableScalar: TypeAlias = Literal[
+    "private_crossings",
+    "typing_positions",
+    "calls_unresolved",
+    "untyped_private_accesses",
+]
+UNMEASURABLE: Final[frozenset[UnmeasurableScalar]] = frozenset(
+    {"private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"}
+)
 # AD-99: a facade or pair budget accepts a set of names per key rather than one scalar.
 NameBudgetKind: TypeAlias = Literal["facade_names", "coupling_names"]
 
@@ -67,14 +77,14 @@ class RatchetError(ValueError):
 class RatchetScalars:
     violations: int
     cycle_edges: int
-    private_crossings: int
-    typing_positions: int
-    calls_unresolved: int
+    private_crossings: int | None
+    typing_positions: int | None
+    calls_unresolved: int | None
     coverage_failures: int
-    untyped_private_accesses: int = 0
+    untyped_private_accesses: int | None = 0
     unknown_positions: int = 0
 
-    def items(self) -> tuple[tuple[str, int], ...]:
+    def items(self) -> tuple[tuple[str, int | None], ...]:
         return (
             ("violations", self.violations),
             ("cycle_edges", self.cycle_edges),
@@ -88,7 +98,8 @@ class RatchetScalars:
 
     def __post_init__(self) -> None:
         for name, value in self.items():
-            count(value, name)
+            if value is not None or name not in UNMEASURABLE:
+                count(value, name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +113,8 @@ class Measurements:
         expected = "measured" if self.calls_total else "n/a"
         if self.resolution != expected:
             raise RatchetError(f"resolution must be {expected}")
-        if self.scalars.calls_unresolved > self.calls_total:
+        unresolved = self.scalars.calls_unresolved
+        if unresolved is not None and unresolved > self.calls_total:
             raise RatchetError("calls_unresolved must not exceed calls_total")
         if self.scalars.coverage_failures:
             raise RatchetError("scan must be complete without coverage failures")
@@ -113,7 +125,14 @@ def selected_budgets(
 ) -> tuple[MeasurementBudget, ...]:
     """Project contract-selected scalar values from the one typed measurement profile."""
     values = dict(measurements.scalars.items())
-    return tuple(MeasurementBudget(name, values[name]) for name in sorted(names))
+    budgets = []
+    for name in sorted(names):
+        value = values[name]
+        if value is None:
+            # The analyzer already refuses a budget on a scalar its profile does not measure.
+            raise RatchetError(f"measurement budget {name} is not measured by this profile")
+        budgets.append(MeasurementBudget(name, value))
+    return tuple(budgets)
 
 
 def compare_budgets(
@@ -190,24 +209,38 @@ def compare_measurements(
     accepted: Measurements, candidate: Measurements
 ) -> tuple[tuple[str, str, str, str], ...]:
     comparisons: tuple[tuple[str, str, str, str], ...] = tuple(
-        (name, str(before), str(after), "FAIL" if after > before else "PASS")
+        _compare(name, before, after)
         for (name, before), (_, after) in zip(
             accepted.scalars.items(), candidate.scalars.items(), strict=True
         )
     )
+    before_unresolved = accepted.scalars.calls_unresolved
+    after_unresolved = candidate.scalars.calls_unresolved
     comparable = accepted.calls_total > 0 and candidate.calls_total > 0
     ratio_failed = (
-        candidate.scalars.calls_unresolved * accepted.calls_total
-        > accepted.scalars.calls_unresolved * candidate.calls_total
+        before_unresolved is not None
+        and after_unresolved is not None
+        and after_unresolved * accepted.calls_total > before_unresolved * candidate.calls_total
     )
     return comparisons + (
         (
             "unresolved_ratio",
-            f"{accepted.scalars.calls_unresolved}/{accepted.calls_total}",
-            f"{candidate.scalars.calls_unresolved}/{candidate.calls_total}",
+            f"{_shown(before_unresolved)}/{accepted.calls_total}",
+            f"{_shown(after_unresolved)}/{candidate.calls_total}",
             "FAIL" if comparable and ratio_failed else "PASS" if comparable else "n/a",
         ),
     )
+
+
+def _shown(value: int | None) -> str:
+    return "n/a" if value is None else str(value)
+
+
+def _compare(name: str, before: int | None, after: int | None) -> tuple[str, str, str, str]:
+    """A side the profile never measured is neither a pass nor a failure (AD-97)."""
+    if before is None or after is None:
+        return name, _shown(before), _shown(after), "n/a"
+    return name, str(before), str(after), "FAIL" if after > before else "PASS"
 
 
 def count(raw: object, label: str) -> int:

@@ -32,6 +32,7 @@ from archkeel.ir.model import (
     RunResult,
     in_scope,
 )
+from archkeel.ir.profiles import Language
 from archkeel.ir.structure import StructureMetric, scope_metrics
 
 from .ports import Analyzer, FilesToWrite, ScanConfig
@@ -289,11 +290,22 @@ def run_init(
     namespace: str | None,
     force: bool,
     analyzer: Analyzer,
+    language: Language = "python",
 ) -> tuple[RunResult, FilesToWrite]:
     """Observe the repository and return the onboarding files without writing them."""
     if source is None or namespace is None:
         if source is not None or namespace is not None:
             raise ValueError("pass both --source and --namespace, or neither")
+        if language == "dart":
+            # Detection reads Python package markers; a Dart package names its own root.
+            raise DiagnosticError(
+                Diagnostic(
+                    "scope_empty",
+                    str(root),
+                    "A Dart package's source directory and name are not detected yet.",
+                    "Pass --source lib and --namespace <pubspec name> to archkeel init.",
+                )
+            )
         source, namespace = detect_source(root)
     existing = [
         path for path in (CONFIG_PATH, CONTRACT_PATH, DOCUMENT_PATH) if (root / path).exists()
@@ -307,7 +319,7 @@ def run_init(
                 "Rerun archkeel init with --force to replace them.",
             )
         )
-    config = ScanConfig((source,), namespace, CONTRACT_PATH, "")
+    config = ScanConfig((source,), namespace, CONTRACT_PATH, "", language)
     with TemporaryDirectory(prefix="archkeel-init-") as temporary:
         scaffold = Path(temporary)
         (scaffold / CONTRACT_PATH).write_bytes(
@@ -319,11 +331,13 @@ def run_init(
             "init", 2, diagnostics=observed.diagnostics, coverage=observed.coverage
         ), FilesToWrite()
     contract, edges, sizes = draft_contract(observed.observation, namespace)
+    # Absent means Python, so a Python draft keeps the exact bytes it always had.
+    language_line = "" if language == "python" else f"language = {json.dumps(language)}\n"
     files = FilesToWrite(
         {
             CONFIG_PATH: (
                 f"[scan]\nroots = [{json.dumps(source)}]\nnamespace = {json.dumps(namespace)}\n"
-                f"contract = {json.dumps(CONTRACT_PATH)}\n"
+                f"contract = {json.dumps(CONTRACT_PATH)}\n{language_line}"
             ).encode(),
             CONTRACT_PATH: contract_bytes(contract),
             DOCUMENT_PATH: architecture_document(namespace, contract, edges, sizes).encode(),

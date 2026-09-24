@@ -1,0 +1,12 @@
+name: shop
+description: A tiny order screen, the package the Archkeel Dart demo scans.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.4.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
