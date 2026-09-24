@@ -137,6 +137,7 @@ def module_records(
                 "fan_out": module_fan_out[module.module],
                 "rank": module_ranks.get(module.module, 0),
                 "all_exports": sorted(module.all_exports),
+                "all_literal": module.all_literal,
                 "compatibility_logic_free": module.compatibility_logic_free,
             },
         )

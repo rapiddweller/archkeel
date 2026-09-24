@@ -56,7 +56,7 @@ class ScannedModule(Protocol):
     """The plain facts the shared package and module records read of any scanned module.
 
     Narrower than `ParsedModule` on purpose: a profile without a Python AST (AD-97) builds the
-    same records from these five fields instead of fabricating a tree it does not have.
+    same records from these six fields instead of fabricating a tree it does not have.
     """
 
     @property
@@ -70,6 +70,9 @@ class ScannedModule(Protocol):
 
     @property
     def all_exports(self) -> AbstractSet[str]: ...
+
+    @property
+    def all_literal(self) -> bool: ...
 
     @property
     def compatibility_logic_free(self) -> bool: ...
@@ -87,6 +90,8 @@ class ParsedModule:
     tree: ast.Module
     aliases: dict[str, AliasBinding] = field(default_factory=dict)
     all_exports: set[str] = field(default_factory=set)
+    # AD-99: `all_exports` is the module's whole `__all__`, bound once to a literal.
+    all_literal: bool = False
     compatibility_logic_free: bool = False
 
 

@@ -283,7 +283,7 @@
     },
     "declarations": {
       "type": "object",
-      "description": "Declarations are documented, public_api is checked for existence (AD-66), and compat is checked for logic-free lifetime-bounded shims (AD-87). See docs/rules.md.",
+      "description": "Declarations are documented, public_api is checked for existence (AD-66), compat is checked for logic-free lifetime-bounded shims (AD-87), and facade and coupling budgets are checked against the declared facade measurements (AD-99). See docs/rules.md.",
       "additionalProperties": false,
       "properties": {
         "capabilities": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
@@ -301,6 +301,18 @@
           "uniqueItems": true,
           "items": {"$ref": "#/$defs/measurementBudget"},
           "description": "Deterministic measurement scalars whose accepted values live in the validate baseline."
+        },
+        "facade_budgets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/facadeBudget"},
+          "description": "At most max_names names in one component's declared public facade (AD-99). Raising or removing one is a widening."
+        },
+        "coupling_budgets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/couplingBudget"},
+          "description": "At most max_names facade names the source component imports from the target component (AD-99). Raising or removing one is a widening."
         }
       }
     },
@@ -371,6 +383,27 @@
       "additionalProperties": false,
       "properties": {
         "name": {"enum": ["cycle_edges", "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses", "unknown_positions"]},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "facadeBudget": {
+      "type": "object",
+      "required": ["component", "max_names", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "component": {"$ref": "#/$defs/nonEmpty", "description": "A component label with a public list."},
+        "max_names": {"type": "integer", "minimum": 0},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "couplingBudget": {
+      "type": "object",
+      "required": ["source", "target", "max_names", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {"$ref": "#/$defs/nonEmpty", "description": "The importing component label."},
+        "target": {"$ref": "#/$defs/nonEmpty", "description": "Another component label with a public list."},
+        "max_names": {"type": "integer", "minimum": 0},
         "provenance": {"$ref": "#/$defs/provenance"}
       }
     }

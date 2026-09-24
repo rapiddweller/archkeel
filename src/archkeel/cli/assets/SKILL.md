@@ -124,8 +124,10 @@ archkeel validate --baseline known-violations.json                    # the CI g
 The gate fails (exit 1) on a violation the file does not state, and on one it states that
 nobody violates any more — so the budget only shrinks, and the file is rewritten in the same
 change that shrinks it. `declarations.measurement_budgets` may put deterministic scalar values
-through the same loop (AD-89). Never raise either kind of debt to make a run pass without the
-architect's decision.
+through the same loop (AD-89). `declarations.facade_budgets` and
+`declarations.coupling_budgets` set name targets in the contract, and the baseline holds their
+accepted names (AD-99).
+Never raise any of them to make a run pass without the architect's decision.
 
 A reviewer or a CI gate may hold your branch to this the same way, with `archkeel validate
 --against <base ref>`: it classifies every difference from the contract at that revision — a

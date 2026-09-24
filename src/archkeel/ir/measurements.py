@@ -4,7 +4,7 @@
 """Validate architecture measurement payloads independent of check policy."""
 
 from dataclasses import dataclass
-from typing import Final, Literal, TypeAlias
+from typing import Final, Literal, TypeAlias, get_args
 
 SCALARS = (
     "violations",
@@ -36,15 +36,37 @@ UnmeasurableScalar: TypeAlias = Literal[
 UNMEASURABLE: Final[frozenset[UnmeasurableScalar]] = frozenset(
     {"private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"}
 )
+# AD-99: a facade or pair budget accepts a set of names per key rather than one scalar.
+NameBudgetKind: TypeAlias = Literal["facade_names", "coupling_names"]
 
 
 @dataclass(frozen=True, slots=True)
 class MeasurementBudget:
-    name: MeasurementBudgetName
+    """One accepted value: a selected scalar (AD-89), or one key's accepted names (AD-99)."""
+
+    name: MeasurementBudgetName | NameBudgetKind
     value: int
+    key: str = ""
+    names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        count(self.value, f"budget {self.name}")
+        count(self.value, f"budget {self.label}")
+        keyed = self.name in get_args(NameBudgetKind)
+        if keyed != bool(self.key) or (not keyed and self.names):
+            raise RatchetError(f"budget {self.label} mixes a scalar with a keyed name set")
+        if keyed and (
+            self.names != tuple(sorted(set(self.names))) or self.value != len(self.names)
+        ):
+            raise RatchetError(f"budget {self.label} names must be sorted, unique and counted")
+
+    @property
+    def label(self) -> str:
+        return budget_label(self.name, self.key)
+
+
+def budget_label(name: str, key: str = "") -> str:
+    """How a baseline budget is named in a finding: a scalar alone, a keyed set with its key."""
+    return f"{name} {key}" if key else name
 
 
 class RatchetError(ValueError):
@@ -116,43 +138,71 @@ def selected_budgets(
 def compare_budgets(
     accepted: tuple[MeasurementBudget, ...], observed: tuple[MeasurementBudget, ...]
 ) -> tuple[str, ...]:
-    """Report every changed or mismatched budget; equality is the passing baseline state."""
-    before = {item.name: item.value for item in accepted}
-    after = {item.name: item.value for item in observed}
+    """Report every changed or mismatched budget; equality is the passing baseline state.
+
+    A keyed budget (AD-99) rises by any name the baseline does not hold and falls by any name
+    it holds that is gone, whatever the count does, so freed room cannot be reused unseen.
+    """
+    before = {item.label: item for item in accepted}
+    after = {item.label: item for item in observed}
     findings = []
-    for name in sorted(before.keys() | after.keys()):
-        if name not in before:
+    for label in sorted(before.keys() | after.keys()):
+        if label not in before:
             findings.append(
-                f"measurement budget {name} is not in the baseline; rewrite the baseline "
+                f"measurement budget {label} is not in the baseline; rewrite the baseline "
                 "with --write-baseline"
             )
             continue
-        if name not in after:
+        if label not in after:
             findings.append(
-                f"measurement budget {name} is no longer declared; rewrite the baseline "
+                f"measurement budget {label} is no longer declared; rewrite the baseline "
                 "with --write-baseline"
             )
             continue
-        accepted_value = before[name]
-        observed_value = after[name]
+        new, removed = name_drift(before[label], after[label])
+        if new:
+            findings.append(f"measurement budget exceeded in {label}: new {', '.join(new)}")
+        if removed:
+            findings.append(
+                f"measurement budget reduced in {label}: removed {', '.join(removed)}; "
+                "rewrite the baseline with --write-baseline"
+            )
+        if new or removed:
+            continue
+        accepted_value = before[label].value
+        observed_value = after[label].value
         if observed_value > accepted_value:
             findings.append(
-                f"measurement budget exceeded in {name}: {accepted_value}->{observed_value}"
+                f"measurement budget exceeded in {label}: {accepted_value}->{observed_value}"
             )
         elif observed_value < accepted_value:
             findings.append(
-                f"measurement budget reduced in {name}: {accepted_value}->{observed_value}; "
+                f"measurement budget reduced in {label}: {accepted_value}->{observed_value}; "
                 "rewrite the baseline with --write-baseline"
             )
     return tuple(findings)
+
+
+def name_drift(
+    accepted: MeasurementBudget, observed: MeasurementBudget
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The names `observed` adds to and drops from `accepted`; always empty for a scalar."""
+    return (
+        tuple(sorted(set(observed.names) - set(accepted.names))),
+        tuple(sorted(set(accepted.names) - set(observed.names))),
+    )
 
 
 def budget_regressions(
     accepted: tuple[MeasurementBudget, ...], observed: tuple[MeasurementBudget, ...]
 ) -> int:
     """Count observed rises; new declarations have no prior value to regress from."""
-    before = {item.name: item.value for item in accepted}
-    return sum(item.name in before and item.value > before[item.name] for item in observed)
+    before = {item.label: item for item in accepted}
+    return sum(
+        item.label in before
+        and (bool(name_drift(before[item.label], item)[0]) or item.value > before[item.label].value)
+        for item in observed
+    )
 
 
 def compare_measurements(

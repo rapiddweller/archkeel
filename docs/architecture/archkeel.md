@@ -135,6 +135,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-96 | [Boundary types resolve proven enum members in Literal](decisions/ad-96-boundary-types-resolve-enum-literals.md) |
 | AD-97 | [A Dart profile observes directives, and what it cannot see is UNKNOWN](decisions/ad-97-a-dart-profile-observes-directives-and-what-it-cannot-see-is-unknown.md) |
 | AD-98 | [A cycle rule names the level and the components it holds acyclic](decisions/ad-98-a-cycle-rule-names-the-level-and-scope-it-holds-acyclic.md) |
+| AD-99 | [Facade and coupling budgets are contract ceilings](decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md) |
 | AD-101 | [A second configuration governs a second scope at the same root](decisions/ad-101-a-second-configuration-governs-a-second-scope.md) |
 
 ## Allowed dependencies

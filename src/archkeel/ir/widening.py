@@ -17,12 +17,13 @@ fingerprint without reading Git itself.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
 from .baseline import KnownViolation, cycle_contractions
-from .measurements import MeasurementBudget
+from .measurements import MeasurementBudget, name_drift
 from .model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -485,9 +486,17 @@ def contract_widenings(
         frozenset(item.name for item in after_declarations.measurement_budgets),
         grows_widens=False,
     )
-    before_without_handled = replace(before_declarations, compat=(), measurement_budgets=())
-    after_without_handled = replace(after_declarations, compat=(), measurement_budgets=())
-    if before_without_handled != after_without_handled:
+    findings += _ceiling_widenings(
+        "facade budget",
+        {item.subject: item.max_names for item in before_declarations.facade_budgets or ()},
+        {item.subject: item.max_names for item in after_declarations.facade_budgets or ()},
+    )
+    findings += _ceiling_widenings(
+        "coupling budget",
+        {item.subject: item.max_names for item in before_declarations.coupling_budgets or ()},
+        {item.subject: item.max_names for item in after_declarations.coupling_budgets or ()},
+    )
+    if _unenumerated(before_declarations) != _unenumerated(after_declarations):
         findings.append("contract.declarations changed in a way this comparison does not enumerate")
     before_compat = {item.module: item for item in before_declarations.compat}
     after_compat = {item.module: item for item in after_declarations.compat}
@@ -506,21 +515,62 @@ def contract_widenings(
     return tuple(sorted(findings))
 
 
-def measurement_budget_widenings(
-    before: tuple[MeasurementBudget, ...], after: tuple[MeasurementBudget, ...]
-) -> tuple[str, ...]:
-    """A raised or dropped accepted value widens its contract-selected measurement budget."""
-    before_values = {item.name: item.value for item in before}
-    after_values = {item.name: item.value for item in after}
+def _unenumerated(declarations: ContractDeclarations) -> ContractDeclarations:
+    """The declarations no classifier above compares field by field."""
+    return replace(
+        declarations, compat=(), measurement_budgets=(), facade_budgets=None, coupling_budgets=None
+    )
+
+
+def _ceiling_widenings(kind: str, before: dict[str, int], after: dict[str, int]) -> list[str]:
+    """AD-99: a raised or removed ceiling widens; a lowered or added one narrows."""
     findings = []
-    for name in sorted(before_values):
-        if name not in after_values:
-            findings.append(f"measurement budget baseline lost {name}")
-        elif after_values[name] > before_values[name]:
+    for subject in sorted(before):
+        if subject not in after:
+            findings.append(f"{kind} {subject} removed")
+        elif after[subject] > before[subject]:
+            findings.append(f"{kind} {subject} raised from {before[subject]} to {after[subject]}")
+    return findings
+
+
+def measurement_budget_widenings(
+    before: tuple[MeasurementBudget, ...],
+    after: tuple[MeasurementBudget, ...],
+    targets: Mapping[str, int] | None = None,
+) -> tuple[str, ...]:
+    """A raised, grown or dropped accepted value widens its measurement budget.
+
+    AD-89 compares a scalar; AD-99 a key's accepted names, where any gained name widens even
+    when another one left, because the ratchet holds names rather than their count. `targets`
+    are the old contract's `max_names` by label: a key the old baseline did not hold was held by
+    that target alone, so a first accepted set above it widens too.
+    """
+    accepted = {item.label: item for item in after}
+    findings = []
+    for item in sorted(before, key=lambda budget: budget.label):
+        now = accepted.get(item.label)
+        if now is None:
+            findings.append(f"measurement budget baseline lost {item.label}")
+            continue
+        gained, _ = name_drift(item, now)
+        if gained:
             findings.append(
-                f"measurement budget widened: {name} "
-                f"({after_values[name]} now, {before_values[name]} before)"
+                f"measurement budget widened: {item.label} (gained {', '.join(gained)})"
             )
+        elif now.value > item.value:
+            findings.append(
+                f"measurement budget widened: {item.label} ({now.value} now, {item.value} before)"
+            )
+    held = {item.label for item in before}
+    old_targets = targets or {}
+    findings.extend(
+        f"measurement budget widened: {item.label} "
+        f"({item.value} accepted, target {old_targets[item.label]} before)"
+        for item in sorted(after, key=lambda budget: budget.label)
+        if item.label not in held
+        and item.label in old_targets
+        and item.value > old_targets[item.label]
+    )
     return tuple(findings)
 
 

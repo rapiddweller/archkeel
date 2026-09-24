@@ -1,12 +1,54 @@
 {
   "budgets": {
-    "calls_unresolved": 499,
+    "calls_unresolved": 502,
+    "coupling_names": {
+      "api -> ir": [
+        "archkeel.ir.baseline:ViolationFingerprint",
+        "archkeel.ir.baseline:ViolationRow",
+        "archkeel.ir.baseline:violation_rows",
+        "archkeel.ir.codec:decode_canonical_model",
+        "archkeel.ir.codec:decode_json",
+        "archkeel.ir.codec:parse_observation"
+      ],
+      "cli -> analyzer": [
+        "archkeel.analyzer:observe"
+      ],
+      "cli -> check": [
+        "archkeel.check.git:read_blob",
+        "archkeel.check.onboarding:run_init",
+        "archkeel.check.ports:ScanConfig",
+        "archkeel.check.report:render_result",
+        "archkeel.check.report:run_report",
+        "archkeel.check.report:unknown_result",
+        "archkeel.check.run:run_check",
+        "archkeel.check.validation:invalid_result",
+        "archkeel.check.validation:run_validate"
+      ],
+      "cli -> host": [
+        "archkeel.host.gitlab:load_gitlab_records"
+      ],
+      "cli -> render": [
+        "archkeel.render.html:render_architecture_html",
+        "archkeel.render.html:render_check_html",
+        "archkeel.render.summary:check_summary",
+        "archkeel.render.summary:init_summary",
+        "archkeel.render.summary:report_summary",
+        "archkeel.render.terminal:print_result",
+        "archkeel.render.terminal:progress"
+      ],
+      "host -> ir": [
+        "archkeel.ir.host_records:HostRecord",
+        "archkeel.ir.host_records:OrderingError",
+        "archkeel.ir.host_records:parse_records",
+        "archkeel.ir.host_records:validate_sha"
+      ]
+    },
     "cycle_edges": 0,
     "private_crossings": 0,
     "typing_positions": 53,
     "unknown_positions": 18,
     "untyped_private_accesses": 0
   },
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "violations": []
 }

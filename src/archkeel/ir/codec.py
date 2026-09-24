@@ -18,6 +18,7 @@ from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     LEGACY_BASELINE_SCHEMA_VERSION,
     ROLES_BASELINE_SCHEMA_VERSION,
+    SCALAR_BUDGETS_BASELINE_SCHEMA_VERSION,
     KnownViolation,
     ValidationBaseline,
     ViolationFingerprint,
@@ -28,6 +29,7 @@ from archkeel.ir.measurements import (
     MeasurementBudget,
     MeasurementBudgetName,
     Measurements,
+    NameBudgetKind,
     RatchetError,
     RatchetScalars,
     count,
@@ -60,6 +62,7 @@ from archkeel.ir.model import (
     ContractPath,
     ContractPathKind,
     ContractReviewScope,
+    CouplingBudget,
     Coverage,
     DeltaCoverage,
     DeltaProvenance,
@@ -68,6 +71,7 @@ from archkeel.ir.model import (
     Evidence,
     EvidenceClass,
     ExternalDependencyScopeRule,
+    FacadeBudget,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -689,6 +693,8 @@ def parse_contract(raw: object) -> ArchitectureContract:
                 "spot_owners",
                 "compat",
                 "measurement_budgets",
+                "facade_budgets",
+                "coupling_budgets",
             },
             "contract.declarations",
         )
@@ -745,6 +751,22 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     if len({item.name for item in budgets}) != len(budgets):
         raise ValueError("contract.declarations.measurement_budgets repeats a name")
+    facade_budgets = (
+        tuple(
+            _parse_facade_budget(value, f"facade_budgets[{index}]")
+            for index, value in enumerate(records("facade_budgets"))
+        )
+        if "facade_budgets" in declarations
+        else None
+    )
+    coupling_budgets = (
+        tuple(
+            _parse_coupling_budget(value, f"coupling_budgets[{index}]")
+            for index, value in enumerate(records("coupling_budgets"))
+        )
+        if "coupling_budgets" in declarations
+        else None
+    )
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
     for index, rule in enumerate(rules):
@@ -754,6 +776,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
                 raise ValueError(
                     f"rules[{index}].components names no declared component: {unknown}"
                 )
+    _check_interface_budgets(components, rules, facade_budgets or (), coupling_budgets or ())
     ids = [
         item.id
         for group in (capabilities, components, scopes, commands, paths, owners, rules)
@@ -789,6 +812,8 @@ def parse_contract(raw: object) -> ArchitectureContract:
             owners,
             compat,
             budgets,
+            facade_budgets,
+            coupling_budgets,
         )
         if declarations_raw is not None
         else None,
@@ -985,6 +1010,72 @@ def _parse_measurement_budget(raw: RawJson, label: str) -> ContractMeasurementBu
         _measurement_budget_name(item["name"], f"{label}.name"),
         _contract_strings(item["provenance"], f"{label}.provenance", required=True),
     )
+
+
+def _parse_facade_budget(raw: RawJson, label: str) -> FacadeBudget:
+    item = _contract_fields(raw, {"component", "max_names", "provenance"}, set(), label)
+    return FacadeBudget(
+        _nonempty(item["component"], f"{label}.component"),
+        _count(item["max_names"], f"{label}.max_names"),
+        _contract_strings(item["provenance"], f"{label}.provenance", required=True),
+    )
+
+
+def _parse_coupling_budget(raw: RawJson, label: str) -> CouplingBudget:
+    item = _contract_fields(raw, {"source", "target", "max_names", "provenance"}, set(), label)
+    return CouplingBudget(
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["target"], f"{label}.target"),
+        _count(item["max_names"], f"{label}.max_names"),
+        _contract_strings(item["provenance"], f"{label}.provenance", required=True),
+    )
+
+
+def _budget_component(public: dict[str, bool], label: str, component: str, *, facade: bool) -> None:
+    if component not in public:
+        raise ValueError(f"contract.declarations.{label} names no component: {component!r}")
+    if facade and not public[component]:
+        raise ValueError(f"contract.declarations.{label} {component!r} declares no public facade")
+
+
+def _check_interface_budgets(
+    components: tuple[ContractComponent, ...],
+    rules: tuple[ArchitectureRule, ...],
+    facades: tuple[FacadeBudget, ...],
+    pairs: tuple[CouplingBudget, ...],
+) -> None:
+    """AD-99: a budget counts a declared facade, so an unknown key is an error, not a PASS.
+
+    A pair counts only names its source reaches through the target's facade. An import past
+    the facade, `TYPE_CHECKING` ones included, must therefore be an `interface_boundary`
+    finding instead, or the budget would pass on names it never saw.
+    """
+    public = {item.label: item.public is not None for item in components}
+    if pairs and not any(
+        isinstance(rule, InterfaceBoundaryRule) and rule.include_type_checking for rule in rules
+    ):
+        raise ValueError(
+            "contract.declarations.coupling_budgets need an interface_boundary rule that "
+            "includes TYPE_CHECKING imports, or an import past the facade is counted nowhere"
+        )
+    for index, budget in enumerate(facades):
+        _budget_component(
+            public, f"facade_budgets[{index}].component", budget.component, facade=True
+        )
+    for index, pair in enumerate(pairs):
+        _budget_component(public, f"coupling_budgets[{index}].source", pair.source, facade=False)
+        _budget_component(public, f"coupling_budgets[{index}].target", pair.target, facade=True)
+        if pair.source == pair.target:
+            raise ValueError(
+                f"contract.declarations.coupling_budgets[{index}] names one component twice"
+            )
+    for key, subjects in (
+        ("facade_budgets", [item.subject for item in facades]),
+        ("coupling_budgets", [item.subject for item in pairs]),
+    ):
+        repeated = sorted({subject for subject in subjects if subjects.count(subject) > 1})
+        if repeated:
+            raise ValueError(f"contract.declarations.{key} repeats {repeated[0]!r}")
 
 
 def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependencyRule:
@@ -1692,6 +1783,8 @@ def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]
         declarations.paths,
         declarations.spot_owners,
         declarations.measurement_budgets,
+        declarations.facade_budgets or (),
+        declarations.coupling_budgets or (),
     ):
         for record in records:
             paths.update(record.provenance)
@@ -1774,6 +1867,27 @@ def _measurement_budget_name(raw: object, label: str) -> MeasurementBudgetName:
     raise ValueError(f"{label} is not a supported measurement budget")
 
 
+def _name_budget_kind(raw: str) -> NameBudgetKind | None:
+    if raw == "facade_names":
+        return "facade_names"
+    if raw == "coupling_names":
+        return "coupling_names"
+    return None
+
+
+def _name_budgets(kind: NameBudgetKind, raw: RawJson, label: str) -> list[MeasurementBudget]:
+    """One budget per facade or pair key and its accepted names (AD-99)."""
+    if not isinstance(raw, dict):
+        raise ValueError(f"{label} must be an object")
+    budgets = []
+    for key, names in sorted(raw.items()):
+        accepted = _strings(names, f"{label}.{key}")
+        if list(accepted) != sorted(set(accepted)):
+            raise ValueError(f"{label}.{key} must list sorted unique names")
+        budgets.append(MeasurementBudget(kind, len(accepted), _nonempty(key, label), accepted))
+    return budgets
+
+
 def parse_validation_baseline(raw: object) -> ValidationBaseline:
     """Read the violation and measurement-budget baseline written by validate."""
     untyped = _object(raw, "baseline")
@@ -1781,8 +1895,10 @@ def parse_validation_baseline(raw: object) -> ValidationBaseline:
     versions = {
         LEGACY_BASELINE_SCHEMA_VERSION,
         ROLES_BASELINE_SCHEMA_VERSION,
+        SCALAR_BUDGETS_BASELINE_SCHEMA_VERSION,
         BASELINE_SCHEMA_VERSION,
     }
+    with_budgets = {SCALAR_BUDGETS_BASELINE_SCHEMA_VERSION, BASELINE_SCHEMA_VERSION}
     if schema_version not in versions:
         raise ValueError(
             f"baseline schema {schema_version!r} cannot be read as {', '.join(sorted(versions))}"
@@ -1790,7 +1906,7 @@ def parse_validation_baseline(raw: object) -> ValidationBaseline:
     fields = {"schema_version", "violations", "budgets"}
     document = _exact(
         untyped,
-        fields if schema_version == BASELINE_SCHEMA_VERSION else fields - {"budgets"},
+        fields if schema_version in with_budgets else fields - {"budgets"},
         "baseline",
     )
     entries = document["violations"]
@@ -1812,19 +1928,34 @@ def parse_validation_baseline(raw: object) -> ValidationBaseline:
     raw_budgets = document.get("budgets", {})
     if not isinstance(raw_budgets, dict) or not all(isinstance(name, str) for name in raw_budgets):
         raise ValueError("baseline.budgets must be an object")
-    budgets = tuple(
-        MeasurementBudget(
-            _measurement_budget_name(name, f"baseline.budgets.{name}"),
-            count(value, f"baseline.budgets.{name}"),
-        )
-        for name, value in sorted(raw_budgets.items())
-    )
-    return ValidationBaseline(ordered, budgets)
+    budgets: list[MeasurementBudget] = []
+    for name, value in sorted(raw_budgets.items()):
+        label = f"baseline.budgets.{name}"
+        kind = _name_budget_kind(name) if schema_version == BASELINE_SCHEMA_VERSION else None
+        if kind is not None:
+            budgets.extend(_name_budgets(kind, value, label))
+        else:
+            budgets.append(
+                MeasurementBudget(_measurement_budget_name(name, label), count(value, label))
+            )
+    return ValidationBaseline(ordered, tuple(budgets))
 
 
 def parse_baseline(raw: object) -> tuple[KnownViolation, ...]:
     """Read known violations for callers that do not consume measurement budgets."""
     return parse_validation_baseline(raw).violations
+
+
+def _budgets_payload(budgets: tuple[MeasurementBudget, ...]) -> dict[str, RawJson]:
+    """Scalars by name; each keyed kind as one object of key to accepted names (AD-99)."""
+    payload: dict[str, RawJson] = {}
+    keyed: dict[str, dict[str, RawJson]] = {}
+    for item in budgets:
+        if item.key:
+            keyed.setdefault(item.name, {})[item.key] = list(item.names)
+        else:
+            payload[item.name] = item.value
+    return {**payload, **keyed}
 
 
 def baseline_bytes(
@@ -1833,7 +1964,7 @@ def baseline_bytes(
     """Write the baseline indented and one entry per line: this file is read in diffs."""
     payload = {
         "schema_version": BASELINE_SCHEMA_VERSION,
-        "budgets": {item.name: item.value for item in sorted(budgets, key=lambda x: x.name)},
+        "budgets": _budgets_payload(budgets),
         "violations": [
             {
                 "rules": list(item.fingerprint.rules),

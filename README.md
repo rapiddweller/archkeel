@@ -198,7 +198,10 @@ archkeel report --only violations --component store
   an exit code.
 - **Facade shape stays measured, not inferred.** The report shows declared export counts,
   re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
-  width. These facts do not claim a barrel is complete and are not budget inputs (AD-88).
+  width. These facts do not claim a barrel is complete (AD-88). A contract may set a target for
+  one facade's names or one component pair's imported names. `validate` names every counted name
+  over it, a baseline freezes today's names so a new one fails, and a count it cannot complete is
+  UNKNOWN, never PASS (AD-99).
 
 ## Try the demo
 
@@ -284,9 +287,12 @@ to day — gating CI, keeping the target from widening, working the backlog down
 [docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md).
 
 The contract may also select deterministic scalars under `declarations.measurement_budgets`.
-Baseline schema 1.2 stores their accepted values. A rise fails; a fall must be written back.
-Archkeel uses this itself for cycle edges, private crossings, typing positions, unresolved calls
-and untyped private accesses (AD-89).
+Baseline schema 1.2 and later stores their accepted values. A rise fails; a fall must be written
+back. Archkeel uses this itself for cycle edges, private crossings, typing positions, unresolved
+calls and untyped private accesses (AD-89). Facade and coupling budgets put a target in the
+contract (`declarations.facade_budgets`, `declarations.coupling_budgets`); baseline schema 1.3
+adds each one's accepted names, so a new name fails while a known gap to the target passes
+(AD-99).
 
 Baseline roles, introduced in schema 1.1, also prove when a resolved importer was the last reach
 of one exact public module or symbol. `validate --baseline` reports the resolved violation,

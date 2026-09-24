@@ -27,7 +27,9 @@ from .model import (
     text_value,
 )
 
-BASELINE_SCHEMA_VERSION = "1.2.0"
+# AD-99: 1.3.0 adds keyed name sets; 1.2.0 added scalar budgets (AD-89) and stays readable.
+BASELINE_SCHEMA_VERSION = "1.3.0"
+SCALAR_BUDGETS_BASELINE_SCHEMA_VERSION = "1.2.0"
 ROLES_BASELINE_SCHEMA_VERSION = "1.1.0"
 LEGACY_BASELINE_SCHEMA_VERSION = "1.0.0"
 

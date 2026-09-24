@@ -263,6 +263,44 @@
         "name": "unknown_positions",
         "provenance": ["docs/architecture/decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md"]
       }
+    ],
+    "coupling_budgets": [
+      {
+        "source": "api",
+        "target": "ir",
+        "max_names": 6,
+        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+      },
+      {
+        "source": "cli",
+        "target": "analyzer",
+        "max_names": 1,
+        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+      },
+      {
+        "source": "cli",
+        "target": "check",
+        "max_names": 9,
+        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+      },
+      {
+        "source": "cli",
+        "target": "host",
+        "max_names": 1,
+        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+      },
+      {
+        "source": "cli",
+        "target": "render",
+        "max_names": 7,
+        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+      },
+      {
+        "source": "host",
+        "target": "ir",
+        "max_names": 4,
+        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+      }
     ]
   },
   "rules": [

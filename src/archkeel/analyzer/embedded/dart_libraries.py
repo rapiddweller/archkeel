@@ -41,6 +41,8 @@ class DartLibrary:
     module: str
     package: str
     all_exports: frozenset[str] = frozenset()
+    # AD-99: Dart has no `__all__`, so no export list is ever proven whole.
+    all_literal: bool = False
     compatibility_logic_free: bool = False
 
 

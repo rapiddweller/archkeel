@@ -36,6 +36,14 @@ When a refactoring moves a module, declare the old path in `declarations.compat`
 and lifetime. A `migration` shim is visible remaining work while it protects callers; promote it
 to `permanent` only when that compatibility surface is intentional (AD-87).
 
+A facade or a coupling can carry a target the same way: `declarations.facade_budgets` sets
+`max_names` for the names a component's `public` modules export, and
+`declarations.coupling_budgets` for the facade names one component imports from another. The
+target may sit below today's count. `--write-baseline` then records today's accepted names, the
+run passes with the distance reported as `over_target`, and any name outside the accepted set
+fails, so the gap can only close. Raising `max_names` or accepting a new name is a widening
+under `--against` (AD-99).
+
 The architect decides `app` will eventually expose a small report facade the refactoring has not
 written yet:
 
@@ -164,7 +172,7 @@ $ archkeel validate --baseline known-violations.json --write-baseline
 
 ```json
 {
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "budgets": {},
   "violations": [
     { "count": 1, "rules": ["DEP-STORE-NO-MONEY"],
@@ -408,7 +416,7 @@ declared_rules: PASS
 ```
 
 ```json
-{ "schema_version": "1.2.0", "budgets": {}, "violations": [] }
+{ "schema_version": "1.3.0", "budgets": {}, "violations": [] }
 ```
 
 An overstated baseline fails the gate exactly as an understated one does, symmetrically: running

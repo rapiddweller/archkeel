@@ -871,7 +871,11 @@ def profile_failures(contract: ArchitectureContract, profile: Profile) -> list[R
     budget it cannot observe would read as empty. Both gate the run with exit 2 instead.
     """
     declarations = contract.declarations or ContractDeclarations()
-    declared: dict[DeclarationField, bool] = {"context_roots": bool(declarations.context_roots)}
+    declared: dict[DeclarationField, bool] = {
+        "context_roots": bool(declarations.context_roots),
+        "facade_budgets": bool(declarations.facade_budgets),
+        "coupling_budgets": bool(declarations.coupling_budgets),
+    }
     items = [
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")
