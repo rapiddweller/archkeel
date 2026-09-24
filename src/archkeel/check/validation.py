@@ -10,7 +10,7 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TypeVar
+from typing import Final, TypeVar
 
 from archkeel.ir.baseline import (
     KnownViolation,
@@ -39,6 +39,7 @@ from archkeel.ir.decisions import (
 from archkeel.ir.interfaces import interface_budgets
 from archkeel.ir.measurements import (
     MeasurementBudget,
+    NameBudgetKind,
     RatchetError,
     budget_label,
     budget_regressions,
@@ -784,11 +785,14 @@ def interface_diagnostics(
     return tuple(diagnostics)
 
 
+_BUDGET_NOUNS: Final[dict[NameBudgetKind, str]] = {
+    "facade_names": "facade",
+    "coupling_names": "pair",
+}
+
+
 def interface_budget_diagnostics(
-    declarations: ContractDeclarations,
-    results: tuple[InterfaceBudgetResult, ...],
-    *,
-    report_exceeded: bool,
+    results: tuple[InterfaceBudgetResult, ...], *, report_exceeded: bool
 ) -> tuple[Diagnostic, ...]:
     """AD-99: a budget over its target, or one the scan cannot count.
 
@@ -796,26 +800,18 @@ def interface_budget_diagnostics(
     With a baseline its accepted names answer the target instead, the way AD-52 answers a
     violation, so only an uncountable budget is left to report there.
     """
-    # `interface_budgets` measures facades first, then pairs, each in declared order.
-    places = [
-        *(
-            (f"/declarations/facade_budgets/{index}", f"The {item.subject} facade")
-            for index, item in enumerate(declarations.facade_budgets or ())
-        ),
-        *(
-            (f"/declarations/coupling_budgets/{index}", f"The {item.subject} pair")
-            for index, item in enumerate(declarations.coupling_budgets or ())
-        ),
-    ]
     diagnostics = []
-    for (pointer, label), item in zip(places, results, strict=True):
-        counted = f"{label} counts {'at least ' if item.uncounted else ''}{item.count} "
-        counted += "name" if item.count == 1 else "names"
+    for item in results:
+        counted = (
+            f"The {item.subject} {_BUDGET_NOUNS[item.budget]} counts "
+            f"{'at least ' if item.uncounted else ''}{item.count} "
+            f"{'name' if item.count == 1 else 'names'}"
+        )
         if report_exceeded and item.over_target:
             diagnostics.append(
                 _diagnostic(
                     "budget.exceeded",
-                    pointer,
+                    item.pointer,
                     item.subject,
                     f"{counted}, {item.over_target} over max_names {item.max_names}: "
                     f"{', '.join(item.names)}.",
@@ -826,7 +822,7 @@ def interface_budget_diagnostics(
             diagnostics.append(
                 _diagnostic(
                     "budget.unknown",
-                    pointer,
+                    item.pointer,
                     item.subject,
                     f"{counted} against max_names {item.max_names}; not enumerated: "
                     f"{', '.join(item.uncounted)}.",
@@ -835,6 +831,20 @@ def interface_budget_diagnostics(
                 )
             )
     return tuple(diagnostics)
+
+
+def _name_budget_targets(declarations: ContractDeclarations) -> dict[str, int]:
+    """Each declared facade and pair budget's `max_names`, by its baseline label (AD-99)."""
+    return {
+        **{
+            budget_label("facade_names", item.subject): item.max_names
+            for item in declarations.facade_budgets or ()
+        },
+        **{
+            budget_label("coupling_names", item.subject): item.max_names
+            for item in declarations.coupling_budgets or ()
+        },
+    }
 
 
 def _name_budget(item: InterfaceBudgetResult) -> MeasurementBudget:
@@ -1888,7 +1898,13 @@ def _widening_failures(
     findings = list(contract_widenings(ctx.contract, contract))
     if baseline is not None:
         findings += list(baseline_widenings(ctx.baseline, after_baseline))
-        findings += list(measurement_budget_widenings(ctx.budgets, after_budgets))
+        findings += list(
+            measurement_budget_widenings(
+                ctx.budgets,
+                after_budgets,
+                _name_budget_targets(ctx.contract.declarations or ContractDeclarations()),
+            )
+        )
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
@@ -2010,14 +2026,7 @@ def run_validate(
     declared_budgets = tuple(item.name for item in declarations.measurement_budgets)
     if declared_budgets and baseline is None:
         return _budget_baseline_missing(), FilesToWrite()
-    declared_labels = {
-        *declared_budgets,
-        *(budget_label("facade_names", item.subject) for item in declarations.facade_budgets or ()),
-        *(
-            budget_label("coupling_names", item.subject)
-            for item in declarations.coupling_budgets or ()
-        ),
-    }
+    declared_labels = {*declared_budgets, *_name_budget_targets(declarations)}
     missing_budget_names = sorted(declared_labels - {item.label for item in known_budgets})
     if baseline is not None and baseline_exists and missing_budget_names and not write_baseline:
         missing = ", ".join(missing_budget_names)
@@ -2065,7 +2074,7 @@ def run_validate(
         observed_budgets = ()
     budget_results = interface_budgets(declarations, observation)
     budget_diagnostics = interface_budget_diagnostics(
-        declarations, budget_results, report_exceeded=baseline is None
+        budget_results, report_exceeded=baseline is None
     )
     observed_budgets = (
         *observed_budgets,

@@ -4,6 +4,7 @@
 """AD-99: facade and coupling budgets: a contract target and a baseline ratchet on names."""
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -101,7 +102,9 @@ def test_a_facade_over_its_target_names_every_export_without_a_baseline(tmp_path
         ),
     )
     assert result.interface_budgets == (
-        InterfaceBudgetResult("facade_names", "model", 4, 5, 1, _MODEL, (), None, None),
+        InterfaceBudgetResult(
+            "facade_names", "model", "/declarations/facade_budgets/0", 4, 5, 1, _MODEL, (), None
+        ),
     )
 
 
@@ -138,8 +141,21 @@ def test_a_baseline_holds_a_known_gap_below_the_target(tmp_path: Path) -> None:
     )
     assert (held.exit_code, held.diagnostics, held.failures) == (0, (), ())
     assert held.interface_budgets == (
-        InterfaceBudgetResult("facade_names", "model", 4, 5, 1, _MODEL, (), (), ()),
-        InterfaceBudgetResult("coupling_names", "app -> model", 2, 3, 1, _APP_MODEL, (), (), ()),
+        InterfaceBudgetResult(
+            "facade_names", "model", "/declarations/facade_budgets/0", 4, 5, 1, _MODEL, (), (), ()
+        ),
+        InterfaceBudgetResult(
+            "coupling_names",
+            "app -> model",
+            "/declarations/coupling_budgets/0",
+            2,
+            3,
+            1,
+            _APP_MODEL,
+            (),
+            (),
+            (),
+        ),
     )
     assert report_summary(held).sentence.endswith(
         "Budgets not at their target: model 1 over, app -> model 1 over."
@@ -262,21 +278,35 @@ def test_an_all_that_is_not_one_literal_is_unknown_not_pass(
     ]
 
 
-def test_an_empty_literal_all_is_an_enumerated_facade_of_no_names(tmp_path: Path) -> None:
+def test_an_empty_all_is_an_open_facade_not_one_of_no_names(tmp_path: Path) -> None:
+    """Round 2: `interface_boundary` reads `__all__ = []` as no `__all__`, so cli still imports
+    render_order through it; counting zero names would let any facade pass any budget."""
     text = (FIXTURE_DIR / "shop/render/text.py").read_text()
     files: dict[str, str | None] = {
         "shop/render/text.py": text.replace(
             "from shop.model.entities import Order\n",
             "from shop.model.entities import Order\n\n__all__: list[str] = []\n",
         )
+        + "\n\ndef render_total(order: Order) -> str:\n    return str(order.total())\n"
     }
 
-    result = _run(tmp_path, (("render", 0),), files=files)
+    over = _run(tmp_path / "over", (("render", 0),), files=files)
+    under = _run(tmp_path / "under", (("render", 5),), files=files)
 
-    assert (result.exit_code, result.diagnostics) == (0, ())
-    assert result.interface_budgets == (
-        InterfaceBudgetResult("facade_names", "render", 0, 0, 0, (), (), None, None),
-    )
+    assert [(item.code, item.unknown_claim) for item in over.diagnostics] == [
+        (
+            "budget.exceeded",
+            "The render facade counts at least 2 names, 2 over max_names 0: "
+            "shop.render.text:render_order, shop.render.text:render_total.",
+        )
+    ]
+    assert [(item.code, item.unknown_claim) for item in under.diagnostics] == [
+        (
+            "budget.unknown",
+            "The render facade counts at least 2 names against max_names 5; not enumerated: "
+            "shop.render.text.",
+        )
+    ]
 
 
 def test_a_whole_module_import_makes_a_pair_unknown_until_it_is_over(tmp_path: Path) -> None:
@@ -406,6 +436,40 @@ def test_raising_or_removing_a_target_widens_and_the_reverse_narrows() -> None:
     )
     assert contract_widenings(before, parse_contract(json.loads(contract(4, 2)))) == ()
     assert contract_widenings(parse_contract(json.loads(contract(None, None))), before) == ()
+
+
+def test_a_first_accepted_set_over_the_old_target_widens() -> None:
+    """Round 2: a budget the old baseline did not hold was held by its old target alone."""
+    after = (MeasurementBudget("facade_names", 6, "model", tuple(f"m:{n}" for n in "ABCDEF")),)
+    targets = {"facade_names model": 5}
+
+    assert measurement_budget_widenings((), after, targets) == (
+        "measurement budget widened: facade_names model (6 accepted, target 5 before)",
+    )
+    assert measurement_budget_widenings((), after, {"facade_names model": 6}) == ()
+    assert measurement_budget_widenings((), after) == ()
+
+
+def test_moving_a_budget_into_the_baseline_cannot_accept_names_past_its_target(
+    tmp_path: Path,
+) -> None:
+    """Review round 2: base holds model at 5 with no baseline; the branch adds Discount and
+    creates the baseline, which --write-baseline accepts without --accept-new."""
+    root = _prepare_repo(
+        tmp_path, {"architecture-contract.json": contract_interface_budgets((("model", 5),))}
+    )
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    (root / "shop/model/entities.py").write_text(entities_with("Discount"))
+    baseline = root / "architecture-baseline.json"
+    _, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
+    baseline.write_bytes(files[str(baseline)])
+
+    result = run_validate(root, CONFIG, observe, baseline=baseline, against=base)[0]
+
+    assert result.exit_code == 1
+    assert result.failures == (
+        "measurement budget widened: facade_names model (6 accepted, target 5 before)",
+    )
 
 
 def test_a_grown_accepted_name_set_widens_the_baseline() -> None:

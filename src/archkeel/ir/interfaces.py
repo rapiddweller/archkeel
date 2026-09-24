@@ -48,7 +48,8 @@ class FacadeMetric:
     defined_names: tuple[str, ...]
     unused_reexports: tuple[str, ...]
     # AD-99: False for a whole-module entry whose `__all__` the analyzer did not prove to be one
-    # literal: its imports, computed assignments or later `__all__` additions go unlisted.
+    # non-empty literal: its imports, computed assignments or later `__all__` additions go
+    # unlisted, and `interface_boundary` reads an empty `__all__` as none at all.
     enumerated: bool
 
     @property
@@ -282,7 +283,7 @@ def _declared_facades(
     for (component, module), declared in sorted(declarations.items()):
         if declared is not None:
             names = declared
-        elif module in literal or all_exports.get(module):
+        elif all_exports.get(module):
             names = all_exports.get(module, frozenset())
         else:
             names = symbols.get(module, frozenset()) | reexports.get(module, frozenset())
@@ -300,7 +301,8 @@ def _declared_facades(
                 tuple(sorted(facade_reexports)),
                 tuple(sorted(local)),
                 (),
-                declared is not None or module in literal,
+                # `interface_boundary` reads an empty `__all__` as none, so it lists nothing.
+                declared is not None or (module in literal and bool(all_exports.get(module))),
             )
         )
 
@@ -319,7 +321,7 @@ def _facade_use(
     A named import walks its re-export chain to the first declared facade name, the way
     `interface_boundary` accepts it (AD-9, AD-84). Past the facade an import is that rule's
     finding, not a width. A whole-module import of a facade, a star of a non-enumerated one and
-    a name a facade does not list but still lets through prove no name (AD-99).
+    a name a non-enumerated one does not list prove no name (AD-99).
     """
     symbol = data.get("symbol")
     if not isinstance(symbol, str):
@@ -340,8 +342,7 @@ def _facade_use(
             continue
         if name in names:
             return ((owner, name),), None
-        # interface_boundary reads an empty `__all__` as none, so it lets such a name through.
-        if not name.startswith("_") and ((target, owner) in open_facades or not names):
+        if not name.startswith("_") and (target, owner) in open_facades:
             return (), f"{owner}:{name}"
     return (), None
 
@@ -423,12 +424,13 @@ def interface_budgets(
     profile = interface_profile(observation)
     pairs = {(item.source, item.target): item for item in profile.coupling}
     results = []
-    for facade in declarations.facade_budgets or ():
+    for index, facade in enumerate(declarations.facade_budgets or ()):
         rows = [item for item in profile.facades if item.component == facade.component]
         results.append(
             _budget_result(
                 "facade_names",
                 facade.subject,
+                f"/declarations/facade_budgets/{index}",
                 facade.max_names,
                 tuple(
                     sorted(f"{row.module}:{name}" for row in rows for name in row.exported_names)
@@ -436,12 +438,13 @@ def interface_budgets(
                 tuple(row.module for row in rows if not row.enumerated),
             )
         )
-    for pair in declarations.coupling_budgets or ():
+    for index, pair in enumerate(declarations.coupling_budgets or ()):
         width = pairs.get((pair.source, pair.target))
         results.append(
             _budget_result(
                 "coupling_names",
                 pair.subject,
+                f"/declarations/coupling_budgets/{index}",
                 pair.max_names,
                 width.names if width is not None else (),
                 width.uncounted if width is not None else (),
@@ -453,10 +456,12 @@ def interface_budgets(
 def _budget_result(
     budget: NameBudgetKind,
     subject: str,
+    pointer: str,
     max_names: int,
     names: tuple[str, ...],
     uncounted: tuple[str, ...],
 ) -> InterfaceBudgetResult:
+    over_target = max(0, len(names) - max_names)
     return InterfaceBudgetResult(
-        budget, subject, max_names, len(names), max(0, len(names) - max_names), names, uncounted
+        budget, subject, pointer, max_names, len(names), over_target, names, uncounted
     )

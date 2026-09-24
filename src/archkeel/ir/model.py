@@ -920,7 +920,8 @@ class ViolationCounts:
 class InterfaceBudgetResult:
     """AD-99: one declared facade or pair budget, as `validate` measured it.
 
-    `max_names` is the contract's target and `over_target` the known distance to it.
+    `pointer` is the declaring contract entry, `max_names` its target and `over_target` the
+    known distance to it.
     `new_names` and `removed_names` compare with the baseline's accepted names, and are None
     when the run had no baseline. `uncounted` names the imports or modules that keep `names`
     a lower bound.
@@ -928,6 +929,7 @@ class InterfaceBudgetResult:
 
     budget: NameBudgetKind
     subject: str
+    pointer: str
     max_names: int
     count: int
     over_target: int

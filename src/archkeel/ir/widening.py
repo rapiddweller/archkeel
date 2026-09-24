@@ -17,12 +17,13 @@ fingerprint without reading Git itself.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
 from .baseline import KnownViolation
-from .measurements import MeasurementBudget
+from .measurements import MeasurementBudget, name_drift
 from .model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -498,12 +499,16 @@ def _ceiling_widenings(kind: str, before: dict[str, int], after: dict[str, int])
 
 
 def measurement_budget_widenings(
-    before: tuple[MeasurementBudget, ...], after: tuple[MeasurementBudget, ...]
+    before: tuple[MeasurementBudget, ...],
+    after: tuple[MeasurementBudget, ...],
+    targets: Mapping[str, int] | None = None,
 ) -> tuple[str, ...]:
     """A raised, grown or dropped accepted value widens its measurement budget.
 
     AD-89 compares a scalar; AD-99 a key's accepted names, where any gained name widens even
-    when another one left, because the ratchet holds names rather than their count.
+    when another one left, because the ratchet holds names rather than their count. `targets`
+    are the old contract's `max_names` by label: a key the old baseline did not hold was held by
+    that target alone, so a first accepted set above it widens too.
     """
     accepted = {item.label: item for item in after}
     findings = []
@@ -512,7 +517,7 @@ def measurement_budget_widenings(
         if now is None:
             findings.append(f"measurement budget baseline lost {item.label}")
             continue
-        gained = sorted(set(now.names) - set(item.names))
+        gained, _ = name_drift(item, now)
         if gained:
             findings.append(
                 f"measurement budget widened: {item.label} (gained {', '.join(gained)})"
@@ -521,6 +526,16 @@ def measurement_budget_widenings(
             findings.append(
                 f"measurement budget widened: {item.label} ({now.value} now, {item.value} before)"
             )
+    held = {item.label for item in before}
+    old_targets = targets or {}
+    findings.extend(
+        f"measurement budget widened: {item.label} "
+        f"({item.value} accepted, target {old_targets[item.label]} before)"
+        for item in sorted(after, key=lambda budget: budget.label)
+        if item.label not in held
+        and item.label in old_targets
+        and item.value > old_targets[item.label]
+    )
     return tuple(findings)
 
 
