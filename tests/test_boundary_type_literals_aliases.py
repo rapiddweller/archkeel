@@ -326,7 +326,9 @@ def test_a_constant_json_cannot_hold_is_observed_without_its_value(tmp_path: Pat
         'TAG = b"Signature: 8a477f"\n'
         "ROOT = 1j\n"
         "MARK = ...\n"
-        "HUGE = 1e999\n\n"
+        "HUGE = 1e999\n"
+        'LONE = "\\ud800"\n'
+        "BIG = 0x" + "F" * 3600 + "\n\n"
         "def run(state: Literal[READY], tag: Literal[TAG]) -> str:\n"
         "    return str((state, tag))\n",
         public=["sample.app.facade:run"],
@@ -341,7 +343,7 @@ def test_a_constant_json_cannot_hold_is_observed_without_its_value(tmp_path: Pat
         if record.kind == "static_constant"
     }
     assert constants["READY"]["constant"] == "ready"
-    for name in ("TAG", "ROOT", "MARK", "HUGE"):
+    for name in ("TAG", "ROOT", "MARK", "HUGE", "LONE", "BIG"):
         assert "constant" not in constants[name]
     # A value the observation cannot hold proves no Literal member: UNKNOWN, never PASS.
     [position] = _positions(result)
