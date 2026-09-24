@@ -734,6 +734,18 @@ _VALIDATION_INCOMPARABLE_RUNTIME = Variant(
     expected_codes=(),
     evidence="tests/test_runtime_delta.py",
 )
+_VALIDATION_RULE_UNSUPPORTED_BY_PROFILE = Variant(
+    id="validation-rule-unsupported-by-profile",
+    section="validation",
+    item="rule_unsupported_by_profile",
+    summary="rule_unsupported_by_profile needs a Dart package declaring a rule kind the Dart "
+    "profile cannot decide (AD-97); the shop sample is Python, so it is not producible from "
+    "an overlay on it.",
+    files={},
+    expected_violations=(),
+    expected_codes=(),
+    evidence="tests/test_dart_profile.py",
+)
 _VALIDATION_EXISTING_FILES = Variant(
     id="validation-existing-files",
     section="validation",
@@ -768,6 +780,7 @@ VARIANTS: tuple[Variant, ...] = (
     _VALIDATION_MISSING_TOOL,
     _VALIDATION_TIMEOUT,
     _VALIDATION_INCOMPARABLE_RUNTIME,
+    _VALIDATION_RULE_UNSUPPORTED_BY_PROFILE,
     _VALIDATION_EXISTING_FILES,
     _VALIDATION_FILTER_UNKNOWN,
 )

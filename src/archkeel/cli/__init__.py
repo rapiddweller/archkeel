@@ -269,7 +269,8 @@ def build_parser() -> _Parser:
             "reported by import weight for the architect to allow or forbid.\n\n"
             "Examples:\n"
             "  archkeel init\n"
-            "  archkeel init --source lib/shop --namespace shop --json\n\n"
+            "  archkeel init --source lib/shop --namespace shop --json\n"
+            "  archkeel init --language dart --source lib --namespace my_app\n\n"
             "Exit codes:\n"
             "  0  draft written\n"
             "  2  not checked: no single package, existing files or incomplete observation\n\n"
@@ -278,7 +279,14 @@ def build_parser() -> _Parser:
     )
     _observing(init, None)
     init.add_argument("--source", help="Package directory to scan, relative to --root.")
-    init.add_argument("--namespace", help="Dotted Python package name of --source.")
+    init.add_argument("--namespace", help="Dotted package name of --source.")
+    init.add_argument(
+        "--language",
+        choices=["python", "dart"],
+        default="python",
+        help="Source language of --source. Dart needs --source and --namespace (the pubspec "
+        "name). Default: python.",
+    )
     init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
 
     skill = commands.add_parser(
@@ -337,6 +345,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     namespace=args.namespace,
                     force=args.force,
                     analyzer=observe,
+                    language=args.language,
                 )
             elif command == "report":
                 config = load_config(root)

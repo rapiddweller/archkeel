@@ -93,6 +93,7 @@ from archkeel.ir.model import (
     Verdict,
     contract_relative_path,
 )
+from archkeel.ir.profiles import OPTIONAL_SECTIONS
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
@@ -276,7 +277,9 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    if len(sections) != len(CLASSIFIED_SECTIONS):
+    # AD-97: a section the profile never observes is null, so `records()` answers None for it.
+    absent = {name for name in OPTIONAL_SECTIONS if item[name] is None}
+    if len(sections) + len(absent) != len(CLASSIFIED_SECTIONS):
         raise ValueError("sections must be arrays")
     return Observation(
         schema_version=_string(item["schema_version"], "schema_version"),
@@ -370,6 +373,8 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         del result["python_version"]
     del result["sections"]
     result["coverage"] = _coverage_payload(observation.coverage)
+    for name in OPTIONAL_SECTIONS:
+        result[name] = None
     result.update(
         {
             section.name: [_record_payload(record) for record in section.records]
@@ -396,6 +401,10 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     rows_by_section: dict[str, list[list[Any]]] = {}
     for section in CLASSIFIED_SECTIONS:
         raw_items = model.get(section, [])
+        if raw_items is None and section in OPTIONAL_SECTIONS:
+            encoded[section] = None
+            section_data_fields[section] = []
+            continue
         if not isinstance(raw_items, list):
             raise ValueError(f"{section} must be an array")
         items = [_object(entry, f"{section}[]") for entry in raw_items]
@@ -509,6 +518,9 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
             raise ValueError(f"observation has no section {section}")
         data_fields = _strings(section_data_fields[section], f"section_data_fields.{section}")
         encoded_rows = encoded.get(section, [])
+        if encoded_rows is None and section in OPTIONAL_SECTIONS:
+            model[section] = None
+            continue
         if not isinstance(encoded_rows, list):
             raise ValueError(f"{section} must be an array")
         records = []
@@ -1581,6 +1593,15 @@ def result_bytes(result: RunResult) -> bytes:
     return canonical_json_bytes(result_payload(result))
 
 
+def _measured(scalars: dict[str, RawJson], key: str, label: str) -> int:
+    return count(scalars.get(key, 0), f"{label}.{key}")
+
+
+def _optional(scalars: dict[str, RawJson], key: str, label: str) -> int | None:
+    # AD-97: a scalar the profile does not measure is null, and stays null, never 0.
+    return None if scalars.get(key, 0) is None else _measured(scalars, key, label)
+
+
 def parse_measurements(raw: object, label: str) -> Measurements:
     value = _object(raw, label)
     if set(value) != {"scalars", "calls_total", "resolution"}:
@@ -1592,15 +1613,24 @@ def parse_measurements(raw: object, label: str) -> Measurements:
     before_untyped_private_accesses = before_unknown_positions - {"untyped_private_accesses"}
     if set(scalars) not in (scalar_keys, before_unknown_positions, before_untyped_private_accesses):
         raise RatchetError(f"{label}.scalars must contain exactly {SCALARS}")
-    counts = {key: count(scalars.get(key, 0), f"{label}.{key}") for key in SCALARS}
+    counts = RatchetScalars(
+        violations=_measured(scalars, "violations", label),
+        cycle_edges=_measured(scalars, "cycle_edges", label),
+        private_crossings=_optional(scalars, "private_crossings", label),
+        typing_positions=_optional(scalars, "typing_positions", label),
+        calls_unresolved=_optional(scalars, "calls_unresolved", label),
+        coverage_failures=_measured(scalars, "coverage_failures", label),
+        untyped_private_accesses=_optional(scalars, "untyped_private_accesses", label),
+        unknown_positions=_measured(scalars, "unknown_positions", label),
+    )
     total = count(value.get("calls_total"), f"{label}.calls_total")
     if total:
         if value.get("resolution") != "measured":
             raise RatchetError(f"{label}.resolution must be measured")
-        return Measurements(RatchetScalars(**counts), total, "measured")
+        return Measurements(counts, total, "measured")
     if value.get("resolution") != "n/a":
         raise RatchetError(f"{label}.resolution must be n/a")
-    return Measurements(RatchetScalars(**counts), total, "n/a")
+    return Measurements(counts, total, "n/a")
 
 
 def parse_lock(payload: bytes) -> AcceptedLock:

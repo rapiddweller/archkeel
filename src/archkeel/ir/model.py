@@ -632,6 +632,7 @@ DiagnosticKind: TypeAlias = Literal[
     "parse_error",
     "scope_empty",
     "rule_without_subjects",
+    "rule_unsupported_by_profile",
     "runtime_mismatch",
     "incomparable_runtime",
     "contract_invalid",

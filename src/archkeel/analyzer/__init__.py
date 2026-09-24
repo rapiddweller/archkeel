@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Final
 
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
@@ -17,6 +18,7 @@ from archkeel.ir.codec import canonical_json_bytes as _canonical_json_bytes
 from archkeel.ir.codec import decode_json as _decode_json
 from archkeel.ir.codec import parse_observation as _parse_observation
 from archkeel.ir.model import Diagnostic, DiagnosticKind, Observation, ObservationResult
+from archkeel.ir.profiles import PROFILES, Language
 
 from .embedded.contract import ContractError, load_contract
 from .runtime import runtime_diagnostic
@@ -46,22 +48,42 @@ def _contract_failure(path: Path) -> ObservationResult | None:
     return None
 
 
-def _diagnostics(model: Observation, runtime: Diagnostic | None) -> tuple[Diagnostic, ...]:
+# AD-97: a contract item the profile cannot decide is refused, never read as PASS.
+_RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
+    "rule-without-subjects": (
+        "rule_without_subjects",
+        "Correct the rule selectors or scan scope.",
+    ),
+    "rule-unsupported-by-profile": (
+        "rule_unsupported_by_profile",
+        "Remove the rule or declaration, or run a profile that supports it.",
+    ),
+}
+_SOURCE_NAME: Final[dict[Language, str]] = {"python": "Python", "dart": "Dart"}
+_SOURCE_REMEDY: Final[dict[Language, str]] = {
+    "python": "Inspect the reported failure using the declared target runtime; "
+    "rerun after resolving its cause.",
+    "dart": "Correct the reported directive, URI, part declaration or pubspec name; "
+    "rerun after resolving its cause.",
+}
+
+
+def _diagnostics(
+    model: Observation, runtime: Diagnostic | None, language: Language
+) -> tuple[Diagnostic, ...]:
     diagnostics: list[Diagnostic] = []
     for failure in model.coverage.failures:
-        if failure.kind != "rule-without-subjects" and runtime is not None:
+        rule_failure = _RULE_FAILURES.get(failure.kind)
+        if rule_failure is None and runtime is not None:
             diagnostics.append(runtime)
             continue
-        missing_subjects = failure.kind == "rule-without-subjects"
+        kind, remedy = rule_failure or ("parse_error", _SOURCE_REMEDY[language])
         diagnostics.append(
             Diagnostic(
-                "rule_without_subjects" if missing_subjects else "parse_error",
+                kind,
                 ", ".join(failure.rule_ids or failure.subjects) or failure.id,
                 f"Scan completeness cannot be established: {failure.title}",
-                "Correct the rule selectors or scan scope."
-                if missing_subjects
-                else "Inspect the reported failure using the declared target runtime; "
-                "rerun after resolving its cause.",
+                remedy,
             )
         )
     if runtime is not None and runtime not in diagnostics:
@@ -71,8 +93,8 @@ def _diagnostics(model: Observation, runtime: Diagnostic | None) -> tuple[Diagno
             Diagnostic(
                 "scope_empty",
                 ", ".join(model.source.scope) or "scan.roots",
-                "The configured scope contains no observable Python files.",
-                "Set scan.roots to an existing Python source directory.",
+                f"The configured scope contains no observable {_SOURCE_NAME[language]} files.",
+                f"Set scan.roots to an existing {_SOURCE_NAME[language]} source directory.",
             )
         )
     if model.coverage.rules is None:
@@ -105,8 +127,10 @@ def observe(
     git_head: str,
     dirty: bool,
     contract_root: Path,
+    language: Language = "python",
 ) -> ObservationResult:
     source_root = source_root.resolve()
+    suffix = PROFILES[language].source_suffix
     try:
         contract_file = contract_root / contract
         if failure := _contract_failure(contract_file):
@@ -120,7 +144,7 @@ def observe(
                     "The scan root does not exist.",
                     "Correct scan.roots in archkeel.toml.",
                 )
-            for path in directory.rglob("*.py"):
+            for path in directory.rglob(f"*{suffix}"):
                 if not path.resolve().is_relative_to(source_root):
                     return _failure(
                         "parse_error",
@@ -136,6 +160,7 @@ def observe(
             "contract": contract,
             "roots": roots,
             "namespace": namespace,
+            "language": language,
         }
         result = subprocess.run(
             [sys.executable, "-B", "-m", "archkeel.analyzer.bridge"],
@@ -163,7 +188,11 @@ def observe(
         if type(code) is not int or code not in (0, 2):
             raise ValueError("invalid analyzer exit code")
         model = _parse_observation(response["model"])
-        diagnostics = _diagnostics(model, runtime_diagnostic(source_root, model.python_version))
+        # The declared Python range says nothing about a Dart package (AD-97).
+        runtime = (
+            runtime_diagnostic(source_root, model.python_version) if language == "python" else None
+        )
+        diagnostics = _diagnostics(model, runtime, language)
         if code == 2 and not diagnostics:
             diagnostics = (
                 Diagnostic(
