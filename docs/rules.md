@@ -179,11 +179,19 @@ so a contract that cares about both declares two rules. `components` lists decla
 labels and reports only a cycle with a member owned by one of them; the cycle is still reported
 whole, unowned members included. The default `level` is `component`, which the canonical contract
 omits. A violation's fingerprint is its rule and members, so `--baseline` holds known SCCs and
-fails on a new one; breaking part of a known SCC leaves a smaller one with new members, written
-with `--accept-new`. Under `--against`, changing `level` in either direction, adding a
-`components` scope and dropping a listed component widen the contract; removing the scope and
-listing another component narrow it. Two `sample.core` modules importing each other is an example
-module-level violation that the component level passes.
+fails on a new one. A cycle whose members are a strict subset of a baselined cycle is that cycle
+contracting: `validate` reports a `contracted violation` to write back, `--write-baseline` needs
+no `--accept-new` for it, and under `--against` the replacement narrows the baseline. Splitting
+`{a, b, c}` into `{a, b}` contracts; `{a, b, c}` into `{a, b}` and `{c, d}` makes `{c, d}` new.
+Under `--against`, changing `level` in either direction, adding a `components` scope and dropping
+a listed component widen the contract; removing the scope and listing another component narrow
+it. Two `sample.core` modules importing each other is an example module-level violation that the
+component level passes.
+
+The report's `package_scc` records roll modules up by their first two dotted segments, so two
+packages can form a cycle that no import cycle closes. Each record's `backed_by` names the module
+SCCs with members in two or more of its packages; an empty list marks the cycle `roll-up only` in
+its title and in the `rollup_only_package_cycles` metric.
 
 `interface_boundary` has the optional field `include_type_checking` (default `true`) and no
 selector fields; it applies wherever a component declares `public`. A component's optional

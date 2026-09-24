@@ -122,7 +122,9 @@ the code that has yet to reach it
 violations sharing it. No position enters a fingerprint, so an unrelated edit above a violating
 line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Counts must match
 the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
-violation`, both in `failures` with exit 1, so the budget only shrinks. A run whose baseline is
+violation`, both in `failures` with exit 1, so the budget only shrinks. A cycle whose members are
+a strict subset of a baselined cycle is `contracted violation`, written back like a resolved one
+(AD-98). A run whose baseline is
 exactly right exits 0 with `declared_rules: FAIL`. Results expose deterministic `baseline_new`
 and `baseline_resolved` counts. `baseline_new` counts fingerprints whose occurrence count rose;
 `baseline_resolved` counts fingerprints whose occurrence count fell. Each changed fingerprint
@@ -181,8 +183,10 @@ entry, `include_type_checking` relaxed from true to false, a gained component `p
 `requires` entry, and a component added or removed, are each widening; every reverse is
 narrowing. Adding a component `namespace` is a narrowing placement restriction; removing or
 changing it is a widening. A `no_component_cycles` rule's `level` changing either way, a new
-`components` scope and a component dropped from it are widenings (AD-98). A padded violation entry, a raised measurement budget or a removed
-budget value is a widening too, compared against the baseline file at `--against`. Only a rule's
+`components` scope and a component dropped from it are widenings (AD-98). A padded violation
+entry, a raised measurement budget or a removed budget value is a widening too, compared against
+the baseline file at `--against`; a cycle that replaces the baselined cycle it lies inside is a
+narrowing (AD-98). Only a rule's
 or a `requires` entry's `rationale`, and every `provenance`, are neutral. Adding a measurement
 budget declaration narrows; removing one widens. Any other difference - an unrecognised rule
 kind's presence, a field no classifier names, `declarations`, `$schema` - fails closed as a

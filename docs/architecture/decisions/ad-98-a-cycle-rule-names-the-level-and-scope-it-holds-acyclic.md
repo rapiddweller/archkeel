@@ -17,22 +17,27 @@
 - Without either field the rule, its records and the canonical contract bytes are unchanged, so
   AD-61 amendment digests of existing contracts still verify. An explicit `"component"` parses to
   the same absent value.
+- A `package_scc` record names in `data.backed_by` the module SCCs whose members span two or more
+  of its packages. Empty means no import cycle closes it: the title adds `roll-up only`, and the
+  `rollup_only_package_cycles` metric counts it. Package facts stay keyed by two dotted segments.
 
 ## Why
 
 Issue #129: on a real repository the declared component graph was acyclic while the report
-measured module SCCs of 23 and 28 modules. A component-only target passed and said nothing
-about them. The measurement existed; the contract had no way to state that it matters.
+measured module SCCs of 23 and 28 modules and a package SCC between two packages whose nested
+components form no cycle. A component-only target passed and said nothing about the modules,
+and the package SCC could not be told from a real cycle.
 
 ## Baseline and `--against`
 
-The violation's fingerprint is its rule and sorted members, so the existing baseline holds known
-SCCs, fails on a new one and makes a resolved one leave the file (AD-52, AD-77). Under
-`--against`, a baseline entry added is a widening and one removed passes (AD-61), so the number
-of known SCCs may only fall. In the contract, a `level` change in either direction, a new
-`components` scope and a dropped component are widenings: neither level implies the other
-(`a1 -> b1`, `b2 -> a2` is a component cycle without a module cycle). Removing the scope or
-listing another component narrows.
+The violation's fingerprint is its rule and sorted members, so the baseline holds known SCCs and
+fails on a new one (AD-52, AD-77). A cycle whose members are a strict subset of a baselined cycle
+that fell is that cycle contracting: validate reports it as `contracted`, to be written back
+without `--accept-new`, and `--against` reads the replacement as a narrowing. The subset test is
+the one the `check` delta already used, now `ir.baseline.is_contraction` for both. A superset or
+disjoint SCC stays new. In the contract, a `level` change in either direction, a new `components`
+scope and a dropped component are widenings: neither level implies the other (`a1 -> b1`,
+`b2 -> a2` is a component cycle without a module cycle). Removing the scope narrows.
 
 ## Rejected
 
@@ -42,21 +47,21 @@ listing another component narrows.
 | A second SCC computation in the rule | The rule would judge a graph the report does not show. |
 | Scope as source prefixes | Labels are validated contract references, and a component is already a set of prefixes. |
 | Scope cutting a cycle at its edge | A cycle through an unowned module would disappear from a scoped rule. |
-| `level: "package"` and a hierarchy-aware package roll-up | `package_*` records collapse at the first two dotted segments. Splitting them along declared components changes every package fact, path and SCC in every observation. The `component` level already is the roll-up along declared boundaries. |
+| `level: "package"`, or package facts re-keyed along declared components | Re-keying moves every package fact, path and SCC in every observation; `backed_by` tells an artifact from a cycle without that, and the `component` level already rolls up along declared boundaries. |
 | `level` defaulting to a stored `"component"` | Every existing contract's canonical bytes and amendment digest would move. |
+| Contraction for any rule's subject subset | Only a cycle rule's subjects are one SCC; elsewhere a subset is a different violation. |
 
 ## Limit
 
 `TYPE_CHECKING` imports close module cycles as they close component cycles; there is no
-`include_type_checking` flag yet. A baseline matches an SCC exactly: breaking part of a known SCC
-leaves a smaller one with a new fingerprint, which `--write-baseline` accepts only with
-`--accept-new` and `--against` reads as an added entry. The `check` delta already treats a
-strict subset as a contraction (`check/expectation.py`); the baseline does not yet.
+`include_type_checking` flag yet. A contraction is recognised only under a rule the current
+contract declares as `no_component_cycles`.
 
 ## Check
 
-`tests/test_cycle_levels.py` (hidden module cycle, members, edges and evidence, scopes at both
-levels, the unchanged default, parser, baseline and `--against`), `tests/test_widening.py`,
-`tests/test_contract_model.py` (corpus), the AD-11 rows
-`class-a-no-component-cycles-module-hidden`, `class-a-no-component-cycles-module` and
+`tests/test_cycle_levels.py` (hidden module cycle, members, edges and evidence, scopes, the
+unchanged default, parser, roll-up-only and backed package SCCs, contraction, baseline and
+`--against`), `tests/test_widening.py`, `tests/test_contract_model.py`, the AD-11 rows
+`class-a-no-component-cycles-module-hidden`, `class-a-no-component-cycles-module`,
+`class-a-package-cycle-rollup-only`, `class-a-package-cycle-backed` and
 `against-cycle-rule-scoped`, and Archkeel's own `MODULE-NO-CYCLES` under `make self-validate`.
