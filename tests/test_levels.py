@@ -35,8 +35,8 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
         # since validate observes the `--against` revision's snapshot (AD-100).
         ("entry", "foundation", 27),
         # validate now reads the existing ratchet profile for selected measurement budgets;
-        # check and validate also import unresolved_call_changes (AD-100).
-        ("entry", "policy", 9),
+        # check and validate also import unresolved_call_changes, report call_rows (AD-100).
+        ("entry", "policy", 10),
         ("policy", "foundation", 2),
     ]
 
