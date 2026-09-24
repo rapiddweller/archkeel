@@ -478,7 +478,8 @@ def _measurements(measurements: Measurements | None) -> str:
     if measurements is None:
         return "<p>No complete measurements are available.</p>"
     rows = "".join(
-        f'<tr><td><code>{_text(name)}</code></td><td class="numeric">{value}</td></tr>'
+        f"<tr><td><code>{_text(name)}</code></td>"
+        f'<td class="numeric">{"n/a" if value is None else value}</td></tr>'
         for name, value in measurements.scalars.items()
     )
     ratio = (

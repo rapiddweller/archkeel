@@ -71,6 +71,7 @@ from archkeel.ir.model import (
     in_scope,
     text_value,
 )
+from archkeel.ir.profiles import PROFILES
 from archkeel.ir.widening import (
     Amendment,
     baseline_widenings,
@@ -398,6 +399,8 @@ def _entry_used(entry: str, records: list[RecordData], facade_types: tuple[str, 
 
     AD-65 adds the second way an entry is reached: a declared facade signature that names the
     type exposes it to every consumer of that signature, whether or not an import names it.
+    AD-97: an import whose used names the scan cannot see may reach any name of its module, so
+    it keeps a `module:Name` entry from reading unused on no evidence.
     """
     if _entry_reached_by(entry, facade_types):
         return True
@@ -406,7 +409,9 @@ def _entry_used(entry: str, records: list[RecordData], facade_types: tuple[str, 
         chain = data.get("reexport_chain")
         if _entry_reached_by(entry, chain if isinstance(chain, tuple) else ()):
             return True
-        if not colon and data.get("target_module") == module:
+        if data.get("target_module") == module and (
+            not colon or data.get("symbols_known") is False
+        ):
             return True
     return False
 
@@ -1079,7 +1084,9 @@ def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, .
     )
 
 
-def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str]]:
+def _namespace_references(
+    contract: ArchitectureContract, sdk_libraries: frozenset[str]
+) -> list[tuple[str, str]]:
     """Collect every contract-declared name that must resolve inside the scan namespace."""
     declarations = contract.declarations or ContractDeclarations()
     names: list[tuple[str, str]] = []
@@ -1115,7 +1122,9 @@ def _namespace_references(contract: ArchitectureContract) -> list[tuple[str, str
             | BoundaryTypesRule,
         ):
             names.append((f"/rules/{index}/source", rule.source))
-        if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
+        if isinstance(rule, AllowedDependencyRule) or (
+            isinstance(rule, ForbiddenDependencyRule) and rule.target not in sdk_libraries
+        ):
             names.append((f"/rules/{index}/target", rule.target))
         if isinstance(rule, SiblingIsolationRule):
             names.extend(
@@ -1227,7 +1236,8 @@ def reference_diagnostics(
     observation: Observation | None = None,
 ) -> tuple[Diagnostic, ...]:
     """Validate repository-dependent namespace, package and provenance references."""
-    names = _namespace_references(contract)
+    # AD-97: a forbidden SDK library (`dart.io`) is a real target outside the namespace.
+    names = _namespace_references(contract, PROFILES[config.language].sdk_libraries)
     diagnostics = [
         _diagnostic(
             "reference.namespace",

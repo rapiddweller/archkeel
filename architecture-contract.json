@@ -44,6 +44,7 @@
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
         "archkeel.ir.model",
+        "archkeel.ir.profiles",
         "archkeel.ir.references",
         "archkeel.ir.structure",
         "archkeel.ir.trace",
@@ -157,8 +158,9 @@
       "requires": [
         {
           "component": "ir",
-          "through": ["archkeel.ir.model", "archkeel.ir.codec"],
-          "rationale": "The analyzer records signals and publishes them through the common model and codec only; every claim, measurement, level or decision built from those records belongs to the reader, so the two never depend on each other (AD-4)."
+          "through": ["archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles"],
+          "rationale": "The analyzer records signals and publishes them through the common model and codec only; every claim, measurement, level or decision built from those records belongs to the reader, so the two never depend on each other (AD-4). The profile table is the one exception, because it is data both sides must read identically: the analyzer refuses what its profile cannot decide and the reader leaves unmeasured what the profile never measured (AD-97).",
+          "decided_by": "agent"
         }
       ],
       "inside": "src/archkeel/analyzer/architecture-contract.json",

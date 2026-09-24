@@ -37,7 +37,8 @@ from archkeel.ir.model import (
 from archkeel.ir.structure import oversized_insides
 
 # AD-4: the analyzer's public IR API is exactly these two modules.
-ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec"})
+# AD-97 adds the profile table, the one piece of data analyzer and reader must share.
+ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles"})
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
@@ -150,7 +151,7 @@ def test_self_contract_covers_modules_and_analyzer_interface(
     self_observation: Observation,
 ) -> None:
     """AD-4 lives in the contract (AD-42): the analyzer's `requires` entry for `ir` goes
-    through exactly the two modules, and the observed imports stay inside them."""
+    through exactly the named modules, and the observed imports stay inside them."""
     contract = _contract()
     analyzer = next(item for item in contract.components if item.label == "analyzer")
     entry = next(item for item in analyzer.requires or () if item.component == "ir")
@@ -226,8 +227,9 @@ def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) 
     analyzer = levels["analyzer"]
     assert [(item.label, len(item.modules)) for item in analyzer.components] == [
         ("collectors", 10),
+        ("dart", 3),
         ("foundation", 5),
-        ("orchestration", 5),
+        ("orchestration", 6),
     ]
     assert analyzer.unassigned == ("archkeel.analyzer", "archkeel.analyzer.embedded")
 

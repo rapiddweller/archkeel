@@ -264,11 +264,22 @@ def test_unknown_positions_round_trips_through_the_delta_codec() -> None:
     assert parse_measurements(head, "head").scalars.unknown_positions == 1
 
 
-@pytest.mark.parametrize("invalid", [None, True, -1, 1.0, "1"])
-def test_invalid_integer_measurement_is_unverifiable(invalid: object) -> None:
+@pytest.mark.parametrize(
+    ("scalar", "invalid"),
+    [
+        # AD-97: null is how a profile that never measures `calls_unresolved` publishes it, so
+        # null stays invalid only for a scalar every profile measures.
+        ("violations", None),
+        ("calls_unresolved", True),
+        ("calls_unresolved", -1),
+        ("calls_unresolved", 1.0),
+        ("calls_unresolved", "1"),
+    ],
+)
+def test_invalid_integer_measurement_is_unverifiable(scalar: str, invalid: object) -> None:
     accepted = _measurements()
     candidate = _measurements()
-    candidate["scalars"]["calls_unresolved"] = invalid
+    candidate["scalars"][scalar] = invalid
     with pytest.raises(RatchetError, match="non-negative integer"):
         compare_ratchets(
             parse_measurements(accepted, "accepted"), parse_measurements(candidate, "candidate")

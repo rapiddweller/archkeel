@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import ast
 import builtins
-import sys
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Final, NamedTuple, TypeAlias, assert_never
+from typing import Final, Literal, NamedTuple, TypeAlias, assert_never
 
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -22,6 +21,7 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ContractComponent,
+    ContractDeclarations,
     EvidenceClass,
     ExternalDependencyScopeRule,
     ForbiddenConstructKind,
@@ -36,20 +36,26 @@ from archkeel.ir.model import (
     package_owners,
     stable_id,
 )
+from archkeel.ir.profiles import DeclarationField, Profile
 
 from .graph import strongly_connected_components
 from .records import RawEvidence, RawRecord, RecordData, classified
 
+# AD-97: an import either decides a symbol rule or, when the scan cannot see which names it
+# uses (a Dart import without `show`), leaves it undecided -- never a pass, never a violation.
+_Verdict: TypeAlias = Literal["violation", "allowed", "undecided"]
 
-def _forbidden_dependency_matches(
+
+def _forbidden_dependency_verdicts(
     imports: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
     components: tuple[tuple[str, tuple[str, ...]], ...],
-) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord]]:
-    """Yield each (rule, import) pair a forbidden_dependency rule rejects.
+) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord, _Verdict]]:
+    """Yield each (rule, import) pair whose modules a forbidden_dependency rule names.
 
-    AD-18: interface_boundary reuses this to skip an import a forbidden rule already
-    rejects, instead of a second matcher that could drift from this one (SPOT).
+    A rule without `target_symbol` rejects every such import. One with it rejects the import
+    naming that symbol, lets one naming another pass, and cannot decide one whose names the
+    scan does not know.
     """
     owners = package_owners(components)
     packages_by_label = dict(components)
@@ -77,10 +83,26 @@ def _forbidden_dependency_matches(
                 continue
             if data["source_module"] in allowed_sources:
                 continue
-            if rule.target_symbol is not None and data["symbol"] != rule.target_symbol:
-                continue
             if data["under_type_checking"] and not rule.include_type_checking:
                 continue
+            if rule.target_symbol is None or data["symbol"] == rule.target_symbol:
+                yield rule, item, "violation"
+            else:
+                yield rule, item, "allowed" if data["symbols_known"] else "undecided"
+
+
+def _forbidden_dependency_matches(
+    imports: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    components: tuple[tuple[str, tuple[str, ...]], ...],
+) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord]]:
+    """Yield each (rule, import) pair a forbidden_dependency rule rejects.
+
+    AD-18: interface_boundary reuses this to skip an import a forbidden rule already
+    rejects, instead of a second matcher that could drift from this one (SPOT).
+    """
+    for rule, item, verdict in _forbidden_dependency_verdicts(imports, rules, components):
+        if verdict == "violation":
             yield rule, item
 
 
@@ -206,13 +228,17 @@ def _external_dependency_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
-_STANDARD_LIBRARY: Final = frozenset(sys.stdlib_module_names) | frozenset(sys.builtin_module_names)
-
-
 def _external_completeness_violations(
-    imports: Sequence[RawRecord], modules: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+    imports: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    standard_library: frozenset[str],
 ) -> list[RawRecord]:
-    """AD-28: an import no rule names is undecided, not harmless."""
+    """AD-28: an import no rule names is undecided, not harmless.
+
+    AD-97: the exempt standard library is the profile's own, so a Dart scan exempts `dart:`
+    and never Python's module names.
+    """
     declared = tuple(rule for rule in rules if isinstance(rule, ExternalDependencyScopeRule))
     internal_roots = {str(item["data"]["qualified_name"]).split(".")[0] for item in modules}
     violations: list[RawRecord] = []
@@ -226,7 +252,7 @@ def _external_completeness_violations(
             if data["relative_level"] or not in_scope(data["source_module"], rule.source):
                 continue
             root = target.split(".")[0]
-            if root in internal_roots or root in _STANDARD_LIBRARY:
+            if root in internal_roots or root in standard_library:
                 continue
             if any(in_scope(target, declared.dependency) for declared in declared):
                 continue
@@ -478,16 +504,46 @@ def _interface_allows(
     return False
 
 
-def _interface_violations(
+def _interface_verdict(
+    data: RecordData,
+    target: ContractComponent,
+    exports_by_module: dict[str, frozenset[str]],
+    exporting: frozenset[str],
+) -> _Verdict:
+    """Decide one cross-component import against the target's declared interface.
+
+    An import naming its symbols is decided exactly as it always was. One that names none
+    (AD-97) is allowed when its module is public, and a violation only when nothing the target
+    library offers can be public: no `module:name` entry and no `export` that could pass one on.
+    """
+    if data["symbols_known"]:
+        return "allowed" if _interface_allows(data, target, exports_by_module) else "violation"
+    module = data["target_module"]
+    public = target.public or ()
+    if module in public:
+        return "allowed"
+    prefix = f"{module}:"
+    if module in exporting or any(entry[: len(prefix)] == prefix for entry in public):
+        return "undecided"
+    return "violation"
+
+
+_InterfaceVerdict: TypeAlias = tuple[
+    InterfaceBoundaryRule, RawRecord, ContractComponent, ContractComponent, _Verdict
+]
+
+
+def _interface_verdicts(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     forbidden_rejected_ids: frozenset[str],
-) -> list[RawRecord]:
+) -> Iterator[_InterfaceVerdict]:
+    """Yield every import an interface_boundary rule judges, with its verdict."""
     rules = [rule for rule in contract.rules if isinstance(rule, InterfaceBoundaryRule)]
-    if not rules:
-        return []
-    violations: list[RawRecord] = []
+    exporting = frozenset(
+        item["data"]["source_module"] for item in imports if item["data"]["reexport"]
+    )
     for rule in rules:
         for item in imports:
             data = item["data"]
@@ -502,32 +558,111 @@ def _interface_violations(
                 # AD-18: a forbidden edge has no legitimate interface to reach, so it is
                 # reported once, as the forbidden_dependency violation.
                 or item["id"] in forbidden_rejected_ids
-                or _interface_allows(data, target, exports_by_module)
             ):
                 continue
-            target_name = ".".join(filter(None, (data["target_module"], data["symbol"])))
-            violations.append(
-                classified(
-                    item_id=stable_id("VIO", rule.id, item["id"]),
-                    evidence_class=EvidenceClass.VIOLATION,
-                    area="api_surface",
-                    kind="interface_boundary",
-                    title=f"{data['source_module']} reaches {target_name} "
-                    "outside its declared interface",
-                    subjects=[data["source_module"], target_name],
-                    evidence_ids=item["evidence_ids"],
-                    rule_ids=[rule.id],
-                    fact_ids=[item["id"]],
-                    data={
-                        "source_module": data["source_module"],
-                        "target_module": data["target_module"],
-                        "symbol": data["symbol"],
-                        "source_component": source.label,
-                        "target_component": target.label,
-                    },
-                )
+            verdict = _interface_verdict(data, target, exports_by_module, exporting)
+            yield rule, item, source, target, verdict
+
+
+def _interface_violations(
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    forbidden_rejected_ids: frozenset[str],
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
+    for rule, item, source, target, verdict in _interface_verdicts(
+        imports, contract, exports_by_module, forbidden_rejected_ids
+    ):
+        if verdict != "violation":
+            continue
+        data = item["data"]
+        target_name = ".".join(filter(None, (data["target_module"], data["symbol"])))
+        violations.append(
+            classified(
+                item_id=stable_id("VIO", rule.id, item["id"]),
+                evidence_class=EvidenceClass.VIOLATION,
+                area="api_surface",
+                kind="interface_boundary",
+                title=f"{data['source_module']} reaches {target_name} "
+                "outside its declared interface",
+                subjects=[data["source_module"], target_name],
+                evidence_ids=item["evidence_ids"],
+                rule_ids=[rule.id],
+                fact_ids=[item["id"]],
+                data={
+                    "source_module": data["source_module"],
+                    "target_module": data["target_module"],
+                    "symbol": data["symbol"],
+                    "source_component": source.label,
+                    "target_component": target.label,
+                },
             )
+        )
     return sorted(violations, key=lambda item: item["id"])
+
+
+def _undecided_records(
+    kind: str, verdicts: Sequence[tuple[ArchitectureRule, RawRecord, _Verdict]]
+) -> list[RawRecord]:
+    """One UNKNOWN record per rule that left an import undecided, shaped like AD-67's."""
+    records: list[RawRecord] = []
+    for rule_id in sorted({rule.id for rule, _, _ in verdicts}):
+        judged = [(item, verdict) for rule, item, verdict in verdicts if rule.id == rule_id]
+        undecided = [item for item, verdict in judged if verdict == "undecided"]
+        if not undecided:
+            continue
+        decided = len(judged) - len(undecided)
+        records.append(
+            classified(
+                item_id=stable_id("UNKNOWN-SYMBOLS", kind, rule_id),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="dependency_violations",
+                kind=kind,
+                title=f"{rule_id} decided {decided} of {len(judged)} imports "
+                "whose used names it depends on",
+                subjects=sorted({item["data"]["source_module"] for item in undecided}),
+                evidence_ids=sorted({eid for item in undecided for eid in item["evidence_ids"]}),
+                rule_ids=[rule_id],
+                fact_ids=[item["id"] for item in undecided],
+                data={
+                    "positions": len(judged),
+                    "decided": decided,
+                    "undecided": len(undecided),
+                    "reason": "The import names no symbol, so which names cross is unknown.",
+                },
+            )
+        )
+    return records
+
+
+def symbol_limits(
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+) -> list[RawRecord]:
+    """UNKNOWN records for the symbol rules an import without named symbols leaves open (AD-97).
+
+    A Python import always names what it binds, so only a profile whose imports may not
+    (Dart without `show`) produces any. It is filed in `unknowns`, where `unknown_positions`
+    turns it into the UNKNOWN verdict instead of a PASS nobody earned.
+    """
+    components = tuple((component.label, component.packages) for component in contract.components)
+    forbidden = list(_forbidden_dependency_verdicts(imports, contract.rules, components))
+    rejected = frozenset(item["id"] for _, item, verdict in forbidden if verdict == "violation")
+    interface = [
+        (rule, item, verdict)
+        for rule, item, _, _, verdict in _interface_verdicts(
+            imports, contract, exports_by_module, rejected
+        )
+    ]
+    return sorted(
+        [
+            *_undecided_records("dependency_symbol_limit", forbidden),
+            *_undecided_records("interface_symbol_limit", interface),
+        ],
+        key=lambda item: item["id"],
+    )
 
 
 def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
@@ -613,16 +748,21 @@ def rule_subject_failures(
     imports: Sequence[RawRecord] = (),
     contract: ArchitectureContract | None = None,
     exports_by_module: dict[str, frozenset[str]] | None = None,
+    sdk_libraries: frozenset[str] = frozenset(),
 ) -> list[RawRecord]:
     """Flag scopes with neither observed subjects nor explicitly declared target work.
 
     For `boundary_types`, a public facade function or matching planned entry is a subject. A rule
     that can only pass by finding neither must report UNKNOWN, not PASS (AD-63, AD-79).
+    A `forbidden_dependency` target naming one of the profile's SDK libraries is a subject no
+    scan can list as a module, yet an import of it is observed like any other (AD-97).
     """
     planned_subjects = _planned_subject_modules(contract) if contract is not None else frozenset()
     rule_failures: list[RawRecord] = []
     for rule in rules:
         scopes = rule_scopes(rule)
+        if isinstance(rule, ForbiddenDependencyRule) and rule.target in sdk_libraries:
+            scopes = {"source": scopes["source"]}
         subjects: AbstractSet[str] = module_names | planned_subjects
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
@@ -654,6 +794,46 @@ def rule_subject_failures(
                 )
             )
     return rule_failures
+
+
+def profile_failures(contract: ArchitectureContract, profile: Profile) -> list[RawRecord]:
+    """One coverage failure per contract item the scanning profile cannot decide (AD-97).
+
+    A rule the profile never evaluates would otherwise read as a clean pass; a declaration or
+    budget it cannot observe would read as empty. Both gate the run with exit 2 instead.
+    """
+    declarations = contract.declarations or ContractDeclarations()
+    declared: dict[DeclarationField, bool] = {"context_roots": bool(declarations.context_roots)}
+    items = [
+        *(
+            (rule.id, [rule.id], f"rule kind {rule.kind}")
+            for rule in contract.rules
+            if rule.kind in profile.unsupported_rules
+        ),
+        *(
+            (f"declarations.{name}", [], f"declarations.{name}")
+            for name in sorted(profile.unsupported_declarations)
+            if declared[name]
+        ),
+        *(
+            (f"declarations.measurement_budgets.{budget.name}", [], f"budget {budget.name}")
+            for budget in declarations.measurement_budgets
+            if budget.name in profile.unmeasured
+        ),
+    ]
+    return [
+        classified(
+            item_id=stable_id("UNKNOWN-PROFILE", subject),
+            evidence_class=EvidenceClass.UNKNOWN,
+            area="analysis_coverage",
+            kind="rule-unsupported-by-profile",
+            title=f"{subject}: {what} is not supported by the {profile.analyzer} profile",
+            subjects=[subject],
+            rule_ids=rule_ids,
+            data={"analyzer": profile.analyzer},
+        )
+        for subject, rule_ids, what in items
+    ]
 
 
 def _sibling_violations(
@@ -2512,6 +2692,7 @@ def rule_violations(
     blank_modules: frozenset[str],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
+    profile: Profile,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
@@ -2525,7 +2706,9 @@ def rule_violations(
             *_dependency_violations(iter(forbidden_matches)),
             *_construct_violations([*typing_signals, *constructs], contract.rules),
             *_external_dependency_violations(imports, contract.rules),
-            *_external_completeness_violations(imports, modules, contract.rules),
+            *_external_completeness_violations(
+                imports, modules, contract.rules, profile.standard_library
+            ),
             *requires_violations(imports, contract),
             *_assignment_violations(modules, contract, blank_modules),
             *_root_layout_violations(packages, modules, contract.rules),

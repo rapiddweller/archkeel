@@ -61,6 +61,7 @@ def observe_repository(
         git_head=resolve_commit(root, "HEAD"),
         dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
         contract_root=contract_root or root,
+        language=config.language,
     )
 
 

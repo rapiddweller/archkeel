@@ -143,6 +143,7 @@ def observe_revision(
                 git_head=snapshot.git_head,
                 dirty=False,
                 contract_root=declarations,
+                language=config.language,
             )
 
 
