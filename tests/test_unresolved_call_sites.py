@@ -331,13 +331,14 @@ def test_report_only_calls_honours_component_and_rejects_rule(
 def test_default_report_json_carries_no_call_list(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Present and null, the way every optional result field reads when unused (AD-60)."""
     root = _prepare_repo(tmp_path, {_PROBE_PATH: _probe("_unbound_probe()")})
 
     code, result = _cli(capsys, "report", "--root", str(root), "--json")
 
     assert code == 0
-    assert "filtered_calls" not in result
-    assert "unresolved_call_changes" not in result
+    assert result["filtered_calls"] is None
+    assert result["unresolved_call_changes"] is None
 
 
 def test_only_calls_page_shows_the_call_table_instead_of_the_other_sections(
