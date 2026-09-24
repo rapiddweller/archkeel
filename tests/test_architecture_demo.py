@@ -444,17 +444,22 @@ def _violation_files(root: Path, config: ScanConfig) -> set[tuple[str, str]]:
         (
             "test-scope-helper-in-unit",
             {
+                ("TESTS-EXTERNAL-SHOP", "tests/unit/orders.py"),
                 ("TESTS-HELPERS-IN-SUPPORT", "tests/unit/orders.py"),
                 ("TESTS-REQUIRES-COMPLETE", "tests/integration/test_place_order.py"),
             },
         ),
         ("test-scope-suite-crossing", {("TESTS-REQUIRES-COMPLETE", "tests/unit/test_entities.py")}),
+        (
+            "test-scope-unit-imports-product",
+            {("TESTS-EXTERNAL-SHOP", "tests/unit/test_entities.py")},
+        ),
     ],
 )
 def test_test_scope_failures_name_the_file(
     tmp_path: Path, variant_id: str, expected: set[tuple[str, str]]
 ) -> None:
-    """#143: a helper moved out of support and a test import across suites each fail at a file."""
+    """#143: a moved helper, a suite crossing and a suite importing the product fail at a file."""
     variant = next(item for item in CATALOG if item.id == variant_id)
     root = _prepare_repo(tmp_path, dict(variant.files))
     assert _violation_files(root, load_config(root, variant.config)) == expected

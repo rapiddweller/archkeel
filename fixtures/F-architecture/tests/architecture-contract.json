@@ -92,8 +92,8 @@
       "id": "TESTS-EXTERNAL-SHOP",
       "kind": "external_dependency_scope",
       "dependency": "shop",
-      "allowed_sources": ["tests"],
-      "rationale": "The product under test is the one package every suite may import.",
+      "allowed_sources": ["tests.integration", "tests.support"],
+      "rationale": "Unit tests reach the product only through the shared builders, so a changed constructor is repaired in support; integration tests drive the use cases directly.",
       "provenance": ["docs/architecture/tests.md"],
       "decided_by": "architect"
     }

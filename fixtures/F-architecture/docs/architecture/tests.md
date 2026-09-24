@@ -19,8 +19,10 @@ The contract decides the deterministic part of the test architecture:
   The test cases here are functions, so a class is always a helper.
 - Suite dependencies: `TESTS-REQUIRES-COMPLETE` lets `unit` and `integration` import `support`
   and forbids every other suite pair.
-- Packages: `TESTS-EXTERNAL-COMPLETE` and `TESTS-EXTERNAL-SHOP` name the one package beyond the
-  standard library the tests may import, the product itself.
+- Packages: `TESTS-EXTERNAL-COMPLETE` makes every package beyond the standard library a
+  decision, and `TESTS-EXTERNAL-SHOP` lets only `support` and `integration` import the product.
+  Unit tests reach it through the shared builders, so a changed constructor is repaired in one
+  place.
 
 `shop` is outside this scan, so here it is one external package: a rule can decide which suites
 import `shop`, not which of its modules. Whether a test is duplicated or its result is right is a

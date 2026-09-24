@@ -46,11 +46,17 @@ VARIANTS: tuple[Variant, ...] = (
         item="symbol_placement:test-helper-outside-support",
         summary=(
             "The shared order builder moved into tests/unit: it is defined outside support, "
-            "and the integration test that follows it now imports the unit suite."
+            "takes its product import into a suite that may not import the product, and the "
+            "integration test that follows it now imports the unit suite."
         ),
         files=_builder_moved_to("tests.unit.orders", "tests/unit/orders.py"),
-        expected_violations=("TESTS-HELPERS-IN-SUPPORT", "TESTS-REQUIRES-COMPLETE"),
-        expected_codes=("graph.drift", "rule.violated", "rule.violated"),
+        # One TESTS-EXTERNAL-SHOP finding per name the builder imports: Line, Money, Order.
+        expected_violations=(
+            *("TESTS-EXTERNAL-SHOP",) * 3,
+            "TESTS-HELPERS-IN-SUPPORT",
+            "TESTS-REQUIRES-COMPLETE",
+        ),
+        expected_codes=("graph.drift", *("rule.violated",) * 5),
         config=TEST_CONFIG,
     ),
     Variant(
@@ -59,15 +65,16 @@ VARIANTS: tuple[Variant, ...] = (
         item="root_layout:test-helper-at-root",
         summary=(
             "The shared order builder moved directly below tests: no suite owns it, and it "
-            "is outside both the allowed layout and support."
+            "is outside the allowed layout, support and the modules that may import the product."
         ),
         files=_builder_moved_to("tests.orders", "tests/orders.py"),
         expected_violations=(
             "TESTS-ASSIGNMENT-COMPLETE",
+            *("TESTS-EXTERNAL-SHOP",) * 3,
             "TESTS-HELPERS-IN-SUPPORT",
             "TESTS-ROOT-LAYOUT",
         ),
-        expected_codes=("graph.drift", "rule.violated", "rule.violated", "rule.violated"),
+        expected_codes=("graph.drift", *("rule.violated",) * 6),
         config=TEST_CONFIG,
     ),
     Variant(
@@ -88,6 +95,26 @@ VARIANTS: tuple[Variant, ...] = (
         },
         expected_violations=("TESTS-REQUIRES-COMPLETE",),
         expected_codes=("graph.drift", "rule.violated"),
+        config=TEST_CONFIG,
+    ),
+    Variant(
+        id="test-scope-unit-imports-product",
+        section="class_a",
+        item="external_dependency_scope:test-suite-imports-product",
+        summary=(
+            "A unit test imports the product's store directly, where unit tests reach the "
+            "product only through the shared builders."
+        ),
+        files={
+            "tests/unit/test_entities.py": _UNIT_TEST.replace(
+                "from tests.support.orders import OrderBuilder\n",
+                "from shop.store.sqlite import Connection\n"
+                "from tests.support.orders import OrderBuilder\n\n"
+                '__all__ = ["Connection"]\n',
+            )
+        },
+        expected_violations=("TESTS-EXTERNAL-SHOP",),
+        expected_codes=("rule.violated",),
         config=TEST_CONFIG,
     ),
 )
