@@ -133,8 +133,9 @@ def build_parser() -> _Parser:
     )
     report.add_argument(
         "--component",
-        help="Show only violations whose crossing touches this component, as source or "
-        "target. Unknown to this contract: exit 2.",
+        help="Narrow the violations, or with --only calls the calls, to this component: a "
+        "violation whose crossing touches it as source or target, a call its modules make. "
+        "Unknown to this contract: exit 2.",
     )
 
     validate = commands.add_parser(

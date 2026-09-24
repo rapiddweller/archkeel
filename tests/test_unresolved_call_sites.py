@@ -4,7 +4,9 @@
 """AD-100: a change in unresolved calls names the call sites behind the count (#131)."""
 
 import json
+import os
 import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -528,3 +530,15 @@ def test_only_calls_page_shows_the_call_table_instead_of_the_other_sections(
         f"Filtered (only calls): {listed} unresolved or partially resolved call(s) listed."
         in report_summary(result).sentence
     )
+
+
+def test_report_help_says_component_narrows_violations_or_calls() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "archkeel.cli", "report", "--help"],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "COLUMNS": "200"},
+    )
+
+    words = " ".join(result.stdout.split())
+    assert "Narrow the violations, or with --only calls the calls," in words
