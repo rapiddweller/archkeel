@@ -198,12 +198,15 @@ written for one change does not verify against a different one. `--write-amendme
 cannot be read is `against.invalid`, exit 2. When a run fails and the observed
 `calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
 at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
-passing run pays for no second scan. An added row is dropped when its file is outside Git's view
-of the working tree (`git ls-files --cached --others --exclude-standard`: ignored, or inside a
-submodule) or when the revision tracks it but its archive left it out (its own `export-ignore`),
-since those files exist on the working-tree side only; a removed row is always kept. A rise carried
-only by such files, a revision that cannot be scanned, and call records that do not add up name no
-site, and `unresolved_call_note` says which (AD-100). `validate` without `--against` is unchanged. The
+passing run pays for no second scan. Removed rows and rows in files the revision's snapshot
+holds are always kept. An added row in a file the snapshot lacks is dropped when the file is
+outside Git's view of the working tree under the scan roots (`git ls-files --cached --others
+--exclude-standard`: ignored, or inside a submodule) or when the revision tracks it but its
+archive left it out (its own `export-ignore`): such files exist on the working-tree side only.
+`unresolved_call_note` says when rows were dropped, when nothing differs from the revision (the
+accepted value does not match its code), and when nothing could be compared: a revision that
+cannot be scanned, a Git listing with a non-UTF-8 file name, or call records that do not add up
+(AD-100). `validate` without `--against` is unchanged. The
 file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json):
 
@@ -370,10 +373,10 @@ unresolved call whose count differs between the two observations: `change` (`add
 identical expressions in one caller form one row whose `lines` name them all, and a removed row
 names the older revision's lines. The JSON lists every row; the terminal lists at most five under
 the failures, and none on a passing run. The field reads `null` in a result that compared no two
-revisions' calls. Where a comparison names no site (call records that do not add up, a revision
-that cannot be scanned, a rise carried only by files the working tree alone holds),
-`unresolved_call_note` says why, in the result and under the terminal's failures; the verdict
-never changes (AD-100).
+revisions' calls. Where a comparison leaves rows unnamed (call records that do not add up, a
+revision that cannot be scanned, added calls in files the working tree alone holds, nothing that
+differs from the revision), `unresolved_call_note` says why, in the result and under the
+terminal's failures; the verdict never changes (AD-100).
 
 The JSON field `ratchets` and Python identifiers such as `compare_ratchets` keep their
 existing names for compatibility. Human-readable messages use "regression check".
