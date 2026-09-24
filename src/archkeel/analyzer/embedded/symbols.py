@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
 from collections.abc import Sequence
+from types import EllipsisType
 
 from archkeel.ir.model import EvidenceClass, stable_id
 
@@ -308,6 +310,22 @@ def _assignment_symbol(
     )
 
 
+def _json_literal(value: str | bytes | int | float | complex | EllipsisType | None) -> bool:
+    """Whether the observation, UTF-8 JSON, can hold a constant's value (AD-102).
+
+    Asking the encoder itself also rules out what a type check misses: a `str` with a lone
+    surrogate, an `int` beyond Python's digit limit and a non-finite `float`.
+    """
+    if value is not None and not isinstance(value, str | int | float):
+        return False
+    try:
+        text: str = json.dumps(value, ensure_ascii=False, allow_nan=False)
+        text.encode("utf-8")
+    except ValueError:
+        return False
+    return True
+
+
 def _module_assignment_symbols(
     module: ParsedModule, evidence: dict[str, RawEvidence]
 ) -> list[RawRecord]:
@@ -359,6 +377,7 @@ def _module_assignment_symbols(
                 if not isinstance(target, ast.Name):
                     continue
                 if isinstance(node.value, ast.Constant):
+                    value = node.value.value
                     symbols.append(
                         _assignment_symbol(
                             module,
@@ -366,7 +385,7 @@ def _module_assignment_symbols(
                             target.id,
                             "static_constant",
                             evidence,
-                            constant=node.value.value,
+                            **({"constant": value} if _json_literal(value) else {}),
                         )
                     )
                 elif target.id[:1].isupper() or target.id in aliases:

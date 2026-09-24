@@ -1687,10 +1687,13 @@ def _unresolved_named_verdict(annotation: str, require_static_constant: bool) ->
 
 
 def _is_static_literal_constant(symbol: RecordData | _AmbiguousBinding | None) -> bool:
+    # A constant recorded without its value (AD-102) proves nothing; `.get` alone would read
+    # the missing value as a `None` literal.
     return (
         isinstance(symbol, dict)
         and symbol.get("record_kind") == "static_constant"
-        and isinstance(symbol.get("constant"), (str, int, bool, type(None)))
+        and "constant" in symbol
+        and isinstance(symbol["constant"], (str, int, bool, type(None)))
     )
 
 

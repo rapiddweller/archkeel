@@ -138,6 +138,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-99 | [Facade and coupling budgets are contract ceilings](decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md) |
 | AD-100 | [An unresolved-call change names its call sites](decisions/ad-100-an-unresolved-call-change-names-its-call-sites.md) |
 | AD-101 | [A second configuration governs a second scope at the same root](decisions/ad-101-a-second-configuration-governs-a-second-scope.md) |
+| AD-102 | [A constant JSON cannot hold is recorded without its value](decisions/ad-102-a-constant-json-cannot-hold-is-recorded-without-its-value.md) |
 
 ## Allowed dependencies
 
