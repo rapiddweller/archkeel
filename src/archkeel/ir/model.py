@@ -12,7 +12,7 @@ from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Final, Literal, TypeAlias, get_args, get_type_hints
 
-from .measurements import MeasurementBudgetName, Measurements
+from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
 SCHEMA_VERSION = "1.3.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
@@ -587,8 +587,10 @@ class ContractDeclarations:
     spot_owners: tuple[ContractOwner, ...] = ()
     compat: tuple[CompatibilityShim, ...] = ()
     measurement_budgets: tuple[ContractMeasurementBudget, ...] = ()
-    facade_budgets: tuple[FacadeBudget, ...] = ()
-    coupling_budgets: tuple[CouplingBudget, ...] = ()
+    # AD-99: None when the contract names no such list, so its canonical bytes, and every
+    # amendment digest bound to them, stay what they were before budgets existed.
+    facade_budgets: tuple[FacadeBudget, ...] | None = None
+    coupling_budgets: tuple[CouplingBudget, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -915,6 +917,27 @@ class ViolationCounts:
 
 
 @dataclass(frozen=True, slots=True)
+class InterfaceBudgetResult:
+    """AD-99: one declared facade or pair budget, as `validate` measured it.
+
+    `max_names` is the contract's target and `over_target` the known distance to it.
+    `new_names` and `removed_names` compare with the baseline's accepted names, and are None
+    when the run had no baseline. `uncounted` names the imports or modules that keep `names`
+    a lower bound.
+    """
+
+    budget: NameBudgetKind
+    subject: str
+    max_names: int
+    count: int
+    over_target: int
+    names: tuple[str, ...]
+    uncounted: tuple[str, ...]
+    new_names: tuple[str, ...] | None = None
+    removed_names: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ReportFilter:
     """A render-time projection of one report's violations, never a second observation (AD-60).
 
@@ -969,6 +992,8 @@ class RunResult:
     # AD-60: the violation records `report_filter` selects, the same ones the HTML table
     # shows; None whenever no filter was given, so an unfiltered result's shape is unchanged.
     filtered_violations: tuple[Record, ...] | None = None
+    # AD-99: every declared facade and pair budget `validate` measured; None when none exists.
+    interface_budgets: tuple[InterfaceBudgetResult, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

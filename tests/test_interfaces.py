@@ -117,7 +117,10 @@ def _symbol_record(
     }
 
 
-def _module_record(identifier: str, name: str, exports: list[str]) -> dict[str, Any]:
+def _module_record(
+    identifier: str, name: str, exports: list[str], *, all_literal: bool | None = None
+) -> dict[str, Any]:
+    literal = {} if all_literal is None else {"all_literal": all_literal}
     return {
         "id": identifier,
         "evidence_class": "FACT",
@@ -129,7 +132,7 @@ def _module_record(identifier: str, name: str, exports: list[str]) -> dict[str, 
         "rule_ids": [],
         "fact_ids": [],
         "provenance": [],
-        "data": {"qualified_name": name, "all_exports": exports},
+        "data": {"qualified_name": name, "all_exports": exports, **literal},
     }
 
 
@@ -446,6 +449,83 @@ def test_interface_profile_follows_a_reexport_to_the_declared_facade_name() -> N
     ]
     widget = next(item for item in profile.exports if item.name == "Widget")
     assert widget.consumers == ("a",)
+
+
+def test_interface_profile_trusts_all_only_when_the_analyzer_proved_it_literal() -> None:
+    """AD-99: `all_exports` alone cannot tell `__all__ = []` from no `__all__`, or a literal
+    from one a later statement extends; the analyzer's `all_literal` fact decides."""
+    observation = _observation(
+        declarations=(
+            _declaration("b", ["pkg.b"], ["pkg.b.empty", "pkg.b.extended", "pkg.b.legacy"]),
+        ),
+        modules=(
+            _module_record("MOD-empty", "pkg.b.empty", [], all_literal=True),
+            _module_record("MOD-extended", "pkg.b.extended", ["A"], all_literal=False),
+            _module_record("MOD-legacy", "pkg.b.legacy", ["A"]),
+        ),
+        symbols=(
+            _symbol_record(
+                "SYM-helper",
+                kind="function",
+                qualified_name="pkg.b.empty.helper",
+                module="pkg.b.empty",
+                name="helper",
+            ),
+        ),
+    )
+
+    assert [
+        (item.module, item.exported_names, item.enumerated)
+        for item in interface_profile(observation).facades
+    ] == [
+        ("pkg.b.empty", (), True),
+        ("pkg.b.extended", ("A",), False),
+        ("pkg.b.legacy", ("A",), False),
+    ]
+
+
+def test_interface_profile_has_no_coupling_row_past_a_facade() -> None:
+    """Review D: a target without a facade, or a module outside it, is interface_boundary's
+    finding, not a coupling width: main shows no row for either, and neither does AD-99."""
+    observation = _observation(
+        declarations=(
+            _declaration("a", ["pkg.a"]),
+            _declaration("b", ["pkg.b"]),
+            _declaration("c", ["pkg.c"], ["pkg.c.api:Widget"]),
+        ),
+        imports=(
+            _import_record(
+                "IMP-b-whole",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.mod",
+                symbol=None,
+                origin_definition=None,
+            ),
+            _import_record(
+                "IMP-b-name",
+                source_module="pkg.a.mod",
+                target_module="pkg.b.mod",
+                symbol="Thing",
+                origin_definition="pkg.b.mod.Thing",
+            ),
+            _import_record(
+                "IMP-c-internal",
+                source_module="pkg.a.mod",
+                target_module="pkg.c.internal",
+                symbol=None,
+                origin_definition=None,
+            ),
+            _import_record(
+                "IMP-c-star",
+                source_module="pkg.a.mod",
+                target_module="pkg.c.internal",
+                symbol="*",
+                origin_definition=None,
+            ),
+        ),
+    )
+
+    assert interface_profile(observation).coupling == ()
 
 
 def test_typed_and_untyped_function_signatures() -> None:

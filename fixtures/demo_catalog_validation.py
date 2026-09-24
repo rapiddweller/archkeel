@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
+from archkeel.ir.codec import baseline_bytes
+from archkeel.ir.measurements import MeasurementBudget
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
-    FIXTURE_DIR,
     HEADER,
     Variant,
     contract_component_field_appended,
@@ -23,6 +24,7 @@ from fixtures.demo_catalog_support import (
     contract_with_rule,
     contract_without_component_field_and_rule,
     contract_without_top_field,
+    entities_with,
     inside_contract,
 )
 
@@ -97,9 +99,15 @@ _CYCLE_BUDGET_FILES = {
 # app imports three from model and three from store, OrderRepository through the store barrel.
 _FACADE_BUDGET = contract_interface_budgets((("model", 5),))
 _COUPLING_BUDGET = contract_interface_budgets(pairs=(("app", "model", 3), ("app", "store", 3)))
-_ENTITIES_WITH_DISCOUNT = (FIXTURE_DIR / "shop/model/entities.py").read_text().replace(
-    '"LinePayload"]', '"LinePayload", "Discount"]'
-) + "\n\n@dataclass(frozen=True, slots=True)\nclass Discount:\n    cents: int\n"
+_ENTITIES_WITH_DISCOUNT = entities_with("Discount")
+# The accepted names of today's model facade, frozen the way --write-baseline records them.
+_MODEL_NAMES = tuple(
+    f"shop.model.entities:{name}"
+    for name in ("Line", "LinePayload", "Money", "Order", "OrderPayload")
+)
+_MODEL_BASELINE = baseline_bytes(
+    (), (MeasurementBudget("facade_names", len(_MODEL_NAMES), "model", _MODEL_NAMES),)
+).decode()
 _APP_READS_PAYLOADS = HEADER + (
     '"""Export use case reading the serialised order shape."""\n\n'
     "from __future__ import annotations\n\n"
@@ -499,8 +507,8 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         id="validation-facade-budget-exceeded",
         section="validation",
         item="budget.exceeded",
-        summary="The model facade adds Discount to __all__. Six names exceed the budget of "
-        "five, and the diagnostic lists all six; a baseline cannot hide it (AD-99).",
+        summary="The model facade adds Discount to __all__. Without a baseline, six names over "
+        "the target of five are a diagnostic that lists all six (AD-99).",
         files={
             "architecture-contract.json": _FACADE_BUDGET,
             "shop/model/entities.py": _ENTITIES_WITH_DISCOUNT,
@@ -531,6 +539,37 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         files={"architecture-contract.json": contract_interface_budgets((("render", 1),))},
         expected_violations=(),
         expected_codes=("budget.unknown",),
+    ),
+    Variant(
+        id="validation-facade-budget-target-first",
+        section="validation",
+        item="budget.target_first",
+        summary="The contract targets four model names while the baseline accepts today's five. "
+        "The gap is known, so validate --baseline passes and reports the model facade 1 over "
+        "its target (AD-99).",
+        files={
+            "architecture-contract.json": contract_interface_budgets((("model", 4),)),
+            "architecture-baseline.json": _MODEL_BASELINE,
+        },
+        expected_violations=(),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
+    ),
+    Variant(
+        id="validation-facade-budget-ratchet",
+        section="validation",
+        item="budget.ratchet",
+        summary="The baseline accepts five model names and Discount joins __all__. The new name "
+        "is a rise that validate --baseline names, whatever the target; --write-baseline "
+        "needs --accept-new to take it (AD-99).",
+        files={
+            "architecture-contract.json": _FACADE_BUDGET,
+            "architecture-baseline.json": _MODEL_BASELINE,
+            "shop/model/entities.py": _ENTITIES_WITH_DISCOUNT,
+        },
+        expected_violations=(),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
     ),
     Variant(
         id="validation-baseline-invalid",

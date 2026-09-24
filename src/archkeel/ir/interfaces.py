@@ -8,7 +8,16 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .model import FUNCTION_KINDS, Observation, Record, RecordData, in_scope
+from .measurements import NameBudgetKind
+from .model import (
+    FUNCTION_KINDS,
+    ContractDeclarations,
+    InterfaceBudgetResult,
+    Observation,
+    Record,
+    RecordData,
+    in_scope,
+)
 
 _CLASS_KINDS = frozenset({"dataclass", "protocol", "enum"})
 
@@ -38,8 +47,8 @@ class FacadeMetric:
     reexported_names: tuple[str, ...]
     defined_names: tuple[str, ...]
     unused_reexports: tuple[str, ...]
-    # AD-99: False for a whole-module entry without a literal `__all__`: its imports and
-    # computed assignments are public names the scan records no symbol for.
+    # AD-99: False for a whole-module entry whose `__all__` the analyzer did not prove to be one
+    # literal: its imports, computed assignments or later `__all__` additions go unlisted.
     enumerated: bool
 
     @property
@@ -234,6 +243,16 @@ def _literal_exports(observation: Observation) -> dict[str, frozenset[str]]:
     }
 
 
+def _literal_all_modules(observation: Observation) -> frozenset[str]:
+    """Modules whose `__all__` the analyzer proved to be bound once to a literal (AD-99)."""
+    return frozenset(
+        module
+        for record in observation.records("modules") or ()
+        if record.data.get("all_literal") is True
+        and isinstance((module := record.data.get("qualified_name")), str)
+    )
+
+
 def _reexports(observation: Observation) -> dict[str, frozenset[str]]:
     names: dict[str, set[str]] = defaultdict(set)
     for record in observation.records("imports") or ():
@@ -255,18 +274,18 @@ def _declared_facades(
 ) -> tuple[tuple[FacadeMetric, ...], dict[tuple[str, str], frozenset[str]]]:
     declarations = _facade_declarations(observation)
     all_exports = _literal_exports(observation)
+    literal = _literal_all_modules(observation)
     symbols = _public_symbol_names(observation)
     reexports = _reexports(observation)
     exported: dict[tuple[str, str], frozenset[str]] = {}
     facade_rows: list[FacadeMetric] = []
     for (component, module), declared in sorted(declarations.items()):
-        names = (
-            all_exports.get(module, frozenset())
-            if declared is None and all_exports.get(module)
-            else declared
-            if declared is not None
-            else symbols.get(module, frozenset()) | reexports.get(module, frozenset())
-        )
+        if declared is not None:
+            names = declared
+        elif module in literal or all_exports.get(module):
+            names = all_exports.get(module, frozenset())
+        else:
+            names = symbols.get(module, frozenset()) | reexports.get(module, frozenset())
         names = frozenset(name for name in names if name and not name.startswith("_"))
         local = frozenset(name for name in symbols.get(module, frozenset()) if name in names)
         facade_reexports = frozenset(
@@ -281,7 +300,7 @@ def _declared_facades(
                 tuple(sorted(facade_reexports)),
                 tuple(sorted(local)),
                 (),
-                declared is not None or bool(all_exports.get(module)),
+                declared is not None or module in literal,
             )
         )
 
@@ -298,24 +317,31 @@ def _facade_use(
     """The facade names one cross-component import reaches, or the import it cannot count.
 
     A named import walks its re-export chain to the first declared facade name, the way
-    `interface_boundary` accepts it (AD-9, AD-84). A whole-module import, a star outside an
-    enumerated facade and a name a non-enumerated facade does not list prove no name (AD-99).
+    `interface_boundary` accepts it (AD-9, AD-84). Past the facade an import is that rule's
+    finding, not a width. A whole-module import of a facade, a star of a non-enumerated one and
+    a name a facade does not list but still lets through prove no name (AD-99).
     """
     symbol = data.get("symbol")
     if not isinstance(symbol, str):
-        return (), module
+        return (), module if (target, module) in exported else None
     if symbol == "*":
         names = exported.get((target, module))
-        if names is None or (target, module) in open_facades:
+        if names is None:
+            return (), None
+        if (target, module) in open_facades:
             return (), f"{module}:*"
         return tuple((module, name) for name in sorted(names)), None
     chain = data.get("reexport_chain")
     entries = [item for item in chain if isinstance(item, str)] if isinstance(chain, tuple) else []
     for entry in entries or [f"{module}.{symbol}"]:
         owner, _, name = entry.rpartition(".")
-        if name in exported.get((target, owner), frozenset()):
+        names = exported.get((target, owner))
+        if names is None:
+            continue
+        if name in names:
             return ((owner, name),), None
-        if (target, owner) in open_facades and not name.startswith("_"):
+        # interface_boundary reads an empty `__all__` as none, so it lets such a name through.
+        if not name.startswith("_") and ((target, owner) in open_facades or not names):
             return (), f"{owner}:{name}"
     return (), None
 
@@ -384,3 +410,53 @@ def interface_profile(observation: Observation) -> InterfaceProfile:
     """Measure declared facades, export consumers and coupling width from one observation."""
     facades, exports, coupling = _profile_parts(observation)
     return InterfaceProfile(facades, exports, coupling)
+
+
+def interface_budgets(
+    declarations: ContractDeclarations, observation: Observation
+) -> tuple[InterfaceBudgetResult, ...]:
+    """Measure each declared facade and pair budget with this profile (AD-99).
+
+    A facade counts every `module:name` its component's declared modules export; a pair counts
+    the facade names its source imports from its target. Neither compares with a baseline.
+    """
+    profile = interface_profile(observation)
+    pairs = {(item.source, item.target): item for item in profile.coupling}
+    results = []
+    for facade in declarations.facade_budgets or ():
+        rows = [item for item in profile.facades if item.component == facade.component]
+        results.append(
+            _budget_result(
+                "facade_names",
+                facade.subject,
+                facade.max_names,
+                tuple(
+                    sorted(f"{row.module}:{name}" for row in rows for name in row.exported_names)
+                ),
+                tuple(row.module for row in rows if not row.enumerated),
+            )
+        )
+    for pair in declarations.coupling_budgets or ():
+        width = pairs.get((pair.source, pair.target))
+        results.append(
+            _budget_result(
+                "coupling_names",
+                pair.subject,
+                pair.max_names,
+                width.names if width is not None else (),
+                width.uncounted if width is not None else (),
+            )
+        )
+    return tuple(results)
+
+
+def _budget_result(
+    budget: NameBudgetKind,
+    subject: str,
+    max_names: int,
+    names: tuple[str, ...],
+    uncounted: tuple[str, ...],
+) -> InterfaceBudgetResult:
+    return InterfaceBudgetResult(
+        budget, subject, max_names, len(names), max(0, len(names) - max_names), names, uncounted
+    )

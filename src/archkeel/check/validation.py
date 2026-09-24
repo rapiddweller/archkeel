@@ -36,12 +36,14 @@ from archkeel.ir.decisions import (
     review_claims,
     violation_counts,
 )
-from archkeel.ir.interfaces import interface_profile
+from archkeel.ir.interfaces import interface_budgets
 from archkeel.ir.measurements import (
     MeasurementBudget,
     RatchetError,
+    budget_label,
     budget_regressions,
     compare_budgets,
+    name_drift,
     selected_budgets,
 )
 from archkeel.ir.model import (
@@ -60,6 +62,7 @@ from archkeel.ir.model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    InterfaceBudgetResult,
     JsonValue,
     Observation,
     Record,
@@ -781,76 +784,79 @@ def interface_diagnostics(
     return tuple(diagnostics)
 
 
-def _budget_diagnostic(
-    pointer: str,
-    subject: str,
-    label: str,
-    limit: int,
-    names: tuple[str, ...],
-    uncounted: tuple[str, ...],
-) -> Diagnostic | None:
-    counted = f"{label} counts {'at least ' if uncounted else ''}{len(names)} "
-    counted += "name" if len(names) == 1 else "names"
-    if len(names) > limit:
-        return _diagnostic(
-            "budget.exceeded",
-            pointer,
-            subject,
-            f"{counted}, {len(names) - limit} over max_names {limit}: {', '.join(names)}.",
-            "Remove names until max_names holds; raising max_names widens the contract.",
-        )
-    if uncounted:
-        return _diagnostic(
-            "budget.unknown",
-            pointer,
-            subject,
-            f"{counted} against max_names {limit}; not enumerated: {', '.join(uncounted)}.",
-            "Give the facade a literal __all__ or module:Name entries, and import the used "
-            "names explicitly.",
-        )
-    return None
-
-
 def interface_budget_diagnostics(
-    contract: ArchitectureContract, observation: Observation
+    declarations: ContractDeclarations,
+    results: tuple[InterfaceBudgetResult, ...],
+    *,
+    report_exceeded: bool,
 ) -> tuple[Diagnostic, ...]:
-    """AD-99: hold each declared facade and pair ceiling to AD-88's one measurement.
+    """AD-99: a budget over its target, or one the scan cannot count.
 
     A budget counts names, not which of them are too many, so an exceeded one lists them all.
-    A count the scan cannot complete is UNKNOWN unless its lower bound already exceeds.
+    With a baseline its accepted names answer the target instead, the way AD-52 answers a
+    violation, so only an uncountable budget is left to report there.
     """
-    declarations = contract.declarations or ContractDeclarations()
-    if not declarations.facade_budgets and not declarations.coupling_budgets:
-        return ()
-    profile = interface_profile(observation)
-    findings = []
-    for index, facade_budget in enumerate(declarations.facade_budgets):
-        facades = [item for item in profile.facades if item.component == facade_budget.component]
-        names = sorted(f"{item.module}:{name}" for item in facades for name in item.exported_names)
-        findings.append(
-            _budget_diagnostic(
-                f"/declarations/facade_budgets/{index}",
-                facade_budget.subject,
-                f"The {facade_budget.component} facade",
-                facade_budget.max_names,
-                tuple(names),
-                tuple(item.module for item in facades if not item.enumerated),
+    # `interface_budgets` measures facades first, then pairs, each in declared order.
+    places = [
+        *(
+            (f"/declarations/facade_budgets/{index}", f"The {item.subject} facade")
+            for index, item in enumerate(declarations.facade_budgets or ())
+        ),
+        *(
+            (f"/declarations/coupling_budgets/{index}", f"The {item.subject} pair")
+            for index, item in enumerate(declarations.coupling_budgets or ())
+        ),
+    ]
+    diagnostics = []
+    for (pointer, label), item in zip(places, results, strict=True):
+        counted = f"{label} counts {'at least ' if item.uncounted else ''}{item.count} "
+        counted += "name" if item.count == 1 else "names"
+        if report_exceeded and item.over_target:
+            diagnostics.append(
+                _diagnostic(
+                    "budget.exceeded",
+                    pointer,
+                    item.subject,
+                    f"{counted}, {item.over_target} over max_names {item.max_names}: "
+                    f"{', '.join(item.names)}.",
+                    "Remove names until max_names holds; raising max_names widens the contract.",
+                )
             )
-        )
-    pairs = {(item.source, item.target): item for item in profile.coupling}
-    for index, pair_budget in enumerate(declarations.coupling_budgets):
-        pair = pairs.get((pair_budget.source, pair_budget.target))
-        findings.append(
-            _budget_diagnostic(
-                f"/declarations/coupling_budgets/{index}",
-                pair_budget.subject,
-                f"The {pair_budget.subject} pair",
-                pair_budget.max_names,
-                pair.names if pair is not None else (),
-                pair.uncounted if pair is not None else (),
+        elif item.uncounted:
+            diagnostics.append(
+                _diagnostic(
+                    "budget.unknown",
+                    pointer,
+                    item.subject,
+                    f"{counted} against max_names {item.max_names}; not enumerated: "
+                    f"{', '.join(item.uncounted)}.",
+                    "Give the facade a literal __all__ or module:Name entries, and import the "
+                    "used names explicitly.",
+                )
             )
-        )
-    return tuple(item for item in findings if item is not None)
+    return tuple(diagnostics)
+
+
+def _name_budget(item: InterfaceBudgetResult) -> MeasurementBudget:
+    """The accepted-name ratchet one measured budget writes to the baseline (AD-99)."""
+    return MeasurementBudget(item.budget, item.count, item.subject, item.names)
+
+
+def _compared_budgets(
+    results: tuple[InterfaceBudgetResult, ...], accepted: tuple[MeasurementBudget, ...]
+) -> tuple[InterfaceBudgetResult, ...]:
+    """Each result with the names it adds to and drops from the baseline's accepted set."""
+    held = {budget.label: budget for budget in accepted}
+    compared = []
+    for item in results:
+        observed = _name_budget(item)
+        before = held.get(observed.label)
+        if before is None:
+            compared.append(item)
+            continue
+        new, removed = name_drift(before, observed)
+        compared.append(replace(item, new_names=new, removed_names=removed))
+    return tuple(compared)
 
 
 def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
@@ -1147,11 +1153,11 @@ def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, .
         ),
         *(
             (f"/declarations/facade_budgets/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.facade_budgets)
+            for index, item in enumerate(declarations.facade_budgets or ())
         ),
         *(
             (f"/declarations/coupling_budgets/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.coupling_budgets)
+            for index, item in enumerate(declarations.coupling_budgets or ())
         ),
         ("/declarations/public_api_provenance", declarations.public_api_provenance),
         ("/declarations/context_roots_provenance", declarations.context_roots_provenance),
@@ -1387,7 +1393,6 @@ def observation_diagnostics(
         *interface_diagnostics(contract, observation, resolved_public_entries),
         *public_api_diagnostics(contract, observation),
         *compatibility_diagnostics(contract, observation),
-        *interface_budget_diagnostics(contract, observation),
         *rationale_diagnostics(contract),
         *graph_diagnostics(contract, observation, documents),
     ]
@@ -1607,6 +1612,7 @@ def _observed_result(
     *,
     baseline_new: int | None = None,
     baseline_resolved: int | None = None,
+    interface_budgets: tuple[InterfaceBudgetResult, ...] | None = None,
 ) -> RunResult:
     """The validate result once a complete observation has produced its diagnostics.
 
@@ -1644,6 +1650,7 @@ def _observed_result(
             violations_by_component_pair=counted.by_component_pair,
             baseline_new=baseline_new,
             baseline_resolved=baseline_resolved,
+            interface_budgets=interface_budgets,
         )
     return RunResult(
         "validate",
@@ -1662,6 +1669,7 @@ def _observed_result(
         claims=review_claims(observation),
         violations_by_rule=counted.by_rule,
         violations_by_component_pair=counted.by_component_pair,
+        interface_budgets=interface_budgets,
     )
 
 
@@ -1829,11 +1837,11 @@ def _resolve_against_context(
                 against_budgets = parsed.budgets
             except ValueError as error:
                 return empty, _against_invalid(against, error)
-    declared_budgets = {
+    declared_budgets: set[str] = {
         item.name
         for item in (against_contract.declarations or ContractDeclarations()).measurement_budgets
     }
-    known_budgets = {item.name for item in against_budgets}
+    known_budgets = {item.label for item in against_budgets}
     missing_budgets = sorted(declared_budgets - known_budgets)
     if missing_budgets:
         missing = ", ".join(missing_budgets)
@@ -1998,13 +2006,19 @@ def run_validate(
     if isinstance(parsed_contract, RunResult):
         return parsed_contract, FilesToWrite()
     contract = parsed_contract
-    declared_budgets = tuple(
-        item.name for item in (contract.declarations or ContractDeclarations()).measurement_budgets
-    )
+    declarations = contract.declarations or ContractDeclarations()
+    declared_budgets = tuple(item.name for item in declarations.measurement_budgets)
     if declared_budgets and baseline is None:
         return _budget_baseline_missing(), FilesToWrite()
-    known_budget_names = {item.name for item in known_budgets}
-    missing_budget_names = sorted(set(declared_budgets) - known_budget_names)
+    declared_labels = {
+        *declared_budgets,
+        *(budget_label("facade_names", item.subject) for item in declarations.facade_budgets or ()),
+        *(
+            budget_label("coupling_names", item.subject)
+            for item in declarations.coupling_budgets or ()
+        ),
+    }
+    missing_budget_names = sorted(declared_labels - {item.label for item in known_budgets})
     if baseline is not None and baseline_exists and missing_budget_names and not write_baseline:
         missing = ", ".join(missing_budget_names)
         return _baseline_invalid(
@@ -2049,6 +2063,16 @@ def run_validate(
             )
         )
         observed_budgets = ()
+    budget_results = interface_budgets(declarations, observation)
+    budget_diagnostics = interface_budget_diagnostics(
+        declarations, budget_results, report_exceeded=baseline is None
+    )
+    observed_budgets = (
+        *observed_budgets,
+        *(_name_budget(item) for item in budget_results if not item.uncounted),
+    )
+    if baseline_exists:
+        budget_results = _compared_budgets(budget_results, known_budgets)
     baseline_new, baseline_resolved = (
         violation_drift_counts(known, violations) if baseline_exists else (0, 0)
     )
@@ -2074,10 +2098,11 @@ def run_validate(
     )
     result = _observed_result(
         observation,
-        diagnostics,
+        [*diagnostics, *budget_diagnostics],
         (*baseline_failures, *interface_narrowings, *widening_failures),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
+        interface_budgets=budget_results or None,
     )
     write_baseline = write_baseline and (
         not baseline_exists or not (baseline_new or budget_new) or accept_new

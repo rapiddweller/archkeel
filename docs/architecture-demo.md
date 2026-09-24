@@ -107,6 +107,8 @@ run shows many violations together; every other row isolates one item.
 | validation | budget.exceeded | validation-facade-budget-exceeded | validate/report run | - | budget.exceeded | architecture-contract.json, shop/model/entities.py |
 | validation | budget.exceeded:coupling | validation-coupling-budget-exceeded | validate/report run | - | budget.exceeded | architecture-contract.json, shop/app/export.py |
 | validation | budget.unknown | validation-facade-budget-unknown | validate/report run | - | budget.unknown | architecture-contract.json |
+| validation | budget.target_first | validation-facade-budget-target-first | validate/report run | - | - | architecture-baseline.json, architecture-contract.json |
+| validation | budget.ratchet | validation-facade-budget-ratchet | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/entities.py |
 | validation | baseline.invalid | validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
 | validation | baseline.accept_new | validation-baseline-accept-new | tested only | - | - | tests/test_cli.py |
 | validation | baseline.roles | validation-baseline-roles | tested only | - | - | tests/test_baseline.py |

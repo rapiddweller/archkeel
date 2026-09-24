@@ -452,13 +452,13 @@ def contract_widenings(
     )
     findings += _ceiling_widenings(
         "facade budget",
-        {item.subject: item.max_names for item in before_declarations.facade_budgets},
-        {item.subject: item.max_names for item in after_declarations.facade_budgets},
+        {item.subject: item.max_names for item in before_declarations.facade_budgets or ()},
+        {item.subject: item.max_names for item in after_declarations.facade_budgets or ()},
     )
     findings += _ceiling_widenings(
         "coupling budget",
-        {item.subject: item.max_names for item in before_declarations.coupling_budgets},
-        {item.subject: item.max_names for item in after_declarations.coupling_budgets},
+        {item.subject: item.max_names for item in before_declarations.coupling_budgets or ()},
+        {item.subject: item.max_names for item in after_declarations.coupling_budgets or ()},
     )
     if _unenumerated(before_declarations) != _unenumerated(after_declarations):
         findings.append("contract.declarations changed in a way this comparison does not enumerate")
@@ -482,7 +482,7 @@ def contract_widenings(
 def _unenumerated(declarations: ContractDeclarations) -> ContractDeclarations:
     """The declarations no classifier above compares field by field."""
     return replace(
-        declarations, compat=(), measurement_budgets=(), facade_budgets=(), coupling_budgets=()
+        declarations, compat=(), measurement_budgets=(), facade_budgets=None, coupling_budgets=None
     )
 
 
@@ -500,17 +500,26 @@ def _ceiling_widenings(kind: str, before: dict[str, int], after: dict[str, int])
 def measurement_budget_widenings(
     before: tuple[MeasurementBudget, ...], after: tuple[MeasurementBudget, ...]
 ) -> tuple[str, ...]:
-    """A raised or dropped accepted value widens its contract-selected measurement budget."""
-    before_values = {item.name: item.value for item in before}
-    after_values = {item.name: item.value for item in after}
+    """A raised, grown or dropped accepted value widens its measurement budget.
+
+    AD-89 compares a scalar; AD-99 a key's accepted names, where any gained name widens even
+    when another one left, because the ratchet holds names rather than their count.
+    """
+    accepted = {item.label: item for item in after}
     findings = []
-    for name in sorted(before_values):
-        if name not in after_values:
-            findings.append(f"measurement budget baseline lost {name}")
-        elif after_values[name] > before_values[name]:
+    for item in sorted(before, key=lambda budget: budget.label):
+        now = accepted.get(item.label)
+        if now is None:
+            findings.append(f"measurement budget baseline lost {item.label}")
+            continue
+        gained = sorted(set(now.names) - set(item.names))
+        if gained:
             findings.append(
-                f"measurement budget widened: {name} "
-                f"({after_values[name]} now, {before_values[name]} before)"
+                f"measurement budget widened: {item.label} (gained {', '.join(gained)})"
+            )
+        elif now.value > item.value:
+            findings.append(
+                f"measurement budget widened: {item.label} ({now.value} now, {item.value} before)"
             )
     return tuple(findings)
 

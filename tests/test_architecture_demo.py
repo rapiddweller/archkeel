@@ -325,6 +325,20 @@ def test_measurement_budget_demo_passes_clean_and_fails_on_a_rise(
     )
 
 
+def test_facade_budget_demo_holds_a_known_gap_and_names_a_new_name(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    variants = {item.id: item for item in CATALOG}
+    held = _sample_run(tmp_path_factory, variants["validation-facade-budget-target-first"])
+    risen = _sample_run(tmp_path_factory, variants["validation-facade-budget-ratchet"])
+
+    assert (held[4], held[5]) == (0, ())
+    assert (risen[4], risen[5]) == (
+        1,
+        ("measurement budget exceeded in facade_names model: new shop.model.entities:Discount",),
+    )
+
+
 @pytest.mark.parametrize("variant", _UNIQUE_CHECK_RUNS, ids=lambda v: v.id)
 def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant: Variant) -> None:
     check = variant.check
