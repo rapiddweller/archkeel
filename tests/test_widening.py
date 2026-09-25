@@ -461,6 +461,24 @@ def test_component_provenance_is_neutral() -> None:
     assert _component_diff(before, after) == ()
 
 
+def test_a_public_gain_names_the_lost_entry_it_may_replace() -> None:
+    """#151: where no rename is recognised, a gain still shows what the same change lost."""
+    before = _component(packages=("a.api",), public=("a.api.generated.planning_api",))
+    after = _component(packages=("b.api",), public=("b.api.generated.planning_api",))
+
+    assert (
+        "component 'comp'.public gained 'b.api.generated.planning_api' "
+        "in place of 'a.api.generated.planning_api'"
+    ) in _component_diff(before, after)
+
+
+def test_a_public_gain_with_two_lost_candidates_names_neither() -> None:
+    before = _component(public=("pkg.x:run", "pkg.y:run"))
+    after = _component(public=("pkg.z:run",))
+
+    assert _component_diff(before, after) == ("component 'comp'.public gained 'pkg.z:run'",)
+
+
 def test_narrowing_never_needs_an_amendment() -> None:
     """Every narrowing row above already asserts `findings == ()`; this restates the rule."""
     before = _forbidden_construct(constructs=("eval",))

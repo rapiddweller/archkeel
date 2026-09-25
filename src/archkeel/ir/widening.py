@@ -17,6 +17,7 @@ fingerprint without reading Git itself.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
@@ -424,9 +425,10 @@ def _component_widenings(before: ContractComponent, after: ContractComponent) ->
     before_planned = frozenset(before.planned or ())
     after_planned = frozenset(after.planned or ())
     promoted = (before_planned - after_planned) & after_public
+    lost = before_public - after_public
     return [
         *[
-            f"{subject}.public gained {item!r}"
+            f"{subject}.public gained {item!r}{_in_place_of(item, lost)}"
             for item in sorted(after_public - before_public - promoted)
         ],
         *[
@@ -442,6 +444,17 @@ def _component_widenings(before: ContractComponent, after: ContractComponent) ->
             handled=frozenset({"public", "planned", "requires", "namespace"}),
         ),
     ]
+
+
+def _in_place_of(entry: str, lost: frozenset[str]) -> str:
+    """Name the one lost entry ending in `entry`'s last name, for the reader only (#151).
+
+    A lost `public` entry is a narrowing and fails nothing; beside the gain that may replace it,
+    it tells a moved entry from a new one where no rename was recognised (AD-105).
+    """
+    name = re.split(r"[.:]", entry)[-1]
+    matches = [item for item in lost if re.split(r"[.:]", item)[-1] == name]
+    return f" in place of {matches[0]!r}" if len(matches) == 1 else ""
 
 
 def _components_widenings(
