@@ -18,22 +18,31 @@ from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import decode_json, parse_contract
-from archkeel.ir.model import ArchitectureContract, ComponentRole, ContractComponent, RunResult
+from archkeel.ir.model import (
+    ArchitectureContract,
+    ComponentRole,
+    ContractComponent,
+    ForbiddenConstructRule,
+    RunResult,
+)
 from archkeel.ir.renames import (
     contract_names,
     rename_candidates,
     rename_holds,
+    rename_since,
     renamed,
     renamed_baseline,
     renamed_contract,
 )
 from archkeel.ir.widening import contract_widenings
 from archkeel.render.summary import report_summary
+from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_interface_budgets
 from fixtures.demo_catalog_widening import renamed_render
 
 _RENDER = {"shop.render": "shop.view"}
 _SHOP = (FIXTURE_DIR / "architecture-contract.json").read_text()
+_DART = (DART_FIXTURE_DIR / "architecture-contract.json").read_text()
 _LEFT_BEHIND = (
     '"""Left behind."""\n\n'
     "from shop.store.repository import OrderRepository\n\nX = OrderRepository\n"
@@ -50,6 +59,15 @@ def _contract(*components: ContractComponent) -> ArchitectureContract:
 
 def _shop_contract(text: str) -> ArchitectureContract:
     return parse_contract(decode_json(text))
+
+
+def _moved_root(text: str, old: str, new: str) -> str:
+    """Contract JSON with root package `old` renamed `new` the way a text editor does it."""
+    return (
+        text.replace(f'"{old}.', f'"{new}.')
+        .replace(f'"{old}"', f'"{new}"')
+        .replace(f'"{old}/', f'"{new}/')
+    )
 
 
 def _without_rules(text: str, *ids: str) -> str:
@@ -102,16 +120,12 @@ def test_two_packages_moved_into_one_propose_no_rename() -> None:
     assert rename_candidates(before, after) == ()
 
 
-def test_only_a_dotted_name_is_renamed_under_its_longest_prefix() -> None:
+def test_a_name_is_renamed_under_its_longest_prefix() -> None:
     renames = {"shop": "store", "shop.render": "store.view"}
 
     assert renamed("shop.render.text:render_order", renames) == "store.view.text:render_order"
     assert renamed("shop.model", renames) == "store.model"
     assert renamed("shopping.cart", renames) == "shopping.cart"
-    assert renamed("shop.render renders text.", renames) == "shop.render renders text."
-    assert renamed("shop/render/architecture-contract.json", renames) == (
-        "shop/render/architecture-contract.json"
-    )
 
 
 def test_a_rename_that_touches_nothing_else_holds() -> None:
@@ -188,6 +202,81 @@ def test_the_renamed_contract_equals_the_one_renamed_by_hand() -> None:
     assert renamed_contract(before, _RENDER) == after
     assert "shop.render" in contract_names(before)
     assert "shop.render" not in contract_names(after)
+
+
+def test_a_rename_leaves_every_value_that_names_no_module_alone() -> None:
+    """QA h2b: root `agent` renamed `architect` must not turn each `decided_by` with it."""
+    before_text = _moved_root(_SHOP, "shop", "agent").replace(
+        '"decided_by": "architect"', '"decided_by": "agent"'
+    )
+    before = _shop_contract(before_text)
+    after = _shop_contract(_moved_root(before_text, "agent", "architect"))
+
+    moved = rename_since(
+        before, after, violations=(), budgets=(), modules=frozenset({"architect.model.entities"})
+    )
+
+    assert moved is not None
+    assert moved.prefixes == (("agent", "architect"),)
+    findings = contract_widenings(moved.contract, after)
+    assert "component 'model'.decided_by changed from 'agent' to 'architect'" in findings
+    assert "rule DEP-MODEL-NO-STORE.decided_by changed from 'agent' to 'architect'" in findings
+    # One line per decision, the moved inside path besides.
+    assert len(findings) == len(before.components) + len(before.rules) + 1
+
+
+def test_a_root_package_named_like_a_construct_keeps_the_construct() -> None:
+    """QA h3: `eval` is the root package and a forbidden construct; only the package moves."""
+    before = _shop_contract(_moved_root(_SHOP, "shop", "eval"))
+
+    moved = renamed_contract(before, {"eval": "evals"})
+
+    # A path is no module name, so the inside contract's path stays where it was.
+    expected = _moved_root(_SHOP, "shop", "evals").replace('"evals/', '"eval/')
+    assert contract_widenings(moved, _shop_contract(expected)) == ()
+    assert any(
+        "eval" in rule.constructs
+        for rule in moved.rules
+        if isinstance(rule, ForbiddenConstructRule)
+    )
+
+
+def test_a_package_named_like_a_label_is_renamed_without_the_label() -> None:
+    """QA g3b: the Dart package `app` shares its name with the component label `app`."""
+    before_text = _moved_root(_DART, "shop", "app")
+    after_text = (
+        before_text.replace('"app.', '"field_app.')
+        .replace('"source": "app"', '"source": "field_app"')
+        .replace('"root": "app"', '"root": "field_app"')
+    )
+    before, after = _shop_contract(before_text), _shop_contract(after_text)
+
+    moved = rename_since(
+        before, after, violations=(), budgets=(), modules=frozenset({"field_app.main"})
+    )
+
+    assert moved is not None
+    assert moved.prefixes == (("app", "field_app"),)
+    assert contract_widenings(moved.contract, after) == ()
+
+
+def test_a_root_renamed_like_a_label_is_a_rename_with_its_label_cycle_entries() -> None:
+    """QA c9: root `shop` becomes `app`, the label of one component, which a cycle entry names."""
+    cycle = KnownViolation(ViolationFingerprint(("COMPONENT-NO-CYCLES",), ("app", "render")), 1)
+    before = _shop_contract(_SHOP)
+    after = _shop_contract(_moved_root(_SHOP, "shop", "app"))
+
+    moved = rename_since(
+        before, after, violations=(cycle,), budgets=(), modules=frozenset({"app.model.entities"})
+    )
+
+    assert moved is not None
+    assert moved.prefixes == (("shop", "app"),)
+    assert moved.violations == (cycle,)
+    assert contract_widenings(moved.contract, after) == (
+        "component 'store'.inside changed from 'shop/store/architecture-contract.json' "
+        "to 'app/store/architecture-contract.json'",
+    )
 
 
 def test_a_renamed_baseline_sorts_its_subjects_the_way_the_analyzer_does() -> None:
@@ -268,6 +357,46 @@ def test_a_module_left_behind_under_the_old_package_keeps_the_plain_comparison(
         "component 'render'.packages changed from ('shop.render',) to ('shop.view',)"
         in result.failures
     )
+
+
+def test_a_rename_the_old_contract_cannot_parse_under_stays_amendable(tmp_path: Path) -> None:
+    """QA b3b: one level down, `shop.ui.render` is no immediate child for ROOT-LAYOUT."""
+    root = _prepare_repo(tmp_path, {})
+    base = _git(root, "rev-parse", "HEAD")
+    contract = json.loads(_SHOP.replace('"shop.render', '"shop.ui.render'))
+    layout = next(rule for rule in contract["rules"] if rule["id"] == "ROOT-LAYOUT")
+    layout["allowed_children"] = ["shop.app", "shop.cli", "shop.model", "shop.store", "shop.ui"]
+    main = (FIXTURE_DIR / "shop/cli/main.py").read_text()
+    apply_overlay(
+        root,
+        {
+            "shop/render/text.py": None,
+            "shop/ui/render/text.py": (FIXTURE_DIR / "shop/render/text.py").read_text(),
+            "shop/cli/main.py": main.replace("shop.render", "shop.ui.render"),
+            "architecture-contract.json": json.dumps(contract, indent=2) + "\n",
+        },
+    )
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+    amendment = root / "amendment.json"
+    amended, files = run_validate(
+        root,
+        SHOP_CONFIG,
+        observe,
+        against=base,
+        amendment=amendment,
+        write_amendment=True,
+        decided_by="Demo architect",
+        rationale="shop.render moved below shop.ui.",
+    )
+
+    assert (result.exit_code, result.renames) == (1, ())
+    assert (
+        "component 'render'.packages changed from ('shop.render',) to ('shop.ui.render',)"
+        in result.failures
+    )
+    assert (amended.exit_code, amended.artifact) == (0, str(amendment))
+    assert str(amendment) in files
 
 
 def test_validate_without_against_names_no_rename(tmp_path: Path) -> None:

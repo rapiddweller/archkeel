@@ -5,33 +5,43 @@
 
 A rename moves code without widening anything, yet compared field by field every renamed
 package reads as a gained permission. This module derives the prefix substitution the
-component packages imply, checks that it explains the old contract, baseline and scan without
-touching anything else, and renames the old side with it, so `ir.widening` compares like with
-like: whatever the substitution does not explain is still compared, and so still reported.
+component packages imply, checks that it leaves every relation between names as it was and
+that the code moved with it, and renames the old side with it, so `ir.widening` compares like
+with like: whatever the substitution does not explain is still compared, and so still reported.
+Only the fields `ir.model.module_references` lists are renamed; an id, label, kind or other
+value never is.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Iterable, Mapping
-from dataclasses import replace
-from typing import Final
+from dataclasses import dataclass, replace
 
 from .baseline import KnownViolation, ViolationFingerprint
 from .codec import RawJson, contract_bytes, parse_contract
 from .measurements import MeasurementBudget
-from .model import ArchitectureContract, in_scope
+from .model import (
+    ArchitectureContract,
+    NoComponentCyclesRule,
+    in_scope,
+    last_name,
+    module_references,
+)
 
-# A dotted module name, optionally followed by `:Name`: the only spelling a rename rewrites, so
-# prose, paths and URLs stay as they are.
-_DOTTED: Final = r"[^\W\d]\w*(?:\.[^\W\d]\w*)*(?::[^\W\d][\w.]*)?"
+
+@dataclass(frozen=True, slots=True)
+class Renamed:
+    """The compared revision under a recognised rename's new names (AD-105)."""
+
+    prefixes: tuple[tuple[str, str], ...]
+    contract: ArchitectureContract
+    violations: tuple[KnownViolation, ...]
+    budgets: tuple[MeasurementBudget, ...]
 
 
 def renamed(name: str, renames: Mapping[str, str]) -> str:
-    """`name` under the longest renamed prefix holding it; any other string stays as it is."""
-    if re.fullmatch(_DOTTED, name) is None:
-        return name
+    """`name` under the longest renamed prefix holding it, or `name` itself."""
     module, colon, symbol = name.partition(":")
     old = max((prefix for prefix in renames if in_scope(module, prefix)), key=len, default=None)
     if old is None:
@@ -66,17 +76,13 @@ def _mapping(pairs: Iterable[tuple[str, str]]) -> dict[str, str]:
     return mapping
 
 
-def _last(name: str) -> str:
-    return name.rsplit(".", 1)[-1]
-
-
 def _named(name: str, items: list[str]) -> list[str]:
     """The items whose last segment is `name`'s."""
-    return [item for item in items if _last(item) == _last(name)]
+    return [item for item in items if last_name(item) == last_name(name)]
 
 
 def _moved(old: tuple[str, ...], new: tuple[str, ...]) -> list[tuple[str, str]]:
-    """One component's moved packages paired: by a last segment only one on each side has,
+    """One component's moved packages paired by a last segment only one on each side has,
     since a package move keeps it, then the rest in their order."""
     gone = [item for item in old if item not in new]
     came = [item for item in new if item not in old]
@@ -122,11 +128,12 @@ def rename_holds(
 ) -> bool:
     """Whether `renames` renames the old side and leaves every relation between names as it was.
 
-    `names` are the dotted names the old contract and baseline hold, `modules` the modules the
-    scan reads now. A rule, package or entry scopes by prefix, so a name held another before
-    exactly when their new names hold each other: then the renamed contract states for each new
-    name what the old one stated for its old name. No scanned module may lie under an old prefix,
-    where the renamed contract no longer governs it, whatever its file is called (AD-105).
+    `names` are the module and symbol names the old contract and baseline hold, `modules` the
+    modules the scan reads now. A rule, package or entry scopes by prefix, so a name held another
+    before exactly when their new names hold each other: then the renamed contract states for
+    each new name what the old one stated for its old name. No scanned module may lie under an
+    old prefix, where the renamed contract no longer governs it, whatever its file is called
+    (AD-105).
     """
     olds = frozenset(_module(name) for name in names)
     news = {old: renamed(old, renames) for old in olds}
@@ -150,60 +157,80 @@ def _prefixes(module: str) -> list[str]:
     return [".".join(parts[:end]) for end in range(1, len(parts) + 1)]
 
 
-def _strings(value: RawJson) -> Iterable[str]:
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, list):
-        for item in value:
-            yield from _strings(item)
-    elif isinstance(value, dict):
-        for key in value:
-            yield from _strings(value[key])
-
-
-def _renamed_json(value: RawJson, renames: Mapping[str, str]) -> RawJson:
-    if isinstance(value, str):
-        return renamed(value, renames)
-    if isinstance(value, list):
-        return [_renamed_json(item, renames) for item in value]
-    if isinstance(value, dict):
-        return {key: _renamed_json(value[key], renames) for key in value}
-    return value
-
-
 def contract_names(contract: ArchitectureContract) -> frozenset[str]:
-    """Every dotted name the contract holds, in any field: what a rename must explain."""
+    """Every module and symbol name the contract holds: what a rename must explain."""
+    return frozenset(value for _, value in module_references(contract))
+
+
+def _labelled(contract: ArchitectureContract) -> frozenset[str]:
+    """The rules whose violations name component labels, not modules: component cycles."""
     return frozenset(
-        item
-        for item in _strings(json.loads(contract_bytes(contract)))
-        if re.fullmatch(_DOTTED, item)
+        rule.id
+        for rule in contract.rules
+        if isinstance(rule, NoComponentCyclesRule) and rule.level is None
     )
 
 
-def baseline_names(
-    violations: tuple[KnownViolation, ...], budgets: tuple[MeasurementBudget, ...]
+def _renamable(item: KnownViolation, labelled: frozenset[str]) -> bool:
+    return not frozenset(item.fingerprint.rules) <= labelled
+
+
+def _baseline_names(
+    violations: tuple[KnownViolation, ...],
+    budgets: tuple[MeasurementBudget, ...],
+    labelled: frozenset[str],
 ) -> frozenset[str]:
     """Every module or symbol name a validation baseline holds."""
+    held = [item for item in violations if _renamable(item, labelled)]
     return frozenset(
         {
-            *(subject for item in violations for subject in item.fingerprint.subjects),
-            *(name for item in violations for role in item.roles for name in role),
+            *(subject for item in held for subject in item.fingerprint.subjects),
+            *(name for item in held for role in item.roles for name in role),
             *(name for item in budgets for name in item.names),
         }
     )
 
 
+def _written(document: RawJson, parts: tuple[str, ...], value: str) -> RawJson:
+    """`document` with the string at the pointer `parts` replaced by `value`."""
+    if not parts:
+        return value
+    head, rest = parts[0], parts[1:]
+    if isinstance(document, list):
+        index = int(head)
+        return [*document[:index], _written(document[index], rest, value), *document[index + 1 :]]
+    if isinstance(document, dict):
+        return {**document, head: _written(document[head], rest, value)}
+    raise ValueError(f"the contract holds no field at /{'/'.join(parts)}")
+
+
 def renamed_contract(
     contract: ArchitectureContract, renames: Mapping[str, str]
 ) -> ArchitectureContract:
-    """`contract` with every dotted name in every field renamed, through its canonical JSON."""
-    return parse_contract(_renamed_json(json.loads(contract_bytes(contract)), renames))
+    """`contract` with each name `module_references` lists renamed, through its canonical JSON.
+
+    Raises ValueError when the renamed document is no valid contract.
+    """
+    document: RawJson = json.loads(contract_bytes(contract))
+    for pointer, value in module_references(contract):
+        if renamed(value, renames) != value:
+            document = _written(document, _parts(pointer), renamed(value, renames))
+    return parse_contract(document)
+
+
+def _parts(pointer: str) -> tuple[str, ...]:
+    return tuple(pointer.split("/")[1:])
 
 
 def renamed_baseline(
-    violations: tuple[KnownViolation, ...], renames: Mapping[str, str]
+    violations: tuple[KnownViolation, ...],
+    renames: Mapping[str, str],
+    labelled: frozenset[str] = frozenset(),
 ) -> tuple[KnownViolation, ...]:
-    """Known violations under the new names, their subjects sorted the way the analyzer does."""
+    """Known violations under the new names, their subjects sorted the way the analyzer does.
+
+    An entry of a `labelled` rule names component labels, which a rename leaves alone.
+    """
     return tuple(
         KnownViolation(
             ViolationFingerprint(
@@ -218,11 +245,13 @@ def renamed_baseline(
                 )
             ),
         )
+        if _renamable(item, labelled)
+        else item
         for item in violations
     )
 
 
-def renamed_budgets(
+def _renamed_budgets(
     budgets: tuple[MeasurementBudget, ...], renames: Mapping[str, str]
 ) -> tuple[MeasurementBudget, ...]:
     """Accepted facade and coupling names under the new names (AD-99)."""
@@ -230,3 +259,35 @@ def renamed_budgets(
         replace(item, names=tuple(sorted(renamed(name, renames) for name in item.names)))
         for item in budgets
     )
+
+
+def rename_since(
+    before: ArchitectureContract,
+    after: ArchitectureContract,
+    *,
+    violations: tuple[KnownViolation, ...],
+    budgets: tuple[MeasurementBudget, ...],
+    modules: frozenset[str],
+) -> Renamed | None:
+    """The compared revision renamed by the first candidate that holds, or None.
+
+    A candidate whose renamed contract the parser refuses, such as a `root_layout` child moved
+    one level down, is no rename: the comparison stays field by field, where an amendment can
+    accept the change.
+    """
+    labelled = _labelled(before)
+    names = contract_names(before) | _baseline_names(violations, budgets, labelled)
+    for candidate in rename_candidates(before, after):
+        if not rename_holds(candidate, names=names, modules=modules):
+            continue
+        try:
+            contract = renamed_contract(before, candidate)
+        except ValueError:
+            continue
+        return Renamed(
+            tuple(sorted((old, candidate[old]) for old in candidate)),
+            contract,
+            renamed_baseline(violations, candidate, labelled),
+            _renamed_budgets(budgets, candidate),
+        )
+    return None
