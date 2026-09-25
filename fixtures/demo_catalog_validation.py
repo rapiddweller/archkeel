@@ -608,6 +608,20 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         evidence="tests/test_cli.py",
     ),
     Variant(
+        id="validation-baseline-root-relative",
+        section="validation",
+        item="baseline.root_relative",
+        summary="The Dart app in mobile/ beside the shop sample, each with its own baseline: from "
+        "the repository root, validate --root mobile --baseline architecture-baseline.json reads "
+        "mobile's file and passes, where it read the root's as 1 new and 1 resolved violation. "
+        "The root-prefixed mobile/architecture-baseline.json names nothing and exits 2 naming both "
+        "paths; --amendment follows the same rule (AD-103, #149).",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_cli.py",
+    ),
+    Variant(
         id="validation-baseline-roles",
         section="validation",
         item="baseline.roles",
