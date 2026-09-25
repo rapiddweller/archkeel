@@ -133,6 +133,11 @@ _GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
 _MERMAID_FENCE = "```mermaid\n"
 _GRAPH_DECLARATION = re.compile(r"\s*(?:graph|flowchart)\b.*")
 _GRAPH_COMMENT = re.compile(r"\s*%%.*")
+# AD-106: the last failure of a refused --write-baseline, after every other line of the run.
+_WRITE_REFUSED = (
+    "--write-baseline refused: writing would accept the new or increased debt above; fix the "
+    "code, or add --accept-new once an architect has decided to accept it"
+)
 
 
 def _diagnostic(
@@ -1762,7 +1767,18 @@ def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
     return next((item.value for item in budgets if item.name == "calls_unresolved"), None)
 
 
-def _baseline_invalid(path: Path, error: Exception) -> RunResult:
+_BASELINE_WRITE = (
+    "Correct the baseline, or write it with archkeel validate --baseline <path> --write-baseline."
+)
+# AD-106: a write reads an existing file first, so advising one for an unreadable file loops.
+_BASELINE_CORRECT = (
+    "Correct the baseline file by hand; a write reads it first and stops on the same error."
+)
+# AD-103: a path outside the root is refused before any read or write.
+_BASELINE_INSIDE_ROOT = "Pass a --baseline path inside --root, relative to it or absolute."
+
+
+def _baseline_invalid(path: Path, error: Exception, remedy: str) -> RunResult:
     return RunResult(
         "validate",
         2,
@@ -1772,8 +1788,7 @@ def _baseline_invalid(path: Path, error: Exception) -> RunResult:
                 "",
                 str(path),
                 f"The validation baseline cannot be read: {error}",
-                "Correct the baseline, or write it with archkeel validate --baseline "
-                "<path> --write-baseline.",
+                remedy,
             ),
         ),
     )
@@ -2079,17 +2094,40 @@ def _artifact_files(
 
 
 def _baseline_at(root: Path, baseline: Path | None) -> str | None:
-    """`--baseline`'s repository-relative path, or None when it names no path under `root`.
-
-    A baseline outside the repository has no Git history to compare `--against` with, so its
-    widening is simply not checked.
-    """
+    """`--baseline`'s repository-relative path, or None without one; `_root_path` keeps it
+    under `root`, and any other path raises instead of leaving `--against` unchecked (AD-103)."""
     if baseline is None:
         return None
-    try:
-        return baseline.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return None
+    return baseline.resolve().relative_to(root.resolve()).as_posix()
+
+
+def _root_path(root: Path, path: Path) -> Path:
+    """`path` as validate reads and writes it: relative to `root`, or absolute, and resolved,
+    symlinks included, inside `root` (AD-103).
+
+    A relative `path` that, read from a working directory outside `root`, leads into it repeats
+    the root's own prefix (`--root mobile --baseline mobile/b.json`). While nothing exists at
+    the root-relative path, it is refused: never read or written one directory too deep.
+    """
+    repository: Path = root.resolve()
+    named: Path = repository / path
+    target: Path = named.resolve()
+    if repository not in target.parents:
+        raise ValueError(f"{path} resolves to {target}, outside the root {repository}")
+    # The working directory is already resolved, so it compares with `repository` directly.
+    cwd: Path = Path.cwd()
+    from_cwd: Path = path.resolve()
+    if (
+        not target.exists()
+        and from_cwd != target
+        and repository in from_cwd.parents
+        and repository not in (cwd, *cwd.parents)
+    ):
+        raise ValueError(
+            f"{path} is relative to --root {repository}: it names {target}, which does not "
+            f"exist, not {from_cwd}; pass {from_cwd.relative_to(repository).as_posix()}"
+        )
+    return target
 
 
 def run_validate(
@@ -2115,8 +2153,9 @@ def run_validate(
     AD-52/AD-77: with `baseline`, the violations that file already states are known debt, and
     only the difference is reported - as `failures` with exit 1. A missing baseline may be
     created with `write_baseline`; an existing one is compared before it is rewritten. New or
-    increased fingerprints refuse that rewrite unless `accept_new` is explicit. Resolved-only
-    drift may rewrite the file and shrinks the debt.
+    increased fingerprints refuse that rewrite unless `accept_new` is explicit, and the refused
+    run's last failure names `--accept-new` (AD-106). Resolved-only drift may rewrite the file
+    and shrinks the debt.
 
     AD-89: `declarations.measurement_budgets` selects deterministic scalar measurements whose
     accepted values share that baseline. A rise is new debt; a fall must rewrite the baseline.
@@ -2126,7 +2165,20 @@ def run_validate(
     every widening (ir.widening.contract_widenings, ir.widening.baseline_widenings) is a
     `failures` entry with exit 1 unless `amendment` binds exactly this before/after pair.
     `write_amendment` writes that binding instead of checking it.
+
+    AD-103: `baseline` and `amendment` are relative to `root`, like the contract, or absolute;
+    either way one that resolves outside `root` is refused, so no write can land outside it.
     """
+    if baseline is not None:
+        try:
+            baseline = _root_path(root, baseline)
+        except ValueError as error:
+            return _baseline_invalid(root / baseline, error, _BASELINE_INSIDE_ROOT), FilesToWrite()
+    if amendment is not None:
+        try:
+            amendment = _root_path(root, amendment)
+        except ValueError as error:
+            return _amendment_invalid(root / amendment, error), FilesToWrite()
     known: tuple[KnownViolation, ...] = ()
     known_budgets: tuple[MeasurementBudget, ...] = ()
     baseline_exists = baseline is not None and baseline.exists()
@@ -2136,7 +2188,8 @@ def run_validate(
             known = parsed_baseline.violations
             known_budgets = parsed_baseline.budgets
         except (OSError, ValueError) as error:
-            return _baseline_invalid(baseline, error), FilesToWrite()
+            remedy = _BASELINE_CORRECT if baseline_exists else _BASELINE_WRITE
+            return _baseline_invalid(baseline, error, remedy), FilesToWrite()
     parsed_contract = _parse_contract_or_invalid(root, config)
     if isinstance(parsed_contract, RunResult):
         return parsed_contract, FilesToWrite()
@@ -2152,6 +2205,7 @@ def run_validate(
         return _baseline_invalid(
             baseline,
             ValueError(f"measurement budget values are missing for: {missing}"),
+            _BASELINE_WRITE,
         ), FilesToWrite()
     against_ctx, against_error = _resolve_against_context(
         root, config, against, baseline, amendment, write_amendment, decided_by, rationale
@@ -2207,21 +2261,23 @@ def run_validate(
         if baseline_exists
         else (0, 0)
     )
-    comparison = (
-        compare_violations(known, violations, cycle_rules=cycle_rules) if baseline_exists else ()
+    budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
+    refused = (
+        write_baseline and baseline_exists and bool(baseline_new or budget_new) and not accept_new
     )
-    budget_comparison = (
-        compare_budgets(known_budgets, observed_budgets, against=against is not None)
+    comparison = (
+        compare_violations(known, violations, cycle_rules=cycle_rules, refused=refused)
         if baseline_exists
         else ()
     )
-    budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
-    baseline_failures = (
-        (*comparison, *budget_comparison)
-        if not write_baseline
-        or (baseline_exists and (baseline_new or budget_new) and not accept_new)
+    budget_comparison = (
+        compare_budgets(
+            known_budgets, observed_budgets, against=against is not None, refused=refused
+        )
+        if baseline_exists
         else ()
     )
+    baseline_failures = (*comparison, *budget_comparison) if not write_baseline or refused else ()
     interface_narrowings = tuple(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
@@ -2237,7 +2293,12 @@ def run_validate(
     result = _observed_result(
         observation,
         [*diagnostics, *budget_diagnostics],
-        (*baseline_failures, *interface_narrowings, *widening_failures),
+        (
+            *baseline_failures,
+            *interface_narrowings,
+            *widening_failures,
+            *((_WRITE_REFUSED,) if refused else ()),
+        ),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
         interface_budgets=budget_results or None,
@@ -2256,11 +2317,8 @@ def run_validate(
     ):
         changes, note = _unresolved_calls_since(root, config, analyzer, against, observation)
         result = replace(result, unresolved_call_changes=changes, unresolved_call_note=note)
-    write_baseline = write_baseline and (
-        not baseline_exists or not (baseline_new or budget_new) or accept_new
-    )
     files, artifact = _artifact_files(
-        write_baseline=write_baseline,
+        write_baseline=write_baseline and not refused,
         baseline=baseline,
         violations=violations,
         budgets=observed_budgets,

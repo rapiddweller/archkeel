@@ -4,10 +4,10 @@
 """AD-11 forbidden_dependency, allowed_dependency, external_dependency_scope,
 complete_assignment, no_component_cycles and closed_world/decision rows.
 
-`REPOSITORY_WITH_MONEY_IMPORT` and `SHOP_EXTRA` are public so `demo_catalog_showcase` can
-reuse this family's file content instead of duplicating it; `module_cycle_rule` and
-`MODEL_MODULE_CYCLE` are public so `demo_catalog_widening` and the AD-98 tests reuse the rule and
-the cycle this family shows failing.
+`REPOSITORY_WITH_MONEY_IMPORT` and `SHOP_EXTRA` are public so `demo_catalog_showcase` and
+`demo_catalog_validation` can reuse this family's file content instead of duplicating it;
+`module_cycle_rule` and `MODEL_MODULE_CYCLE` are public so `demo_catalog_widening` and the AD-98
+tests reuse the rule and the cycle this family shows failing.
 """
 
 from __future__ import annotations

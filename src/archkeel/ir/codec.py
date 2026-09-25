@@ -22,6 +22,8 @@ from archkeel.ir.baseline import (
     KnownViolation,
     ValidationBaseline,
     ViolationFingerprint,
+    canonical_fingerprint,
+    violation_name,
 )
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import (
@@ -1850,7 +1852,7 @@ def _known_violation(raw: RawJson, label: str, *, with_roles: bool) -> KnownViol
             raise ValueError(f"{label}.roles repeats a role")
         roles = tuple(sorted(parsed_roles))
     return KnownViolation(
-        ViolationFingerprint(
+        canonical_fingerprint(
             _strings(value["rules"], f"{label}.rules"),
             _strings(value["subjects"], f"{label}.subjects"),
         ),
@@ -1929,8 +1931,15 @@ def parse_validation_baseline(raw: object) -> ValidationBaseline:
         )
         for index, entry in enumerate(entries)
     )
-    if len({item.fingerprint for item in violations}) != len(violations):
-        raise ValueError("baseline.violations repeats a fingerprint; give it one count instead")
+    first: dict[ViolationFingerprint, int] = {}
+    for index, item in enumerate(violations):
+        if item.fingerprint in first:
+            raise ValueError(
+                f"baseline.violations[{index}] repeats baseline.violations"
+                f"[{first[item.fingerprint]}], {violation_name(item.fingerprint)} (subjects "
+                "match in any order); give it one count instead"
+            )
+        first[item.fingerprint] = index
     ordered = tuple(
         sorted(violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects))
     )

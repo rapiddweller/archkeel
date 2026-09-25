@@ -155,15 +155,17 @@ example violation.
 exactly one component; a module matched by two different components counts as unowned, while
 one component may list nested packages. The `source` module itself
 and blank files are exempt because they hold no code a component could own. A complete scan
-makes the result deterministic. A module whose first line is blank but contains code has no source
-excerpt, so its violation cannot be traced and the run reports UNKNOWN (exit 2) instead of FAIL.
-Adding `archkeel/extra.py` without a component package is an example violation.
+makes the result deterministic. A module fact cites its file: line 1 when that line holds text,
+otherwise the file itself as line 0, so a module whose first line is blank is still a traceable
+violation (AD-107). Adding `archkeel/extra.py` without a component package is an example
+violation.
 
 `root_layout` has `root` and an exact `allowed_children` list. Each allowed entry must be exactly
 one name segment below `root`; the root itself, nested descendants, and entries under another root
 are contract-invalid (exit 2). It checks each observed immediate package or module below `root`;
 the root module itself is ignored, and an allowed child that is not yet present is not a violation.
-An unexpected child is a normal baselineable violation.
+An unexpected child is a normal baselineable violation, the same one whether its `__init__.py`
+is empty or not: the file is the evidence (AD-107).
 Adding an allowed child widens the contract; removing one narrows it. Adding the restriction
 narrowing and removing it widening are enforced by `validate --against` (AD-86).
 
@@ -382,26 +384,31 @@ archkeel validate --baseline known-violations.json --write-baseline   # resolved
 archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
 ```
 
+The baseline path, like `--amendment`'s below, is relative to `--root`, as the contract is, or
+absolute; one that resolves outside the root is `baseline.invalid`, exit 2 (AD-103).
+
 Each entry names one violation by fingerprint — the rule ids it cites and its sorted `subjects`,
 which per rule kind are the modules, the construct owner or the members of a cycle — plus the
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
 A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
-alone. Baseline schema `1.3.0` also carries contract-selected measurement budgets, the accepted
-names of each facade and coupling budget, and may carry sorted `roles` objects (`source` and
-`target`) for directional violation rows; they explain every crossing and never change
-fingerprint identity. They are semantic evidence: `validate --against`
-rejects any role-only change unless an amendment accepts it.
-Multiple roles are retained. Rows without a resolved direction, including construct rows, omit
-`roles`. Schemas `1.0.0`, `1.1.0` and `1.2.0` remain readable. Counts must match the observation
-exactly: a higher one is a `new violation`, a lower one a `resolved violation`, both reported in
-`failures` with exit 1, so the budget only shrinks. An existing baseline is compared before a
-write: resolved-only drift may be written, while new or increased fingerprints refuse the write
-unless `--accept-new` is explicit. A run whose baseline is exactly right exits 0, with
-`declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
-`decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that cannot
-be read is `baseline.invalid`, exit 2. In JSON, `baseline_new` and `baseline_resolved` count
-fingerprints whose occurrence count rose or fell. Each changed fingerprint contributes one,
-not its occurrence-count delta. The file's shape is
+alone. Both lists are read in any order, so an entry whose subjects a text replace reordered still
+names its violation (AD-106). Baseline schema `1.3.0` also carries contract-selected measurement
+budgets, the accepted names of each facade and coupling budget, and may carry sorted `roles` objects
+(`source` and `target`) for directional violation rows; they explain every crossing and never change
+fingerprint identity. They are semantic evidence: `validate --against` rejects any role-only change
+unless an amendment accepts it. Multiple roles are retained. Rows without a resolved direction,
+including construct rows, omit `roles`. Schemas `1.0.0`, `1.1.0` and `1.2.0` remain readable. Counts
+must match the observation exactly: a higher one is a `new violation`, a lower one a `resolved
+violation`, both reported in `failures` with exit 1, so the budget only shrinks. An existing
+baseline is compared before a write: resolved-only drift may be written, while new or increased
+fingerprints refuse the write unless `--accept-new` is explicit. The refused run's last failure says
+so and names `--accept-new`, for after an architect's decision. A run whose baseline is exactly
+right exits 0, with `declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered
+this way: `decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that
+cannot be read is `baseline.invalid`, exit 2; an existing one is corrected by hand, since a write
+reads it first. In JSON, `baseline_new` and `baseline_resolved` count fingerprints whose occurrence
+count rose or fell. Each changed fingerprint contributes one, not its occurrence-count delta. The
+file's shape is
 [`schema/violation-baseline.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/violation-baseline.schema.json).
 
 ### Project gate
@@ -447,7 +454,8 @@ archkeel validate --against origin/main --amendment widening.json         # the 
 An amendment written for one change does not verify against a different one: its digests will
 not match. A contract the revision does not hold yet, a new scope's or a moved one's, is one
 widening, `contract introduced: <path> does not exist at <ref>`, amended the same way (AD-104).
-A missing or malformed `--amendment` file is `amendment.invalid`, and an `--against` revision,
+A missing or malformed `--amendment` file, or one outside the root, is
+`amendment.invalid`, and an `--against` revision,
 or a contract or baseline there that cannot be read, is `against.invalid`, both exit 2.
 `validate` without `--against` is unchanged. The file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json).

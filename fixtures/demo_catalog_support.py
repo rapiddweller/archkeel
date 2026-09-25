@@ -98,6 +98,8 @@ class Variant:
     expected_violations: tuple[str, ...]
     expected_codes: tuple[DiagnosticCode, ...]
     baseline: str | None = None
+    # The row runs `validate --baseline <baseline> --write-baseline`: what a refusal says (AD-106).
+    write_baseline: bool = False
     expected_kinds: tuple[DiagnosticKind, ...] = ()
     # (kind, subject) pairs a real run's `unknowns` records must contain (checked as a subset,
     # not full equality: dynamic_call_limit/context_alias_limit/boundary_type_limit fire on

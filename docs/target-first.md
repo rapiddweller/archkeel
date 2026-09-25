@@ -181,18 +181,23 @@ $ archkeel validate --baseline known-violations.json --write-baseline
 }
 ```
 
+The path is relative to `--root`, like the contract: a second code base in `mobile/`, run from
+the repository root, freezes its own debt with `archkeel validate --root mobile --baseline
+known-violations.json --write-baseline`, which writes `mobile/known-violations.json`. An absolute
+path inside the root works too; one outside it is `baseline.invalid`, exit 2 (AD-103).
+
 Review this file the way a diff of the contract itself is reviewed, and commit it. Counts must
 match the observation exactly: a higher one is a new violation, a lower one a violation someone
 already fixed, both failing the gate. When updating an existing file, `--write-baseline` compares
 first: resolved-only drift may be written, while new or increased fingerprints refuse the write
-unless `--accept-new` is explicit. A cycle that shrank inside a baselined cycle is not new: it is
-written like resolved drift (AD-98). Results expose deterministic `baseline_new` and
-`baseline_resolved` counts of changed fingerprints, not violation occurrences. One fingerprint
-contributes one even when its occurrence count changes by more than one. A budget allowed to
-*exceed* the code — "no more than N violations of this rule" — would be worse than exact
-counting: it lets a violation someone removed go unreported, the same way an unbounded margin
-hides a regression a stricter one would catch. Exactness is what makes shrinking the file part
-of the change that shrinks it, not a separate bookkeeping step (AD-52).
+unless `--accept-new` is explicit, and the refusal names that flag as the way on (AD-106). A
+cycle that shrank inside a baselined cycle is not new: it is written like resolved drift (AD-98).
+Results expose deterministic `baseline_new` and `baseline_resolved` counts of changed fingerprints,
+not violation occurrences. One fingerprint contributes one even when its occurrence count changes by
+more than one. A budget allowed to *exceed* the code — "no more than N violations of this rule" —
+would be worse than exact counting: it lets a violation someone removed go unreported, the same way
+an unbounded margin hides a regression a stricter one would catch. Exactness is what makes shrinking
+the file part of the change that shrinks it, not a separate bookkeeping step (AD-52).
 
 ## 4. Gate CI
 

@@ -75,6 +75,8 @@ demo-dart`.
 | clean | root_layout:nested-root | class-a-root-layout-nested-root | validate/report run | - | - | architecture-contract.json |
 | validation | root_layout:invalid-contract | validation-root-layout-invalid-child | validate/report run | - | contract.invalid | architecture-contract.json |
 | class_a | root_layout:unexpected-child | class-a-root-layout-violation | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/rogue.py |
+| class_a | root_layout:empty-initializer | class-a-root-layout-empty-package | validate/report run | ROOT-LAYOUT | rule.violated | shop/extra/__init__.py |
+| class_a | root_layout:blank-first-line | class-a-root-layout-blank-first-line | validate/report run | ASSIGNMENT-COMPLETE, ROOT-LAYOUT | rule.violated, rule.violated | shop/stray.py |
 | clean | test_scope:clean | test-scope-clean | validate/report --config archkeel-tests.toml run | - | - | clean sample |
 | class_a | symbol_placement:test-helper-outside-support | test-scope-helper-in-unit | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-REQUIRES-COMPLETE | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | tests/integration/test_place_order.py, tests/support/orders.py, tests/unit/orders.py, tests/unit/test_entities.py |
 | class_a | root_layout:test-helper-at-root | test-scope-helper-at-root | validate/report --config archkeel-tests.toml run | TESTS-ASSIGNMENT-COMPLETE, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-EXTERNAL-SHOP, TESTS-HELPERS-IN-SUPPORT, TESTS-ROOT-LAYOUT | graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | tests/integration/test_place_order.py, tests/orders.py, tests/support/orders.py, tests/unit/test_entities.py |
@@ -125,9 +127,12 @@ demo-dart`.
 | validation | budget.ratchet | validation-facade-budget-ratchet | validate/report run | - | - | architecture-baseline.json, architecture-contract.json, shop/model/entities.py |
 | validation | baseline.invalid | validation-baseline-invalid | tested only | - | - | tests/test_baseline.py |
 | validation | baseline.accept_new | validation-baseline-accept-new | tested only | - | - | tests/test_cli.py |
+| validation | baseline.root_relative | validation-baseline-root-relative | tested only | - | - | tests/test_cli.py |
 | validation | baseline.roles | validation-baseline-roles | tested only | - | - | tests/test_baseline.py |
 | validation | baseline.role_evidence | validation-baseline-role-evidence | tested only | - | - | tests/test_widening.py |
 | validation | baseline.interface_narrowing | validation-baseline-interface-narrowing | validate/report run | - | - | architecture-contract.json, known-violations.json |
+| validation | baseline.subject_order | validation-baseline-subject-order | validate/report run | DEP-STORE-NO-MONEY | - | architecture-baseline.json, shop/store/repository.py |
+| validation | baseline.refused | validation-baseline-refused | validate --write-baseline run | DEP-STORE-NO-MONEY | - | architecture-baseline.json, shop/store/repository.py |
 | validation | against.invalid | validation-against-invalid | tested only | - | - | tests/test_widening.py |
 | validation | amendment.invalid | validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
 | validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | shop/store/architecture-contract.json |
