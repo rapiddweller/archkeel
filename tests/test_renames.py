@@ -101,9 +101,19 @@ def test_a_resorted_package_list_pairs_by_the_last_segment_a_move_keeps() -> Non
         "wcm": "fsm",
         "wcm.f.kunde": "fsm.f.customer",
     }
+    reordered = _contract(_component("F", "fsm.f.auftrag", "fsm.f.customer"))
+    assert rename_candidates(before, reordered) == rename_candidates(before, after)
     assert (
         rename_candidates(before, _contract(_component("F", "wcm.f.kunde", "wcm.f.auftrag"))) == ()
     )
+
+
+def test_two_moved_packages_without_a_shared_last_segment_pair_in_neither_order() -> None:
+    """Review P2: pairing them by position would give each order its own substitution."""
+    before = _contract(_component("F", "a.p", "a.q"))
+
+    assert rename_candidates(before, _contract(_component("F", "b.r", "b.s"))) == ()
+    assert rename_candidates(before, _contract(_component("F", "b.s", "b.r"))) == ()
 
 
 def test_disagreeing_moves_fall_back_to_the_packages_themselves() -> None:

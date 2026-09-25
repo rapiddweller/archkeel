@@ -83,7 +83,7 @@ def _named(name: str, items: list[str]) -> list[str]:
 
 def _moved(old: tuple[str, ...], new: tuple[str, ...]) -> list[tuple[str, str]]:
     """One component's moved packages paired by a last segment only one on each side has,
-    since a package move keeps it, then the rest in their order."""
+    since a package move keeps it; a single package left on each side pairs too."""
     gone = [item for item in old if item not in new]
     came = [item for item in new if item not in old]
     if len(gone) != len(came):
@@ -94,12 +94,10 @@ def _moved(old: tuple[str, ...], new: tuple[str, ...]) -> list[tuple[str, str]]:
         if len(_named(item, came)) == 1 and len(_named(item, gone)) == 1
     }
     taken = set(by_name.values())
-    rest = zip(
-        [item for item in gone if item not in by_name],
-        [item for item in came if item not in taken],
-        strict=True,
-    )
-    return [*by_name.items(), *rest]
+    left = [item for item in gone if item not in by_name]
+    arrived = [item for item in came if item not in taken]
+    single = [(left[0], arrived[0])] if len(left) == len(arrived) == 1 else []
+    return [*by_name.items(), *single]
 
 
 def rename_candidates(
