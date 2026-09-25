@@ -236,6 +236,41 @@ h3 {
 .report-section {
   margin-top: 48px;
 }
+.report-scope {
+  margin-top: var(--ck-space-5);
+  padding: var(--ck-space-4);
+  border-left: 3px solid var(--ck-info);
+  background: var(--ck-surface);
+}
+.report-evidence:not(.report-section) {
+  margin-top: var(--ck-space-4);
+}
+.report-evidence > summary,
+.connection-row > summary {
+  padding: var(--ck-space-3) var(--ck-space-4);
+  border: 1px solid var(--ck-border);
+  background: var(--ck-surface);
+  cursor: pointer;
+}
+.report-evidence > .table-wrap,
+.report-evidence > .connection-list {
+  margin-top: var(--ck-space-3);
+}
+.connection-row > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ck-space-3);
+}
+.connection-row > summary span {
+  flex: none;
+  color: var(--ck-muted);
+}
+.connection-row ul {
+  margin: 0;
+  padding: var(--ck-space-3) var(--ck-space-4) var(--ck-space-3) var(--ck-space-6);
+  border: 1px solid var(--ck-border);
+  overflow-wrap: anywhere;
+}
 .violation-focus {
   display: flex;
   flex-wrap: wrap;
@@ -523,9 +558,21 @@ code {
 .flow-item-list button[aria-pressed="true"] {
   background: var(--ck-surface-raised);
 }
+.flow-item-list button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .flow-item-list small {
   flex: none;
   color: var(--ck-muted);
+}
+.flow-alternative details,
+.flow-names {
+  margin-top: var(--ck-space-4);
+}
+.flow-alternative details > summary,
+.flow-names > summary {
+  cursor: pointer;
 }
 .flow-matrix-wrap {
   overflow-x: auto;
@@ -901,6 +948,9 @@ code {
   .diagnostic,
   .flow-layout {
     grid-template-columns: 1fr;
+  }
+  .flow-item-list button {
+    flex-direction: column;
   }
 }
 @media print {

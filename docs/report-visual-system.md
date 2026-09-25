@@ -140,9 +140,14 @@ unless the check has already classified them as a failure.
 ### Component flow
 
 - One observation feeds three views at the same breadcrumb level: focused UML diagram to explain
-  interfaces, physical structure map to find modules, and dependency matrix to review imports.
+  interfaces, physical structure map to find modules, and a connection-first review queue.
   The diagram keeps all violated edges visible outside its five heaviest direct connections.
-  The matrix shows up to twelve high-traffic entries; every connection remains in its full list.
+  Review shows every violated or undecided connection before the busiest conforming ones;
+  the matrix is optional and shows up to twelve high-traffic entries.
+- Never infer a symbol kind from a missing definition. A whole-module import is `module`, a star
+  import is `star import`, and an unresolved named import is `unknown`, not `constant`.
+- Long lists of imported names and facade measurements use native disclosure controls. The
+  summary keeps counts visible and the complete evidence accessible without JavaScript.
 - Level 2 uses UML component boxes. A circle marks a declared provided interface; a socket
   marks declared `requires`. Only a conforming observed edge with `through` gets an assembly
   marker. An unrestricted or undecided edge must not imply a specific interface connection.

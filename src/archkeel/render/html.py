@@ -149,13 +149,15 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
     rows = "".join(_record_row(item, observation) for item in items)
     return f"""
     <section class="report-section">
-      <h2>{_text(title)}</h2>
+      <h2>{_text(title)} · {len(items)}</h2>
+      <p>Recorded analysis limits, not declared-rule violations.</p>
+      <details class="report-evidence"><summary>Inspect all {len(items)} records</summary>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Fingerprint</th><th>Finding</th><th>Subjects</th><th>Evidence</th></tr></thead>
           <tbody>{rows}</tbody>
         </table>
-      </div>
+      </div></details>
     </section>"""
 
 
@@ -225,13 +227,12 @@ def _interface_name_line(item: InterfaceName) -> str:
 
 
 def _interface_edge_row(edge: InterfaceEdge) -> str:
-    names = "<br>".join(_interface_name_line(item) for item in edge.names)
+    names = "".join(f"<li>{_interface_name_line(item)}</li>" for item in edge.names)
     return (
-        "<tr>"
-        f"<td><code>{_text(edge.source)} → {_text(edge.target)}</code></td>"
-        f'<td class="numeric">{len(edge.names)}</td>'
-        f"<td>{names}</td>"
-        "</tr>"
+        '<details class="connection-row">'
+        f"<summary><code>{_text(edge.source)} → {_text(edge.target)}</code>"
+        f"<span>{len(edge.names)} imported names</span></summary>"
+        f"<ul>{names}</ul></details>"
     )
 
 
@@ -242,11 +243,15 @@ def _interfaces_section(observation: Observation) -> str:
     else:
         rows = "".join(_interface_edge_row(edge) for edge in edges)
         body = (
-            '<div class="table-wrap"><table><thead><tr><th>Edge</th>'
-            '<th class="numeric">Names</th><th>Interface</th></tr></thead>'
-            f"<tbody>{rows}</tbody></table></div>"
+            f'<details class="report-evidence"><summary>All {len(edges)} component pairs · '
+            f"{sum(len(edge.names) for edge in edges)} imported names</summary>"
+            f'<div class="connection-list">{rows}</div></details>'
         )
-    return f'<section class="report-section"><h2>Component communication</h2>{body}</section>'
+    return (
+        '<section class="report-section"><h2>Cross-component imports</h2>'
+        "<p>Observed imports, not runtime calls or proof of a declared public interface.</p>"
+        f"{body}</section>"
+    )
 
 
 def _interface_profile_section(observation: Observation) -> str:
@@ -285,23 +290,24 @@ def _interface_profile_section(observation: Observation) -> str:
     )
     return f"""
     <section class="report-section">
-      <h2>Declared facade measurements</h2>
+      <h2>Public API measurements</h2>
       <p>Observed from declared facades and imports: exported-name count, re-exports, names
       defined in the facade, unused re-exports, consumers per exported name and coupling width.
       They do not claim a barrel is complete (AD-88); <code>validate</code> holds declared
       facade and coupling budgets to them (AD-99).</p>
-      <h3>Facades</h3>
+      <details class="report-evidence"><summary>Facades · {len(profile.facades)}</summary>
       <div class="table-wrap"><table><thead><tr><th>Component</th><th>Module</th>
       <th class="numeric">Exports</th><th class="numeric">Re-exports</th><th>Defined</th>
-      <th>Unused re-exports</th></tr></thead><tbody>{facade_rows}</tbody></table></div>
-      <h3>Export consumers</h3>
+      <th>Unused re-exports</th></tr></thead><tbody>{facade_rows}</tbody></table></div></details>
+      <details class="report-evidence"><summary>Export consumers · {len(profile.exports)}</summary>
       <div class="table-wrap"><table><thead><tr><th>Component</th><th>Export</th>
       <th class="numeric">Consumers</th><th>Components</th></tr></thead>
-      <tbody>{usage_rows}</tbody></table></div>
-      <h3>Coupling width</h3>
+      <tbody>{usage_rows}</tbody></table></div></details>
+      <details class="report-evidence">
+      <summary>Coupling width · {len(profile.coupling)} pairs</summary>
       <div class="table-wrap"><table><thead><tr><th>Component pair</th>
       <th class="numeric">Distinct names</th><th>Names</th></tr></thead>
-      <tbody>{coupling_rows}</tbody></table></div>
+      <tbody>{coupling_rows}</tbody></table></div></details>
     </section>
     """
 
@@ -593,7 +599,8 @@ _FLOW_GUIDE = """
         Folders are not declared architectural boundaries. Open a module for level 4 symbols.
         Use the breadcrumb to go back. Hover or select a connection for its evidence. Level 1,
         interfaces between repositories, is unavailable because this observation contains
-        no cross-repository interface contract. The table below works without JavaScript.</p>
+        no cross-repository interface contract. The import evidence below works without
+        JavaScript.</p>
       </details>
 """
 
@@ -911,6 +918,16 @@ def render_html(
         if architecture_href is not None
         else "Canonical architecture.json is unavailable."
     )
+    scope_note = (
+        '<p class="report-scope"><strong>One repository snapshot.</strong> This report checks '
+        "declared rules, not change against an earlier revision or runtime behavior. "
+        f"{len(unknowns or ())} recorded analysis limits; "
+        f"{observation.coverage.calls_unresolved} of "
+        f"{observation.coverage.calls_analyzed} calls unresolved. "
+        "These counts are not declared-rule violations.</p>"
+        if observation is not None and not focused
+        else ""
+    )
     content = f"""
     <section class="report-heading">
       <span class="eyebrow">Repository observation</span>
@@ -931,6 +948,7 @@ def render_html(
       <h2 id="verdicts-heading">Independent verdicts</h2>
       <div class="verdict-grid">{verdicts}</div>
     </section>
+    {scope_note}
     <section class="report-section">
       <h2>Check evidence</h2>
       <h3>Failures</h3><ul class="failure-list">{failures}</ul>
@@ -942,12 +960,14 @@ def render_html(
     <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>
     {unknowns_html}
     {migration_work_html}
-    <div id="report-secondary-detail" data-secondary-detail>
+    <details id="report-secondary-detail" data-secondary-detail
+             class="report-section report-evidence">
+      <summary>More measurements and review claims</summary>
       <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
       <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
       {structure_html}
       {claims_html}
-    </div>
+    </details>
     <section class="report-section">
       <h2>Complete ArchitectureIR inventory</h2>
       <p>{raw_link}. The JSON remains the source for complete records and evidence.</p>

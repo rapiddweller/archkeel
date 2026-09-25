@@ -771,6 +771,7 @@
   }
 
   function renderReview(view) {
+    const display = new Map(view.components.map((card) => [card.label, card.display || card.label]));
     const scores = new Map(view.components.map((card) => [card.label, 0]));
     view.edges.forEach((edge) => {
       scores.set(edge.source, (scores.get(edge.source) || 0) + edge.import_sites);
@@ -790,27 +791,38 @@
         aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}">
         ${edge.import_sites}</button></td>`;
     }).join("")}</tr>`).join("");
+    const urgency = { violation: 0, undecided: 1, conforms: 2, observed: 2 };
     const ordered = [...view.edges].sort((a, b) =>
-      (b.state === "violation") - (a.state === "violation") ||
+      (urgency[a.state] ?? 3) - (urgency[b.state] ?? 3) ||
       b.import_sites - a.import_sites || edgeKey(a).localeCompare(edgeKey(b)));
-    const edgeButtons = ordered.map((edge) => `<button type="button" data-flow-edge="${esc(edgeKey(edge))}"
-      aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}">
-      <span>${esc(edge.source)} → ${esc(edge.target)}${edge.rule_ids.length ? ` · ${esc(edge.rule_ids.join(", "))}` : ""}</span>
-      <small>${edge.import_sites} sites · ${esc(edge.state)}</small></button>`).join("");
+    const flagged = ordered.filter((edge) => edge.state === "violation" || edge.state === "undecided");
+    const priority = [
+      ...flagged,
+      ...ordered.filter((edge) => !flagged.includes(edge)).slice(0, Math.max(0, 12 - flagged.length)),
+    ];
+    const remaining = ordered.filter((edge) => !priority.includes(edge));
+    const edgeButton = (edge) => `<button type="button" data-flow-edge="${esc(edgeKey(edge))}"
+      aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}"
+      title="${esc(edge.source)} → ${esc(edge.target)}">
+      <span>${esc(display.get(edge.source) || edge.source)} → ${esc(display.get(edge.target) || edge.target)}${edge.rule_ids.length ? ` · ${esc(edge.rule_ids.join(", "))}` : ""}</span>
+      <small>${edge.import_sites} import sites${edge.names?.length ? ` · ${edge.names.length} names` : ""} · ${esc(edge.state)}</small></button>`;
     const broken = view.edges.filter((edge) => edge.state === "violation").length;
     const undecided = view.edges.filter((edge) => edge.state === "undecided").length;
     const nodeButtons = cards.map((card) => `<button type="button" data-flow-card="${esc(card.label)}">
       <span>${esc(card.display || card.label)}</span><small>${card.folder ? "package" : card.library ? "library" : "open"}</small>
       </button>`).join("");
-    alternative.innerHTML = `<p>Row uses column. Numbers count observed import sites;
-      · means no connection was recorded. ${view.edges.length} connections,
-      ${broken} broken, ${undecided} undecided at this level.</p>
-      ${shown.length ? `<div class="flow-matrix-wrap"><table class="flow-matrix"><thead>
-        <tr><th scope="col">uses →</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
-        : "<p>No components or modules recorded at this level.</p>"}
-      <p>${shown.length} of ${cards.length} entries in the matrix. All connections remain below.</p>
-      <details><summary>All ${view.edges.length} connections</summary>
-        <div class="flow-item-list">${edgeButtons || "<p>No observed connections.</p>"}</div></details>
+    alternative.innerHTML = `<p>${view.edges.length} observed connections at this level:
+      ${broken} break declared rules, ${undecided} need a decision. A clear rule check does not
+      establish that the public API is well designed.</p>
+      <h3>Connections to inspect</h3>
+      <div class="flow-item-list">${priority.map(edgeButton).join("") || "<p>No observed connections.</p>"}</div>
+      ${remaining.length ? `<details><summary>Other connections · ${remaining.length}</summary>
+        <div class="flow-item-list">${remaining.map(edgeButton).join("")}</div></details>` : ""}
+      <details class="flow-review-matrix"><summary>Dependency matrix · ${shown.length} of ${cards.length} entries</summary>
+        <p>Row imports from column. Numbers count import sites; · means no observed connection.</p>
+        ${shown.length ? `<div class="flow-matrix-wrap"><table class="flow-matrix"><thead>
+          <tr><th scope="col">uses →</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
+          : "<p>No components or modules recorded at this level.</p>"}</details>
       <details><summary>Open an entry</summary><div class="flow-item-list">${nodeButtons}</div></details>`;
   }
 
@@ -877,7 +889,7 @@
     }
     if (viewMode === "review") {
       return `<div class="kicker">Review</div><h2>${esc(opened?.module || opened?.component || "Repository")}</h2>
-        <p>Select a matrix cell for its rule and import evidence. Open an entry to inspect a smaller scope.
+        <p>Select a connection for its rule and import evidence. Open an entry to inspect a smaller scope.
         Missing observations are not a pass.</p>${statBlock()}`;
     }
     if (opened && opened.module) {
@@ -993,6 +1005,9 @@
       showOverview();
       return;
     }
+    const display = new Map(level().components.map((card) => [card.label, card.display || card.label]));
+    const sourceName = display.get(edge.source) || edge.source;
+    const targetName = display.get(edge.target) || edge.target;
     const grouped = groupBy(edge.names, (n) => n.name.split(":")[0]);
     const names = [...grouped.entries()]
       .map(
@@ -1007,8 +1022,9 @@
             .join("")}</ul></div>`,
       )
       .join("");
-    inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(edge.source)} → ${esc(edge.target)}</h2>
-      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>Import sites</dt><dd>${edge.import_sites}</dd>${edge.library ? "" : `<dt>Interface names</dt><dd>${edge.names.length}</dd>`}</dl>
+    inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(sourceName)} → ${esc(targetName)}</h2>
+      ${sourceName === edge.source && targetName === edge.target ? "" : `<details><summary>Exact names</summary><p><code>${esc(edge.source)}</code> → <code>${esc(edge.target)}</code></p></details>`}
+      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>Import sites</dt><dd>${edge.import_sites}</dd>${edge.library || !edge.names.length ? "" : `<dt>Imported names</dt><dd>${edge.names.length}</dd>`}</dl>
       ${edge.library ? `<p>External library scope ${esc(edge.scope.rule_id)}: ${esc(edge.scope.rationale || "No rationale recorded.")}${edge.scope.decided_by ? ` (${esc(edge.scope.decided_by)})` : ""}.</p>` : ""}
       ${edge.requirement && edge.requirement.component ? `<p>Declared dependency: ${edge.requirement.through && edge.requirement.through.length ? `through <code>${edge.requirement.through.map(esc).join(", ")}</code>` : "interface not narrowed"}${edge.requirement.rationale ? ` — ${esc(edge.requirement.rationale)}` : ""}${edge.requirement.decided_by ? ` (${esc(edge.requirement.decided_by)})` : ""}.</p>` : ""}
       ${(edge.sites || []).length ? `<h3>Example import sites</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
@@ -1017,7 +1033,7 @@
           ? `<h3>Broken rules</h3><ul class="plain">${edge.rule_ids.map((r) => { const rule = (DATA.rules || {})[r] || {}; return `<li class="violation-card"><code>${esc(r)}</code>${rule.rationale ? ` — ${esc(rule.rationale)}` : ""}${rule.decided_by ? ` (${esc(rule.decided_by)})` : ""}</li>`; }).join("")}</ul>`
           : ""
       }
-      ${edge.names.length ? `<h3>Names used across the boundary</h3>${names}` : ""}`;
+      ${edge.names.length ? `<details class="flow-names"><summary>Imported names · ${edge.names.length}</summary>${names}</details>` : ""}`;
   }
 
   function legendSwatch(state) {
@@ -1288,7 +1304,9 @@
     const edgeButton = event.target.closest("[data-flow-edge]");
     if (edgeButton) {
       selected = { type: "edge", key: edgeButton.dataset.flowEdge };
-      render();
+      alternative.querySelectorAll("[data-flow-edge]").forEach((button) =>
+        button.setAttribute("aria-pressed", String(button.dataset.flowEdge === selected.key)));
+      renderInspector(level().edges);
     }
   });
   document.addEventListener("keydown", (event) => {

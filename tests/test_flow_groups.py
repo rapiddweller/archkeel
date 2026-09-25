@@ -92,3 +92,44 @@ assert.equal(focusLevel(view, "missing"), view);
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_review_queue_shows_all_flagged_connections_before_busy_clean_ones() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function renderReview(");
+const end = text.indexOf("  function renderAlternative(", begin);
+assert(begin >= 0 && end > begin);
+const alternative = {innerHTML: ""};
+const edgeKey = edge => `${edge.source}>${edge.target}`;
+const renderReview = new Function("alternative", "selected", "edgeKey", "esc",
+  text.slice(begin, end) + ";return renderReview")(
+    alternative, null, edgeKey, value => String(value));
+const components = Array.from({length: 16}, (_, index) => ({
+  label: `pkg.mod.${index}`, display: `m${index}`,
+}));
+const edges = components.slice(1).map((target, index) => ({
+  source: components[0].label, target: target.label,
+  import_sites: index < 13 ? 1 : 200,
+  state: index < 12 ? "violation" : index === 12 ? "undecided" : "conforms",
+  rule_ids: [], names: [],
+}));
+renderReview({components, edges});
+const firstList = alternative.innerHTML.split("<details><summary>Other connections")[0];
+assert.equal((firstList.match(/data-flow-edge=/g) || []).length, 13);
+assert(firstList.includes("m0 → m1"));
+assert(firstList.includes("m0 → m13"));
+assert(!firstList.includes("m0 → m14"));
+assert(alternative.innerHTML.includes("Other connections · 2"));
+assert(alternative.innerHTML.includes("Dependency matrix · 12 of 16 entries"));
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
