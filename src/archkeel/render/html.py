@@ -118,7 +118,8 @@ def _record_row(item: Record, observation: Observation) -> str:
     if item.evidence_ids:
         source = evidence.get(item.evidence_ids[0])
         if source is not None:
-            location = f"{source.file}:{source.line}"
+            # AD-107: line 0 cites the whole file, which has no line to name.
+            location = f"{source.file}:{source.line}" if source.line else source.file
     subjects = " · ".join(item.subjects)
     return (
         "<tr>"

@@ -88,4 +88,8 @@ def _valid_source_evidence(value: Evidence | None) -> bool:
         or ".." in Path(value.file).parts
     ):
         return False
+    # AD-107: line 0 cites the file itself, which a module's existence rests on even when the
+    # file is empty; a cited line must show its text.
+    if value.line == 0:
+        return (value.end_line, value.column, value.excerpt) == (0, 0, "")
     return value.line > 0 and bool(value.excerpt)
