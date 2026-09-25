@@ -72,7 +72,7 @@ from archkeel.ir.model import (
     text_value,
 )
 from archkeel.ir.profiles import PROFILES
-from archkeel.ir.renames import Renamed, observed_names, rename_since
+from archkeel.ir.renames import Renamed, module_layouts, observed_names, renames_since
 from archkeel.ir.widening import (
     Amendment,
     baseline_widenings,
@@ -1896,18 +1896,48 @@ def _cycle_rule_ids(contract: ArchitectureContract) -> frozenset[str]:
 
 
 def _rename_since(
-    ctx: _AgainstContext, contract: ArchitectureContract, observation: Observation
+    ctx: _AgainstContext,
+    contract: ArchitectureContract,
+    observation: Observation,
+    root: Path,
+    roots: tuple[str, ...],
 ) -> Renamed | None:
     """AD-105: the compared revision under the package rename to `contract`, if one holds."""
     if ctx.contract is None:
         return None
-    return rename_since(
+    recognised = renames_since(
         ctx.contract,
         contract,
         violations=ctx.baseline,
         budgets=ctx.budgets,
         observed=observed_names(observation),
+        layouts=module_layouts(observation),
     )
+    return next(
+        (
+            item
+            for item in recognised
+            if not any(_unread(root, roots, directory) for directory in item.directories)
+        ),
+        None,
+    )
+
+
+def _unread(root: Path, roots: tuple[str, ...], directory: str) -> bool:
+    """AD-105: whether a file at or below `directory`, or beside it as `directory.*`, lies outside
+    every scan root, where code left under an old name would go unread and ungoverned."""
+    base: Path = root / directory
+    parent: Path = base.parent
+    files = [base, *base.rglob("*"), *parent.glob(f"{base.name}.*")]
+    return any(_unread_file(root, roots, path) for path in files)
+
+
+def _unread_file(root: Path, roots: tuple[str, ...], path: Path) -> bool:
+    if not path.is_file():
+        return False
+    relative: Path = path.relative_to(root)
+    posix: str = relative.as_posix()
+    return not any(item in (".", posix) or posix.startswith(f"{item}/") for item in roots)
 
 
 def _widening_failures(
@@ -1926,7 +1956,7 @@ def _widening_failures(
     """
     if ctx.against is None or ctx.contract is None:
         return ()
-    before = rename or Renamed((), ctx.contract, ctx.baseline, ctx.budgets)
+    before = rename or Renamed((), ctx.contract, ctx.baseline, ctx.budgets, ())
     findings = list(contract_widenings(before.contract, contract))
     if baseline is not None:
         findings += list(
@@ -2146,7 +2176,7 @@ def run_validate(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
     )
-    rename = _rename_since(against_ctx, contract, observation)
+    rename = _rename_since(against_ctx, contract, observation, root, config.roots)
     widening_failures = _widening_failures(
         against_ctx,
         contract,

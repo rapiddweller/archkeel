@@ -31,10 +31,10 @@ from archkeel.ir.renames import (
     contract_names,
     rename_candidates,
     rename_holds,
-    rename_since,
     renamed,
     renamed_baseline,
     renamed_contract,
+    renames_since,
 )
 from archkeel.ir.widening import contract_widenings
 from archkeel.render.summary import report_summary
@@ -43,6 +43,8 @@ from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_i
 from fixtures.demo_catalog_widening import renamed_render
 
 _RENDER = {"shop.render": "shop.view"}
+# The shop sample's layout: module `shop.view.text` is file `shop/view/text.py`.
+_FLAT = frozenset({("", "")})
 _SHOP = (FIXTURE_DIR / "architecture-contract.json").read_text()
 _DART = (DART_FIXTURE_DIR / "architecture-contract.json").read_text()
 _LEFT_BEHIND = (
@@ -215,6 +217,18 @@ def test_a_candidate_that_turns_nesting_inside_out_is_no_rename() -> None:
     assert not rename_holds(candidate, names=names, observed=frozenset({"q.r.c.m", "q.r.s.w.m"}))
 
 
+def test_a_rename_places_its_old_prefixes_where_the_layout_reads_them() -> None:
+    before = _shop_contract(_SHOP)
+    after = _shop_contract(_SHOP.replace('"shop.render', '"shop.view'))
+    common = {"violations": (), "budgets": (), "observed": frozenset({"shop.view.text"})}
+
+    (flat, *_) = renames_since(before, after, **common, layouts=_FLAT)
+    (source,) = renames_since(before, after, **common, layouts=frozenset({("", "src")}))
+
+    assert flat.directories == ("shop/render",)
+    assert source.directories == ("src/shop/render",)
+
+
 def test_the_renamed_contract_equals_the_one_renamed_by_hand() -> None:
     before = _shop_contract((FIXTURE_DIR / "architecture-contract.json").read_text())
     after_text = renamed_render()["architecture-contract.json"]
@@ -235,11 +249,15 @@ def test_a_rename_leaves_every_value_that_names_no_module_alone() -> None:
     before = _shop_contract(before_text)
     after = _shop_contract(_moved_root(before_text, "agent", "architect"))
 
-    moved = rename_since(
-        before, after, violations=(), budgets=(), observed=frozenset({"architect.model.entities"})
+    (moved, *_) = renames_since(
+        before,
+        after,
+        violations=(),
+        budgets=(),
+        observed=frozenset({"architect.model.entities"}),
+        layouts=_FLAT,
     )
 
-    assert moved is not None
     assert moved.prefixes == (("agent", "architect"),)
     findings = contract_widenings(moved.contract, after)
     assert "component 'model'.decided_by changed from 'agent' to 'architect'" in findings
@@ -274,13 +292,30 @@ def test_a_package_named_like_a_label_is_renamed_without_the_label() -> None:
     )
     before, after = _shop_contract(before_text), _shop_contract(after_text)
 
-    moved = rename_since(
-        before, after, violations=(), budgets=(), observed=frozenset({"field_app.main"})
+    (moved, *_) = renames_since(
+        before,
+        after,
+        violations=(),
+        budgets=(),
+        observed=frozenset({"field_app.main"}),
+        layouts=frozenset({("field_app", "lib")}),
     )
 
-    assert moved is not None
     assert moved.prefixes == (("app", "field_app"),)
     assert contract_widenings(moved.contract, after) == ()
+    # The package renamed in its pubspec reads its old names from the same `lib`.
+    assert moved.directories == ("lib",)
+    assert (
+        renames_since(
+            before,
+            after,
+            violations=(),
+            budgets=(),
+            observed=frozenset({"field_app.main"}),
+            layouts=frozenset({("other", "lib")}),
+        )
+        == ()
+    )
 
 
 def test_a_root_renamed_like_a_label_is_a_rename_with_its_label_cycle_entries() -> None:
@@ -289,11 +324,15 @@ def test_a_root_renamed_like_a_label_is_a_rename_with_its_label_cycle_entries() 
     before = _shop_contract(_SHOP)
     after = _shop_contract(_moved_root(_SHOP, "shop", "app"))
 
-    moved = rename_since(
-        before, after, violations=(cycle,), budgets=(), observed=frozenset({"app.model.entities"})
+    (moved, *_) = renames_since(
+        before,
+        after,
+        violations=(cycle,),
+        budgets=(),
+        observed=frozenset({"app.model.entities"}),
+        layouts=_FLAT,
     )
 
-    assert moved is not None
     assert moved.prefixes == (("shop", "app"),)
     assert moved.violations == (cycle,)
     assert contract_widenings(moved.contract, after) == (
@@ -424,6 +463,36 @@ def test_an_import_of_the_copy_left_outside_narrowed_roots_is_no_rename(tmp_path
     result, _ = run_validate(root, config, observe, against=base)
 
     assert (result.exit_code, result.renames) == (1, ())
+
+
+_NARROWED = ("shop/app", "shop/cli", "shop/model", "shop/store", "shop/view")
+
+
+def test_a_copy_left_outside_narrowed_roots_is_no_rename(tmp_path: Path) -> None:
+    """QA j2: nothing imports the copy; it is left where the narrowed roots no longer read."""
+    root = _prepare_repo(tmp_path, {})
+    base = _git(root, "rev-parse", "HEAD")
+    shutil.copytree(root / "shop/render", root / "shop/view")
+    overlay = renamed_render()
+    del overlay["shop/render/text.py"], overlay["shop/view/text.py"]
+    apply_overlay(root, overlay)
+
+    result, _ = run_validate(root, replace(SHOP_CONFIG, roots=_NARROWED), observe, against=base)
+
+    assert (result.exit_code, result.renames) == (1, ())
+
+
+def test_a_move_with_narrowed_roots_is_still_a_rename(tmp_path: Path) -> None:
+    """QA j3: the same roots with the package really moved leave nothing behind to read."""
+    root = _prepare_repo(tmp_path, {})
+    base = _git(root, "rev-parse", "HEAD")
+    apply_overlay(root, renamed_render())
+    (root / "shop/render").rmdir()
+
+    result, _ = run_validate(root, replace(SHOP_CONFIG, roots=_NARROWED), observe, against=base)
+
+    assert (result.exit_code, result.failures) == (0, ())
+    assert result.renames == (("shop.render", "shop.view"),)
 
 
 def test_a_rename_the_old_contract_cannot_parse_under_stays_amendable(tmp_path: Path) -> None:

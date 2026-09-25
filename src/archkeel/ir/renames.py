@@ -40,6 +40,9 @@ class Renamed:
     contract: ArchitectureContract
     violations: tuple[KnownViolation, ...]
     budgets: tuple[MeasurementBudget, ...]
+    # Where the scan's layout places the old prefixes' modules: a file there the scan does not
+    # read, such as a copy outside narrowed roots, stops the rename.
+    directories: tuple[str, ...]
 
 
 def renamed(name: str, renames: Mapping[str, str]) -> str:
@@ -171,6 +174,66 @@ def observed_names(observation: Observation) -> frozenset[str]:
     return frozenset(modules | imported) - {""}
 
 
+def module_layouts(observation: Observation) -> frozenset[tuple[str, str]]:
+    """Each module base and the directory the scan reads its modules from.
+
+    A module's name and its file share their last segments; what precedes them is the pair:
+    `shop.view.text` from `shop/view/text.py` is base "" in "", the Dart `app.ui.page` from
+    `lib/ui/page.dart` base `app` in `lib`.
+    """
+    return frozenset(
+        _layout(module, file)
+        for record in observation.records("modules") or ()
+        if (module := text_value(record.data.get("qualified_name")))
+        and (file := text_value(record.data.get("file")))
+    )
+
+
+def _layout(module: str, file: str) -> tuple[str, str]:
+    folder: str = file.rpartition("/")[0]
+    name: str = file.rpartition("/")[2]
+    stem: str = name.rpartition(".")[0] or name
+    parts = [*(folder.split("/") if folder else []), *([] if stem == "__init__" else [stem])]
+    names = module.split(".")
+    shared = 0
+    while shared < min(len(parts), len(names)) and parts[-1 - shared] == names[-1 - shared]:
+        shared += 1
+    return ".".join(names[: len(names) - shared]), "/".join(parts[: len(parts) - shared])
+
+
+def _below(name: str, base: str) -> str | None:
+    """`name` relative to `base`, or None when `base` does not hold it."""
+    if not base or name == base:
+        return name if not base else ""
+    return name[len(base) + 1 :] if in_scope(name, base) else None
+
+
+def _directories(
+    renames: Mapping[str, str], layouts: frozenset[tuple[str, str]]
+) -> tuple[str, ...] | None:
+    """Where each layout places each old prefix's modules; None when a prefix fits none.
+
+    A base the rename itself renamed, such as a Dart package renamed in its pubspec, reads its
+    old names from the same directory as the new ones.
+    """
+    placed: set[str] = set()
+    for old in renames:
+        here = {
+            _joined(directory, rest)
+            for base, directory in layouts
+            for known in (base, *(key for key in renames if renames[key] == base))
+            if (rest := _below(old, known)) is not None
+        }
+        if not here:
+            return None
+        placed |= here
+    return tuple(sorted(placed))
+
+
+def _joined(directory: str, rest: str) -> str:
+    return "/".join(part for part in (directory, rest.replace(".", "/")) if part)
+
+
 def contract_names(contract: ArchitectureContract) -> frozenset[str]:
     """Every module and symbol name the contract holds: what a rename must explain."""
     return frozenset(item.value for item in module_references(contract))
@@ -275,33 +338,41 @@ def _renamed_budgets(
     )
 
 
-def rename_since(
+def renames_since(
     before: ArchitectureContract,
     after: ArchitectureContract,
     *,
     violations: tuple[KnownViolation, ...],
     budgets: tuple[MeasurementBudget, ...],
     observed: frozenset[str],
-) -> Renamed | None:
-    """The compared revision renamed by the first candidate that holds, or None.
+    layouts: frozenset[tuple[str, str]],
+) -> tuple[Renamed, ...]:
+    """The compared revision under each candidate that holds, shortest prefixes first.
 
-    A candidate whose renamed contract the parser refuses, such as a `root_layout` child moved
-    one level down, is no rename: the comparison stays field by field, where an amendment can
-    accept the change.
+    `observed` and `layouts` are `observed_names` and `module_layouts` of the scan now. A
+    candidate whose old prefixes no layout places is no rename, and neither is one whose renamed
+    contract the parser refuses, such as a `root_layout` child moved one level down. The caller
+    takes the first whose `directories` hold no file the scan does not read; with none, the
+    comparison stays field by field, where an amendment can accept the change.
     """
     labelled = _labelled(before)
     names = contract_names(before) | _baseline_names(violations, budgets, labelled)
+    recognised: list[Renamed] = []
     for candidate in rename_candidates(before, after):
-        if not rename_holds(candidate, names=names, observed=observed):
+        directories = _directories(candidate, layouts)
+        if directories is None or not rename_holds(candidate, names=names, observed=observed):
             continue
         try:
             contract = renamed_contract(before, candidate)
         except ValueError:
             continue
-        return Renamed(
-            tuple(sorted((old, candidate[old]) for old in candidate)),
-            contract,
-            renamed_baseline(violations, candidate, labelled),
-            _renamed_budgets(budgets, candidate),
-        )
-    return None
+        recognised += [
+            Renamed(
+                tuple(sorted((old, candidate[old]) for old in candidate)),
+                contract,
+                renamed_baseline(violations, candidate, labelled),
+                _renamed_budgets(budgets, candidate),
+                directories,
+            )
+        ]
+    return tuple(recognised)
