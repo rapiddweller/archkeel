@@ -36,12 +36,12 @@ LEGACY_BASELINE_SCHEMA_VERSION = "1.0.0"
 
 @dataclass(frozen=True, slots=True)
 class ViolationFingerprint:
-    """One violation's position-independent identity.
+    """One violation's position-independent identity, built by `canonical_fingerprint`.
 
-    `subjects` is the analyzer's own subject list, sorted by `classified` and so carrying no
-    direction: the modules, the construct owner or the cycle members the violation is about,
-    whichever its kind records. Two violations of one rule that name the same subjects - two
-    `getattr` calls in one function - share a fingerprint and are told apart by their count.
+    `subjects` is the analyzer's own subject list, carrying no direction: the modules, the
+    construct owner or the cycle members the violation is about, whichever its kind records. Two
+    violations of one rule that name the same subjects - two `getattr` calls in one function -
+    share a fingerprint and are told apart by their count.
     """
 
     rules: tuple[str, ...]
@@ -64,8 +64,24 @@ class ValidationBaseline:
     budgets: tuple[MeasurementBudget, ...] = ()
 
 
+def canonical_fingerprint(rules: Iterable[str], subjects: Iterable[str]) -> ViolationFingerprint:
+    """Name a violation the same way whatever order its lists arrive in (AD-106).
+
+    Neither order means anything - direction lives in `KnownViolation.roles` - so an observed
+    record and a baseline entry written in another order, by hand or by a text replace that
+    renamed a namespace, name one violation. Sorted rather than a set, so a repeated subject
+    still counts and no two different lists collapse into one.
+    """
+    return ViolationFingerprint(tuple(sorted(rules)), tuple(sorted(subjects)))
+
+
 def violation_fingerprint(record: Record) -> ViolationFingerprint:
-    return ViolationFingerprint(record.rule_ids, record.subjects)
+    return canonical_fingerprint(record.rule_ids, record.subjects)
+
+
+def violation_name(fingerprint: ViolationFingerprint) -> str:
+    """`rules | subjects`: how a drift, a widening and a baseline error name one violation."""
+    return f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
 
 
 def _ordered(
@@ -285,15 +301,16 @@ def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:
     return _ordered(counts, roles)
 
 
-def _drift(fingerprint: ViolationFingerprint, known: int, observed: int, contracted: bool) -> str:
-    name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
+def _drift(
+    fingerprint: ViolationFingerprint, known: int, observed: int, contracted: bool, rewrite: str
+) -> str:
+    name = violation_name(fingerprint)
     counted = f"({observed} observed, {known} in the baseline)"
-    rewrite = "rewrite the baseline with --write-baseline"
     if contracted:
-        return f"contracted violation: {name} {counted} inside a baselined cycle; {rewrite}"
+        return f"contracted violation: {name} {counted} inside a baselined cycle{rewrite}"
     if observed > known:
         return f"new violation: {name} {counted}"
-    return f"resolved violation: {name} {counted}; {rewrite}"
+    return f"resolved violation: {name} {counted}{rewrite}"
 
 
 def compare_violations(
@@ -301,6 +318,7 @@ def compare_violations(
     observed: tuple[KnownViolation, ...],
     *,
     cycle_rules: frozenset[str],
+    refused: bool = False,
 ) -> tuple[str, ...]:
     """One line per fingerprint the baseline states wrongly, new violations and resolved ones.
 
@@ -308,17 +326,20 @@ def compare_violations(
     fingerprint the baseline underestimates is new work, and one it overestimates is work
     already done, which has to leave the file in the change that did it (the budget only
     shrinks). Both are failures, because a budget that may exceed the code lets a violation
-    someone removed come back unreported.
+    someone removed come back unreported. `refused` says the lines explain a `--write-baseline`
+    that refused, so none advises running it: the refusal names the way on (AD-106).
     """
     known_counts = _counts(known)
     observed_counts = _counts(observed)
     contracted = cycle_contractions(known, observed, cycle_rules=cycle_rules)
+    rewrite = "" if refused else "; rewrite the baseline with --write-baseline"
     return tuple(
         _drift(
             fingerprint,
             known_counts.get(fingerprint, 0),
             observed_counts.get(fingerprint, 0),
             fingerprint in contracted,
+            rewrite,
         )
         for fingerprint in sorted(
             known_counts.keys() | observed_counts.keys(),

@@ -18,9 +18,11 @@ from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     KnownViolation,
     ViolationFingerprint,
+    canonical_fingerprint,
     compare_violations,
     observed_violations,
     violation_drift_counts,
+    violation_fingerprint,
 )
 from archkeel.ir.codec import (
     baseline_bytes,
@@ -28,8 +30,11 @@ from archkeel.ir.codec import (
     decode_json,
     parse_baseline,
     parse_observation,
+    parse_record,
 )
 from archkeel.ir.model import Observation
+from archkeel.ir.widening import baseline_widenings
+from fixtures.demo_catalog_dependencies import REPOSITORY_WITH_MONEY_IMPORT
 
 HEADER = (
     "# Archkeel\n# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.\n# SPDX-License-Identifier: MIT\n"
@@ -54,6 +59,11 @@ TWICE_PROBE = PROBE.replace(
 )
 SECOND_PROBE = PROBE.replace("Getattr probe", "Second getattr probe")
 GETATTR_RULE = "CONSTRUCT-NO-DYNAMIC"
+# AD-106: the refused run's last failure; no line of that run advises --write-baseline again.
+REFUSED = (
+    "--write-baseline refused: writing would accept the new or increased debt above; fix the "
+    "code, or add --accept-new once an architect has decided to accept it"
+)
 
 
 def _observe(root: Path) -> Observation:
@@ -151,6 +161,65 @@ def test_updating_an_existing_baseline_refuses_new_fingerprints_by_default(
         {},
     )
     assert baseline.read_bytes() == before
+    assert result.failures == (
+        f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+        "(1 observed, 0 in the baseline)",
+        REFUSED,
+    )
+
+
+def test_a_refused_write_says_why_and_how_to_proceed_without_advising_itself(
+    tmp_path: Path,
+) -> None:
+    """Issue #152: `--write-baseline` printed "rewrite the baseline with --write-baseline" for
+    the resolved entry of the very run it then refused because of the new one."""
+    root = _repo(tmp_path, "refused-advice", {"shop/model/probe_two.py": SECOND_PROBE})
+    known = (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),)
+    baseline = _baseline_file(root, known)
+
+    plain, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    refused, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
+    )
+
+    assert plain.failures[0].endswith("; rewrite the baseline with --write-baseline")
+    assert (refused.exit_code, refused.artifact, files) == (1, None, {})
+    assert refused.failures == (
+        f"resolved violation: {GETATTR_RULE} | shop.model.probe.read "
+        "(0 observed, 1 in the baseline)",
+        f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+        "(1 observed, 0 in the baseline)",
+        REFUSED,
+    )
+
+
+def test_a_refusal_stays_the_last_failure_beside_a_widening(tmp_path: Path) -> None:
+    """AD-106: under --against the refused write also widens the committed baseline; the
+    refusal still closes the list, so the way on is the last line read."""
+    known = (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),)
+    root = _repo(
+        tmp_path,
+        "refused-against",
+        {"shop/model/probe.py": PROBE, "known-violations.json": baseline_bytes(known).decode()},
+    )
+    (root / "shop/model/probe_two.py").write_text(SECOND_PROBE)
+
+    result, files = run_validate(
+        root,
+        SHOP_CONFIG,
+        observe,
+        baseline=root / "known-violations.json",
+        write_baseline=True,
+        against="main",
+    )
+
+    assert (result.exit_code, files) == (1, {})
+    assert result.failures == (
+        f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+        "(1 observed, 0 in the baseline)",
+        f"baseline entry widened: {GETATTR_RULE} | shop.model.probe_two.read (1 now, 0 before)",
+        REFUSED,
+    )
 
 
 def test_accept_new_explicitly_updates_an_existing_baseline(tmp_path: Path) -> None:
@@ -201,6 +270,119 @@ def test_updating_an_existing_baseline_allows_resolved_only_drift(tmp_path: Path
 
     assert (result.exit_code, result.baseline_new, result.baseline_resolved) == (0, 0, 1)
     assert parse_baseline(decode_json(files[str(baseline)])) == observed_violations(_observe(root))
+
+
+def test_a_baseline_entry_matches_its_violation_in_any_subject_order(tmp_path: Path) -> None:
+    """Issue #152: a namespace renamed by text replace reorders an entry's subjects; the entry
+    still names the same violation, and `--write-baseline` writes it back sorted."""
+    root = _repo(tmp_path, "reordered", {"shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT})
+    baseline = root / "known-violations.json"
+    _, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+    written = json.loads(files[str(baseline)])
+    subjects = ["shop.model.entities.Money", "shop.store.repository"]
+    assert written["violations"][0]["subjects"] == subjects
+    written["violations"][0]["subjects"].reverse()
+    baseline.write_text(json.dumps(written))
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    rewritten, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
+    )
+
+    assert (result.exit_code, result.failures) == (0, ())
+    assert (result.baseline_new, result.baseline_resolved) == (0, 0)
+    assert (rewritten.exit_code, rewritten.failures) == (0, ())
+    assert json.loads(files[str(baseline)])["violations"][0]["subjects"] == subjects
+
+
+def test_a_fingerprint_is_the_same_in_any_list_order() -> None:
+    """Sorted, not a set: a repeated subject still counts, so no two lists collapse into one."""
+    parsed = parse_baseline(
+        {
+            "schema_version": BASELINE_SCHEMA_VERSION,
+            "budgets": {},
+            "violations": [{"rules": ["B", "A"], "subjects": ["z", "a", "z"], "count": 1}],
+        }
+    )
+
+    assert parsed[0].fingerprint == ViolationFingerprint(("A", "B"), ("a", "z", "z"))
+    assert canonical_fingerprint(["A"], ["b", "a"]) == canonical_fingerprint(["A"], ["a", "b"])
+    assert canonical_fingerprint(["A"], ["z", "a", "z"]) != canonical_fingerprint(["A"], ["a", "z"])
+
+
+def test_two_entries_differing_only_in_subject_order_are_named_not_summed(
+    tmp_path: Path,
+) -> None:
+    """One violation stated twice is an ambiguous file, exit 2 as `baseline.invalid`, never a
+    count of two that could hide a second occurrence. --write-baseline reads the file first and
+    stops the same way, so the remedy asks for a correction instead of advising it."""
+    root = _repo(tmp_path, "repeated", {"shop/model/probe.py": PROBE})
+    baseline = root / "known-violations.json"
+    entry = {"rules": [GETATTR_RULE], "count": 1}
+    baseline.write_text(
+        json.dumps(
+            {
+                "schema_version": BASELINE_SCHEMA_VERSION,
+                "budgets": {},
+                "violations": [
+                    {**entry, "subjects": ["a", "b"]},
+                    {**entry, "subjects": ["b", "a"]},
+                ],
+            }
+        )
+    )
+
+    plain, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    writing, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
+    )
+
+    assert files == {}
+    for result in (plain, writing):
+        assert result.exit_code == 2
+        ((code, claim, remedy),) = [
+            (item.code, item.unknown_claim, item.remedy) for item in result.diagnostics
+        ]
+        assert code == "baseline.invalid"
+        assert claim == (
+            "The validation baseline cannot be read: baseline.violations[1] repeats "
+            f"baseline.violations[0], {GETATTR_RULE} | a b (subjects match in any order); "
+            "give it one count instead"
+        )
+        assert "--write-baseline" not in remedy
+
+
+def test_order_free_identity_keeps_the_other_direction_visible() -> None:
+    """Roles carry direction, so reading subjects in any order hides no violation: a reversed
+    entry for `a -> b` does not absorb `b -> a`, and a role change still widens under --against.
+    """
+    known = parse_baseline(
+        {
+            "schema_version": BASELINE_SCHEMA_VERSION,
+            "budgets": {},
+            "violations": [
+                {
+                    "rules": ["PEERS"],
+                    "subjects": ["b", "a"],
+                    "count": 1,
+                    "roles": [{"source": "a", "target": "b"}],
+                }
+            ],
+        }
+    )
+    fingerprint = ViolationFingerprint(("PEERS",), ("a", "b"))
+    both_ways = (KnownViolation(fingerprint, 2, (("a", "b"), ("b", "a"))),)
+    same = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
+    turned = (KnownViolation(fingerprint, 1, (("b", "a"),)),)
+
+    assert compare_violations(known, both_ways, cycle_rules=frozenset()) == (
+        "new violation: PEERS | a b (2 observed, 1 in the baseline)",
+    )
+    assert compare_violations(known, same, cycle_rules=frozenset()) == ()
+    assert baseline_widenings(known, same, cycle_rules=frozenset()) == ()
+    assert baseline_widenings(known, turned, cycle_rules=frozenset()) == (
+        "baseline entry roles changed: PEERS | a b (a -> b before; b -> a now)",
+    )
 
 
 def test_a_resolved_baseline_entry_is_reported(tmp_path: Path) -> None:
@@ -266,6 +448,8 @@ def test_a_missing_baseline_file_is_exit_two_with_a_diagnostic(tmp_path: Path) -
     assert result.exit_code == 2
     assert [item.code for item in result.diagnostics] == ["baseline.invalid"]
     assert "does-not-exist.json" in result.diagnostics[0].subject
+    # A missing file is what --write-baseline creates, so here it is the way on.
+    assert "--write-baseline" in result.diagnostics[0].remedy
 
 
 def test_an_unparsable_baseline_file_is_exit_two_with_a_diagnostic(tmp_path: Path) -> None:
@@ -373,7 +557,7 @@ def test_violation_drift_counts_count_fingerprints_not_occurrences() -> None:
 
 
 def test_old_baseline_without_roles_remains_readable() -> None:
-    fingerprint = ViolationFingerprint(("BOUNDARY",), ("shop.api.load", "shop.api"))
+    fingerprint = ViolationFingerprint(("BOUNDARY",), ("shop.api", "shop.api.load"))
 
     assert parse_baseline(
         {
@@ -387,7 +571,7 @@ def test_old_baseline_without_roles_remains_readable() -> None:
 
 def test_roles_are_sorted_and_do_not_change_fingerprint_identity() -> None:
     violation = KnownViolation(
-        ViolationFingerprint(("BOUNDARY",), ("shop.api.load", "shop.api")),
+        ViolationFingerprint(("BOUNDARY",), ("shop.api", "shop.api.load")),
         1,
         (("shop.z", "shop.a"), ("shop.a", "shop.z")),
     )
@@ -405,6 +589,31 @@ def test_roles_are_sorted_and_do_not_change_fingerprint_identity() -> None:
             violation.count,
             tuple(sorted(violation.roles)),
         ),
+    )
+
+
+def test_a_record_read_in_another_order_has_the_sorted_fingerprint() -> None:
+    """AD-106: an observation read from disk keeps the order its file holds; the fingerprint a
+    baseline is compared with does not."""
+    record = parse_record(
+        {
+            "id": "VIO-unsorted",
+            "evidence_class": "VIOLATION",
+            "area": "dependencies",
+            "kind": "forbidden_dependency",
+            "title": "unsorted",
+            "subjects": ["shop.store.repository", "shop.model.entities.Money"],
+            "evidence_ids": [],
+            "rule_ids": ["RULE-B", "RULE-A"],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {},
+        }
+    )
+
+    assert record.subjects == ("shop.store.repository", "shop.model.entities.Money")
+    assert violation_fingerprint(record) == ViolationFingerprint(
+        ("RULE-A", "RULE-B"), ("shop.model.entities.Money", "shop.store.repository")
     )
 
 

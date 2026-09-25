@@ -130,6 +130,8 @@ demo-dart`.
 | validation | baseline.roles | validation-baseline-roles | tested only | - | - | tests/test_baseline.py |
 | validation | baseline.role_evidence | validation-baseline-role-evidence | tested only | - | - | tests/test_widening.py |
 | validation | baseline.interface_narrowing | validation-baseline-interface-narrowing | validate/report run | - | - | architecture-contract.json, known-violations.json |
+| validation | baseline.subject_order | validation-baseline-subject-order | validate/report run | DEP-STORE-NO-MONEY | - | architecture-baseline.json, shop/store/repository.py |
+| validation | baseline.refused | validation-baseline-refused | validate --write-baseline run | DEP-STORE-NO-MONEY | - | architecture-baseline.json, shop/store/repository.py |
 | validation | against.invalid | validation-against-invalid | tested only | - | - | tests/test_widening.py |
 | validation | amendment.invalid | validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
 | validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | shop/store/architecture-contract.json |
