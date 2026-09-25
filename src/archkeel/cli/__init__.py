@@ -25,7 +25,7 @@ from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from .config import CONFIG_PATH, load_check_config, load_config
+from .config import CONFIG_PATH, load_check_config, load_config, root_file
 from .skill import install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -183,7 +183,8 @@ def build_parser() -> _Parser:
             "  archkeel validate --against main --amendment widening.json \\\n"
             '    --write-amendment --decided-by "Jordan (architect)" --rationale "..."\n'
             "  archkeel validate --against main --amendment widening.json\n"
-            "  archkeel validate --config archkeel-tests.toml\n\n"
+            "  archkeel validate --config archkeel-tests.toml\n"
+            "  archkeel validate --root mobile --baseline known-violations.json\n\n"
             "Exit codes:\n"
             "  0  the contract is valid for this repository\n"
             "  1  with --baseline: a violation or selected measurement changed; with\n"
@@ -201,9 +202,8 @@ def build_parser() -> _Parser:
     )
     validate.add_argument(
         "--baseline",
-        type=Path,
-        help="File of known violations and contract-selected measurement values. Fail when "
-        "either differs from the current observation.",
+        help="File of known violations and contract-selected measurement values, relative to "
+        "--root like --config (AD-103). Fail when either differs from the current observation.",
     )
     validate.add_argument(
         "--write-baseline",
@@ -221,8 +221,8 @@ def build_parser() -> _Parser:
     )
     validate.add_argument(
         "--amendment",
-        type=Path,
-        help="File recording who decided a widening from --against, and why. Needs --against.",
+        help="File recording who decided a widening from --against, and why, relative to "
+        "--root. Needs --against.",
     )
     validate.add_argument(
         "--write-amendment",
@@ -418,18 +418,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                     parser.error("--write-amendment needs --amendment to name the file to write")
                 if args.write_amendment and (not args.decided_by or not args.rationale):
                     parser.error("--write-amendment needs --decided-by and --rationale")
+                # AD-103: relative to --root, like the contract, so a second code base under a
+                # subdirectory reads and writes its own files whatever the working directory.
+                baseline = amendment = None
+                if args.baseline is not None:
+                    subject = str(root / args.baseline)
+                    baseline = root_file(root, args.baseline, "--baseline")
+                if args.amendment is not None:
+                    subject = str(root / args.amendment)
+                    amendment = root_file(root, args.amendment, "--amendment")
+                subject = str(root / args.config)
                 result, files = run_validate(
                     root,
                     config,
                     observe,
                     write_graph=args.write_graph,
-                    # Resolved here so the file is read and written at one path, whatever
-                    # --root says; the result then names the path the user will open.
-                    baseline=None if args.baseline is None else args.baseline.resolve(),
+                    baseline=baseline,
                     write_baseline=args.write_baseline,
                     accept_new=args.accept_new,
                     against=args.against,
-                    amendment=None if args.amendment is None else args.amendment.resolve(),
+                    amendment=amendment,
                     write_amendment=args.write_amendment,
                     decided_by=args.decided_by,
                     rationale=args.rationale,

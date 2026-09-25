@@ -122,6 +122,31 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
     return config
 
 
+def root_file(root: Path, value: str, option: str) -> Path:
+    """The file an option names relative to `root`, as --config and the contract are (AD-103).
+
+    A working directory outside `root` from which `value` leads into it means `value` repeats
+    the root's own prefix (`--root mobile --baseline mobile/b.json`). When no file exists at
+    the root-relative path, that spelling is refused, never read or written one level too deep.
+    """
+    repository: Path = root.resolve()
+    target: Path = _contained(repository, _path(value, field=option, allow_dot=False), field=option)
+    # The working directory is already a resolved path, so it compares with `repository`.
+    cwd: Path = Path.cwd()
+    from_cwd: Path = Path(value).resolve()
+    if (
+        not target.exists()
+        and repository in from_cwd.parents
+        and repository not in (cwd, *cwd.parents)
+    ):
+        suggestion = from_cwd.relative_to(repository).as_posix()
+        raise ConfigError(
+            f"{option} {value} is relative to --root {repository}: it names {target}, which "
+            f"does not exist, not {from_cwd}; pass {option} {suggestion}"
+        )
+    return target
+
+
 def load_check_config(root: Path, baseline: str, head: str) -> ScanConfig:
     """Use the accepted Git blob and reject a candidate policy change."""
     payload = read_blob(root, baseline, CONFIG_PATH)
