@@ -129,6 +129,18 @@ def record_evidence(
     return evidence_id
 
 
+def file_evidence(evidence: dict[str, RawEvidence], rel_path: str, lines: Sequence[str]) -> str:
+    """Cite the file a module is: the fact root layout, assignment and placement judge (AD-107).
+
+    Line 1 shows the file when it holds text. An empty file, or one whose first line is blank,
+    has no line to show, so line 0 cites the file itself: an empty `__init__.py` still makes its
+    package exist, and its package's violation must stay traceable.
+    """
+    line: str = lines[0] if lines else ""
+    first = line.rstrip()
+    return record_evidence(evidence, rel_path, (1, 1, 0) if first else (0, 0, 0), first)
+
+
 def annotation_text(node: ast.AST | None) -> str | None:
     if node is None:
         return None

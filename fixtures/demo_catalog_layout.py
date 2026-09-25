@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-86 root layout demos."""
+"""AD-86 root layout demos, and AD-107's child whose own file has no text to quote."""
 
 from __future__ import annotations
 
@@ -64,5 +64,27 @@ VARIANTS: tuple[Variant, ...] = (
         files={"shop/rogue.py": HEADER + '"""Unexpected root child."""\n\nVALUE = 1\n'},
         expected_violations=("ASSIGNMENT-COMPLETE", "ROOT-LAYOUT"),
         expected_codes=("rule.violated", "rule.violated"),
+    ),
+    Variant(
+        id="class-a-root-layout-empty-package",
+        section="class_a",
+        item="root_layout:empty-initializer",
+        summary="An unexpected package whose __init__.py is empty is the same root layout "
+        "violation a docstring gives: the file is the evidence, not its first line (AD-107).",
+        files={"shop/extra/__init__.py": ""},
+        expected_violations=("ROOT-LAYOUT",),
+        expected_codes=("rule.violated",),
+        expected_declared_rules="FAIL",
+    ),
+    Variant(
+        id="class-a-root-layout-blank-first-line",
+        section="class_a",
+        item="root_layout:blank-first-line",
+        summary="An unowned root module whose first line is blank fails both module rules "
+        "instead of turning the run UNKNOWN (AD-107).",
+        files={"shop/stray.py": "\nVALUE = 1\n"},
+        expected_violations=("ASSIGNMENT-COMPLETE", "ROOT-LAYOUT"),
+        expected_codes=("rule.violated", "rule.violated"),
+        expected_declared_rules="FAIL",
     ),
 )
