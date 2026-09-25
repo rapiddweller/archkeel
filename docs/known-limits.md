@@ -200,6 +200,15 @@ scope (AD-101), which leaves these limits:
 - `report` writes to `test-artifacts/architecture/architecture.json` unless `--output` names
   another path, whatever `--config` names, so a test-scope report without its own `--output`
   replaces the product report.
+- `--baseline` and `--amendment` are relative to `--root`, like the contract, while `report
+  --output` and `check --output` stay relative to the working directory: from the repository
+  root, `--root mobile` reads `--baseline known-violations.json` from `mobile/` but writes
+  `--output build/architecture.json` to `build/` (AD-103). A path that resolves outside the
+  root is `baseline.invalid` or `amendment.invalid`, exit 2.
+- A first write into a folder inside the root that repeats the root's own name, from outside
+  the root (`--root mobile --baseline mobile/x.json --write-baseline` meaning
+  `mobile/mobile/x.json`), is refused as the old root-prefixed spelling. Run it from inside the
+  root; once the file exists, it is read from anywhere (AD-103).
 
 ## What static observation cannot decide
 

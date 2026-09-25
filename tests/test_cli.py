@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -11,9 +12,19 @@ from test_architecture_demo import _prepare_repo
 
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
 from archkeel.cli import main
-from fixtures.demo_catalog_support import FIXTURE_DIR
+from fixtures.architecture_demo import CATALOG
+from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
+from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay
 
 ROOT = Path(__file__).parents[1]
+_PROBE = (
+    "# Archkeel\n# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.\n"
+    "# SPDX-License-Identifier: MIT\n"
+    '"""Getattr probe for the baseline demo."""\n\n'
+    "from __future__ import annotations\n\n\n"
+    "def read(box: object) -> object:\n"
+    '    return getattr(box, "value")\n'
+)
 
 
 def test_check_requires_explicit_inputs(capsys: pytest.CaptureFixture) -> None:
@@ -107,6 +118,170 @@ def test_config_selects_a_second_scope_and_every_result_names_its_roots(
     assert "cannot read missing.toml" in diagnostic["unknown_claim"]
 
 
+def _two_code_bases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> Path:
+    """#149's repository: the shop sample at the root and the Dart app in mobile/, each with
+    the baseline of its own debt, a getattr probe in one and dart:io in the other."""
+    repo = _prepare_repo(tmp_path, {"shop/model/probe.py": _PROBE})
+    app = repo / "mobile"
+    shutil.copytree(DART_FIXTURE_DIR, app)
+    apply_overlay(app, next(item for item in CATALOG if item.id == "dart-forbidden-dart-io").files)
+    for root in (repo, app):
+        monkeypatch.chdir(root)
+        assert (
+            main(["validate", "--baseline", "architecture-baseline.json", "--write-baseline"]) == 0
+        )
+    capsys.readouterr()
+    monkeypatch.chdir(repo)
+    for args in (["add", "-A"], ["-c", "commit.gpgsign=false", "commit", "-q", "-m", "mobile"]):
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    return repo
+
+
+_BASELINE_CLAIM = "The validation baseline cannot be read: "
+_AMENDMENT_CLAIM = "The contract-widening amendment cannot be read: "
+
+
+def _refusals(capsys: pytest.CaptureFixture) -> list[tuple[str, str, str]]:
+    diagnostics = json.loads(capsys.readouterr().out)["diagnostics"]
+    return [(item["code"], item["subject"], item["unknown_claim"]) for item in diagnostics]
+
+
+def _prefixed(repo: Path, value: str) -> str:
+    """Why a root-prefixed `value` under `--root mobile`, run from `repo`, names nothing."""
+    root = repo / "mobile"
+    return (
+        f"{value} is relative to --root {root}: it names {root / value}, which does not exist, "
+        f"not {repo / value}; pass {value.removeprefix('mobile/')}"
+    )
+
+
+def test_baseline_is_read_relative_to_root_like_the_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-103 (#149): from the repository root, the app's check reads the app's baseline.
+
+    Before, --baseline was read from the working directory, so this run read the backend's
+    file and reported one new and one resolved violation that were a wrong file, not a
+    regression. An absolute path inside the root is read as it is. The root-prefixed spelling
+    that used to be right names nothing now and is baseline.invalid, instead of being read or
+    written one directory too deep, until a folder of that name really holds the file.
+    """
+    repo = _two_code_bases(tmp_path, monkeypatch, capsys)
+    app = ["validate", "--root", "mobile", "--json"]
+
+    for baseline in ("architecture-baseline.json", str(repo / "mobile/architecture-baseline.json")):
+        assert main([*app, "--baseline", baseline]) == 0
+        result = json.loads(capsys.readouterr().out)
+        assert (result["baseline_new"], result["baseline_resolved"], result["failures"]) == (
+            0,
+            0,
+            [],
+        )
+
+    prefixed = "mobile/architecture-baseline.json"
+    for write in ([], ["--write-baseline"]):
+        assert main([*app, "--baseline", prefixed, *write]) == 2
+        assert _refusals(capsys) == [
+            (
+                "baseline.invalid",
+                str(repo / "mobile" / prefixed),
+                _BASELINE_CLAIM + _prefixed(repo, prefixed),
+            )
+        ]
+    assert not (repo / "mobile/mobile").exists()
+
+    (repo / "mobile/mobile").mkdir()
+    shutil.copyfile(repo / prefixed, repo / "mobile" / prefixed)
+    assert main([*app, "--baseline", prefixed]) == 0
+    capsys.readouterr()
+
+    # From a folder inside the root, a first write lands at the root-relative path.
+    monkeypatch.chdir(repo / "mobile/lib")
+    fresh = ["validate", "--root", "..", "--baseline", "fresh.json", "--write-baseline", "--json"]
+    assert main(fresh) == 0
+    assert json.loads(capsys.readouterr().out)["artifact"] == str(repo / "mobile/fresh.json")
+
+
+def test_amendment_is_written_and_read_relative_to_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-103: --amendment, and so --write-amendment, follow --baseline's rule."""
+    repo = _two_code_bases(tmp_path, monkeypatch, capsys)
+    against = ["validate", "--root", "mobile", "--baseline", "architecture-baseline.json"]
+    against += ["--against", "HEAD", "--json"]
+    decided = ["--decided-by", "Jordan (architect)", "--rationale", "the app's own record"]
+
+    assert main([*against, "--amendment", "widening.json", "--write-amendment", *decided]) == 0
+    assert json.loads(capsys.readouterr().out)["artifact"] == str(repo / "mobile/widening.json")
+    assert not (repo / "widening.json").exists()
+    for amendment in ("widening.json", str(repo / "mobile/widening.json")):
+        assert main([*against, "--amendment", amendment]) == 0
+        capsys.readouterr()
+
+    prefixed = "mobile/widening.json"
+    assert main([*against, "--amendment", prefixed]) == 2
+    assert _refusals(capsys) == [
+        (
+            "amendment.invalid",
+            str(repo / "mobile" / prefixed),
+            _AMENDMENT_CLAIM + _prefixed(repo, prefixed),
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("option", "write", "code", "claim"),
+    [
+        ("--baseline", ["--write-baseline"], "baseline.invalid", _BASELINE_CLAIM),
+        (
+            "--amendment",
+            ["--write-amendment", "--decided-by", "Jordan", "--rationale", "why"],
+            "amendment.invalid",
+            _AMENDMENT_CLAIM,
+        ),
+    ],
+    ids=["baseline", "amendment"],
+)
+@pytest.mark.parametrize(
+    "value",
+    ["{outside}", "../known-violations.json", "outside.json"],
+    ids=["absolute", "parent", "symlink"],
+)
+def test_root_relative_inputs_stay_inside_the_root(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    option: str,
+    write: list[str],
+    code: str,
+    claim: str,
+    value: str,
+) -> None:
+    """AD-103: a path that resolves outside the root is refused, read or write, whatever exists
+    there; containment is what keeps a write inside the root."""
+    root = _prepare_repo(tmp_path, {})
+    outside = tmp_path / "known-violations.json"
+    outside.write_text("{}")
+    (root / "outside.json").symlink_to(outside)
+    # --against too: an outside baseline used to be silently left out of its comparison.
+    against = ["--against", "HEAD"]
+    path = value.format(outside=outside)
+
+    for extra in ([], write):
+        assert (
+            main(["validate", "--root", str(root), *against, option, path, *extra, "--json"]) == 2
+        )
+        assert _refusals(capsys) == [
+            (
+                code,
+                str(root / path),
+                f"{claim}{path} resolves to {outside}, outside the root {root}",
+            )
+        ]
+    assert outside.read_text() == "{}"
+
+
 def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> None:
     baseline = str(ROOT / "architecture-baseline.json")
     assert main(["validate", "--root", str(ROOT), "--baseline", baseline]) == 0
@@ -167,15 +342,7 @@ def test_validate_baseline_writes_then_gates_on_new_violations(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
     """AD-52: the red target's whole loop, through the CLI: write, pass, then grow."""
-    probe = (
-        "# Archkeel\n# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.\n"
-        "# SPDX-License-Identifier: MIT\n"
-        '"""Getattr probe for the baseline demo."""\n\n'
-        "from __future__ import annotations\n\n\n"
-        "def read(box: object) -> object:\n"
-        '    return getattr(box, "value")\n'
-    )
-    root = _prepare_repo(tmp_path, {"shop/model/probe.py": probe})
+    root = _prepare_repo(tmp_path, {"shop/model/probe.py": _PROBE})
     baseline = root / "known-violations.json"
     arguments = ["validate", "--root", str(root), "--baseline", str(baseline), "--json"]
 
@@ -188,7 +355,7 @@ def test_validate_baseline_writes_then_gates_on_new_violations(
     assert main(arguments) == 0
     assert json.loads(capsys.readouterr().out)["failures"] == []
 
-    (root / "shop/model/probe_two.py").write_text(probe)
+    (root / "shop/model/probe_two.py").write_text(_PROBE)
     assert main(arguments) == 1
     result = json.loads(capsys.readouterr().out)
     assert result["diagnostics"] == []

@@ -1772,6 +1772,8 @@ _BASELINE_WRITE = (
 _BASELINE_CORRECT = (
     "Correct the baseline file by hand; a write reads it first and stops on the same error."
 )
+# AD-103: a path outside the root is refused before any read or write.
+_BASELINE_INSIDE_ROOT = "Pass a --baseline path inside --root, relative to it or absolute."
 
 
 def _baseline_invalid(path: Path, error: Exception, remedy: str) -> RunResult:
@@ -2056,17 +2058,40 @@ def _artifact_files(
 
 
 def _baseline_at(root: Path, baseline: Path | None) -> str | None:
-    """`--baseline`'s repository-relative path, or None when it names no path under `root`.
-
-    A baseline outside the repository has no Git history to compare `--against` with, so its
-    widening is simply not checked.
-    """
+    """`--baseline`'s repository-relative path, or None without one; `_root_path` keeps it
+    under `root`, and any other path raises instead of leaving `--against` unchecked (AD-103)."""
     if baseline is None:
         return None
-    try:
-        return baseline.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return None
+    return baseline.resolve().relative_to(root.resolve()).as_posix()
+
+
+def _root_path(root: Path, path: Path) -> Path:
+    """`path` as validate reads and writes it: relative to `root`, or absolute, and resolved,
+    symlinks included, inside `root` (AD-103).
+
+    A relative `path` that, read from a working directory outside `root`, leads into it repeats
+    the root's own prefix (`--root mobile --baseline mobile/b.json`). While nothing exists at
+    the root-relative path, it is refused: never read or written one directory too deep.
+    """
+    repository: Path = root.resolve()
+    named: Path = repository / path
+    target: Path = named.resolve()
+    if repository not in target.parents:
+        raise ValueError(f"{path} resolves to {target}, outside the root {repository}")
+    # The working directory is already resolved, so it compares with `repository` directly.
+    cwd: Path = Path.cwd()
+    from_cwd: Path = path.resolve()
+    if (
+        not target.exists()
+        and from_cwd != target
+        and repository in from_cwd.parents
+        and repository not in (cwd, *cwd.parents)
+    ):
+        raise ValueError(
+            f"{path} is relative to --root {repository}: it names {target}, which does not "
+            f"exist, not {from_cwd}; pass {from_cwd.relative_to(repository).as_posix()}"
+        )
+    return target
 
 
 def run_validate(
@@ -2104,7 +2129,20 @@ def run_validate(
     every widening (ir.widening.contract_widenings, ir.widening.baseline_widenings) is a
     `failures` entry with exit 1 unless `amendment` binds exactly this before/after pair.
     `write_amendment` writes that binding instead of checking it.
+
+    AD-103: `baseline` and `amendment` are relative to `root`, like the contract, or absolute;
+    either way one that resolves outside `root` is refused, so no write can land outside it.
     """
+    if baseline is not None:
+        try:
+            baseline = _root_path(root, baseline)
+        except ValueError as error:
+            return _baseline_invalid(root / baseline, error, _BASELINE_INSIDE_ROOT), FilesToWrite()
+    if amendment is not None:
+        try:
+            amendment = _root_path(root, amendment)
+        except ValueError as error:
+            return _amendment_invalid(root / amendment, error), FilesToWrite()
     known: tuple[KnownViolation, ...] = ()
     known_budgets: tuple[MeasurementBudget, ...] = ()
     baseline_exists = baseline is not None and baseline.exists()

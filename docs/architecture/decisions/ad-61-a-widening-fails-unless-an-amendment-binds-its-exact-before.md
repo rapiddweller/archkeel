@@ -62,7 +62,8 @@ predicate does not need for this question. Comparing `--baseline` only when `--a
 compares a baseline path outside the repository root, because that file has no Git history in
 this repository to compare against, and refusing the run over a file `--against` cannot see would
 make `--baseline` and `--against` unusable together in that one configuration for no gain; it is
-simply not checked there instead. Threading the widening check through `check`'s M -> B -> E -> H
+simply not checked there instead. [AD-103](ad-103-baseline-and-amendment-paths-are-relative-to-root.md)
+supersedes this: a baseline outside the root is `baseline.invalid`, exit 2. Threading the widening check through `check`'s M -> B -> E -> H
 protocol, because that protocol already rejects a contract change between the accepted commit and
 the candidate; this answers a different question, a branch against its base, that the protocol
 was never asked.

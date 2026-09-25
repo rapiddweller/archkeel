@@ -384,6 +384,9 @@ archkeel validate --baseline known-violations.json --write-baseline   # resolved
 archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
 ```
 
+The baseline path, like `--amendment`'s below, is relative to `--root`, as the contract is, or
+absolute; one that resolves outside the root is `baseline.invalid`, exit 2 (AD-103).
+
 Each entry names one violation by fingerprint — the rule ids it cites and its sorted `subjects`,
 which per rule kind are the modules, the construct owner or the members of a cycle — plus the
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
@@ -449,9 +452,9 @@ archkeel validate --against origin/main --amendment widening.json         # the 
 ```
 
 An amendment written for one change does not verify against a different one: its digests will
-not match. A missing or malformed `--amendment` file is `amendment.invalid`, and an `--against`
-revision or its contract that cannot be read is `against.invalid`, both exit 2. `validate`
-without `--against` is unchanged. The file's shape is
+not match. A missing or malformed `--amendment` file, or one outside the root, is
+`amendment.invalid`, and an `--against` revision or its contract that cannot be read is
+`against.invalid`, both exit 2. `validate` without `--against` is unchanged. The file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json).
 
 ## Class B: regression checks
