@@ -147,6 +147,8 @@ unless the check has already classified them as a failure.
   hidden same-folder edges reappear when the folder opens.
 - One provided interface marker per component keeps large APIs legible; the inspector expands
   the exact entries. Breadcrumbs return through component, package, and module levels.
+- An observed import governed by `external_dependency_scope` draws a `«library»` card and
+  a dashed `«use»` dependency. Its scope rationale and example import sites stay inspectable.
 - More than twelve inside connections defaults to a labelled heavy-edge view. Violations stay
   visible regardless of threshold, and the slider can restore every edge.
 - Edges carry their import sites; a conforming edge is solid teal, a violated edge is dashed red

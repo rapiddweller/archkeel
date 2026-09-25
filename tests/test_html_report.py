@@ -289,6 +289,7 @@ _TOUR_FLOW_RULE_IDS = (
     "DEP-RENDER-NO-STORE",
     "DEP-STORE-NO-MONEY",
     "INTERFACE-BOUNDARY",
+    "EXTERNAL-JSON-STORE",
 )
 
 
@@ -308,9 +309,9 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
         tuple(edge["rule_ids"]) for edge in payload["edges"] if edge["state"] == "violation"
     }
     assert set().union(*violated) == set(_TOUR_FLOW_RULE_IDS)
-    # A single-subject or unowned-target rule never names a component pair (see test_flow.py).
+    # An unowned-target rule has a library card only when it declares an external scope.
     assert "ASSIGNMENT-COMPLETE" not in set().union(*violated)
-    assert "EXTERNAL-JSON-STORE" not in set().union(*violated)
+    assert "EXTERNAL-JSON-STORE" in set().union(*violated)
     assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
 
 
@@ -422,6 +423,29 @@ def test_required_interface_projection_keeps_narrowing_and_decider() -> None:
         "rationale": "Only use the facade",
         "decided_by": "agent",
     }
+
+
+def test_external_scope_is_a_library_with_a_red_observed_use(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "class-a-external-dependency-scope")
+    start = page.index('id="flow-data"')
+    payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
+
+    library = next(item for item in payload["libraries"] if item["label"] == "library:json")
+    assert library["rule_id"] == "EXTERNAL-JSON-STORE"
+    edge = next(
+        item
+        for item in payload["edges"]
+        if item["source"] == "app" and item["target"] == "library:json"
+    )
+    assert edge["state"] == "violation"
+    assert edge["rule_ids"] == ["EXTERNAL-JSON-STORE"]
+    assert edge["sites"]
+    assert any(
+        item["source"] == "store"
+        and item["target"] == "library:json"
+        and item["state"] == "conforms"
+        for item in payload["edges"]
+    )
 
 
 def test_html_report_never_styles_missing_evidence_as_pass() -> None:

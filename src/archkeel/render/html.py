@@ -27,7 +27,15 @@ from archkeel.ir.interfaces import (
 )
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.measurements import Measurements
-from archkeel.ir.model import CallRow, Diagnostic, Observation, Record, RecordData, RunResult
+from archkeel.ir.model import (
+    CallRow,
+    Diagnostic,
+    Observation,
+    Record,
+    RecordData,
+    RunResult,
+    in_scope,
+)
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.structure import (
     InsideSizes,
@@ -420,6 +428,89 @@ def _flow_modules_payload(flow: FlowData) -> dict[str, object]:
     }
 
 
+def _library_imports(observation: Observation, dependency: str) -> dict[str, list[Record]]:
+    owners = component_owners(observation)
+    matching = [
+        (owner_of(source, owners), item)
+        for item in observation.records("imports") or ()
+        if isinstance(source := item.data.get("source_module"), str)
+        and isinstance(target := item.data.get("target_module"), str)
+        and in_scope(target, dependency)
+    ]
+    return {
+        owner: [item for source, item in matching if source == owner]
+        for owner in sorted({source for source, _ in matching if source is not None})
+    }
+
+
+def _flow_libraries(
+    observation: Observation,
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    scopes = [
+        item
+        for item in observation.records("declarations") or ()
+        if item.kind == "external_dependency_scope"
+    ]
+    evidence = {item.id: f"{item.file}:{item.line}" for item in observation.evidence}
+    violated_imports = {
+        (fact_id, rule_id)
+        for item in observation.records("violations") or ()
+        for fact_id in item.fact_ids
+        for rule_id in item.rule_ids
+    }
+    libraries: list[dict[str, object]] = []
+    edges: list[dict[str, object]] = []
+    for scope in scopes:
+        dependency = scope.data.get("dependency")
+        if not isinstance(dependency, str):
+            continue
+        grouped = _library_imports(observation, dependency)
+        if not grouped:
+            continue
+        label = f"library:{dependency}"
+        libraries.append(
+            {
+                "label": label,
+                "display": dependency,
+                "library": True,
+                "modules": [],
+                "public": None,
+                "import_sites": sum(len(grouped[source]) for source in grouped),
+                "rule_id": scope.id,
+                "rationale": scope.data.get("rationale"),
+                "decided_by": scope.data.get("decided_by"),
+            }
+        )
+        for source, items in sorted(grouped.items()):
+            broken = any((item.id, scope.id) in violated_imports for item in items)
+            edges.append(
+                {
+                    "source": source,
+                    "target": label,
+                    "import_sites": len(items),
+                    "rule_ids": [scope.id] if broken else [],
+                    "state": "violation" if broken else "conforms",
+                    "sites": sorted(
+                        {
+                            evidence[key]
+                            for item in items
+                            for key in item.evidence_ids
+                            if key in evidence
+                        }
+                    )[:3],
+                    "requirement": {},
+                    "scope": {
+                        "rule_id": scope.id,
+                        "rationale": scope.data.get("rationale"),
+                        "decided_by": scope.data.get("decided_by"),
+                    },
+                    "library": True,
+                    "names": [],
+                }
+            )
+    return sorted(libraries, key=lambda item: str(item["label"])), edges
+
+
 def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
     names_by_pair = {
         (edge.source, edge.target): edge.names for edge in interface_edges(observation)
@@ -438,9 +529,11 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
     }
     sites = _flow_sites(observation)
     requires = {label: _flow_requires(record) for label, record in by_component.items()}
+    libraries, library_edges = _flow_libraries(observation)
 
     return {
         "rules": rules,
+        "libraries": libraries,
         "components": [
             {
                 "label": component.label,
@@ -479,7 +572,8 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
                 ],
             }
             for edge in flow.edges
-        ],
+        ]
+        + library_edges,
         "modules": _flow_modules_payload(flow),
     }
 
@@ -491,6 +585,8 @@ _FLOW_GUIDE = """
         narrowed to a specific interface by <code>through</code>. Arrows are observed imports
         from user to provider, not every dependency the contract permits. Teal conforms,
         red breaks a rule, amber needs a decision, and grey shows imports inside a component.
+        A <code>«library»</code> box and dashed teal arrow show observed use of a scoped
+        external dependency; a forbidden use is red.
         Select a box twice for level 3: physical package folders and modules inside it.
         Folders are not declared architectural boundaries. Open a module for level 4 symbols.
         Use the breadcrumb to go back. Hover or select a connection for its evidence. Level 1,
