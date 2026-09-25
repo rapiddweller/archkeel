@@ -171,7 +171,9 @@ def _ir_schema_errors(observation: dict[str, object]) -> list[str]:
     return [error.message for error in validator.iter_errors(observation)]
 
 
-def test_the_ir_schemas_accept_a_cited_file(tmp_path: Path) -> None:
+def test_the_ir_schemas_accept_a_cited_file_only_in_the_form_the_trace_check_reads(
+    tmp_path: Path,
+) -> None:
     variant = next(item for item in CATALOG if item.id == "class-a-root-layout-empty-package")
     _, architecture = run_report(
         _prepare_repo(tmp_path, dict(variant.files)), config=CONFIG, analyzer=observe
@@ -183,3 +185,6 @@ def test_the_ir_schemas_accept_a_cited_file(tmp_path: Path) -> None:
 
     assert (cited["line"], cited["end_line"], cited["column"], cited["excerpt"]) == (0, 0, 0, "")
     assert _ir_schema_errors(observation) == []
+    for field, value in (("excerpt", "import shop"), ("end_line", 1), ("column", 4)):
+        malformed = [{**item, field: value} if item is cited else item for item in evidence]
+        assert _ir_schema_errors({**observation, "evidence": malformed}), field

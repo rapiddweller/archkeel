@@ -57,4 +57,4 @@ line before code; a blank-first-line module under `complete_assignment`; an empt
 its `namespace`; and an empty Dart library. `tests/test_trace.py` still rejects a cited line
 without text and a malformed line 0. The AD-11 rows `class-a-root-layout-empty-package` and
 `class-a-root-layout-blank-first-line` run it on the shop sample, and `tests/test_html_report.py`
-reads the first row's location as the file alone.
+reads the first row's location as the file alone. The IR schemas accept only that line-0 form.
