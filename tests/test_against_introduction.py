@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import replace
@@ -26,8 +27,14 @@ from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_measurement_budgets
 
 
+def _git(root: Path, *args: str) -> str:
+    return subprocess.check_output(
+        ["git", "-c", "commit.gpgsign=false", *args], cwd=root, text=True
+    ).strip()
+
+
 def _base(root: Path) -> str:
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    return _git(root, "rev-parse", "HEAD")
 
 
 def _mobile_scope(tmp_path: Path, base_files: dict[str, str | None] | None = None) -> Path:
@@ -51,6 +58,39 @@ def test_a_missing_blob_names_its_repository_path_below_the_root(tmp_path: Path)
 
     assert raised.value.path == "mobile/architecture-contract.json"
     assert str(raised.value) == "missing regular Git blob: mobile/architecture-contract.json"
+
+
+def test_a_scope_directory_starting_with_a_colon_is_looked_up_like_any_other(
+    tmp_path: Path,
+) -> None:
+    """The lookup stays relative to --root: `:app/...` as a pathspec would be Git magic."""
+    root = _prepare_repo(tmp_path, {})
+    shutil.copytree(DART_FIXTURE_DIR, root / ":app")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "app")
+    scope = root / ":app"
+
+    result, _ = run_validate(scope, load_config(scope), observe, against=_base(root))
+
+    assert (result.exit_code, result.failures, result.diagnostics) == (0, (), ())
+
+
+def test_a_scope_directory_that_is_not_utf8_reads_and_names_its_blobs(tmp_path: Path) -> None:
+    """Only a message needs the directory's name, and a name no reader decodes cannot stop it."""
+    root = _prepare_repo(tmp_path, {})
+    scope = root / os.fsdecode(b"app\xff")
+    shutil.copytree(DART_FIXTURE_DIR, scope)
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "app")
+    base = _base(root)
+
+    assert (
+        read_blob(scope, base, "architecture-contract.json")
+        == (DART_FIXTURE_DIR / "architecture-contract.json").read_bytes()
+    )
+    with pytest.raises(MissingBlobError) as raised:
+        read_blob(scope, base, "absent.json")
+    assert raised.value.path == "app�/absent.json"
 
 
 def test_a_second_contract_the_revision_lacks_is_one_introduction(tmp_path: Path) -> None:

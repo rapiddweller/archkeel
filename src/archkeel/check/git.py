@@ -45,22 +45,27 @@ def relative_path(value: str) -> str:
     return path.as_posix()
 
 
-def read_blob(root: Path, revision: str, path: str) -> bytes:
-    """The regular file `path`, relative to `root`, at `revision`.
+def _repository_path(root: Path, path: str) -> str:
+    """`path`, relative to `root`, as the path from the repository's top level, for a message.
 
-    `root` may sit below the repository's top level, as `--root mobile` does; the lookup and
-    every error use the path from the top level, so a message names the file Git was asked for.
+    `root` may sit below the top level, as `--root mobile` does. A directory name that is not
+    UTF-8 shows its undecodable bytes as U+FFFD instead of stopping the message.
     """
-    relative = relative_path(path)
-    prefix: str = str(git_bytes(root, "rev-parse", "--show-prefix"), "utf-8")
-    path = prefix.rstrip("\n") + relative
-    entry = git_bytes(root, "ls-tree", "-z", "--full-tree", revision, "--", path).split(b"\0")
+    prefix: str = str(git_bytes(root, "rev-parse", "--show-prefix"), "utf-8", "replace")
+    return prefix.rstrip("\n") + path
+
+
+def read_blob(root: Path, revision: str, path: str) -> bytes:
+    """The regular file `path`, relative to `root`, at `revision`; an error names its path from
+    the repository's top level, so a message names the blob Git was asked for."""
+    path = relative_path(path)
+    entry = git_bytes(root, "ls-tree", "-z", revision, "--", path).split(b"\0")
     entries = [item.split(b"\t", 1) for item in entry if item]
     if len(entries) != 1 or entries[0][1].decode() != path:
-        raise MissingBlobError(path)
+        raise MissingBlobError(_repository_path(root, path))
     mode, kind, oid = entries[0][0].split()
     if mode not in {b"100644", b"100755"} or kind != b"blob":
-        raise GitError(f"expected a regular Git blob: {path}")
+        raise GitError(f"expected a regular Git blob: {_repository_path(root, path)}")
     return git_bytes(root, "cat-file", "blob", oid.decode())
 
 
