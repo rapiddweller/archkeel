@@ -200,6 +200,11 @@ scope (AD-101), which leaves these limits:
 - `report` writes to `test-artifacts/architecture/architecture.json` unless `--output` names
   another path, whatever `--config` names, so a test-scope report without its own `--output`
   replaces the product report.
+- `validate --against` reads a scope's contract at the path today's configuration names, and
+  never follows a rename. A contract the revision lacks, a new scope's or a moved one's, is one
+  `contract introduced` widening: its old rules are not compared, and the amendment covers the
+  whole contract. A baseline the revision holds at the `--baseline` path is still compared
+  (AD-104).
 - `--baseline` and `--amendment` are relative to `--root`, like the contract, while `report
   --output` and `check --output` stay relative to the working directory: from the repository
   root, `--root mobile` reads `--baseline known-violations.json` from `mobile/` but writes

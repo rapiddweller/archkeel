@@ -238,8 +238,17 @@ each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contra
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment
 written for one change does not verify against a different one. `--write-amendment`, with
 `--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
-`--amendment` file, or one outside the root, is `amendment.invalid`, exit 2; an `--against` revision
-or its contract that cannot be read is `against.invalid`, exit 2. When a run fails and the observed
+`--amendment` file, or one outside the root, is `amendment.invalid`, exit 2. A contract the `--against` revision does not
+hold, a new scope's or one moved to a new path, is one widening, `contract introduced: <path>
+does not exist at <ref>`. Its amendment's `before_digest` is `ir.codec.absent_contract_digest`,
+the SHA-256 of a NUL, `no contract at ` and that repository path, so no contract digest equals it
+and a record for one path does not verify the contract moved to another. A baseline the revision
+still holds is compared as before; one it lacks too is not, so a baseline that arrives with its
+contract adds no finding (AD-104). An `--against` revision Git cannot resolve, or a contract or
+baseline there that is not a regular file or does not parse, is `against.invalid`, exit 2. A
+missing or non-regular blob's message names its repository path, including a `--root` below the
+top level, such as `mobile/architecture-contract.json`; a parse error names no path. When a run
+fails and the observed
 `calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
 at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
 passing run pays for no second scan. Removed rows and rows in files the revision's snapshot

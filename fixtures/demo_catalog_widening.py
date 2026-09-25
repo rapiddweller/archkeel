@@ -19,8 +19,9 @@ from pathlib import Path
 
 from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
+from archkeel.cli.config import load_config
 from archkeel.ir.model import RunResult
-from fixtures.demo_catalog_check import CONFIG
+from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_dependencies import module_cycle_rule
 from fixtures.demo_catalog_support import (
     FIXTURE_DIR,
@@ -43,7 +44,8 @@ def _git(root: Path, *args: str) -> str:
 def build_and_run_against(
     tmp_path: Path, files: Mapping[str, str | None], scenario: AgainstExpectation
 ) -> RunResult:
-    """Commit the clean shop sample, apply the scenario's overlay, then run `--against` it."""
+    """Commit the clean shop sample on main, apply the scenario's overlay, then run
+    `--against main` from the scenario's root."""
     root = tmp_path / "root"
     shutil.copytree(FIXTURE_DIR, root)
     apply_overlay(root, scenario.base_files)
@@ -52,25 +54,27 @@ def build_and_run_against(
     _git(root, "config", "user.name", "Demo")
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "base contract")
-    base = _git(root, "rev-parse", "HEAD")
 
     apply_overlay(root, files)
+    run_root = root / scenario.root
+    config = load_config(run_root)
 
-    if scenario.scenario != "widened_amended":
-        return run_validate(root, CONFIG, observe, against=base)[0]
-    amendment = root / "widening-amendment.json"
+    if scenario.scenario not in ("widened_amended", "introduced_amended"):
+        return run_validate(run_root, config, observe, against="main")[0]
+    # AD-103: the amendment lives inside the root it is validated under.
+    amendment = run_root / "widening-amendment.json"
     _, write_files = run_validate(
-        root,
-        CONFIG,
+        run_root,
+        config,
         observe,
-        against=base,
+        against="main",
         amendment=amendment,
         write_amendment=True,
         decided_by="Demo architect",
         rationale="Recorded for the AD-11 demo catalog (#11).",
     )
     amendment.write_bytes(write_files[str(amendment)])
-    return run_validate(root, CONFIG, observe, against=base, amendment=amendment)[0]
+    return run_validate(run_root, config, observe, against="main", amendment=amendment)[0]
 
 
 # Each scenario widens or narrows DEP-APP-NO-STORE-SQLITE's allowed_sources, an exemption list
@@ -124,6 +128,20 @@ _CYCLE_RULE_SCOPED = AgainstExpectation(
     ("rule MODEL-MODULES-ACYCLIC.components scoped to ['model']",),
     base_files={"architecture-contract.json": contract_with_rule(module_cycle_rule())},
 )
+# AD-104 (#150): the merge request that adds a Flutter-style app under mobile/ with its own
+# archkeel.toml and contract; main holds neither, and the run's --root is mobile.
+_MOBILE_FILES = {
+    f"mobile/{path.relative_to(DART_FIXTURE_DIR).as_posix()}": path.read_text()
+    for path in sorted(DART_FIXTURE_DIR.rglob("*"))
+    if path.is_file()
+}
+_INTRODUCED = AgainstExpectation(
+    "introduced_unamended",
+    1,
+    ("contract introduced: mobile/architecture-contract.json does not exist at main",),
+    root="mobile",
+)
+_INTRODUCED_AMENDED = AgainstExpectation("introduced_amended", 0, (), root="mobile")
 
 VARIANTS: tuple[Variant, ...] = (
     Variant(
@@ -229,5 +247,28 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         against=_CYCLE_RULE_SCOPED,
+    ),
+    Variant(
+        id="against-contract-introduced",
+        section="validation",
+        item="against:introduced_unamended",
+        summary="A second contract arrives under mobile/ with its own archkeel.toml, and main "
+        "holds neither: one widening names the contract by its repository path, where main "
+        "exited 2 naming it without mobile/.",
+        files=_MOBILE_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        against=_INTRODUCED,
+    ),
+    Variant(
+        id="against-contract-introduced-amended",
+        section="validation",
+        item="against:introduced_amended",
+        summary="The same introduction with the architect's --write-amendment record, bound to "
+        "no contract before and this one after: the run passes.",
+        files=_MOBILE_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        against=_INTRODUCED_AMENDED,
     ),
 )
