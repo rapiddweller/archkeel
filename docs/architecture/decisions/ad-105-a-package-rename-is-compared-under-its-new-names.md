@@ -10,7 +10,7 @@ or `window_cleaning_mobile -> field_service_mobile` with `...features.kunde ->
 component's moved packages pair by the last segment only one of each side has, then in order.
 When the substitution holds, the old contract and, with `--baseline`, the old baseline are
 renamed with it before `ir.widening` compares them. The JSON result lists it as `renames` (`null`
-without `--against`) and the terminal names each line. Whatever it does not explain is still
+when no revision was compared) and the terminal names each line. Whatever it does not explain is still
 compared, so a real widening beside a rename fails alone.
 
 | `validate --against`, same input on `main` and now | `main` | Now |

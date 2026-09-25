@@ -225,10 +225,10 @@ substitution, which holds when every prefix relation among the old contract's an
 dotted names survives it and no scanned module keeps an old name. The old contract and baseline
 are then renamed before the comparison, so a pure rename passes without an amendment and a
 widening beside it fails alone. `renames` in the JSON result lists each old and new prefix
-(`null` without `--against`, `[]` when none holds) and the terminal names them. Paths are not
-renamed: a moved `inside` contract still compares as a changed `inside`. Where no rename holds,
-a gained `public` entry names the one lost entry with its last name, `gained 'b.api.x' in place
-of 'a.api.x'`. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
+(`[]` when none holds, `null` when no revision was compared) and the terminal names them.
+Paths are not renamed: a moved `inside` contract still compares as a changed `inside`. Where no
+rename holds, a gained `public` entry names the one lost entry with its last name, `gained
+'b.api.x' in place of 'a.api.x'`. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
 each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contract_digest` - the
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment
