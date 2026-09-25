@@ -24,9 +24,11 @@ from .measurements import MeasurementBudget
 from .model import (
     ArchitectureContract,
     NoComponentCyclesRule,
+    Observation,
     in_scope,
     last_name,
     module_references,
+    text_value,
 )
 
 
@@ -122,16 +124,16 @@ def rename_candidates(
 
 
 def rename_holds(
-    renames: Mapping[str, str], *, names: frozenset[str], modules: frozenset[str]
+    renames: Mapping[str, str], *, names: frozenset[str], observed: frozenset[str]
 ) -> bool:
     """Whether `renames` renames the old side and leaves every relation between names as it was.
 
-    `names` are the module and symbol names the old contract and baseline hold, `modules` the
-    modules the scan reads now. A rule, package or entry scopes by prefix, so a name held another
-    before exactly when their new names hold each other, the renamed prefixes themselves
-    included: then the renamed contract states for each new name what the old one stated for its
-    old name. No scanned module may lie under an old prefix, where the renamed contract no longer
-    governs it, whatever its file is called (AD-105).
+    `names` are the module and symbol names the old contract and baseline hold, `observed` every
+    module the scan reads now or sees an import reach. A rule, package or entry scopes by prefix,
+    so a name held another before exactly when their new names hold each other, the renamed
+    prefixes themselves included: then the renamed contract states for each new name what the old
+    one stated for its old name. No observed module may lie under an old prefix, where the renamed
+    contract no longer governs it, whatever its file is called (AD-105).
     """
     olds = frozenset(_module(name) for name in names) | frozenset(renames)
     news = {old: renamed(old, renames) for old in olds}
@@ -142,7 +144,7 @@ def rename_holds(
         {prefix for prefix in _prefixes(old) if prefix in olds}
         == {each for prefix in _prefixes(news[old]) for each in holders.get(prefix, [])}
         for old in olds
-    ) and not any(in_scope(module, old) for module in modules for old in renames)
+    ) and not any(in_scope(module, old) for module in observed for old in renames)
 
 
 def _module(name: str) -> str:
@@ -153,6 +155,20 @@ def _prefixes(module: str) -> list[str]:
     """`module` and every dotted prefix of it: the names that hold it."""
     parts = module.split(".")
     return [".".join(parts[:end]) for end in range(1, len(parts) + 1)]
+
+
+def observed_names(observation: Observation) -> frozenset[str]:
+    """Every module the scan read or saw an import reach, whether it read that module or not."""
+    modules = {
+        text_value(record.data.get("qualified_name"))
+        for record in observation.records("modules") or ()
+    }
+    imported = {
+        text_value(record.data.get(field))
+        for record in observation.records("imports") or ()
+        for field in ("target_module", "origin_definition")
+    }
+    return frozenset(modules | imported) - {""}
 
 
 def contract_names(contract: ArchitectureContract) -> frozenset[str]:
@@ -265,7 +281,7 @@ def rename_since(
     *,
     violations: tuple[KnownViolation, ...],
     budgets: tuple[MeasurementBudget, ...],
-    modules: frozenset[str],
+    observed: frozenset[str],
 ) -> Renamed | None:
     """The compared revision renamed by the first candidate that holds, or None.
 
@@ -276,7 +292,7 @@ def rename_since(
     labelled = _labelled(before)
     names = contract_names(before) | _baseline_names(violations, budgets, labelled)
     for candidate in rename_candidates(before, after):
-        if not rename_holds(candidate, names=names, modules=modules):
+        if not rename_holds(candidate, names=names, observed=observed):
             continue
         try:
             contract = renamed_contract(before, candidate)

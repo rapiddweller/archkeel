@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import json
+import py_compile
+import shutil
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -141,7 +143,7 @@ def test_a_name_is_renamed_under_its_longest_prefix() -> None:
 def test_a_rename_that_touches_nothing_else_holds() -> None:
     names = frozenset({"shop", "shop.render", "shop.render.text", "shop.model", "json"})
 
-    assert rename_holds(_RENDER, names=names, modules=frozenset({"shop.view.text"}))
+    assert rename_holds(_RENDER, names=names, observed=frozenset({"shop.view.text"}))
 
 
 def test_two_old_names_that_would_become_one_are_no_rename() -> None:
@@ -149,21 +151,21 @@ def test_two_old_names_that_would_become_one_are_no_rename() -> None:
     renames = {"wcm": "fsm", "wcm.features.kunde": "fsm.features.customer"}
     names = frozenset({"wcm.features.kunde", "wcm.features.customer"})
 
-    assert not rename_holds(renames, names=names, modules=frozenset())
+    assert not rename_holds(renames, names=names, observed=frozenset())
 
 
 def test_two_unrelated_packages_that_would_nest_are_no_rename() -> None:
     """Guard: `c.x` inside `c` would overlap it, and an overlapped module is owned by nobody."""
     names = frozenset({"a", "b"})
 
-    assert not rename_holds({"a": "c", "b": "c.x"}, names=names, modules=frozenset())
+    assert not rename_holds({"a": "c", "b": "c.x"}, names=names, observed=frozenset())
 
 
 def test_a_new_name_the_old_contract_already_used_is_no_rename() -> None:
     """Guard: a grant the old contract gave `shop.view` would pass to the renamed package."""
     names = frozenset({"shop.render", "shop.view.legacy"})
 
-    assert not rename_holds(_RENDER, names=names, modules=frozenset())
+    assert not rename_holds(_RENDER, names=names, observed=frozenset())
 
 
 def test_a_rule_prefix_that_covers_only_one_side_is_no_rename() -> None:
@@ -171,10 +173,10 @@ def test_a_rule_prefix_that_covers_only_one_side_is_no_rename() -> None:
     moved_out = {"shop.render": "other.view"}
 
     assert not rename_holds(
-        moved_out, names=frozenset({"shop.render", "other"}), modules=frozenset()
+        moved_out, names=frozenset({"shop.render", "other"}), observed=frozenset()
     )
     assert not rename_holds(
-        moved_out, names=frozenset({"shop.render", "shop"}), modules=frozenset()
+        moved_out, names=frozenset({"shop.render", "shop"}), observed=frozenset()
     )
 
 
@@ -182,14 +184,14 @@ def test_a_name_already_under_a_new_prefix_is_no_rename() -> None:
     """The renamed prefix `shop` would come to hold `store_app.legacy`, which it did not."""
     names = frozenset({"shop.model", "store_app.legacy"})
 
-    assert not rename_holds({"shop": "store_app"}, names=names, modules=frozenset())
+    assert not rename_holds({"shop": "store_app"}, names=names, observed=frozenset())
 
 
 def test_a_module_left_under_an_old_name_is_no_rename() -> None:
     """Guard: copied rather than moved, the old module would be governed by nothing renamed."""
     modules = frozenset({"shop.view.text", "shop.render.text"})
 
-    assert not rename_holds(_RENDER, names=frozenset({"shop.render"}), modules=modules)
+    assert not rename_holds(_RENDER, names=frozenset({"shop.render"}), observed=modules)
 
 
 @pytest.mark.parametrize("module", ["shop.render.text-legacy", "shop.render.2fa"])
@@ -199,7 +201,7 @@ def test_a_module_under_an_old_prefix_is_no_rename_whatever_its_file_is_called(
     """Guard (QA c5, c6): a file name no identifier spells still lies under the old prefix."""
     modules = frozenset({"shop.view.text", module})
 
-    assert not rename_holds(_RENDER, names=frozenset({"shop.render"}), modules=modules)
+    assert not rename_holds(_RENDER, names=frozenset({"shop.render"}), observed=modules)
 
 
 def test_a_candidate_that_turns_nesting_inside_out_is_no_rename() -> None:
@@ -210,7 +212,7 @@ def test_a_candidate_that_turns_nesting_inside_out_is_no_rename() -> None:
     names = frozenset({"a.c", "a.s.t.r.s.w", "a.s"})
 
     assert candidate == {"a": "q.r", "a.s.t": "q"}
-    assert not rename_holds(candidate, names=names, modules=frozenset({"q.r.c.m", "q.r.s.w.m"}))
+    assert not rename_holds(candidate, names=names, observed=frozenset({"q.r.c.m", "q.r.s.w.m"}))
 
 
 def test_the_renamed_contract_equals_the_one_renamed_by_hand() -> None:
@@ -234,7 +236,7 @@ def test_a_rename_leaves_every_value_that_names_no_module_alone() -> None:
     after = _shop_contract(_moved_root(before_text, "agent", "architect"))
 
     moved = rename_since(
-        before, after, violations=(), budgets=(), modules=frozenset({"architect.model.entities"})
+        before, after, violations=(), budgets=(), observed=frozenset({"architect.model.entities"})
     )
 
     assert moved is not None
@@ -273,7 +275,7 @@ def test_a_package_named_like_a_label_is_renamed_without_the_label() -> None:
     before, after = _shop_contract(before_text), _shop_contract(after_text)
 
     moved = rename_since(
-        before, after, violations=(), budgets=(), modules=frozenset({"field_app.main"})
+        before, after, violations=(), budgets=(), observed=frozenset({"field_app.main"})
     )
 
     assert moved is not None
@@ -288,7 +290,7 @@ def test_a_root_renamed_like_a_label_is_a_rename_with_its_label_cycle_entries() 
     after = _shop_contract(_moved_root(_SHOP, "shop", "app"))
 
     moved = rename_since(
-        before, after, violations=(cycle,), budgets=(), modules=frozenset({"app.model.entities"})
+        before, after, violations=(cycle,), budgets=(), observed=frozenset({"app.model.entities"})
     )
 
     assert moved is not None
@@ -378,6 +380,50 @@ def test_a_module_left_behind_under_the_old_package_keeps_the_plain_comparison(
         "component 'render'.packages changed from ('shop.render',) to ('shop.view',)"
         in result.failures
     )
+
+
+def _import_from_app(root: Path, statement: str) -> None:
+    orders = root / "shop/app/orders.py"
+    orders.write_text(orders.read_text() + f"\n{statement}\n")
+
+
+def test_an_import_of_a_module_left_unread_under_the_old_name_is_no_rename(tmp_path: Path) -> None:
+    """QA k1: a compiled `shop/render/legacy.pyc` the scan never reads, imported by shop.app."""
+    root = _prepare_repo(tmp_path, {})
+    base = _git(root, "rev-parse", "HEAD")
+    apply_overlay(root, renamed_render())
+    source = root / "shop/render/legacy.py"
+    source.parent.mkdir(exist_ok=True)
+    source.write_text("from shop.store.sqlite import vacuum\n\nV = vacuum\n")
+    py_compile.compile(str(source), cfile=str(root / "shop/render/legacy.pyc"), doraise=True)
+    source.unlink()
+    _import_from_app(root, "from shop.render.legacy import V as _leak")
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert (result.exit_code, result.renames) == (1, ())
+    assert (
+        "component 'render'.packages changed from ('shop.render',) to ('shop.view',)"
+        in result.failures
+    )
+
+
+def test_an_import_of_the_copy_left_outside_narrowed_roots_is_no_rename(tmp_path: Path) -> None:
+    """QA j1: shop/render copied rather than moved, left outside the roots, and imported."""
+    root = _prepare_repo(tmp_path, {})
+    base = _git(root, "rev-parse", "HEAD")
+    shutil.copytree(root / "shop/render", root / "shop/view")
+    overlay = renamed_render()
+    del overlay["shop/render/text.py"], overlay["shop/view/text.py"]
+    apply_overlay(root, overlay)
+    _import_from_app(root, "from shop.render.text import render_order as _leak")
+    config = replace(
+        SHOP_CONFIG, roots=("shop/app", "shop/cli", "shop/model", "shop/store", "shop/view")
+    )
+
+    result, _ = run_validate(root, config, observe, against=base)
+
+    assert (result.exit_code, result.renames) == (1, ())
 
 
 def test_a_rename_the_old_contract_cannot_parse_under_stays_amendable(tmp_path: Path) -> None:

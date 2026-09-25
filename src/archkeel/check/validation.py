@@ -72,7 +72,7 @@ from archkeel.ir.model import (
     text_value,
 )
 from archkeel.ir.profiles import PROFILES
-from archkeel.ir.renames import Renamed, rename_since
+from archkeel.ir.renames import Renamed, observed_names, rename_since
 from archkeel.ir.widening import (
     Amendment,
     baseline_widenings,
@@ -1906,7 +1906,7 @@ def _rename_since(
         contract,
         violations=ctx.baseline,
         budgets=ctx.budgets,
-        modules=_scanned_modules(observation),
+        observed=observed_names(observation),
     )
 
 
