@@ -36,7 +36,7 @@ from .imports import collect_imports, resolve_reexports
 from .records import RawEvidence, RawRecord, classified
 from .references import collect_references
 from .resolve import build_symbol_index
-from .source import add_evidence, parse_sources
+from .source import file_evidence, parse_sources
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
 from .violations import (
@@ -223,7 +223,7 @@ def scan_repository(
 
     module_names = {module.module for module in parsed}
     module_evidence = {
-        module.module: add_evidence(evidence, module, module.tree) for module in parsed
+        module.module: file_evidence(evidence, module.rel_path, module.lines) for module in parsed
     }
     imports = collect_imports(parsed, module_names, evidence, namespace=namespace)
 

@@ -145,11 +145,12 @@
         },
         "line": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0,
+          "description": "0 cites the file itself (AD-107); the if/then below then requires end_line 0, column 0 and an empty excerpt."
         },
         "end_line": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0
         },
         "column": {
           "type": "integer",
@@ -159,7 +160,27 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "line": {
+            "const": 0
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "end_line": {
+            "const": 0
+          },
+          "column": {
+            "const": 0
+          },
+          "excerpt": {
+            "const": ""
+          }
+        }
+      }
     }
   }
 }

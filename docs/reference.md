@@ -151,20 +151,22 @@ the code that has yet to reach it
 (AD-52). Each entry names one violation by fingerprint — the rule ids it cites and its sorted
 `subjects`, the modules, construct owner or cycle members it is about — with the number of
 violations sharing it. No position enters a fingerprint, so an unrelated edit above a violating
-line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Counts must match
-the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
-violation`, both in `failures` with exit 1, so the budget only shrinks. A cycle whose members are
-a strict subset of a baselined cycle is `contracted violation`, written back like a resolved one
-(AD-98). A run whose baseline is exactly right exits 0 with `declared_rules: FAIL`. Results
-expose deterministic `baseline_new` and `baseline_resolved` counts. `baseline_new` counts
-fingerprints whose occurrence count rose, except a contracted cycle; `baseline_resolved` counts
-fingerprints whose occurrence count fell, so the baselined cycle a contraction shrank from counts
-there. Each changed fingerprint contributes one, not its occurrence-count delta. Only `rule.violated` is answered this way; every
-other diagnostic still exits 2, as does a baseline that cannot be read or lies outside the root
-(`baseline.invalid`).
-`--write-baseline` writes the observed violations to that same path only after comparing an
-existing file: resolved-only drift and contracted cycles may be written, while new or increased
-fingerprints refuse the write unless `--accept-new` is explicit. It writes nothing from a run that exited 2.
+line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Both lists are read in
+any order, so an entry whose subjects a text replace reordered still matches (AD-106). Counts must
+match the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
+violation`, both in `failures` with exit 1, so the budget only shrinks. A cycle whose members are a
+strict subset of a baselined cycle is `contracted violation`, written back like a resolved one
+(AD-98). A run whose baseline is exactly right exits 0 with `declared_rules: FAIL`. Results expose
+deterministic `baseline_new` and `baseline_resolved` counts. `baseline_new` counts fingerprints
+whose occurrence count rose, except a contracted cycle; `baseline_resolved` counts fingerprints
+whose occurrence count fell, so the baselined cycle a contraction shrank from counts there. Each
+changed fingerprint contributes one, not its occurrence-count delta. Only `rule.violated` is
+answered this way; every other diagnostic still exits 2, as does a baseline that cannot be read
+or lies outside the root (`baseline.invalid`). `--write-baseline` writes the observed violations to that same path only after
+comparing an existing file: resolved-only drift and contracted cycles may be written, while new or
+increased fingerprints refuse the write unless `--accept-new` is explicit; the refused run's last
+failure says so and names `--accept-new`, and none of its lines advises `--write-baseline` (AD-106).
+It writes nothing from a run that exited 2.
 
 `declarations.measurement_budgets` may select `cycle_edges`, `private_crossings`,
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each

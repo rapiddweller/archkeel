@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:violation-baseline:1",
   "title": "Validation baseline for archkeel validate --baseline",
-  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52, AD-78, AD-89, AD-90, AD-99). A fingerprint is the rules a violation breaks and the sorted subjects they name; roles are protected directional evidence without changing identity. Budgets are accepted values for contract-selected deterministic measurements, and the accepted names of each declared facade and coupling budget.",
+  "$comment": "Written by `archkeel validate --baseline <path> --write-baseline` (AD-52, AD-78, AD-89, AD-90, AD-99). A fingerprint is the rules a violation breaks and the subjects they name, written sorted and read in any order (AD-106); roles are protected directional evidence without changing identity. Budgets are accepted values for contract-selected deterministic measurements, and the accepted names of each declared facade and coupling budget.",
   "type": "object",
   "required": [
     "schema_version",
@@ -64,7 +64,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "The declared rule ids this violation breaks, as the observation records them."
+          "description": "The declared rule ids this violation breaks, as the observation records them. Written sorted and read in any order (AD-106)."
         },
         "subjects": {
           "type": "array",
@@ -72,7 +72,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "The sorted names the violation is about: modules, a construct owner or the members of a cycle, by kind. Sorted, so they carry no direction."
+          "description": "The names the violation is about: modules, a construct owner or the members of a cycle, by kind. Written sorted and read in any order, so they carry no direction (AD-106)."
         },
         "count": {
           "type": "integer",

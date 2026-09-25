@@ -140,6 +140,8 @@ often explains an earlier one; the index below keeps that order.
 | AD-101 | [A second configuration governs a second scope at the same root](decisions/ad-101-a-second-configuration-governs-a-second-scope.md) |
 | AD-102 | [A constant JSON cannot hold is recorded without its value](decisions/ad-102-a-constant-json-cannot-hold-is-recorded-without-its-value.md) |
 | AD-103 | [Baseline and amendment paths are relative to --root](decisions/ad-103-baseline-and-amendment-paths-are-relative-to-root.md) |
+| AD-106 | [A baseline entry names its violation in any subject order](decisions/ad-106-a-baseline-entry-names-its-violation-in-any-subject-order.md) |
+| AD-107 | [A module's file is its evidence, even when the file is empty](decisions/ad-107-a-modules-file-is-its-evidence-even-when-empty.md) |
 
 ## Allowed dependencies
 

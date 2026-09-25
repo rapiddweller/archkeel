@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import json
+
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
 from archkeel.ir.codec import baseline_bytes
 from archkeel.ir.measurements import MeasurementBudget
+from fixtures.demo_catalog_dependencies import REPOSITORY_WITH_MONEY_IMPORT
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
     HEADER,
@@ -84,6 +87,29 @@ _INTERFACE_NARROWING_BASELINE = """{
   ]
 }
 """
+
+
+def _money_import_baseline(*subjects: str) -> str:
+    """A baseline whose one DEP-STORE-NO-MONEY entry lists `subjects` in the order given."""
+    entry = {"count": 1, "rules": ["DEP-STORE-NO-MONEY"], "subjects": list(subjects)}
+    document = {"schema_version": "1.3.0", "budgets": {}, "violations": [entry]}
+    return json.dumps(document, indent=2) + "\n"
+
+
+# AD-106 (#152): the Money import's entry with its subjects reversed, the way a text-replaced
+# namespace rename reorders them; and a baseline that holds only a gone module's Money import.
+_MONEY_IMPORT_REVERSED = {
+    "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+    "architecture-baseline.json": _money_import_baseline(
+        "shop.store.repository", "shop.model.entities.Money"
+    ),
+}
+_MONEY_IMPORT_UNACCEPTED = {
+    "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+    "architecture-baseline.json": _money_import_baseline(
+        "shop.model.entities.Money", "shop.store.legacy"
+    ),
+}
 _CYCLE_BUDGET_BASELINE = """{
   "schema_version": "1.2.0",
   "budgets": {"cycle_edges": 0},
@@ -659,6 +685,32 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         baseline="known-violations.json",
+    ),
+    Variant(
+        id="validation-baseline-subject-order",
+        section="validation",
+        item="baseline.subject_order",
+        summary="The baseline lists the Money import's subjects reversed, as a text-replaced "
+        "namespace rename leaves them. The entry still names that violation: validate "
+        "--baseline exits 0 with no new or resolved entry (AD-106, #152).",
+        files=_MONEY_IMPORT_REVERSED,
+        expected_violations=("DEP-STORE-NO-MONEY",),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
+    ),
+    Variant(
+        id="validation-baseline-refused",
+        section="validation",
+        item="baseline.refused",
+        summary="The baseline holds a gone module's Money import, not the repository's. "
+        "--write-baseline refuses: failures name the new and the resolved entry, then say why "
+        "nothing was written and that --accept-new follows an architect's decision; no line "
+        "advises --write-baseline again (AD-106, #152).",
+        files=_MONEY_IMPORT_UNACCEPTED,
+        expected_violations=("DEP-STORE-NO-MONEY",),
+        expected_codes=(),
+        baseline="architecture-baseline.json",
+        write_baseline=True,
     ),
     Variant(
         id="validation-against-invalid",

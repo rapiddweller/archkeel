@@ -369,6 +369,7 @@ def test_validate_baseline_writes_then_gates_on_new_violations(
     result = json.loads(capsys.readouterr().out)
     assert result["artifact"] is None
     assert (result["baseline_new"], result["baseline_resolved"]) == (1, 0)
+    assert result["failures"][-1].startswith("--write-baseline refused: ")
     assert baseline.read_bytes() == before
 
     assert main([*arguments, "--write-baseline", "--accept-new"]) == 0

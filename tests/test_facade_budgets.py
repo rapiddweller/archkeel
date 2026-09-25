@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
+from test_baseline import REFUSED
 
 from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
@@ -180,6 +181,7 @@ def test_a_new_name_is_a_rise_that_names_it(tmp_path: Path) -> None:
     assert risen.exit_code == 1
     assert risen.failures == (
         "measurement budget exceeded in facade_names model: new shop.model.entities:Discount",
+        REFUSED,
     )
     assert risen.interface_budgets is not None
     assert risen.interface_budgets[0].new_names == ("shop.model.entities:Discount",)
