@@ -27,7 +27,7 @@ from archkeel.ir.renames import (
 )
 from archkeel.ir.widening import contract_widenings
 from archkeel.render.summary import report_summary
-from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay
+from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_interface_budgets
 from fixtures.demo_catalog_widening import renamed_render
 
 _RENDER = {"shop.render": "shop.view"}
@@ -201,6 +201,26 @@ def test_a_renamed_baseline_entry_is_not_a_padded_one(tmp_path: Path) -> None:
     base = _git(root, "rev-parse", "HEAD")
 
     apply_overlay(root, {**renamed_render(), "shop/view/text.py": violating})
+    baseline.write_text(baseline.read_text().replace("shop.render", "shop.view"))
+    result, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
+
+    assert (result.exit_code, result.failures) == (0, ())
+    assert result.renames == (("shop.render", "shop.view"),)
+
+
+def test_renamed_coupling_names_are_not_a_widened_budget(tmp_path: Path) -> None:
+    """The accepted names move with their module; compared unrenamed, one reads as gained."""
+    contract = contract_interface_budgets(pairs=(("cli", "render", 1),))
+    root = _prepare_repo(tmp_path, {"architecture-contract.json": contract})
+    baseline = root / "known-violations.json"
+    _, written = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+    baseline.write_bytes(written[str(baseline)])
+    assert b"shop.render.text:render_order" in baseline.read_bytes()
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "coupling budget")
+    base = _git(root, "rev-parse", "HEAD")
+
+    apply_overlay(root, renamed_render(contract))
     baseline.write_text(baseline.read_text().replace("shop.render", "shop.view"))
     result, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
 
