@@ -21,7 +21,7 @@ from archkeel.ir.baseline import (
     SCALAR_BUDGETS_BASELINE_SCHEMA_VERSION,
     KnownViolation,
     ValidationBaseline,
-    ViolationFingerprint,
+    canonical_fingerprint,
 )
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import (
@@ -1841,7 +1841,7 @@ def _known_violation(raw: RawJson, label: str, *, with_roles: bool) -> KnownViol
             raise ValueError(f"{label}.roles repeats a role")
         roles = tuple(sorted(parsed_roles))
     return KnownViolation(
-        ViolationFingerprint(
+        canonical_fingerprint(
             _strings(value["rules"], f"{label}.rules"),
             _strings(value["subjects"], f"{label}.subjects"),
         ),

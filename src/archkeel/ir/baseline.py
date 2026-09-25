@@ -36,12 +36,12 @@ LEGACY_BASELINE_SCHEMA_VERSION = "1.0.0"
 
 @dataclass(frozen=True, slots=True)
 class ViolationFingerprint:
-    """One violation's position-independent identity.
+    """One violation's position-independent identity, built by `canonical_fingerprint`.
 
-    `subjects` is the analyzer's own subject list, sorted by `classified` and so carrying no
-    direction: the modules, the construct owner or the cycle members the violation is about,
-    whichever its kind records. Two violations of one rule that name the same subjects - two
-    `getattr` calls in one function - share a fingerprint and are told apart by their count.
+    `subjects` is the analyzer's own subject list, carrying no direction: the modules, the
+    construct owner or the cycle members the violation is about, whichever its kind records. Two
+    violations of one rule that name the same subjects - two `getattr` calls in one function -
+    share a fingerprint and are told apart by their count.
     """
 
     rules: tuple[str, ...]
@@ -64,8 +64,19 @@ class ValidationBaseline:
     budgets: tuple[MeasurementBudget, ...] = ()
 
 
+def canonical_fingerprint(rules: Iterable[str], subjects: Iterable[str]) -> ViolationFingerprint:
+    """Name a violation the same way whatever order its lists arrive in (AD-106).
+
+    Neither order means anything - direction lives in `KnownViolation.roles` - so an observed
+    record and a baseline entry written in another order, by hand or by a text replace that
+    renamed a namespace, name one violation. Sorted rather than a set, so a repeated subject
+    still counts and no two different lists collapse into one.
+    """
+    return ViolationFingerprint(tuple(sorted(rules)), tuple(sorted(subjects)))
+
+
 def violation_fingerprint(record: Record) -> ViolationFingerprint:
-    return ViolationFingerprint(record.rule_ids, record.subjects)
+    return canonical_fingerprint(record.rule_ids, record.subjects)
 
 
 def _ordered(

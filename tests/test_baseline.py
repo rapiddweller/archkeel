@@ -18,6 +18,7 @@ from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     KnownViolation,
     ViolationFingerprint,
+    canonical_fingerprint,
     compare_violations,
     observed_violations,
     violation_drift_counts,
@@ -30,6 +31,8 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.model import Observation
+from archkeel.ir.widening import baseline_widenings
+from fixtures.demo_catalog_dependencies import REPOSITORY_WITH_MONEY_IMPORT
 
 HEADER = (
     "# Archkeel\n# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.\n# SPDX-License-Identifier: MIT\n"
@@ -203,6 +206,93 @@ def test_updating_an_existing_baseline_allows_resolved_only_drift(tmp_path: Path
     assert parse_baseline(decode_json(files[str(baseline)])) == observed_violations(_observe(root))
 
 
+def test_a_baseline_entry_matches_its_violation_in_any_subject_order(tmp_path: Path) -> None:
+    """Issue #152: a namespace renamed by text replace reorders an entry's subjects; the entry
+    still names the same violation, and `--write-baseline` writes it back sorted."""
+    root = _repo(tmp_path, "reordered", {"shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT})
+    baseline = root / "known-violations.json"
+    _, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+    written = json.loads(files[str(baseline)])
+    subjects = ["shop.model.entities.Money", "shop.store.repository"]
+    assert written["violations"][0]["subjects"] == subjects
+    written["violations"][0]["subjects"].reverse()
+    baseline.write_text(json.dumps(written))
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    rewritten, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
+    )
+
+    assert (result.exit_code, result.failures) == (0, ())
+    assert (result.baseline_new, result.baseline_resolved) == (0, 0)
+    assert (rewritten.exit_code, rewritten.failures) == (0, ())
+    assert json.loads(files[str(baseline)])["violations"][0]["subjects"] == subjects
+
+
+def test_a_fingerprint_is_the_same_in_any_list_order() -> None:
+    """Sorted, not a set: a repeated subject still counts, so no two lists collapse into one."""
+    parsed = parse_baseline(
+        {
+            "schema_version": BASELINE_SCHEMA_VERSION,
+            "budgets": {},
+            "violations": [{"rules": ["B", "A"], "subjects": ["z", "a", "z"], "count": 1}],
+        }
+    )
+
+    assert parsed[0].fingerprint == ViolationFingerprint(("A", "B"), ("a", "z", "z"))
+    assert canonical_fingerprint(["A"], ["b", "a"]) == canonical_fingerprint(["A"], ["a", "b"])
+    assert canonical_fingerprint(["A"], ["z", "a", "z"]) != canonical_fingerprint(["A"], ["a", "z"])
+
+
+def test_two_entries_differing_only_in_subject_order_are_not_summed() -> None:
+    """One violation stated twice is an ambiguous file, exit 2 as `baseline.invalid`, never a
+    count of two that could hide a second occurrence."""
+    with pytest.raises(ValueError, match="repeats a fingerprint"):
+        parse_baseline(
+            {
+                "schema_version": BASELINE_SCHEMA_VERSION,
+                "budgets": {},
+                "violations": [
+                    {"rules": ["A"], "subjects": ["a", "b"], "count": 1},
+                    {"rules": ["A"], "subjects": ["b", "a"], "count": 1},
+                ],
+            }
+        )
+
+
+def test_order_free_identity_keeps_the_other_direction_visible() -> None:
+    """Roles carry direction, so reading subjects in any order hides no violation: a reversed
+    entry for `a -> b` does not absorb `b -> a`, and a role change still widens under --against.
+    """
+    known = parse_baseline(
+        {
+            "schema_version": BASELINE_SCHEMA_VERSION,
+            "budgets": {},
+            "violations": [
+                {
+                    "rules": ["PEERS"],
+                    "subjects": ["b", "a"],
+                    "count": 1,
+                    "roles": [{"source": "a", "target": "b"}],
+                }
+            ],
+        }
+    )
+    fingerprint = ViolationFingerprint(("PEERS",), ("a", "b"))
+    both_ways = (KnownViolation(fingerprint, 2, (("a", "b"), ("b", "a"))),)
+    same = (KnownViolation(fingerprint, 1, (("a", "b"),)),)
+    turned = (KnownViolation(fingerprint, 1, (("b", "a"),)),)
+
+    assert compare_violations(known, both_ways, cycle_rules=frozenset()) == (
+        "new violation: PEERS | a b (2 observed, 1 in the baseline)",
+    )
+    assert compare_violations(known, same, cycle_rules=frozenset()) == ()
+    assert baseline_widenings(known, same, cycle_rules=frozenset()) == ()
+    assert baseline_widenings(known, turned, cycle_rules=frozenset()) == (
+        "baseline entry roles changed: PEERS | a b (a -> b before; b -> a now)",
+    )
+
+
 def test_a_resolved_baseline_entry_is_reported(tmp_path: Path) -> None:
     root = _repo(tmp_path, "resolved", {"shop/model/probe.py": PROBE})
     known = (
@@ -373,7 +463,7 @@ def test_violation_drift_counts_count_fingerprints_not_occurrences() -> None:
 
 
 def test_old_baseline_without_roles_remains_readable() -> None:
-    fingerprint = ViolationFingerprint(("BOUNDARY",), ("shop.api.load", "shop.api"))
+    fingerprint = ViolationFingerprint(("BOUNDARY",), ("shop.api", "shop.api.load"))
 
     assert parse_baseline(
         {
@@ -387,7 +477,7 @@ def test_old_baseline_without_roles_remains_readable() -> None:
 
 def test_roles_are_sorted_and_do_not_change_fingerprint_identity() -> None:
     violation = KnownViolation(
-        ViolationFingerprint(("BOUNDARY",), ("shop.api.load", "shop.api")),
+        ViolationFingerprint(("BOUNDARY",), ("shop.api", "shop.api.load")),
         1,
         (("shop.z", "shop.a"), ("shop.a", "shop.z")),
     )
