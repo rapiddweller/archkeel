@@ -183,7 +183,8 @@ $ archkeel validate --baseline known-violations.json --write-baseline
 
 The path is relative to `--root`, like the contract: a second code base in `mobile/`, run from
 the repository root, freezes its own debt with `archkeel validate --root mobile --baseline
-known-violations.json --write-baseline`, which writes `mobile/known-violations.json` (AD-103).
+known-violations.json --write-baseline`, which writes `mobile/known-violations.json`. An absolute
+path inside the root works too; one outside it is `baseline.invalid`, exit 2 (AD-103).
 
 Review this file the way a diff of the contract itself is reviewed, and commit it. Counts must
 match the observation exactly: a higher one is a new violation, a lower one a violation someone

@@ -614,8 +614,9 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         summary="The Dart app in mobile/ beside the shop sample, each with its own baseline: from "
         "the repository root, validate --root mobile --baseline architecture-baseline.json reads "
         "mobile's file and passes, where it read the root's as 1 new and 1 resolved violation. "
-        "The root-prefixed mobile/architecture-baseline.json names nothing and exits 2 naming both "
-        "paths; --amendment follows the same rule (AD-103, #149).",
+        "An absolute path inside the root passes too; the root-prefixed "
+        "mobile/architecture-baseline.json and any path outside the root are baseline.invalid, "
+        "exit 2; --amendment follows the same rule (AD-103, #149).",
         files={},
         expected_violations=(),
         expected_codes=(),

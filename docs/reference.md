@@ -22,14 +22,15 @@ read, and its scan-complete reason names them, so a pass says what it covered. `
 report takes its own `--output`, such as `test-artifacts/tests/architecture.json`; without it
 the test report replaces the product report.
 
-`validate` reads `--baseline` and `--amendment`, and writes them with `--write-baseline` and
-`--write-amendment`, relative to `--root` as well, with `--config`'s checks: an absolute path, a
-`..` or a path that resolves outside the root is exit 2 (AD-103). A second code base in
-`mobile/` is checked from the repository root with `archkeel validate --root mobile --baseline
+`validate` reads a relative `--baseline` or `--amendment`, and writes it with `--write-baseline`
+or `--write-amendment`, relative to `--root` as well; an absolute path is used as it is. A path
+that resolves outside the root, by `..`, an absolute path or a symlink, is `baseline.invalid` or
+`amendment.invalid`, exit 2, read or write (AD-103). A second code base in `mobile/` is checked
+from the repository root with `archkeel validate --root mobile --baseline
 architecture-baseline.json`, which reads `mobile/architecture-baseline.json`. The root-prefixed
-`mobile/architecture-baseline.json` names no file there and is exit 2, naming both paths; it
-never falls back to the working directory. `report --output` and `check --output` name where an
-artifact goes, not an input, and stay relative to the working directory.
+`mobile/architecture-baseline.json` names no file there and is `baseline.invalid`, naming both
+paths; it never falls back to the working directory. `report --output` and `check --output` name
+where an artifact goes, not an input, and stay relative to the working directory.
 
 ## Analyzer and runtime
 
@@ -159,7 +160,8 @@ expose deterministic `baseline_new` and `baseline_resolved` counts. `baseline_ne
 fingerprints whose occurrence count rose, except a contracted cycle; `baseline_resolved` counts
 fingerprints whose occurrence count fell, so the baselined cycle a contraction shrank from counts
 there. Each changed fingerprint contributes one, not its occurrence-count delta. Only `rule.violated` is answered this way; every
-other diagnostic still exits 2, as does a baseline that cannot be read (`baseline.invalid`).
+other diagnostic still exits 2, as does a baseline that cannot be read or lies outside the root
+(`baseline.invalid`).
 `--write-baseline` writes the observed violations to that same path only after comparing an
 existing file: resolved-only drift and contracted cycles may be written, while new or increased
 fingerprints refuse the write unless `--accept-new` is explicit. It writes nothing from a run that exited 2.
@@ -234,8 +236,8 @@ each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contra
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment
 written for one change does not verify against a different one. `--write-amendment`, with
 `--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
-`--amendment` file is `amendment.invalid`, exit 2; an `--against` revision or its contract that
-cannot be read is `against.invalid`, exit 2. When a run fails and the observed
+`--amendment` file, or one outside the root, is `amendment.invalid`, exit 2; an `--against` revision
+or its contract that cannot be read is `against.invalid`, exit 2. When a run fails and the observed
 `calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
 at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
 passing run pays for no second scan. Removed rows and rows in files the revision's snapshot
