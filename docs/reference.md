@@ -222,17 +222,20 @@ difference - an unrecognised rule kind's presence, a field no classifier names, 
 `$schema` - fails closed as a widening. A package rename is compared away first (AD-105): the
 component packages that moved, such as `shop.render` to `shop.view`, propose a prefix
 substitution. It holds when every prefix relation among the old contract's and baseline's
-module names and the renamed prefixes survives it, when no scanned module lies under an old
-prefix, whatever its file is called, and when the renamed old contract still parses; otherwise
-the comparison stays field by field and an amendment can accept it. Only the module and symbol
-fields `ir.model.module_references` lists are renamed, the same list `reference.namespace`
-checks; ids, labels, kinds, `decided_by` and constructs never are, nor paths, so a moved
-`inside` contract still compares as a changed `inside`. The old contract and baseline are then
-renamed before the comparison, so a pure rename passes without an amendment and a widening
-beside it fails alone. `renames` in the JSON result lists each old and new prefix (`[]` when none
-holds, `null` when no revision was compared) and the terminal names them. Code copied rather than
-moved is stopped only while it keeps an old name; a copy the package rename also renamed is
-reported by `complete_assignment` or `root_layout`, like any folder no component owns. Where no
+module names and the renamed prefixes survives it, when no module the scan reads or an import
+reaches lies under an old prefix, whatever its file is called, and when the directory where the
+scan's layout reads each old prefix holds no file outside the scan roots; a prefix that layout
+cannot place is no rename. Candidates go shortest first, and one whose renamed old contract the
+parser refuses is skipped; with none left, the comparison stays field by field and an amendment
+can accept it. Only the module and symbol fields `ir.model.module_references` lists are renamed;
+ids, labels, kinds, `decided_by` and constructs never are, nor paths, so a moved `inside`
+contract still compares as a changed `inside`. `reference.namespace` checks the same fields as
+before, the entries of that list marked `held`. The old contract and baseline are then renamed
+before the comparison, so a pure rename passes without an amendment and a widening beside it
+fails alone. `renames` in the JSON result lists each old and new prefix (`[]` when none holds,
+`null` when no revision was compared) and the terminal names them. Code copied under a new name
+inside the scan roots is left to `complete_assignment` or `root_layout`, like any folder no
+component owns. Where no
 rename holds, a gained `public` entry names the one lost entry of its kind and last name, when
 no other gain matches it: `gained 'b.api.x' in place of 'a.api.x'`. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
