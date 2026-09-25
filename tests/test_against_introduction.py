@@ -5,15 +5,25 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
+from test_baseline import PROBE
 
+from archkeel.analyzer import observe
 from archkeel.check.git import MissingBlobError, read_blob
+from archkeel.check.validation import run_validate
+from archkeel.cli.config import load_config
+from archkeel.ir.codec import decode_json, parse_amendment
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
+from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_measurement_budgets
 
 
 def _base(root: Path) -> str:
@@ -29,6 +39,10 @@ def _mobile_scope(tmp_path: Path, base_files: dict[str, str | None] | None = Non
     return root / "mobile"
 
 
+def _introduced(path: str, against: str) -> tuple[int, tuple[str, ...]]:
+    return 1, (f"contract introduced: {path} does not exist at {against}",)
+
+
 def test_a_missing_blob_names_its_repository_path_below_the_root(tmp_path: Path) -> None:
     mobile = _mobile_scope(tmp_path)
 
@@ -37,3 +51,157 @@ def test_a_missing_blob_names_its_repository_path_below_the_root(tmp_path: Path)
 
     assert raised.value.path == "mobile/architecture-contract.json"
     assert str(raised.value) == "missing regular Git blob: mobile/architecture-contract.json"
+
+
+def test_a_second_contract_the_revision_lacks_is_one_introduction(tmp_path: Path) -> None:
+    mobile = _mobile_scope(tmp_path)
+    base = _base(mobile)
+
+    result, _ = run_validate(mobile, load_config(mobile), observe, against=base)
+
+    assert result.diagnostics == ()
+    assert (result.exit_code, result.failures) == _introduced(
+        "mobile/architecture-contract.json", base
+    )
+
+
+def test_an_introduced_contract_passes_only_with_its_own_amendment(tmp_path: Path) -> None:
+    mobile = _mobile_scope(tmp_path)
+    base = _base(mobile)
+    config = load_config(mobile)
+    amendment = mobile / "introduction.json"
+
+    written, files = run_validate(
+        mobile,
+        config,
+        observe,
+        against=base,
+        amendment=amendment,
+        write_amendment=True,
+        decided_by="Jordan (architect)",
+        rationale="The mobile app gets its own contract.",
+    )
+    assert (written.exit_code, written.failures) == (0, ())
+    amendment.write_bytes(files[str(amendment)])
+    # The before side is no contract at all: the SHA-256 of no bytes, which no contract has.
+    record = parse_amendment(decode_json(amendment.read_bytes()))
+    assert record.before_digest == hashlib.sha256(b"").hexdigest()
+
+    result, _ = run_validate(mobile, config, observe, against=base, amendment=amendment)
+    assert (result.exit_code, result.failures) == (0, ())
+
+    # The record binds this contract: a different one introduced under it still fails.
+    contract = json.loads((mobile / "architecture-contract.json").read_text())
+    contract["rules"][0]["rationale"] = "A different contract than the one decided."
+    (mobile / "architecture-contract.json").write_text(json.dumps(contract, indent=2) + "\n")
+    changed, _ = run_validate(mobile, config, observe, against=base, amendment=amendment)
+    assert (changed.exit_code, changed.failures) == _introduced(
+        "mobile/architecture-contract.json", base
+    )
+
+
+def test_a_moved_contract_is_introduced_not_passed(tmp_path: Path) -> None:
+    """A new contract path must not bypass the widening gate: the old rules are not compared."""
+    root = _prepare_repo(tmp_path, {})
+    base = _base(root)
+    (root / "contracts").mkdir()
+    (root / "architecture-contract.json").rename(root / "contracts/shop.json")
+    config = replace(SHOP_CONFIG, contract="contracts/shop.json")
+
+    result, _ = run_validate(root, config, observe, against=base)
+
+    assert result.diagnostics == ()
+    assert (result.exit_code, result.failures) == _introduced("contracts/shop.json", base)
+
+
+def test_a_configuration_the_revision_lacks_is_never_read_there(tmp_path: Path) -> None:
+    """AD-101's second scope arrives with its configuration: only its contract path matters."""
+    test_scope = {"archkeel-tests.toml": None, "tests/architecture-contract.json": None}
+    root = _prepare_repo(tmp_path, test_scope)
+    base = _base(root)
+    apply_overlay(root, {path: (FIXTURE_DIR / path).read_text() for path in test_scope})
+
+    result, _ = run_validate(root, load_config(root, "archkeel-tests.toml"), observe, against=base)
+
+    assert result.diagnostics == ()
+    assert (result.exit_code, result.failures) == _introduced(
+        "tests/architecture-contract.json", base
+    )
+
+
+def test_a_baseline_introduced_with_its_contract_adds_no_widening(tmp_path: Path) -> None:
+    """Every entry of a baseline the revision lacks is new; the introduction already says so."""
+    root = _prepare_repo(tmp_path, {"architecture-contract.json": None})
+    base = _base(root)
+    apply_overlay(
+        root,
+        {
+            "architecture-contract.json": contract_measurement_budgets("calls_unresolved"),
+            "shop/model/probe.py": PROBE,
+        },
+    )
+    baseline = root / "known-violations.json"
+    _, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+    baseline.write_bytes(files[str(baseline)])
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, baseline=baseline)
+
+    assert result.diagnostics == ()
+    assert (result.exit_code, result.failures) == _introduced("architecture-contract.json", base)
+    # No second scan names call sites against a revision that has no contract to scan under.
+    assert (result.unresolved_call_changes, result.unresolved_call_note) == (None, None)
+
+
+def test_a_contract_path_the_revision_holds_as_a_tree_stays_against_invalid(
+    tmp_path: Path,
+) -> None:
+    """Only a missing blob is an introduction; one Git cannot hand over is still exit 2."""
+    mobile = _mobile_scope(tmp_path, {"mobile/architecture-contract.json/README": "not a file\n"})
+
+    result, _ = run_validate(mobile, load_config(mobile), observe, against=_base(mobile))
+
+    assert (result.exit_code, result.failures) == (2, ())
+    assert [(item.code, item.unknown_claim) for item in result.diagnostics] == [
+        (
+            "against.invalid",
+            "The compared revision cannot be read: expected a regular Git blob: "
+            "mobile/architecture-contract.json",
+        )
+    ]
+
+
+def test_a_baseline_the_revision_holds_as_a_tree_stays_against_invalid(tmp_path: Path) -> None:
+    """A missing baseline is no prior debt; one Git cannot hand over is not silently empty."""
+    root = _prepare_repo(tmp_path, {"known-violations.json/README": "not a file\n"})
+    base = _base(root)
+    shutil.rmtree(root / "known-violations.json")
+    baseline = root / "known-violations.json"
+    _, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+    baseline.write_bytes(files[str(baseline)])
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, baseline=baseline)
+
+    assert (result.exit_code, result.failures) == (2, ())
+    assert [(item.code, item.unknown_claim) for item in result.diagnostics] == [
+        (
+            "against.invalid",
+            "The compared revision cannot be read: expected a regular Git blob: "
+            "known-violations.json",
+        )
+    ]
+
+
+def test_a_baseline_the_revision_lacks_is_still_no_prior_debt(tmp_path: Path) -> None:
+    """The contract exists there, so its baseline's absence means nothing was accepted yet."""
+    root = _prepare_repo(tmp_path, {"shop/model/probe.py": PROBE})
+    base = _base(root)
+    baseline = root / "known-violations.json"
+    _, files = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
+    baseline.write_bytes(files[str(baseline)])
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, baseline=baseline)
+
+    assert (result.exit_code, result.failures) == (
+        1,
+        ("baseline entry widened: CONSTRUCT-NO-DYNAMIC | shop.model.probe.read (1 now, 0 before)",),
+    )

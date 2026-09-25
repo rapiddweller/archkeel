@@ -86,7 +86,7 @@ from archkeel.ir.widening import (
     verify_amendment,
 )
 
-from .git import GitError, read_blob, tracked_paths, working_tree_paths
+from .git import GitError, MissingBlobError, read_blob, tracked_paths, working_tree_paths
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
@@ -1869,12 +1869,24 @@ def _observed_or_invalid(
     return observation
 
 
+# AD-104: the digest an amendment binds for a contract the `--against` revision does not hold,
+# the SHA-256 of no bytes, which no canonical contract, a JSON object, can have.
+_NO_CONTRACT_DIGEST: Final = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+
+@dataclass(frozen=True, slots=True)
+class _Introduced:
+    """AD-104: the `--against` revision holds no contract at `path`, its repository path."""
+
+    path: str
+
+
 @dataclass(frozen=True, slots=True)
 class _AgainstContext:
     """Everything `--against` and `--amendment` resolve to, threaded through one run (AD-61)."""
 
     against: str | None
-    contract: ArchitectureContract | None
+    contract: ArchitectureContract | _Introduced | None
     baseline: tuple[KnownViolation, ...]
     budgets: tuple[MeasurementBudget, ...]
     amendment: Path | None
@@ -1898,15 +1910,23 @@ def _resolve_against_context(
 
     A missing violation baseline blob at that revision means no prior known debt. A declared
     measurement budget is different: without its prior accepted value the comparison is not
-    decidable, so the revision is rejected instead of being treated as zero.
+    decidable, so the revision is rejected instead of being treated as zero. A missing contract
+    blob is the contract's introduction, and nothing else there is compared (AD-104). Any other
+    blob Git cannot hand over is `against.invalid`.
     """
     empty = _AgainstContext(
         against, None, (), (), amendment, write_amendment, None, decided_by, rationale
     )
     if against is None:
         return empty, None
+    parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
     try:
         against_contract = parse_contract(decode_json(read_blob(root, against, config.contract)))
+    except MissingBlobError as error:
+        introduced = _Introduced(error.path)
+        return replace(empty, contract=introduced, parsed_amendment=parsed_amendment), (
+            amendment_error
+        )
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
     against_baseline: tuple[KnownViolation, ...] = ()
@@ -1915,8 +1935,10 @@ def _resolve_against_context(
     if baseline_at is not None:
         try:
             against_baseline_bytes: bytes | None = read_blob(root, against, baseline_at)
-        except GitError:
+        except MissingBlobError:
             against_baseline_bytes = None
+        except GitError as error:
+            return empty, _against_invalid(against, error)
         if against_baseline_bytes is not None:
             try:
                 parsed = parse_validation_baseline(decode_json(against_baseline_bytes))
@@ -1936,7 +1958,6 @@ def _resolve_against_context(
             against,
             ValueError(f"measurement budget values are missing for: {missing}"),
         )
-    parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
     context = _AgainstContext(
         against,
         against_contract,
@@ -1962,6 +1983,13 @@ def _resolve_amendment(
         return None, _amendment_invalid(amendment, error)
 
 
+def _before_digest(contract: ArchitectureContract | _Introduced) -> str:
+    """The digest an amendment binds for the `--against` side (AD-61, AD-104)."""
+    if isinstance(contract, _Introduced):
+        return _NO_CONTRACT_DIGEST
+    return contract_digest(contract)
+
+
 def _cycle_rule_ids(contract: ArchitectureContract) -> frozenset[str]:
     """The rules whose violation subjects are one SCC's members, so a subset contracts (AD-98)."""
     return frozenset(rule.id for rule in contract.rules if isinstance(rule, NoComponentCyclesRule))
@@ -1978,21 +2006,23 @@ def _widening_failures(
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
     if ctx.against is None or ctx.contract is None:
         return ()
-    findings = list(contract_widenings(ctx.contract, contract))
-    if baseline is not None:
-        findings += list(baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules))
-        findings += list(
-            measurement_budget_widenings(
+    if isinstance(ctx.contract, _Introduced):
+        # AD-104: nothing at the revision to compare, so the whole contract is one widening.
+        findings = [f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}"]
+    else:
+        findings = list(contract_widenings(ctx.contract, contract))
+        if baseline is not None:
+            findings += baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules)
+            findings += measurement_budget_widenings(
                 ctx.budgets,
                 after_budgets,
                 _name_budget_targets(ctx.contract.declarations or ContractDeclarations()),
             )
-        )
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
             ctx.parsed_amendment,
-            before_digest=contract_digest(ctx.contract),
+            before_digest=_before_digest(ctx.contract),
             after_digest=contract_digest(contract),
         )
     )
@@ -2030,7 +2060,7 @@ def _artifact_files(
         artifact = str(against.amendment)
         files[artifact] = amendment_bytes(
             Amendment(
-                contract_digest(against.contract),
+                _before_digest(against.contract),
                 contract_digest(contract),
                 against.decided_by or "",
                 against.rationale or "",
@@ -2208,10 +2238,12 @@ def run_validate(
     )
     # AD-100: a failing run whose calls_unresolved value moved from an accepted one names the
     # call sites against the other revision's code; only such a run pays for the second scan.
+    # A revision without the contract has no declarations to observe that code under (AD-104).
     observed_calls = _calls_unresolved(observed_budgets)
     accepted_calls = {_calls_unresolved(known_budgets), _calls_unresolved(against_ctx.budgets)}
     if (
         against is not None
+        and isinstance(against_ctx.contract, ArchitectureContract)
         and result.exit_code == 1
         and observed_calls is not None
         and accepted_calls != {observed_calls}

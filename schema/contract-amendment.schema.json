@@ -20,7 +20,7 @@
     "before_digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 of the --against revision's contract, in the canonical form archkeel.ir.codec.contract_bytes writes."
+      "description": "SHA-256 of the --against revision's contract, in the canonical form archkeel.ir.codec.contract_bytes writes; the SHA-256 of no bytes when that revision holds no contract at the configured path (AD-104)."
     },
     "after_digest": {
       "type": "string",
