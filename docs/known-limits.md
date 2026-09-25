@@ -143,7 +143,9 @@ modules without `__all__`, so its contract pins pair budgets only.
 - `validate --against` recognises a renamed package from names, not from where the code went
   (AD-105): two packages that trade places in the same rename read as the rename the contract
   states, the way a module moved between components is a code change `--against` never judges.
-  Paths are not renamed, so a moved `inside` contract remains one finding.
+  Code copied rather than moved stops the rename only while it keeps an old name; a copy the
+  package rename also renamed is reported only by `complete_assignment` or `root_layout`. Paths
+  are not renamed, so a moved `inside` contract remains one finding.
 
 ## Dart profile
 

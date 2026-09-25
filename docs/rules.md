@@ -435,8 +435,8 @@ archkeel validate --against origin/main
 Widening is a new permission or a dropped restriction; narrowing is each reverse, and always
 passes. `boundary_types` and `symbol_placement` are restrictions too. A difference this
 classification does not name is reported as a widening, never passed over silently. A package
-renamed together with every name the contract gives it widens nothing: it is recognised, named
-under `renames` and compared away, so only a widening beside it fails (AD-105). A widening
+renamed together with every module name the contract gives it widens nothing: it is recognised,
+named under `renames` and compared away, so only a widening beside it fails (AD-105). A widening
 fails (`failures`, exit 1) unless `--amendment <path>` names a file
 binding its exact before/after contract digest, recording who decided it and why:
 

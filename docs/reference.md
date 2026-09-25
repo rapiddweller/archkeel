@@ -221,14 +221,20 @@ budget declaration narrows; removing one widens. Raising a facade or coupling bu
 difference - an unrecognised rule kind's presence, a field no classifier names, `declarations`,
 `$schema` - fails closed as a widening. A package rename is compared away first (AD-105): the
 component packages that moved, such as `shop.render` to `shop.view`, propose a prefix
-substitution, which holds when every prefix relation among the old contract's and baseline's
-dotted names survives it and no scanned module keeps an old name. The old contract and baseline
-are then renamed before the comparison, so a pure rename passes without an amendment and a
-widening beside it fails alone. `renames` in the JSON result lists each old and new prefix
-(`[]` when none holds, `null` when no revision was compared) and the terminal names them.
-Paths are not renamed: a moved `inside` contract still compares as a changed `inside`. Where no
-rename holds, a gained `public` entry names the one lost entry with its last name, `gained
-'b.api.x' in place of 'a.api.x'`. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
+substitution. It holds when every prefix relation among the old contract's and baseline's
+module names and the renamed prefixes survives it, when no scanned module lies under an old
+prefix, whatever its file is called, and when the renamed old contract still parses; otherwise
+the comparison stays field by field and an amendment can accept it. Only the module and symbol
+fields `ir.model.module_references` lists are renamed, the same list `reference.namespace`
+checks; ids, labels, kinds, `decided_by` and constructs never are, nor paths, so a moved
+`inside` contract still compares as a changed `inside`. The old contract and baseline are then
+renamed before the comparison, so a pure rename passes without an amendment and a widening
+beside it fails alone. `renames` in the JSON result lists each old and new prefix (`[]` when none
+holds, `null` when no revision was compared) and the terminal names them. Code copied rather than
+moved is stopped only while it keeps an old name; a copy the package rename also renamed is
+reported by `complete_assignment` or `root_layout`, like any folder no component owns. Where no
+rename holds, a gained `public` entry names the one lost entry of its kind and last name, when
+no other gain matches it: `gained 'b.api.x' in place of 'a.api.x'`. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
 each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contract_digest` - the
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment

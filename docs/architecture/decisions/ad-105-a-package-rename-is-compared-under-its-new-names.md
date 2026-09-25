@@ -6,12 +6,12 @@ read as dozens of widenings, and a `public` entry it replaced was not even liste
 
 Now the component packages that moved propose a prefix substitution: `shop.render -> shop.view`,
 or `window_cleaning_mobile -> field_service_mobile` with `...features.kunde ->
-...features.customer` beside it. A pair drops the trailing segments the move kept, and a
-component's moved packages pair by the last segment only one of each side has, then in order.
-When the substitution holds, the old contract and, with `--baseline`, the old baseline are
-renamed with it before `ir.widening` compares them. The JSON result lists it as `renames` (`null`
-when no revision was compared) and the terminal names each line. Whatever it does not explain is still
-compared, so a real widening beside a rename fails alone.
+...features.customer` beside it. A pair drops the trailing segments the move kept; a component's
+moved packages pair by the last segment only one of each side has, and a single one left on each
+side pairs too. When a substitution holds, the old contract and, with `--baseline`, the old
+baseline are renamed with it before `ir.widening` compares them. The JSON result lists it as
+`renames` (`null` when no revision was compared) and the terminal names each line. Whatever it
+does not explain is still compared, so a real widening beside a rename fails alone.
 
 | `validate --against`, same input on `main` and now | `main` | Now |
 |---|---:|---:|
@@ -21,45 +21,48 @@ compared, so a real widening beside a rename fails alone.
 | shop sample: `shop -> store_app`, scan roots and namespace included | 85 | 1: the moved `inside` path |
 | Archkeel itself: `archkeel.host -> archkeel.hosting`, with its baseline | 5 | 0, exit 0 |
 
+## What is renamed
+
+Only the module and symbol fields `ir.model.module_references` lists, one list: never an id,
+label, kind, `decided_by` or construct, so root `agent` renamed `architect` still reports each
+flipped `decided_by`. A baseline's subjects, roles and accepted names are renamed, except a
+component cycle's labels. `validate` holds the same list to the scan namespace, which adds a
+component `namespace`, `forbidden_construct` sources, `root_layout`, boundary allowances,
+commands, path steps and compat modules to that check, as docs/rules.md already stated.
+
 ## When a substitution holds
 
-`ir.renames.rename_holds` decides from names alone, and each clause has a test that fails
-without it:
+`ir.renames.rename_holds` decides from names; each clause has a test that fails without it:
 
-- Every prefix relation among the dotted names the old contract and baseline hold survives: one
-  name held another before exactly when their new names hold each other. A rule, package or
-  entry scopes by prefix, so the renamed contract then states for each new name what the old
-  stated for its old name. This rejects two names becoming one, a grant the old contract gave
-  `shop.view` passing to the renamed code, a rule on `shop` that stops covering it, a rule on
-  `other` that starts, and two unrelated packages that would nest and so overlap.
-- No module the scan reads keeps an old name: copied code would be governed by nothing.
+- Every prefix relation among the old contract's and baseline's names and the renamed prefixes
+  survives: one held another before exactly when their new names hold each other. Rules,
+  packages and entries scope by prefix, so the renamed contract then states for each new name
+  what the old stated for its old one. This rejects two names becoming one, a grant given to
+  `shop.view` passing to the renamed code, a rule on `shop` that stops covering it or one on
+  `other` that starts, two packages that would nest, and a prefix lifted above one it was under.
+- No scanned module lies under an old prefix, whatever its file is called (`text-legacy.py`).
 
-Every dotted string in any field counts as a name, so a later field is renamed with no list to
-keep; prose, paths and URLs never match. Where the code moved differently from the contract,
-two packages trading places say, the change is a code move between components, which `--against`
-has never judged.
+A renamed old contract the parser refuses, such as a `root_layout` child moved one level down, is
+no rename either: the comparison stays field by field, where an amendment can accept it.
 
 ## Rejected
 
-- Scanning the compared revision to prove where each module went: its snapshot holds Python
-  files only, so the issue's Dart case would never be recognised, and two packages holding the
-  same module names still could not be told apart.
+- Scanning the compared revision: its snapshot holds Python files only, so Dart never matches.
+- Renaming every string spelled like a module: it turned `decided_by` and construct values too.
 - A rename line that still needs an amendment: the reviewer would redo the check by hand.
-- Taking gained and lost entries with matching tails as the rename: without the clauses that
-  is the heuristic that hides a widening. It is kept as display only, where no rename holds:
+- Gained and lost entries with matching tails taken as the rename: that heuristic can hide a
+  widening. It stays display only, where no rename holds, for one-to-one pairs of one kind:
   `component 'api'.public gained 'b.api.x' in place of 'a.api.x'` still fails as before.
-- A clause on `[scan] namespace`: every name of the new contract must lie in the new namespace
-  (exit 2 otherwise) and the scan names modules under it, so a namespace the substitution does
-  not explain leaves a difference that is still compared.
+- A clause on `[scan] namespace`: every new name must lie in the new namespace (exit 2).
 
 ## Limits
 
-- Paths are not renamed. A moved `inside` contract stays one finding: `--against` does not
-  compare what an inside holds, so its path is all that records which inside the level trusts.
-- A label, id or other word spelled like a renamed package is renamed too, and reported where
-  the new contract kept it.
-- A package that is added, dropped or split in the same change is not a move: the rename is
-  recognised from the others, and that component's change is compared as before.
+- Paths are not renamed: a moved `inside` contract stays one finding, since `--against` never
+  compares what an inside holds and its path is all that records which inside is trusted.
+- Code is judged by name. Two packages trading places read as the rename the contract states,
+  a code move between components `--against` never judged. Code copied rather than moved is
+  stopped by the clause above only while it keeps an old name: a copy the package rename also
+  renamed lies under no old prefix, and only `complete_assignment` or `root_layout` report it.
 
 ## Tests
 
