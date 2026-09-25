@@ -25,7 +25,6 @@ from .model import (
     ArchitectureContract,
     NoComponentCyclesRule,
     Observation,
-    entry_module,
     in_scope,
     last_name,
     module_references,
@@ -139,7 +138,7 @@ def rename_holds(
     one stated for its old name. No observed module may lie under an old prefix, where the renamed
     contract no longer governs it, whatever its file is called (AD-105).
     """
-    olds = frozenset(entry_module(name) for name in names) | frozenset(renames)
+    olds = frozenset(_module(name) for name in names) | frozenset(renames)
     news = {old: renamed(old, renames) for old in olds}
     holders: dict[str, list[str]] = {}
     for old in sorted(olds):
@@ -367,3 +366,7 @@ def renames_since(
             )
         ]
     return tuple(recognised)
+
+
+def _module(name: str) -> str:
+    return name.partition(":")[0]
