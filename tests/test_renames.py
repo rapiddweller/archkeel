@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 
@@ -31,6 +33,11 @@ from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_i
 from fixtures.demo_catalog_widening import renamed_render
 
 _RENDER = {"shop.render": "shop.view"}
+_SHOP = (FIXTURE_DIR / "architecture-contract.json").read_text()
+_LEFT_BEHIND = (
+    '"""Left behind."""\n\n'
+    "from shop.store.repository import OrderRepository\n\nX = OrderRepository\n"
+)
 
 
 def _component(cid: str, *packages: str) -> ContractComponent:
@@ -43,6 +50,12 @@ def _contract(*components: ContractComponent) -> ArchitectureContract:
 
 def _shop_contract(text: str) -> ArchitectureContract:
     return parse_contract(decode_json(text))
+
+
+def _without_rules(text: str, *ids: str) -> str:
+    contract = json.loads(text)
+    contract["rules"] = [rule for rule in contract["rules"] if rule["id"] not in ids]
+    return json.dumps(contract, indent=2) + "\n"
 
 
 def test_a_package_and_folder_rename_propose_the_shortest_prefixes() -> None:
@@ -155,6 +168,16 @@ def test_a_module_left_under_an_old_name_is_no_rename() -> None:
     assert not rename_holds(_RENDER, names=frozenset({"shop.render"}), modules=modules)
 
 
+@pytest.mark.parametrize("module", ["shop.render.text-legacy", "shop.render.2fa"])
+def test_a_module_under_an_old_prefix_is_no_rename_whatever_its_file_is_called(
+    module: str,
+) -> None:
+    """Guard (QA c5, c6): a file name no identifier spells still lies under the old prefix."""
+    modules = frozenset({"shop.view.text", module})
+
+    assert not rename_holds(_RENDER, names=frozenset({"shop.render"}), modules=modules)
+
+
 def test_the_renamed_contract_equals_the_one_renamed_by_hand() -> None:
     before = _shop_contract((FIXTURE_DIR / "architecture-contract.json").read_text())
     after_text = renamed_render()["architecture-contract.json"]
@@ -226,6 +249,25 @@ def test_renamed_coupling_names_are_not_a_widened_budget(tmp_path: Path) -> None
 
     assert (result.exit_code, result.failures) == (0, ())
     assert result.renames == (("shop.render", "shop.view"),)
+
+
+@pytest.mark.parametrize("leftover", ["text-legacy.py", "2fa.py"])
+def test_a_module_left_behind_under_the_old_package_keeps_the_plain_comparison(
+    tmp_path: Path, leftover: str
+) -> None:
+    """QA c5, c6: without ASSIGNMENT-COMPLETE and ROOT-LAYOUT no rule sees the module left."""
+    contract = _without_rules(_SHOP, "ASSIGNMENT-COMPLETE", "ROOT-LAYOUT")
+    root = _prepare_repo(tmp_path, {"architecture-contract.json": contract})
+    base = _git(root, "rev-parse", "HEAD")
+
+    apply_overlay(root, {**renamed_render(contract), f"shop/render/{leftover}": _LEFT_BEHIND})
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert (result.exit_code, result.renames) == (1, ())
+    assert (
+        "component 'render'.packages changed from ('shop.render',) to ('shop.view',)"
+        in result.failures
+    )
 
 
 def test_validate_without_against_names_no_rename(tmp_path: Path) -> None:
