@@ -335,6 +335,33 @@ not match — so it cannot be reused to wave through an unrelated later widening
 contract in the same change that removes the violation it names: fix the code, or get an
 amendment from the architect who owns the target.
 
+### A new contract is one widening
+
+A contract the base does not hold yet has nothing to be compared with: a second scope's first
+merge request, such as a Flutter app under `mobile/` with its own `archkeel.toml` and contract,
+or a contract moved to a new path. It is one widening, named by its path in the repository
+(AD-104):
+
+```
+$ archkeel validate --root mobile --against <base>
+exit_code: 1
+failures: ["contract introduced: mobile/architecture-contract.json does not exist at <base>"]
+```
+
+The architect records the introduction like any other widening, and the gate passes with it:
+
+```
+$ archkeel validate --root mobile --against <base> --amendment mobile/introduced.json \
+    --write-amendment --decided-by "Jordan (architect)" --rationale \
+    "The mobile app gets its own contract."
+$ archkeel validate --root mobile --against <base> --amendment mobile/introduced.json
+exit_code: 0
+```
+
+So CI runs the same `--against` command for every scope, the new one included. It needs no
+`git cat-file -e "$base:mobile/architecture-contract.json" || continue` step to skip a scope
+the base does not have yet, and a moved contract cannot slip past the gate that way either.
+
 ## 6. Draw the target
 
 A contract page's marked graph, `<!-- archkeel-component-graph -->`, draws what the code does.

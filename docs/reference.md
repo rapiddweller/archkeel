@@ -225,8 +225,14 @@ each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contra
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment
 written for one change does not verify against a different one. `--write-amendment`, with
 `--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
-`--amendment` file is `amendment.invalid`, exit 2; an `--against` revision or its contract that
-cannot be read is `against.invalid`, exit 2. When a run fails and the observed
+`--amendment` file is `amendment.invalid`, exit 2. A contract the `--against` revision does not
+hold, a new scope's or one moved to a new path, is one widening, `contract introduced: <path>
+does not exist at <ref>`; its amendment's `before_digest` is the SHA-256 of no bytes, and nothing
+else at that revision is compared, so a baseline that arrives with the contract adds no finding
+(AD-104). An `--against` revision Git cannot resolve, or a contract or baseline there that is
+not a regular file or does not parse, is `against.invalid`, exit 2. Every message names the
+blob's repository path, including a `--root` below the top level, such as
+`mobile/architecture-contract.json`. When a run fails and the observed
 `calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
 at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
 passing run pays for no second scan. Removed rows and rows in files the revision's snapshot

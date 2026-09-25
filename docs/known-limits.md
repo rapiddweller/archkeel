@@ -200,6 +200,10 @@ scope (AD-101), which leaves these limits:
 - `report` writes to `test-artifacts/architecture/architecture.json` unless `--output` names
   another path, whatever `--config` names, so a test-scope report without its own `--output`
   replaces the product report.
+- `validate --against` reads a scope's contract at the path today's configuration names, and
+  never follows a rename. A contract the revision lacks, a new scope's or a moved one's, is one
+  `contract introduced` widening whose amendment covers the whole contract and its baseline
+  (AD-104).
 
 ## What static observation cannot decide
 

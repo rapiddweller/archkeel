@@ -445,9 +445,11 @@ archkeel validate --against origin/main --amendment widening.json         # the 
 ```
 
 An amendment written for one change does not verify against a different one: its digests will
-not match. A missing or malformed `--amendment` file is `amendment.invalid`, and an `--against`
-revision or its contract that cannot be read is `against.invalid`, both exit 2. `validate`
-without `--against` is unchanged. The file's shape is
+not match. A contract the revision does not hold yet, a new scope's or a moved one's, is one
+widening, `contract introduced: <path> does not exist at <ref>`, amended the same way (AD-104).
+A missing or malformed `--amendment` file is `amendment.invalid`, and an `--against` revision,
+or a contract or baseline there that cannot be read, is `against.invalid`, both exit 2.
+`validate` without `--against` is unchanged. The file's shape is
 [`schema/contract-amendment.schema.json`](https://github.com/rapiddweller/archkeel/blob/main/schema/contract-amendment.schema.json).
 
 ## Class B: regression checks

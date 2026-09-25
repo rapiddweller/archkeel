@@ -139,6 +139,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-100 | [An unresolved-call change names its call sites](decisions/ad-100-an-unresolved-call-change-names-its-call-sites.md) |
 | AD-101 | [A second configuration governs a second scope at the same root](decisions/ad-101-a-second-configuration-governs-a-second-scope.md) |
 | AD-102 | [A constant JSON cannot hold is recorded without its value](decisions/ad-102-a-constant-json-cannot-hold-is-recorded-without-its-value.md) |
+| AD-104 | [A contract the compared revision lacks is introduced](decisions/ad-104-a-contract-the-compared-revision-lacks-is-introduced.md) |
 
 ## Allowed dependencies
 
