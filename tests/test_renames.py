@@ -168,11 +168,11 @@ def test_a_rule_prefix_that_covers_only_one_side_is_no_rename() -> None:
     )
 
 
-def test_an_unrelated_name_beside_the_new_one_leaves_the_rename_standing() -> None:
-    """`store_app.legacy` neither held nor was held by a renamed name, before or after."""
+def test_a_name_already_under_a_new_prefix_is_no_rename() -> None:
+    """The renamed prefix `shop` would come to hold `store_app.legacy`, which it did not."""
     names = frozenset({"shop.model", "store_app.legacy"})
 
-    assert rename_holds({"shop": "store_app"}, names=names, modules=frozenset())
+    assert not rename_holds({"shop": "store_app"}, names=names, modules=frozenset())
 
 
 def test_a_module_left_under_an_old_name_is_no_rename() -> None:
@@ -190,6 +190,17 @@ def test_a_module_under_an_old_prefix_is_no_rename_whatever_its_file_is_called(
     modules = frozenset({"shop.view.text", module})
 
     assert not rename_holds(_RENDER, names=frozenset({"shop.render"}), modules=modules)
+
+
+def test_a_candidate_that_turns_nesting_inside_out_is_no_rename() -> None:
+    """Guard (review P1): `a.s.t -> q` would lift a renamed prefix above the `a.s` holding it."""
+    before = _contract(_component("C1", "a.c"), _component("C2", "a.s.t.r.s.w"))
+    after = _contract(_component("C1", "q.r.c"), _component("C2", "q.r.s.w"))
+    candidate = rename_candidates(before, after)[0]
+    names = frozenset({"a.c", "a.s.t.r.s.w", "a.s"})
+
+    assert candidate == {"a": "q.r", "a.s.t": "q"}
+    assert not rename_holds(candidate, names=names, modules=frozenset({"q.r.c.m", "q.r.s.w.m"}))
 
 
 def test_the_renamed_contract_equals_the_one_renamed_by_hand() -> None:

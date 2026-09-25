@@ -130,12 +130,12 @@ def rename_holds(
 
     `names` are the module and symbol names the old contract and baseline hold, `modules` the
     modules the scan reads now. A rule, package or entry scopes by prefix, so a name held another
-    before exactly when their new names hold each other: then the renamed contract states for
-    each new name what the old one stated for its old name. No scanned module may lie under an
-    old prefix, where the renamed contract no longer governs it, whatever its file is called
-    (AD-105).
+    before exactly when their new names hold each other, the renamed prefixes themselves
+    included: then the renamed contract states for each new name what the old one stated for its
+    old name. No scanned module may lie under an old prefix, where the renamed contract no longer
+    governs it, whatever its file is called (AD-105).
     """
-    olds = frozenset(_module(name) for name in names)
+    olds = frozenset(_module(name) for name in names) | frozenset(renames)
     news = {old: renamed(old, renames) for old in olds}
     holders: dict[str, list[str]] = {}
     for old in sorted(olds):
