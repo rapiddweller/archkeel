@@ -50,17 +50,12 @@ from archkeel.ir.measurements import (
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
-    BoundaryTypesRule,
     CompatibilityShim,
-    CompleteAssignmentRule,
-    CompleteExternalScopeRule,
     CompleteRequiresRule,
     ContractComponent,
     ContractDeclarations,
     Diagnostic,
     DiagnosticCode,
-    ExternalDependencyScopeRule,
-    ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     InterfaceBudgetResult,
@@ -70,11 +65,10 @@ from archkeel.ir.model import (
     Record,
     RecordData,
     RunResult,
-    SiblingIsolationRule,
-    SymbolPlacementRule,
     UnresolvedCallChange,
     contract_relative_path,
     in_scope,
+    module_references,
     text_value,
 )
 from archkeel.ir.profiles import PROFILES
@@ -1194,83 +1188,14 @@ def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, .
 def _namespace_references(
     contract: ArchitectureContract, sdk_libraries: frozenset[str]
 ) -> list[tuple[str, str]]:
-    """Collect every contract-declared name that must resolve inside the scan namespace."""
-    declarations = contract.declarations or ContractDeclarations()
-    names: list[tuple[str, str]] = []
-    for index, component in enumerate(contract.components):
-        names.extend(
-            (f"/components/{index}/packages/{item}", value)
-            for item, value in enumerate(component.packages)
-        )
-        if component.public is not None:
-            names.extend(
-                (f"/components/{index}/public/{item}", value.split(":", 1)[0])
-                for item, value in enumerate(component.public)
-            )
-        if component.planned is not None:
-            names.extend(
-                (f"/components/{index}/planned/{item}", value.split(":", 1)[0])
-                for item, value in enumerate(component.planned)
-            )
-        names.extend(
-            (f"/components/{index}/requires/{position}/through/{item}", value)
-            for position, entry in enumerate(component.requires or ())
-            for item, value in enumerate(entry.through)
-        )
-    for index, rule in enumerate(contract.rules):
-        if isinstance(
-            rule,
-            ForbiddenDependencyRule
-            | AllowedDependencyRule
-            | ForbiddenConstructRule
-            | CompleteAssignmentRule
-            | CompleteExternalScopeRule
-            | SymbolPlacementRule
-            | BoundaryTypesRule,
-        ):
-            names.append((f"/rules/{index}/source", rule.source))
-        if isinstance(rule, AllowedDependencyRule) or (
-            isinstance(rule, ForbiddenDependencyRule) and rule.target not in sdk_libraries
-        ):
-            names.append((f"/rules/{index}/target", rule.target))
-        if isinstance(rule, SiblingIsolationRule):
-            names.extend(
-                (f"/rules/{index}/members/{item}", value) for item, value in enumerate(rule.members)
-            )
-        if isinstance(
-            rule,
-            ForbiddenDependencyRule
-            | ExternalDependencyScopeRule
-            | SymbolPlacementRule
-            | BoundaryTypesRule,
-        ):
-            names.extend(
-                (f"/rules/{index}/allowed_sources/{item}", value)
-                for item, value in enumerate(rule.allowed_sources)
-            )
-        if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
-            names.extend(
-                (f"/rules/{index}/exact_sources/{item}", value)
-                for item, value in enumerate(rule.exact_sources)
-            )
-    names.extend(
-        (f"/declarations/public_api/{index}", value)
-        for index, value in enumerate(declarations.public_api)
-    )
-    names.extend(
-        (f"/declarations/context_roots/{index}", value)
-        for index, value in enumerate(declarations.context_roots)
-    )
-    for index, scope in enumerate(declarations.review_scopes):
-        names.extend(
-            (f"/declarations/review_scopes/{index}/subjects/{item}", value)
-            for item, value in enumerate(scope.subjects)
-        )
-    names.extend(
-        (f"/declarations/spot_owners/{index}/owner", owner.owner)
-        for index, owner in enumerate(declarations.spot_owners)
-    )
-    return names
+    """Every contract-declared name that must resolve inside the scan namespace.
+
+    The fields are `ir.model.module_references`', the same list a rename rewrites (AD-105).
+    """
+    return [
+        (pointer, _entry_module(value))
+        for pointer, value in module_references(contract, external=sdk_libraries)
+    ]
 
 
 def _entry_ownership_diagnostics(

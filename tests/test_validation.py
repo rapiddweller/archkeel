@@ -1397,3 +1397,16 @@ def test_write_graph_leaves_a_target_block_it_cannot_read_to_the_architect() -> 
     assert drift.subject == "sample.md (target graph)"
     assert "`subgraph core`" in drift.remedy
     assert "by hand" in drift.remedy
+
+
+def test_the_shared_list_holds_a_path_step_to_the_namespace(tmp_path: Path) -> None:
+    """AD-105: `validate` reads the names it checks from the list a rename rewrites."""
+    raw = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    raw["declarations"]["paths"][0]["steps"].append("elsewhere.module")
+    root = _prepare_repo(tmp_path, {"architecture-contract.json": json.dumps(raw, indent=2)})
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe)
+
+    assert [(item.code, item.pointer) for item in result.diagnostics] == [
+        ("reference.namespace", "/declarations/paths/0/steps/4")
+    ]

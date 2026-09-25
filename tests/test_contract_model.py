@@ -10,6 +10,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from archkeel.ir.codec import contract_bytes, parse_contract
+from archkeel.ir.model import module_references
 
 ROOT = Path(__file__).parents[1]
 SCHEMA = json.loads((ROOT / "schema/architecture-contract.schema.json").read_bytes())
@@ -144,3 +145,34 @@ def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
     raw["rules"][0]["allowed_positions"][0]["unexpected"] = True
     with pytest.raises(ValueError, match="fields mismatch"):
         parse_contract(raw)
+
+
+def test_module_references_point_at_the_names_they_list() -> None:
+    """The one list (AD-105): each pointer holds its value, and no id, label or kind is listed."""
+    raw = json.loads((ROOT / "fixtures/F-architecture/architecture-contract.json").read_text())
+    raw["declarations"]["compat"] = [
+        {"module": "shop.model.legacy", "target": "shop.model.entities", "lifetime": "migration"}
+    ]
+    types = next(rule for rule in raw["rules"] if rule["id"] == "APP-TYPES-NOT-DICT")
+    types["allowed_positions"] = [
+        {
+            "qualified_name": "shop.app.orders.summarize",
+            "position": "return",
+            "field_path": "items.payload",
+            "annotation": "dict[str, str]",
+        }
+    ]
+    contract = parse_contract(raw)
+    document = json.loads(contract_bytes(contract))
+    references = module_references(contract)
+
+    for pointer, value in references:
+        node = document
+        for part in pointer.split("/")[1:]:
+            node = node[int(part)] if isinstance(node, list) else node[part]
+        assert node == value, pointer
+    listed = {part for pointer, _ in references for part in pointer.split("/")}
+    assert {"namespace", "steps", "command", "compat", "qualified_name", "root"} <= listed
+    assert {value for _, value in references}.isdisjoint(
+        {"COMP-MODEL", "model", "forbidden_dependency", "architect", "component", "eval"}
+    )
