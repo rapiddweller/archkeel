@@ -587,13 +587,51 @@ _FLOW_GUIDE = """
         red breaks a rule, amber needs a decision, and grey shows imports inside a component.
         A <code>«library»</code> box and dashed teal arrow show observed use of a scoped
         external dependency; a forbidden use is red.
-        Select a box twice for level 3: physical package folders and modules inside it.
+        The diagram focuses one box and its direct connections at a time; all violations
+        at that level remain visible. Choose another focus from the menu. Select a box twice
+        for level 3: physical package folders and modules inside it.
         Folders are not declared architectural boundaries. Open a module for level 4 symbols.
         Use the breadcrumb to go back. Hover or select a connection for its evidence. Level 1,
         interfaces between repositories, is unavailable because this observation contains
         no cross-repository interface contract. The table below works without JavaScript.</p>
       </details>
 """
+
+
+_FLOW_SVG = """
+<svg id="flow-graph" class="flow-graph" role="group" aria-label="Component flow diagram">
+  <defs>
+    <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
+         line: a heavy edge grew a 26px head, a light one 8px, so the size read as
+         weight instead of direction. userSpaceOnUse keeps every head the same. -->
+    <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+    <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+    <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+    <marker id="flow-arrow-observed" class="flow-arrow observed" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+  </defs>
+  <g class="flow-viewport">
+    <g class="flow-edges"></g>
+    <g class="flow-chips"></g>
+    <g class="flow-nodes"></g>
+    <g class="flow-empty"></g>
+  </g>
+</svg>"""
 
 
 def _flow_section(observation: Observation) -> str:
@@ -609,56 +647,35 @@ def _flow_section(observation: Observation) -> str:
       <h2 id="flow-heading">Component flow</h2>
       {_FLOW_GUIDE}
       <div id="flow" class="flow">
+        <nav class="flow-views" aria-label="Architecture views" hidden>
+          <button type="button" data-flow-view="diagram" aria-pressed="true">Diagram</button>
+          <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
+          <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
+        </nav>
         <div class="flow-toolbar">
+          <label class="flow-diagram-control" for="flow-focus">Focus
+            <select id="flow-focus" class="flow-focus"></select>
+          </label>
           <label class="flow-violation-focus" for="flow-violations-only" hidden>
             <input id="flow-violations-only" class="flow-violations-only" type="checkbox"
                    aria-controls="flow-graph">
             Violating edges only
           </label>
-          <label for="flow-threshold-input">Hide edges below
+          <label class="flow-diagram-control" for="flow-threshold-input">Hide edges below
             <output id="flow-threshold-value" class="flow-threshold-value">≥ 0 import sites</output>
           </label>
-          <input id="flow-threshold-input" class="flow-threshold" type="range" min="0" value="0">
+          <input id="flow-threshold-input" class="flow-threshold flow-diagram-control"
+                 type="range" min="0" value="0">
           <button type="button" class="flow-back" hidden>Back to components</button>
           <nav class="flow-breadcrumb" aria-label="Diagram breadcrumb"></nav>
-          <button type="button" class="flow-fit"
+          <button type="button" class="flow-fit flow-diagram-control"
             title="Lay the cards out again and fit them into view">Arrange</button>
         </div>
-        <div class="flow-canvas">
-          <svg id="flow-graph" class="flow-graph" role="group"
-               aria-label="Component flow diagram">
-            <defs>
-              <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
-                   line: a heavy edge grew a 26px head, a light one 8px, so the size read as
-                   weight instead of direction. userSpaceOnUse keeps every head the same. -->
-              <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-              <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-              <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-              <marker id="flow-arrow-observed" class="flow-arrow observed" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-            </defs>
-            <g class="flow-viewport">
-              <g class="flow-edges"></g>
-              <g class="flow-chips"></g>
-              <g class="flow-nodes"></g>
-              <g class="flow-empty"></g>
-            </g>
-          </svg>
+        <div class="flow-layout">
+          <div class="flow-canvas">
+            {_FLOW_SVG}
+          </div>
+          <div class="flow-alternative" hidden></div>
           <aside class="flow-inspector" aria-label="Selection details"></aside>
         </div>
         <div class="flow-legend" aria-label="Legend"></div>

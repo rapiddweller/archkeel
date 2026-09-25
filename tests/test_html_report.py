@@ -315,6 +315,20 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
     assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
 
 
+def test_html_report_explorer_uses_one_observation_for_three_views(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "tour")
+
+    assert page.count('id="flow-data"') == 1
+    assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
+    assert 'data-flow-view="diagram"' in page
+    assert 'data-flow-view="structure"' in page
+    assert 'data-flow-view="review"' in page
+    assert 'class="flow-alternative" hidden' in page
+    assert "All connections remain below" in page
+    assert "Physical structure" in page
+    assert "Component communication" in page  # no-JavaScript evidence fallback
+
+
 def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> None:
     page = _shop_sample_report(tmp_path, "tour")
 

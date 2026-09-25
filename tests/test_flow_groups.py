@@ -59,3 +59,36 @@ assert(cardLevel(component, []).components.every(card => card.public === null));
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_focused_diagram_keeps_violations_outside_its_top_connections() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function focusLevel(");
+const end = text.indexOf("  function level(", begin);
+assert(begin >= 0 && end > begin);
+const focusLevel = new Function(text.slice(begin, end) + ";return focusLevel")();
+const names = ["focus", ...Array.from({length: 7}, (_, index) => `used${index}`),
+  "brokenSource", "brokenTarget"];
+const view = {components: names.map(label => ({label})), edges: [
+  ...names.slice(1, 8).map((target, index) =>
+    ({source: "focus", target, import_sites: 10 - index, state: "conforms"})),
+  {source: "brokenSource", target: "brokenTarget", import_sites: 1, state: "violation"},
+]};
+const shown = focusLevel(view, "focus");
+assert.equal(shown.edges.length, 6);
+assert(shown.edges.some(edge => edge.state === "violation"));
+assert(shown.components.some(card => card.label === "brokenSource"));
+assert(shown.components.some(card => card.label === "brokenTarget"));
+assert.equal(focusLevel(view, "missing"), view);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr

@@ -139,6 +139,10 @@ unless the check has already classified them as a failure.
 
 ### Component flow
 
+- One observation feeds three views at the same breadcrumb level: focused UML diagram to explain
+  interfaces, physical structure map to find modules, and dependency matrix to review imports.
+  The diagram keeps all violated edges visible outside its five heaviest direct connections.
+  The matrix shows up to twelve high-traffic entries; every connection remains in its full list.
 - Level 2 uses UML component boxes. A circle marks a declared provided interface; a socket
   marks declared `requires`. Only a conforming observed edge with `through` gets an assembly
   marker. An unrestricted or undecided edge must not imply a specific interface connection.

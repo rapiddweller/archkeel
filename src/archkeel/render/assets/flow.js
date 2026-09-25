@@ -38,8 +38,11 @@
   const violationFocus = root.querySelector(".flow-violation-focus");
   const violationsOnly = root.querySelector(".flow-violations-only");
   const fitButton = root.querySelector(".flow-fit");
+  const focusInput = root.querySelector(".flow-focus");
   const backButton = root.querySelector(".flow-back");
   const breadcrumb = root.querySelector(".flow-breadcrumb");
+  const viewButtons = root.querySelectorAll("[data-flow-view]");
+  const alternative = root.querySelector(".flow-alternative");
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
   // already-captured element); the drag/pan state machine below tolerates that silently.
@@ -77,7 +80,7 @@
   // AD-24: inside a component nothing is decided, so every inner edge is drawn as observed.
   // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
   // shape, because layout, ranking, routing and the inspector all consume that shape.
-  function level() {
+  function fullLevel() {
     if (!opened) return { components: DATA.components.concat(DATA.libraries || []), edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
     const component = componentByLabel.get(opened.component);
@@ -89,6 +92,34 @@
     }
     if (component.inside) return insideLevel(component.inside);
     return cardLevel(component, opened.path || []);
+  }
+
+  function focusLevel(view, label) {
+    if (!label || !view.components.some((card) => card.label === label)) return view;
+    const byWeight = (a, b) => b.import_sites - a.import_sites ||
+      a.source.localeCompare(b.source) || a.target.localeCompare(b.target);
+    const direct = [
+      ...view.edges.filter((edge) => edge.target === label).sort(byWeight).slice(0, 5),
+      ...view.edges.filter((edge) => edge.source === label).sort(byWeight).slice(0, 5),
+    ];
+    const edges = [...new Set([...direct, ...view.edges.filter((edge) => edge.state === "violation")])];
+    const names = new Set([label, ...edges.flatMap((edge) => [edge.source, edge.target])]);
+    return { components: view.components.filter((card) => names.has(card.label)), edges };
+  }
+
+  function level() {
+    const view = fullLevel();
+    return viewMode === "diagram" ? focusLevel(view, focusLabel) : view;
+  }
+
+  function defaultFocus(view) {
+    const scores = new Map(view.components.map((card) => [card.label, 0]));
+    view.edges.forEach((edge) => {
+      scores.set(edge.source, (scores.get(edge.source) || 0) + edge.import_sites);
+      scores.set(edge.target, (scores.get(edge.target) || 0) + edge.import_sites);
+    });
+    return [...view.components].filter((card) => !card.library).sort((a, b) =>
+      (scores.get(b.label) || 0) - (scores.get(a.label) || 0) || a.label.localeCompare(b.label))[0]?.label || null;
   }
 
   function insideLevel(inside) {
@@ -215,6 +246,11 @@
       return;
     }
     selected = { type: "node", label };
+    if (viewMode === "diagram") {
+      focusLabel = label;
+      positions = {};
+      defaultThreshold();
+    }
     render();
   }
 
@@ -223,6 +259,8 @@
   const linkedComponent = new URLSearchParams(window.location.hash.slice(1)).get("component");
   let opened = componentByLabel.has(linkedComponent) ? { component: linkedComponent, path: [] } : null;
   let selected = null;
+  let viewMode = "diagram";
+  let focusLabel = null;
   let transform = { x: 0, y: 0, k: 1 };
 
   function computeRanks() {
@@ -240,6 +278,28 @@
   }
 
   function layout() {
+    const view = level();
+    if (viewMode === "diagram" && focusLabel && view.components.length) {
+      const incoming = [...new Set(view.edges.filter((edge) => edge.target === focusLabel)
+        .map((edge) => edge.source))].filter((name) => name !== focusLabel).sort();
+      const outgoing = [...new Set(view.edges.filter((edge) => edge.source === focusLabel)
+        .map((edge) => edge.target))].filter((name) => name !== focusLabel && !incoming.includes(name)).sort();
+      const other = view.components.map((card) => card.label).filter((name) =>
+        name !== focusLabel && !incoming.includes(name) && !outgoing.includes(name));
+      const rows = Math.max(incoming.length, outgoing.length, 1);
+      const centerY = (rows - 1) * 145 / 2;
+      if (!positions[focusLabel]) positions[focusLabel] = { x: 0, y: centerY };
+      incoming.forEach((name, index) => {
+        if (!positions[name]) positions[name] = { x: -310, y: index * 145 };
+      });
+      outgoing.forEach((name, index) => {
+        if (!positions[name]) positions[name] = { x: 310, y: index * 145 };
+      });
+      other.forEach((name, index) => {
+        if (!positions[name]) positions[name] = { x: (index % 2 ? 310 : -310), y: (rows + Math.floor(index / 2)) * 145 };
+      });
+      return rows + Math.ceil(other.length / 2);
+    }
     const rank = computeRanks();
     const byRank = groupBy(level().components, (c) => rank.get(c.label));
     const ranks = [...byRank.keys()].sort((a, b) => a - b);
@@ -368,6 +428,19 @@
 
   function render() {
     updateNavigation();
+    const scope = fullLevel();
+    if (!scope.components.some((card) => card.label === focusLabel)) focusLabel = defaultFocus(scope);
+    focusInput.innerHTML = scope.components.map((card) =>
+      `<option value="${esc(card.label)}">${esc(card.display || card.label)}</option>`).join("");
+    if (focusLabel) focusInput.value = focusLabel;
+    focusInput.disabled = !scope.components.length;
+    root.dataset.view = viewMode;
+    viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
+    alternative.hidden = viewMode === "diagram";
+    if (viewMode !== "diagram") {
+      renderAlternative();
+      return;
+    }
     // render() replaces every card and edge, which would otherwise silently drop keyboard focus.
     const focused = capturedFocus();
     emptyLayer.textContent = "";
@@ -648,8 +721,108 @@
     renderInspector(visible);
   }
 
-  function statBlock() {
+  function splitMap(items, x, y, width, height) {
+    if (items.length === 1) return [{ item: items[0], x, y, width, height }];
+    const total = items.reduce((sum, item) => sum + item.area, 0);
+    let first = 0;
+    let cut = 0;
+    for (let index = 0; index < items.length - 1; index += 1) {
+      first += items[index].area;
+      cut = index + 1;
+      if (first >= total / 2) break;
+    }
+    const share = first / total;
+    return width >= height
+      ? [...splitMap(items.slice(0, cut), x, y, width * share, height),
+        ...splitMap(items.slice(cut), x + width * share, y, width * (1 - share), height)]
+      : [...splitMap(items.slice(0, cut), x, y, width, height * share),
+        ...splitMap(items.slice(cut), x, y + height * share, width, height * (1 - share))];
+  }
+
+  function renderStructure(view) {
+    const cards = view.components.filter((card) => !card.library);
+    const area = (card) => opened?.module ? 1 + (card.members || []).length : Math.max(1, card.modules.length);
+    const sorted = [...cards].sort((a, b) => area(b) - area(a) || a.label.localeCompare(b.label));
+    const mapped = sorted.slice(0, 20).map((card) => ({ card, area: area(card) }));
+    const rectangles = mapped.length ? splitMap(mapped, 0, 0, 100, 100) : [];
+    const unit = opened?.module ? "definitions and members" : "observed modules";
+    const tiles = rectangles.map(({ item, x, y, width, height }) => {
+      const card = item.card;
+      const label = card.display || card.label;
+      return `<button type="button" class="${card.folder ? "folder" : "module"}"
+        data-flow-card="${esc(card.label)}" aria-label="Open ${esc(card.label)}"
+        aria-pressed="${selected?.type === "node" && selected.label === card.label}"
+        style="left:${x}%;top:${y}%;width:${width}%;height:${height}%">
+        <b>${esc(label)}</b><small>${item.area} ${unit}</small></button>`;
+    }).join("");
+    const all = sorted.map((card) => `<button type="button" data-flow-card="${esc(card.label)}"
+      aria-pressed="${selected?.type === "node" && selected.label === card.label}">
+      <span><code>${esc(card.display || card.label)}</code></span>
+      <small>${area(card)} ${unit}</small></button>`).join("");
+    const libraries = view.components.filter((card) => card.library).map((card) =>
+      `<button type="button" data-flow-card="${esc(card.label)}"><span>${esc(card.display)}</span>
+      <small>external library</small></button>`).join("");
+    alternative.innerHTML = `<p>Physical structure. Tile area counts ${unit}, not code quality.
+      Select a tile to open it; the full list also includes small entries.</p>
+      ${tiles ? `<div class="flow-map" role="group" aria-label="Package and module map">${tiles}</div>`
+        : "<p>No structure recorded at this level.</p>"}
+      <p>${mapped.length} of ${cards.length} entries in the map.</p>
+      <div class="flow-item-list">${all}${libraries}</div>`;
+  }
+
+  function renderReview(view) {
+    const scores = new Map(view.components.map((card) => [card.label, 0]));
+    view.edges.forEach((edge) => {
+      scores.set(edge.source, (scores.get(edge.source) || 0) + edge.import_sites);
+      scores.set(edge.target, (scores.get(edge.target) || 0) + edge.import_sites);
+    });
+    const cards = [...view.components].sort((a, b) =>
+      (scores.get(b.label) || 0) - (scores.get(a.label) || 0) || a.label.localeCompare(b.label));
+    const shown = cards.slice(0, 12);
+    const edges = new Map(view.edges.map((edge) => [edgeKey(edge), edge]));
+    const head = shown.map((card) => `<th scope="col" title="${esc(card.label)}">${esc(card.display || card.label)}</th>`).join("");
+    const rows = shown.map((source) => `<tr><th scope="row" title="${esc(source.label)}">${esc(source.display || source.label)}</th>${shown.map((target) => {
+      const edge = edges.get(`${source.label}>${target.label}`);
+      if (!edge) return "<td>·</td>";
+      return `<td><button type="button" data-flow-edge="${esc(edgeKey(edge))}"
+        data-state="${esc(edge.state)}" aria-label="${esc(source.label)} uses ${esc(target.label)}:
+        ${edge.import_sites} import sites, ${esc(edge.state)}"
+        aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}">
+        ${edge.import_sites}</button></td>`;
+    }).join("")}</tr>`).join("");
+    const ordered = [...view.edges].sort((a, b) =>
+      (b.state === "violation") - (a.state === "violation") ||
+      b.import_sites - a.import_sites || edgeKey(a).localeCompare(edgeKey(b)));
+    const edgeButtons = ordered.map((edge) => `<button type="button" data-flow-edge="${esc(edgeKey(edge))}"
+      aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}">
+      <span>${esc(edge.source)} → ${esc(edge.target)}${edge.rule_ids.length ? ` · ${esc(edge.rule_ids.join(", "))}` : ""}</span>
+      <small>${edge.import_sites} sites · ${esc(edge.state)}</small></button>`).join("");
+    const broken = view.edges.filter((edge) => edge.state === "violation").length;
+    const undecided = view.edges.filter((edge) => edge.state === "undecided").length;
+    const nodeButtons = cards.map((card) => `<button type="button" data-flow-card="${esc(card.label)}">
+      <span>${esc(card.display || card.label)}</span><small>${card.folder ? "package" : card.library ? "library" : "open"}</small>
+      </button>`).join("");
+    alternative.innerHTML = `<p>Row uses column. Numbers count observed import sites;
+      · means no connection was recorded. ${view.edges.length} connections,
+      ${broken} broken, ${undecided} undecided at this level.</p>
+      ${shown.length ? `<div class="flow-matrix-wrap"><table class="flow-matrix"><thead>
+        <tr><th scope="col">uses →</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
+        : "<p>No components or modules recorded at this level.</p>"}
+      <p>${shown.length} of ${cards.length} entries in the matrix. All connections remain below.</p>
+      <details><summary>All ${view.edges.length} connections</summary>
+        <div class="flow-item-list">${edgeButtons || "<p>No observed connections.</p>"}</div></details>
+      <details><summary>Open an entry</summary><div class="flow-item-list">${nodeButtons}</div></details>`;
+  }
+
+  function renderAlternative() {
     const view = level();
+    if (viewMode === "structure") renderStructure(view);
+    else renderReview(view);
+    renderInspector(view.edges);
+  }
+
+  function statBlock() {
+    const view = fullLevel();
     const sites = view.edges.reduce((acc, e) => acc + weight(e), 0);
     if (opened && opened.module) {
       const inside = (DATA.modules || {})[opened.module] || {};
@@ -659,7 +832,7 @@
     if (opened) {
       const owner = componentByLabel.get(opened.component);
       const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
-      return `<dl class="kv"><dt>Modules</dt><dd>${card.modules.length}</dd><dt>Visible groups</dt><dd>${view.components.length}</dd><dt>Visible crossings</dt><dd>${view.edges.length}</dd><dt>Crossing import sites</dt><dd>${sites}</dd></dl>`;
+      return `<dl class="kv"><dt>Modules</dt><dd>${card.modules.length}</dd><dt>Groups at this level</dt><dd>${view.components.length}</dd><dt>Connections at this level</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd></dl>`;
     }
     const modules = view.components.reduce((acc, c) => acc + c.modules.length, 0);
     const libraries = view.components.filter((card) => card.library).length;
@@ -697,6 +870,16 @@
   }
 
   function overview() {
+    if (viewMode === "structure") {
+      return `<div class="kicker">Structure</div><h2>${esc(opened?.module || opened?.component || "Repository")}</h2>
+        <p>Open a component, package, or module. Tile area counts observed modules or symbol definitions;
+        it does not rate their quality.</p>${statBlock()}`;
+    }
+    if (viewMode === "review") {
+      return `<div class="kicker">Review</div><h2>${esc(opened?.module || opened?.component || "Repository")}</h2>
+        <p>Select a matrix cell for its rule and import evidence. Open an entry to inspect a smaller scope.
+        Missing observations are not a pass.</p>${statBlock()}`;
+    }
     if (opened && opened.module) {
       const inside = (DATA.modules || {})[opened.module] || {};
       const reaches = (inside.imports || []).slice(0, 12).map((name) => `<li><code>${esc(name)}</code></li>`).join("");
@@ -715,7 +898,7 @@
       const outNote = outside.length ? `<p>${outside.length} connections leave this folder, including ${outside.filter((edge) => edge.state === "violation").length} violations. Use the breadcrumb to inspect those crossings.</p>` : "";
       return `<div class="kicker">Inside</div><h2>${esc(prefix || opened.inside || opened.component)}</h2><p>Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
     }
-    return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>Each box is a declared component. A circle is its provided interface; a socket means it requires another component. Arrows show observed imports, not hypothetical permissions. Select a box or connection for evidence; select a box again to open its white-box view.</p>${statBlock()}${heaviestBlock()}`;
+    return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>The diagram shows one component and its direct connections. Choose another focus to explore the rest; broken connections stay visible. A circle is a provided interface, a socket a requirement. Arrows show observed imports. Select a box twice to open it.</p>${statBlock()}${heaviestBlock()}`;
   }
 
   function moduleTree(component, path = []) {
@@ -879,6 +1062,7 @@
   }
 
   function fit(animate) {
+    if (viewMode !== "diagram") return;
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height) return;
     const box = svg.getBoundingClientRect();
@@ -1014,6 +1198,7 @@
         opened = item.state;
         selected = null;
         positions = {};
+        focusLabel = defaultFocus(fullLevel());
         defaultThreshold();
         render();
         fit(false);
@@ -1048,6 +1233,7 @@
     }
     selected = null;
     positions = {};
+    focusLabel = defaultFocus(fullLevel());
     defaultThreshold();
     render();
     fit(false);
@@ -1061,12 +1247,50 @@
     opened = history[history.length - 2].state;
     selected = null;
     positions = {};
+    focusLabel = defaultFocus(fullLevel());
     defaultThreshold();
     render();
     fit(false);
   }
 
   backButton.addEventListener("click", leave);
+  root.querySelector(".flow-views").hidden = false;
+  viewButtons.forEach((button) => button.addEventListener("click", () => {
+    viewMode = button.dataset.flowView;
+    if (viewMode === "diagram" && selected) {
+      focusLabel = selected.type === "node" ? selected.label : selected.key.split(">")[0];
+      positions = {};
+      defaultThreshold();
+    }
+    render();
+    fit(false);
+  }));
+  focusInput.addEventListener("change", () => {
+    focusLabel = focusInput.value;
+    selected = null;
+    positions = {};
+    defaultThreshold();
+    render();
+    fit(false);
+  });
+  alternative.addEventListener("click", (event) => {
+    const cardButton = event.target.closest("[data-flow-card]");
+    if (cardButton) {
+      const card = level().components.find((item) => item.label === cardButton.dataset.flowCard);
+      if (!card) return;
+      if ((!opened && !card.library) || (opened && card.openable)) enter(card.label);
+      else {
+        selected = { type: "node", label: card.label };
+        render();
+      }
+      return;
+    }
+    const edgeButton = event.target.closest("[data-flow-edge]");
+    if (edgeButton) {
+      selected = { type: "edge", key: edgeButton.dataset.flowEdge };
+      render();
+    }
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") leave();
   });
@@ -1095,6 +1319,7 @@
   violationFocus.hidden = false;
 
   renderLegend();
+  focusLabel = defaultFocus(fullLevel());
   defaultThreshold();
   render();
   fit(false);

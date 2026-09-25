@@ -336,6 +336,35 @@ code {
   white-space: nowrap;
 }
 /* AD-10 component flow view. */
+.flow-views {
+  display: flex;
+  gap: var(--ck-space-2);
+  margin-bottom: var(--ck-space-4);
+  border-bottom: 1px solid var(--ck-border);
+}
+.flow-views[hidden],
+.flow-alternative[hidden] {
+  display: none;
+}
+.flow-views button {
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ck-muted);
+  font: 500 14px var(--ck-font-sans);
+  cursor: pointer;
+}
+.flow-views button[aria-pressed="true"] {
+  border-bottom-color: var(--ck-lime);
+  color: var(--ck-text);
+}
+.flow[data-view]:not([data-view="diagram"]) .flow-canvas,
+.flow[data-view]:not([data-view="diagram"]) .flow-legend,
+.flow[data-view]:not([data-view="diagram"]) .flow-diagram-control,
+.flow[data-view]:not([data-view="diagram"]) .flow-violation-focus {
+  display: none;
+}
 .flow-how-to-read {
   margin-bottom: var(--ck-space-3);
 }
@@ -395,6 +424,15 @@ code {
 .flow-threshold {
   accent-color: var(--ck-teal);
 }
+.flow-focus {
+  max-width: 220px;
+  margin-left: var(--ck-space-2);
+  padding: 6px;
+  border: 1px solid var(--ck-border);
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  font: 12px var(--ck-font-mono);
+}
 .flow-fit {
   padding: 6px 12px;
   border: 1px solid var(--ck-border);
@@ -408,10 +446,135 @@ code {
 .flow-fit:hover {
   border-color: var(--ck-teal);
 }
-.flow-canvas {
+.flow-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: var(--ck-space-4);
+}
+.flow-canvas,
+.flow-alternative {
+  min-width: 0;
+}
+.flow-map {
+  position: relative;
+  height: 430px;
+  border: 1px solid var(--ck-border);
+  background: var(--ck-black);
+}
+.flow-map button {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 10px;
+  border: 2px solid var(--ck-black);
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  text-align: left;
+  cursor: pointer;
+}
+.flow-map button:hover,
+.flow-map button[aria-pressed="true"] {
+  outline: 2px solid var(--ck-lime);
+  outline-offset: -4px;
+}
+.flow-map button::before {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--ck-teal);
+  content: "";
+}
+.flow-map button.module::before {
+  background: var(--ck-lime);
+}
+.flow-map button b {
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+.flow-map button small {
+  color: var(--ck-muted);
+}
+.flow-alternative > p {
+  margin-bottom: var(--ck-space-3);
+  color: var(--ck-muted);
+}
+.flow-item-list {
+  display: grid;
+  gap: 1px;
+  margin-top: var(--ck-space-4);
+  background: var(--ck-border);
+  border: 1px solid var(--ck-border);
+}
+.flow-item-list button {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ck-space-3);
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  text-align: left;
+  cursor: pointer;
+}
+.flow-item-list button:hover,
+.flow-item-list button[aria-pressed="true"] {
+  background: var(--ck-surface-raised);
+}
+.flow-item-list small {
+  flex: none;
+  color: var(--ck-muted);
+}
+.flow-matrix-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ck-border);
+}
+.flow-matrix {
+  width: max-content;
+  min-width: 650px;
+  font-size: 12px;
+}
+.flow-matrix th,
+.flow-matrix td {
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--ck-border);
+  text-align: center;
+}
+.flow-matrix th {
+  min-width: 120px;
+  max-width: 180px;
+  padding: 4px;
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+.flow-matrix th[scope="row"] {
+  position: sticky;
+  left: 0;
+  background: var(--ck-surface);
+}
+.flow-matrix td button {
+  width: 100%;
+  height: 40px;
+  border: 0;
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  cursor: pointer;
+}
+.flow-matrix td button[data-state="violation"] {
+  color: var(--ck-fail);
+}
+.flow-matrix td button[data-state="undecided"] {
+  color: var(--ck-unknown);
+}
+.flow-matrix td button[data-state="conforms"] {
+  color: var(--ck-teal);
+}
+.flow-matrix td button:hover,
+.flow-matrix td button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px var(--ck-lime);
 }
 .flow-graph {
   width: 100%;
@@ -426,6 +589,7 @@ code {
 }
 .flow-inspector {
   overflow-y: auto;
+  overflow-wrap: anywhere;
   max-height: 860px;
   padding: var(--ck-space-4);
   border: 1px solid var(--ck-border);
@@ -735,7 +899,7 @@ code {
   }
   .verdict-grid,
   .diagnostic,
-  .flow-canvas {
+  .flow-layout {
     grid-template-columns: 1fr;
   }
 }
