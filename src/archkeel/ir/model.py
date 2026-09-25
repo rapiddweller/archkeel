@@ -620,6 +620,11 @@ class ArchitectureContract:
         return owners[0] if len(owners) == 1 else None
 
 
+def entry_module(entry: str) -> str:
+    """The module a `module:Name` entry names, or the entry itself when it names a module."""
+    return entry.partition(":")[0]
+
+
 def last_name(name: str) -> str:
     """The segment after a name's last `.` or `:`: what a moved module or symbol keeps."""
     symbol: str = name.rpartition(":")[2]

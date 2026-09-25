@@ -28,7 +28,6 @@ from archkeel.ir.model import (
     RunResult,
 )
 from archkeel.ir.renames import (
-    contract_names,
     rename_candidates,
     rename_holds,
     renamed,
@@ -237,8 +236,6 @@ def test_the_renamed_contract_equals_the_one_renamed_by_hand() -> None:
 
     assert contract_widenings(before, after)
     assert renamed_contract(before, _RENDER) == after
-    assert "shop.render" in contract_names(before)
-    assert "shop.render" not in contract_names(after)
 
 
 def test_a_rename_leaves_every_value_that_names_no_module_alone() -> None:

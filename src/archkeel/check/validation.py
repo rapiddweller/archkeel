@@ -67,6 +67,7 @@ from archkeel.ir.model import (
     RunResult,
     UnresolvedCallChange,
     contract_relative_path,
+    entry_module,
     in_scope,
     module_references,
     text_value,
@@ -289,10 +290,6 @@ def _literal_exports(observation: Observation) -> dict[str, frozenset[str]]:
     }
 
 
-def _entry_module(entry: str) -> str:
-    return entry.partition(":")[0]
-
-
 def _resolved_public_entries(
     contract: ArchitectureContract,
     known: tuple[KnownViolation, ...],
@@ -456,7 +453,7 @@ def _public_entry_diagnostics(
     for item, entry in enumerate(component.public or ()):
         if _entry_used(entry, records, facade_types):
             continue
-        if _entry_module(entry) not in modules:
+        if entry_module(entry) not in modules:
             diagnostics.append(
                 _diagnostic(
                     "interface.missing",
@@ -504,7 +501,7 @@ def _planned_entry_diagnostics(
             "Move the entry to public and drop it from planned.",
         )
         for item, entry in enumerate(component.planned or ())
-        if _entry_module(entry) in modules and _entry_used(entry, records, facade_types)
+        if entry_module(entry) in modules and _entry_used(entry, records, facade_types)
     ]
 
 
@@ -1186,7 +1183,7 @@ def _namespace_references(
     rewrites (AD-105).
     """
     return [
-        (item.pointer, _entry_module(item.value))
+        (item.pointer, entry_module(item.value))
         for item in module_references(contract, external=sdk_libraries)
         if item.held
     ]

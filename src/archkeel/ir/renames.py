@@ -25,6 +25,7 @@ from .model import (
     ArchitectureContract,
     NoComponentCyclesRule,
     Observation,
+    entry_module,
     in_scope,
     last_name,
     module_references,
@@ -138,7 +139,7 @@ def rename_holds(
     one stated for its old name. No observed module may lie under an old prefix, where the renamed
     contract no longer governs it, whatever its file is called (AD-105).
     """
-    olds = frozenset(_module(name) for name in names) | frozenset(renames)
+    olds = frozenset(entry_module(name) for name in names) | frozenset(renames)
     news = {old: renamed(old, renames) for old in olds}
     holders: dict[str, list[str]] = {}
     for old in sorted(olds):
@@ -148,10 +149,6 @@ def rename_holds(
         == {each for prefix in _prefixes(news[old]) for each in holders.get(prefix, [])}
         for old in olds
     ) and not any(in_scope(module, old) for module in observed for old in renames)
-
-
-def _module(name: str) -> str:
-    return name.partition(":")[0]
 
 
 def _prefixes(module: str) -> list[str]:
@@ -234,11 +231,6 @@ def _joined(directory: str, rest: str) -> str:
     return "/".join(part for part in (directory, rest.replace(".", "/")) if part)
 
 
-def contract_names(contract: ArchitectureContract) -> frozenset[str]:
-    """Every module and symbol name the contract holds: what a rename must explain."""
-    return frozenset(item.value for item in module_references(contract))
-
-
 def _labelled(contract: ArchitectureContract) -> frozenset[str]:
     """The rules whose violations name component labels, not modules: component cycles."""
     return frozenset(
@@ -290,13 +282,11 @@ def renamed_contract(
     """
     document: RawJson = json.loads(contract_bytes(contract))
     for item in module_references(contract):
-        if renamed(item.value, renames) != item.value:
-            document = _written(document, _parts(item.pointer), renamed(item.value, renames))
+        name = renamed(item.value, renames)
+        if name != item.value:
+            pointer: str = item.pointer
+            document = _written(document, tuple(pointer.split("/")[1:]), name)
     return parse_contract(document)
-
-
-def _parts(pointer: str) -> tuple[str, ...]:
-    return tuple(pointer.split("/")[1:])
 
 
 def renamed_baseline(
@@ -356,7 +346,8 @@ def renames_since(
     comparison stays field by field, where an amendment can accept the change.
     """
     labelled = _labelled(before)
-    names = contract_names(before) | _baseline_names(violations, budgets, labelled)
+    names = frozenset(item.value for item in module_references(before))
+    names |= _baseline_names(violations, budgets, labelled)
     recognised: list[Renamed] = []
     for candidate in rename_candidates(before, after):
         directories = _directories(candidate, layouts)
