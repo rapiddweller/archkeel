@@ -148,7 +148,7 @@ def test_an_introduction_record_does_not_verify_the_contract_moved_elsewhere(
     the revision lacks, after that revision narrowed it, it must not verify the move."""
     mobile = _mobile_scope(tmp_path)
     root = mobile.parent
-    record = tmp_path / "introduced.json"
+    record = mobile / "introduced.json"
     _, files = run_validate(
         mobile,
         load_config(mobile),

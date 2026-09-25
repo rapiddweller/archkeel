@@ -61,7 +61,8 @@ def build_and_run_against(
 
     if scenario.scenario not in ("widened_amended", "introduced_amended"):
         return run_validate(run_root, config, observe, against="main")[0]
-    amendment = root / "widening-amendment.json"
+    # AD-103: the amendment lives inside the root it is validated under.
+    amendment = run_root / "widening-amendment.json"
     _, write_files = run_validate(
         run_root,
         config,
