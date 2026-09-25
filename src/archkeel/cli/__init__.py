@@ -25,7 +25,7 @@ from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from .config import CONFIG_PATH, load_check_config, load_config, root_file
+from .config import CONFIG_PATH, load_check_config, load_config
 from .skill import install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -202,8 +202,10 @@ def build_parser() -> _Parser:
     )
     validate.add_argument(
         "--baseline",
+        type=Path,
         help="File of known violations and contract-selected measurement values, relative to "
-        "--root like --config (AD-103). Fail when either differs from the current observation.",
+        "--root like the contract, or absolute inside it (AD-103). Fail when either differs "
+        "from the current observation.",
     )
     validate.add_argument(
         "--write-baseline",
@@ -221,8 +223,9 @@ def build_parser() -> _Parser:
     )
     validate.add_argument(
         "--amendment",
+        type=Path,
         help="File recording who decided a widening from --against, and why, relative to "
-        "--root. Needs --against.",
+        "--root or absolute inside it. Needs --against.",
     )
     validate.add_argument(
         "--write-amendment",
@@ -418,26 +421,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     parser.error("--write-amendment needs --amendment to name the file to write")
                 if args.write_amendment and (not args.decided_by or not args.rationale):
                     parser.error("--write-amendment needs --decided-by and --rationale")
-                # AD-103: relative to --root, like the contract, so a second code base under a
-                # subdirectory reads and writes its own files whatever the working directory.
-                baseline = amendment = None
-                if args.baseline is not None:
-                    subject = str(root / args.baseline)
-                    baseline = root_file(root, args.baseline, "--baseline")
-                if args.amendment is not None:
-                    subject = str(root / args.amendment)
-                    amendment = root_file(root, args.amendment, "--amendment")
-                subject = str(root / args.config)
                 result, files = run_validate(
                     root,
                     config,
                     observe,
                     write_graph=args.write_graph,
-                    baseline=baseline,
+                    # AD-103: run_validate reads both relative to --root, like the contract.
+                    baseline=args.baseline,
                     write_baseline=args.write_baseline,
                     accept_new=args.accept_new,
                     against=args.against,
-                    amendment=amendment,
+                    amendment=args.amendment,
                     write_amendment=args.write_amendment,
                     decided_by=args.decided_by,
                     rationale=args.rationale,

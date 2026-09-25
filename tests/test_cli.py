@@ -76,7 +76,7 @@ def test_interactive_terminal_gets_a_summary_and_json_stays_available(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
     monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    baseline = "architecture-baseline.json"
+    baseline = str(ROOT / "architecture-baseline.json")
     assert main(["validate", "--root", str(ROOT), "--baseline", baseline]) == 0
     summary = capsys.readouterr().out
     assert "Independent verdicts" in summary and not summary.startswith("{")
@@ -139,11 +139,21 @@ def _two_code_bases(
     return repo
 
 
-def _root_relative_claim(repo: Path, option: str, value: str) -> str:
+_BASELINE_CLAIM = "The validation baseline cannot be read: "
+_AMENDMENT_CLAIM = "The contract-widening amendment cannot be read: "
+
+
+def _refusals(capsys: pytest.CaptureFixture) -> list[tuple[str, str, str]]:
+    diagnostics = json.loads(capsys.readouterr().out)["diagnostics"]
+    return [(item["code"], item["subject"], item["unknown_claim"]) for item in diagnostics]
+
+
+def _prefixed(repo: Path, value: str) -> str:
+    """Why a root-prefixed `value` under `--root mobile`, run from `repo`, names nothing."""
+    root = repo / "mobile"
     return (
-        f"The architecture contract cannot be validated: {option} {value} is relative to "
-        f"--root {repo / 'mobile'}: it names {repo / 'mobile' / value}, which does not exist, "
-        f"not {repo / value}; pass {option} {value.removeprefix('mobile/')}"
+        f"{value} is relative to --root {root}: it names {root / value}, which does not exist, "
+        f"not {repo / value}; pass {value.removeprefix('mobile/')}"
     )
 
 
@@ -154,24 +164,44 @@ def test_baseline_is_read_relative_to_root_like_the_contract(
 
     Before, --baseline was read from the working directory, so this run read the backend's
     file and reported one new and one resolved violation that were a wrong file, not a
-    regression. The root-prefixed spelling that used to be right names nothing now, and says
-    so instead of reading or writing one directory too deep.
+    regression. An absolute path inside the root is read as it is. The root-prefixed spelling
+    that used to be right names nothing now and is baseline.invalid, instead of being read or
+    written one directory too deep, until a folder of that name really holds the file.
     """
     repo = _two_code_bases(tmp_path, monkeypatch, capsys)
     app = ["validate", "--root", "mobile", "--json"]
 
-    assert main([*app, "--baseline", "architecture-baseline.json"]) == 0
-    result = json.loads(capsys.readouterr().out)
-    assert (result["baseline_new"], result["baseline_resolved"], result["failures"]) == (0, 0, [])
+    for baseline in ("architecture-baseline.json", str(repo / "mobile/architecture-baseline.json")):
+        assert main([*app, "--baseline", baseline]) == 0
+        result = json.loads(capsys.readouterr().out)
+        assert (result["baseline_new"], result["baseline_resolved"], result["failures"]) == (
+            0,
+            0,
+            [],
+        )
 
     prefixed = "mobile/architecture-baseline.json"
     for write in ([], ["--write-baseline"]):
         assert main([*app, "--baseline", prefixed, *write]) == 2
-        diagnostics = json.loads(capsys.readouterr().out)["diagnostics"]
-        assert [(item["subject"], item["unknown_claim"]) for item in diagnostics] == [
-            (str(repo / "mobile" / prefixed), _root_relative_claim(repo, "--baseline", prefixed))
+        assert _refusals(capsys) == [
+            (
+                "baseline.invalid",
+                str(repo / "mobile" / prefixed),
+                _BASELINE_CLAIM + _prefixed(repo, prefixed),
+            )
         ]
     assert not (repo / "mobile/mobile").exists()
+
+    (repo / "mobile/mobile").mkdir()
+    shutil.copyfile(repo / prefixed, repo / "mobile" / prefixed)
+    assert main([*app, "--baseline", prefixed]) == 0
+    capsys.readouterr()
+
+    # From a folder inside the root, a first write lands at the root-relative path.
+    monkeypatch.chdir(repo / "mobile/lib")
+    fresh = ["validate", "--root", "..", "--baseline", "fresh.json", "--write-baseline", "--json"]
+    assert main(fresh) == 0
+    assert json.loads(capsys.readouterr().out)["artifact"] == str(repo / "mobile/fresh.json")
 
 
 def test_amendment_is_written_and_read_relative_to_root(
@@ -186,50 +216,74 @@ def test_amendment_is_written_and_read_relative_to_root(
     assert main([*against, "--amendment", "widening.json", "--write-amendment", *decided]) == 0
     assert json.loads(capsys.readouterr().out)["artifact"] == str(repo / "mobile/widening.json")
     assert not (repo / "widening.json").exists()
-    assert main([*against, "--amendment", "widening.json"]) == 0
-    capsys.readouterr()
+    for amendment in ("widening.json", str(repo / "mobile/widening.json")):
+        assert main([*against, "--amendment", amendment]) == 0
+        capsys.readouterr()
 
     prefixed = "mobile/widening.json"
     assert main([*against, "--amendment", prefixed]) == 2
-    diagnostics = json.loads(capsys.readouterr().out)["diagnostics"]
-    assert [(item["subject"], item["unknown_claim"]) for item in diagnostics] == [
-        (str(repo / "mobile" / prefixed), _root_relative_claim(repo, "--amendment", prefixed))
-    ]
-
-
-@pytest.mark.parametrize("option", ["--baseline", "--amendment"])
-@pytest.mark.parametrize(
-    ("value", "claim"),
-    [
-        ("{root}/known-violations.json", "{option} must be a safe POSIX relative path"),
-        ("../known-violations.json", "{option} must be a safe POSIX relative path"),
-        ("outside.json", "{option} escapes repository root"),
-    ],
-    ids=["absolute", "parent", "symlink"],
-)
-def test_root_relative_inputs_stay_inside_the_root(
-    tmp_path: Path, capsys: pytest.CaptureFixture, option: str, value: str, claim: str
-) -> None:
-    """AD-103: the containment --config has, an absolute path included, whatever exists there."""
-    root = _prepare_repo(tmp_path, {})
-    (tmp_path / "known-violations.json").write_text("{}")
-    (root / "known-violations.json").write_text("{}")
-    (root / "outside.json").symlink_to(tmp_path / "known-violations.json")
-    against = ["--against", "HEAD"] if option == "--amendment" else []
-    path = value.format(root=root)
-
-    assert main(["validate", "--root", str(root), *against, option, path, "--json"]) == 2
-    diagnostics = json.loads(capsys.readouterr().out)["diagnostics"]
-    assert [(item["subject"], item["unknown_claim"]) for item in diagnostics] == [
+    assert _refusals(capsys) == [
         (
-            str(root / path),
-            "The architecture contract cannot be validated: " + claim.format(option=option),
+            "amendment.invalid",
+            str(repo / "mobile" / prefixed),
+            _AMENDMENT_CLAIM + _prefixed(repo, prefixed),
         )
     ]
 
 
+@pytest.mark.parametrize(
+    ("option", "write", "code", "claim"),
+    [
+        ("--baseline", ["--write-baseline"], "baseline.invalid", _BASELINE_CLAIM),
+        (
+            "--amendment",
+            ["--write-amendment", "--decided-by", "Jordan", "--rationale", "why"],
+            "amendment.invalid",
+            _AMENDMENT_CLAIM,
+        ),
+    ],
+    ids=["baseline", "amendment"],
+)
+@pytest.mark.parametrize(
+    "value",
+    ["{outside}", "../known-violations.json", "outside.json"],
+    ids=["absolute", "parent", "symlink"],
+)
+def test_root_relative_inputs_stay_inside_the_root(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    option: str,
+    write: list[str],
+    code: str,
+    claim: str,
+    value: str,
+) -> None:
+    """AD-103: a path that resolves outside the root is refused, read or write, whatever exists
+    there; containment is what keeps a write inside the root."""
+    root = _prepare_repo(tmp_path, {})
+    outside = tmp_path / "known-violations.json"
+    outside.write_text("{}")
+    (root / "outside.json").symlink_to(outside)
+    # --against too: an outside baseline used to be silently left out of its comparison.
+    against = ["--against", "HEAD"]
+    path = value.format(outside=outside)
+
+    for extra in ([], write):
+        assert (
+            main(["validate", "--root", str(root), *against, option, path, *extra, "--json"]) == 2
+        )
+        assert _refusals(capsys) == [
+            (
+                code,
+                str(root / path),
+                f"{claim}{path} resolves to {outside}, outside the root {root}",
+            )
+        ]
+    assert outside.read_text() == "{}"
+
+
 def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> None:
-    baseline = "architecture-baseline.json"
+    baseline = str(ROOT / "architecture-baseline.json")
     assert main(["validate", "--root", str(ROOT), "--baseline", baseline]) == 0
     default = capsys.readouterr().out
     assert main(["validate", "--root", str(ROOT), "--baseline", baseline, "--json"]) == 0
@@ -290,7 +344,7 @@ def test_validate_baseline_writes_then_gates_on_new_violations(
     """AD-52: the red target's whole loop, through the CLI: write, pass, then grow."""
     root = _prepare_repo(tmp_path, {"shop/model/probe.py": _PROBE})
     baseline = root / "known-violations.json"
-    arguments = ["validate", "--root", str(root), "--baseline", baseline.name, "--json"]
+    arguments = ["validate", "--root", str(root), "--baseline", str(baseline), "--json"]
 
     assert main([*arguments, "--write-baseline"]) == 0
     assert json.loads(capsys.readouterr().out)["artifact"] == str(baseline)
