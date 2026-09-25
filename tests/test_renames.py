@@ -33,10 +33,8 @@ from fixtures.demo_catalog_widening import renamed_render
 _RENDER = {"shop.render": "shop.view"}
 
 
-def _component(cid: str, *packages: str, public: tuple[str, ...] = ()) -> ContractComponent:
-    return ContractComponent(
-        cid, cid.lower(), ComponentRole.COMPONENT, packages, (), (), (), public=public or None
-    )
+def _component(cid: str, *packages: str) -> ContractComponent:
+    return ContractComponent(cid, cid.lower(), ComponentRole.COMPONENT, packages, (), (), ())
 
 
 def _contract(*components: ContractComponent) -> ArchitectureContract:
