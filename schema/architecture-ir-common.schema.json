@@ -145,11 +145,12 @@
         },
         "line": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0,
+          "description": "0 cites the file itself, with end_line 0, column 0 and an empty excerpt (AD-107); a line from 1 carries its text."
         },
         "end_line": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0
         },
         "column": {
           "type": "integer",

@@ -25,7 +25,7 @@ from archkeel.ir.model import EvidenceClass, stable_id
 from .dart_directives import Directive, Header, read_header
 from .dart_lexer import DirectiveError
 from .records import RawEvidence, RawRecord, classified
-from .source import package_for, record_evidence
+from .source import file_evidence, package_for, record_evidence
 
 _SEGMENT: Final = r"[A-Za-z_][A-Za-z0-9_]*"
 _SCHEME: Final = r"[A-Za-z][A-Za-z0-9+.-]*:.*"
@@ -292,9 +292,8 @@ class _Reader:
                 continue
             if item.header.part_of is None:
                 libraries.append(DartLibrary(item.rel_path, item.module, package_for(item.module)))
-                excerpt = _excerpt(item.lines, 1)
-                module_evidence[item.module] = record_evidence(
-                    self.evidence, item.rel_path, (1, 1, 0), excerpt
+                module_evidence[item.module] = file_evidence(
+                    self.evidence, item.rel_path, item.lines
                 )
             # A part's own directives are dependencies of the library it belongs to.
             self.record_imports(item, owner)
