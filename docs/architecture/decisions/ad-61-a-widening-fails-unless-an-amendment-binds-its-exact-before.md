@@ -33,7 +33,8 @@ via the new `ir.codec.contract_digest`, the way the lock binds its own inputs. `
 it, the way `--write-baseline` does; an amendment written for one change does not verify against
 a different one, because its digests will not match. A missing or malformed `--amendment` file,
 or an `--against` revision or its contract that cannot be read, is exit 2 with a diagnostic -
-`amendment.invalid` or `against.invalid` - the way an unreadable baseline is `baseline.invalid`.
+`amendment.invalid` or `against.invalid` - the way an unreadable baseline is `baseline.invalid`;
+a contract that revision does not hold at all is its introduction instead (AD-104).
 `validate` without `--against` is unchanged.
 
 Reason: a contract that states the target architecture is only a specification for as long as it
