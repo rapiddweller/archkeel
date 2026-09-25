@@ -123,9 +123,10 @@ def test_an_introduced_contract_passes_only_with_its_own_amendment(tmp_path: Pat
     )
     assert (written.exit_code, written.failures) == (0, ())
     amendment.write_bytes(files[str(amendment)])
-    # The before side is no contract at all: the SHA-256 of no bytes, which no contract has.
+    # The before side is no contract at this path: a NUL begins no canonical contract.
     record = parse_amendment(decode_json(amendment.read_bytes()))
-    assert record.before_digest == hashlib.sha256(b"").hexdigest()
+    absent = b"\0no contract at mobile/architecture-contract.json"
+    assert record.before_digest == hashlib.sha256(absent).hexdigest()
 
     result, _ = run_validate(mobile, config, observe, against=base, amendment=amendment)
     assert (result.exit_code, result.failures) == (0, ())
@@ -137,6 +138,59 @@ def test_an_introduced_contract_passes_only_with_its_own_amendment(tmp_path: Pat
     changed, _ = run_validate(mobile, config, observe, against=base, amendment=amendment)
     assert (changed.exit_code, changed.failures) == _introduced(
         "mobile/architecture-contract.json", base
+    )
+
+
+def test_an_introduction_record_does_not_verify_the_contract_moved_elsewhere(
+    tmp_path: Path,
+) -> None:
+    """A record binds the path it introduced: replayed for the same contract moved to a path
+    the revision lacks, after that revision narrowed it, it must not verify the move."""
+    mobile = _mobile_scope(tmp_path)
+    root = mobile.parent
+    record = tmp_path / "introduced.json"
+    _, files = run_validate(
+        mobile,
+        load_config(mobile),
+        observe,
+        against=_base(root),
+        amendment=record,
+        write_amendment=True,
+        decided_by="Jordan (architect)",
+        rationale="The mobile app gets its own contract.",
+    )
+    record.write_bytes(files[str(record)])
+    decided = (mobile / "architecture-contract.json").read_text()
+    narrowing = {
+        "id": "DEP-PRESENTATION-NO-DART-IO",
+        "kind": "forbidden_dependency",
+        "source": "shop.presentation",
+        "target": "dart.io",
+        "include_type_checking": True,
+        "rationale": "Widgets never reach the platform directly.",
+        "provenance": ["docs/architecture/shop.md"],
+        "decided_by": "architect",
+    }
+    contract = json.loads(decided)
+    contract["rules"].append(narrowing)
+    (mobile / "architecture-contract.json").write_text(json.dumps(contract, indent=2) + "\n")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "mobile contract, narrowed")
+    narrowed = _base(root)
+    # The change drops the narrowing by moving the decided contract to a new path.
+    (mobile / "architecture-contract.json").unlink()
+    (mobile / "policy").mkdir()
+    (mobile / "policy/contract.json").write_text(decided)
+    toml = mobile / "archkeel.toml"
+    toml.write_text(toml.read_text().replace("architecture-contract.json", "policy/contract.json"))
+
+    result, _ = run_validate(
+        mobile, load_config(mobile), observe, against=narrowed, amendment=record
+    )
+
+    assert result.diagnostics == ()
+    assert (result.exit_code, result.failures) == _introduced(
+        "mobile/policy/contract.json", narrowed
     )
 
 

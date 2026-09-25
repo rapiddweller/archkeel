@@ -21,6 +21,7 @@ from archkeel.ir.baseline import (
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
+    absent_contract_digest,
     amendment_bytes,
     baseline_bytes,
     contract_digest,
@@ -1869,11 +1870,6 @@ def _observed_or_invalid(
     return observation
 
 
-# AD-104: the digest an amendment binds for a contract the `--against` revision does not hold,
-# the SHA-256 of no bytes, which no canonical contract, a JSON object, can have.
-_NO_CONTRACT_DIGEST: Final = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-
 @dataclass(frozen=True, slots=True)
 class _Introduced:
     """AD-104: the `--against` revision holds no contract at `path`, its repository path."""
@@ -1986,7 +1982,7 @@ def _resolve_amendment(
 def _before_digest(contract: ArchitectureContract | _Introduced) -> str:
     """The digest an amendment binds for the `--against` side (AD-61, AD-104)."""
     if isinstance(contract, _Introduced):
-        return _NO_CONTRACT_DIGEST
+        return absent_contract_digest(contract.path)
     return contract_digest(contract)
 
 

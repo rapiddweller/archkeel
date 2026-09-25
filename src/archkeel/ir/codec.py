@@ -833,6 +833,15 @@ def contract_digest(contract: ArchitectureContract) -> str:
     return hashlib.sha256(contract_bytes(contract)).hexdigest()
 
 
+def absent_contract_digest(path: str) -> str:
+    """The digest an amendment binds to for no contract at `path`, a repository path (AD-104).
+
+    A canonical contract is a JSON object, so no contract's bytes begin with the NUL these do;
+    the path keeps a record for one introduction from verifying a contract moved to another.
+    """
+    return hashlib.sha256(b"\0no contract at " + path.encode()).hexdigest()
+
+
 def _without_none(value: object) -> object:
     if isinstance(value, dict):
         return {key: _without_none(item) for key, item in value.items() if item is not None}
