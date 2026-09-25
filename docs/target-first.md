@@ -185,9 +185,10 @@ Review this file the way a diff of the contract itself is reviewed, and commit i
 match the observation exactly: a higher one is a new violation, a lower one a violation someone
 already fixed, both failing the gate. When updating an existing file, `--write-baseline` compares
 first: resolved-only drift may be written, while new or increased fingerprints refuse the write
-unless `--accept-new` is explicit. A cycle that shrank inside a baselined cycle is not new: it is
-written like resolved drift (AD-98). Results expose deterministic `baseline_new` and
-`baseline_resolved` counts of changed fingerprints, not violation occurrences. One fingerprint
+unless `--accept-new` is explicit, and the refusal names that flag as the way on (AD-106). A
+cycle that shrank inside a baselined cycle is not new: it is written like resolved drift (AD-98).
+Results expose deterministic `baseline_new` and `baseline_resolved` counts of changed
+fingerprints, not violation occurrences. One fingerprint
 contributes one even when its occurrence count changes by more than one. A budget allowed to
 *exceed* the code — "no more than N violations of this rule" — would be worse than exact
 counting: it lets a violation someone removed go unreported, the same way an unbounded margin

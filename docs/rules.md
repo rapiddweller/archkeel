@@ -386,7 +386,9 @@ Each entry names one violation by fingerprint — the rule ids it cites and its 
 which per rule kind are the modules, the construct owner or the members of a cycle — plus the
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.
 A fingerprint holds no line or column, so an unrelated edit above a violating line leaves it
-alone. Baseline schema `1.3.0` also carries contract-selected measurement budgets, the accepted
+alone. Both lists are read in any order, so an entry whose subjects a text replace reordered
+still names its violation (AD-106). Baseline schema `1.3.0` also carries contract-selected
+measurement budgets, the accepted
 names of each facade and coupling budget, and may carry sorted `roles` objects (`source` and
 `target`) for directional violation rows; they explain every crossing and never change
 fingerprint identity. They are semantic evidence: `validate --against`
@@ -396,8 +398,9 @@ Multiple roles are retained. Rows without a resolved direction, including constr
 exactly: a higher one is a `new violation`, a lower one a `resolved violation`, both reported in
 `failures` with exit 1, so the budget only shrinks. An existing baseline is compared before a
 write: resolved-only drift may be written, while new or increased fingerprints refuse the write
-unless `--accept-new` is explicit. A run whose baseline is exactly right exits 0, with
-`declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
+unless `--accept-new` is explicit. The refused run's last failure says so and names
+`--accept-new`, for after an architect's decision. A run whose baseline is exactly right exits
+0, with `declared_rules: FAIL` still naming the debt. Only `rule.violated` is answered this way:
 `decision.open`, `graph.drift` and every other diagnostic still exit 2. A baseline that cannot
 be read is `baseline.invalid`, exit 2. In JSON, `baseline_new` and `baseline_resolved` count
 fingerprints whose occurrence count rose or fell. Each changed fingerprint contributes one,
