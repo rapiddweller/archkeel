@@ -382,6 +382,9 @@ archkeel validate --baseline known-violations.json --write-baseline   # resolved
 archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
 ```
 
+The baseline path, like `--amendment`'s below, is relative to `--root`, as the contract is; an
+absolute path or one outside the root is exit 2 (AD-103).
+
 Each entry names one violation by fingerprint — the rule ids it cites and its sorted `subjects`,
 which per rule kind are the modules, the construct owner or the members of a cycle — plus the
 number of violations sharing it, since two `getattr` calls in one function are one fingerprint.

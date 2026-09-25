@@ -22,6 +22,15 @@ read, and its scan-complete reason names them, so a pass says what it covered. `
 report takes its own `--output`, such as `test-artifacts/tests/architecture.json`; without it
 the test report replaces the product report.
 
+`validate` reads `--baseline` and `--amendment`, and writes them with `--write-baseline` and
+`--write-amendment`, relative to `--root` as well, with `--config`'s checks: an absolute path, a
+`..` or a path that resolves outside the root is exit 2 (AD-103). A second code base in
+`mobile/` is checked from the repository root with `archkeel validate --root mobile --baseline
+architecture-baseline.json`, which reads `mobile/architecture-baseline.json`. The root-prefixed
+`mobile/architecture-baseline.json` names no file there and is exit 2, naming both paths; it
+never falls back to the working directory. `report --output` and `check --output` name where an
+artifact goes, not an input, and stay relative to the working directory.
+
 ## Analyzer and runtime
 
 The Python analyzer is bundled under `archkeel.analyzer`. `report` and `check`

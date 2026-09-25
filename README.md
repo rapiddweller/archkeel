@@ -278,8 +278,11 @@ archkeel validate --baseline known-violations.json --write-baseline   # initial 
 archkeel validate --baseline known-violations.json                    # in CI
 archkeel validate --baseline known-violations.json --write-baseline   # resolved-only cleanup
 archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
+archkeel validate --root mobile --baseline known-violations.json      # reads mobile/known-violations.json
 ```
 
+The baseline path is relative to `--root`, like the contract, so a second code base in a
+subdirectory is gated from the repository root against its own file (AD-103).
 The gate exits 1 on a violation the file does not state, and on one it states that nobody
 violates any more, so the budget only shrinks. An existing baseline is compared before a write:
 resolved-only drift may be written, while new or increased fingerprints refuse the write unless
