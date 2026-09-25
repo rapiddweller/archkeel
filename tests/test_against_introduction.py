@@ -22,7 +22,7 @@ from archkeel.analyzer import observe
 from archkeel.check.git import MissingBlobError, read_blob
 from archkeel.check.validation import run_validate
 from archkeel.cli.config import load_config
-from archkeel.ir.codec import decode_json, parse_amendment
+from archkeel.ir.codec import baseline_bytes, decode_json, parse_amendment
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_measurement_budgets
 
@@ -206,6 +206,33 @@ def test_a_moved_contract_is_introduced_not_passed(tmp_path: Path) -> None:
 
     assert result.diagnostics == ()
     assert (result.exit_code, result.failures) == _introduced("contracts/shop.json", base)
+
+
+def test_a_moved_contract_still_compares_the_baseline_the_revision_holds(tmp_path: Path) -> None:
+    """Moving the contract must not hide a baseline padded in the same change."""
+    root = _prepare_repo(tmp_path, {"known-violations.json": baseline_bytes(()).decode()})
+    base = _base(root)
+    (root / "contracts").mkdir()
+    (root / "architecture-contract.json").rename(root / "contracts/shop.json")
+    apply_overlay(root, {"shop/model/probe.py": PROBE})
+    config = replace(SHOP_CONFIG, contract="contracts/shop.json")
+    baseline = root / "known-violations.json"
+    _, files = run_validate(
+        root, config, observe, baseline=baseline, write_baseline=True, accept_new=True
+    )
+    baseline.write_bytes(files[str(baseline)])
+
+    result, _ = run_validate(root, config, observe, against=base, baseline=baseline)
+
+    assert result.diagnostics == ()
+    assert (result.exit_code, result.failures) == (
+        1,
+        (
+            f"contract introduced: contracts/shop.json does not exist at {base}",
+            "baseline entry widened: CONSTRUCT-NO-DYNAMIC | shop.model.probe.read "
+            "(1 now, 0 before)",
+        ),
+    )
 
 
 def test_a_configuration_the_revision_lacks_is_never_read_there(tmp_path: Path) -> None:

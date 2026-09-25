@@ -14,6 +14,7 @@ from typing import Final, TypeVar
 
 from archkeel.ir.baseline import (
     KnownViolation,
+    ValidationBaseline,
     compare_violations,
     observed_violations,
     violation_drift_counts,
@@ -1883,7 +1884,8 @@ class _AgainstContext:
 
     against: str | None
     contract: ArchitectureContract | _Introduced | None
-    baseline: tuple[KnownViolation, ...]
+    # None: nothing at `against` to compare the baseline with (AD-104).
+    baseline: tuple[KnownViolation, ...] | None
     budgets: tuple[MeasurementBudget, ...]
     amendment: Path | None
     write_amendment: bool
@@ -1907,8 +1909,9 @@ def _resolve_against_context(
     A missing violation baseline blob at that revision means no prior known debt. A declared
     measurement budget is different: without its prior accepted value the comparison is not
     decidable, so the revision is rejected instead of being treated as zero. A missing contract
-    blob is the contract's introduction, and nothing else there is compared (AD-104). Any other
-    blob Git cannot hand over is `against.invalid`.
+    blob is the contract's introduction (AD-104); a baseline the revision still holds is compared
+    as before, one it lacks too is not compared at all. Any other blob Git cannot hand over is
+    `against.invalid`.
     """
     empty = _AgainstContext(
         against, None, (), (), amendment, write_amendment, None, decided_by, rationale
@@ -1917,34 +1920,33 @@ def _resolve_against_context(
         return empty, None
     parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
     try:
-        against_contract = parse_contract(decode_json(read_blob(root, against, config.contract)))
-    except MissingBlobError as error:
-        introduced = _Introduced(error.path)
-        return replace(empty, contract=introduced, parsed_amendment=parsed_amendment), (
-            amendment_error
+        against_contract: ArchitectureContract | _Introduced = parse_contract(
+            decode_json(read_blob(root, against, config.contract))
         )
+    except MissingBlobError as error:
+        against_contract = _Introduced(error.path)
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
-    against_baseline: tuple[KnownViolation, ...] = ()
+    # Without the contract every entry of a baseline the revision lacks too would repeat the
+    # introduction, so that baseline is not compared rather than read as no known debt.
+    against_baseline: tuple[KnownViolation, ...] | None = (
+        None if isinstance(against_contract, _Introduced) else ()
+    )
     against_budgets: tuple[MeasurementBudget, ...] = ()
     baseline_at = _baseline_at(root, baseline)
-    if baseline_at is not None:
-        try:
-            against_baseline_bytes: bytes | None = read_blob(root, against, baseline_at)
-        except MissingBlobError:
-            against_baseline_bytes = None
-        except GitError as error:
-            return empty, _against_invalid(against, error)
-        if against_baseline_bytes is not None:
-            try:
-                parsed = parse_validation_baseline(decode_json(against_baseline_bytes))
-                against_baseline = parsed.violations
-                against_budgets = parsed.budgets
-            except ValueError as error:
-                return empty, _against_invalid(against, error)
+    try:
+        prior = None if baseline_at is None else _prior_baseline(root, against, baseline_at)
+    except (GitError, ValueError) as error:
+        return empty, _against_invalid(against, error)
+    if prior is not None:
+        against_baseline, against_budgets = prior.violations, prior.budgets
+    declarations = (
+        against_contract.declarations
+        if isinstance(against_contract, ArchitectureContract)
+        else None
+    )
     declared_budgets: set[str] = {
-        item.name
-        for item in (against_contract.declarations or ContractDeclarations()).measurement_budgets
+        item.name for item in (declarations or ContractDeclarations()).measurement_budgets
     }
     known_budgets = {item.label for item in against_budgets}
     missing_budgets = sorted(declared_budgets - known_budgets)
@@ -1966,6 +1968,16 @@ def _resolve_against_context(
         rationale,
     )
     return context, amendment_error
+
+
+def _prior_baseline(root: Path, against: str, path: str) -> ValidationBaseline | None:
+    """The baseline `against` holds at `path`, or None where it holds none; one it holds but
+    cannot hand over raises GitError or ValueError."""
+    try:
+        payload = read_blob(root, against, path)
+    except MissingBlobError:
+        return None
+    return parse_validation_baseline(decode_json(payload))
 
 
 def _resolve_amendment(
@@ -2005,15 +2017,13 @@ def _widening_failures(
     if isinstance(ctx.contract, _Introduced):
         # AD-104: nothing at the revision to compare, so the whole contract is one widening.
         findings = [f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}"]
+        targets: dict[str, int] = {}
     else:
         findings = list(contract_widenings(ctx.contract, contract))
-        if baseline is not None:
-            findings += baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules)
-            findings += measurement_budget_widenings(
-                ctx.budgets,
-                after_budgets,
-                _name_budget_targets(ctx.contract.declarations or ContractDeclarations()),
-            )
+        targets = _name_budget_targets(ctx.contract.declarations or ContractDeclarations())
+    if baseline is not None and ctx.baseline is not None:
+        findings += baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules)
+        findings += measurement_budget_widenings(ctx.budgets, after_budgets, targets)
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
