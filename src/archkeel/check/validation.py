@@ -1900,7 +1900,6 @@ def _rename_since(
     contract: ArchitectureContract,
     observation: Observation,
     root: Path,
-    roots: tuple[str, ...],
 ) -> Renamed | None:
     """AD-105: the compared revision under the package rename to `contract`, if one holds."""
     if ctx.contract is None:
@@ -1917,27 +1916,25 @@ def _rename_since(
         (
             item
             for item in recognised
-            if not any(_unread(root, roots, directory) for directory in item.directories)
+            if not any(_left_behind(root, directory) for directory in item.directories)
         ),
         None,
     )
 
 
-def _unread(root: Path, roots: tuple[str, ...], directory: str) -> bool:
-    """AD-105: whether a file at or below `directory`, or beside it as `directory.*`, lies outside
-    every scan root, where code left under an old name would go unread and ungoverned."""
+def _left_behind(root: Path, directory: str) -> bool:
+    """AD-105: whether a file lies at or below `directory`, or beside it as `directory.*`, where
+    an old prefix's code lived: scanned under a new name or not, it is code left behind. A file
+    in `__pycache__` is none, since Python loads one only beside its source."""
     base: Path = root / directory
     parent: Path = base.parent
     files = [base, *base.rglob("*"), *parent.glob(f"{base.name}.*")]
-    return any(_unread_file(root, roots, path) for path in files)
+    return any(_code_file(root, path) for path in files)
 
 
-def _unread_file(root: Path, roots: tuple[str, ...], path: Path) -> bool:
-    if not path.is_file():
-        return False
+def _code_file(root: Path, path: Path) -> bool:
     relative: Path = path.relative_to(root)
-    posix: str = relative.as_posix()
-    return not any(item in (".", posix) or posix.startswith(f"{item}/") for item in roots)
+    return path.is_file() and "__pycache__" not in relative.parts
 
 
 def _widening_failures(
@@ -2176,7 +2173,7 @@ def run_validate(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
     )
-    rename = _rename_since(against_ctx, contract, observation, root, config.roots)
+    rename = _rename_since(against_ctx, contract, observation, root)
     widening_failures = _widening_failures(
         against_ctx,
         contract,

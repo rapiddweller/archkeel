@@ -39,7 +39,12 @@ from archkeel.ir.widening import contract_widenings
 from archkeel.render.summary import report_summary
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_interface_budgets
-from fixtures.demo_catalog_widening import renamed_render
+from fixtures.demo_catalog_widening import (
+    _DART_RENAMED,
+    _dart_renamed,
+    build_and_run_against,
+    renamed_render,
+)
 
 _RENDER = {"shop.render": "shop.view"}
 # The shop sample's layout: module `shop.view.text` is file `shop/view/text.py`.
@@ -300,8 +305,9 @@ def test_a_package_named_like_a_label_is_renamed_without_the_label() -> None:
 
     assert moved.prefixes == (("app", "field_app"),)
     assert contract_widenings(moved.contract, after) == ()
-    # The package renamed in its pubspec reads its old names from the same `lib`.
-    assert moved.directories == ("lib",)
+    # The package renamed in its pubspec reads its old names from the same `lib`, which now
+    # holds the renamed code, so no directory is left to search.
+    assert moved.directories == ()
     assert (
         renames_since(
             before,
@@ -477,6 +483,60 @@ def test_a_copy_left_outside_narrowed_roots_is_no_rename(tmp_path: Path) -> None
     result, _ = run_validate(root, replace(SHOP_CONFIG, roots=_NARROWED), observe, against=base)
 
     assert (result.exit_code, result.renames) == (1, ())
+
+
+def test_a_file_left_in_a_renamed_folder_is_no_rename_even_when_scanned(tmp_path: Path) -> None:
+    """QA m1: the package rename names lib/presentation/leftover.dart `field_shop.presentation`,
+    under no old prefix and read by the scan, yet it lies where `shop.presentation` lived."""
+    without = json.loads(_DART)
+    without["rules"] = [
+        rule
+        for rule in without["rules"]
+        if rule["id"] not in ("ASSIGNMENT-COMPLETE", "ROOT-LAYOUT")
+    ]
+    renamed_files = _dart_renamed()
+    after = renamed_files["architecture-contract.json"]
+    assert after is not None
+    after_contract = json.loads(after)
+    after_contract["rules"] = [
+        rule
+        for rule in after_contract["rules"]
+        if rule["id"] not in ("ASSIGNMENT-COMPLETE", "ROOT-LAYOUT")
+    ]
+    files = {
+        **renamed_files,
+        "architecture-contract.json": json.dumps(after_contract, indent=2),
+        "lib/presentation/leftover.dart": (
+            "import 'package:field_shop/data/http_order_repository.dart';\n\n"
+            "var leak = HttpOrderRepository;\n"
+        ),
+    }
+    scenario = replace(
+        _DART_RENAMED,
+        base_files={"architecture-contract.json": json.dumps(without, indent=2)},
+    )
+
+    result = build_and_run_against(tmp_path, files, scenario, DART_FIXTURE_DIR)
+
+    assert (result.exit_code, result.renames) == (1, ())
+
+
+def test_a_stale_bytecode_cache_under_the_old_root_leaves_the_rename_standing(
+    tmp_path: Path,
+) -> None:
+    """QA l1: Python loads a __pycache__ file only beside its source, so one left there by
+    `git mv` is no code; a sourceless .pyc in the package itself (k1) still stops a rename."""
+    root = _prepare_repo(tmp_path, {})
+    base = _git(root, "rev-parse", "HEAD")
+    apply_overlay(root, renamed_render())
+    (root / "shop/render").rmdir()
+    cache = root / "shop/render/__pycache__"
+    cache.mkdir(parents=True)
+    (cache / "text.cpython-311.pyc").write_bytes(b"stale")
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert (result.exit_code, result.renames) == (0, (("shop.render", "shop.view"),))
 
 
 def test_a_move_with_narrowed_roots_is_still_a_rename(tmp_path: Path) -> None:

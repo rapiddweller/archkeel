@@ -40,8 +40,8 @@ class Renamed:
     contract: ArchitectureContract
     violations: tuple[KnownViolation, ...]
     budgets: tuple[MeasurementBudget, ...]
-    # Where the scan's layout places the old prefixes' modules: a file there the scan does not
-    # read, such as a copy outside narrowed roots, stops the rename.
+    # Where the scan's layout places the old prefixes' modules: any file left there, scanned or
+    # not, stops the rename.
     directories: tuple[str, ...]
 
 
@@ -207,10 +207,11 @@ def _below(name: str, base: str) -> str | None:
 def _directories(
     renames: Mapping[str, str], layouts: frozenset[tuple[str, str]]
 ) -> tuple[str, ...] | None:
-    """Where each layout places each old prefix's modules; None when a prefix fits none.
+    """Where each layout places each old prefix's modules and not its new name's; None when a
+    prefix fits no layout.
 
     A base the rename itself renamed, such as a Dart package renamed in its pubspec, reads its
-    old names from the same directory as the new ones.
+    old names from the same directory as the new ones, which then holds the renamed code.
     """
     placed: set[str] = set()
     for old in renames:
@@ -222,7 +223,12 @@ def _directories(
         }
         if not here:
             return None
-        placed |= here
+        now = {
+            _joined(directory, rest)
+            for base, directory in layouts
+            if (rest := _below(renames[old], base)) is not None
+        }
+        placed |= here - now
     return tuple(sorted(placed))
 
 
@@ -341,7 +347,7 @@ def renames_since(
     `observed` and `layouts` are `observed_names` and `module_layouts` of the scan now. A
     candidate whose old prefixes no layout places is no rename, and neither is one whose renamed
     contract the parser refuses, such as a `root_layout` child moved one level down. The caller
-    takes the first whose `directories` hold no file the scan does not read; with none, the
+    takes the first whose `directories` hold no file; with none, the
     comparison stays field by field, where an amendment can accept the change.
     """
     labelled = _labelled(before)
