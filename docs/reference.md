@@ -224,8 +224,8 @@ component packages that moved, such as `shop.render` to `shop.view`, propose a p
 substitution. It holds when every prefix relation among the old contract's and baseline's
 module names and the renamed prefixes survives it, when no module the scan reads or an import
 reaches lies under an old prefix, whatever its file is called, and when the directory where the
-scan's layout reads each old prefix holds no file outside the scan roots; a prefix that layout
-cannot place is no rename. Candidates go shortest first, and one whose renamed old contract the
+scan's layout reads each old prefix holds no file at all, scanned or not, outside `__pycache__`;
+a prefix that layout cannot place is no rename. Candidates go shortest first, and one whose renamed old contract the
 parser refuses is skipped; with none left, the comparison stays field by field and an amendment
 can accept it. Only the module and symbol fields `ir.model.module_references` lists are renamed;
 ids, labels, kinds, `decided_by` and constructs never are, nor paths, so a moved `inside`
@@ -233,9 +233,7 @@ contract still compares as a changed `inside`. `reference.namespace` checks the 
 before, the entries of that list marked `held`. The old contract and baseline are then renamed
 before the comparison, so a pure rename passes without an amendment and a widening beside it
 fails alone. `renames` in the JSON result lists each old and new prefix (`[]` when none holds,
-`null` when no revision was compared) and the terminal names them. Code copied under a new name
-inside the scan roots is left to `complete_assignment` or `root_layout`, like any folder no
-component owns. Where no
+`null` when no revision was compared) and the terminal names them. Where no
 rename holds, a gained `public` entry names the one lost entry of its kind and last name, when
 no other gain matches it: `gained 'b.api.x' in place of 'a.api.x'`. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,

@@ -44,8 +44,9 @@ Each clause has a test that fails without it:
 - The scan's layout places each old prefix: `shop.view.text` in `shop/view/text.py` reads names
   from the root, a Dart `field_shop.ui` in `lib/ui` reads `field_shop` from `lib`, and a base the
   rename renamed reads its old names there too. A prefix it cannot place is no rename, and so is
-  one with a file there, or beside it as `render.*`, that no scan root covers: a copy left
-  outside narrowed roots.
+  one with any file there, or beside it as `render.*`, scanned or not: a copy, a file the package
+  rename names anew, or one outside narrowed roots. `__pycache__` is no code; Python reads it only
+  beside a source.
 
 Candidates go shortest first; one the parser refuses once renamed, such as a `root_layout`
 child moved a level down, is skipped. With none left, the comparison stays field by field.
@@ -62,8 +63,7 @@ child moved a level down, is skipped. With none left, the comparison stays field
 
 - A moved `inside` path stays one finding: `--against` never compares what an inside holds.
 - Code is judged by name and place: two packages trading places read as the rename the contract
-  states, a code move between components `--against` never judged, and a copy under a new name
-  inside the roots is left to `complete_assignment` or `root_layout`.
+  states, a code move between components `--against` never judged.
 
 ## Tests
 
