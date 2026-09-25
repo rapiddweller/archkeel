@@ -626,12 +626,44 @@ def last_name(name: str) -> str:
     return symbol.rpartition(".")[2]
 
 
+@dataclass(frozen=True, slots=True)
+class ModuleReference:
+    """One contract field that names a module, a module prefix or a `module:Name` symbol.
+
+    `pointer` is the field's JSON pointer into `ir.codec.contract_bytes`' document. `held` says
+    whether `validate` holds the name to the scan namespace (`reference.namespace`); a command, a
+    path step or a shim may name something outside it, and a rename rewrites them all (AD-105).
+    """
+
+    pointer: str
+    value: str
+    held: bool
+
+
+def _references(
+    pointer: str, named: list[tuple[str, tuple[str, ...], bool]]
+) -> list[ModuleReference]:
+    """Each value of the `named` fields, a scalar field given as a one-item tuple."""
+    return [
+        ModuleReference(
+            f"{pointer}/{field}" if field in _SCALAR_FIELDS else f"{pointer}/{field}/{item}",
+            value,
+            held,
+        )
+        for field, values, held in named
+        for item, value in enumerate(values)
+    ]
+
+
+# The fields that hold one name rather than a list of them.
+_SCALAR_FIELDS: Final = frozenset({"source", "target", "root", "namespace", "command", "owner"})
+
+
 def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
-) -> list[tuple[str, str]]:
+) -> list[ModuleReference]:
     """One rule's fields that name a module, a module prefix or a qualified symbol."""
-    scalars: list[tuple[str, str]] = []
-    lists: list[tuple[str, tuple[str, ...]]] = []
+    named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(
         rule,
         ForbiddenDependencyRule
@@ -642,42 +674,42 @@ def _rule_references(
         | SymbolPlacementRule
         | BoundaryTypesRule,
     ):
-        scalars.append(("source", rule.source))
-    if isinstance(rule, AllowedDependencyRule) or (
-        isinstance(rule, ForbiddenDependencyRule) and rule.target not in external
-    ):
-        scalars.append(("target", rule.target))
+        named += [("source", (rule.source,), True)]
+    if isinstance(rule, AllowedDependencyRule):
+        named += [("target", (rule.target,), True)]
+    if isinstance(rule, ForbiddenDependencyRule):
+        # AD-97: a forbidden SDK library (`dart.io`) is a real target outside the namespace.
+        named += [("target", (rule.target,), rule.target not in external)]
     if isinstance(
         rule,
         ForbiddenDependencyRule
-        | ForbiddenConstructRule
         | ExternalDependencyScopeRule
         | SymbolPlacementRule
         | BoundaryTypesRule,
     ):
-        lists.append(("allowed_sources", rule.allowed_sources))
-    if isinstance(
-        rule,
-        ForbiddenConstructRule
-        | ExternalDependencyScopeRule
-        | SymbolPlacementRule
-        | BoundaryTypesRule,
-    ):
-        lists.append(("exact_sources", rule.exact_sources))
+        named += [("allowed_sources", rule.allowed_sources, True)]
+    if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
+        named += [("exact_sources", rule.exact_sources, True)]
+    if isinstance(rule, ForbiddenConstructRule):
+        named += [
+            ("allowed_sources", rule.allowed_sources, False),
+            ("exact_sources", rule.exact_sources, False),
+        ]
     if isinstance(rule, SiblingIsolationRule):
-        lists.append(("members", rule.members))
+        named += [("members", rule.members, True)]
     if isinstance(rule, RootLayoutRule):
-        scalars.append(("root", rule.root))
-        lists.append(("allowed_children", rule.allowed_children))
-    references = [(f"/rules/{index}/{field}", value) for field, value in scalars]
-    references += [
-        (f"/rules/{index}/{field}/{item}", value)
-        for field, values in lists
-        for item, value in enumerate(values)
-    ]
+        named += [
+            ("root", (rule.root,), False),
+            ("allowed_children", rule.allowed_children, False),
+        ]
+    references = _references(f"/rules/{index}", named)
     if isinstance(rule, BoundaryTypesRule):
         references += [
-            (f"/rules/{index}/allowed_positions/{item}/qualified_name", allowance.qualified_name)
+            ModuleReference(
+                f"/rules/{index}/allowed_positions/{item}/qualified_name",
+                allowance.qualified_name,
+                False,
+            )
             for item, allowance in enumerate(rule.allowed_positions)
         ]
     return references
@@ -685,67 +717,59 @@ def _rule_references(
 
 def module_references(
     contract: ArchitectureContract, *, external: frozenset[str] = frozenset()
-) -> tuple[tuple[str, str], ...]:
+) -> tuple[ModuleReference, ...]:
     """Every contract field that names a module, a module prefix or a `module:Name` symbol.
 
-    Each comes with its JSON pointer into `ir.codec.contract_bytes`' document. This is the one
-    list (AD-105): `validate` holds each name to the scan namespace and a recognised rename
-    rewrites exactly these, never an id, label, kind or other value. A `forbidden_dependency`
-    target in `external`, an SDK library outside every namespace (AD-97), is left out.
+    This is the one list (AD-105): a recognised rename rewrites exactly these, never an id,
+    label, kind or other value, and `validate` holds the entries marked `held` to the scan
+    namespace. A `forbidden_dependency` target in `external`, an SDK library outside every
+    namespace (AD-97), is not held.
     """
     declarations = contract.declarations or ContractDeclarations()
-    references: list[tuple[str, str]] = []
+    references: list[ModuleReference] = []
     for index, component in enumerate(contract.components):
-        pointer = f"/components/{index}"
+        references += _references(
+            f"/components/{index}",
+            [
+                ("packages", component.packages, True),
+                ("public", component.public or (), True),
+                ("planned", component.planned or (), True),
+                ("namespace", () if component.namespace is None else (component.namespace,), False),
+            ],
+        )
         references += [
-            (f"{pointer}/{field}/{item}", value)
-            for field, values in (
-                ("packages", component.packages),
-                ("public", component.public or ()),
-                ("planned", component.planned or ()),
-            )
-            for item, value in enumerate(values)
-        ]
-        if component.namespace is not None:
-            references += [(f"{pointer}/namespace", component.namespace)]
-        references += [
-            (f"{pointer}/requires/{position}/through/{item}", value)
+            ModuleReference(f"/components/{index}/requires/{position}/through/{item}", value, True)
             for position, entry in enumerate(component.requires or ())
             for item, value in enumerate(entry.through)
         ]
     for index, rule in enumerate(contract.rules):
         references += _rule_references(index, rule, external)
-    references += [
-        (f"/declarations/{field}/{item}", value)
-        for field, values in (
-            ("public_api", declarations.public_api),
-            ("context_roots", declarations.context_roots),
+    references += _references(
+        "/declarations",
+        [
+            ("public_api", declarations.public_api, True),
+            ("context_roots", declarations.context_roots, True),
+        ],
+    )
+    for index, scope in enumerate(declarations.review_scopes):
+        references += _references(
+            f"/declarations/review_scopes/{index}", [("subjects", scope.subjects, True)]
         )
-        for item, value in enumerate(values)
-    ]
-    references += [
-        (f"/declarations/review_scopes/{index}/subjects/{item}", value)
-        for index, scope in enumerate(declarations.review_scopes)
-        for item, value in enumerate(scope.subjects)
-    ]
-    references += [
-        (f"/declarations/paths/{index}/steps/{item}", value)
-        for index, path in enumerate(declarations.paths)
-        for item, value in enumerate(path.steps)
-    ]
-    references += [
-        (f"/declarations/public_commands/{index}/command", command.command)
-        for index, command in enumerate(declarations.public_commands)
-    ]
-    references += [
-        (f"/declarations/spot_owners/{index}/owner", owner.owner)
-        for index, owner in enumerate(declarations.spot_owners)
-    ]
-    references += [
-        (f"/declarations/compat/{index}/{field}", value)
-        for index, shim in enumerate(declarations.compat)
-        for field, value in (("module", shim.module), ("target", shim.target))
-    ]
+    for index, path in enumerate(declarations.paths):
+        references += _references(f"/declarations/paths/{index}", [("steps", path.steps, False)])
+    for index, command in enumerate(declarations.public_commands):
+        references += _references(
+            f"/declarations/public_commands/{index}", [("command", (command.command,), False)]
+        )
+    for index, owner in enumerate(declarations.spot_owners):
+        references += _references(
+            f"/declarations/spot_owners/{index}", [("owner", (owner.owner,), True)]
+        )
+    for index, shim in enumerate(declarations.compat):
+        references += [
+            ModuleReference(f"/declarations/compat/{index}/module", shim.module, False),
+            ModuleReference(f"/declarations/compat/{index}/target", shim.target, False),
+        ]
     return tuple(references)
 
 

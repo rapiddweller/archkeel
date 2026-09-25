@@ -1182,11 +1182,13 @@ def _namespace_references(
 ) -> list[tuple[str, str]]:
     """Every contract-declared name that must resolve inside the scan namespace.
 
-    The fields are `ir.model.module_references`', the same list a rename rewrites (AD-105).
+    They are the entries `ir.model.module_references` marks held, from the list a rename
+    rewrites (AD-105).
     """
     return [
-        (pointer, _entry_module(value))
-        for pointer, value in module_references(contract, external=sdk_libraries)
+        (item.pointer, _entry_module(item.value))
+        for item in module_references(contract, external=sdk_libraries)
+        if item.held
     ]
 
 

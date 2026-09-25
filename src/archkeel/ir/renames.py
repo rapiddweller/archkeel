@@ -157,7 +157,7 @@ def _prefixes(module: str) -> list[str]:
 
 def contract_names(contract: ArchitectureContract) -> frozenset[str]:
     """Every module and symbol name the contract holds: what a rename must explain."""
-    return frozenset(value for _, value in module_references(contract))
+    return frozenset(item.value for item in module_references(contract))
 
 
 def _labelled(contract: ArchitectureContract) -> frozenset[str]:
@@ -210,9 +210,9 @@ def renamed_contract(
     Raises ValueError when the renamed document is no valid contract.
     """
     document: RawJson = json.loads(contract_bytes(contract))
-    for pointer, value in module_references(contract):
-        if renamed(value, renames) != value:
-            document = _written(document, _parts(pointer), renamed(value, renames))
+    for item in module_references(contract):
+        if renamed(item.value, renames) != item.value:
+            document = _written(document, _parts(item.pointer), renamed(item.value, renames))
     return parse_contract(document)
 
 
