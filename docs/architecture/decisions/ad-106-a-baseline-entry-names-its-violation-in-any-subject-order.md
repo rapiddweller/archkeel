@@ -10,11 +10,16 @@ def canonical_fingerprint(rules: Iterable[str], subjects: Iterable[str]) -> Viol
 ```
 
 A `--write-baseline` that refuses new or increased debt (AD-77) ends its `failures` with one line
-that says so, and no line of that run advises `--write-baseline`:
+that says so, after any widening or narrowing line, and no line of that run advises
+`--write-baseline`:
 
 ```
 --write-baseline refused: writing would accept the new or increased debt above; fix the code, or add --accept-new once an architect has decided to accept it
 ```
+
+An existing baseline that cannot be read is `baseline.invalid` with the remedy "Correct the
+baseline file by hand": a write reads the file first and stops on the same error. Only a
+missing file, which a write creates, is pointed at `--write-baseline`.
 
 ## Why
 
@@ -37,9 +42,12 @@ entry, advising the command that had just refused.
   keeps every subject.
 - **Sort only in the reader.** An observation read from disk is not re-sorted by `classified`,
   so both sides go through one function.
+- **Sort in `ViolationFingerprint.__post_init__`.** A frozen dataclass needs `object.__setattr__`
+  for that, which Archkeel's own scan counts as two unresolved calls (`calls_unresolved`
+  502 -> 504).
 - **Sum two entries that differ only in order.** The file states one violation twice; it stays
-  `baseline.invalid` ("repeats a fingerprint"), exit 2, rather than a count that could hide a
-  second occurrence.
+  `baseline.invalid`, exit 2, naming both entries and the violation (`rules | subjects`), rather
+  than a count that could hide a second occurrence.
 
 ## Limit
 
@@ -50,8 +58,10 @@ before and still are; the count keeps both visible, and `--against` still reject
 
 ## Check
 
-`tests/test_baseline.py`: a reversed entry passes and is written back sorted; a repeated subject
-still counts; two entries differing only in order are rejected; a reversed entry for `a -> b`
-does not absorb `b -> a`, and a role change still widens; a refused run names the new and the
-resolved entry without advice, then the refusal. `tests/test_measurement_budgets.py` covers the
-budget lines. `tests/test_architecture_demo.py` runs the two catalog rows.
+`tests/test_baseline.py`: a reversed entry passes and is written back sorted; a record read in
+another order has the sorted fingerprint; a repeated subject still counts; two entries differing
+only in order are rejected by name, with and without `--write-baseline`, and no remedy advises
+it; a reversed entry for `a -> b` does not absorb `b -> a`, and a role change still widens; a
+refused run names the new and the resolved entry without advice, then the refusal, which stays
+last beside an `--against` widening. `tests/test_measurement_budgets.py` covers the budget lines.
+`tests/test_architecture_demo.py` runs the two catalog rows.
