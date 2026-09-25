@@ -1765,7 +1765,16 @@ def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
     return next((item.value for item in budgets if item.name == "calls_unresolved"), None)
 
 
-def _baseline_invalid(path: Path, error: Exception) -> RunResult:
+_BASELINE_WRITE = (
+    "Correct the baseline, or write it with archkeel validate --baseline <path> --write-baseline."
+)
+# AD-106: a write reads an existing file first, so advising one for an unreadable file loops.
+_BASELINE_CORRECT = (
+    "Correct the baseline file by hand; a write reads it first and stops on the same error."
+)
+
+
+def _baseline_invalid(path: Path, error: Exception, remedy: str) -> RunResult:
     return RunResult(
         "validate",
         2,
@@ -1775,8 +1784,7 @@ def _baseline_invalid(path: Path, error: Exception) -> RunResult:
                 "",
                 str(path),
                 f"The validation baseline cannot be read: {error}",
-                "Correct the baseline, or write it with archkeel validate --baseline "
-                "<path> --write-baseline.",
+                remedy,
             ),
         ),
     )
@@ -2106,7 +2114,8 @@ def run_validate(
             known = parsed_baseline.violations
             known_budgets = parsed_baseline.budgets
         except (OSError, ValueError) as error:
-            return _baseline_invalid(baseline, error), FilesToWrite()
+            remedy = _BASELINE_CORRECT if baseline_exists else _BASELINE_WRITE
+            return _baseline_invalid(baseline, error, remedy), FilesToWrite()
     parsed_contract = _parse_contract_or_invalid(root, config)
     if isinstance(parsed_contract, RunResult):
         return parsed_contract, FilesToWrite()
@@ -2122,6 +2131,7 @@ def run_validate(
         return _baseline_invalid(
             baseline,
             ValueError(f"measurement budget values are missing for: {missing}"),
+            _BASELINE_WRITE,
         ), FilesToWrite()
     against_ctx, against_error = _resolve_against_context(
         root, config, against, baseline, amendment, write_amendment, decided_by, rationale

@@ -79,6 +79,11 @@ def violation_fingerprint(record: Record) -> ViolationFingerprint:
     return canonical_fingerprint(record.rule_ids, record.subjects)
 
 
+def violation_name(fingerprint: ViolationFingerprint) -> str:
+    """`rules | subjects`: how a drift, a widening and a baseline error name one violation."""
+    return f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
+
+
 def _ordered(
     counts: Counter[ViolationFingerprint],
     roles: dict[ViolationFingerprint, set[tuple[str, str]]] | None = None,
@@ -299,7 +304,7 @@ def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:
 def _drift(
     fingerprint: ViolationFingerprint, known: int, observed: int, contracted: bool, rewrite: str
 ) -> str:
-    name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
+    name = violation_name(fingerprint)
     counted = f"({observed} observed, {known} in the baseline)"
     if contracted:
         return f"contracted violation: {name} {counted} inside a baselined cycle{rewrite}"

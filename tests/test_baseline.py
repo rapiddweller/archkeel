@@ -308,20 +308,46 @@ def test_a_fingerprint_is_the_same_in_any_list_order() -> None:
     assert canonical_fingerprint(["A"], ["z", "a", "z"]) != canonical_fingerprint(["A"], ["a", "z"])
 
 
-def test_two_entries_differing_only_in_subject_order_are_not_summed() -> None:
+def test_two_entries_differing_only_in_subject_order_are_named_not_summed(
+    tmp_path: Path,
+) -> None:
     """One violation stated twice is an ambiguous file, exit 2 as `baseline.invalid`, never a
-    count of two that could hide a second occurrence."""
-    with pytest.raises(ValueError, match="repeats a fingerprint"):
-        parse_baseline(
+    count of two that could hide a second occurrence. --write-baseline reads the file first and
+    stops the same way, so the remedy asks for a correction instead of advising it."""
+    root = _repo(tmp_path, "repeated", {"shop/model/probe.py": PROBE})
+    baseline = root / "known-violations.json"
+    entry = {"rules": [GETATTR_RULE], "count": 1}
+    baseline.write_text(
+        json.dumps(
             {
                 "schema_version": BASELINE_SCHEMA_VERSION,
                 "budgets": {},
                 "violations": [
-                    {"rules": ["A"], "subjects": ["a", "b"], "count": 1},
-                    {"rules": ["A"], "subjects": ["b", "a"], "count": 1},
+                    {**entry, "subjects": ["a", "b"]},
+                    {**entry, "subjects": ["b", "a"]},
                 ],
             }
         )
+    )
+
+    plain, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    writing, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
+    )
+
+    assert files == {}
+    for result in (plain, writing):
+        assert result.exit_code == 2
+        ((code, claim, remedy),) = [
+            (item.code, item.unknown_claim, item.remedy) for item in result.diagnostics
+        ]
+        assert code == "baseline.invalid"
+        assert claim == (
+            "The validation baseline cannot be read: baseline.violations[1] repeats "
+            f"baseline.violations[0], {GETATTR_RULE} | a b (subjects match in any order); "
+            "give it one count instead"
+        )
+        assert "--write-baseline" not in remedy
 
 
 def test_order_free_identity_keeps_the_other_direction_visible() -> None:
@@ -420,6 +446,8 @@ def test_a_missing_baseline_file_is_exit_two_with_a_diagnostic(tmp_path: Path) -
     assert result.exit_code == 2
     assert [item.code for item in result.diagnostics] == ["baseline.invalid"]
     assert "does-not-exist.json" in result.diagnostics[0].subject
+    # A missing file is what --write-baseline creates, so here it is the way on.
+    assert "--write-baseline" in result.diagnostics[0].remedy
 
 
 def test_an_unparsable_baseline_file_is_exit_two_with_a_diagnostic(tmp_path: Path) -> None:

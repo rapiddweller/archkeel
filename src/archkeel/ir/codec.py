@@ -21,7 +21,9 @@ from archkeel.ir.baseline import (
     SCALAR_BUDGETS_BASELINE_SCHEMA_VERSION,
     KnownViolation,
     ValidationBaseline,
+    ViolationFingerprint,
     canonical_fingerprint,
+    violation_name,
 )
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import (
@@ -1920,8 +1922,15 @@ def parse_validation_baseline(raw: object) -> ValidationBaseline:
         )
         for index, entry in enumerate(entries)
     )
-    if len({item.fingerprint for item in violations}) != len(violations):
-        raise ValueError("baseline.violations repeats a fingerprint; give it one count instead")
+    first: dict[ViolationFingerprint, int] = {}
+    for index, item in enumerate(violations):
+        if item.fingerprint in first:
+            raise ValueError(
+                f"baseline.violations[{index}] repeats baseline.violations"
+                f"[{first[item.fingerprint]}], {violation_name(item.fingerprint)} (subjects "
+                "match in any order); give it one count instead"
+            )
+        first[item.fingerprint] = index
     ordered = tuple(
         sorted(violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects))
     )
