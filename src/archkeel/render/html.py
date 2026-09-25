@@ -8,8 +8,10 @@ from __future__ import annotations
 import base64
 import html
 import json
+import re
 from dataclasses import replace
 from importlib.resources import files
+from typing import TypeAlias
 
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -18,11 +20,14 @@ from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_lo
 from archkeel.ir.interfaces import (
     InterfaceEdge,
     InterfaceName,
+    component_owners,
     interface_edges,
     interface_profile,
+    owner_of,
 )
+from archkeel.ir.levels import inside_levels
 from archkeel.ir.measurements import Measurements
-from archkeel.ir.model import CallRow, Diagnostic, Observation, Record, RunResult
+from archkeel.ir.model import CallRow, Diagnostic, Observation, Record, RecordData, RunResult
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.structure import (
     InsideSizes,
@@ -298,7 +303,9 @@ def _within(qualified: str, module: str) -> str:
     return qualified[len(module) + 1 :] if qualified.startswith(f"{module}.") else qualified
 
 
-def _inner_edge_payload(edges: tuple[FlowInnerEdge, ...]) -> list[dict[str, object]]:
+def _inner_edge_payload(
+    edges: tuple[FlowInnerEdge, ...], sites: dict[tuple[str, str], set[str]]
+) -> list[dict[str, object]]:
     return [
         {
             "source": edge.source,
@@ -306,12 +313,15 @@ def _inner_edge_payload(edges: tuple[FlowInnerEdge, ...]) -> list[dict[str, obje
             "import_sites": edge.import_sites,
             "rule_ids": list(edge.rule_ids),
             "state": edge.state,
+            "sites": sorted(sites.get((edge.source, edge.target), ()))[:3],
         }
         for edge in edges
     ]
 
 
-def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
+def _inside_payload(
+    inside: FlowInside | None, sites: dict[tuple[str, str], set[str]]
+) -> dict[str, object] | None:
     """Serialise a declared inside the way `level()` consumes it, or None when none exists."""
     if inside is None:
         return None
@@ -321,7 +331,7 @@ def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
                 "label": card.label,
                 "modules": list(card.modules),
                 "public": list(card.public) if card.public is not None else None,
-                "inner_edges": _inner_edge_payload(card.inner_edges),
+                "inner_edges": _inner_edge_payload(card.inner_edges, sites),
             }
             for card in inside.components
         ],
@@ -332,6 +342,7 @@ def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
                 "import_sites": edge.import_sites,
                 "rule_ids": list(edge.rule_ids),
                 "state": edge.state,
+                "sites": sorted(sites.get((edge.source, edge.target), ()))[:3],
             }
             for edge in inside.edges
         ],
@@ -339,18 +350,105 @@ def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
     }
 
 
+def _flow_sites(observation: Observation) -> dict[tuple[str, str], set[str]]:
+    evidence = {item.id: f"{item.file}:{item.line}" for item in observation.evidence}
+    owners = component_owners(observation)
+    inside_owners = [
+        {module: card.label for card in level.components for module in card.modules}
+        for level in inside_levels(observation)
+    ]
+    sites: dict[tuple[str, str], set[str]] = {}
+    for item in observation.records("imports") or ():
+        source = item.data.get("source_module")
+        target = item.data.get("target_module")
+        if not isinstance(source, str) or not isinstance(target, str):
+            continue
+        locations = {evidence[key] for key in item.evidence_ids if key in evidence}
+        sites[(source, target)] = sites.get((source, target), set()) | locations
+        source_owner = owner_of(source, owners)
+        target_owner = owner_of(target, owners)
+        if source_owner and target_owner:
+            pair = (source_owner, target_owner)
+            sites[pair] = sites.get(pair, set()) | locations
+        for level in inside_owners:
+            if source in level and target in level:
+                pair = (level[source], level[target])
+                sites[pair] = sites.get(pair, set()) | locations
+    return sites
+
+
+def _flow_requires(record: Record | None) -> list[dict[str, object]]:
+    if record is None:
+        return []
+    entries = record.data.get("requires")
+    if not isinstance(entries, tuple):
+        return []
+    return [
+        {
+            "component": entry.get("component"),
+            "through": entry.get("through") or (),
+            "rationale": entry.get("rationale"),
+            "decided_by": entry.get("decided_by"),
+        }
+        for entry in entries
+        if isinstance(entry, RecordData)
+    ]
+
+
+def _flow_modules_payload(flow: FlowData) -> dict[str, object]:
+    # Symbol names are relative to the module that keys them; repeating the prefix on
+    # every card and edge would multiply a large report payload.
+    return {
+        name: {
+            "symbols": [
+                {
+                    "name": _within(symbol.name, name),
+                    "kind": symbol.kind,
+                    "visibility": symbol.visibility,
+                    "members": list(symbol.members),
+                }
+                for symbol in module.symbols
+            ],
+            "edges": [
+                {"source": _within(edge.source, name), "target": _within(edge.target, name)}
+                for edge in module.edges
+            ],
+            "exports": list(module.exports),
+            "imports": list(module.imports),
+        }
+        for name, module in sorted(flow.modules.items())
+    }
+
+
 def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
     names_by_pair = {
         (edge.source, edge.target): edge.names for edge in interface_edges(observation)
     }
+    declarations = observation.records("declarations") or ()
+    by_component = {
+        record.title: record for record in declarations if record.kind == "component_responsibility"
+    }
+    rules = {
+        record.id: {
+            "rationale": record.data.get("rationale"),
+            "decided_by": record.data.get("decided_by"),
+        }
+        for record in declarations
+        if record.data.get("rationale") is not None
+    }
+    sites = _flow_sites(observation)
+    requires = {label: _flow_requires(record) for label, record in by_component.items()}
+
     return {
+        "rules": rules,
         "components": [
             {
                 "label": component.label,
                 "modules": list(component.modules),
                 "public": list(component.public) if component.public is not None else None,
-                "inner_edges": _inner_edge_payload(component.inner_edges),
-                "inside": _inside_payload(component.inside),
+                "requires": requires.get(component.label, []),
+                "inner_edges": _inner_edge_payload(component.inner_edges, sites),
+                "inside": _inside_payload(component.inside, sites),
             }
             for component in flow.components
         ],
@@ -361,6 +459,15 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
                 "import_sites": edge.import_sites,
                 "rule_ids": list(edge.rule_ids),
                 "state": edge.state,
+                "sites": sorted(sites.get((edge.source, edge.target), ()))[:3],
+                "requirement": next(
+                    (
+                        entry
+                        for entry in requires.get(edge.source, [])
+                        if entry["component"] == edge.target
+                    ),
+                    {},
+                ),
                 "names": [
                     {
                         "name": name.name,
@@ -373,29 +480,24 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
             }
             for edge in flow.edges
         ],
-        # Symbol names are stored relative to the module that keys them: the prefix is already
-        # the key, and repeating it on 466 cards and both ends of 596 edges tripled the payload.
-        "modules": {
-            name: {
-                "symbols": [
-                    {
-                        "name": _within(symbol.name, name),
-                        "kind": symbol.kind,
-                        "visibility": symbol.visibility,
-                        "members": list(symbol.members),
-                    }
-                    for symbol in module.symbols
-                ],
-                "edges": [
-                    {"source": _within(edge.source, name), "target": _within(edge.target, name)}
-                    for edge in module.edges
-                ],
-                "exports": list(module.exports),
-                "imports": list(module.imports),
-            }
-            for name, module in sorted(flow.modules.items())
-        },
+        "modules": _flow_modules_payload(flow),
     }
+
+
+_FLOW_GUIDE = """
+      <details class="flow-how-to-read"><summary>How to read this report</summary>
+        <p>Level 2 shows declared components. A circle marks a provided interface; a socket
+        marks a declared dependency. A ball-and-socket on an arrow marks an observed use
+        narrowed to a specific interface by <code>through</code>. Arrows are observed imports
+        from user to provider, not every dependency the contract permits. Teal conforms,
+        red breaks a rule, amber needs a decision, and grey shows imports inside a component.
+        Select a box twice for level 3: physical package folders and modules inside it.
+        Folders are not declared architectural boundaries. Open a module for level 4 symbols.
+        Use the breadcrumb to go back. Hover or select a connection for its evidence. Level 1,
+        interfaces between repositories, is unavailable because this observation contains
+        no cross-repository interface contract. The table below works without JavaScript.</p>
+      </details>
+"""
 
 
 def _flow_section(observation: Observation) -> str:
@@ -409,13 +511,7 @@ def _flow_section(observation: Observation) -> str:
     return f"""
     <section class="report-section flow-section" aria-labelledby="flow-heading">
       <h2 id="flow-heading">Component flow</h2>
-      <p>Component cards and the observed edges between them. Every edge is drawn at one
-        width and carries a label: the rule it breaks, or the number of import sites that
-        cross it. An arrow and a travelling pulse run from the importer to the imported. Red
-        breaks a declared rule and the label names it; teal conforms; amber is undecided, a
-        decision the contract still owes; grey is observed inside a component, where none is
-        owed (AD-24b). This view needs JavaScript; the table below lists the same crossings
-        for print and no-script use.</p>
+      {_FLOW_GUIDE}
       <div id="flow" class="flow">
         <div class="flow-toolbar">
           <label class="flow-violation-focus" for="flow-violations-only" hidden>
@@ -428,6 +524,7 @@ def _flow_section(observation: Observation) -> str:
           </label>
           <input id="flow-threshold-input" class="flow-threshold" type="range" min="0" value="0">
           <button type="button" class="flow-back" hidden>Back to components</button>
+          <nav class="flow-breadcrumb" aria-label="Diagram breadcrumb"></nav>
           <button type="button" class="flow-fit"
             title="Lay the cards out again and fit them into view">Arrange</button>
         </div>
@@ -540,10 +637,48 @@ def _section_inventory(observation: Observation | None) -> str:
         f'<td class="numeric">{len(section.records)}</td></tr>'
         for section in observation.sections
     )
+    modules = sorted(
+        name
+        for item in observation.records("modules") or ()
+        if isinstance(name := item.data.get("qualified_name"), str)
+    )
+    module_tree = (
+        f"<details><summary>Observed module tree · {len(modules)} modules</summary>"
+        f"{_module_tree_html(modules)}</details>"
+        if modules
+        else ""
+    )
     return (
         '<div class="table-wrap"><table><thead><tr><th>ArchitectureIR section</th>'
         f'<th class="numeric">Records</th></tr></thead><tbody>{rows}</tbody></table></div>'
+        f"{module_tree}"
     )
+
+
+ModuleTree: TypeAlias = dict[str, "ModuleTree"]
+
+
+def _render_module_tree(branch: ModuleTree) -> str:
+    items = []
+    for part, children in sorted(branch.items()):
+        label = f"<code>{_text(part)}</code>"
+        items.append(
+            f"<li><details><summary>{label}</summary>{_render_module_tree(children)}</details></li>"
+            if children
+            else f"<li>{label}</li>"
+        )
+    return f'<ul class="inventory-module-tree">{"".join(items)}</ul>'
+
+
+def _module_tree_html(modules: list[str]) -> str:
+    tree: ModuleTree = {}
+    for module in modules:
+        branch = tree
+        for part in re.split(r"\.", module):
+            if part not in branch:
+                branch[part] = {}
+            branch = branch[part]
+    return _render_module_tree(tree)
 
 
 def _compatibility_migration_work(observation: Observation) -> str:
@@ -557,10 +692,10 @@ def _compatibility_migration_work(observation: Observation) -> str:
     )
     if not modules:
         return ""
-    items = "".join(f"<li><code>{_text(module)}</code></li>" for module in modules)
     return (
         '<section class="report-section"><h2>Compatibility migration work</h2>'
-        f"<p>{len(modules)} migration shim(s) remain.</p><ul>{items}</ul></section>"
+        f"<p>{len(modules)} migration shim(s) remain.</p>"
+        f"{_module_tree_html(modules)}</section>"
     )
 
 
