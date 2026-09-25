@@ -4,6 +4,7 @@
 """Read immutable Git inputs and check the declaration commit's shape."""
 
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from .snapshot import resolve_commit
@@ -11,6 +12,17 @@ from .snapshot import resolve_commit
 
 class GitError(ValueError):
     """The repository cannot supply the required immutable evidence."""
+
+
+@dataclass(eq=False)
+class MissingBlobError(GitError):
+    """The revision's tree holds nothing at `path`, its repository path: an absent file, which
+    `validate --against` decides on (AD-104), not one Git holds but cannot hand over."""
+
+    path: str
+
+    def __str__(self) -> str:
+        return f"missing regular Git blob: {self.path}"
 
 
 def git_bytes(root: Path, *args: str) -> bytes:
@@ -34,11 +46,18 @@ def relative_path(value: str) -> str:
 
 
 def read_blob(root: Path, revision: str, path: str) -> bytes:
-    path = relative_path(path)
-    entry = git_bytes(root, "ls-tree", "-z", revision, "--", path).split(b"\0")
+    """The regular file `path`, relative to `root`, at `revision`.
+
+    `root` may sit below the repository's top level, as `--root mobile` does; the lookup and
+    every error use the path from the top level, so a message names the file Git was asked for.
+    """
+    relative = relative_path(path)
+    prefix: str = str(git_bytes(root, "rev-parse", "--show-prefix"), "utf-8")
+    path = prefix.rstrip("\n") + relative
+    entry = git_bytes(root, "ls-tree", "-z", "--full-tree", revision, "--", path).split(b"\0")
     entries = [item.split(b"\t", 1) for item in entry if item]
     if len(entries) != 1 or entries[0][1].decode() != path:
-        raise GitError(f"missing regular Git blob: {path}")
+        raise MissingBlobError(path)
     mode, kind, oid = entries[0][0].split()
     if mode not in {b"100644", b"100755"} or kind != b"blob":
         raise GitError(f"expected a regular Git blob: {path}")
