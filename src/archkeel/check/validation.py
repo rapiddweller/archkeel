@@ -131,6 +131,11 @@ _GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
 _MERMAID_FENCE = "```mermaid\n"
 _GRAPH_DECLARATION = re.compile(r"\s*(?:graph|flowchart)\b.*")
 _GRAPH_COMMENT = re.compile(r"\s*%%.*")
+# AD-106: the last failure of a refused --write-baseline, after the lines naming the debt.
+_WRITE_REFUSED = (
+    "--write-baseline refused: writing would accept the new or increased debt above; fix the "
+    "code, or add --accept-new once an architect has decided to accept it"
+)
 
 
 def _diagnostic(
@@ -2079,8 +2084,9 @@ def run_validate(
     AD-52/AD-77: with `baseline`, the violations that file already states are known debt, and
     only the difference is reported - as `failures` with exit 1. A missing baseline may be
     created with `write_baseline`; an existing one is compared before it is rewritten. New or
-    increased fingerprints refuse that rewrite unless `accept_new` is explicit. Resolved-only
-    drift may rewrite the file and shrinks the debt.
+    increased fingerprints refuse that rewrite unless `accept_new` is explicit, and the refused
+    run's last failure names `--accept-new` (AD-106). Resolved-only drift may rewrite the file
+    and shrinks the debt.
 
     AD-89: `declarations.measurement_budgets` selects deterministic scalar measurements whose
     accepted values share that baseline. A rise is new debt; a fall must rewrite the baseline.
@@ -2171,19 +2177,25 @@ def run_validate(
         if baseline_exists
         else (0, 0)
     )
-    comparison = (
-        compare_violations(known, violations, cycle_rules=cycle_rules) if baseline_exists else ()
+    budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
+    refused = (
+        write_baseline and baseline_exists and bool(baseline_new or budget_new) and not accept_new
     )
-    budget_comparison = (
-        compare_budgets(known_budgets, observed_budgets, against=against is not None)
+    comparison = (
+        compare_violations(known, violations, cycle_rules=cycle_rules, refused=refused)
         if baseline_exists
         else ()
     )
-    budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
+    budget_comparison = (
+        compare_budgets(
+            known_budgets, observed_budgets, against=against is not None, refused=refused
+        )
+        if baseline_exists
+        else ()
+    )
     baseline_failures = (
-        (*comparison, *budget_comparison)
-        if not write_baseline
-        or (baseline_exists and (baseline_new or budget_new) and not accept_new)
+        (*comparison, *budget_comparison, *((_WRITE_REFUSED,) if refused else ()))
+        if not write_baseline or refused
         else ()
     )
     interface_narrowings = tuple(
@@ -2218,11 +2230,8 @@ def run_validate(
     ):
         changes, note = _unresolved_calls_since(root, config, analyzer, against, observation)
         result = replace(result, unresolved_call_changes=changes, unresolved_call_note=note)
-    write_baseline = write_baseline and (
-        not baseline_exists or not (baseline_new or budget_new) or accept_new
-    )
     files, artifact = _artifact_files(
-        write_baseline=write_baseline,
+        write_baseline=write_baseline and not refused,
         baseline=baseline,
         violations=violations,
         budgets=observed_budgets,

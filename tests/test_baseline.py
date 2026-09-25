@@ -57,6 +57,11 @@ TWICE_PROBE = PROBE.replace(
 )
 SECOND_PROBE = PROBE.replace("Getattr probe", "Second getattr probe")
 GETATTR_RULE = "CONSTRUCT-NO-DYNAMIC"
+# AD-106: the refused run's last failure; no line of that run advises --write-baseline again.
+REFUSED = (
+    "--write-baseline refused: writing would accept the new or increased debt above; fix the "
+    "code, or add --accept-new once an architect has decided to accept it"
+)
 
 
 def _observe(root: Path) -> Observation:
@@ -154,6 +159,36 @@ def test_updating_an_existing_baseline_refuses_new_fingerprints_by_default(
         {},
     )
     assert baseline.read_bytes() == before
+    assert result.failures == (
+        f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+        "(1 observed, 0 in the baseline)",
+        REFUSED,
+    )
+
+
+def test_a_refused_write_says_why_and_how_to_proceed_without_advising_itself(
+    tmp_path: Path,
+) -> None:
+    """Issue #152: `--write-baseline` printed "rewrite the baseline with --write-baseline" for
+    the resolved entry of the very run it then refused because of the new one."""
+    root = _repo(tmp_path, "refused-advice", {"shop/model/probe_two.py": SECOND_PROBE})
+    known = (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),)
+    baseline = _baseline_file(root, known)
+
+    plain, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
+    refused, files = run_validate(
+        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
+    )
+
+    assert plain.failures[0].endswith("; rewrite the baseline with --write-baseline")
+    assert (refused.exit_code, refused.artifact, files) == (1, None, {})
+    assert refused.failures == (
+        f"resolved violation: {GETATTR_RULE} | shop.model.probe.read "
+        "(0 observed, 1 in the baseline)",
+        f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+        "(1 observed, 0 in the baseline)",
+        REFUSED,
+    )
 
 
 def test_accept_new_explicitly_updates_an_existing_baseline(tmp_path: Path) -> None:

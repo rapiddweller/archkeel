@@ -296,15 +296,16 @@ def observed_violations(observation: Observation) -> tuple[KnownViolation, ...]:
     return _ordered(counts, roles)
 
 
-def _drift(fingerprint: ViolationFingerprint, known: int, observed: int, contracted: bool) -> str:
+def _drift(
+    fingerprint: ViolationFingerprint, known: int, observed: int, contracted: bool, rewrite: str
+) -> str:
     name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
     counted = f"({observed} observed, {known} in the baseline)"
-    rewrite = "rewrite the baseline with --write-baseline"
     if contracted:
-        return f"contracted violation: {name} {counted} inside a baselined cycle; {rewrite}"
+        return f"contracted violation: {name} {counted} inside a baselined cycle{rewrite}"
     if observed > known:
         return f"new violation: {name} {counted}"
-    return f"resolved violation: {name} {counted}; {rewrite}"
+    return f"resolved violation: {name} {counted}{rewrite}"
 
 
 def compare_violations(
@@ -312,6 +313,7 @@ def compare_violations(
     observed: tuple[KnownViolation, ...],
     *,
     cycle_rules: frozenset[str],
+    refused: bool = False,
 ) -> tuple[str, ...]:
     """One line per fingerprint the baseline states wrongly, new violations and resolved ones.
 
@@ -319,17 +321,20 @@ def compare_violations(
     fingerprint the baseline underestimates is new work, and one it overestimates is work
     already done, which has to leave the file in the change that did it (the budget only
     shrinks). Both are failures, because a budget that may exceed the code lets a violation
-    someone removed come back unreported.
+    someone removed come back unreported. `refused` says the lines explain a `--write-baseline`
+    that refused, so none advises running it: the refusal names the way on (AD-106).
     """
     known_counts = _counts(known)
     observed_counts = _counts(observed)
     contracted = cycle_contractions(known, observed, cycle_rules=cycle_rules)
+    rewrite = "" if refused else "; rewrite the baseline with --write-baseline"
     return tuple(
         _drift(
             fingerprint,
             known_counts.get(fingerprint, 0),
             observed_counts.get(fingerprint, 0),
             fingerprint in contracted,
+            rewrite,
         )
         for fingerprint in sorted(
             known_counts.keys() | observed_counts.keys(),
