@@ -22,7 +22,7 @@ from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
-from .baseline import KnownViolation, cycle_contractions
+from .baseline import KnownViolation, cycle_contractions, violation_name
 from .measurements import MeasurementBudget, name_drift
 from .model import (
     AllowedDependencyRule,
@@ -622,7 +622,7 @@ def baseline_widenings(
         after_item = after_by_fingerprint.get(fingerprint)
         before_count = before_item.count if before_item is not None else 0
         after_count = after_item.count if after_item is not None else 0
-        name = f"{' '.join(fingerprint.rules)} | {' '.join(fingerprint.subjects)}"
+        name = violation_name(fingerprint)
         if after_count > before_count and fingerprint not in contracted:
             findings.append(
                 f"baseline entry widened: {name} ({after_count} now, {before_count} before)"

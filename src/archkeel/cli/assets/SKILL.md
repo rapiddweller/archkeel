@@ -121,6 +121,10 @@ archkeel validate --baseline known-violations.json --write-baseline   # once, th
 archkeel validate --baseline known-violations.json                    # the CI gate
 ```
 
+`--baseline` and `--amendment` are relative to `--root`, like the contract: with `--root mobile`,
+pass `--baseline known-violations.json` for `mobile/known-violations.json`, never the
+`mobile/`-prefixed path. An absolute path inside the root works; one outside it is
+`baseline.invalid`, exit 2 (AD-103).
 The gate fails (exit 1) on a violation the file does not state, and on one it states that
 nobody violates any more — so the budget only shrinks, and the file is rewritten in the same
 change that shrinks it. `declarations.measurement_budgets` may put deterministic scalar values

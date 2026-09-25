@@ -14,6 +14,7 @@ from typing import Final, TypeVar
 
 from archkeel.ir.baseline import (
     KnownViolation,
+    ValidationBaseline,
     compare_violations,
     observed_violations,
     violation_drift_counts,
@@ -21,6 +22,7 @@ from archkeel.ir.baseline import (
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
+    absent_contract_digest,
     amendment_bytes,
     baseline_bytes,
     contract_digest,
@@ -81,7 +83,7 @@ from archkeel.ir.widening import (
     verify_amendment,
 )
 
-from .git import GitError, read_blob, tracked_paths, working_tree_paths
+from .git import GitError, MissingBlobError, read_blob, tracked_paths, working_tree_paths
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets, unresolved_call_changes
 from .report import observe_repository
@@ -126,6 +128,11 @@ _GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
 _MERMAID_FENCE = "```mermaid\n"
 _GRAPH_DECLARATION = re.compile(r"\s*(?:graph|flowchart)\b.*")
 _GRAPH_COMMENT = re.compile(r"\s*%%.*")
+# AD-106: the last failure of a refused --write-baseline, after every other line of the run.
+_WRITE_REFUSED = (
+    "--write-baseline refused: writing would accept the new or increased debt above; fix the "
+    "code, or add --accept-new once an architect has decided to accept it"
+)
 
 
 def _diagnostic(
@@ -1688,7 +1695,18 @@ def _calls_unresolved(budgets: tuple[MeasurementBudget, ...]) -> int | None:
     return next((item.value for item in budgets if item.name == "calls_unresolved"), None)
 
 
-def _baseline_invalid(path: Path, error: Exception) -> RunResult:
+_BASELINE_WRITE = (
+    "Correct the baseline, or write it with archkeel validate --baseline <path> --write-baseline."
+)
+# AD-106: a write reads an existing file first, so advising one for an unreadable file loops.
+_BASELINE_CORRECT = (
+    "Correct the baseline file by hand; a write reads it first and stops on the same error."
+)
+# AD-103: a path outside the root is refused before any read or write.
+_BASELINE_INSIDE_ROOT = "Pass a --baseline path inside --root, relative to it or absolute."
+
+
+def _baseline_invalid(path: Path, error: Exception, remedy: str) -> RunResult:
     return RunResult(
         "validate",
         2,
@@ -1698,8 +1716,7 @@ def _baseline_invalid(path: Path, error: Exception) -> RunResult:
                 "",
                 str(path),
                 f"The validation baseline cannot be read: {error}",
-                "Correct the baseline, or write it with archkeel validate --baseline "
-                "<path> --write-baseline.",
+                remedy,
             ),
         ),
     )
@@ -1798,12 +1815,20 @@ def _observed_or_invalid(
 
 
 @dataclass(frozen=True, slots=True)
+class _Introduced:
+    """AD-104: the `--against` revision holds no contract at `path`, its repository path."""
+
+    path: str
+
+
+@dataclass(frozen=True, slots=True)
 class _AgainstContext:
     """Everything `--against` and `--amendment` resolve to, threaded through one run (AD-61)."""
 
     against: str | None
-    contract: ArchitectureContract | None
-    baseline: tuple[KnownViolation, ...]
+    contract: ArchitectureContract | _Introduced | None
+    # None: nothing at `against` to compare the baseline with (AD-104).
+    baseline: tuple[KnownViolation, ...] | None
     budgets: tuple[MeasurementBudget, ...]
     amendment: Path | None
     write_amendment: bool
@@ -1826,35 +1851,45 @@ def _resolve_against_context(
 
     A missing violation baseline blob at that revision means no prior known debt. A declared
     measurement budget is different: without its prior accepted value the comparison is not
-    decidable, so the revision is rejected instead of being treated as zero.
+    decidable, so the revision is rejected instead of being treated as zero. A missing contract
+    blob is the contract's introduction (AD-104); a baseline the revision still holds is compared
+    as before, one it lacks too is not compared at all. Any other blob Git cannot hand over is
+    `against.invalid`.
     """
     empty = _AgainstContext(
         against, None, (), (), amendment, write_amendment, None, decided_by, rationale
     )
     if against is None:
         return empty, None
+    parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
     try:
-        against_contract = parse_contract(decode_json(read_blob(root, against, config.contract)))
+        against_contract: ArchitectureContract | _Introduced = parse_contract(
+            decode_json(read_blob(root, against, config.contract))
+        )
+    except MissingBlobError as error:
+        against_contract = _Introduced(error.path)
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
-    against_baseline: tuple[KnownViolation, ...] = ()
+    # Without the contract every entry of a baseline the revision lacks too would repeat the
+    # introduction, so that baseline is not compared rather than read as no known debt.
+    against_baseline: tuple[KnownViolation, ...] | None = (
+        None if isinstance(against_contract, _Introduced) else ()
+    )
     against_budgets: tuple[MeasurementBudget, ...] = ()
     baseline_at = _baseline_at(root, baseline)
-    if baseline_at is not None:
-        try:
-            against_baseline_bytes: bytes | None = read_blob(root, against, baseline_at)
-        except GitError:
-            against_baseline_bytes = None
-        if against_baseline_bytes is not None:
-            try:
-                parsed = parse_validation_baseline(decode_json(against_baseline_bytes))
-                against_baseline = parsed.violations
-                against_budgets = parsed.budgets
-            except ValueError as error:
-                return empty, _against_invalid(against, error)
+    try:
+        prior = None if baseline_at is None else _prior_baseline(root, against, baseline_at)
+    except (GitError, ValueError) as error:
+        return empty, _against_invalid(against, error)
+    if prior is not None:
+        against_baseline, against_budgets = prior.violations, prior.budgets
+    declarations = (
+        against_contract.declarations
+        if isinstance(against_contract, ArchitectureContract)
+        else None
+    )
     declared_budgets: set[str] = {
-        item.name
-        for item in (against_contract.declarations or ContractDeclarations()).measurement_budgets
+        item.name for item in (declarations or ContractDeclarations()).measurement_budgets
     }
     known_budgets = {item.label for item in against_budgets}
     missing_budgets = sorted(declared_budgets - known_budgets)
@@ -1864,7 +1899,6 @@ def _resolve_against_context(
             against,
             ValueError(f"measurement budget values are missing for: {missing}"),
         )
-    parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
     context = _AgainstContext(
         against,
         against_contract,
@@ -1879,6 +1913,16 @@ def _resolve_against_context(
     return context, amendment_error
 
 
+def _prior_baseline(root: Path, against: str, path: str) -> ValidationBaseline | None:
+    """The baseline `against` holds at `path`, or None where it holds none; one it holds but
+    cannot hand over raises GitError or ValueError."""
+    try:
+        payload = read_blob(root, against, path)
+    except MissingBlobError:
+        return None
+    return parse_validation_baseline(decode_json(payload))
+
+
 def _resolve_amendment(
     amendment: Path | None, write_amendment: bool
 ) -> tuple[Amendment | None, RunResult | None]:
@@ -1888,6 +1932,13 @@ def _resolve_amendment(
         return parse_amendment(decode_json(amendment.read_bytes())), None
     except (OSError, ValueError) as error:
         return None, _amendment_invalid(amendment, error)
+
+
+def _before_digest(contract: ArchitectureContract | _Introduced) -> str:
+    """The digest an amendment binds for the `--against` side (AD-61, AD-104)."""
+    if isinstance(contract, _Introduced):
+        return absent_contract_digest(contract.path)
+    return contract_digest(contract)
 
 
 def _cycle_rule_ids(contract: ArchitectureContract) -> frozenset[str]:
@@ -1902,12 +1953,12 @@ def _rename_since(
     root: Path,
 ) -> Renamed | None:
     """AD-105: the compared revision under the package rename to `contract`, if one holds."""
-    if ctx.contract is None:
+    if not isinstance(ctx.contract, ArchitectureContract):
         return None
     recognised = renames_since(
         ctx.contract,
         contract,
-        violations=ctx.baseline,
+        violations=ctx.baseline or (),
         budgets=ctx.budgets,
         observed=observed_names(observation),
         layouts=module_layouts(observation),
@@ -1953,24 +2004,27 @@ def _widening_failures(
     """
     if ctx.against is None or ctx.contract is None:
         return ()
-    before = rename or Renamed((), ctx.contract, ctx.baseline, ctx.budgets, ())
-    findings = list(contract_widenings(before.contract, contract))
-    if baseline is not None:
-        findings += list(
-            baseline_widenings(before.violations, after_baseline, cycle_rules=cycle_rules)
-        )
-        findings += list(
-            measurement_budget_widenings(
-                before.budgets,
-                after_budgets,
-                _name_budget_targets(before.contract.declarations or ContractDeclarations()),
-            )
-        )
+    violations, budgets = ctx.baseline, ctx.budgets
+    if isinstance(ctx.contract, _Introduced):
+        # AD-104: nothing at the revision to compare, so the whole contract is one widening, and
+        # no rename applies to it (AD-105).
+        findings = [f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}"]
+        targets: dict[str, int] = {}
+    else:
+        before = ctx.contract
+        if rename is not None:
+            before, budgets = rename.contract, rename.budgets
+            violations = None if violations is None else rename.violations
+        findings = list(contract_widenings(before, contract))
+        targets = _name_budget_targets(before.declarations or ContractDeclarations())
+    if baseline is not None and violations is not None:
+        findings += baseline_widenings(violations, after_baseline, cycle_rules=cycle_rules)
+        findings += measurement_budget_widenings(budgets, after_budgets, targets)
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
             ctx.parsed_amendment,
-            before_digest=contract_digest(ctx.contract),
+            before_digest=_before_digest(ctx.contract),
             after_digest=contract_digest(contract),
         )
     )
@@ -2008,7 +2062,7 @@ def _artifact_files(
         artifact = str(against.amendment)
         files[artifact] = amendment_bytes(
             Amendment(
-                contract_digest(against.contract),
+                _before_digest(against.contract),
                 contract_digest(contract),
                 against.decided_by or "",
                 against.rationale or "",
@@ -2021,17 +2075,40 @@ def _artifact_files(
 
 
 def _baseline_at(root: Path, baseline: Path | None) -> str | None:
-    """`--baseline`'s repository-relative path, or None when it names no path under `root`.
-
-    A baseline outside the repository has no Git history to compare `--against` with, so its
-    widening is simply not checked.
-    """
+    """`--baseline`'s repository-relative path, or None without one; `_root_path` keeps it
+    under `root`, and any other path raises instead of leaving `--against` unchecked (AD-103)."""
     if baseline is None:
         return None
-    try:
-        return baseline.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return None
+    return baseline.resolve().relative_to(root.resolve()).as_posix()
+
+
+def _root_path(root: Path, path: Path) -> Path:
+    """`path` as validate reads and writes it: relative to `root`, or absolute, and resolved,
+    symlinks included, inside `root` (AD-103).
+
+    A relative `path` that, read from a working directory outside `root`, leads into it repeats
+    the root's own prefix (`--root mobile --baseline mobile/b.json`). While nothing exists at
+    the root-relative path, it is refused: never read or written one directory too deep.
+    """
+    repository: Path = root.resolve()
+    named: Path = repository / path
+    target: Path = named.resolve()
+    if repository not in target.parents:
+        raise ValueError(f"{path} resolves to {target}, outside the root {repository}")
+    # The working directory is already resolved, so it compares with `repository` directly.
+    cwd: Path = Path.cwd()
+    from_cwd: Path = path.resolve()
+    if (
+        not target.exists()
+        and from_cwd != target
+        and repository in from_cwd.parents
+        and repository not in (cwd, *cwd.parents)
+    ):
+        raise ValueError(
+            f"{path} is relative to --root {repository}: it names {target}, which does not "
+            f"exist, not {from_cwd}; pass {from_cwd.relative_to(repository).as_posix()}"
+        )
+    return target
 
 
 def run_validate(
@@ -2057,8 +2134,9 @@ def run_validate(
     AD-52/AD-77: with `baseline`, the violations that file already states are known debt, and
     only the difference is reported - as `failures` with exit 1. A missing baseline may be
     created with `write_baseline`; an existing one is compared before it is rewritten. New or
-    increased fingerprints refuse that rewrite unless `accept_new` is explicit. Resolved-only
-    drift may rewrite the file and shrinks the debt.
+    increased fingerprints refuse that rewrite unless `accept_new` is explicit, and the refused
+    run's last failure names `--accept-new` (AD-106). Resolved-only drift may rewrite the file
+    and shrinks the debt.
 
     AD-89: `declarations.measurement_budgets` selects deterministic scalar measurements whose
     accepted values share that baseline. A rise is new debt; a fall must rewrite the baseline.
@@ -2069,11 +2147,24 @@ def run_validate(
     `failures` entry with exit 1 unless `amendment` binds exactly this before/after pair.
     `write_amendment` writes that binding instead of checking it.
 
+    AD-103: `baseline` and `amendment` are relative to `root`, like the contract, or absolute;
+    either way one that resolves outside `root` is refused, so no write can land outside it.
+
     AD-105: a component package moved since `against` proposes a rename. One that keeps every
     relation between the old names, leaves no scanned module under an old prefix and renames the
     old contract into one that still parses is applied to the old side before comparing and
     named in `renames`.
     """
+    if baseline is not None:
+        try:
+            baseline = _root_path(root, baseline)
+        except ValueError as error:
+            return _baseline_invalid(root / baseline, error, _BASELINE_INSIDE_ROOT), FilesToWrite()
+    if amendment is not None:
+        try:
+            amendment = _root_path(root, amendment)
+        except ValueError as error:
+            return _amendment_invalid(root / amendment, error), FilesToWrite()
     known: tuple[KnownViolation, ...] = ()
     known_budgets: tuple[MeasurementBudget, ...] = ()
     baseline_exists = baseline is not None and baseline.exists()
@@ -2083,7 +2174,8 @@ def run_validate(
             known = parsed_baseline.violations
             known_budgets = parsed_baseline.budgets
         except (OSError, ValueError) as error:
-            return _baseline_invalid(baseline, error), FilesToWrite()
+            remedy = _BASELINE_CORRECT if baseline_exists else _BASELINE_WRITE
+            return _baseline_invalid(baseline, error, remedy), FilesToWrite()
     parsed_contract = _parse_contract_or_invalid(root, config)
     if isinstance(parsed_contract, RunResult):
         return parsed_contract, FilesToWrite()
@@ -2099,6 +2191,7 @@ def run_validate(
         return _baseline_invalid(
             baseline,
             ValueError(f"measurement budget values are missing for: {missing}"),
+            _BASELINE_WRITE,
         ), FilesToWrite()
     against_ctx, against_error = _resolve_against_context(
         root, config, against, baseline, amendment, write_amendment, decided_by, rationale
@@ -2154,21 +2247,23 @@ def run_validate(
         if baseline_exists
         else (0, 0)
     )
-    comparison = (
-        compare_violations(known, violations, cycle_rules=cycle_rules) if baseline_exists else ()
+    budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
+    refused = (
+        write_baseline and baseline_exists and bool(baseline_new or budget_new) and not accept_new
     )
-    budget_comparison = (
-        compare_budgets(known_budgets, observed_budgets, against=against is not None)
+    comparison = (
+        compare_violations(known, violations, cycle_rules=cycle_rules, refused=refused)
         if baseline_exists
         else ()
     )
-    budget_new = budget_regressions(known_budgets, observed_budgets) if baseline_exists else 0
-    baseline_failures = (
-        (*comparison, *budget_comparison)
-        if not write_baseline
-        or (baseline_exists and (baseline_new or budget_new) and not accept_new)
+    budget_comparison = (
+        compare_budgets(
+            known_budgets, observed_budgets, against=against is not None, refused=refused
+        )
+        if baseline_exists
         else ()
     )
+    baseline_failures = (*comparison, *budget_comparison) if not write_baseline or refused else ()
     interface_narrowings = tuple(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
@@ -2186,7 +2281,12 @@ def run_validate(
     result = _observed_result(
         observation,
         [*diagnostics, *budget_diagnostics],
-        (*baseline_failures, *interface_narrowings, *widening_failures),
+        (
+            *baseline_failures,
+            *interface_narrowings,
+            *widening_failures,
+            *((_WRITE_REFUSED,) if refused else ()),
+        ),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
         interface_budgets=budget_results or None,
@@ -2195,21 +2295,20 @@ def run_validate(
         result = replace(result, renames=rename.prefixes if rename is not None else ())
     # AD-100: a failing run whose calls_unresolved value moved from an accepted one names the
     # call sites against the other revision's code; only such a run pays for the second scan.
+    # A revision without the contract has no declarations to observe that code under (AD-104).
     observed_calls = _calls_unresolved(observed_budgets)
     accepted_calls = {_calls_unresolved(known_budgets), _calls_unresolved(against_ctx.budgets)}
     if (
         against is not None
+        and isinstance(against_ctx.contract, ArchitectureContract)
         and result.exit_code == 1
         and observed_calls is not None
         and accepted_calls != {observed_calls}
     ):
         changes, note = _unresolved_calls_since(root, config, analyzer, against, observation)
         result = replace(result, unresolved_call_changes=changes, unresolved_call_note=note)
-    write_baseline = write_baseline and (
-        not baseline_exists or not (baseline_new or budget_new) or accept_new
-    )
     files, artifact = _artifact_files(
-        write_baseline=write_baseline,
+        write_baseline=write_baseline and not refused,
         baseline=baseline,
         violations=violations,
         budgets=observed_budgets,

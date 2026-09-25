@@ -278,7 +278,9 @@ def _sample_run(tmp_path_factory: pytest.TempPathFactory, variant: Variant) -> _
         )
         baseline = root / variant.baseline if variant.baseline is not None else None
         config = load_config(root, variant.config)
-        validate_result, _ = run_validate(root, config, observe, baseline=baseline)
+        validate_result, _ = run_validate(
+            root, config, observe, baseline=baseline, write_baseline=variant.write_baseline
+        )
         actual_codes = tuple(sorted(item.code for item in validate_result.diagnostics if item.code))
         actual_kinds = tuple(
             sorted(item.kind for item in validate_result.diagnostics if item.code is None)
@@ -325,6 +327,28 @@ def test_baseline_interface_narrowing_runs_a_real_validate_gate(
         "(0 observed, 1 in the baseline); rewrite the baseline with --write-baseline",
         "resolved public entry: shop.app.orders:summarize is no longer reached; remove it from "
         "app.public",
+    )
+
+
+def test_baseline_subject_order_and_refusal_rows_run_real_validate_gates(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """AD-106 (#152): a reversed entry is the same violation, and a refusal names the way on."""
+    variants = {item.id: item for item in CATALOG}
+    reordered = _sample_run(tmp_path_factory, variants["validation-baseline-subject-order"])
+    refused = _sample_run(tmp_path_factory, variants["validation-baseline-refused"])
+
+    assert (reordered[4], reordered[5]) == (0, ())
+    assert (refused[4], refused[5]) == (
+        1,
+        (
+            "resolved violation: DEP-STORE-NO-MONEY | shop.model.entities.Money "
+            "shop.store.legacy (0 observed, 1 in the baseline)",
+            "new violation: DEP-STORE-NO-MONEY | shop.model.entities.Money "
+            "shop.store.repository (1 observed, 0 in the baseline)",
+            "--write-baseline refused: writing would accept the new or increased debt above; "
+            "fix the code, or add --accept-new once an architect has decided to accept it",
+        ),
     )
 
 
@@ -446,9 +470,7 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
 def test_against_variant_produces_the_catalogued_verdict(tmp_path: Path, variant: Variant) -> None:
     against = variant.against
     assert against is not None
-    result = build_and_run_against(
-        tmp_path, variant.files, against, variant.fixture, variant.config
-    )
+    result = build_and_run_against(tmp_path, variant.files, against, variant.fixture)
 
     assert result.exit_code == against.exit_code
     assert result.diagnostics == ()
