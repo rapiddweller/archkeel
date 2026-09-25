@@ -191,6 +191,35 @@ def test_a_refused_write_says_why_and_how_to_proceed_without_advising_itself(
     )
 
 
+def test_a_refusal_stays_the_last_failure_beside_a_widening(tmp_path: Path) -> None:
+    """AD-106: under --against the refused write also widens the committed baseline; the
+    refusal still closes the list, so the way on is the last line read."""
+    known = (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),)
+    root = _repo(
+        tmp_path,
+        "refused-against",
+        {"shop/model/probe.py": PROBE, "known-violations.json": baseline_bytes(known).decode()},
+    )
+    (root / "shop/model/probe_two.py").write_text(SECOND_PROBE)
+
+    result, files = run_validate(
+        root,
+        SHOP_CONFIG,
+        observe,
+        baseline=root / "known-violations.json",
+        write_baseline=True,
+        against="main",
+    )
+
+    assert (result.exit_code, files) == (1, {})
+    assert result.failures == (
+        f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+        "(1 observed, 0 in the baseline)",
+        f"baseline entry widened: {GETATTR_RULE} | shop.model.probe_two.read (1 now, 0 before)",
+        REFUSED,
+    )
+
+
 def test_accept_new_explicitly_updates_an_existing_baseline(tmp_path: Path) -> None:
     root = _repo(
         tmp_path,

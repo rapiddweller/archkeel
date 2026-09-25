@@ -131,7 +131,7 @@ _GRAPH_EDGE = re.compile(r"\s*([a-z_][a-z0-9_]*)\s*-->\s*([a-z_][a-z0-9_]*)\s*")
 _MERMAID_FENCE = "```mermaid\n"
 _GRAPH_DECLARATION = re.compile(r"\s*(?:graph|flowchart)\b.*")
 _GRAPH_COMMENT = re.compile(r"\s*%%.*")
-# AD-106: the last failure of a refused --write-baseline, after the lines naming the debt.
+# AD-106: the last failure of a refused --write-baseline, after every other line of the run.
 _WRITE_REFUSED = (
     "--write-baseline refused: writing would accept the new or increased debt above; fix the "
     "code, or add --accept-new once an architect has decided to accept it"
@@ -2193,11 +2193,7 @@ def run_validate(
         if baseline_exists
         else ()
     )
-    baseline_failures = (
-        (*comparison, *budget_comparison, *((_WRITE_REFUSED,) if refused else ()))
-        if not write_baseline or refused
-        else ()
-    )
+    baseline_failures = (*comparison, *budget_comparison) if not write_baseline or refused else ()
     interface_narrowings = tuple(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
@@ -2213,7 +2209,12 @@ def run_validate(
     result = _observed_result(
         observation,
         [*diagnostics, *budget_diagnostics],
-        (*baseline_failures, *interface_narrowings, *widening_failures),
+        (
+            *baseline_failures,
+            *interface_narrowings,
+            *widening_failures,
+            *((_WRITE_REFUSED,) if refused else ()),
+        ),
         baseline_new=baseline_new if baseline is not None else None,
         baseline_resolved=baseline_resolved if baseline is not None else None,
         interface_budgets=budget_results or None,
