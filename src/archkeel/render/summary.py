@@ -209,6 +209,14 @@ def _budget_line(result: RunResult) -> str:
     return f"\n\nBudgets not at their target: {listed}."
 
 
+def _renames_line(result: RunResult) -> str:
+    """AD-105: each package rename `--against` compared under, so a quiet run says why."""
+    if not result.renames:
+        return ""
+    lines = "\n".join(f"  {old} → {new}" for old, new in result.renames)
+    return f"\n\nRenamed since the compared revision, compared under the new names:\n{lines}"
+
+
 def _roots_reason(scan_roots: tuple[str, ...]) -> str:
     """Name the roots a scan read, so its PASS is not taken to cover code beside them (AD-101)."""
     return (
@@ -285,6 +293,7 @@ def report_summary(result: RunResult) -> Summary:
         + _agent_decisions_line(result)
         + _baseline_line(result)
         + _budget_line(result)
+        + _renames_line(result)
     )
     return Summary(
         _decision_badge(result),

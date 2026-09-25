@@ -1060,6 +1060,9 @@ class RunResult:
     # AD-101: the scan.roots a report, validate or check run read. A verdict covers these and
     # no source beside them, such as a test tree another configuration governs.
     scan_roots: tuple[str, ...] | None = None
+    # AD-105: each package prefix `validate --against` found renamed, old name first; empty when
+    # the compared revision renamed nothing, None when the run compared no revision.
+    renames: tuple[tuple[str, str], ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exit_code == 2 and not self.diagnostics:

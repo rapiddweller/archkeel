@@ -46,6 +46,7 @@
         "archkeel.ir.model",
         "archkeel.ir.profiles",
         "archkeel.ir.references",
+        "archkeel.ir.renames",
         "archkeel.ir.structure",
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",

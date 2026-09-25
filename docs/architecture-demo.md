@@ -153,6 +153,9 @@ demo-dart`.
 | validation | against:symbol_placement_removed | against-symbol-placement-removed | validate --against run | - | - | architecture-contract.json |
 | validation | against:budget_raised | against-facade-budget-raised | validate --against run | - | - | architecture-contract.json |
 | validation | against:cycle_rule_scoped | against-cycle-rule-scoped | validate --against run | - | - | architecture-contract.json |
+| validation | against:package_renamed | against-package-renamed | validate --against run | - | - | architecture-contract.json, shop/cli/main.py, shop/render/text.py, shop/view/text.py |
+| validation | against:package_renamed_widened | against-package-renamed-widened | validate --against run | - | - | architecture-contract.json, shop/cli/main.py, shop/render/text.py, shop/view/text.py |
+| validation | dart:against:package_renamed | dart-against-package-renamed | validate --against run | - | - | G-dart: architecture-contract.json, archkeel.toml, lib/data/http_order_repository.dart, lib/main.dart, lib/presentation/order_page.dart, lib/presentation/order_page_state.dart, lib/presentation/order_tile.dart, lib/ui/order_page.dart, lib/ui/order_page_state.dart, lib/ui/order_tile.dart, pubspec.yaml |
 | protocol | ordered | protocol-ordered | check run | - | - | shop/render/order_summary.py |
 | protocol | host_order | protocol-published-after-candidate | check run | - | - | shop/render/order_summary.py |
 | protocol | git_order | protocol-candidate-changed-expectation | check run | - | - | shop/render/order_summary.py |

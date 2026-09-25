@@ -63,6 +63,8 @@ AgainstScenario = Literal[
     "compat_promoted",
     "budget_raised",
     "cycle_rule_scoped",
+    "renamed",
+    "renamed_widened",
 ]
 
 
@@ -79,6 +81,8 @@ class AgainstExpectation:
     exit_code: Literal[0, 1]
     failures: tuple[str, ...]
     base_files: Mapping[str, str | None] = field(default_factory=dict)
+    # AD-105: the package renames the comparison recognised, old name first.
+    renames: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

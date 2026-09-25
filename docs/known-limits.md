@@ -140,6 +140,10 @@ modules without `__all__`, so its contract pins pair budgets only.
 - A package's `__init__` module belongs to the component that owns the package, so a component
   cannot own `pkg/__init__.py` without also owning every subpackage. `complete_assignment` reports
   the unowned module.
+- `validate --against` recognises a renamed package from names, not from where the code went
+  (AD-105): two packages that trade places in the same rename read as the rename the contract
+  states, the way a module moved between components is a code change `--against` never judges.
+  Paths are not renamed, so a moved `inside` contract remains one finding.
 
 ## Dart profile
 

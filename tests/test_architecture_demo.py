@@ -446,11 +446,14 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
 def test_against_variant_produces_the_catalogued_verdict(tmp_path: Path, variant: Variant) -> None:
     against = variant.against
     assert against is not None
-    result = build_and_run_against(tmp_path, variant.files, against)
+    result = build_and_run_against(
+        tmp_path, variant.files, against, variant.fixture, variant.config
+    )
 
     assert result.exit_code == against.exit_code
     assert result.diagnostics == ()
     assert result.failures == against.failures
+    assert result.renames == against.renames
 
 
 def test_graph_drift_names_the_command_or_the_line_it_refuses(tmp_path: Path) -> None:

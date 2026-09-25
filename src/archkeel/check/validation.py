@@ -78,6 +78,15 @@ from archkeel.ir.model import (
     text_value,
 )
 from archkeel.ir.profiles import PROFILES
+from archkeel.ir.renames import (
+    baseline_names,
+    contract_names,
+    rename_candidates,
+    rename_holds,
+    renamed_baseline,
+    renamed_budgets,
+    renamed_contract,
+)
 from archkeel.ir.widening import (
     Amendment,
     baseline_widenings,
@@ -1967,25 +1976,53 @@ def _cycle_rule_ids(contract: ArchitectureContract) -> frozenset[str]:
     return frozenset(rule.id for rule in contract.rules if isinstance(rule, NoComponentCyclesRule))
 
 
+def _renames_since(
+    ctx: _AgainstContext, contract: ArchitectureContract, observation: Observation
+) -> dict[str, str]:
+    """AD-105: the package rename from `ctx.contract` to `contract`, or {} when none holds."""
+    if ctx.contract is None:
+        return {}
+    names = contract_names(ctx.contract) | baseline_names(ctx.baseline, ctx.budgets)
+    modules = _scanned_modules(observation)
+    return next(
+        (
+            item
+            for item in rename_candidates(ctx.contract, contract)
+            if rename_holds(item, names=names, modules=modules)
+        ),
+        {},
+    )
+
+
 def _widening_failures(
     ctx: _AgainstContext,
     contract: ArchitectureContract,
+    renames: dict[str, str],
     baseline: Path | None,
     after_baseline: tuple[KnownViolation, ...],
     after_budgets: tuple[MeasurementBudget, ...],
     cycle_rules: frozenset[str],
 ) -> tuple[str, ...]:
-    """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
+    """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11).
+
+    A recognised rename is applied to the old side first (AD-105), so only what it does not
+    explain is compared, and a widening beside it is still reported.
+    """
     if ctx.against is None or ctx.contract is None:
         return ()
-    findings = list(contract_widenings(ctx.contract, contract))
+    before = renamed_contract(ctx.contract, renames) if renames else ctx.contract
+    findings = list(contract_widenings(before, contract))
     if baseline is not None:
-        findings += list(baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules))
+        findings += list(
+            baseline_widenings(
+                renamed_baseline(ctx.baseline, renames), after_baseline, cycle_rules=cycle_rules
+            )
+        )
         findings += list(
             measurement_budget_widenings(
-                ctx.budgets,
+                renamed_budgets(ctx.budgets, renames),
                 after_budgets,
-                _name_budget_targets(ctx.contract.declarations or ContractDeclarations()),
+                _name_budget_targets(before.declarations or ContractDeclarations()),
             )
         )
     amended = ctx.write_amendment or (
@@ -2090,6 +2127,10 @@ def run_validate(
     every widening (ir.widening.contract_widenings, ir.widening.baseline_widenings) is a
     `failures` entry with exit 1 unless `amendment` binds exactly this before/after pair.
     `write_amendment` writes that binding instead of checking it.
+
+    AD-105: a component package moved since `against` proposes a rename. One that renames the
+    old contract and baseline without touching anything else, and leaves no scanned module
+    under an old name, is applied to the old side before comparing and named in `renames`.
     """
     known: tuple[KnownViolation, ...] = ()
     known_budgets: tuple[MeasurementBudget, ...] = ()
@@ -2190,9 +2231,11 @@ def run_validate(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
     )
+    renames = _renames_since(against_ctx, contract, observation)
     widening_failures = _widening_failures(
         against_ctx,
         contract,
+        renames,
         baseline,
         violations if write_baseline else known,
         observed_budgets if write_baseline else known_budgets,
@@ -2206,6 +2249,8 @@ def run_validate(
         baseline_resolved=baseline_resolved if baseline is not None else None,
         interface_budgets=budget_results or None,
     )
+    if against is not None:
+        result = replace(result, renames=tuple(sorted(renames.items())))
     # AD-100: a failing run whose calls_unresolved value moved from an accepted one names the
     # call sites against the other revision's code; only such a run pays for the second scan.
     observed_calls = _calls_unresolved(observed_budgets)

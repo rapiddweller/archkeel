@@ -471,6 +471,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "provenance",
         "python_version",
         "report_filter",
+        # AD-105: null unless validate compared a revision with --against.
+        "renames",
         "scan_roots",
         "violations_by_component_pair",
         "violations_by_rule",
