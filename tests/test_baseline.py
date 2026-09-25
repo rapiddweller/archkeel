@@ -22,6 +22,7 @@ from archkeel.ir.baseline import (
     compare_violations,
     observed_violations,
     violation_drift_counts,
+    violation_fingerprint,
 )
 from archkeel.ir.codec import (
     baseline_bytes,
@@ -29,6 +30,7 @@ from archkeel.ir.codec import (
     decode_json,
     parse_baseline,
     parse_observation,
+    parse_record,
 )
 from archkeel.ir.model import Observation
 from archkeel.ir.widening import baseline_widenings
@@ -587,6 +589,31 @@ def test_roles_are_sorted_and_do_not_change_fingerprint_identity() -> None:
             violation.count,
             tuple(sorted(violation.roles)),
         ),
+    )
+
+
+def test_a_record_read_in_another_order_has_the_sorted_fingerprint() -> None:
+    """AD-106: an observation read from disk keeps the order its file holds; the fingerprint a
+    baseline is compared with does not."""
+    record = parse_record(
+        {
+            "id": "VIO-unsorted",
+            "evidence_class": "VIOLATION",
+            "area": "dependencies",
+            "kind": "forbidden_dependency",
+            "title": "unsorted",
+            "subjects": ["shop.store.repository", "shop.model.entities.Money"],
+            "evidence_ids": [],
+            "rule_ids": ["RULE-B", "RULE-A"],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {},
+        }
+    )
+
+    assert record.subjects == ("shop.store.repository", "shop.model.entities.Money")
+    assert violation_fingerprint(record) == ViolationFingerprint(
+        ("RULE-A", "RULE-B"), ("shop.model.entities.Money", "shop.store.repository")
     )
 
 
