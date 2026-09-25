@@ -16,12 +16,21 @@ import json
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 from test_analyzer import _component, _observe
+from test_architecture_demo import CONFIG, _prepare_repo
 from test_dart_directives import dart_package, report_dart, rule
 
+from archkeel.analyzer import observe
+from archkeel.check.report import run_report
 from archkeel.check.run import inspect_observation
+from archkeel.ir.codec import decode_canonical_model
 from archkeel.ir.model import Evidence, Observation, Record, stable_id
 from archkeel.ir.trace import trace_valid_violations
+from fixtures.architecture_demo import CATALOG
+
+SCHEMA = Path(__file__).parents[1] / "schema"
 
 _PROBE = {"rationale": "Probe.", "provenance": ["docs/architecture/sample.md"]}
 _ROOT_LAYOUT = {
@@ -151,3 +160,26 @@ def test_an_empty_dart_library_is_the_same_root_layout_violation(
         stable_id("VIO", "RULE", "app.extra"),
         ("app.extra",),
     )
+
+
+def _ir_schema_errors(observation: dict[str, object]) -> list[str]:
+    """What the published IR schemas reject in one decoded observation, as test_schema_drift."""
+    common = json.loads((SCHEMA / "architecture-ir-common.schema.json").read_bytes())
+    profile = json.loads((SCHEMA / "architecture-ir-python-decoded.schema.json").read_bytes())
+    registry = Registry().with_resource(common["$id"], Resource.from_contents(common))
+    validator = Draft202012Validator(profile, registry=registry)
+    return [error.message for error in validator.iter_errors(observation)]
+
+
+def test_the_ir_schemas_accept_a_cited_file(tmp_path: Path) -> None:
+    variant = next(item for item in CATALOG if item.id == "class-a-root-layout-empty-package")
+    _, architecture = run_report(
+        _prepare_repo(tmp_path, dict(variant.files)), config=CONFIG, analyzer=observe
+    )
+    assert architecture is not None
+    observation = decode_canonical_model(json.loads(architecture))
+    evidence = observation["evidence"]
+    (cited,) = (item for item in evidence if item["file"] == "shop/extra/__init__.py")
+
+    assert (cited["line"], cited["end_line"], cited["column"], cited["excerpt"]) == (0, 0, 0, "")
+    assert _ir_schema_errors(observation) == []
