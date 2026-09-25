@@ -479,6 +479,23 @@ def test_a_public_gain_with_two_lost_candidates_names_neither() -> None:
     assert _component_diff(before, after) == ("component 'comp'.public gained 'pkg.z:run'",)
 
 
+def test_two_public_gains_alike_one_lost_entry_name_it_for_neither() -> None:
+    before = _component(public=("pkg.a:run",))
+    after = _component(public=("pkg.b:run", "pkg.c:run"))
+
+    assert _component_diff(before, after) == (
+        "component 'comp'.public gained 'pkg.b:run'",
+        "component 'comp'.public gained 'pkg.c:run'",
+    )
+
+
+def test_a_public_symbol_gain_is_not_named_in_place_of_a_module_entry() -> None:
+    before = _component(public=("pkg.api",))
+    after = _component(public=("pkg.x:api",))
+
+    assert _component_diff(before, after) == ("component 'comp'.public gained 'pkg.x:api'",)
+
+
 def test_narrowing_never_needs_an_amendment() -> None:
     """Every narrowing row above already asserts `findings == ()`; this restates the rule."""
     before = _forbidden_construct(constructs=("eval",))
