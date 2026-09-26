@@ -4,6 +4,7 @@
 """Issues #159/#160: report status, colors, declared rules, and violation filters."""
 
 import json
+import re
 from html import escape
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from archkeel.ir.baseline import (
     compare_violations,
     select_violations,
 )
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.model import ReportFilter
 from archkeel.render.html import render_architecture_html
 
@@ -97,23 +98,24 @@ def test_report_lists_every_declared_rule_with_truthful_status_and_provenance(
 
     assert "Declared rules" in page
     for rule in rules:
-        assert f'data-rule-id="{escape(rule.id)}"' in page
+        row = re.search(rf'<[^>]+\bdata-rule-id="{re.escape(escape(rule.id))}"[^>]*>', page)
+        assert row is not None, rule.id
         assert escape(rule.kind) in page
         data = dict(rule.data.entries)
         for field in ("decided_by", "rationale"):
             assert escape(str(data[field])) in page
         assert all(escape(item) in page for item in rule.provenance)
         if violations_by_rule.get(rule.id, 0):
-            assert 'data-rule-status="fail"' in page
+            assert 'data-rule-status="fail"' in row[0], rule.id
         else:
             assert any(
-                f'data-rule-id="{escape(rule.id)}" data-rule-status="{status}"' in page
-                for status in ("pass", "unknown")
-            )
+                f'data-rule-status="{status}"' in row[0] for status in ("pass", "unknown")
+            ), rule.id
 
     # A grant says an edge is allowed; it is not evidence that the analyzer exercised the rule.
-    assert 'data-rule-id="DEP-APP-ALLOWS-MODEL"' in page
-    assert 'data-rule-status="unknown"' in page
+    permission = re.search(r'<[^>]+\bdata-rule-id="DEP-APP-ALLOWS-MODEL"[^>]*>', page)
+    assert permission is not None
+    assert 'data-rule-status="unknown"' in permission[0]
 
 
 def test_violation_color_has_fail_text_and_icon_and_not_conformance_teal(tmp_path: Path) -> None:
@@ -124,19 +126,27 @@ def test_violation_color_has_fail_text_and_icon_and_not_conformance_teal(tmp_pat
         if item.kind == "forbidden_construct"
     )
 
-    assert f'data-violation-id="{escape(violation.id)}"' in page
-    assert 'data-status="fail"' in page
+    row = re.search(rf'<[^>]+\bdata-violation-id="{re.escape(escape(violation.id))}"[^>]*>', page)
+    assert row is not None
+    assert 'data-status="fail"' in row[0]
     assert "FAIL" in page
     assert 'aria-label="Violation"' in page
     assert '.violation-row[data-status="fail"]' in page
-    assert '.violation-row[data-status="fail"] { color: var(--ck-fail); }' in page
+    assert re.search(
+        r'\.violation-row\[data-status="fail"\]\s*\{[^}]*color:\s*var\(--ck-fail\)', page
+    )
 
 
 def test_report_is_deterministic_and_keeps_unknown_context_when_focusing_violations(
     tmp_path: Path,
 ) -> None:
-    _, _, page = _report(tmp_path / "first", only_violations=True)
-    _, _, repeated = _report(tmp_path / "second", only_violations=True)
+    result, observation, page = _report(tmp_path, only_violations=True)
+    repeated = render_architecture_html(
+        result,
+        canonical_report_bytes(observation),
+        repository="shop",
+        architecture_href="architecture.json",
+    ).decode()
 
     assert page == repeated
     assert "Known unknowns" in page
