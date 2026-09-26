@@ -43,22 +43,25 @@ leaves Git's listing unreadable; either way the field stays `null`, with a note.
 
 `boundary_types` reads one annotation string per parameter and return of a declared facade
 function. It decides a builtin, a bare `dict`/`object`, a bare name its module's import bindings or
-own class definitions resolve, and a known collection (`list`, `tuple`, `set`, `frozenset`,
-`Sequence`, `Iterable`, `Iterator`, `Collection`, `AbstractSet`) holding such a name, one level in.
+own class definitions resolve, and supported collections, unions and owned model fields
+recursively (AD-93). Supported collections include `list`, `tuple`, `set`, `frozenset`,
+`Sequence`, `Iterable`, `Iterator`, `Collection` and `AbstractSet`.
 An imported facade entry in an ordinary module is followed only when one unchanged literal
 `__all__` explicitly exports its unique import binding (AD-109); other export forms remain
 undecidable.
 An unresolved, missing or unscanned public alias endpoint emits `boundary_type_route` UNKNOWN
-without inventing a function signature or parameter positions. Proven constants and classes are
-not facade functions.
-It cannot decide a dotted name, a mapping, a nested subscript, a union, a forward-reference string,
-a missing annotation or a type owned by no declared component. Since AD-67 the undecided part is
+without inventing a function signature or parameter positions. Stable constants and classes are
+not facade functions; deletion, rebinding or an unsupported endpoint kind prevents that proof.
+A type's proven facade export counts as public only for its own component. Without a proven public
+route, an uncertain matching export is UNKNOWN; it does not hide a different private type's violation.
+It cannot decide arbitrary dotted names, unsupported generic shapes, unresolved forward references,
+missing annotations or types owned by no declared component. Since AD-67 the undecided part is
 reported rather than silent: each rule files one `boundary_type_limit` record in `unknowns` naming
 the positions it saw, the positions it decided and a count per undecidable kind. The record reports
 and never gates: it does not move `coverage.rules`, the diagnostics or the exit code. It does move
 `declared_rules`, the reported verdict a run's rules earned: a violation-free observation reads
 UNKNOWN there, not PASS, if an undecided position's reason is a real checker limit (a missing
-annotation, a union, a dotted name and the like), but stays PASS when every undecided position is a
+annotation, an unresolved dotted name and the like), but stays PASS when every undecided position is a
 type owned by no declared component (`external_type`), since that question never applied to begin
 with. A `public_api` entry the scan could not settle (`api_surface_limit`) moves it the same way,
 for the same reason: the contract declared something and nothing could decide it. Since AD-92 every
@@ -74,8 +77,8 @@ declared fields and known collection or union members. A repeated class on the c
 that branch. Ambiguous bindings, unresolved names and unsupported annotation shapes stay UNKNOWN;
 their records include the signature-rooted field path and the nested annotation.
 
-Measured on Archkeel's own facades with the rule widened to the whole `archkeel` namespace, 88
-declared facade functions carry 258 positions:
+Historical measurement for AD-67, with the rule widened to the whole `archkeel` namespace:
+88 declared facade functions carried 258 positions. These are not current release counts.
 
 | Outcome | Positions |
 |---|---:|

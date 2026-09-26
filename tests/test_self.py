@@ -83,13 +83,8 @@ def self_run(tmp_path_factory: pytest.TempPathFactory) -> SelfRun:
     assert output.with_name("architecture.report.html").is_file()
     result = json.loads(run.stdout)
     assert result["diagnostics"] == []
-    # AD-67: Archkeel's own declared `boundary_types` rule does leave one `boundary_type_limit`
-    # record per declared rule. `analyzer`'s 2 undecided are both `external_type` --
-    # `pathlib.Path` and `datetime.datetime`, types no declared component owns, so the rule has
-    # no `public` list to read them against, and that question never applied. `render` and
-    # `check`, declared here (AD-68), leave 16 positions undecided for reasons that ARE gaps in
-    # what the checker could read: 15 a union, 1 an unentered generic. So Archkeel's own run
-    # says UNKNOWN, which is the honest answer, and says it without gating (AD-72).
+    # The self-report has real undecided boundary evidence. A complete scan must not turn
+    # those checker limits into PASS; D-self binds the current counts instead of this comment.
     assert result["observation_complete"] == "PASS"
     assert result["declared_rules"] == "UNKNOWN"
     assert result["expectation_fulfilled"] == "n/a"

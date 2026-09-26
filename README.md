@@ -214,7 +214,8 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   enum class (AD-108). None of these claims reaches an exit code.
 - **Declared facades include ordinary modules.** `boundary_types` follows an imported entry from
   an ordinary module only when its unchanged literal `__all__` explicitly exports that unique
-  binding; unclear export evidence stays UNKNOWN (AD-109).
+  binding; unclear export evidence stays UNKNOWN. A type's proven export through its owner's
+  facade counts as public without exposing the implementation module (AD-109).
 - **Facade shape stays measured, not inferred.** The report shows declared export counts,
   re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
   width. These facts do not claim a barrel is complete (AD-88). A contract may set a target for

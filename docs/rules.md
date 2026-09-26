@@ -309,7 +309,7 @@ Only a function `component.public` itself covers is inspected -- a module-level 
 non-underscore name of that module a facade function, or its `__all__` when it declares one, and a
 `pkg.module:Name` entry makes exactly that one, the same reading `interface_boundary` gives
 `public` (AD-9) -- exempts one whose own module falls under an `allowed_sources` prefix or equals
-an `exact_sources` entry (AD-49), and reports one violation per parameter or return position whose
+an `exact_sources` entry (AD-49), and reports distinct violations within parameter and return positions whose
 annotation is exactly `dict`, `Dict`, `object`, a `dict[...]`/`Dict[...]` generic, or a bare name
 that resolves, through the same import bindings `interface_boundary` reads, to a class that is
 neither an `enum` nor a `pydantic_model` by kind and that no component's own `public` list
@@ -317,23 +317,20 @@ declares. A function re-exported by a declared facade entry is checked at its de
 the violation keeps the facade module and entry as its subject. For an ordinary module (not
 `__init__.py`), following an imported entry requires one unchanged literal `__all__` that exports
 its unique import binding, whose terminal definition also has one unambiguous binding; an import
-alone does not prove it is a facade (AD-109). Multiple
-aliases or re-export paths that resolve to the same exact origin are decidable as one origin;
-only distinct origins make the facade position UNKNOWN (`ambiguous_facade`). If a declared request or result
-type resolves to a scanned class, its directly declared fields are inspected one level deep with
-the same broad-type test. An ambiguous or unresolved field, or a field that would require a
-second model descent, is UNKNOWN rather than an inferred pass (AD-84). A known collection holding
-a bare name -- `list`, `tuple`, `set`, `frozenset`,
-`Sequence`, `Iterable`, `Iterator`, `Collection`, `AbstractSet` and their `typing` spellings -- is
-decided from its type parameters by that same resolution, one level in, so wrapping a parameter in
-a list no longer drops the check; a collection is only as decided as its parameters, and `dict` is
-absent because a `dict[...]` is already the broad container above (AD-67). A builtin, and a name
-resolving to an enum, a Pydantic model or a declared type, is a decided pass. A dotted name, a
-mapping, a nested subscript, a union, a forward-reference
-string, a missing annotation and a type owned by no declared component stay undecidable, because
-deciding any of them still needs resolving where the name comes from in a way AD-37 and AD-40 leave
-unfinished for a call's receiver and this rule leaves unfinished for them too (issue #9, AD-58,
-AD-63). Undecidable is no longer silent: each rule files one UNKNOWN `boundary_type_limit` record
+alone does not prove it is a facade (AD-109). Multiple proven aliases to one exact origin do not
+duplicate a finding. Missing, ambiguous or unstable public alias routes remain UNKNOWN, even if
+another function in the facade can be checked.
+A named type may be public through its owner's proven facade export; it need not expose its
+implementation module. Without a proven public route, a matching uncertain export is UNKNOWN.
+An export by another owner does not grant publication. Public model fields are still checked.
+Owned model fields, supported collections and unions are inspected recursively (AD-93). A repeated
+type ends only its current traversal path. Findings retain the signature-rooted field path;
+distinct bad union members are separate findings, not duplicate reports of one position.
+Supported collections include `list`, `tuple`, `set`, `frozenset`, `Sequence`, `Iterable`,
+`Iterator`, `Collection`, `AbstractSet` and their `typing` spellings. A collection is only as
+decided as its members; `dict[...]` remains a broad container under this rule. Unsupported
+annotation shapes, unresolved names, missing annotations and externally owned types remain
+undecidable. Each rule files one UNKNOWN `boundary_type_limit` record
 in `unknowns`, carrying the positions it saw, the positions it decided and a count of each
 undecidable kind, so a reader sees how much of the facade the rule actually decided instead of
 reading no violation as proof of none (AD-67, issue #59). That record reports and does not gate --

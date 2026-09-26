@@ -61,7 +61,9 @@ decodes and fails closed with the missing section named (AD-3).
 
 For `boundary_types`, an imported entry from an ordinary module is followed only when one
 unchanged literal `__all__` explicitly exports its unique import binding (AD-109). Other or
-ambiguous export forms remain UNKNOWN rather than being inferred from an import alone.
+ambiguous export forms remain UNKNOWN rather than being inferred from an import alone. A named
+type may be published through its owner's proven facade export. An uncertain route is not proof
+of publication, and another component's export does not make that type public for its owner.
 
 The checker hashes its installed Python package separately from the analyzer digest.
 Delta schema 1.3.0 and expectation schema 1.2.0 bind `checker_digest`;
