@@ -132,6 +132,85 @@ assert.deepEqual([...reachableModules(unassigned)].sort(), [names[5]]);
     assert result.returncode == 0, result.stderr
 
 
+def test_structure_reports_zero_modules_for_an_empty_module_group() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function renderStructure(view)");
+const end = text.indexOf("  function renderReview(view)", begin);
+assert(begin >= 0 && end > begin);
+const alternative = {innerHTML: ""};
+const makeRenderer = () => new Function("alternative", "selected", "opened", "splitMap", "esc",
+  text.slice(begin, end) + ";return renderStructure")(
+    alternative, null, null,
+    mapped => mapped.map((item, index) => ({item, x: index, y: 0, width: 100, height: 100})),
+    String,
+  );
+const renderStructure = makeRenderer();
+renderStructure({components: [{label: "one", display: "one", modules: ["pkg.one"], library: false}]});
+assert(alternative.innerHTML.includes("1 observed modules"), alternative.innerHTML);
+renderStructure({components: [{label: "empty", display: "empty", modules: [], library: false}]});
+assert(alternative.innerHTML.includes("0 observed modules"), alternative.innerHTML);
+assert(!alternative.innerHTML.includes("1 observed modules"), alternative.innerHTML);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_component_inspector_lists_all_connections_independent_of_focus() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function renderInspector(visible)");
+const end = text.indexOf("  function legendSwatch(state)", begin);
+assert(begin >= 0 && end > begin);
+function render(componentLabel, allEdges, focusedEdges) {
+  const component = {label: componentLabel, modules: [], public: null, requires: []};
+  const inspector = {innerHTML: ""};
+  const selected = {type: "node", label: componentLabel};
+  const view = {components: [component], edges: focusedEdges};
+  const complete = {components: [component], edges: allEdges};
+  const renderInspector = new Function(
+    "selected", "showOverview", "level", "fullLevel", "esc", "opened",
+    "componentByLabel", "moduleTree", "DATA", "scopeRules", "scopeRuleList", "inspector",
+    text.slice(begin, end) + ";return renderInspector",
+  )(
+    selected, () => {}, () => view, () => complete, String, null,
+    new Map(), () => "", {}, () => [], () => "", inspector,
+  );
+  renderInspector([]);
+  return inspector.innerHTML;
+}
+const outbound = Array.from({length: 6}, (_, i) => ({source: "api", target: `consumer${i}`}));
+const inbound = Array.from({length: 6}, (_, i) => ({source: `provider${i}`, target: "api"}));
+const allEdges = [...outbound, ...inbound];
+// Model a focused diagram that includes only five of each direction.
+const focusedEdges = [...outbound.slice(0, 5), ...inbound.slice(0, 5)];
+const details = render("api", allEdges, focusedEdges);
+const empty = render("isolated", [], []);
+assert(empty.includes("<dt>Uses</dt><dd>—</dd>"), empty);
+assert(empty.includes("<dt>Used by</dt><dd>—</dd>"), empty);
+const missing = [];
+if (!details.includes("consumer0, consumer1, consumer2, consumer3, consumer4, consumer5"))
+  missing.push("sixth outgoing relationship is absent");
+if (!details.includes("provider0, provider1, provider2, provider3, provider4, provider5"))
+  missing.push("sixth incoming relationship is absent");
+assert.deepEqual(missing, [], details);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_analyzer_payload_keeps_unassigned_and_import_only_modules_navigable(
     tmp_path: Path,
 ) -> None:
