@@ -29,3 +29,19 @@ Check: `tests/test_boundary_types_non_init_facades.py`,
 `tests/test_boundary_types_reexport_proofs.py`, `tests/test_boundary_types_chain_proof.py`,
 `tests/test_boundary_types_facades.py`, `tests/test_boundary_type_finding_ids.py`, and the
 ordinary-facade variants in `fixtures/demo_catalog_types.py`.
+
+## Accepted self-measurement budgets
+
+The architect approved these two changes on 2026-09-26 for #165:
+
+| Source | Analyzer | Unresolved calls | UNKNOWN positions |
+|---|---|---:|---:|
+| Unchanged main `85d8f110` | Previous | 500 | 18 |
+| Same main `85d8f110` | Reviewed | 500 | 41 |
+| Implementation `ca91ebb` | Reviewed | 507 | 41 |
+
+The 18 to 41 change exposes uncertainty on unchanged source. The 500 to 507 change accepts
+seven additional unresolved call sites in the implementation: nine added, two removed.
+The added sites are index updates, list appends, string operations and the index constructor's
+`super()` call. Accepting their count does not prove them resolved or safe.
+Only these two baseline values change. The contract and empty violation baseline stay unchanged.
