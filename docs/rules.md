@@ -560,8 +560,12 @@ expression references its enum class only when the class binding and recorded li
 resolve statically (AD-108), and the root has one direct module-level class/import binding with no
 competing binder anywhere in that module. Type-parameter declarations also suppress enum-member
 evidence for the whole module. These conservative bounds can suppress valid evidence when an
-unrelated scope binds the same name; they avoid introducing a second Python scope resolver. Other
-references, including explicit imports, retain their existing meaning.
+unrelated scope binds the same name; they avoid introducing a second Python scope resolver.
+The defining enum binding must also be unambiguous. Scanned attribute writes/deletes invalidate
+overlapping qualified targets; an ambiguous imported writer suppresses this augmentation.
+Alias-copy assignments and dynamic mutation are not followed: this is syntactic evidence,
+not proof of runtime immutability. Other references, including explicit imports, retain their
+existing meaning.
 
 - **Measurement:** candidates, symbols examined, symbols set aside, and the unresolved-call share
   beside them.

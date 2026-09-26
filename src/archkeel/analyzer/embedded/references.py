@@ -13,7 +13,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass, stable_id
+from archkeel.ir.model import EvidenceClass, in_scope, stable_id
 
 from .records import RawEvidence, RawRecord, classified
 from .resolve import SymbolIndex, dotted_expression, resolve_name
@@ -71,6 +71,49 @@ def _enum_member_roots(module: ParsedModule) -> frozenset[str]:
     return frozenset(name for name in direct if binders.count(name) == 1)
 
 
+def _enum_member_classes(
+    parsed: Sequence[ParsedModule], index: SymbolIndex, roots: dict[str, frozenset[str]]
+) -> frozenset[str]:
+    eligible: set[str] = {
+        f"{module.module}.{name}"
+        for module in parsed
+        for name in roots[module.module]
+        if f"{module.module}.{name}" in index.enum_members
+    }
+    for module in parsed:
+        wildcard = any(
+            isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+            for node in ast.walk(module.tree)
+        )
+        for node in ast.walk(module.tree):
+            if not isinstance(node, ast.Attribute) or not isinstance(node.ctx, ast.Store | ast.Del):
+                continue
+            if wildcard:
+                return frozenset()
+            dotted = dotted_expression(node)
+            if dotted is None:
+                continue
+            root = node.value
+            while isinstance(root, ast.Attribute):
+                root = root.value
+            if not isinstance(root, ast.Name):
+                continue
+            binding = module.aliases.get(root.id)
+            if binding is not None:
+                if root.id not in roots[module.module]:
+                    # An ambiguous writer may refer to any of its competing imported targets.
+                    return frozenset()
+                written = binding.target + dotted[len(root.id) :]
+            elif f"{module.module}.{root.id}" in index.enum_members:
+                written = f"{module.module}.{dotted}"
+            else:
+                continue
+            eligible.difference_update(
+                [name for name in eligible if in_scope(name, written) or in_scope(written, name)]
+            )
+    return frozenset(eligible)
+
+
 class ReferenceCollector(ast.NodeVisitor):
     """Walk one module and record every non-call use of an indexed symbol."""
 
@@ -79,6 +122,8 @@ class ReferenceCollector(ast.NodeVisitor):
         module: ParsedModule,
         index: SymbolIndex,
         evidence: dict[str, RawEvidence],
+        enum_member_roots: frozenset[str],
+        enum_member_classes: frozenset[str],
     ) -> None:
         self.module = module
         self.index = index
@@ -86,7 +131,8 @@ class ReferenceCollector(ast.NodeVisitor):
         self.items: list[RawRecord] = []
         self.class_stack: list[str] = []
         self.scope_stack: list[str] = [module.module]
-        self.enum_member_roots = _enum_member_roots(module)
+        self.enum_member_roots = enum_member_roots
+        self.enum_member_classes = enum_member_classes
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         qualname = f"{self.scope_stack[-1]}.{node.name}"
@@ -174,6 +220,8 @@ class ReferenceCollector(ast.NodeVisitor):
         if status != "resolved" or len(targets) != 1:
             return None
         enum_name = targets[0]
+        if enum_name not in self.enum_member_classes:
+            return None
         members = self.index.enum_members.get(enum_name)
         return enum_name if members is not None and node.attr in members else None
 
@@ -185,8 +233,10 @@ def collect_references(
 ) -> list[RawRecord]:
     """Run the reference collector over every module and sort the records by id."""
     references: list[RawRecord] = []
+    roots = {module.module: _enum_member_roots(module) for module in parsed}
+    enum_classes = _enum_member_classes(parsed, index, roots)
     for module in parsed:
-        collector = ReferenceCollector(module, index, evidence)
+        collector = ReferenceCollector(module, index, evidence, roots[module.module], enum_classes)
         collector.visit(module.tree)
         references.extend(collector.items)
     references.sort(key=lambda item: item["id"])

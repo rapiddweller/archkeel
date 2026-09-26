@@ -14,8 +14,13 @@ anywhere in that module. A binder in an unrelated scope can therefore suppress
 otherwise valid evidence; type-parameter declarations conservatively suppress it
 for the whole module too. These bounds avoid guessing Python lexical scope
 without building a second resolver. Exact class/member resolution is still
-required, and no code is executed.
+required. The enum's defining binding must meet the same bound. Scanned attribute
+writes/deletes invalidate overlapping qualified targets; an ambiguous imported
+writer suppresses the augmentation. External writes leave unrelated enums alone.
+This is syntactic evidence, not proof of runtime immutability: assignments that
+copy an alias and dynamic mutation are not followed. No code is executed.
 
 Check: `tests/test_references.py` covers annotations, defaults, constructor
 arguments, unused enums, unknown members, and competing parameter, class,
-assignment, lambda, comprehension, exception and match binders.
+assignment, lambda, comprehension, exception and match binders independently,
+plus defining-module rebindings and cross-module attribute writes/deletes.

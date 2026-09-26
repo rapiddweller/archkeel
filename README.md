@@ -197,7 +197,7 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
-  level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
+  level, 25 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
   and under `claims` in `--json`, while the HTML report lists the candidates. Statically proven
   `Enum.MEMBER` uses in field annotations and defaults reference their enum class (AD-108). None
   of these claims reaches an exit code.
