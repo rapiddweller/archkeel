@@ -95,6 +95,43 @@ assert.equal(orphan.opensModule, "pkg");
     assert result.returncode == 0, result.stderr
 
 
+def test_deep_isolated_and_ownerless_modules_remain_reachable() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function rootPackage(");
+const end = text.indexOf("  // The declared names a module publishes", begin);
+assert(begin >= 0 && end > begin);
+const names = ["pkg", "pkg.deep", "pkg.deep.leaf", "pkg.deep.other", "solo", "unowned.nested.leaf"];
+const DATA = {modules: Object.fromEntries(names.map(name => [name, {
+  symbols: [], imports: [], exports: [], edges: [],
+}]))};
+const {cardLevel} = new Function("DATA", text.slice(begin, end) + ";return {cardLevel}")(DATA);
+function reachableModules(component) {
+  const reached = new Set();
+  function visit(path) {
+    for (const card of cardLevel(component, path).components) {
+      if (card.folder) visit([...path, card.label]);
+      else if (card.openable && card.opensModule) reached.add(card.opensModule);
+    }
+  }
+  visit([]);
+  return reached;
+}
+const owned = {label: "owned", modules: names.slice(0, 5), public: null, inner_edges: []};
+const unassigned = {label: "unassigned", modules: [names[5]], public: null, inner_edges: []};
+assert.deepEqual([...reachableModules(owned)].sort(), names.slice(0, 5).sort());
+assert.deepEqual([...reachableModules(unassigned)].sort(), [names[5]]);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_analyzer_payload_keeps_unassigned_and_import_only_modules_navigable(
     tmp_path: Path,
 ) -> None:
