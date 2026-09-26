@@ -107,7 +107,7 @@ def _inside_results(
     module_cycles: Sequence[RawRecord],
     facade_exports: dict[str, frozenset[str]],
     uncertain_reexport_origins: dict[str, frozenset[str]],
-) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate nested Dart rules with the imports and topology collected in its one pass."""
     return evaluate_inside_rule_results(
         inside_contracts,
@@ -160,7 +160,7 @@ def _rule_results(
     module_cycles: Sequence[RawRecord],
     facade_exports: dict[str, frozenset[str]],
     uncertain_reexport_origins: dict[str, frozenset[str]],
-) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate root and nested declarations against one shared Dart scan."""
     violations, _ = rule_violations(
         imports=sources.imports,
@@ -190,6 +190,7 @@ def _rule_results(
         inside[1],
         inside[2],
         inside[3],
+        inside[4],
     )
 
 
@@ -211,15 +212,17 @@ def scan_dart_repository(
     declarations = contract.declarations or ContractDeclarations()
     facade_exports = exports_by_module(modules)
     rule_failures = _rule_failures(sources, contract, facade_exports)
-    violations, inside_unknowns, inside_failures, inside_assessments = _rule_results(
-        sources,
-        contract,
-        inside_contracts,
-        packages,
-        modules,
-        module_cycles,
-        facade_exports,
-        uncertain_reexport_origins,
+    violations, inside_unknowns, inside_failures, inside_assessments, inside_allowances = (
+        _rule_results(
+            sources,
+            contract,
+            inside_contracts,
+            packages,
+            modules,
+            module_cycles,
+            facade_exports,
+            uncertain_reexport_origins,
+        )
     )
     rule_failures.extend(inside_failures)
     unknowns = _unknowns(
@@ -255,7 +258,7 @@ def scan_dart_repository(
         calls=[],
         references=[],
         bindings=[],
-        typing_signals=[],
+        typing_signals=inside_allowances,
         constructs=[],
         contexts=[],
         context_evidence=[],

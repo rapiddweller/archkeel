@@ -1888,12 +1888,40 @@ def _parse_contract_or_invalid(root: Path, config: ScanConfig) -> ArchitectureCo
 
 
 def _observed_or_invalid(
-    root: Path, config: ScanConfig, analyzer: Analyzer
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    contract: ArchitectureContract,
 ) -> Observation | RunResult:
     """The complete observation, or the exit-2 result naming what analyzer evidence is missing."""
     observed = observe_repository(root, config, analyzer)
     observation = observed.observation
     if observed.diagnostics or observation is None:
+        incomplete_inside = observation is not None and any(
+            item.kind == "inside_contract_incomplete"
+            for item in observation.records("unknowns") or ()
+        )
+        if incomplete_inside:
+            assert observation is not None
+            extra, _ = _repository_diagnostics(
+                root,
+                config,
+                contract,
+                observation,
+                write_graph=False,
+                report_violations=True,
+            )
+            diagnostics = [
+                *(replace(item, pointer=item.pointer or "") for item in observed.diagnostics),
+                *extra,
+            ]
+            return RunResult(
+                "validate",
+                2,
+                diagnostics=tuple(dict.fromkeys(diagnostics)),
+                coverage=observed.coverage,
+                python_version=observation.python_version,
+            )
         return RunResult(
             "validate",
             2,
@@ -2234,7 +2262,7 @@ def run_validate(
     references = reference_diagnostics(root, config, contract)
     if references:
         return RunResult("validate", 2, diagnostics=references), FilesToWrite()
-    observed = _observed_or_invalid(root, config, analyzer)
+    observed = _observed_or_invalid(root, config, analyzer, contract)
     if isinstance(observed, RunResult):
         return observed, FilesToWrite()
     observation = observed

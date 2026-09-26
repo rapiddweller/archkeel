@@ -309,7 +309,9 @@ def _modules_inside(observation: Observation) -> dict[str, FlowModule]:
 
 
 def _violated_pairs(
-    violation: Record, components: tuple[tuple[str, tuple[str, ...]], ...]
+    violation: Record,
+    components: tuple[tuple[str, tuple[str, ...]], ...],
+    imports_by_id: dict[str, Record] | None = None,
 ) -> tuple[tuple[str, str], ...]:
     """Return the component pair(s) one violation implicates, or none for a single-subject rule."""
     if violation.kind == "no_component_cycles":
@@ -318,15 +320,34 @@ def _violated_pairs(
         return tuple(
             (source, target) for source in members for target in members if source != target
         )
+    if violation.kind == "module_cycle" and imports_by_id is not None:
+        pairs = set()
+        for fact_id in violation.fact_ids:
+            item = imports_by_id.get(fact_id)
+            if item is None:
+                continue
+            source_module = text_value(item.data.get("source_module"))
+            target_module = text_value(item.data.get("target_module"))
+            if source_module is None or target_module is None:
+                continue
+            source_component = owner_of(source_module, components)
+            target_component = owner_of(target_module, components)
+            if (
+                source_component is not None
+                and target_component is not None
+                and source_component != target_component
+            ):
+                pairs.add((source_component, target_component))
+        return tuple(sorted(pairs))
     source = violation.data.get("source_component")
     target = violation.data.get("target_component")
     if not isinstance(source, str) or not isinstance(target, str):
-        source_module = violation.data.get("source_module")
-        target_module = violation.data.get("target_module")
-        if not isinstance(source_module, str) or not isinstance(target_module, str):
+        raw_source_module = violation.data.get("source_module")
+        raw_target_module = violation.data.get("target_module")
+        if not isinstance(raw_source_module, str) or not isinstance(raw_target_module, str):
             return ()
-        source = owner_of(source_module, components)
-        target = owner_of(target_module, components)
+        source = owner_of(raw_source_module, components)
+        target = owner_of(raw_target_module, components)
     if source is None or target is None or source == target:
         return ()
     return ((source, target),)
@@ -339,6 +360,7 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
     The view never infers a verdict from a declaration alone (AD-32, AD-34).
     """
     views: dict[str, FlowInside] = {}
+    imports_by_id = {item.id: item for item in observation.records("imports") or ()}
     for level in inside_levels(observation):
         inside_rule_ids = {
             record.id
@@ -372,7 +394,7 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
             scoped_rule_ids = set(violation.rule_ids) & inside_rule_ids
             if not scoped_rule_ids:
                 continue
-            for pair in _violated_pairs(violation, components):
+            for pair in _violated_pairs(violation, components, imports_by_id):
                 pair_rules[pair].update(scoped_rule_ids)
         has_relevant_unknown = any(
             record.data.get("parent_id") == level.parent
@@ -448,12 +470,13 @@ def build_flow(observation: Observation) -> FlowData:
     )
 
     edge_totals = _component_edges(observation, components)
+    imports_by_id = {item.id: item for item in observation.records("imports") or ()}
     edge_rules: dict[tuple[str, str], set[str]] = defaultdict(set)
     for violation in observation.records("violations") or ():
         scoped_rule_ids = set(violation.rule_ids) & root_rule_ids
         if not scoped_rule_ids:
             continue
-        for pair in _violated_pairs(violation, components):
+        for pair in _violated_pairs(violation, components, imports_by_id):
             if pair in edge_totals:
                 edge_rules[pair].update(scoped_rule_ids)
     undecided_pairs = {
