@@ -302,17 +302,54 @@ def resolve_reexports(
     imports: Sequence[RawRecord],
     exports_by_module: dict[str, set[str]],
     parsed: Sequence[ParsedModule] = (),
-) -> None:
+) -> dict[str, frozenset[str]]:
     """Follow re-export chains in place so each import records its origin definition."""
     unique_bindings = {module.module: unique_direct_module_bindings(module) for module in parsed}
+    alias_targets: dict[str, set[str]] = {}
+    uncertain_bindings: set[str] = set()
+    for item in imports:
+        data = item["data"]
+        if not data["symbol"] or not (data["reexport"] or data.get("reexport_candidate")):
+            continue
+        binding = f"{data['source_module']}.{data['binding']}"
+        target = f"{data['target_module']}.{data['symbol']}"
+        alias_targets.setdefault(binding, set()).add(target)
+        source_unique = data["source_module"] not in unique_bindings or (
+            data["binding"] in unique_bindings[data["source_module"]]
+        )
+        target_unique = data["target_module"] not in unique_bindings or (
+            data["symbol"] in unique_bindings[data["target_module"]]
+        )
+        if data.get("reexport_candidate") is True or not source_unique or not target_unique:
+            uncertain_bindings.add(binding)
+            data["reexport_candidate"] = True
+            data["reexport"] = False
+
+    def route_is_proven(binding: str) -> bool:
+        current = binding
+        visited: set[str] = set()
+        while current in alias_targets:
+            if current in visited or current in uncertain_bindings:
+                return False
+            targets = alias_targets[current]
+            if len(targets) != 1:
+                return False
+            visited.add(current)
+            current = next(iter(targets))
+        return True
+
     reexports: dict[str, str] = {}
     for item in imports:
         data = item["data"]
         if not data["reexport"] or not data["symbol"]:
             continue
-        reexports[f"{data['source_module']}.{data['binding']}"] = (
-            f"{data['target_module']}.{data['symbol']}"
-        )
+        binding = f"{data['source_module']}.{data['binding']}"
+        if not route_is_proven(binding):
+            uncertain_bindings.add(binding)
+            data["reexport_candidate"] = True
+            data["reexport"] = False
+            continue
+        reexports[binding] = f"{data['target_module']}.{data['symbol']}"
     for item in imports:
         data = item["data"]
         if not data["symbol"]:
@@ -321,6 +358,9 @@ def resolve_reexports(
             data["symbol_visibility"] = None
             data["declared_in_all"] = False
             continue
+        source_binding_unique = data["source_module"] not in unique_bindings or (
+            data["binding"] in unique_bindings[data["source_module"]]
+        )
         current = f"{data['target_module']}.{data['symbol']}"
         chain = [current]
         seen = {current}
@@ -334,13 +374,43 @@ def resolve_reexports(
         data["origin_binding_unique"] = (
             origin_module not in unique_bindings or origin_name in unique_bindings[origin_module]
         )
-        if data.get("ordinary_module") and data["reexport"] and not data["origin_binding_unique"]:
+        if data["reexport"] and (
+            not source_binding_unique
+            or (data.get("ordinary_module") and not data["origin_binding_unique"])
+        ):
             data["reexport_candidate"] = True
             data["reexport"] = False
         data["symbol_visibility"] = "private" if data["symbol"].startswith("_") else "public_name"
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()
         )
+
+    def terminal_origins(binding: str) -> frozenset[str]:
+        pending = [binding]
+        visited: set[str] = set()
+        terminals: set[str] = set()
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            targets = alias_targets.get(current)
+            if targets:
+                pending.extend(targets - visited)
+            else:
+                terminals.add(current)
+        return frozenset(terminals)
+
+    return {binding: terminal_origins(binding) for binding in uncertain_bindings}
+
+
+def strip_internal_reexport_facts(imports: Sequence[RawRecord]) -> None:
+    """Keep proof bookkeeping out of serialized IR import records."""
+    for item in imports:
+        data = item["data"]
+        data.pop("ordinary_module", None)
+        data.pop("origin_binding_unique", None)
+        data.pop("reexport_candidate", None)
 
 
 def all_is_one_literal(tree: ast.Module) -> bool:

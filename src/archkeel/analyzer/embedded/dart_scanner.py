@@ -26,7 +26,7 @@ from .dependencies import (
     package_records,
     transitive_path_records,
 )
-from .imports import resolve_reexports
+from .imports import resolve_reexports, strip_internal_reexport_facts
 from .records import RawRecord
 from .scanner import ScanResult, api_surface_limits, coverage_payload
 from .violations import (
@@ -129,6 +129,7 @@ def scan_dart_repository(
         *sources.failures,
         *rule_failures,
     ]
+    strip_internal_reexport_facts(sources.imports)
     return ScanResult(
         source_digest=sources.source_digest,
         coverage=coverage_payload(

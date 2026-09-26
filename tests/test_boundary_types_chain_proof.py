@@ -246,3 +246,72 @@ def test_candidate_chain_cannot_authorize_an_interface_import(
         if "APP-BOUNDARY" in record.rule_ids
     ]
     assert bool(blocked) is rebound, "A candidate origin cannot prove a public interface route"
+
+
+def test_uncertain_alias_cycle_terminates_without_proving_the_facade(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from .middle0 import constraints\n" + EXPORT + SAFE,
+    )
+    (tmp_path / "sample/app/middle0.py").write_text(
+        "from .middle1 import constraints\n"
+        "from .impl import element_constraints as constraints\n"
+        '__all__ = ["constraints"]\n'
+    )
+    (tmp_path / "sample/app/middle1.py").write_text(
+        'from .middle0 import constraints\n__all__ = ["constraints"]\n'
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert not result.observation.records("violations")
+    assert any(
+        record.kind.startswith("boundary")
+        for record in result.observation.records("unknowns") or ()
+    )
+
+
+def test_public_alias_cycle_is_unknown_beside_a_typed_function(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from .middle0 import constraints\n" + EXPORT + SAFE,
+    )
+    for index in (0, 1):
+        (tmp_path / f"sample/app/middle{index}.py").write_text(
+            f'from .middle{1 - index} import constraints\n__all__ = ["constraints"]\n'
+        )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    route_unknowns = [
+        record
+        for record in result.observation.records("unknowns") or ()
+        if "APP-TYPES-NOT-DICT" in record.rule_ids and record.kind == "boundary_type_route"
+    ]
+    assert route_unknowns, "A cyclic alias cannot disappear from public-boundary coverage"
+    assert all(
+        record.data.get("position") is None and record.data.get("annotation") is None
+        for record in route_unknowns
+    )
+    assert not any(
+        record.kind == "rule-without-subjects"
+        for record in result.observation.records("unknowns") or ()
+    )
