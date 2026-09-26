@@ -1849,15 +1849,7 @@ def _resolve_against_context(
     rationale: str | None,
     against_config: ScanConfig | None,
 ) -> tuple[_AgainstContext, RunResult | None]:
-    """The contract and baseline `--against` names, and `--amendment`'s record.
-
-    A missing violation baseline blob at that revision means no prior known debt. A declared
-    measurement budget is different: without its prior accepted value the comparison is not
-    decidable, so the revision is rejected instead of being treated as zero. A missing contract
-    blob is the contract's introduction (AD-104); a baseline the revision still holds is compared
-    as before, one it lacks too is not compared at all. Any other blob Git cannot hand over is
-    `against.invalid`.
-    """
+    """Resolve revision inputs without treating absent measurement budgets as zero."""
     empty = _AgainstContext(
         against,
         None,

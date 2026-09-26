@@ -1,8 +1,6 @@
 # AD-105 A package rename is compared under its new names
 
-`validate --against <ref>` compares the contract at `ref` with the one validated field by field
-(AD-61). A rename changes every field that names the package, so a rename that widens nothing
-read as dozens of widenings, and a `public` entry it replaced was not even listed as lost (#151).
+`validate --against <ref>` reported package renames as widenings and omitted replaced public entries (#151, AD-61).
 
 Now the component packages that moved propose a prefix substitution: `shop.render -> shop.view`,
 or `window_cleaning_mobile -> field_service_mobile` with `...features.kunde -> ...customer`. A
@@ -19,8 +17,6 @@ compared, so a real widening beside a rename fails alone.
 | G-dart: package `shop -> field_shop`, `lib/presentation -> lib/ui` | 21 | 0 |
 | shop sample: `shop -> store_app`, scan roots and namespace included | 85 | 1: moved `inside` |
 | Archkeel itself: `archkeel.host -> archkeel.hosting`, with its baseline | 5 | 0 |
-
-## What is renamed
 
 Only the module and symbol fields `ir.model.module_references` lists: never an id, label, kind,
 `decided_by` or construct, so root `agent` renamed `architect` still reports each flipped
@@ -54,11 +50,8 @@ Each clause has a test that fails without it:
 
 Candidates go shortest first; unparseable renamed contracts are skipped, then compared field by field.
 
-## Published resolver (#158)
-
-The CLI already uses `archkeel.check.snapshot.resolve_commit` for `--against`; publish that
-existing function in the `check` and nested `foundation` interfaces. This adds exactly one
-observed name, so the `cli -> check` ceiling and accepted baseline both move from 9 to 10.
+Approved on 2026-09-26 (#158): publish the existing `check.snapshot.resolve_commit` in `check`
+and nested `foundation`. The CLI already uses it; its coupling ceiling and baseline move 9→10.
 
 ## Rejected
 
@@ -74,6 +67,4 @@ observed name, so the `cli -> check` ceiling and accepted baseline both move fro
 - Code is judged by name and place: two packages trading places read as the rename the contract
   states, a code move between components `--against` never judged.
 
-## Tests
-
-`tests/test_renames.py`, `tests/test_rename_physical_roots.py`, and rename demo rows.
+Tests: `tests/test_renames.py`, `tests/test_rename_physical_roots.py`, and rename demo rows.
