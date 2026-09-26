@@ -11,6 +11,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, TypeAlias
 
+from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.model import (
     ArchitectureContract,
     ContractComponent,
@@ -207,7 +208,7 @@ def api_surface_limits(
 
 
 def _inside_rule_results(
-    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]],
+    inside_contracts: Sequence[InsideContractMount],
     *,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
@@ -231,11 +232,13 @@ def _inside_rule_results(
     failures: list[RawRecord] = []
     assessments: list[RawRecord] = []
     allowances: list[RawRecord] = []
-    for parent, declared in inside_contracts:
-        scoped, source_modules, scope_failures = _inside_source_domain(parent, declared, modules)
+    for mount in inside_contracts:
+        scoped, source_modules, scope_failures = _inside_source_domain(
+            mount.parent, mount.contract, modules, mount.parent_id
+        )
         failures.extend(scope_failures)
         results = _evaluate_inside_contract(
-            parent,
+            mount.parent,
             scoped,
             source_modules,
             root_contract=root_contract,
@@ -272,6 +275,7 @@ def _inside_source_domain(
     parent: ContractComponent,
     declared: ArchitectureContract,
     modules: Sequence[RawRecord],
+    parent_id: str,
 ) -> tuple[ArchitectureContract, frozenset[str], list[RawRecord]]:
     """Clip child ownership claims to the parent's physical packages and report what was cut."""
     roots = parent.packages
@@ -292,14 +296,14 @@ def _inside_source_domain(
         if outside:
             failures.append(
                 classified(
-                    item_id=stable_id("UNKNOWN-INSIDE-SOURCE-DOMAIN", parent.label, component.id),
+                    item_id=stable_id("UNKNOWN-INSIDE-SOURCE-DOMAIN", parent_id, component.id),
                     evidence_class=EvidenceClass.UNKNOWN,
                     area="analysis_coverage",
                     kind="inside_source_domain_incomplete",
                     title=(f"{component.label} claims {', '.join(outside)} outside {parent.label}"),
                     subjects=[component.label, *outside],
                     rule_ids=[rule.id for rule in declared.rules],
-                    data={"parent_id": parent.label, "packages": outside},
+                    data={"parent_id": parent_id, "packages": outside},
                 )
             )
         components.append(replace(component, packages=packages))
@@ -398,7 +402,7 @@ def scan_repository(
     source_paths: Sequence[Path] | None = None,
     roots: tuple[str, ...],
     namespace: str,
-    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]] = (),
+    inside_contracts: Sequence[InsideContractMount] = (),
 ) -> ScanResult:
     """Scan production Python and return the deterministic observed model sections."""
     paths = (

@@ -12,6 +12,7 @@ from test_analyzer import _component, _inside_component, _observe
 from test_architecture_demo import FIXTURE_DIR, _prepare_repo
 
 from archkeel.analyzer import observe
+from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import inside_diagnostics
 from archkeel.cli import main
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
@@ -222,7 +223,9 @@ def test_inside_component_cannot_claim_packages_outside_its_parent(tmp_path: Pat
     path.write_text(json.dumps(inner))
 
     outer = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
-    diagnostics = inside_diagnostics(tmp_path, outer)
+    diagnostics = inside_diagnostics(
+        tmp_path, outer, ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
+    )
 
     assert any(
         item.pointer == "/components/0/inside" and "sample.foreign" in item.unknown_claim
@@ -719,7 +722,9 @@ def test_missing_inside_does_not_suppress_valid_sibling_violation(
     ] == [("service:REQUIRES-COMPLETE",)]
 
     outer = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
-    missing_diagnostics = inside_diagnostics(tmp_path, outer)
+    missing_diagnostics = inside_diagnostics(
+        tmp_path, outer, ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
+    )
     assert any("missing.json" in item.subject for item in missing_diagnostics), missing_diagnostics
     _scan_config(tmp_path)
     _commit_test_root(tmp_path)

@@ -14,7 +14,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from archkeel.ir.model import ArchitectureContract, ContractComponent, ContractDeclarations
+from archkeel.ir.codec import InsideContractMount
+from archkeel.ir.model import ArchitectureContract, ContractDeclarations
 from archkeel.ir.profiles import DART
 
 from .dart_libraries import DartSources, read_dart_sources
@@ -100,7 +101,7 @@ def _rule_failures(
 
 
 def _inside_results(
-    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]],
+    inside_contracts: Sequence[InsideContractMount],
     sources: DartSources,
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
@@ -154,7 +155,7 @@ def _unknowns(
 def _rule_results(
     sources: DartSources,
     contract: ArchitectureContract,
-    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]],
+    inside_contracts: Sequence[InsideContractMount],
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     module_cycles: Sequence[RawRecord],
@@ -200,7 +201,7 @@ def scan_dart_repository(
     *,
     roots: tuple[str, ...],
     namespace: str,
-    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]] = (),
+    inside_contracts: Sequence[InsideContractMount] = (),
 ) -> ScanResult:
     """Scan the Dart libraries of the scan roots into the shared observation sections."""
     sources = read_dart_sources(root, roots=roots, namespace=namespace)

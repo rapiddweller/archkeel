@@ -22,12 +22,14 @@ from archkeel.ir.baseline import (
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
+    InsideContractTree,
     absent_contract_digest,
     amendment_bytes,
     baseline_bytes,
     contract_digest,
     contract_provenance_paths,
     decode_json,
+    load_inside_contract_tree,
     parse_amendment,
     parse_contract,
     parse_validation_baseline,
@@ -1334,6 +1336,30 @@ def repository_file(repository: Path, value: str) -> Path | None:
     return target
 
 
+def _inside_contract_tree(
+    repository: Path, contract_path: str, contract: ArchitectureContract
+) -> InsideContractTree | None:
+    """Load mounted declarations with the same path checks used by observation snapshots."""
+    root = repository.resolve()
+    target = repository_file(root, contract_path)
+    if target is None:
+        return None
+
+    def read_inside(path: str) -> tuple[bytes, str]:
+        child = repository_file(root, path)
+        if child is None:
+            raise ValueError("file is missing or outside the repository")
+        return child.read_bytes(), child.relative_to(root).as_posix()
+
+    return load_inside_contract_tree(
+        target.relative_to(root).as_posix(),
+        contract,
+        contract_digest(contract),
+        target.relative_to(root).as_posix(),
+        read_inside,
+    )
+
+
 def reference_diagnostics(
     root: Path,
     config: ScanConfig,
@@ -1533,7 +1559,12 @@ def _inside_source_domain_diagnostics(
     ]
 
 
-def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
+def inside_diagnostics(
+    root: Path,
+    contract: ArchitectureContract,
+    config: ScanConfig,
+    tree: InsideContractTree | None = None,
+) -> tuple[Diagnostic, ...]:
     """AD-20: hold a component and the contract describing its inside to each other.
 
     Two checks: the levels must agree on the component's public surface, and the inside must
@@ -1541,59 +1572,50 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
     inside's `allowed_dependency` rules; an `external_dependency_scope` there is not yet
     compared, which stays a blind spot. AD-99 adds that the inside declares no budget.
     """
-    repository = root.resolve()
     diagnostics: list[Diagnostic] = []
-    for index, component in enumerate(contract.components):
-        if component.inside is None:
-            continue
-        pointer = f"/components/{index}/inside"
-        target = repository_file(repository, component.inside)
-        if target is None:
-            diagnostics.append(
-                _diagnostic(
-                    "contract.invalid",
-                    pointer,
-                    component.inside,
-                    "The contract describing this inside is missing or outside the repository.",
-                    "Reference an existing repository-relative contract, or drop `inside`.",
-                )
+    loaded = tree or _inside_contract_tree(root, config.contract, contract)
+    if loaded is None:
+        return ()
+    for issue in loaded.issues:
+        diagnostics.append(
+            _diagnostic(
+                "contract.invalid",
+                issue.pointer,
+                issue.path,
+                f"The contract describing this inside cannot be loaded: {issue.reason}",
+                "Repair the repository-relative contract reference.",
             )
-            continue
-        try:
-            inner = parse_contract(decode_json(target.read_bytes()))
-        except (OSError, ValueError, ContractVersionError) as error:
-            diagnostics.append(
-                _diagnostic(
-                    "contract.invalid",
-                    pointer,
-                    component.inside,
-                    f"The contract describing this inside cannot be read: {error}",
-                    "Repair the inside contract so `validate` accepts it on its own.",
-                )
-            )
-            continue
-        diagnostics.extend(_inside_source_domain_diagnostics(pointer, component, inner))
-        diagnostics.extend(_inside_budgets(pointer, component.inside, inner))
-        declared = frozenset(component.public or ())
+        )
+    for mount in loaded.mounts:
+        inner = mount.contract
+        parent = mount.parent
+        pointer = mount.pointer
+        diagnostics.extend(
+            _inside_source_domain_diagnostics(pointer, parent, inner)
+        )
+        diagnostics.extend(_inside_budgets(pointer, mount.path, inner))
+        declared = frozenset(parent.public or ())
         inside = _inside_public(inner)
         if declared != inside:
             diagnostics.append(
                 _diagnostic(
                     "inside.public_mismatch",
                     pointer,
-                    component.label,
+                    mount.parent_id,
                     f"The level above declares {sorted(declared)} public for this component "
                     f"while its inside declares {sorted(inside)}.",
                     "Declare one public surface and repeat it in both contracts.",
                 )
             )
-        denied = _forbidden_targets(contract, component.packages)
-        required = frozenset(entry.component for entry in component.requires or ())
+        denied = _forbidden_targets(mount.parent_contract, parent.packages)
+        required = frozenset(entry.component for entry in parent.requires or ())
         for rule in inner.rules:
             if not isinstance(rule, AllowedDependencyRule):
                 continue
             blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
-            absent = _denied_by_absence(contract, component.label, required, rule.target)
+            absent = _denied_by_absence(
+                mount.parent_contract, parent.label, required, rule.target
+            )
             if absent is not None:
                 blocked.append(absent)
             if blocked:
@@ -1601,9 +1623,9 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
                     _diagnostic(
                         "inside.forbidden_import",
                         pointer,
-                        f"{component.label} -> {rule.target}",
+                        f"{mount.parent_id} -> {rule.target}",
                         f"The inside allows {rule.target}, which {', '.join(sorted(blocked))} "
-                        f"forbids {component.label} at the level above.",
+                        f"forbids {mount.parent_id} at the level above.",
                         "Remove the grant inside, or decide the pair differently above.",
                     )
                 )
@@ -1618,6 +1640,7 @@ def _repository_diagnostics(
     write_graph: bool,
     report_violations: bool,
     resolved_public_entries: frozenset[tuple[str, str]] = frozenset(),
+    inside_tree: InsideContractTree | None = None,
 ) -> tuple[list[Diagnostic], tuple[tuple[str, str], ...]]:
     """Every diagnostic a complete observation adds, once the contract's references hold.
 
@@ -1650,7 +1673,7 @@ def _repository_diagnostics(
             report_violations=report_violations,
             resolved_public_entries=resolved_public_entries,
         ),
-        *inside_diagnostics(root, contract),
+        *inside_diagnostics(root, contract, config, inside_tree),
     ], edits
 
 
@@ -1954,6 +1977,30 @@ class _AgainstContext:
     parsed_amendment: Amendment | None
     decided_by: str | None
     rationale: str | None
+    tree_digest: str | None = None
+
+
+def _revision_contract_tree(root: Path, revision: str, path: str) -> InsideContractTree:
+    """Resolve one revision's root and explicit inside declarations from Git blobs."""
+    contract = parse_contract(decode_json(read_blob(root, revision, path)))
+
+    def read_inside(reference: str) -> tuple[bytes, str]:
+        try:
+            return read_blob(root, revision, reference), reference
+        except GitError as error:
+            raise ValueError(str(error)) from error
+
+    tree = load_inside_contract_tree(
+        path,
+        contract,
+        contract_digest(contract),
+        path,
+        read_inside,
+    )
+    if tree.issues:
+        issue = tree.issues[0]
+        raise ValueError(f"inside {issue.path!r}: {issue.reason}")
+    return tree
 
 
 def _resolve_against_context(
@@ -1982,11 +2029,12 @@ def _resolve_against_context(
         return empty, None
     parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
     try:
-        against_contract: ArchitectureContract | _Introduced = parse_contract(
-            decode_json(read_blob(root, against, config.contract))
-        )
+        tree = _revision_contract_tree(root, against, config.contract)
+        against_contract: ArchitectureContract | _Introduced = tree.comparison_contract
+        before_tree_digest: str | None = tree.digest
     except MissingBlobError as error:
         against_contract = _Introduced(error.path)
+        before_tree_digest = None
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
     # Without the contract every entry of a baseline the revision lacks too would repeat the
@@ -2028,6 +2076,7 @@ def _resolve_against_context(
         parsed_amendment,
         decided_by,
         rationale,
+        before_tree_digest,
     )
     return context, amendment_error
 
@@ -2053,11 +2102,13 @@ def _resolve_amendment(
         return None, _amendment_invalid(amendment, error)
 
 
-def _before_digest(contract: ArchitectureContract | _Introduced) -> str:
+def _before_digest(
+    contract: ArchitectureContract | _Introduced, tree_digest: str | None = None
+) -> str:
     """The digest an amendment binds for the `--against` side (AD-61, AD-104)."""
     if isinstance(contract, _Introduced):
         return absent_contract_digest(contract.path)
-    return contract_digest(contract)
+    return tree_digest or contract_digest(contract)
 
 
 def _cycle_rule_ids(contract: ArchitectureContract) -> frozenset[str]:
@@ -2072,6 +2123,7 @@ def _widening_failures(
     after_baseline: tuple[KnownViolation, ...],
     after_budgets: tuple[MeasurementBudget, ...],
     cycle_rules: frozenset[str],
+    after_digest: str,
 ) -> tuple[str, ...]:
     """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
     if ctx.against is None or ctx.contract is None:
@@ -2090,8 +2142,8 @@ def _widening_failures(
         ctx.parsed_amendment is not None
         and verify_amendment(
             ctx.parsed_amendment,
-            before_digest=_before_digest(ctx.contract),
-            after_digest=contract_digest(contract),
+            before_digest=_before_digest(ctx.contract, ctx.tree_digest),
+            after_digest=after_digest,
         )
     )
     return tuple(findings) if findings and not amended else ()
@@ -2104,9 +2156,9 @@ def _artifact_files(
     violations: tuple[KnownViolation, ...],
     budgets: tuple[MeasurementBudget, ...],
     against: _AgainstContext,
-    contract: ArchitectureContract,
     edits: tuple[tuple[str, str], ...],
     exit_code: int,
+    current_digest: str,
 ) -> tuple[dict[str, bytes], str | None]:
     """Every file this run writes, and the last one written, as the result's `artifact`.
 
@@ -2128,8 +2180,8 @@ def _artifact_files(
         artifact = str(against.amendment)
         files[artifact] = amendment_bytes(
             Amendment(
-                _before_digest(against.contract),
-                contract_digest(contract),
+                _before_digest(against.contract, against.tree_digest),
+                current_digest,
                 against.decided_by or "",
                 against.rationale or "",
             )
@@ -2241,6 +2293,13 @@ def run_validate(
     if isinstance(parsed_contract, RunResult):
         return parsed_contract, FilesToWrite()
     contract = parsed_contract
+    inside_tree = _inside_contract_tree(root, config.contract, contract)
+    comparison_contract = (
+        contract if inside_tree is None else inside_tree.comparison_contract
+    )
+    current_tree_digest = (
+        contract_digest(contract) if inside_tree is None else inside_tree.digest
+    )
     declarations = contract.declarations or ContractDeclarations()
     declared_budgets = tuple(item.name for item in declarations.measurement_budgets)
     if declared_budgets and baseline is None:
@@ -2278,6 +2337,7 @@ def run_validate(
         write_graph,
         baseline is None,
         resolved_public_entries,
+        inside_tree,
     )
     try:
         observed_budgets = selected_budgets(measure_python_ratchets(observation), declared_budgets)
@@ -2302,7 +2362,7 @@ def run_validate(
     )
     if baseline_exists:
         budget_results = _compared_budgets(budget_results, known_budgets)
-    cycle_rules = _cycle_rule_ids(contract)
+    cycle_rules = _cycle_rule_ids(comparison_contract)
     baseline_new, baseline_resolved = (
         violation_drift_counts(known, violations, cycle_rules=cycle_rules)
         if baseline_exists
@@ -2331,11 +2391,12 @@ def run_validate(
     )
     widening_failures = _widening_failures(
         against_ctx,
-        contract,
+        comparison_contract,
         baseline,
         violations if write_baseline else known,
         observed_budgets if write_baseline else known_budgets,
         cycle_rules,
+        current_tree_digest,
     )
     result = _observed_result(
         observation,
@@ -2370,8 +2431,8 @@ def run_validate(
         violations=violations,
         budgets=observed_budgets,
         against=against_ctx,
-        contract=contract,
         edits=edits,
         exit_code=result.exit_code,
+        current_digest=current_tree_digest,
     )
     return (result if artifact is None else replace(result, artifact=artifact)), FilesToWrite(files)

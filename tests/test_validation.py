@@ -67,7 +67,8 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
     inside.write_text(json.dumps(inner))
     analyzer_inside.write_text(json.dumps(analyzer_inner))
 
-    assert inside_diagnostics(root, parse_contract(outer)) == ()
+    inside_config = ScanConfig(("src",), "archkeel", "architecture-contract.json", "0" * 64)
+    assert inside_diagnostics(root, parse_contract(outer), inside_config) == ()
 
     inner["rules"].append(
         {
@@ -82,7 +83,7 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
     )
     inside.write_text(json.dumps(inner))
 
-    diagnostics = inside_diagnostics(root, parse_contract(outer))
+    diagnostics = inside_diagnostics(root, parse_contract(outer), inside_config)
 
     assert [item.code for item in diagnostics] == ["inside.forbidden_import"]
     assert "REQUIRES-COMPLETE" in diagnostics[0].unknown_claim

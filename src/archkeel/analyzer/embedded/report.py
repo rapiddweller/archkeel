@@ -5,16 +5,13 @@
 
 from __future__ import annotations
 
-import hashlib
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.codec import ContractVersionError
+from archkeel.ir.codec import InsideContractMount, load_inside_contract_tree
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureContract,
-    ContractComponent,
     EvidenceClass,
     contract_relative_path,
     stable_id,
@@ -22,7 +19,6 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import PROFILES, Language
 
 from .contract import (
-    ContractError,
     load_contract,
     project_declarations,
     project_inside_declarations,
@@ -34,84 +30,52 @@ from .scanner import ScanResult, scan_repository
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
 
-def _owned_rules(parent: str, inner: ArchitectureContract) -> ArchitectureContract:
-    """Rename the inside's rules under the component holding them, once, on the way in (AD-36).
-
-    Record ids are one namespace across both levels. Renaming here means everything downstream
-    - the projected declaration, the violation and the id that violation is filed under - is
-    built from the name it will be read by, instead of being corrected afterwards.
-    """
-    return replace(
-        inner,
-        components=tuple(
-            replace(component, id=f"{parent}:{component.id}") for component in inner.components
-        ),
-        rules=tuple(replace(rule, id=f"{parent}:{rule.id}") for rule in inner.rules),
-    )
-
-
 def _inside_levels(
-    root: Path, contract: ArchitectureContract
+    root: Path, contract_path: Path, contract: ArchitectureContract, root_digest: str
 ) -> tuple[
     list[RawRecord],
-    list[str],
-    list[tuple[ContractComponent, ArchitectureContract]],
+    str,
+    list[InsideContractMount],
     list[RawRecord],
 ]:
-    """Load each declared inside contract, project it, and collect its digest (AD-34).
+    """Load and project every explicitly mounted inside contract (AD-34).
 
     A missing or invalid nested contract is an UNKNOWN in the observation, not an empty level.
     """
     records: list[RawRecord] = []
-    digests: list[str] = []
-    contracts: list[tuple[ContractComponent, ArchitectureContract]] = []
     failures: list[RawRecord] = []
+    repository = root.resolve()
 
-    def failure(component: ContractComponent, reason: str) -> None:
-        path = component.inside or "inside"
+    def read_inside(path: str) -> tuple[bytes, str]:
+        relative = contract_relative_path(path)
+        if relative is None:
+            raise ValueError("unsafe repository path")
+        target = (repository / relative).resolve()
+        if not target.is_relative_to(repository) or not target.is_file():
+            raise ValueError("file is missing or outside the repository")
+        return target.read_bytes(), target.relative_to(repository).as_posix()
+
+    tree = load_inside_contract_tree(
+        contract_path.relative_to(repository).as_posix(),
+        contract,
+        root_digest,
+        contract_path.resolve().relative_to(repository).as_posix(),
+        read_inside,
+    )
+    for issue in tree.issues:
         record = classified(
-            item_id=stable_id("UNKNOWN-INSIDE-CONTRACT", component.label, path),
+            item_id=stable_id("UNKNOWN-INSIDE-CONTRACT", issue.parent_id, issue.path),
             evidence_class=EvidenceClass.UNKNOWN,
             area="analysis_coverage",
             kind="inside_contract_incomplete",
-            title=f"{component.label} inside contract cannot be evaluated: {reason}",
-            subjects=[component.label, path],
-            data={"parent_id": component.label, "path": path, "reason": reason},
+            title=f"{issue.parent.label} inside contract cannot be evaluated: {issue.reason}",
+            subjects=[issue.parent_id, issue.path],
+            data={"parent_id": issue.parent_id, "path": issue.path, "reason": issue.reason},
         )
         failures.append(record)
-
-    for component in contract.components:
-        if component.inside is None:
-            continue
-        relative = contract_relative_path(component.inside)
-        if relative is None:
-            failure(component, "path is outside the repository or invalid")
-            continue
-        target = (root / relative).resolve()
-        if not target.is_relative_to(root) or not target.is_file():
-            failure(component, "file is missing or outside the repository")
-            continue
-        try:
-            inner, digest = load_contract(target)
-        except (ContractError, ContractVersionError) as error:
-            failure(component, f"file is invalid: {error}")
-            continue
-        owned = _owned_rules(component.label, inner)
-        records.extend(project_inside_declarations(component.label, owned))
-        digests.append(digest)
-        contracts.append((component, owned))
-    return records, digests, contracts, failures
-
-
-def _contract_tree_digest(digest: str, inside_digests: list[str]) -> str:
-    """Fold the inside contracts into the contract digest (AD-34).
-
-    Comparability hangs on this value: unfolded, an edit to a level's own contract would change
-    the picture while `delta` still called two observations comparable.
-    """
-    if not inside_digests:
-        return digest
-    return hashlib.sha256("".join([digest, *inside_digests]).encode()).hexdigest()
+    for mount in tree.mounts:
+        records.extend(project_inside_declarations(mount.parent_id, mount.contract))
+    return records, tree.digest, list(tree.mounts), failures
 
 
 def _contract_source(
@@ -384,7 +348,7 @@ def _scan_contract(
     source_paths: list[Path] | tuple[Path, ...] | None,
     roots: tuple[str, ...],
     namespace: str,
-    inside_contracts: list[tuple[ContractComponent, ArchitectureContract]],
+    inside_contracts: list[InsideContractMount],
 ) -> ScanResult:
     """Run the selected profile once with its loaded inside contracts."""
     if language == "dart":
@@ -434,8 +398,8 @@ def analyze_snapshot(
     declarations_root, contract_file = _contract_source(source_root, contract_root, contract_path)
     contract_reference = contract_file.relative_to(declarations_root).as_posix()
     contract, contract_digest = load_contract(contract_file)
-    inside_records, inside_digests, inside_contracts, inside_failures = _inside_levels(
-        declarations_root, contract
+    inside_records, full_contract_digest, inside_contracts, inside_failures = _inside_levels(
+        declarations_root, contract_file, contract, contract_digest
     )
     profile = PROFILES[language]
     scan = _scan_contract(
@@ -466,7 +430,7 @@ def analyze_snapshot(
         },
         "contract": {
             "schema_version": contract.schema_version,
-            "digest": _contract_tree_digest(contract_digest, inside_digests),
+            "digest": full_contract_digest,
             "path": contract_reference,
         },
         "coverage": scan.coverage,

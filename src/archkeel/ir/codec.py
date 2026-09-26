@@ -10,8 +10,9 @@ import json
 import re
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, replace
 from math import isfinite
+from pathlib import PurePosixPath
 from typing import Any, Final, Literal, TypeAlias, TypeGuard, get_args
 
 from archkeel.ir.baseline import (
@@ -1802,20 +1803,192 @@ def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]
     return tuple(sorted(paths))
 
 
-def declaration_paths(payload: bytes, contract_path: str) -> tuple[str, ...]:
-    """Every repository path a contract's declarations are read from, the insides included.
+@dataclass(frozen=True)
+class InsideContractMount:
+    """One explicitly mounted contract, scoped by the component that names it."""
 
-    A `check` snapshot that left the inside contracts behind would observe the level above
-    while the lock was written over both, so the two could never agree (AD-36). The same
-    filter `report` applies decides which insides count, so both commands skip the same ones.
-    """
+    parent: ContractComponent
+    parent_contract: ArchitectureContract
+    parent_id: str
+    pointer: str
+    path: str
+    contract: ArchitectureContract
+    digest: str
+
+
+@dataclass(frozen=True)
+class InsideContractIssue:
+    """A declared inside reference that cannot be safely mounted."""
+
+    parent: ContractComponent
+    parent_id: str
+    pointer: str
+    path: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class InsideContractTree:
+    """One deterministic depth-first view of a root contract and all explicit insides."""
+
+    root: ArchitectureContract
+    mounts: tuple[InsideContractMount, ...]
+    issues: tuple[InsideContractIssue, ...]
+    paths: tuple[str, ...]
+    digest: str
+    comparison_contract: ArchitectureContract
+
+
+def _scoped_inside_contract(parent_id: str, contract: ArchitectureContract) -> ArchitectureContract:
+    return replace(
+        contract,
+        components=tuple(
+            replace(item, id=f"{parent_id}:{item.id}") for item in contract.components
+        ),
+        rules=tuple(replace(item, id=f"{parent_id}:{item.id}") for item in contract.rules),
+    )
+
+
+def _safe_inside_reference(value: str) -> bool:
+    path = PurePosixPath(value)
+    return bool(
+        value
+        and value not in {".", ".."}
+        and contract_relative_path(value) is not None
+        and path.parts
+        and not any(char in value for char in "\x00:")
+    )
+
+
+def _load_inside_children(
+    owner_contract: ArchitectureContract,
+    owner_id: str,
+    pointer: str,
+    active: frozenset[str],
+    seen: set[str],
+    read_contract: Callable[[str], tuple[bytes, str]],
+    mounts: list[InsideContractMount],
+    issues: list[InsideContractIssue],
+    paths: set[str],
+) -> None:
+    for index, parent in enumerate(owner_contract.components):
+        if parent.inside is None:
+            continue
+        parent_id = f"{owner_id}:{parent.label}" if owner_id else parent.label
+        location = f"{pointer}/components/{index}/inside"
+        reference = parent.inside
+        paths.add(reference)
+        if not _safe_inside_reference(reference):
+            issues.append(
+                InsideContractIssue(
+                    parent, parent_id, location, reference, "unsafe repository path"
+                )
+            )
+            continue
+        try:
+            payload, identity = read_contract(reference)
+        except (OSError, ValueError) as error:
+            issues.append(InsideContractIssue(parent, parent_id, location, reference, str(error)))
+            continue
+        if identity in active or identity in seen:
+            reason = "reference cycle" if identity in active else "duplicate mount"
+            issues.append(InsideContractIssue(parent, parent_id, location, reference, reason))
+            continue
+        try:
+            contract = parse_contract(decode_json(payload))
+        except (ContractVersionError, ValueError) as error:
+            issues.append(
+                InsideContractIssue(parent, parent_id, location, reference, str(error))
+            )
+            continue
+        seen.add(identity)
+        paths.update(contract_provenance_paths(contract))
+        scoped = _scoped_inside_contract(parent_id, contract)
+        mount = InsideContractMount(
+            parent,
+            owner_contract,
+            parent_id,
+            location,
+            reference,
+            scoped,
+            hashlib.sha256(payload).hexdigest(),
+        )
+        mounts.append(mount)
+        _load_inside_children(
+            scoped,
+            parent_id,
+            location,
+            active | {identity},
+            seen,
+            read_contract,
+            mounts,
+            issues,
+            paths,
+        )
+
+
+def load_inside_contract_tree(
+    root_path: str,
+    root_contract: ArchitectureContract,
+    root_digest: str,
+    root_identity: str,
+    read_contract: Callable[[str], tuple[bytes, str]],
+) -> InsideContractTree:
+    """Resolve every explicit inside once; the reader supplies bytes and canonical identity."""
+    mounts: list[InsideContractMount] = []
+    issues: list[InsideContractIssue] = []
+    paths = {root_path, *contract_provenance_paths(root_contract)}
+    _load_inside_children(
+        root_contract,
+        "",
+        "",
+        frozenset({root_identity}),
+        {root_identity},
+        read_contract,
+        mounts,
+        issues,
+        paths,
+    )
+    digests = [root_digest, *(item.digest for item in mounts)]
+    digest = root_digest if not mounts else hashlib.sha256("".join(digests).encode()).hexdigest()
+    comparison_contract = replace(
+        root_contract,
+        components=(
+            *root_contract.components,
+            *(item for mount in mounts for item in mount.contract.components),
+        ),
+        rules=(*root_contract.rules, *(item for mount in mounts for item in mount.contract.rules)),
+    )
+    return InsideContractTree(
+        root_contract,
+        tuple(mounts),
+        tuple(issues),
+        tuple(sorted(paths)),
+        digest,
+        comparison_contract,
+    )
+
+
+def declaration_paths(
+    payload: bytes,
+    contract_path: str,
+    *,
+    read_contract: Callable[[str], tuple[bytes, str]],
+) -> tuple[str, ...]:
+    """Every transitive contract and provenance path read by one repository declaration tree."""
     contract = parse_contract(decode_json(payload))
-    inside = {
-        component.inside
-        for component in contract.components
-        if component.inside is not None and contract_relative_path(component.inside) is not None
-    }
-    return tuple(sorted({contract_path, *inside, *contract_provenance_paths(contract)}))
+    _, root_identity = read_contract(contract_path)
+    tree = load_inside_contract_tree(
+        contract_path,
+        contract,
+        hashlib.sha256(payload).hexdigest(),
+        root_identity,
+        read_contract,
+    )
+    if tree.issues:
+        issue = tree.issues[0]
+        raise ValueError(f"inside {issue.path!r}: {issue.reason}")
+    return tree.paths
 
 
 def _record_payload(value: Record) -> dict[str, RawJson]:

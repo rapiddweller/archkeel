@@ -164,7 +164,31 @@ def test_declaration_snapshot_carries_the_contracts_an_inside_names(tmp_path: Pa
             }
         ),
     )
-    _write(root / "example/tasks/architecture-contract.json", '{"schema_version": "2.1.0"}')
+    _write(
+        root / "example/tasks/architecture-contract.json",
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        "id": "COMP-GENERATE",
+                        "label": "generate",
+                        "role": "component",
+                        "packages": ["example.tasks.generate"],
+                        "inside": "example/tasks/deep.json",
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["example/tasks/README.md"],
+                    }
+                ],
+                "rules": [],
+            }
+        ),
+    )
+    _write(
+        root / "example/tasks/deep.json",
+        '{"schema_version": "2.1.0", "components": [], "rules": []}',
+    )
     _git(root, "add", ".")
     _git(root, "commit", "-q", "-m", "declare an inside")
     commit = _git(root, "rev-parse", "HEAD")
@@ -178,4 +202,5 @@ def test_declaration_snapshot_carries_the_contracts_an_inside_names(tmp_path: Pa
     )
 
     assert (destination / "example/tasks/architecture-contract.json").is_file()
+    assert (destination / "example/tasks/deep.json").is_file()
     assert (destination / "example/tasks/README.md").is_file()

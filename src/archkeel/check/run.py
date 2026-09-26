@@ -64,7 +64,14 @@ def materialize_declarations(
     root: Path, commit: str, config: ScanConfig, destination: Path
 ) -> None:
     payload = read_blob(root, commit, config.contract)
-    paths = declaration_paths(payload, config.contract)
+
+    def read_inside(path: str) -> tuple[bytes, str]:
+        try:
+            return read_blob(root, commit, path), path
+        except GitError as error:
+            raise ValueError(str(error)) from error
+
+    paths = declaration_paths(payload, config.contract, read_contract=read_inside)
     for path in sorted(paths):
         target = destination / relative_path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
