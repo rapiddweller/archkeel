@@ -906,14 +906,13 @@
     );
     if (opened && opened.module) {
       const inside = (DATA.modules || {})[opened.module] || {};
-      const methods = view.components.reduce((acc, c) => acc + (c.members || []).length, 0);
-      return `<dl class="kv"><dt>Symbols</dt><dd>${view.components.length}</dd><dt>Methods</dt><dd>${methods}</dd><dt>Symbol-use edges shown</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Used from outside</dt><dd>${(inside.exports || []).length}</dd><dt>Reaches outward</dt><dd>${(inside.imports || []).length}</dd></dl>`;
+      const methods = (items) => items.reduce((total, card) => total + (card.members || []).length, 0);
+      return `<dl class="kv"><dt>Symbols shown / in module</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Methods shown / in module</dt><dd>${methods(view.components)}/${methods(scope.components)}</dd><dt>Symbol-use edges shown / in module</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Used from outside</dt><dd>${(inside.exports || []).length}</dd><dt>Reaches outward</dt><dd>${(inside.imports || []).length}</dd></dl>`;
     }
     if (opened) {
       const owner = componentByLabel.get(opened.component);
-      const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
-      const modules = view.components.reduce((total, item) => total + item.modules.length, 0);
-      return `<dl class="kv"><dt>Modules shown / in this scope</dt><dd>${modules}/${card.modules.length}</dd><dt>Groups shown / at this level</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Connections shown / at this level</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / at this level</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd></dl>`;
+      const modules = (items) => items.reduce((total, item) => total + item.modules.length, 0);
+      return `<dl class="kv"><dt>Modules shown / in this scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Groups shown / at this level</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Connections shown / at this level</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / at this level</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd></dl>`;
     }
     const modules = (items) => items.reduce((total, card) => total + card.modules.length, 0);
     const libraries = scope.components.filter((card) => card.library).length;

@@ -331,7 +331,8 @@ const end = text.indexOf("  function renderAlternative(", begin);
 assert(begin >= 0 && end > begin);
 const alternative = {innerHTML: ""};
 const edgeKey = edge => `${edge.source}>${edge.target}`;
-const renderReview = new Function("alternative", "selected", "edgeKey", "esc", "weight", "edgeCountLabel",
+const renderReview = new Function(
+  "alternative", "selected", "edgeKey", "esc", "weight", "edgeCountLabel",
   text.slice(begin, end) + ";return renderReview")(
     alternative, null, edgeKey, value => String(value),
     edge => edge.kind === "symbol_use" ? 1 : edge.import_sites,
@@ -383,6 +384,58 @@ const countEnd = text.indexOf("  function heaviestBlock(", countBegin);
 const edgeCountLabel = new Function(text.slice(countBegin, countEnd) +
   ";return edgeCountLabel")();
 assert.equal(edgeCountLabel(edge), "symbol-use edge");
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_scope_counts_use_current_physical_and_symbol_levels() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function statBlock()");
+const end = text.indexOf("  function topHeaviestEdges", begin);
+assert(begin >= 0 && end > begin);
+const run = ({scope, view, opened, owner, data = {modules: {}}}) => {
+  const componentByLabel = new Map([["runtime", owner]]);
+  const visibleEdges = () => view.edges;
+  const statBlock = new Function(
+    "fullLevel", "level", "viewMode", "visibleEdges", "opened", "componentByLabel",
+    "DATA", "weight",
+    text.slice(begin, end) + ";return statBlock",
+  )(
+    () => scope, () => view, "diagram", visibleEdges, opened, componentByLabel, data,
+    edge => edge.kind === "symbol_use" ? 1 : edge.import_sites,
+  );
+  return statBlock();
+};
+const folder = run({
+  scope: {components: [{label: "runtime.tasks.generate", modules: Array(9).fill("x")}], edges: []},
+  view: {components: [{label: "runtime.tasks.generate", modules: Array(9).fill("x")}], edges: []},
+  opened: {component: "runtime", path: ["runtime", "tasks"]},
+  owner: {modules: Array(51).fill("x")},
+});
+assert(folder.includes("Modules shown / in this scope</dt><dd>9/9"), folder);
+assert(!folder.includes("9/51"), folder);
+const module = run({
+  scope: {components: [
+    {label: "pkg:one", members: ["a", "b"]},
+    {label: "pkg:two", members: ["c"]},
+    {label: "pkg:three", members: []},
+  ], edges: [{kind: "symbol_use"}, {kind: "symbol_use"}]},
+  view: {components: [{label: "pkg:one", members: ["a", "b"]}], edges: [{kind: "symbol_use"}]},
+  opened: {component: "runtime", module: "pkg"},
+  owner: {modules: []},
+  data: {modules: {pkg: {exports: [], imports: []}}},
+});
+assert(module.includes("Symbols shown / in module</dt><dd>1/3"), module);
+assert(module.includes("Methods shown / in module</dt><dd>2/3"), module);
+assert(module.includes("Symbol-use edges shown / in module</dt><dd>1/2"), module);
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
