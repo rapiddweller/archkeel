@@ -151,15 +151,10 @@ def _authenticate_inputs(
             tree.issues[0],
         )
         if issue.input_error is not None:
-            input_error = ContractInputError(
-                f"{issue.pointer}{issue.input_error.pointer}",
-                issue.input_error.subject,
-                str(issue.input_error),
-            )
             raise LockError(
-                str(input_error),
-                subject=input_error.subject,
-                pointer=input_error.pointer,
+                str(issue.input_error),
+                subject=issue.input_error.subject,
+                pointer=f"{issue.pointer}{issue.input_error.pointer}",
             )
         raise LockError(f"accepted contract tree is invalid at {issue.pointer}: {issue.reason}")
     policy_paths = {config.contract, *(mount.path for mount in tree.mounts)}

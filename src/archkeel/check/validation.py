@@ -1499,13 +1499,10 @@ def inside_diagnostics(
     tree: InsideContractTree | None = None,
     observation: Observation | None = None,
 ) -> tuple[Diagnostic, ...]:
-    """AD-20: hold a component and the contract describing its inside to each other.
+    """AD-20: validate mounted contracts against parent scope and repository evidence.
 
-    The inside's public lists govern its local components; the mounted component's public list
-    remains its outward interface. The inside must also not grant what the level above denies.
-    Grants are read from the inside's `allowed_dependency` rules; an
-    `external_dependency_scope` there is not yet compared, which stays a blind spot. AD-99 adds
-    that the inside declares no budget.
+    Local public lists govern sibling imports; the mounted component's public list remains
+    its outward interface. External-scope grants and inside budgets are not compared (AD-99).
     """
     diagnostics: list[Diagnostic] = []
     loaded = tree or _inside_contract_tree(root, config.contract, contract)
