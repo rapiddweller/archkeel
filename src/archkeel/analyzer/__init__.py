@@ -24,7 +24,9 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.codec import parse_observation as _parse_observation
 from archkeel.ir.model import (
-    ArchitectureContract,
+    ArchitectureContract as _ArchitectureContract,
+)
+from archkeel.ir.model import (
     Diagnostic,
     DiagnosticKind,
     Observation,
@@ -60,7 +62,7 @@ def _contract_input_failure(error: _ContractInputError) -> ObservationResult:
 
 
 def _nested_reference_failure(
-    root: Path, contract_path: Path, contract: ArchitectureContract, digest: str
+    root: Path, contract_path: Path, contract: _ArchitectureContract, digest: str
 ) -> ObservationResult | None:
     repository = root.resolve()
     identity = contract_path.resolve().relative_to(repository).as_posix()
