@@ -11,6 +11,7 @@ from test_boundary_types_nested_dtos import _write_app
 from test_inside_rule_coverage import _commit_test_root, _scan_config, _write_inside_case
 
 from archkeel.check.run import inspect_observation
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
 from archkeel.cli import main
 from archkeel.ir.model import Observation
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
@@ -281,14 +282,43 @@ def test_validate_keeps_known_violations_with_missing_inside_diagnostics(
     (foreign / "api.py").write_text("VALUE = 1\n")
     docs = tmp_path / "docs/architecture"
     docs.mkdir(parents=True)
-    (docs / "sample.md").write_text("# Sample architecture\n")
+    (docs / "sample.md").write_text(
+        f"# Sample architecture\n\n{COMPONENT_GRAPH_MARKER}\n"
+        "```mermaid\ngraph TD\n  stale --> edge\n```\n"
+    )
+    (tmp_path / "baseline.json").write_text(
+        json.dumps({"schema_version": "1.3.0", "budgets": {}, "violations": []})
+    )
     _scan_config(tmp_path)
     _commit_test_root(tmp_path)
 
-    exit_code = main(["validate", "--root", str(tmp_path), "--json"])
+    before = {
+        path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(tmp_path).parts
+    }
+    exit_code = main(
+        [
+            "validate",
+            "--root",
+            str(tmp_path),
+            "--baseline",
+            "baseline.json",
+            "--write-baseline",
+            "--accept-new",
+            "--write-graph",
+            "--json",
+        ]
+    )
     result = json.loads(capsys.readouterr().out)
+    after = {
+        path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(tmp_path).parts
+    }
 
     assert exit_code == 2
+    assert after == before
     assert result["declared_rules"] == "UNKNOWN"
     diagnostics = result["diagnostics"]
     assert diagnostics
