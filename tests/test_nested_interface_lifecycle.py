@@ -111,9 +111,7 @@ def _prepare(
     elif facade_case == "outside-facade-definition-inside":
         leaf_parent["public"] = ["sample.facade:run"]
         (root / "sample/facade.py").write_text(
-            "from sample.layer.source.api import Payload\n\n"
-            "def run(payload: Payload) -> str:\n    return 'ok'\n\n"
-            "__all__ = ['run']\n"
+            "from sample.layer.source.api import run\n\n__all__ = ['run']\n"
         )
     if facade_case not in {
         "parent-facade",
@@ -133,9 +131,7 @@ def _prepare(
     if planned is not None:
         source["planned"] = planned
     leaf_path.write_text(json.dumps(leaf_contract))
-    if facade_case == "outside-facade-definition-inside":
-        source_code += "\n\ndef run(payload: Payload) -> str:\n    return 'ok'\n"
-    elif facade_case == "parent-constant":
+    if facade_case == "parent-constant":
         source_code = "VALUE = 1\n"
     (root / "sample/layer/source/api.py").write_text(source_code)
     (root / "sample/layer/target/api.py").write_text(target_code)
@@ -295,13 +291,16 @@ def test_unpublished_or_outside_facade_does_not_count_as_local_use(
         middle = json.loads((tmp_path / "contracts/one.json").read_text())
         assert middle["components"][0]["public"] == []
     else:
-        facade = next(
+        reexport = next(
             item
-            for item in observed.observation.records("symbols") or ()
-            if item.data.get("module") == "sample.facade" and item.data.get("name") == "run"
+            for item in observed.observation.records("imports") or ()
+            if item.data.get("source_module") == "sample.facade"
+            and item.data.get("binding") == "run"
         )
-        assert "sample.layer.source.api.Payload" in facade.data.get("facade_types", ())
-        assert facade.data.get("declared_in_all") is True
+        assert reexport.data.get("reexport") is True
+        assert reexport.data.get("reexport_chain") == ("sample.layer.source.api.run",)
+        assert reexport.data.get("origin_definition") == "sample.layer.source.api.run"
+        assert reexport.data.get("declared_in_all") is True
 
     assert [
         (item.code, item.pointer, item.subject)
