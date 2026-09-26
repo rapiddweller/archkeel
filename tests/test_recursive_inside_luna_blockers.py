@@ -469,7 +469,9 @@ def test_invalid_inside_sibling_does_not_replace_root_type_ownership(
     assert bool(violations) is expected_violation, (violations, unknowns)
 
 
-def _write_ancestor_type_case(root: Path, *, public_target: bool) -> None:
+def _write_ancestor_type_case(
+    root: Path, *, layer_public_target: bool, root_public_target: bool = False
+) -> None:
     (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     (root / "docs/architecture").mkdir(parents=True)
     (root / "docs/architecture/sample.md").write_text(
@@ -516,19 +518,22 @@ def _write_ancestor_type_case(root: Path, *, public_target: bool) -> None:
         ],
         [],
     )
+    layer_public = list(public_api)
+    if layer_public_target:
+        layer_public.append("sample.layer.target.api:Payload")
     layer = _contract(
         [
             _component_at(
                 "layer",
                 "sample.layer",
-                public=public_api,
+                public=layer_public,
                 inside="contracts/two.json",
             )
         ],
         [],
     )
     root_public = list(public_api)
-    if public_target:
+    if root_public_target:
         root_public.append("sample.layer.target.api:Payload")
     root_contract = _contract(
         [_component_at("app", "sample", public=root_public, inside="contracts/one.json")],
@@ -541,7 +546,7 @@ def _write_ancestor_type_case(root: Path, *, public_target: bool) -> None:
 
 
 def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None:
-    _write_ancestor_type_case(tmp_path, public_target=False)
+    _write_ancestor_type_case(tmp_path, layer_public_target=False)
     observed = _observe(tmp_path)
     assert observed.observation is not None, observed.diagnostics
     findings = trace_valid_violations(observed.observation)
@@ -554,7 +559,7 @@ def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None
     ]
     [finding] = findings
     assert finding.title == (
-        "sample.layer.source.api.run returns Payload which app does not declare"
+        "sample.layer.source.api.run returns Payload which layer does not declare"
     )
     assert (finding.data.get("position"), finding.data.get("annotation")) == ("return", "Payload")
     assert not any(
@@ -579,12 +584,12 @@ def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None
     [diagnostic] = [item for item in result.diagnostics if item.code == "rule.violated"]
     assert diagnostic.unknown_claim == (
         "The observed code violates the declared rule: "
-        "sample.layer.source.api.run returns Payload which app does not declare"
+        "sample.layer.source.api.run returns Payload which layer does not declare"
     )
 
 
 def test_public_ancestor_type_is_accepted_by_deep_boundary_rule(tmp_path: Path) -> None:
-    _write_ancestor_type_case(tmp_path, public_target=True)
+    _write_ancestor_type_case(tmp_path, layer_public_target=True)
     observed = _observe(tmp_path)
     assert observed.observation is not None, observed.diagnostics
     assert trace_valid_violations(observed.observation) == ()
@@ -595,10 +600,26 @@ def test_public_ancestor_type_is_accepted_by_deep_boundary_rule(tmp_path: Path) 
     )
 
 
+def test_root_public_type_does_not_override_private_nearest_ancestor(tmp_path: Path) -> None:
+    _write_ancestor_type_case(tmp_path, layer_public_target=False, root_public_target=True)
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    [finding] = trace_valid_violations(observed.observation)
+    assert finding.kind == "boundary_types"
+    assert finding.rule_ids == ("app:layer:source:SOURCE-TYPES",)
+    assert finding.title == (
+        "sample.layer.source.api.run returns Payload which layer does not declare"
+    )
+    assert not any(
+        item.kind == "boundary_type_position" and item.data.get("reason") == "external_type"
+        for item in observed.observation.records("unknowns") or ()
+    )
+
+
 def test_overlapping_same_level_owners_do_not_fall_back_to_public_ancestor(
     tmp_path: Path,
 ) -> None:
-    _write_ancestor_type_case(tmp_path, public_target=True)
+    _write_ancestor_type_case(tmp_path, layer_public_target=True, root_public_target=True)
     path = tmp_path / "contracts/two.json"
     middle = json.loads(path.read_text())
     middle["components"].extend(
