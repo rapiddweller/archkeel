@@ -14,6 +14,7 @@ from archkeel.ir.codec import ContractVersionError
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureContract,
+    ContractComponent,
     EvidenceClass,
     contract_relative_path,
     stable_id,
@@ -29,7 +30,6 @@ from .contract import (
 from .dart_scanner import scan_dart_repository
 from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified
 from .scanner import ScanResult, scan_repository
-from .violations import requires_violations
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
@@ -42,40 +42,65 @@ def _owned_rules(parent: str, inner: ArchitectureContract) -> ArchitectureContra
     built from the name it will be read by, instead of being corrected afterwards.
     """
     return replace(
-        inner, rules=tuple(replace(rule, id=f"{parent}:{rule.id}") for rule in inner.rules)
+        inner,
+        components=tuple(
+            replace(component, id=f"{parent}:{component.id}") for component in inner.components
+        ),
+        rules=tuple(replace(rule, id=f"{parent}:{rule.id}") for rule in inner.rules),
     )
 
 
 def _inside_levels(
     root: Path, contract: ArchitectureContract
-) -> tuple[list[RawRecord], list[str], list[ArchitectureContract]]:
+) -> tuple[
+    list[RawRecord],
+    list[str],
+    list[tuple[ContractComponent, ArchitectureContract]],
+    list[RawRecord],
+]:
     """Load each declared inside contract, project it, and collect its digest (AD-34).
 
-    A path that leaves the repository, a missing file and an unreadable contract are skipped
-    rather than reported: `validate` owns that verdict and emits `contract.invalid`, so an
-    observation carries a whole level or none of it.
+    A missing or invalid nested contract is an UNKNOWN in the observation, not an empty level.
     """
     records: list[RawRecord] = []
     digests: list[str] = []
-    contracts: list[ArchitectureContract] = []
+    contracts: list[tuple[ContractComponent, ArchitectureContract]] = []
+    failures: list[RawRecord] = []
+
+    def failure(component: ContractComponent, reason: str) -> None:
+        path = component.inside or "inside"
+        record = classified(
+            item_id=stable_id("UNKNOWN-INSIDE-CONTRACT", component.label, path),
+            evidence_class=EvidenceClass.UNKNOWN,
+            area="analysis_coverage",
+            kind="inside_contract_incomplete",
+            title=f"{component.label} inside contract cannot be evaluated: {reason}",
+            subjects=[component.label, path],
+            data={"parent_id": component.label, "path": path, "reason": reason},
+        )
+        failures.append(record)
+
     for component in contract.components:
         if component.inside is None:
             continue
         relative = contract_relative_path(component.inside)
         if relative is None:
+            failure(component, "path is outside the repository or invalid")
             continue
         target = (root / relative).resolve()
         if not target.is_relative_to(root) or not target.is_file():
+            failure(component, "file is missing or outside the repository")
             continue
         try:
             inner, digest = load_contract(target)
-        except (ContractError, ContractVersionError):
+        except (ContractError, ContractVersionError) as error:
+            failure(component, f"file is invalid: {error}")
             continue
         owned = _owned_rules(component.label, inner)
         records.extend(project_inside_declarations(component.label, owned))
         digests.append(digest)
-        contracts.append(owned)
-    return records, digests, contracts
+        contracts.append((component, owned))
+    return records, digests, contracts, failures
 
 
 def _contract_tree_digest(digest: str, inside_digests: list[str]) -> str:
@@ -87,18 +112,6 @@ def _contract_tree_digest(digest: str, inside_digests: list[str]) -> str:
     if not inside_digests:
         return digest
     return hashlib.sha256("".join([digest, *inside_digests]).encode()).hexdigest()
-
-
-def _add_inside_violations(scan: ScanResult, contracts: list[ArchitectureContract]) -> None:
-    """Evaluate each inside contract's rules against the imports already collected (AD-34).
-
-    The same rule code as the level above. It reads finished import records, so a second level
-    costs no second scan, and its verdict reaches both the view and the exit code through the
-    records every other verdict travels in.
-    """
-    for inner in contracts:
-        scan.violations.extend(requires_violations(scan.imports, inner))
-    scan.violations.sort(key=lambda item: item["id"])
 
 
 def _contract_source(
@@ -363,6 +376,47 @@ def _add_git_failure(scan: ScanResult, git_head: str, dirty: bool | str) -> None
     scan.coverage["status"] = "FAIL"
 
 
+def _scan_contract(
+    source_root: Path,
+    contract: ArchitectureContract,
+    *,
+    language: Language,
+    source_paths: list[Path] | tuple[Path, ...] | None,
+    roots: tuple[str, ...],
+    namespace: str,
+    inside_contracts: list[tuple[ContractComponent, ArchitectureContract]],
+) -> ScanResult:
+    """Run the selected profile once with its loaded inside contracts."""
+    if language == "dart":
+        return scan_dart_repository(
+            source_root,
+            contract,
+            roots=roots,
+            namespace=namespace,
+            inside_contracts=inside_contracts,
+        )
+    return scan_repository(
+        source_root,
+        contract,
+        source_paths=source_paths,
+        roots=roots,
+        namespace=namespace,
+        inside_contracts=inside_contracts,
+    )
+
+
+def _record_inside_failures(scan: ScanResult, failures: list[RawRecord]) -> None:
+    """Carry unreadable or out-of-scope nested contracts as scan UNKNOWNs and coverage failures."""
+    if not failures:
+        return
+    scan.unknowns = sorted([*scan.unknowns, *failures], key=lambda item: item["id"])
+    scan.coverage["failures"] = sorted(
+        [*scan.coverage["failures"], *failures], key=lambda item: item["id"]
+    )
+    scan.coverage["status"] = "FAIL"
+    scan.coverage["rules"] = "FAIL"
+
+
 def analyze_snapshot(
     source_root: Path,
     *,
@@ -380,16 +434,20 @@ def analyze_snapshot(
     declarations_root, contract_file = _contract_source(source_root, contract_root, contract_path)
     contract_reference = contract_file.relative_to(declarations_root).as_posix()
     contract, contract_digest = load_contract(contract_file)
-    inside_records, inside_digests, inside_contracts = _inside_levels(declarations_root, contract)
-    profile = PROFILES[language]
-    scan = (
-        scan_dart_repository(source_root, contract, roots=roots, namespace=namespace)
-        if language == "dart"
-        else scan_repository(
-            source_root, contract, source_paths=source_paths, roots=roots, namespace=namespace
-        )
+    inside_records, inside_digests, inside_contracts, inside_failures = _inside_levels(
+        declarations_root, contract
     )
-    _add_inside_violations(scan, inside_contracts)
+    profile = PROFILES[language]
+    scan = _scan_contract(
+        source_root,
+        contract,
+        language=language,
+        source_paths=source_paths,
+        roots=roots,
+        namespace=namespace,
+        inside_contracts=inside_contracts,
+    )
+    _record_inside_failures(scan, inside_failures)
     if git_head == "unknown" or dirty == "unknown":
         _add_git_failure(scan, git_head, dirty)
     # AD-2: mypy cannot assign TypedDict records to RawJson, so the canonical model stays open.

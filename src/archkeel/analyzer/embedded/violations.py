@@ -53,6 +53,7 @@ def _forbidden_dependency_verdicts(
     imports: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
     components: tuple[tuple[str, tuple[str, ...]], ...],
+    source_modules: frozenset[str] | None = None,
 ) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord, _Verdict]]:
     """Yield each (rule, import) pair whose modules a forbidden_dependency rule names.
 
@@ -79,6 +80,8 @@ def _forbidden_dependency_verdicts(
             targets = (rule.target,)
         allowed_sources = frozenset(rule.allowed_sources)
         for item in imports:
+            if source_modules is not None and item["data"]["source_module"] not in source_modules:
+                continue
             data = item["data"]
             if not any(in_scope(data["source_module"], package) for package in sources) or not any(
                 in_scope(data["target_module"], package) for package in targets
@@ -98,13 +101,16 @@ def _forbidden_dependency_matches(
     imports: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
     components: tuple[tuple[str, tuple[str, ...]], ...],
+    source_modules: frozenset[str] | None = None,
 ) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord]]:
     """Yield each (rule, import) pair a forbidden_dependency rule rejects.
 
     AD-18: interface_boundary reuses this to skip an import a forbidden rule already
     rejects, instead of a second matcher that could drift from this one (SPOT).
     """
-    for rule, item, verdict in _forbidden_dependency_verdicts(imports, rules, components):
+    for rule, item, verdict in _forbidden_dependency_verdicts(
+        imports, rules, components, source_modules
+    ):
         if verdict == "violation":
             yield rule, item
 
@@ -159,7 +165,9 @@ _CONSTRUCT_SIGNALS: Final = {
 
 
 def _construct_violations(
-    signals: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+    signals: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
     for rule in rules:
@@ -170,7 +178,8 @@ def _construct_violations(
             owner = item["data"]["owner"]
             scope = owner.split(":", 1)[0]
             if (
-                construct is None
+                (source_modules is not None and scope not in source_modules)
+                or construct is None
                 or construct not in rule.constructs
                 or not in_scope(scope, rule.source)
                 or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
@@ -195,7 +204,9 @@ def _construct_violations(
 
 
 def _external_dependency_violations(
-    imports: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+    imports: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
     for rule in rules:
@@ -205,7 +216,8 @@ def _external_dependency_violations(
             data = item["data"]
             source_module = data["source_module"]
             if (
-                not in_scope(data["target_module"], rule.dependency)
+                (source_modules is not None and source_module not in source_modules)
+                or not in_scope(data["target_module"], rule.dependency)
                 or any(in_scope(source_module, allowed) for allowed in rule.allowed_sources)
                 or source_module in rule.exact_sources
             ):
@@ -236,6 +248,7 @@ def _external_completeness_violations(
     modules: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
     standard_library: frozenset[str],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """AD-28: an import no rule names is undecided, not harmless.
 
@@ -253,6 +266,8 @@ def _external_completeness_violations(
             target = data["target_module"]
             # A relative import resolves inside the scanned tree, so it is never external.
             if data["relative_level"] or not in_scope(data["source_module"], rule.source):
+                continue
+            if source_modules is not None and data["source_module"] not in source_modules:
                 continue
             root = target.split(".")[0]
             if root in internal_roots or root in standard_library:
@@ -467,7 +482,10 @@ def _component_cycle_violations(
 
 
 def _module_cycle_violations(
-    module_cycles: Sequence[RawRecord], imports: Sequence[RawRecord], contract: ArchitectureContract
+    module_cycles: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """One violation per module SCC the report measures, when it touches the rule's scope.
 
@@ -490,6 +508,10 @@ def _module_cycle_violations(
         )
         for cycle in module_cycles:
             members: list[str] = cycle["data"]["members"]
+            if source_modules is not None and not any(
+                member in source_modules for member in members
+            ):
+                continue
             if scope is not None and not any(
                 in_scope(member, package) for member in members for package in scope
             ):
@@ -609,6 +631,7 @@ def _interface_verdicts(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     forbidden_rejected_ids: frozenset[str],
+    source_modules: frozenset[str] | None = None,
 ) -> Iterator[_InterfaceVerdict]:
     """Yield every import an interface_boundary rule judges, with its verdict."""
     rules = [rule for rule in contract.rules if isinstance(rule, InterfaceBoundaryRule)]
@@ -618,6 +641,8 @@ def _interface_verdicts(
     for rule in rules:
         for item in imports:
             data = item["data"]
+            if source_modules is not None and data["source_module"] not in source_modules:
+                continue
             source = contract.component_for(data["source_module"])
             target = contract.component_for(data["target_module"])
             if (
@@ -640,10 +665,11 @@ def _interface_violations(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     forbidden_rejected_ids: frozenset[str],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
     for rule, item, source, target, verdict in _interface_verdicts(
-        imports, contract, exports_by_module, forbidden_rejected_ids
+        imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
     ):
         if verdict != "violation":
             continue
@@ -785,6 +811,7 @@ def _boundary_type_subject_modules(
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
+    source_modules: frozenset[str] | None = None,
 ) -> frozenset[str]:
     """Modules carrying at least one function `rule` actually inspects (issue #56).
 
@@ -810,6 +837,7 @@ def _boundary_type_subject_modules(
         )
         is not None
         for module in (found[0],)
+        if source_modules is None or module in source_modules
     )
     route_subjects = frozenset(
         module
@@ -822,8 +850,11 @@ def _boundary_type_subject_modules(
             uncertain_reexport_origins,
             scanned_modules,
             stable_bindings_by_module,
+            source_modules,
         )
-        if "module" in record["data"] and isinstance((module := record["data"]["module"]), str)
+        if "module" in record["data"]
+        and isinstance((module := record["data"]["module"]), str)
+        and (source_modules is None or module in source_modules)
     )
     return function_subjects | route_subjects
 
@@ -849,6 +880,7 @@ def rule_subject_failures(
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
     sdk_libraries: frozenset[str] = frozenset(),
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """Flag scopes with neither observed subjects nor explicitly declared target work.
 
@@ -875,6 +907,7 @@ def rule_subject_failures(
                 uncertain_reexport_origins or {},
                 module_names,
                 stable_bindings_by_module or {},
+                source_modules,
             )
             subjects = subjects | planned_subjects
             facade_scoped = True
@@ -948,7 +981,9 @@ def profile_failures(contract: ArchitectureContract, profile: Profile) -> list[R
 
 
 def _sibling_violations(
-    imports: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+    imports: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """AD-25: peers of one declared set reach shared modules, never each other."""
     violations: list[RawRecord] = []
@@ -957,6 +992,8 @@ def _sibling_violations(
             continue
         for item in imports:
             data = item["data"]
+            if source_modules is not None and data["source_module"] not in source_modules:
+                continue
             source = next(
                 (member for member in rule.members if in_scope(data["source_module"], member)), None
             )
@@ -989,7 +1026,9 @@ def _sibling_violations(
 
 
 def _symbol_placement_violations(
-    symbols: Sequence[RawRecord], rules: Sequence[ArchitectureRule]
+    symbols: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """AD-58: a class of a named kind below `source` must be defined in an allowed module."""
     violations: list[RawRecord] = []
@@ -1004,7 +1043,8 @@ def _symbol_placement_violations(
             qualname = data["qualified_name"]
             module = data["module"]
             if (
-                not in_scope(qualname, rule.source)
+                (source_modules is not None and module not in source_modules)
+                or not in_scope(qualname, rule.source)
                 or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
                 or module in rule.exact_sources
             ):
@@ -2449,6 +2489,7 @@ def _boundary_types_violations(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins,
+    source_modules: frozenset[str] | None = None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """AD-58, amended by AD-63: a component's declared facade function takes and returns no
     bare `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a
@@ -2476,6 +2517,8 @@ def _boundary_types_violations(
             if found is None:
                 continue
             facade_module, qualname, positions, resolution_module, ambiguous_facade, _ = found
+            if source_modules is not None and facade_module not in source_modules:
+                continue
             for position, annotation in positions:
                 verdict = (
                     _Position(undecidable="ambiguous_facade")
@@ -2683,6 +2726,7 @@ def _unresolved_public_alias_routes(
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     records: dict[str, RawRecord] = {}
     symbols_by_binding: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
@@ -2699,7 +2743,8 @@ def _unresolved_public_alias_routes(
         data = item["data"]
         module, binding = data["source_module"], data["binding"]
         if (
-            not data["symbol"]
+            (source_modules is not None and module not in source_modules)
+            or not data["symbol"]
             or not in_scope(module, rule.source)
             or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
             or module in rule.exact_sources
@@ -2796,6 +2841,7 @@ def boundary_type_limits(
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
@@ -2808,7 +2854,14 @@ def boundary_type_limits(
         exports_by_module,
         uncertain_reexport_origins,
     )
-    ordered_symbols = sorted(symbols, key=lambda item: _symbol_source_location(item, evidence))
+    ordered_symbols = sorted(
+        (
+            item
+            for item in symbols
+            if source_modules is None or item["data"]["module"] in source_modules
+        ),
+        key=lambda item: _symbol_source_location(item, evidence),
+    )
     limits: list[RawRecord] = []
     positions_out: list[RawRecord] = []
     for rule in rules:
@@ -2836,6 +2889,7 @@ def boundary_type_limits(
                 uncertain_reexport_origins,
                 scanned_modules,
                 stable_bindings_by_module or {},
+                source_modules,
             )
         )
     return sorted([*positions_out, *limits], key=lambda item: item["id"])
@@ -3086,7 +3140,12 @@ def _requires_covers(source: ContractComponent, target_label: str, target_module
 
 
 def requires_violations(
-    imports: Sequence[RawRecord], contract: ArchitectureContract
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    *,
+    assessment_facts: list[RawRecord] | None = None,
+    assessment_parent: str | None = None,
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """AD-32: a cross-component import no `requires` entry of the source covers is a violation.
 
@@ -3100,6 +3159,7 @@ def requires_violations(
         return []
     violations: list[RawRecord] = []
     for rule in rules:
+        evaluated: list[RawRecord] = []
         for item in imports:
             data = item["data"]
             source = contract.component_for(data["source_module"])
@@ -3108,9 +3168,12 @@ def requires_violations(
                 source is None
                 or target is None
                 or source == target
+                or (source_modules is not None and data["source_module"] not in source_modules)
                 or (data["under_type_checking"] and not rule.include_type_checking)
-                or _requires_covers(source, target.label, data["target_module"])
             ):
+                continue
+            evaluated.append(item)
+            if _requires_covers(source, target.label, data["target_module"]):
                 continue
             violations.append(
                 classified(
@@ -3131,6 +3194,30 @@ def requires_violations(
                     },
                 )
             )
+        if assessment_facts is not None and evaluated:
+            assessment_facts.append(
+                classified(
+                    item_id=stable_id("INSIDE-REQUIRES-EVALUATION", assessment_parent, rule.id),
+                    evidence_class=EvidenceClass.FACT,
+                    area="components",
+                    kind="inside_rule_evaluation",
+                    title=f"{rule.id} evaluated its scoped imports",
+                    subjects=[
+                        module
+                        for item in evaluated
+                        for module in (
+                            item["data"]["source_module"],
+                            item["data"]["target_module"],
+                        )
+                    ],
+                    evidence_ids=[
+                        evidence_id for item in evaluated for evidence_id in item["evidence_ids"]
+                    ],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"] for item in evaluated],
+                    data={"parent_id": assessment_parent},
+                )
+            )
     return sorted(violations, key=lambda item: item["id"])
 
 
@@ -3148,31 +3235,62 @@ def rule_violations(
     exports_by_module: dict[str, frozenset[str]],
     profile: Profile,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    source_modules: frozenset[str] | None = None,
+    source_roots: tuple[str, ...] = (),
+    assessment_facts: list[RawRecord] | None = None,
+    assessment_parent: str | None = None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
-    forbidden_matches = list(_forbidden_dependency_matches(imports, contract.rules, components))
+    module_facts = [
+        item
+        for item in modules
+        if source_modules is None or item["data"]["qualified_name"] in source_modules
+    ]
+    package_facts = [
+        item
+        for item in packages
+        if source_modules is None
+        or any(in_scope(item["data"]["qualified_name"], root) for root in source_roots)
+    ]
+    forbidden_matches = list(
+        _forbidden_dependency_matches(imports, contract.rules, components, source_modules)
+    )
     forbidden_rejected_ids = frozenset(item["id"] for _, item in forbidden_matches)
     boundary_violations, allowance_facts = _boundary_types_violations(
-        symbols, imports, contract, exports_by_module, uncertain_reexport_origins or {}
+        symbols,
+        imports,
+        contract,
+        exports_by_module,
+        uncertain_reexport_origins or {},
+        source_modules,
     )
+    checked = assessment_facts if assessment_facts is not None else []
     return sorted(
         [
             *_dependency_violations(iter(forbidden_matches)),
-            *_construct_violations([*typing_signals, *constructs], contract.rules),
-            *_external_dependency_violations(imports, contract.rules),
+            *_construct_violations([*typing_signals, *constructs], contract.rules, source_modules),
+            *_external_dependency_violations(imports, contract.rules, source_modules),
             *_external_completeness_violations(
-                imports, modules, contract.rules, profile.standard_library
+                imports, modules, contract.rules, profile.standard_library, source_modules
             ),
-            *requires_violations(imports, contract),
-            *_assignment_violations(modules, contract, blank_modules),
-            *_root_layout_violations(packages, modules, contract.rules),
-            *_module_placement_violations(modules, contract),
+            *requires_violations(
+                imports,
+                contract,
+                assessment_facts=checked if assessment_facts is not None else None,
+                assessment_parent=assessment_parent,
+                source_modules=source_modules,
+            ),
+            *_assignment_violations(module_facts, contract, blank_modules),
+            *_root_layout_violations(package_facts, module_facts, contract.rules),
+            *_module_placement_violations(module_facts, contract),
             *_component_cycle_violations(imports, contract),
-            *_module_cycle_violations(module_cycles, imports, contract),
-            *_interface_violations(imports, contract, exports_by_module, forbidden_rejected_ids),
-            *_sibling_violations(imports, contract.rules),
-            *_symbol_placement_violations(symbols, contract.rules),
+            *_module_cycle_violations(module_cycles, imports, contract, source_modules),
+            *_interface_violations(
+                imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
+            ),
+            *_sibling_violations(imports, contract.rules, source_modules),
+            *_symbol_placement_violations(symbols, contract.rules, source_modules),
             *boundary_violations,
         ],
         key=lambda item: item["id"],

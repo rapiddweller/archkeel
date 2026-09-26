@@ -335,9 +335,8 @@ def _violated_pairs(
 def _inside_views(observation: Observation) -> dict[str, FlowInside]:
     """Draw each declared inside as its own level, by the parent component that holds it.
 
-    A violating crossing carries its rule from the violation records. A non-violating crossing
-    conforms only when the inside declares `complete_requires`; without that rule it stays
-    observed, not green by default (AD-32, AD-34).
+    A crossing is green only when the evaluator recorded every displayed import site as checked.
+    The view never infers a verdict from a declaration alone (AD-32, AD-34).
     """
     views: dict[str, FlowInside] = {}
     for level in inside_levels(observation):
@@ -346,11 +345,27 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
             for record in observation.records("declarations") or ()
             if record.data.get("parent_id") == level.parent
         }
-        has_complete_requires = any(
-            record.kind == "complete_requires" and record.data.get("parent_id") == level.parent
-            for record in observation.records("declarations") or ()
-        )
         components = tuple((item.label, item.packages) for item in level.components)
+        checked_sites: set[str] = set()
+        for record in observation.records("scope_observations") or ():
+            if (
+                record.kind == "inside_rule_evaluation"
+                and record.data.get("parent_id") == level.parent
+                and set(record.rule_ids) & inside_rule_ids
+            ):
+                checked_sites.update(record.fact_ids)
+        sites_by_pair: dict[tuple[str, str], set[str]] = defaultdict(set)
+        for record in observation.records("imports") or ():
+            source = text_value(record.data.get("source_module"))
+            target = text_value(record.data.get("target_module"))
+            owner_source = owner_of(source, components) if source else None
+            owner_target = owner_of(target, components) if target else None
+            if (
+                owner_source is not None
+                and owner_target is not None
+                and owner_source != owner_target
+            ):
+                sites_by_pair[(owner_source, owner_target)].add(record.id)
         inner_by_owner = _inner_edges(observation, components)
         pair_rules: dict[tuple[str, str], set[str]] = defaultdict(set)
         for violation in observation.records("violations") or ():
@@ -359,6 +374,11 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
                 continue
             for pair in _violated_pairs(violation, components):
                 pair_rules[pair].update(scoped_rule_ids)
+        has_relevant_unknown = any(
+            record.data.get("parent_id") == level.parent
+            or bool(set(record.rule_ids) & inside_rule_ids)
+            for record in observation.records("unknowns") or ()
+        )
         cards = tuple(
             FlowComponent(
                 label=item.label,
@@ -371,11 +391,14 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
         edges = []
         for edge in level.edges:
             edge_rule_ids = tuple(sorted(pair_rules.get((edge.source, edge.target), ())))
+            site_ids = sites_by_pair.get((edge.source, edge.target), set())
             state: EdgeState = (
                 "violation"
                 if edge_rule_ids
+                else "undecided"
+                if has_relevant_unknown
                 else "conforms"
-                if has_complete_requires
+                if site_ids and site_ids.issubset(checked_sites)
                 else "observed"
             )
             edges.append(

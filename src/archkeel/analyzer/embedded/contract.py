@@ -269,7 +269,7 @@ def project_inside_declarations(parent: str, contract: ArchitectureContract) -> 
     ]
     return rules + [
         classified(
-            item_id=f"{parent}:{component.id}",
+            item_id=component.id,
             evidence_class=EvidenceClass.DECLARED_RULE,
             area="components",
             kind="inside_component_responsibility",

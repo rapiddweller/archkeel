@@ -1515,6 +1515,24 @@ def _inside_budgets(pointer: str, inside: str, inner: ArchitectureContract) -> l
     ]
 
 
+def _inside_source_domain_diagnostics(
+    pointer: str, component: ContractComponent, inner: ArchitectureContract
+) -> list[Diagnostic]:
+    """Reject nested physical claims outside the component holding the inside."""
+    return [
+        _diagnostic(
+            "contract.invalid",
+            pointer,
+            package,
+            f"The inside claims {package}, outside {component.label}'s physical packages.",
+            "Keep every inside component package within the parent component's packages.",
+        )
+        for child in inner.components
+        for package in child.packages
+        if not any(in_scope(package, parent) for parent in component.packages)
+    ]
+
+
 def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
     """AD-20: hold a component and the contract describing its inside to each other.
 
@@ -1554,6 +1572,7 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
                 )
             )
             continue
+        diagnostics.extend(_inside_source_domain_diagnostics(pointer, component, inner))
         diagnostics.extend(_inside_budgets(pointer, component.inside, inner))
         declared = frozenset(component.public or ())
         inside = _inside_public(inner)
