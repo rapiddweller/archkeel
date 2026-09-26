@@ -8,6 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from archkeel.ir.codec import (
+    ContractInputError,
     canonical_report_bytes,
     declaration_paths,
     decode_json,
@@ -140,10 +141,21 @@ def _authenticate_inputs(
             config.contract,
             read_accepted_contract,
         )
+    except ContractInputError as error:
+        raise LockError(str(error), subject=error.subject, pointer=error.pointer) from error
     except (GitError, ValueError) as error:
         raise LockError(f"cannot load accepted contract tree: {error}") from error
     if tree.issues:
-        issue = tree.issues[0]
+        issue = next(
+            (candidate for candidate in tree.issues if candidate.input_error is not None),
+            tree.issues[0],
+        )
+        if issue.input_error is not None:
+            raise LockError(
+                str(issue.input_error),
+                subject=issue.input_error.subject,
+                pointer=f"{issue.pointer}{issue.input_error.pointer}",
+            )
         raise LockError(f"accepted contract tree is invalid at {issue.pointer}: {issue.reason}")
     policy_paths = {config.contract, *(mount.path for mount in tree.mounts)}
     for path in (LOCK_PATH, *sorted(policy_paths)):

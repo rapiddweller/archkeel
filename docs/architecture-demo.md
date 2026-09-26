@@ -97,6 +97,9 @@ demo-dart`.
 | class_a | boundary_types:owned_public_type | class-a-boundary-types-owned-public-type | validate/report run | - | - | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
 | class_a | boundary_types:owned_public_broad_field | class-a-boundary-types-owned-public-broad-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
 | class_a | boundary_types:model_field | class-a-boundary-types-model-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/requests.py, shop/cli/main.py |
+| validation | requires.target:local | validation-requires-local-target | validate/report run | - | - | architecture-contract.json |
+| validation | requires.target:undeclared | validation-requires-target-unknown | validate/report run | - | contract.invalid | architecture-contract.json |
+| validation | component.label:duplicate | validation-component-label-duplicate | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | module.placement:clean | validation-module-placement-clean | validate/report run | - | - | shop/model/catalog.py |
 | validation | module.placement | validation-module-placement | validate/report run | COMP-MODEL, ROOT-LAYOUT | rule.violated, rule.violated | architecture-contract.json, shop/model_rules.py |
 | validation | interface.undeclared | validation-interface-undeclared | validate/report run | - | interface.undeclared | architecture-contract.json |
