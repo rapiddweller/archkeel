@@ -133,6 +133,8 @@ modules without `__all__`, so its contract pins pair budgets only.
 
 ## Components and packages
 
+- Only one explicit `inside` level is loaded. Deeper physical folder navigation does not
+  mean deeper contracts were evaluated; recursive contract loading is tracked in #169.
 - `package_dependency` records name packages by their first two dotted segments. Component
   decisions and dependency rules use module-level edges and are not affected; the package records
   are coarse below that depth. Declared components nested below one such package collapse into it,
