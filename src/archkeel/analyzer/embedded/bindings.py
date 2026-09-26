@@ -112,7 +112,7 @@ class BindingCollector(ast.NodeVisitor):
                 evidence_class=EvidenceClass.FACT,
                 area="repository_topology",
                 kind=f"unused_{binding}",
-                title=f"{owner} has no body read of {name}",
+                title=f"{owner} never reads {name}",
                 subjects=[owner, self.module.module],
                 evidence_ids=[evidence_id],
                 data={
