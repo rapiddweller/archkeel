@@ -257,6 +257,37 @@ _BOUNDARY_TYPES_REEXPORT_ALIASES = Variant(
     expected_codes=("rule.violated",),
 )
 
+
+_BOUNDARY_TYPES_ORDINARY_REEXPORT = Variant(
+    id="class-a-boundary-types-ordinary-reexport",
+    section="class_a",
+    item="boundary_types:ordinary_reexport",
+    summary="An ordinary shop.render.facade module explicitly exports its imported entry in one "
+    "literal __all__. boundary_types follows that declared facade to the implementation "
+    "signature; imports without that proof remain UNKNOWN (AD-109).",
+    files={
+        "shop/render/facade.py": HEADER
+        + (
+            '"""Ordinary module facade for the renderer."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.text import render_order\n\n"
+            '__all__ = ["render_order"]\n'
+        ),
+        "shop/render/text.py": _REEXPORTED_BROAD_MODULE,
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from shop.render.text import render_order",
+            "from shop.render.facade import render_order",
+        ),
+        "architecture-contract.json": _render_reexport_contract().replace(
+            "shop.render:render_order", "shop.render.facade:render_order"
+        ),
+    },
+    expected_violations=("RENDER-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
 _REQUEST_MODEL_MODULE = HEADER + (
     '"""A request model with a broad directly declared field."""\n\n'
     "from __future__ import annotations\n\n"
@@ -299,5 +330,6 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_IN_COLLECTION,
     _BOUNDARY_TYPES_REEXPORT,
     _BOUNDARY_TYPES_REEXPORT_ALIASES,
+    _BOUNDARY_TYPES_ORDINARY_REEXPORT,
     _BOUNDARY_TYPES_MODEL_FIELD,
 )

@@ -12,7 +12,14 @@ from collections.abc import Sequence
 from archkeel.ir.model import EvidenceClass, in_scope, stable_id
 
 from .records import RawEvidence, RawRecord, classified
-from .source import AliasBinding, ParsedModule, add_evidence, location, package_for
+from .source import (
+    AliasBinding,
+    ParsedModule,
+    add_evidence,
+    location,
+    package_for,
+    unique_direct_module_bindings,
+)
 
 
 def _is_type_checking_test(node: ast.AST) -> bool:
@@ -105,6 +112,19 @@ class ImportCollector(ast.NodeVisitor):
         self.evidence = evidence
         self.package_bindings = package_bindings
         self.namespace = namespace
+        self.unique_bindings = unique_direct_module_bindings(module)
+        self.module_level_imports: set[int] = set()
+        stack: list[ast.AST] = [module.tree]
+        while stack:
+            statement = stack.pop()
+            if isinstance(statement, ast.Import | ast.ImportFrom):
+                self.module_level_imports.add(id(statement))
+            if isinstance(
+                statement,
+                ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda,
+            ):
+                continue
+            stack.extend(ast.iter_child_nodes(statement))
         self.under_type_checking = False
         self.items: list[RawRecord] = []
 
@@ -234,7 +254,20 @@ class ImportCollector(ast.NodeVisitor):
                     "binding": binding,
                     "relative_level": relative_level,
                     "under_type_checking": self.under_type_checking,
-                    "reexport": self.module.path.name == "__init__.py",
+                    "ordinary_module": self.module.path.name != "__init__.py",
+                    "reexport": self.module.path.name == "__init__.py"
+                    or (
+                        self.module.all_literal
+                        and binding in self.module.all_exports
+                        and binding in self.unique_bindings
+                    ),
+                    "reexport_candidate": (
+                        self.module.path.name != "__init__.py"
+                        and id(node) in self.module_level_imports
+                        and binding in self.module.all_exports
+                        and symbol is not None
+                        and not (self.module.all_literal and binding in self.unique_bindings)
+                    ),
                     # A Python import always names what it binds; a Dart import without `show`
                     # does not, and every rule reading `symbol` must tell the two apart (AD-97).
                     "symbols_known": True,
@@ -265,8 +298,13 @@ def collect_imports(
     return imports
 
 
-def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str, set[str]]) -> None:
+def resolve_reexports(
+    imports: Sequence[RawRecord],
+    exports_by_module: dict[str, set[str]],
+    parsed: Sequence[ParsedModule] = (),
+) -> None:
     """Follow re-export chains in place so each import records its origin definition."""
+    unique_bindings = {module.module: unique_direct_module_bindings(module) for module in parsed}
     reexports: dict[str, str] = {}
     for item in imports:
         data = item["data"]
@@ -292,6 +330,13 @@ def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str,
             chain.append(current)
         data["reexport_chain"] = chain
         data["origin_definition"] = chain[-1]
+        origin_module, _, origin_name = chain[-1].rpartition(".")
+        data["origin_binding_unique"] = (
+            origin_module not in unique_bindings or origin_name in unique_bindings[origin_module]
+        )
+        if data.get("ordinary_module") and data["reexport"] and not data["origin_binding_unique"]:
+            data["reexport_candidate"] = True
+            data["reexport"] = False
         data["symbol_visibility"] = "private" if data["symbol"].startswith("_") else "public_name"
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()

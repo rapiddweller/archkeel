@@ -2143,13 +2143,17 @@ def _reexport_facade_entries(
     for imported in imports:
         imported_data = imported["data"]
         binding_key = (imported_data.get("source_module"), imported_data.get("binding"))
+        candidate = imported_data.get("reexport_candidate") is True
         if (
-            imported_data.get("reexport")
+            (imported_data.get("reexport") or candidate)
             and imported_data.get("origin_definition") == origin
-            and binding_key in ambiguous_bindings
+            and (binding_key in ambiguous_bindings or candidate)
         ):
             ambiguous_facade = True
-        if not imported_data.get("reexport") or imported_data.get("origin_definition") != origin:
+        if (
+            not (imported_data.get("reexport") or candidate)
+            or imported_data.get("origin_definition") != origin
+        ):
             continue
         facade_module = imported_data["source_module"]
         binding = imported_data["binding"]
@@ -2392,15 +2396,19 @@ def _boundary_type_violation_records(
     if verdict.violation is None:
         return []
     verb = "returns" if position == "return" else f"takes {position} as"
-    findings = verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation),)
+    findings = sorted(
+        set(verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation),)),
+        key=lambda finding: (finding[0], finding[1], finding[2] or ""),
+    )
     records: list[RawRecord] = []
     for reason, path, nested_annotation in findings:
         path_data = ".".join((position, *path)) if path else None
-        identity_parts = (
-            (rule.id, item["id"], position, *path, nested_annotation or "", reason)
-            if path
-            else (rule.id, item["id"], position)
-        )
+        if path:
+            identity_parts = (rule.id, item["id"], position, *path, nested_annotation or "", reason)
+        elif len(findings) > 1:
+            identity_parts = (rule.id, item["id"], position, nested_annotation or "", reason)
+        else:
+            identity_parts = (rule.id, item["id"], position)
         nested_fields = " ".join(f"field {name}" for name in path)
         field_detail = f"{nested_fields} " if nested_fields else ""
         records.append(

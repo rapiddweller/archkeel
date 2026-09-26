@@ -144,6 +144,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-106 | [A baseline entry names its violation in any subject order](decisions/ad-106-a-baseline-entry-names-its-violation-in-any-subject-order.md) |
 | AD-107 | [A module's file is its evidence, even when the file is empty](decisions/ad-107-a-modules-file-is-its-evidence-even-when-empty.md) |
 | AD-108 | [Statically proven enum members reference their class](decisions/ad-108-statically-proven-enum-members-reference-their-class.md) |
+| AD-109 | [`boundary_types` follows literal exports from ordinary modules](decisions/ad-109-boundary-types-follows-literal-all-in-ordinary-modules.md) |
 
 ## Allowed dependencies
 

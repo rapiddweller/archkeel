@@ -45,6 +45,9 @@ leaves Git's listing unreadable; either way the field stays `null`, with a note.
 function. It decides a builtin, a bare `dict`/`object`, a bare name its module's import bindings or
 own class definitions resolve, and a known collection (`list`, `tuple`, `set`, `frozenset`,
 `Sequence`, `Iterable`, `Iterator`, `Collection`, `AbstractSet`) holding such a name, one level in.
+An imported facade entry in an ordinary module is followed only when one unchanged literal
+`__all__` explicitly exports its unique import binding (AD-109); other export forms remain
+undecidable.
 It cannot decide a dotted name, a mapping, a nested subscript, a union, a forward-reference string,
 a missing annotation or a type owned by no declared component. Since AD-67 the undecided part is
 reported rather than silent: each rule files one `boundary_type_limit` record in `unknowns` naming

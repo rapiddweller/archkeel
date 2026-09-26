@@ -17,58 +17,13 @@ from archkeel.ir.model import EvidenceClass, in_scope, stable_id
 
 from .records import RawEvidence, RawRecord, classified
 from .resolve import SymbolIndex, dotted_expression, resolve_name
-from .source import ParsedModule, add_evidence, annotation_text, location
-
-
-def _enum_member_roots(module: ParsedModule) -> frozenset[str]:
-    """Return direct module bindings with no competing binder anywhere in the module."""
-    nodes = list(ast.walk(module.tree))
-    imports: list[tuple[str, bool]] = []
-    for node in nodes:
-        if isinstance(node, ast.Import | ast.ImportFrom):
-            is_direct = node in module.tree.body
-            for alias in node.names:
-                import_name: str = alias.name
-                root = alias.asname or (
-                    import_name.split(".")[0] if isinstance(node, ast.Import) else import_name
-                )
-                imports.append((root, is_direct))
-    type_parameters = [
-        value
-        for node in nodes
-        for field_name, value in ast.iter_fields(node)
-        if field_name == "type_params" and value
-    ]
-    if "*" in [name for name, _ in imports] or type_parameters:
-        return frozenset()
-    direct = [
-        node.name for node in nodes if isinstance(node, ast.ClassDef) and node in module.tree.body
-    ] + [name for name, is_direct in imports if is_direct]
-    binders = (
-        [
-            node.id
-            for node in nodes
-            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del)
-        ]
-        + [node.arg for node in nodes if isinstance(node, ast.arg)]
-        + [
-            node.name
-            for node in nodes
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
-        ]
-        + [name for name, _ in imports]
-        + [node.name for node in nodes if isinstance(node, ast.ExceptHandler) and node.name]
-        + [node.name for node in nodes if isinstance(node, ast.MatchAs) and node.name]
-        + [node.name for node in nodes if isinstance(node, ast.MatchStar) and node.name]
-        + [node.rest for node in nodes if isinstance(node, ast.MatchMapping) and node.rest]
-        + [
-            name
-            for node in nodes
-            if isinstance(node, ast.Global | ast.Nonlocal)
-            for name in node.names
-        ]
-    )
-    return frozenset(name for name in direct if binders.count(name) == 1)
+from .source import (
+    ParsedModule,
+    add_evidence,
+    annotation_text,
+    location,
+    unique_direct_module_bindings,
+)
 
 
 def _enum_member_classes(
@@ -233,7 +188,7 @@ def collect_references(
 ) -> list[RawRecord]:
     """Run the reference collector over every module and sort the records by id."""
     references: list[RawRecord] = []
-    roots = {module.module: _enum_member_roots(module) for module in parsed}
+    roots = {module.module: unique_direct_module_bindings(module) for module in parsed}
     enum_classes = _enum_member_classes(parsed, index, roots)
     for module in parsed:
         collector = ReferenceCollector(module, index, evidence, roots[module.module], enum_classes)

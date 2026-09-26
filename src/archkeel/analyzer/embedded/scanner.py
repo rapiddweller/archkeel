@@ -229,7 +229,7 @@ def scan_repository(
 
     # Exports exist only after the import loop, and re-exports must resolve before symbols.
     module_all_exports = {module.module: module.all_exports for module in parsed}
-    resolve_reexports(imports, module_all_exports)
+    resolve_reexports(imports, module_all_exports, parsed)
 
     symbols, symbol_nodes, symbol_owners = collect_symbols(parsed, evidence)
     symbol_index = build_symbol_index(symbols)

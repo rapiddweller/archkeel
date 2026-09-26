@@ -95,6 +95,60 @@ class ParsedModule:
     compatibility_logic_free: bool = False
 
 
+def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
+    """Names with one direct definition or import and no competing binder in the module."""
+    nodes = list(ast.walk(module.tree))
+    imports: list[tuple[str, bool]] = []
+    for node in nodes:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            is_direct = node in module.tree.body
+            for alias in node.names:
+                import_name: str = alias.name
+                root = alias.asname or (
+                    import_name.split(".")[0] if isinstance(node, ast.Import) else import_name
+                )
+                imports.append((root, is_direct))
+    type_parameters = [
+        value
+        for node in nodes
+        for field_name, value in ast.iter_fields(node)
+        if field_name == "type_params" and value
+    ]
+    if "*" in [name for name, _ in imports] or type_parameters:
+        return frozenset()
+    direct = [
+        node.name
+        for node in nodes
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        and node in module.tree.body
+    ] + [name for name, is_direct in imports if is_direct]
+    binders = (
+        [
+            node.id
+            for node in nodes
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del)
+        ]
+        + [node.arg for node in nodes if isinstance(node, ast.arg)]
+        + [
+            node.name
+            for node in nodes
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        ]
+        + [name for name, _ in imports]
+        + [node.name for node in nodes if isinstance(node, ast.ExceptHandler) and node.name]
+        + [node.name for node in nodes if isinstance(node, ast.MatchAs) and node.name]
+        + [node.name for node in nodes if isinstance(node, ast.MatchStar) and node.name]
+        + [node.rest for node in nodes if isinstance(node, ast.MatchMapping) and node.rest]
+        + [
+            name
+            for node in nodes
+            if isinstance(node, ast.Global | ast.Nonlocal)
+            for name in node.names
+        ]
+    )
+    return frozenset(name for name in direct if binders.count(name) == 1)
+
+
 def _excerpt(module: ParsedModule, node: ast.AST) -> str:
     start, _, _ = location(node)
     return module.lines[start - 1].rstrip() if start <= len(module.lines) else ""
