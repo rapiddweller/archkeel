@@ -362,3 +362,41 @@ def test_public_route_endpoint_must_be_known_beside_a_typed_function(
     assert bool(unresolved) is unknown
     if unknown:
         assert all(record.kind == "boundary_type_route" for record in unresolved)
+
+
+@pytest.mark.parametrize(
+    ("target", "unknown"),
+    [
+        ("from sample.app.impl import element_constraints as constraints\n", True),
+        ('__all__ = ["constraints"]\n', True),
+        ("constraints = 42\n", False),
+    ],
+    ids=("unowned-unproved-hop", "unowned-missing-symbol", "unowned-known-constant"),
+)
+def test_public_route_does_not_infer_proof_from_missing_target_ownership(
+    tmp_path: Path, target: str, unknown: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from sample.unowned import constraints\n" + EXPORT + SAFE,
+    )
+    (tmp_path / "sample/unowned.py").write_text(target)
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert not result.observation.records("violations")
+    unresolved = [
+        record
+        for record in result.observation.records("unknowns") or ()
+        if "APP-TYPES-NOT-DICT" in record.rule_ids
+    ]
+    assert bool(unresolved) is unknown
