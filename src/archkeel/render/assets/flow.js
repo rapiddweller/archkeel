@@ -129,7 +129,7 @@
     const orphans = (inside.unassigned || []).map((name) => ({
       label: name,
       display: name.split(".").pop() || name,
-      modules: [],
+      modules: [name],
       openable: Boolean((DATA.modules || {})[name]),
       opensModule: name,
       public: null,

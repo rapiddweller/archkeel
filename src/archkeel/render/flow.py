@@ -393,6 +393,11 @@ def build_flow(observation: Observation) -> FlowData:
         if record.kind == "component_responsibility"
     ]
     components = component_owners(observation)
+    root_rule_ids = {
+        record.id
+        for record in observation.records("declarations") or ()
+        if record.data.get("parent_id") is None
+    }
     all_modules = {
         name
         for record in observation.records("modules") or ()
@@ -422,24 +427,27 @@ def build_flow(observation: Observation) -> FlowData:
     edge_totals = _component_edges(observation, components)
     edge_rules: dict[tuple[str, str], set[str]] = defaultdict(set)
     for violation in observation.records("violations") or ():
+        scoped_rule_ids = set(violation.rule_ids) & root_rule_ids
+        if not scoped_rule_ids:
+            continue
         for pair in _violated_pairs(violation, components):
             if pair in edge_totals:
-                edge_rules[pair].update(violation.rule_ids)
+                edge_rules[pair].update(scoped_rule_ids)
     undecided_pairs = {
         (item.source, item.target) for item in open_decisions(observation, components)
     }
 
     flow_edges = []
     for (source, target), count in sorted(edge_totals.items()):
-        rule_ids = tuple(sorted(edge_rules.get((source, target), ())))
+        edge_rule_ids = tuple(sorted(edge_rules.get((source, target), ())))
         state: EdgeState
-        if rule_ids:
+        if edge_rule_ids:
             state = "violation"
         elif (source, target) in undecided_pairs:
             state = "undecided"
         else:
             state = "conforms"
-        flow_edges.append(FlowEdge(source, target, count, rule_ids, state))
+        flow_edges.append(FlowEdge(source, target, count, edge_rule_ids, state))
     return FlowData(
         flow_components,
         tuple(flow_edges),

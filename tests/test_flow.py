@@ -158,6 +158,58 @@ def test_same_local_inside_labels_do_not_share_violation_state(tmp_path: Path) -
     assert service.rule_ids == ()
 
 
+def test_inside_violation_cannot_colour_unrelated_root_edge(tmp_path: Path) -> None:
+    package = tmp_path / "sample/core"
+    package.mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/a.py").write_text("import sample.b\n")
+    (tmp_path / "sample/b.py").write_text("VALUE = 1\n")
+    (package / "a.py").write_text("import sample.core.b\n")
+    (package / "b.py").write_text("VALUE = 1\n")
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("a"),
+                    _component("b"),
+                    _component("core") | {"inside": "inner.json"},
+                ],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_inside_component("a", []), _inside_component("b", [])],
+                "rules": [
+                    {
+                        "id": "INNER",
+                        "kind": "complete_requires",
+                        "rationale": "Declare inner dependencies.",
+                        "decided_by": "architect",
+                        "provenance": ["docs/architecture/sample.md"],
+                    }
+                ],
+            }
+        )
+    )
+
+    result = observe_case(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    flow = build_flow(result.observation)
+    [root_edge] = [edge for edge in flow.edges if (edge.source, edge.target) == ("a", "b")]
+    assert root_edge.state != "violation"
+    assert root_edge.rule_ids == ()
+    core = next(component for component in flow.components if component.label == "core")
+    assert core.inside is not None
+    [inside_edge] = core.inside.edges
+    assert inside_edge.state == "violation"
+    assert inside_edge.rule_ids == ("core:INNER",)
+
+
 def test_flow_violated_edges_carry_only_pair_scoped_rule_ids(tmp_path: Path) -> None:
     flow = build_flow(_observation(tmp_path, dict(_TOUR.files)))
 

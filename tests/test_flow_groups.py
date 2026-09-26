@@ -79,6 +79,15 @@ assert(initializer, "an imports-only initializer remains reachable");
 assert.equal(initializer.folder, false);
 assert.equal(initializer.openable, true);
 assert.equal(initializer.opensModule, "pkg");
+const insideBegin = text.indexOf("  function insideLevel(");
+const insideEnd = text.indexOf("  function rootPackage(", insideBegin);
+assert(insideBegin >= 0 && insideEnd > insideBegin);
+const inside = new Function("DATA", text.slice(insideBegin, insideEnd) +
+  ";return insideLevel")(importsOnly);
+const [orphan] = inside({components: [], edges: [], unassigned: ["pkg"]}).components;
+assert.deepEqual(orphan.modules, ["pkg"]);
+assert.equal(orphan.openable, true);
+assert.equal(orphan.opensModule, "pkg");
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
