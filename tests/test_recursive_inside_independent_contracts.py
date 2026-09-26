@@ -22,9 +22,25 @@ from archkeel.analyzer import observe
 from archkeel.check.git import GitError
 from archkeel.check.ports import ScanConfig
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
-from archkeel.check.validation import COMPONENT_GRAPH_MARKER, inside_diagnostics, run_validate
-from archkeel.ir.codec import canonical_report_bytes, declaration_paths, parse_contract
+from archkeel.check.validation import (
+    COMPONENT_GRAPH_MARKER,
+    _inside_contract_tree,
+    inside_diagnostics,
+    run_validate,
+)
+from archkeel.ir.codec import (
+    amendment_bytes,
+    canonical_report_bytes,
+    contract_digest,
+    declaration_paths,
+    load_inside_contract_tree,
+    parse_contract,
+)
+from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
+from archkeel.ir.model import ArchitectureContract, RunResult
+from archkeel.ir.widening import Amendment
+from archkeel.render.html import render_html
 
 _PROVENANCE = ["docs/architecture/sample.md"]
 _COMPLETE_REQUIRES = {
@@ -51,6 +67,16 @@ def _contract(
 
 def _scan_config() -> ScanConfig:
     return ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
+
+
+def _load_tree(root: Path, contract: ArchitectureContract):
+    return load_inside_contract_tree(
+        "contract.json",
+        contract,
+        contract_digest(contract),
+        "contract.json",
+        lambda path: ((root / path).read_bytes(), Path(path).as_posix()),
+    )
 
 
 def _write_three_levels(
@@ -214,6 +240,199 @@ def test_deepest_forbidden_dependency_reaches_the_report(tmp_path: Path) -> None
     assert len(findings) == 1
     assert findings[0].data.get("source_module") == "sample.layer.source.api"
     assert findings[0].data.get("target_module") == "sample.layer.target.api"
+
+
+def test_deep_inside_level_owns_its_modules_and_crossing(tmp_path: Path) -> None:
+    _write_three_levels(
+        tmp_path,
+        deep_rules=[_forbidden_edge()],
+        source_import="from sample.layer.target.api import VALUE\n",
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+
+    deep = next(level for level in inside_levels(result.observation) if level.parent == "app:app")
+    components = {item.label: item for item in deep.components}
+    assert components["source"].modules == (
+        "sample.layer.source",
+        "sample.layer.source.api",
+    )
+    assert components["target"].modules == (
+        "sample.layer.target",
+        "sample.layer.target.api",
+    )
+    assert [(edge.source, edge.target, edge.import_sites) for edge in deep.edges] == [
+        ("source", "target", 1)
+    ]
+
+
+def test_deep_inside_violation_is_reachable_in_rendered_flow_data(tmp_path: Path) -> None:
+    _write_three_levels(
+        tmp_path,
+        deep_rules=[_forbidden_edge()],
+        source_import="from sample.layer.target.api import VALUE\n",
+    )
+    observation = _observe(tmp_path).observation
+    assert observation is not None
+    result = RunResult(
+        "report",
+        0,
+        observation_complete="PASS",
+        declared_rules="FAIL",
+        expectation_fulfilled="n/a",
+        coverage=observation.coverage,
+    )
+    page = render_html(
+        result,
+        observation,
+        repository="sample",
+        architecture_href="architecture.json",
+    ).decode()
+    data_start = page.index('id="flow-data"')
+    data_start = page.index(">", data_start) + 1
+    data_end = page.index("</script>", data_start)
+    flow = json.loads(page[data_start:data_end])
+    app = next(item for item in flow["components"] if item["label"] == "app")
+    first_level_app = next(item for item in app["inside"]["components"] if item["label"] == "app")
+
+    assert first_level_app.get("inside") is not None
+    deep_inside = first_level_app["inside"]
+    assert {item["label"] for item in deep_inside["components"]} == {"source", "target"}
+    assert any(
+        edge["source"] == "source"
+        and edge["target"] == "target"
+        and edge["state"] == "violation"
+        and "app:app:DEEP-NO-EDGE" in edge["rule_ids"]
+        for edge in deep_inside["edges"]
+    )
+
+
+def test_colon_labels_cannot_alias_recursive_parent_and_component_ids(tmp_path: Path) -> None:
+    _write_three_levels(tmp_path)
+    root = json.loads((tmp_path / "contract.json").read_text())
+    root["components"][0]["packages"] = ["sample.layer"]
+    root["components"].append(
+        _component_at("app:app", "sample.other", inside="contracts/side.json")
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(root))
+    (tmp_path / "contracts/side.json").write_text(
+        json.dumps(_contract([_component_at("source", "sample.other.source")], []))
+    )
+    contract = parse_contract(root)
+
+    tree = _load_tree(tmp_path, contract)
+
+    component_ids = [
+        component.id for mount in tree.mounts for component in mount.contract.components
+    ]
+    assert tree.issues or len(component_ids) == len(set(component_ids))
+
+
+def test_root_rule_id_cannot_alias_a_scoped_inside_rule_id(tmp_path: Path) -> None:
+    _write_three_levels(tmp_path, deep_rules=[_forbidden_edge()])
+    root = json.loads((tmp_path / "contract.json").read_text())
+    root["rules"].append({**_forbidden_edge(), "id": "app:app:DEEP-NO-EDGE"})
+    (tmp_path / "contract.json").write_text(json.dumps(root))
+
+    tree = _load_tree(tmp_path, parse_contract(root))
+
+    rule_ids = [item.id for item in tree.comparison_contract.rules]
+    assert tree.issues or len(rule_ids) == len(set(rule_ids))
+
+
+def test_contract_digests_keep_legacy_root_bytes_without_insides(tmp_path: Path) -> None:
+    payload = b'{"schema_version":"2.1.0","components":[],"rules":[]}\n'
+    (tmp_path / "contract.json").write_bytes(payload)
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert result.observation.contract.digest == sha256(payload).hexdigest()
+    assert contract_digest(parse_contract(json.loads(payload))) != sha256(payload).hexdigest()
+
+
+def test_one_level_report_and_validation_digests_keep_their_distinct_inputs(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (tmp_path / "contracts").mkdir()
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/__init__.py").write_text("")
+    root_payload = (
+        json.dumps(
+            _contract(
+                [_component_at("app", "sample", inside="contracts/inside.json")],
+                [],
+            ),
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode()
+    child_payload = (
+        json.dumps(_contract([_component_at("child", "sample.child")], []), separators=(",", ":"))
+        + "\n"
+    ).encode()
+    (tmp_path / "contract.json").write_bytes(root_payload)
+    (tmp_path / "contracts/inside.json").write_bytes(child_payload)
+    root_contract = parse_contract(json.loads(root_payload))
+    child_contract = parse_contract(json.loads(child_payload))
+
+    observed = _observe(tmp_path).observation
+    validated = _inside_contract_tree(tmp_path, "contract.json", root_contract)
+
+    assert observed is not None and validated is not None
+    expected_observation = sha256(
+        (sha256(root_payload).hexdigest() + sha256(child_payload).hexdigest()).encode()
+    ).hexdigest()
+    expected_validation = sha256(
+        (contract_digest(root_contract) + contract_digest(child_contract)).encode()
+    ).hexdigest()
+    assert observed.contract.digest == expected_observation
+    assert validated.comparison_digest == expected_validation
+    assert observed.contract.digest != validated.digest
+
+
+def test_validation_digest_ignores_child_json_formatting(tmp_path: Path) -> None:
+    _write_three_levels(tmp_path)
+    root_contract = parse_contract(json.loads((tmp_path / "contract.json").read_text()))
+    original = _inside_contract_tree(tmp_path, "contract.json", root_contract)
+    assert original is not None
+
+    leaf = tmp_path / "contracts/two.json"
+    leaf.write_text(json.dumps(json.loads(leaf.read_text()), indent=2))
+    reformatted_contract = parse_contract(json.loads((tmp_path / "contract.json").read_text()))
+    reformatted = _inside_contract_tree(tmp_path, "contract.json", reformatted_contract)
+    assert reformatted is not None
+
+    assert original.comparison_digest == reformatted.comparison_digest
+
+
+def test_pre_inside_root_only_amendment_is_refused_for_recursive_policy(tmp_path: Path) -> None:
+    _write_three_levels(tmp_path, deep_rules=[_forbidden_edge()])
+    base = _commit_tree(tmp_path)
+    config = _scan_config()
+    leaf = tmp_path / "contracts/two.json"
+    leaf_payload = json.loads(leaf.read_text())
+    leaf_payload["rules"] = [_COMPLETE_REQUIRES]
+    leaf.write_text(json.dumps(leaf_payload))
+    root_contract = parse_contract(json.loads((tmp_path / "contract.json").read_text()))
+    root_only_digest = contract_digest(root_contract)
+    amendment = tmp_path / "legacy-root-only-amendment.json"
+    amendment.write_bytes(
+        amendment_bytes(
+            Amendment(
+                root_only_digest,
+                root_only_digest,
+                "QA architect",
+                "Legacy amendment binds only the root contract.",
+            )
+        )
+    )
+
+    result, _ = run_validate(tmp_path, config, observe, against=base, amendment=amendment)
+
+    assert result.exit_code == 1
+    assert any("DEEP-NO-EDGE" in failure for failure in result.failures)
 
 
 def test_revision_declarations_snapshot_copies_the_deepest_contract(tmp_path: Path) -> None:
@@ -398,8 +617,7 @@ def test_nested_reference_cycles_and_duplicate_mounts_fail_validation(
     assert diagnostics
     reason = "reference cycle" if invalid_graph == "cycle" else "duplicate mount"
     assert any(
-        item.code == "contract.invalid" and reason in item.unknown_claim
-        for item in diagnostics
+        item.code == "contract.invalid" and reason in item.unknown_claim for item in diagnostics
     )
 
 

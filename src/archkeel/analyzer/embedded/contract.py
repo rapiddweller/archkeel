@@ -279,6 +279,7 @@ def project_inside_declarations(parent: str, contract: ArchitectureContract) -> 
             data={
                 "parent_id": parent,
                 "requires": _requires_entries(component),
+                **({"inside": component.inside} if component.inside else {}),
                 **({"namespace": component.namespace} if component.namespace else {}),
                 **({"public": sorted(component.public)} if component.public is not None else {}),
                 **(
@@ -347,6 +348,7 @@ def project_declarations(
                     ),
                     "requires": _requires_entries(component),
                     "role": component.role.value,
+                    **({"inside": component.inside} if component.inside else {}),
                     **({"namespace": component.namespace} if component.namespace else {}),
                     "responsibilities": sorted(component.responsibilities),
                     "forbidden_responsibilities": sorted(component.forbidden_responsibilities),

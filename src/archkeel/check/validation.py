@@ -1502,6 +1502,18 @@ def inside_diagnostics(
         inner = mount.contract
         parent = mount.parent
         pointer = mount.pointer
+        for path_pointer, values in _provenance(inner):
+            for index, value in enumerate(values):
+                if repository_file(root.resolve(), value) is None:
+                    diagnostics.append(
+                        _diagnostic(
+                            "reference.provenance",
+                            f"{pointer}{path_pointer}/{index}",
+                            value,
+                            "The provenance file is missing or outside the repository.",
+                            "Reference an existing repository-relative evidence file.",
+                        )
+                    )
         diagnostics.extend(_inside_source_domain_diagnostics(pointer, parent, inner))
         declared = frozenset(parent.public or ())
         inside = _inside_public(inner)

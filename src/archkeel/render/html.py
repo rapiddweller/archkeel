@@ -349,6 +349,7 @@ def _inside_payload(
                 "modules": list(card.modules),
                 "public": list(card.public) if card.public is not None else None,
                 "inner_edges": _inner_edge_payload(card.inner_edges, sites),
+                "inside": _inside_payload(card.inside, sites, f"{parent}:{card.label}"),
             }
             for card in inside.components
         ],

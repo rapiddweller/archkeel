@@ -132,6 +132,57 @@ assert.deepEqual([...reachableModules(unassigned)].sort(), [names[5]]);
     assert result.returncode == 0, result.stderr
 
 
+def test_declared_inside_navigation_reaches_nested_levels() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const fullBegin = text.indexOf("  function fullLevel()");
+const fullEnd = text.indexOf("  function focusLevel(", fullBegin);
+const enterBegin = text.indexOf("  function enter(label)");
+const enterEnd = text.indexOf("  // One step back per press", enterBegin);
+assert(fullBegin >= 0 && fullEnd > fullBegin && enterBegin >= 0 && enterEnd > enterBegin);
+const levelTwo = {components: [{label: "source", inside: {
+  components: [{label: "leaf", modules: ["sample.layer.source.leaf"]}], edges: [],
+}}], edges: []};
+const levelOne = {components: [{label: "app", inside: levelTwo}], edges: []};
+const root = {label: "app", inside: {components: [
+  {label: "app", inside: levelOne},
+], edges: []}};
+const opened = {component: "app", path: []};
+let selected = null;
+let positions = {};
+let focusLabel = null;
+let current = levelOne;
+const componentByLabel = new Map([["app", root]]);
+const navigation = new Function("DATA", "opened", "selected", "positions", "focusLabel",
+  "componentByLabel", "insideLevel", "cardLevel", "moduleLevel", "level", "defaultFocus",
+  "defaultThreshold", "render", "fit",
+  text.slice(fullBegin, fullEnd) + text.slice(enterBegin, enterEnd)
+    + ";return {enter, fullLevel, getOpened: () => opened}")(
+      {components: [], edges: []}, opened, selected, positions, focusLabel, componentByLabel,
+      value => value, () => ({}), () => ({}), () => current, () => null, () => {},
+      () => {}, () => {});
+    navigation.enter("app");
+    assert.equal(navigation.getOpened().inside, "app");
+    current = levelOne;
+    navigation.enter("app");
+    assert.deepEqual(navigation.getOpened().insidePath, ["app"]);
+    current = levelTwo;
+    navigation.enter("source");
+    assert.deepEqual(navigation.getOpened().insidePath, ["app", "source"]);
+    current = levelTwo.components[0].inside;
+const nested = navigation.fullLevel();
+assert.equal(nested.components[0].label, "leaf");
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_structure_reports_zero_modules_for_an_empty_module_group() -> None:
     node = _node()
     source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
