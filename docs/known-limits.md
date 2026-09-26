@@ -48,6 +48,8 @@ own class definitions resolve, and a known collection (`list`, `tuple`, `set`, `
 An imported facade entry in an ordinary module is followed only when one unchanged literal
 `__all__` explicitly exports its unique import binding (AD-109); other export forms remain
 undecidable.
+An unresolved public alias cycle emits `boundary_type_route` UNKNOWN without inventing a
+function signature or parameter positions. Proven constants and classes are not facade functions.
 It cannot decide a dotted name, a mapping, a nested subscript, a union, a forward-reference string,
 a missing annotation or a type owned by no declared component. Since AD-67 the undecided part is
 reported rather than silent: each rule files one `boundary_type_limit` record in `unknowns` naming
