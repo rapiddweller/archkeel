@@ -282,6 +282,31 @@ def test_root_relative_inputs_stay_inside_the_root(
     assert outside.read_text() == "{}"
 
 
+def test_unknown_against_ref_keeps_the_against_invalid_diagnostic(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _prepare_repo(tmp_path, {})
+
+    assert (
+        main(
+            [
+                "validate",
+                "--root",
+                str(root),
+                "--against",
+                "archkeel-review-nonexistent-revision",
+                "--json",
+            ]
+        )
+        == 2
+    )
+    diagnostic = json.loads(capsys.readouterr().out)["diagnostics"][0]
+    assert (diagnostic["code"], diagnostic["subject"]) == (
+        "against.invalid",
+        "archkeel-review-nonexistent-revision",
+    )
+
+
 def test_validate_self_and_json_are_identical(capsys: pytest.CaptureFixture) -> None:
     baseline = str(ROOT / "architecture-baseline.json")
     assert main(["validate", "--root", str(ROOT), "--baseline", baseline]) == 0

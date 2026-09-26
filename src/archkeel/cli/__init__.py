@@ -17,15 +17,17 @@ from typing import Final, NoReturn
 from rich_argparse import RawDescriptionRichHelpFormatter
 
 from ..analyzer import observe
+from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.report import render_result, run_report, unknown_result
 from ..check.run import run_check
+from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..render.html import render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from .config import CONFIG_PATH, load_check_config, load_config
+from .config import CONFIG_PATH, load_check_config, load_config, parse_config
 from .skill import install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -422,6 +424,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                     parser.error("--write-amendment needs --amendment to name the file to write")
                 if args.write_amendment and (not args.decided_by or not args.rationale):
                     parser.error("--write-amendment needs --decided-by and --rationale")
+                against = args.against
+                against_config = None
+                if against is not None:
+                    try:
+                        against = resolve_commit(root, against)
+                    except RuntimeError:
+                        # Keep the existing `against.invalid` diagnostic for an unknown ref.
+                        pass
+                    else:
+                        try:
+                            against_config = parse_config(
+                                read_blob(root, against, args.config), args.config
+                            )
+                        except ValueError:
+                            # Missing or invalid historical config cannot authorize a rename.
+                            against_config = None
                 result, files = run_validate(
                     root,
                     config,
@@ -431,7 +449,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     baseline=args.baseline,
                     write_baseline=args.write_baseline,
                     accept_new=args.accept_new,
-                    against=args.against,
+                    against=against,
+                    against_config=against_config,
                     amendment=args.amendment,
                     write_amendment=args.write_amendment,
                     decided_by=args.decided_by,

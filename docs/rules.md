@@ -447,8 +447,14 @@ archkeel validate --against origin/main
 
 Widening is a new permission or a dropped restriction; narrowing is each reverse, and always
 passes. `boundary_types` and `symbol_placement` are restrictions too. A difference this
-classification does not name is reported as a widening, never passed over silently. A widening
-fails (`failures`, exit 1) unless `--amendment <path>` names a file
+classification does not name is reported as a widening, never passed over silently. A package
+renamed together with every module name the contract gives it widens nothing: it is recognised,
+named under `renames` and compared away, so only a widening beside it fails (AD-105). The CLI
+reads the same selected `--config` from the pinned historical revision; missing or invalid config
+cannot authorize a rename. Every Python rename candidate needs a complete historical layout scan,
+even when roots and namespace are unchanged, because physical layout may move within those roots.
+Changed-root Dart remains unsupported; same-root Dart renames keep their existing behavior. A
+widening fails (`failures`, exit 1) unless `--amendment <path>` names a file
 binding its exact before/after contract digest, recording who decided it and why:
 
 ```bash

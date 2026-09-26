@@ -46,6 +46,10 @@
         "archkeel.ir.model",
         "archkeel.ir.profiles",
         "archkeel.ir.references",
+        "archkeel.ir.renames:Renamed",
+        "archkeel.ir.renames:module_layouts",
+        "archkeel.ir.renames:observed_names",
+        "archkeel.ir.renames:renames_since",
         "archkeel.ir.structure",
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
@@ -82,6 +86,7 @@
         "archkeel.check.ports:ScanConfig",
         "archkeel.check.report",
         "archkeel.check.run:run_check",
+        "archkeel.check.snapshot:resolve_commit",
         "archkeel.check.validation:invalid_result",
         "archkeel.check.validation:run_validate"
       ],
@@ -280,7 +285,7 @@
       {
         "source": "cli",
         "target": "check",
-        "max_names": 9,
+        "max_names": 10,
         "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
       },
       {

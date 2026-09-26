@@ -1,6 +1,6 @@
 {
   "budgets": {
-    "calls_unresolved": 507,
+    "calls_unresolved": 505,
     "coupling_names": {
       "api -> ir": [
         "archkeel.ir.baseline:ViolationFingerprint",
@@ -21,6 +21,7 @@
         "archkeel.check.report:run_report",
         "archkeel.check.report:unknown_result",
         "archkeel.check.run:run_check",
+        "archkeel.check.snapshot:resolve_commit",
         "archkeel.check.validation:invalid_result",
         "archkeel.check.validation:run_validate"
       ],
