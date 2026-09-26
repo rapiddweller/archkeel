@@ -142,14 +142,17 @@ unless the check has already classified them as a failure.
 - Level 2 uses UML component boxes. A circle marks a declared provided interface; a socket
   marks declared `requires`. Only a conforming observed edge with `through` gets an assembly
   marker. An unrestricted or undecided edge must not imply a specific interface connection.
+- Modules with no unique declared owner appear in an “Unassigned modules” navigation-only group.
+  It is not a component and carries no component-level verdict or permission.
 - Level 3 groups physical subpackages as folders, not new semantic components. Package
   initializers stay openable module cards, including import-only initializers; folder navigation
-  reaches every observed module. Group edges sum import sites and preserve rule ids; hidden
-  same-folder edges reappear when the folder opens.
+  reaches every observed module, including those without symbols or a unique owner. Group edges
+  sum import sites and preserve rule ids; hidden same-folder edges reappear when the folder opens.
 - One provided interface marker per component keeps large APIs legible; the inspector expands
   the exact entries. Breadcrumbs return through component, package, and module levels.
 - An observed import governed by `external_dependency_scope` draws a `«library»` card and
-  a dashed `«use»` dependency. Its scope rationale and example import sites stay inspectable.
+  a dashed `«use»` dependency. One card represents each external dependency even when multiple
+  scope rules name it; all rule details and violating rule ids stay inspectable.
 - More than twelve inside connections defaults to a labelled heavy-edge view. Violations stay
   visible regardless of threshold, and the slider can restore every edge.
 - Edges carry their import sites; a conforming edge is solid teal, a violated edge is dashed red

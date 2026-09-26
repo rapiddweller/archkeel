@@ -33,6 +33,9 @@ secondary detail and leaves the verdict, failures, unknowns and evidence availab
 flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
 Both change the view, never the verdict or evidence.</sub>
 
+Modules without a unique declared owner remain reachable through a navigation-only
+<code>Unassigned modules</code> group; it does not create a component boundary or verdict.
+
 <p>
   <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
 </p>

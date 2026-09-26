@@ -9,5 +9,8 @@ elsewhere. Neither is a decision, so no rule and no contract field appears; the 
 way the component level is read. Cards, edges and the selection model keep the shape `level()`
 already returns, because layout, ranking, routing and the inspector all consume that shape and a
 third level that invented its own would rewrite them. Check: opening `archkeel.ir.codec` shows 71
-symbols and the 165 edges between them.
-
+symbols and the 165 edges between them. The module inventory comes from every observed module,
+including empty or import-only package initializers. Modules with no unique declared owner remain
+reachable from a clearly labeled navigation-only root group; that group is not a component and
+adds no boundary verdict or permission. Physical folders are only navigation, and every inventory
+card opens the corresponding module even when it has no recorded symbols.

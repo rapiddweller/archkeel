@@ -103,6 +103,8 @@ class FlowData:
     components: tuple[FlowComponent, ...]
     edges: tuple[FlowEdge, ...]
     modules: dict[str, FlowModule] = field(default_factory=dict)
+    unassigned_modules: tuple[str, ...] = ()
+    unassigned_edges: tuple[FlowInnerEdge, ...] = ()
 
 
 def _public_interface(record: Record) -> tuple[str, ...] | None:
@@ -124,6 +126,24 @@ def _modules_by_owner(
         if owner is not None:
             grouped[owner].append(name)
     return grouped
+
+
+def _unassigned_module_edges(
+    observation: Observation,
+    unassigned: set[str],
+) -> tuple[FlowInnerEdge, ...]:
+    """Keep observed imports between unassigned modules available for physical navigation."""
+    edges: list[FlowInnerEdge] = []
+    for edge in observation.records("dependency_edges") or ():
+        if edge.data.get("level") != "module":
+            continue
+        source = text_value(edge.data.get("source"))
+        target = text_value(edge.data.get("target"))
+        count = edge.data.get("count")
+        if source in unassigned and target in unassigned and isinstance(count, int):
+            # This inventory has no declared component boundary, so it carries no verdict.
+            edges.append(FlowInnerEdge(source, target, count))
+    return tuple(sorted(edges, key=lambda item: (item.source, item.target)))
 
 
 def _component_edges(
@@ -267,6 +287,11 @@ def _crossing_names(observation: Observation) -> tuple[dict[str, set[str]], dict
 def _modules_inside(observation: Observation) -> dict[str, FlowModule]:
     """Build the third level: what each module holds and what crosses its edge (AD-24a)."""
     symbols, owner_card = _module_symbols(observation)
+    modules = {
+        name
+        for record in observation.records("modules") or ()
+        if (name := text_value(record.data.get("qualified_name")))
+    }
     module_of = {
         card: module for module, items in symbols.items() for card in (s.name for s in items)
     }
@@ -274,12 +299,12 @@ def _modules_inside(observation: Observation) -> dict[str, FlowModule]:
     exports, imports = _crossing_names(observation)
     return {
         module: FlowModule(
-            symbols=tuple(items),
+            symbols=tuple(symbols.get(module, ())),
             edges=tuple(edges.get(module, ())),
             exports=tuple(sorted(exports.get(module, ()))),
             imports=tuple(sorted(imports.get(module, ()))),
         )
-        for module, items in symbols.items()
+        for module in sorted(modules | set(symbols))
     }
 
 
@@ -316,17 +341,24 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
     """
     views: dict[str, FlowInside] = {}
     for level in inside_levels(observation):
+        inside_rule_ids = {
+            record.id
+            for record in observation.records("declarations") or ()
+            if record.data.get("parent_id") == level.parent
+        }
         has_complete_requires = any(
-            record.kind == "complete_requires"
-            and record.data.get("parent_id") == level.parent
+            record.kind == "complete_requires" and record.data.get("parent_id") == level.parent
             for record in observation.records("declarations") or ()
         )
         components = tuple((item.label, item.packages) for item in level.components)
         inner_by_owner = _inner_edges(observation, components)
         pair_rules: dict[tuple[str, str], set[str]] = defaultdict(set)
         for violation in observation.records("violations") or ():
+            scoped_rule_ids = set(violation.rule_ids) & inside_rule_ids
+            if not scoped_rule_ids:
+                continue
             for pair in _violated_pairs(violation, components):
-                pair_rules[pair].update(violation.rule_ids)
+                pair_rules[pair].update(scoped_rule_ids)
         cards = tuple(
             FlowComponent(
                 label=item.label,
@@ -338,15 +370,17 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
         )
         edges = []
         for edge in level.edges:
-            rule_ids = tuple(sorted(pair_rules.get((edge.source, edge.target), ())))
+            edge_rule_ids = tuple(sorted(pair_rules.get((edge.source, edge.target), ())))
             state: EdgeState = (
                 "violation"
-                if rule_ids
+                if edge_rule_ids
                 else "conforms"
                 if has_complete_requires
                 else "observed"
             )
-            edges.append(FlowEdge(edge.source, edge.target, edge.import_sites, rule_ids, state))
+            edges.append(
+                FlowEdge(edge.source, edge.target, edge.import_sites, edge_rule_ids, state)
+            )
         views[level.parent] = FlowInside(cards, tuple(edges), level.unassigned)
     return views
 
@@ -359,7 +393,14 @@ def build_flow(observation: Observation) -> FlowData:
         if record.kind == "component_responsibility"
     ]
     components = component_owners(observation)
+    all_modules = {
+        name
+        for record in observation.records("modules") or ()
+        if (name := text_value(record.data.get("qualified_name")))
+    }
     modules_by_owner = _modules_by_owner(observation, components)
+    assigned = {name for names in modules_by_owner.values() for name in names}
+    unassigned = all_modules - assigned
     inner_by_owner = _inner_edges(observation, components)
     inside_by_owner = _inside_views(observation)
     flow_components = tuple(
@@ -399,4 +440,10 @@ def build_flow(observation: Observation) -> FlowData:
         else:
             state = "conforms"
         flow_edges.append(FlowEdge(source, target, count, rule_ids, state))
-    return FlowData(flow_components, tuple(flow_edges), _modules_inside(observation))
+    return FlowData(
+        flow_components,
+        tuple(flow_edges),
+        _modules_inside(observation),
+        tuple(sorted(unassigned)),
+        _unassigned_module_edges(observation, unassigned),
+    )

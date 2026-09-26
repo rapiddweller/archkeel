@@ -101,6 +101,63 @@ def test_inside_crossing_without_a_deciding_rule_stays_observed(tmp_path: Path) 
     assert edge.rule_ids == ()
 
 
+def test_same_local_inside_labels_do_not_share_violation_state(tmp_path: Path) -> None:
+    rule = {
+        "id": "REQUIRES-COMPLETE",
+        "kind": "complete_requires",
+        "rationale": "Declare every inner dependency.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    components = []
+    for parent in ("core", "service"):
+        components.append(
+            _component(parent, packages=[f"sample.{parent}"]) | {"inside": f"{parent}-inner.json"}
+        )
+        inner_components = [
+            _inside_component("a", ["b"]) | {"packages": [f"sample.{parent}.a"]},
+            _inside_component("b", ["a"] if parent == "service" else [])
+            | {"packages": [f"sample.{parent}.b"]},
+        ]
+        (tmp_path / f"{parent}-inner.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "2.1.0",
+                    "components": inner_components,
+                    "rules": [rule],
+                }
+            )
+        )
+        package = tmp_path / "sample" / parent
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "a.py").write_text("VALUE = 1\n")
+        (package / "b.py").write_text(f"import sample.{parent}.a\n")
+    (tmp_path / "contract.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": components, "rules": []})
+    )
+    (tmp_path / "sample/__init__.py").write_text("")
+
+    result = observe_case(tmp_path)
+    assert result.observation is not None
+    by_parent = {
+        item.label: item.inside
+        for item in build_flow(result.observation).components
+        if item.label in {"core", "service"}
+    }
+    core = next(
+        edge for edge in by_parent["core"].edges if (edge.source, edge.target) == ("b", "a")
+    )
+    service = next(
+        edge for edge in by_parent["service"].edges if (edge.source, edge.target) == ("b", "a")
+    )
+
+    assert core.state == "violation"
+    assert core.rule_ids == ("core:REQUIRES-COMPLETE",)
+    assert service.state == "conforms"
+    assert service.rule_ids == ()
+
+
 def test_flow_violated_edges_carry_only_pair_scoped_rule_ids(tmp_path: Path) -> None:
     flow = build_flow(_observation(tmp_path, dict(_TOUR.files)))
 

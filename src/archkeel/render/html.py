@@ -365,9 +365,7 @@ def _flow_sites(observation: Observation) -> dict[tuple[str, ...], set[str]]:
     evidence = {item.id: f"{item.file}:{item.line}" for item in observation.evidence}
     owners = component_owners(observation)
     inside_owners = {
-        level.parent: {
-            module: card.label for card in level.components for module in card.modules
-        }
+        level.parent: {module: card.label for card in level.components for module in card.modules}
         for level in inside_levels(observation)
     }
     sites: dict[tuple[str, ...], set[str]] = {}
@@ -451,11 +449,11 @@ def _library_imports(observation: Observation, dependency: str) -> dict[str, lis
 def _flow_libraries(
     observation: Observation,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    scopes = [
-        item
-        for item in observation.records("declarations") or ()
-        if item.kind == "external_dependency_scope"
-    ]
+    scopes_by_dependency: dict[str, list[Record]] = {}
+    for item in observation.records("declarations") or ():
+        dependency = item.data.get("dependency")
+        if item.kind == "external_dependency_scope" and isinstance(dependency, str):
+            scopes_by_dependency.setdefault(dependency, []).append(item)
     evidence = {item.id: f"{item.file}:{item.line}" for item in observation.evidence}
     violated_imports = {
         (fact_id, rule_id)
@@ -465,36 +463,63 @@ def _flow_libraries(
     }
     libraries: list[dict[str, object]] = []
     edges: list[dict[str, object]] = []
-    for scope in scopes:
-        dependency = scope.data.get("dependency")
-        if not isinstance(dependency, str):
-            continue
+    for dependency, scopes in sorted(scopes_by_dependency.items()):
         grouped = _library_imports(observation, dependency)
         if not grouped:
             continue
         label = f"library:{dependency}"
-        libraries.append(
-            {
-                "label": label,
-                "display": dependency,
-                "library": True,
-                "modules": [],
-                "public": None,
-                "import_sites": sum(len(grouped[source]) for source in grouped),
-                "rule_id": scope.id,
-                "rationale": scope.data.get("rationale"),
-                "decided_by": scope.data.get("decided_by"),
-            }
-        )
+        scope_rules = []
+        for scope in scopes:
+            allowed_sources = scope.data.get("allowed_sources")
+            exact_sources = scope.data.get("exact_sources")
+            scope_rules.append(
+                {
+                    "rule_id": scope.id,
+                    "rationale": scope.data.get("rationale"),
+                    "decided_by": scope.data.get("decided_by"),
+                    "provenance": list(scope.provenance),
+                    "allowed_sources": [
+                        value for value in allowed_sources if isinstance(value, str)
+                    ]
+                    if isinstance(allowed_sources, tuple)
+                    else [],
+                    "exact_sources": [value for value in exact_sources if isinstance(value, str)]
+                    if isinstance(exact_sources, tuple)
+                    else [],
+                    "evidence": sorted(
+                        evidence[key] for key in scope.evidence_ids if key in evidence
+                    ),
+                }
+            )
+        scope_rules.sort(key=lambda rule: str(rule["rule_id"]))
+        library = {
+            "label": label,
+            "display": dependency,
+            "library": True,
+            "modules": [],
+            "public": None,
+            "import_sites": sum(len(grouped[source]) for source in grouped),
+            "rules": scope_rules,
+        }
+        if len(scope_rules) == 1:
+            library.update(
+                {key: value for key, value in scope_rules[0].items() if key != "rule_id"}
+            )
+            library["rule_id"] = scope_rules[0]["rule_id"]
+        libraries.append(library)
         for source, items in sorted(grouped.items()):
-            broken = any((item.id, scope.id) in violated_imports for item in items)
+            broken_rules = [
+                rule
+                for rule in scope_rules
+                if any((item.id, rule["rule_id"]) in violated_imports for item in items)
+            ]
             edges.append(
                 {
                     "source": source,
                     "target": label,
                     "import_sites": len(items),
-                    "rule_ids": [scope.id] if broken else [],
-                    "state": "violation" if broken else "conforms",
+                    "rule_ids": [rule["rule_id"] for rule in broken_rules],
+                    "state": "violation" if broken_rules else "conforms",
                     "sites": sorted(
                         {
                             evidence[key]
@@ -504,11 +529,7 @@ def _flow_libraries(
                         }
                     )[:3],
                     "requirement": {},
-                    "scope": {
-                        "rule_id": scope.id,
-                        "rationale": scope.data.get("rationale"),
-                        "decided_by": scope.data.get("decided_by"),
-                    },
+                    "scope": {"rules": scope_rules},
                     "library": True,
                     "names": [],
                 }
@@ -535,6 +556,26 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
     sites = _flow_sites(observation)
     requires = {label: _flow_requires(record) for label, record in by_component.items()}
     libraries, library_edges = _flow_libraries(observation)
+    occupied = {component.label for component in flow.components}
+
+    def unique_label(label: str) -> str:
+        candidate = label
+        suffix = 2
+        while candidate in occupied:
+            candidate = f"{label} ({suffix})"
+            suffix += 1
+        occupied.add(candidate)
+        return candidate
+
+    for library in libraries:
+        old_label = str(library["label"])
+        new_label = unique_label(old_label)
+        if new_label != old_label:
+            library["label"] = new_label
+            for edge in library_edges:
+                if edge["target"] == old_label:
+                    edge["target"] = new_label
+    unassigned_label = unique_label("Unassigned modules") if flow.unassigned_modules else None
 
     return {
         "rules": rules,
@@ -550,6 +591,20 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
             }
             for component in flow.components
         ],
+        "unassigned": (
+            {
+                "label": unassigned_label,
+                "display": "Unassigned modules",
+                "modules": list(flow.unassigned_modules),
+                "public": None,
+                "requires": [],
+                "inner_edges": _inner_edge_payload(flow.unassigned_edges, sites),
+                "inside": None,
+                "navigation_only": True,
+            }
+            if flow.unassigned_modules
+            else None
+        ),
         "edges": [
             {
                 "source": edge.source,
@@ -585,7 +640,9 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
 
 _FLOW_GUIDE = """
       <details class="flow-how-to-read"><summary>How to read this report</summary>
-        <p>Level 2 shows declared components. A circle marks a provided interface; a socket
+        <p>Level 2 shows declared components. If modules have no unique declared owner, an
+        “Unassigned modules” card provides navigation only; it is not a component or a boundary.
+        A circle marks a provided interface; a socket
         marks a declared dependency. A ball-and-socket on an arrow marks an observed use
         narrowed to a specific interface by <code>through</code>. Arrows are observed imports
         from user to provider, not every dependency the contract permits. Teal conforms,

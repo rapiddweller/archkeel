@@ -72,13 +72,39 @@
     return groups;
   }
 
-  const componentByLabel = new Map(DATA.components.map((c) => [c.label, c]));
+  function scopeRules(scope) {
+    return scope?.rules || (scope?.rule_id ? [{
+      rule_id: scope.rule_id, rationale: scope.rationale, decided_by: scope.decided_by,
+    }] : []);
+  }
+
+  function scopeRuleList(scope) {
+    const rules = scopeRules(scope);
+    if (!rules.length) return "<p>No scope rule details recorded.</p>";
+    const values = (label, items) => items?.length
+      ? `<br>${label}: ${items.map((value) => `<code>${esc(value)}</code>`).join(", ")}`
+      : "";
+    const items = rules.map((rule) => {
+      const rationale = rule.rationale ? ` — ${esc(rule.rationale)}` : "";
+      const decider = rule.decided_by ? ` (${esc(rule.decided_by)})` : "";
+      return `<li><code>${esc(rule.rule_id)}</code>${rationale}${decider}`
+        + values("Allowed", rule.allowed_sources)
+        + values("Exact", rule.exact_sources)
+        + values("Provenance", rule.provenance)
+        + values("Evidence", rule.evidence)
+        + "</li>";
+    });
+    return `<ul class="plain">${items.join("")}</ul>`;
+  }
+
+  const rootCards = DATA.components.concat(DATA.libraries || [], DATA.unassigned ? [DATA.unassigned] : []);
+  const componentByLabel = new Map(rootCards.map((c) => [c.label, c]));
 
   // AD-24: inner edges stay observed unless the declared inside rules decide their pair.
   // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
   // shape, because layout, ranking, routing and the inspector all consume that shape.
   function level() {
-    if (!opened) return { components: DATA.components.concat(DATA.libraries || []), edges: DATA.edges };
+    if (!opened) return { components: rootCards, edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
     const component = componentByLabel.get(opened.component);
     // AD-34: a component whose contract describes its inside opens into that level first, and
@@ -439,7 +465,7 @@
       }).join("; ");
       const through = r.edge.requirement?.through || [];
       const contractText = r.edge.library
-        ? `External library use. ${r.edge.scope?.rationale || ""}${r.edge.scope?.decided_by ? ` (${r.edge.scope.decided_by})` : ""}`
+        ? `External library use. ${scopeRules(r.edge.scope).map((rule) => `${rule.rule_id}: ${rule.rationale || "No rationale recorded"}${rule.decided_by ? ` (${rule.decided_by})` : ""}`).join("; ")}`
         : `${through.length ? `Interface narrowed through ${through.join(", ")}. ` : "Interface not narrowed. "}${r.edge.requirement?.rationale || ""}${r.edge.requirement?.decided_by ? ` (${r.edge.requirement.decided_by})` : ""}`;
       title.textContent = `${r.edge.source} uses ${r.edge.target}; ${weight(r.edge)} import sites; ${r.edge.state}. ${contractText} ${ruleText}${(r.edge.sites || []).length ? ` Example: ${r.edge.sites.join(", ")}` : ""}`;
       const select = () => {
@@ -557,7 +583,7 @@
       const label = el("text", { class: "label", x: "16", y: "37" });
       label.textContent = component.display || component.label;
       const stereotype = el("text", { class: "stereotype", x: "16", y: "17" });
-      stereotype.textContent = component.library ? "«library»" : !opened ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
+      stereotype.textContent = component.navigation_only ? "«unassigned»" : component.library ? "«library»" : !opened ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
       const meta = el("text", { class: "meta", x: "16", y: "68" });
       const modulesMeta = (card) =>
         `${card.modules.length} module${card.modules.length === 1 ? "" : "s"} · ${
@@ -576,23 +602,27 @@
               : component.public === null
                 ? "internal part"
                 : "provided part"
-        : component.library ? `${component.import_sites} import sites` : modulesMeta(component);
-      const umlIcon = !component.library && (!opened || (opened.inside === undefined && component.modules && component.modules.length > 1))
+        : component.navigation_only
+          ? `${component.modules.length} modules · navigation only`
+          : component.library ? `${component.import_sites} import sites` : modulesMeta(component);
+      const umlIcon = !component.library && !component.navigation_only && (!opened || (opened.inside === undefined && component.modules && component.modules.length > 1))
         ? el("g", { class: "uml-icon" },
           el("rect", { x: "175", y: "12", width: "15", height: "17" }),
           el("rect", { x: "170", y: "16", width: "7", height: "4" }),
           el("rect", { x: "170", y: "23", width: "7", height: "4" })) : null;
-      const provided = !opened && component.public !== null && component.public.length
+      const provided = !opened && !component.navigation_only && component.public !== null && component.public.length
         ? el("g", { class: "uml-provided" },
           el("line", { x1: "200", y1: "45", x2: "213", y2: "45" }),
           el("circle", { cx: "219", cy: "45", r: "6" })) : null;
-      const required = !opened && component.requires && component.requires.length
+      const required = !opened && !component.navigation_only && component.requires && component.requires.length
         ? el("g", { class: "uml-required" },
           el("line", { x1: "0", y1: "45", x2: "-9", y2: "45" }),
           el("path", { d: "M-9,37 Q-18,45 -9,53" })) : null;
       const tooltip = el("title");
-      tooltip.textContent = component.library
-        ? `${component.display}: external library allowed by ${component.rule_id}. ${component.rationale || ""}${component.decided_by ? ` (${component.decided_by})` : ""}`
+      tooltip.textContent = component.navigation_only
+        ? `${component.label}: modules without a unique declared owner. Navigation only; no component boundary or contract verdict is implied. Select to inspect the module inventory.`
+        : component.library
+        ? `${component.display}: external library scope under ${scopeRules(component).map((rule) => rule.rule_id).join(", ")}.`
         : !opened
         ? `${component.label}: ${component.modules.length} modules; ${component.public === null ? "no interface boundary declared" : `${component.public.length} provided entries`}; ${(component.requires || []).length} required components. Select for details; select again to open.`
         : `${component.label}: ${component.folder ? "physical package, not a declared component" : "module"}; ${component.import_sites || 0} import sites touching it.`;
@@ -603,7 +633,9 @@
           transform: `translate(${pos.x},${pos.y})`,
           tabindex: "0",
           role: "button",
-          "aria-label": component.library
+          "aria-label": component.navigation_only
+            ? `${component.modules.length} unassigned modules, navigation only`
+            : component.library
             ? `${component.display}, external library, ${component.import_sites} import sites`
             : `${component.label}, ${component.modules.length} modules`,
           "data-label": component.label,
@@ -663,8 +695,9 @@
     }
     const modules = view.components.reduce((acc, c) => acc + c.modules.length, 0);
     const libraries = view.components.filter((card) => card.library).length;
+    const navigation = view.components.filter((card) => card.navigation_only).length;
     const violations = new Set(view.edges.flatMap((e) => e.rule_ids)).size;
-    return `<dl class="kv"><dt>Components</dt><dd>${view.components.length - libraries}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Broken edge rules (this level)</dt><dd>${violations}</dd></dl>`;
+    return `<dl class="kv"><dt>Components</dt><dd>${view.components.length - libraries - navigation}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Unassigned module groups</dt><dd>${navigation}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Broken edge rules (this level)</dt><dd>${violations}</dd></dl>`;
   }
 
   function topHeaviestEdges(limit) {
@@ -713,9 +746,12 @@
         (edge.source === prefix || edge.source.startsWith(`${prefix}.`)) !==
         (edge.target === prefix || edge.target.startsWith(`${prefix}.`))) : [];
       const outNote = outside.length ? `<p>${outside.length} connections leave this folder, including ${outside.filter((edge) => edge.state === "violation").length} violations. Use the breadcrumb to inspect those crossings.</p>` : "";
-      return `<div class="kicker">Inside</div><h2>${esc(prefix || opened.inside || opened.component)}</h2><p>Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
+      const ownerNote = owner.navigation_only
+        ? "These modules have no unique declared owner. This view is navigation only and has no component verdict. "
+        : "";
+      return `<div class="kicker">Inside</div><h2>${esc(prefix || opened.inside || opened.component)}</h2><p>${ownerNote}Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
     }
-    return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>Each box is a declared component. A circle is its provided interface; a socket means it requires another component. Arrows show observed imports, not hypothetical permissions. Select a box or connection for evidence; select a box again to open its white-box view.</p>${statBlock()}${heaviestBlock()}`;
+    return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>Declared components are shown with their observed imports. “Unassigned modules” is navigation only and does not imply a component boundary or verdict. Select a box or connection for evidence; select a box again to open its physical module view.</p>${statBlock()}${heaviestBlock()}`;
   }
 
   function moduleTree(component, path = []) {
@@ -768,10 +804,10 @@
       const relations = `<dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
         <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd>`;
       if (component.library) {
+        const rules = scopeRules(component);
         inspector.innerHTML = `<div class="kicker">External library</div><h2>${esc(component.display)}</h2>
           <dl class="kv"><dt>Observed import sites</dt><dd>${component.import_sites}</dd>
-          <dt>Scope rule</dt><dd>${esc(component.rule_id)}</dd>${relations}</dl>
-          <p>${esc(component.rationale || "No rationale recorded.")}${component.decided_by ? ` (${esc(component.decided_by)})` : ""}</p>`;
+          <dt>Scope rules</dt><dd>${rules.length}</dd>${relations}</dl>${scopeRuleList(component)}`;
         return;
       }
       if (opened && opened.module) {
@@ -788,6 +824,13 @@
         inspector.innerHTML = `<div class="kicker">${component.folder ? "Physical package" : "Module"}</div><h2>${esc(component.label)}</h2>
           <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd><dt>Import sites touching group</dt><dd>${component.import_sites || 0}</dd>${relations}</dl>
           ${component.folder ? moduleTree({ ...card, modules: component.modules, inner_edges: card.inner_edges }, [...(opened.path || []), component.label]) : `<p>${component.openable ? "Select again to inspect its symbols." : "No symbols recorded."}</p>`}`;
+        return;
+      }
+      if (component.navigation_only) {
+        inspector.innerHTML = `<div class="kicker">Module inventory · navigation only</div><h2>${esc(component.display || component.label)}</h2>
+          <p>These modules have no unique declared owner. This view does not add a component boundary, permission or verdict.</p>
+          <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd>${relations}</dl>
+          <h3>Physical module tree</h3>${moduleTree(component)}`;
         return;
       }
       const required = component.requires || [];
@@ -826,7 +869,7 @@
       .join("");
     inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(edge.source)} → ${esc(edge.target)}</h2>
       <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>Import sites</dt><dd>${edge.import_sites}</dd>${edge.library ? "" : `<dt>Interface names</dt><dd>${edge.names.length}</dd>`}</dl>
-      ${edge.library ? `<p>External library scope ${esc(edge.scope.rule_id)}: ${esc(edge.scope.rationale || "No rationale recorded.")}${edge.scope.decided_by ? ` (${esc(edge.scope.decided_by)})` : ""}.</p>` : ""}
+      ${edge.library ? `<h3>External library scope</h3>${scopeRuleList(edge.scope)}` : ""}
       ${edge.requirement && edge.requirement.component ? `<p>Declared dependency: ${edge.requirement.through && edge.requirement.through.length ? `through <code>${edge.requirement.through.map(esc).join(", ")}</code>` : "interface not narrowed"}${edge.requirement.rationale ? ` — ${esc(edge.requirement.rationale)}` : ""}${edge.requirement.decided_by ? ` (${esc(edge.requirement.decided_by)})` : ""}.</p>` : ""}
       ${(edge.sites || []).length ? `<h3>Example import sites</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
       ${

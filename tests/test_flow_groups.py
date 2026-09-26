@@ -5,17 +5,28 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
+from test_analyzer import _component, _observe
+
+from archkeel.render.flow import build_flow
+from archkeel.render.html import _flow_payload
+
+
+def _node() -> str:
+    node = shutil.which("node")
+    assert node is not None, "Node.js 22 is required for flow browser tests"
+    version = subprocess.run([node, "--version"], capture_output=True, text=True, check=True)
+    major = int(version.stdout.removeprefix("v").split(".", 1)[0])
+    assert major >= 22, f"Node.js 22+ is required, found {version.stdout.strip()}"
+    return node
 
 
 def test_package_groups_keep_import_totals_and_violations() -> None:
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("Node.js is not installed")
+    node = _node()
     source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
     script = r"""
 const fs = require("node:fs");
@@ -73,3 +84,119 @@ assert.equal(initializer.opensModule, "pkg");
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_analyzer_payload_keeps_unassigned_and_import_only_modules_navigable(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("library:json", packages=["sample.owned"]),
+                    _component("Unassigned modules", packages=["sample.other"]),
+                ],
+                "rules": [
+                    {
+                        "id": "JSON-OWNED",
+                        "kind": "external_dependency_scope",
+                        "dependency": "json",
+                        "exact_sources": ["sample.owned"],
+                        "rationale": "Owned source rule.",
+                        "provenance": ["docs/architecture/owned.md"],
+                        "decided_by": "architect",
+                    },
+                    {
+                        "id": "JSON-OTHER",
+                        "kind": "external_dependency_scope",
+                        "dependency": "json",
+                        "exact_sources": ["sample.other"],
+                        "rationale": "Other source rule.",
+                        "provenance": ["docs/architecture/other.md"],
+                        "decided_by": "agent",
+                    },
+                ],
+            }
+        )
+    )
+    package = tmp_path / "sample"
+    (package / "owned").mkdir(parents=True)
+    (package / "other").mkdir(parents=True)
+    (package / "__init__.py").write_text("import sample.engine\n")
+    (package / "engine.py").write_text("VALUE = 1\n")
+    (package / "owned/__init__.py").write_text("import json\n")
+    (package / "owned/api.py").write_text("VALUE = 2\n")
+    (package / "other/__init__.py").write_text("import json\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    observation = result.observation
+    flow = build_flow(observation)
+    payload = _flow_payload(observation, flow)
+
+    assert set(flow.modules) >= {
+        "sample",
+        "sample.engine",
+        "sample.owned",
+        "sample.owned.api",
+    }
+    assert set(payload["unassigned"]["modules"]) == {"sample", "sample.engine"}
+    assert payload["unassigned"]["navigation_only"] is True
+    assert payload["unassigned"]["inner_edges"][0]["state"] == "observed"
+    assert payload["unassigned"]["inner_edges"][0]["rule_ids"] == []
+    assert payload["unassigned"]["label"] != "Unassigned modules"
+    assert {item["label"] for item in payload["components"]} == {
+        "library:json",
+        "Unassigned modules",
+    }
+    assert len(payload["libraries"]) == 1
+    library = payload["libraries"][0]
+    assert library["label"] != "library:json"
+    assert [rule["rule_id"] for rule in library["rules"]] == ["JSON-OTHER", "JSON-OWNED"]
+    assert {rule["rationale"] for rule in library["rules"]} == {
+        "Other source rule.",
+        "Owned source rule.",
+    }
+    assert {rule["decided_by"] for rule in library["rules"]} == {"agent", "architect"}
+    assert {tuple(rule["exact_sources"]) for rule in library["rules"]} == {
+        ("sample.other",),
+        ("sample.owned",),
+    }
+    assert {tuple(rule["provenance"]) for rule in library["rules"]} == {
+        ("docs/architecture/other.md",),
+        ("docs/architecture/owned.md",),
+    }
+    assert {edge["target"] for edge in payload["edges"] if edge["library"]} == {
+        library["label"],
+    }
+    assert {tuple(edge["rule_ids"]) for edge in payload["edges"] if edge["library"]} == {
+        ("JSON-OTHER",),
+        ("JSON-OWNED",),
+    }
+
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const source = fs.readFileSync(process.argv[1], "utf8");
+const data = JSON.parse(fs.readFileSync(0, "utf8"));
+const begin = source.indexOf("  function rootPackage(");
+const end = source.indexOf("  // The declared names a module publishes", begin);
+assert(begin >= 0 && end > begin);
+const {cardLevel} = new Function("DATA", source.slice(begin, end) + ";return {cardLevel}")(data);
+const groups = cardLevel(data.unassigned, []).components;
+assert(groups.some(card => card.label === "sample:__init__" && card.openable));
+assert(groups.some(card => card.label === "sample.engine" && card.openable));
+assert.notEqual(data.unassigned.label, "Unassigned modules");
+assert.equal(data.libraries.length, 1);
+assert.notEqual(data.libraries[0].label, "library:json");
+assert.deepEqual(data.libraries[0].rules.map(rule => rule.rule_id), ["JSON-OTHER", "JSON-OWNED"]);
+"""
+    completed = subprocess.run(
+        [_node(), "-e", script, str(source)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
