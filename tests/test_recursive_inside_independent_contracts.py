@@ -388,7 +388,7 @@ def test_one_level_report_and_validation_digests_keep_their_distinct_inputs(
         (contract_digest(root_contract) + contract_digest(child_contract)).encode()
     ).hexdigest()
     assert observed.contract.digest == expected_observation
-    assert validated.digest == expected_validation
+    assert validated.comparison_digest == expected_validation
     assert observed.contract.digest != validated.digest
 
 
@@ -404,7 +404,7 @@ def test_validation_digest_ignores_child_json_formatting(tmp_path: Path) -> None
     reformatted = _inside_contract_tree(tmp_path, "contract.json", reformatted_contract)
     assert reformatted is not None
 
-    assert original.digest == reformatted.digest
+    assert original.comparison_digest == reformatted.comparison_digest
 
 
 def test_pre_inside_root_only_amendment_is_refused_for_recursive_policy(tmp_path: Path) -> None:

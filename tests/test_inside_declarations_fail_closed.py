@@ -185,3 +185,34 @@ def test_report_keeps_unsupported_nested_declaration_as_unknown(tmp_path: Path) 
             "contract.json",
             read_contract=read_contract,
         )
+
+
+def test_validate_checks_nested_contract_provenance_files(tmp_path: Path) -> None:
+    _diagnostics(tmp_path, {})
+    child = {
+        "schema_version": "2.1.0",
+        "components": [
+            {
+                "id": "COMP-CHILD",
+                "label": "child",
+                "role": "component",
+                "packages": ["sample.child"],
+                "responsibilities": [],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/absent.md"],
+            }
+        ],
+        "rules": [],
+    }
+    (tmp_path / "inside.json").write_text(json.dumps(child), encoding="utf-8")
+
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        parse_contract(json.loads((tmp_path / "contract.json").read_text())),
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+    )
+
+    assert any(
+        item.code == "reference.provenance" and item.subject == "docs/absent.md"
+        for item in diagnostics
+    )

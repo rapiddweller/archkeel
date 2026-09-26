@@ -34,7 +34,7 @@ def _inside_component(label: str, package: str, *, inside: str | None = None) ->
         "packages": [package],
         "responsibilities": [],
         "forbidden_responsibilities": [],
-        "provenance": ["docs/sample.md"],
+        "provenance": ["docs/architecture/sample.md"],
     }
     if inside is not None:
         component["inside"] = inside

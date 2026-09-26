@@ -112,11 +112,26 @@
     if (!opened) return { components: rootCards, edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
     const component = componentByLabel.get(opened.component);
-    // AD-34: a component whose contract describes its inside opens into that level first, and
-    // its modules sit one step deeper, inside the sub-component that owns them.
     if (opened.inside) {
-      const card = (component.inside.components || []).find((c) => c.label === opened.inside);
-      return card ? cardLevel(card, opened.path || []) : { components: [], edges: [] };
+      let card = (component.inside?.components || []).find((c) => c.label === opened.inside);
+      if (!card) return { components: [], edges: [] };
+      if (!(opened.insidePath || []).length && !card.inside) {
+        return cardLevel(card, opened.path || []);
+      }
+      let inside = card.inside;
+      for (const [index, label] of (opened.insidePath || []).entries()) {
+        card = (inside?.components || []).find((item) => item.label === label);
+        if (!card) return { components: [], edges: [] };
+        if (card.inside) {
+          inside = card.inside;
+        } else if (opened.physicalInsideCard && index === opened.insidePath.length - 1) {
+          return cardLevel(card, opened.path || []);
+        } else {
+          return { components: [], edges: [] };
+        }
+      }
+      if (inside) return insideLevel(inside);
+      return { components: [], edges: [] };
     }
     if (component.inside) return insideLevel(component.inside);
     return cardLevel(component, opened.path || []);
@@ -154,8 +169,9 @@
     const cards = inside.components.map((card) => ({
       label: card.label,
       modules: card.modules,
-      openable: card.modules.length > 0,
+      openable: Boolean(card.inside) || card.modules.length > 0,
       public: card.public,
+      inside: card.inside,
     }));
     // A module no sub-component owns keeps a card: one that vanished between two levels is
     // exactly what this tool exists to prevent (AD-34). Opening it opens the module itself.
@@ -1279,8 +1295,10 @@
 
   // Where one press of Back returns to, named for the level the viewer is standing on.
   function backLabel() {
-    if (opened.module) return `Back to ${(opened.path || []).at(-1) || opened.inside || opened.component}`;
-    if (opened.path && opened.path.length) return `Back to ${opened.path.length > 1 ? opened.path[opened.path.length - 2] : opened.inside || opened.component}`;
+    const insidePath = [opened.inside, ...(opened.insidePath || [])].filter(Boolean);
+    if (opened.module) return `Back to ${(opened.path || []).at(-1) || insidePath.at(-1) || opened.component}`;
+    if (opened.path && opened.path.length) return `Back to ${opened.path.length > 1 ? opened.path[opened.path.length - 2] : insidePath.at(-1) || opened.component}`;
+    if (insidePath.length > 1) return `Back to ${insidePath[insidePath.length - 2]}`;
     if (opened.inside) return `Back to ${opened.component}`;
     return "Back to components";
   }
@@ -1290,7 +1308,17 @@
     if (!opened) return items;
     items.push({ label: opened.component, state: { component: opened.component, path: [] } });
     if (opened.inside) items.push({ label: opened.inside, state: { component: opened.component, inside: opened.inside, path: [] } });
-    (opened.path || []).forEach((name, index) => items.push({ label: name.split(".").pop(), state: { component: opened.component, ...(opened.inside ? { inside: opened.inside } : {}), path: opened.path.slice(0, index + 1) } }));
+    (opened.insidePath || []).forEach((name, index) => items.push({
+      label: name,
+      state: {
+        component: opened.component,
+        inside: opened.inside,
+        insidePath: opened.insidePath.slice(0, index + 1),
+        ...(opened.physicalInsideCard && index === opened.insidePath.length - 1 ? { physicalInsideCard: true } : {}),
+        path: [],
+      },
+    }));
+    (opened.path || []).forEach((name, index) => items.push({ label: name.split(".").pop(), state: { component: opened.component, ...(opened.inside ? { inside: opened.inside } : {}), ...(opened.insidePath ? { insidePath: opened.insidePath } : {}), ...(opened.physicalInsideCard ? { physicalInsideCard: true } : {}), path: opened.path.slice(0, index + 1) } }));
     if (opened.module) items.push({ label: opened.module.split(".").pop(), state: opened });
     return items;
   }
@@ -1329,6 +1357,29 @@
   function enter(label) {
     if (!opened) {
       opened = { component: label, path: [] };
+    } else if (opened.module) {
+      return;
+    } else if (!opened.physicalInsideCard && (opened.inside || componentByLabel.get(opened.component).inside)) {
+      const card = level().components.find((c) => c.label === label);
+      if (!card) return;
+      if (card.inside) {
+        opened = opened.inside
+          ? { ...opened, insidePath: [...(opened.insidePath || []), label], path: [] }
+          : { component: opened.component, inside: label, path: [] };
+      } else if (card.folder) {
+        opened = { ...opened, path: [...(opened.path || []), label] };
+      } else if (card.opensModule) {
+        opened = { ...opened, module: card.opensModule };
+      } else if (!opened.inside) {
+        opened = { component: opened.component, inside: label, physicalInsideCard: true, path: [] };
+      } else {
+        opened = {
+          ...opened,
+          insidePath: [...(opened.insidePath || []), label],
+          physicalInsideCard: true,
+          path: [],
+        };
+      }
     } else if (opened.inside || !componentByLabel.get(opened.component).inside) {
       const card = level().components.find((c) => c.label === label);
       opened = card && card.folder
