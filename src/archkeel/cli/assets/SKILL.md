@@ -14,9 +14,10 @@ convention alone.
 
 `architecture-contract.json` is the target architecture — where the system should be, not
 where the code already is. `archkeel report` measures the code's distance from that target
-as violations. The architect owns the target and chooses how deep to review it today; you
-support them with best practice, evidence from the repository, and the architect's quality
-goals for this codebase (which components must scale, stay easy to change, or are
+as violations. The architect owns the target and review scope; within that scope, inspect
+the physical structure at every depth, not just the top level. Support them with evidence
+from the repository and the architect's quality goals for this codebase (which components
+must scale, stay easy to change, or are
 performance-critical). Read those goals from ADRs and architecture documents first; ask the
 architect only when a goal is unknown and would change your recommendation. Every
 recommendation and every rationale you write cites the goal it rests on. There is no
@@ -43,6 +44,34 @@ subtree). Follow the ownership example in the target-first guide. Run `archkeel 
 adding it; a misplaced matching class is a `rule.violated`.
 
 Then pick one of two modes. The architect chooses; do not choose for them.
+
+### Physical structure review (both modes)
+
+After `init`, and during architecture assessments, inspect every maintained source package
+in scope recursively down to leaf packages, whether or not it has an `inside` contract.
+The generated inventory and a green contract are not evidence that this structure is good.
+
+- Count direct source modules and immediate subpackages at each level; exclude `__init__.py`
+  from this count, not from ownership, behavior or dependency review. Record excluded generated
+  or vendored trees.
+  More than seven direct children triggers a review, not an automatic split or a failing
+  rule. Five to seven understandable groups is a review heuristic, not a cognitive law.
+- Challenge mixed responsibilities, unclear names, oversized leaf modules, excessive
+  nesting, cycles and cross-package coupling even below that threshold. Trace entry points
+  and data flow before choosing boundaries; check who owns shared types and public interfaces.
+- Propose physical packages around cohesive responsibilities, not arbitrary groups of seven
+  or diagram-only clusters. Compare the current and target tree and allowed dependency
+  directions. Keep a cohesive larger package when splitting only adds navigation or coupling;
+  do not hide the excess in `misc`, `utils`, single-child wrappers or re-export barrels.
+- For uncertain boundaries, give the architect a recommended option, alternatives, evidence,
+  trade-offs and system-wide impact. Follow the chosen decision mode; reviewing structure
+  does not authorize moving files or changing behavior.
+- Record review coverage and unresolved decisions in the existing architecture document:
+  reviewed subtree, finding or keep-rationale, target change, and enforcement gap. Mark
+  unreviewed subtrees explicitly; never present a partial review as a complete assessment.
+  Add `inside` contracts at meaningful independently governed boundaries, not at every folder.
+  Encode approved constraints with supported rules. Deeper review remains necessary when
+  the installed version cannot enforce nested contracts; do not invent unsupported rules.
 
 ### Interview mode: the architect decides, you ask
 
@@ -100,8 +129,10 @@ reopened.
 
 ### Ending onboarding, either mode
 
-The interview (or the auto-mode pass) ends when `complete_requires` closes the dependency set
-and `validate --json` reports none of `decision.open`, `rationale.placeholder` or
+Before ending, record the physical structure review and any deferred subtrees or decisions;
+a closed dependency contract alone does not complete the architecture assessment.
+The dependency interview (or auto-mode pass) ends when `complete_requires` closes the
+dependency set and `validate --json` reports none of `decision.open`, `rationale.placeholder` or
 `rationale.repeated` — not when the command exits 0. A `rule.violated` diagnostic is the
 architecture's own finding, not an onboarding step: the code still uses an edge the target
 omits. Show it to the architect with `archkeel report`. They resolve it by changing the code or
@@ -151,6 +182,8 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
 
 ## Daily loop
 
+- Revisit the physical structure review for changed packages and their parent boundaries;
+  recheck related findings rather than repeating a whole-repository review for every edit.
 - Run `archkeel report --json` before submitting any change. A rule violation does not
   change the exit code; read the `declared_rules` verdict. Exit 2 means the evidence is
   incomplete; fix the diagnostic before trusting any verdict.
@@ -179,7 +212,8 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
 ## A second level: the inside of a component
 
 A component may name a contract of its own, which becomes a second level of the same
-architecture (AD-20, AD-34). Opening one is the architect's decision, never yours. The
+architecture (AD-20, AD-34). Adding one is the architect's decision; inspecting the physical
+subtree is already part of the recursive review above and does not depend on that decision. The
 `component larger than its level` claim is evidence that a component holds more than the whole
 top level does; it is a reason to ask, not permission to split.
 
