@@ -149,6 +149,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-110 | [Inside rules use the shared evaluator](decisions/ad-110-inside-rules-use-the-shared-evaluator.md) |
 | AD-111 | [Explicit inside contracts form one revision-bound tree](decisions/ad-111-recursive-inside-contract-tree.md) |
 | AD-112 | [Public means public at that boundary](decisions/ad-112-local-publication-at-each-boundary.md) |
+| AD-113 | [Requires names a component at its own level](decisions/ad-113-requires-targets-belong-to-their-contract-level.md) |
 
 ## Allowed dependencies
 

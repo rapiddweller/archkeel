@@ -181,6 +181,17 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         expected_codes=("contract.invalid",),
     ),
     Variant(
+        id="validation-component-label-duplicate",
+        section="validation",
+        item="component.label:duplicate",
+        summary="Different component IDs cannot make a shared label unambiguous.",
+        files={
+            "architecture-contract.json": contract_component_field_set("store", "label", "model")
+        },
+        expected_violations=(),
+        expected_codes=("contract.invalid",),
+    ),
+    Variant(
         id="validation-module-placement-clean",
         section="validation",
         item="module.placement:clean",
