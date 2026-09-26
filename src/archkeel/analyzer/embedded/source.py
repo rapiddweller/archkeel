@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import ast
 import hashlib
-from collections.abc import Iterator, Sequence
+from collections import Counter
+from collections.abc import Iterable, Iterator, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -98,23 +99,25 @@ class ParsedModule:
 def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     """Names with one direct definition or import and no competing binder in the module."""
     nodes = list(ast.walk(module.tree))
-    imports: list[tuple[str, bool]] = []
-    for node in nodes:
-        if isinstance(node, ast.Import | ast.ImportFrom):
-            is_direct = node in module.tree.body
-            for alias in node.names:
-                import_name: str = alias.name
-                root = alias.asname or (
-                    import_name.split(".")[0] if isinstance(node, ast.Import) else import_name
-                )
-                imports.append((root, is_direct))
+    imports = [
+        (name, node in module.tree.body)
+        for node in nodes
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        for name in _import_bindings(node)
+    ]
     type_parameters = [
         value
         for node in nodes
         for field_name, value in ast.iter_fields(node)
         if field_name == "type_params" and value
     ]
-    if "*" in [name for name, _ in imports] or type_parameters:
+    if (
+        any(
+            isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+            for node in nodes
+        )
+        or type_parameters
+    ):
         return frozenset()
     direct = [
         node.name
@@ -122,31 +125,126 @@ def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
         and node in module.tree.body
     ] + [name for name, is_direct in imports if is_direct]
-    binders = (
+    binders = _bound_names(nodes)
+    counts = Counter(binders)
+    return frozenset(name for name in direct if counts[name] == 1)
+
+
+def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
+    """Names bound once at module level without a conditional or explicit global rebind."""
+    direct: dict[str, int] = {}
+    for statement in module.tree.body:
+        if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            direct[statement.name] = direct.get(statement.name, 0) + 1
+        elif isinstance(statement, ast.Import | ast.ImportFrom):
+            for name in _import_bindings(statement):
+                direct[name] = direct.get(name, 0) + 1
+        elif isinstance(statement, ast.Assign | ast.AnnAssign):
+            targets = (
+                statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
+            )
+            for target in targets:
+                for name in _bound_names(ast.walk(target)):
+                    direct[name] = direct.get(name, 0) + 1
+    nodes = list(_module_scope_nodes(module.tree))
+    if any(
+        isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+        for node in nodes
+    ):
+        return frozenset()
+    counts = Counter(_bound_names(nodes))
+    global_names = {
+        name
+        for node in ast.walk(module.tree)
+        if isinstance(node, ast.Global)
+        for name in node.names
+    }
+    return frozenset(
+        name
+        for name, count in direct.items()
+        if count == 1 and counts[name] == 1 and name not in global_names
+    )
+
+
+def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
+    return tuple(
+        alias.asname or (alias.name.split(".")[0] if isinstance(node, ast.Import) else alias.name)
+        for alias in node.names
+        if alias.name != "*"
+    )
+
+
+def _bound_names(nodes: Iterable[ast.AST]) -> list[str]:
+    nodes = list(nodes)
+    imports = [
+        name
+        for child in nodes
+        if isinstance(child, ast.Import | ast.ImportFrom)
+        for name in _import_bindings(child)
+    ]
+    return (
         [
-            node.id
-            for node in nodes
-            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del)
+            child.id
+            for child in nodes
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store | ast.Del)
         ]
-        + [node.arg for node in nodes if isinstance(node, ast.arg)]
+        + [child.arg for child in nodes if isinstance(child, ast.arg)]
         + [
-            node.name
-            for node in nodes
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+            child.name
+            for child in nodes
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
         ]
-        + [name for name, _ in imports]
-        + [node.name for node in nodes if isinstance(node, ast.ExceptHandler) and node.name]
-        + [node.name for node in nodes if isinstance(node, ast.MatchAs) and node.name]
-        + [node.name for node in nodes if isinstance(node, ast.MatchStar) and node.name]
-        + [node.rest for node in nodes if isinstance(node, ast.MatchMapping) and node.rest]
+        + imports
+        + [child.name for child in nodes if isinstance(child, ast.ExceptHandler) and child.name]
+        + [child.name for child in nodes if isinstance(child, ast.MatchAs) and child.name]
+        + [child.name for child in nodes if isinstance(child, ast.MatchStar) and child.name]
+        + [child.rest for child in nodes if isinstance(child, ast.MatchMapping) and child.rest]
         + [
             name
-            for node in nodes
-            if isinstance(node, ast.Global | ast.Nonlocal)
-            for name in node.names
+            for child in nodes
+            if isinstance(child, ast.Global | ast.Nonlocal)
+            for name in child.names
         ]
     )
-    return frozenset(name for name in direct if binders.count(name) == 1)
+
+
+def _module_scope_nodes(module: ast.Module) -> Iterator[ast.AST]:
+    """Walk module-evaluated expressions, excluding nested function/class bodies."""
+    pending: list[ast.AST] = [module]
+    while pending:
+        node = pending.pop()
+        yield node
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            expressions: list[ast.AST] = [*node.decorator_list, *node.args.defaults]
+            expressions.extend(item for item in node.args.kw_defaults if item is not None)
+            expressions.extend(
+                argument.annotation
+                for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+                if argument.annotation is not None
+            )
+            if node.args.vararg and node.args.vararg.annotation:
+                expressions.append(node.args.vararg.annotation)
+            if node.args.kwarg and node.args.kwarg.annotation:
+                expressions.append(node.args.kwarg.annotation)
+            if node.returns:
+                expressions.append(node.returns)
+            pending.extend(reversed(expressions))
+        elif isinstance(node, ast.ClassDef):
+            expressions = [*node.decorator_list, *node.bases]
+            expressions.extend(keyword.value for keyword in node.keywords)
+            pending.extend(reversed(expressions))
+        elif isinstance(node, ast.Lambda):
+            expressions = [*node.args.defaults]
+            expressions.extend(item for item in node.args.kw_defaults if item is not None)
+            pending.extend(reversed(expressions))
+        elif isinstance(node, ast.comprehension):
+            pending.extend(reversed([node.iter, *node.ifs]))
+        elif isinstance(node, ast.ListComp | ast.SetComp | ast.GeneratorExp):
+            pending.extend(reversed([node.elt, *node.generators]))
+        elif isinstance(node, ast.DictComp):
+            pending.extend(reversed([node.key, node.value, *node.generators]))
+        else:
+            pending.extend(reversed(list(ast.iter_child_nodes(node))))
 
 
 def _excerpt(module: ParsedModule, node: ast.AST) -> str:
