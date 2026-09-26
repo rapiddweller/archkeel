@@ -23,32 +23,79 @@ def _observe_source(tmp_path: Path, source: str):
     return result.observation
 
 
-def test_protocol_signature_is_not_reported_as_every_parameter_read(tmp_path: Path) -> None:
+def test_ce_smoke_context_unread_parameters_remain_visible_without_removal_claim(
+    tmp_path: Path,
+) -> None:
     observation = _observe_source(
         tmp_path,
         """from typing import Protocol
 
-class Exporter(Protocol):
-    def export(self, context: _SmokeExporterContext) -> None: ...
+class Client:
+    pass
+
+class ExporterContext(Protocol):
+    def get_client_by_id(self, client_id: str) -> Client | None: ...
+    def contain(self, memstore_id: str) -> bool: ...
+
+class _SmokeExporterContext:
+    def get_client_by_id(self, client_id: str) -> Client | None:
+        return None
+
+    def contain(self, memstore_id: str) -> bool:
+        return False
+
+context: ExporterContext = _SmokeExporterContext()
+""",
+    )
+
+    claim = unread_bindings(observation)
+    body = _binding_claim_body(claim)
+    named = [(item.owner, item.name) for item in claim.candidates]
+
+    assert named == [
+        ("sample.ports._SmokeExporterContext.contain", "memstore_id"),
+        ("sample.ports._SmokeExporterContext.get_client_by_id", "client_id"),
+    ]
+    assert "client_id" in body and "memstore_id" in body
+    assert "not assessed" in body.lower() or "removability" in body.lower()
+    assert "safe to remove" not in body.lower()
+
+
+def test_protocol_stub_empty_claim_does_not_assert_every_parameter_is_read(
+    tmp_path: Path,
+) -> None:
+    observation = _observe_source(
+        tmp_path,
+        """from typing import Protocol
+
+class ExporterContext(Protocol):
+    def get_client_by_id(self, client_id: str) -> object | None: ...
+    def contain(self, memstore_id: str) -> bool: ...
 """,
     )
 
     claim = unread_bindings(observation)
     body = _binding_claim_body(claim)
 
-    assert "context" in body or "_SmokeExporterContext" in body
+    assert claim.status == "SUPPORTED"
+    assert claim.candidates == ()
     assert "every parameter and local is read" not in body
     assert "not assessed" in body.lower() or "unknown" in body.lower()
 
 
-def test_lexical_unread_parameters_remain_candidates_but_reads_do_not(tmp_path: Path) -> None:
+def test_same_named_and_ordinary_unread_parameters_keep_lexical_evidence(
+    tmp_path: Path,
+) -> None:
     observation = _observe_source(
         tmp_path,
         """def left(unused, shared):
     return shared
 
-def right(shared, unused):
-    return shared
+def right(unused):
+    return unused
+
+def ordinary(plain_unused, value):
+    return value
 """,
     )
 
@@ -59,7 +106,7 @@ def right(shared, unused):
     assert claim.status == "SUPPORTED"
     assert named == [
         ("sample.ports.left", "unused", "parameter"),
-        ("sample.ports.right", "unused", "parameter"),
+        ("sample.ports.ordinary", "plain_unused", "parameter"),
     ]
     evidence_ids = {
         evidence_id
@@ -68,8 +115,8 @@ def right(shared, unused):
     }
     assert evidence_ids
     assert evidence_ids <= {item.id for item in observation.evidence}
-    assert "shared" not in body
-    assert "candidates for review, never a verdict" in body
+    assert all(name not in body for name in ("shared", "value", "right"))
+    assert "safe to remove" not in body.lower()
 
 
 def test_missing_binding_signal_is_unknown_not_an_empty_supported_claim(tmp_path: Path) -> None:
@@ -77,8 +124,9 @@ def test_missing_binding_signal_is_unknown_not_an_empty_supported_claim(tmp_path
         tmp_path,
         """from typing import Protocol
 
-class Exporter(Protocol):
-    def export(self, context: _SmokeExporterContext) -> None: ...
+class ExporterContext(Protocol):
+    def get_client_by_id(self, client_id: str) -> object | None: ...
+    def contain(self, memstore_id: str) -> bool: ...
 """,
     )
     without_signal = replace(
