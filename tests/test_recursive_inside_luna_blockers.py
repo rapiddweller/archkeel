@@ -34,6 +34,7 @@ from archkeel.check.validation import (
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
+from archkeel.ir.model import ObservationResult, Record
 from archkeel.ir.trace import trace_valid_violations
 from archkeel.render.flow import build_flow
 
@@ -289,15 +290,9 @@ def test_nested_scope_escape_stays_unknown_while_valid_sibling_is_evaluated(
     )
 
 
-@pytest.mark.parametrize(
-    ("target_public", "expected_violation"),
-    [([], True), (["sample.layer.target.api:Payload"], False)],
-    ids=["private-type-is-rejected", "published-type-is-accepted"],
-)
-def test_deep_boundary_types_preserve_intermediate_target_ownership(
+def _write_deep_boundary_type_case(
     tmp_path: Path,
     target_public: list[str],
-    expected_violation: bool,
 ) -> None:
     (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     (tmp_path / "docs/architecture").mkdir(parents=True)
@@ -358,6 +353,18 @@ def test_deep_boundary_types_preserve_intermediate_target_ownership(
     (tmp_path / "contracts/two.json").write_text(json.dumps(middle))
     (tmp_path / "contracts/three.json").write_text(json.dumps(deepest))
 
+
+@pytest.mark.parametrize(
+    ("target_public", "expected_violation"),
+    [([], True), (["sample.layer.target.api:Payload"], False)],
+    ids=["private-type-is-rejected", "published-type-is-accepted"],
+)
+def test_deep_boundary_types_preserve_intermediate_target_ownership(
+    tmp_path: Path,
+    target_public: list[str],
+    expected_violation: bool,
+) -> None:
+    _write_deep_boundary_type_case(tmp_path, target_public)
     result = _observe(tmp_path)
     assert result.observation is not None, result.diagnostics
     violations = [
@@ -380,6 +387,71 @@ def test_deep_boundary_types_preserve_intermediate_target_ownership(
     else:
         assert not violations
         assert not unknowns
+
+
+def _add_nested_target_owner(tmp_path: Path, *, label: str, public: list[str]) -> None:
+    path = tmp_path / "contracts/two.json"
+    middle = json.loads(path.read_text())
+    target = _component_at(label, "sample.layer.target", public=public)
+    target["id"] = f"COMP-NESTED-TARGET-{label.upper()}"
+    middle["components"].append(target)
+    path.write_text(json.dumps(middle))
+
+
+def _boundary_type_records(result: ObservationResult) -> tuple[list[Record], list[Record]]:
+    assert result.observation is not None, result.diagnostics
+    records: dict[str, list[Record]] = {
+        section: [
+            item
+            for item in result.observation.records(section) or ()
+            if any(rule.endswith("SOURCE-TYPES") for rule in item.rule_ids)
+        ]
+        for section in ("violations", "unknowns")
+    }
+    return records["violations"], records["unknowns"]
+
+
+def test_same_label_nearest_private_reexport_remains_a_violation(tmp_path: Path) -> None:
+    _write_deep_boundary_type_case(tmp_path, ["sample.layer.target.api:Payload"])
+    _add_nested_target_owner(tmp_path, label="layer", public=[])
+    (tmp_path / "sample/layer/target/impl.py").write_text("class Payload: pass\n")
+    (tmp_path / "sample/layer/target/api.py").write_text(
+        'from .impl import Payload\n__all__ = ["Payload"]\n'
+    )
+
+    violations, unknowns = _boundary_type_records(_observe(tmp_path))
+
+    assert len(violations) == 1, (violations, unknowns)
+    assert "Payload" in violations[0].title
+    assert not unknowns
+
+
+def test_nearest_owner_public_reexport_is_accepted(tmp_path: Path) -> None:
+    _write_deep_boundary_type_case(tmp_path, [])
+    _add_nested_target_owner(tmp_path, label="target", public=["sample.layer.target.api:Payload"])
+    (tmp_path / "sample/layer/target/impl.py").write_text("class Payload: pass\n")
+    (tmp_path / "sample/layer/target/api.py").write_text(
+        'from .impl import Payload\n__all__ = ["Payload"]\n'
+    )
+
+    violations, unknowns = _boundary_type_records(_observe(tmp_path))
+
+    assert not violations
+    assert not unknowns
+
+
+def test_published_dto_with_private_field_type_is_rejected(tmp_path: Path) -> None:
+    _write_deep_boundary_type_case(tmp_path, ["sample.layer.target.api:Payload"])
+    (tmp_path / "sample/layer/target/api.py").write_text(
+        "class Secret: pass\nclass Payload:\n    value: Secret\n"
+    )
+
+    violations, unknowns = _boundary_type_records(_observe(tmp_path))
+
+    assert len(violations) == 1, (violations, unknowns)
+    assert violations[0].data.get("path") == "return.value"
+    assert violations[0].data.get("nested_annotation") == "Secret"
+    assert not unknowns
 
 
 @pytest.mark.parametrize(
