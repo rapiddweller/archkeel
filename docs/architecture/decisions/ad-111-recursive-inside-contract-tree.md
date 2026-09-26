@@ -26,6 +26,10 @@ Each level retains the source limits of its entire ancestor chain. Invalid child
 regain authority by mounting another contract, including in the diagram's module ownership.
 Valid ancestor and sibling ownership remain available for target/type lookup, not as extra
 rule sources or automatic public exports. Invalid claims cannot override a valid type owner.
+Type lookup checks the current level, then already-clipped ancestors, nearest first. A unique
+owner decides publication; multiple owners at one level stop with non-neutral UNKNOWN.
+A higher public declaration cannot override a nearer private one. Reexport proof uses scoped
+component ids so repeated labels cannot share authority.
 Known findings survive incomplete branches. Incomplete validation cannot write a baseline or graph.
 
 All mounted contracts are authenticated in the accepted `check` revision; candidate policy edits
