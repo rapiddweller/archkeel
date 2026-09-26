@@ -201,7 +201,7 @@ def test_html_report_states_the_filter_that_produced_it(tmp_path: Path) -> None:
     # A rule/component facet alone narrows the violations table; it leaves the other
     # sections in place, unlike --only violations below.
     assert "Component flow" in page
-    assert "Component communication" in page
+    assert "Cross-component imports" in page
 
 
 def test_only_violations_hides_every_other_section(tmp_path: Path) -> None:
@@ -217,7 +217,7 @@ def test_only_violations_hides_every_other_section(tmp_path: Path) -> None:
     assert "Filtered (only violations): 20 of 20 violation(s) shown." in page
     assert "Declared-rule violations" in page
     assert "Component flow" not in page
-    assert "Component communication" not in page
+    assert "Cross-component imports" not in page
     assert "Known unknowns" not in page
     assert "Size and coupling" not in page
     assert "Review claim" not in page

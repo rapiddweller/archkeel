@@ -157,12 +157,16 @@ def _interface_name(item: Record, symbols_by_name: dict[str, Record]) -> Interfa
     target_module = data.get("target_module")
     symbol_value = data.get("symbol")
     target = target_module if isinstance(target_module, str) else ""
+    if symbol_value == "*":
+        return InterfaceName(f"{target}:*", "star import", (), "")
     named = isinstance(symbol_value, str) and symbol_value != "*"
     name = f"{target}:{symbol_value}" if named else target
+    if not named:
+        return InterfaceName(name, "module", (), "")
     origin = data.get("origin_definition")
     resolved = symbols_by_name.get(origin) if isinstance(origin, str) else None
     if resolved is None:
-        return InterfaceName(name, "constant", (), "")
+        return InterfaceName(name, "unknown", (), "")
     kind = _symbol_kind(resolved)
     if kind not in FUNCTION_KINDS:
         return InterfaceName(name, kind, (), "")
