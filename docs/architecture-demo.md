@@ -45,6 +45,8 @@ demo-dart`.
 | class_a | complete_requires | class-a-complete-requires | validate/report run | REQUIRES-COMPLETE | rule.violated | architecture-contract.json |
 | class_a | complete_requires:include_type_checking | class-a-complete-requires-type-checking | validate/report run | REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE, REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated, rule.violated | architecture-contract.json |
 | class_a | complete_requires:inside | class-a-complete-requires-inside | validate/report run | store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE, store:STORE-REQUIRES-COMPLETE | rule.violated, rule.violated, rule.violated | shop/store/architecture-contract.json |
+| class_a | forbidden_construct:inside_clean | class-a-forbidden-construct-inside-clean | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json, shop/store/repository.py |
+| class_a | forbidden_construct:inside_violation | class-a-forbidden-construct-inside-violation | validate/report run | store:STORE-NO-EVAL | rule.violated | architecture-contract.json, shop/store/architecture-contract.json, shop/store/repository.py |
 | class_a | complete_external_scope | class-a-complete-external-scope | validate/report run | EXTERNAL-COMPLETE | rule.violated | shop/app/analytics.py |
 | class_a | forbidden_dependency:pair | class-a-forbidden-dependency-pair | validate/report run | DEP-RENDER-NO-STORE | closed_world.observed_forbidden, graph.drift, rule.violated | shop/render/text.py |
 | class_a | forbidden_dependency:target_symbol | class-a-forbidden-dependency-target-symbol | validate/report run | DEP-STORE-NO-MONEY | rule.violated | shop/store/repository.py |
@@ -141,7 +143,7 @@ demo-dart`.
 | validation | amendment.invalid | validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
 | validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | shop/store/architecture-contract.json |
 | validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | shop/store/architecture-contract.json |
-| validation | contract.invalid:inside | validation-inside-contract-missing | validate/report run | - | contract.invalid | shop/store/architecture-contract.json |
+| validation | contract.invalid:inside | validation-inside-contract-missing | validate/report run | DEP-STORE-NO-MONEY | contract.invalid, rule.violated | shop/store/architecture-contract.json, shop/store/repository.py |
 | validation | api_surface_unknown | validation-api-surface-unknown | validate/report run | - | - | architecture-contract.json |
 | validation | rule_without_subjects | validation-rule-without-subjects | validate/report run | - | - | architecture-contract.json |
 | validation | parse_error | validation-parse-error | validate/report run | - | - | shop/model/broken_syntax.py |
