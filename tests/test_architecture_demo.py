@@ -340,15 +340,20 @@ def test_unproven_ordinary_reexport_stays_unknown_in_cli_json(
     assert report_code == 0
     assert report["declared_rules"] == "UNKNOWN"
 
-    architecture = json.loads(architecture_path.read_bytes())
-    assert architecture["violations"] == []
-    uncertain_routes = [
+    observation = parse_observation(
+        decode_canonical_model(json.loads(architecture_path.read_bytes()))
+    )
+    assert not trace_valid_violations(observation)
+    uncertain_routes = {
         subject
-        for item in architecture["unknowns"]
-        if item["kind"] == "boundary_type_route"
-        for subject in item["subjects"]
-    ]
-    assert uncertain_routes == ["shop.render.facade:render_order"]
+        for item in observation.records("unknowns") or ()
+        if item.kind == "boundary_type_route"
+        for subject in item.subjects
+    }
+    assert uncertain_routes == {
+        "shop.render.facade.render_order",
+        "shop.render.facade",
+    }
 
 
 def test_baseline_interface_narrowing_runs_a_real_validate_gate(

@@ -335,7 +335,10 @@ _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN = Variant(
     },
     expected_violations=(),
     expected_codes=(),
-    expected_unknowns=(("boundary_type_route", "shop.render.facade:render_order"),),
+    expected_unknowns=(
+        ("boundary_type_route", "shop.render.facade.render_order"),
+        ("boundary_type_route", "shop.render.facade"),
+    ),
     expected_declared_rules="UNKNOWN",
 )
 
