@@ -238,21 +238,22 @@ def _inside_rule_results(
     mounts_by_parent = {mount.parent_id: mount for mount in inside_contracts}
     for mount in inside_contracts:
         available = available_by_owner.get(mount.owner_id, frozenset())
-        parent = _inside_parent_component(mount, contract_by_owner)
+        owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner)
+        if not owner_levels and not mount.owner_id:
+            owner_levels = (mount.parent_contract,)
+        owner_contract = owner_levels[0] if owner_levels else None
+        parent = _inside_parent_component(mount, owner_contract)
         scoped, source_modules, scope_failures = _inside_source_domain(
             parent, mount.contract, modules, mount.parent_id, available
         )
         available_by_owner[mount.parent_id] = source_modules
         contract_by_owner[mount.parent_id] = scoped
         failures.extend(scope_failures)
-        external_components = _inside_external_components(
-            mount, mounts_by_parent, contract_by_owner, parent, scoped
-        )
         results = _evaluate_inside_contract(
             parent,
             scoped,
             source_modules,
-            external_components=external_components,
+            ancestor_contracts=owner_levels,
             imports=imports,
             typing_signals=typing_signals,
             constructs=constructs,
@@ -284,12 +285,9 @@ def _inside_rule_results(
 
 def _inside_parent_component(
     mount: InsideContractMount,
-    contract_by_owner: dict[str, ArchitectureContract],
+    owner_contract: ArchitectureContract | None,
 ) -> ContractComponent:
     """Resolve a mount's owner from the already-clipped ancestor contract."""
-    owner_contract = contract_by_owner.get(mount.owner_id)
-    if owner_contract is None and not mount.owner_id:
-        owner_contract = mount.parent_contract
     if owner_contract is not None:
         parent = next(
             (item for item in owner_contract.components if item.id == mount.parent.id), None
@@ -297,6 +295,26 @@ def _inside_parent_component(
         if parent is not None:
             return parent
     return replace(mount.parent, packages=()) if mount.owner_id else mount.parent
+
+
+def _inside_owner_levels(
+    mount: InsideContractMount,
+    mounts_by_parent: dict[str, InsideContractMount],
+    contract_by_owner: dict[str, ArchitectureContract],
+) -> tuple[ArchitectureContract, ...]:
+    """Return the current owner contract and its already-clipped ancestors, nearest first."""
+    levels = []
+    owner_id = mount.owner_id
+    while True:
+        if contract := contract_by_owner.get(owner_id):
+            levels.append(contract)
+        if not owner_id:
+            break
+        owner = mounts_by_parent.get(owner_id)
+        if owner is None:
+            break
+        owner_id = owner.owner_id
+    return tuple(levels)
 
 
 def _inside_source_domain(
@@ -340,51 +358,12 @@ def _inside_source_domain(
     return replace(declared, components=tuple(components)), source_modules, failures
 
 
-def _inside_external_components(
-    mount: InsideContractMount,
-    mounts_by_parent: dict[str, InsideContractMount],
-    contract_by_owner: dict[str, ArchitectureContract],
-    parent: ContractComponent,
-    scoped: ArchitectureContract,
-) -> tuple[ContractComponent, ...]:
-    """Keep established sibling owners visible without promoting the parent's scope."""
-    contracts = []
-    owner_id = mount.owner_id
-    while True:
-        contract = contract_by_owner.get(owner_id)
-        if contract is not None:
-            contracts.append(contract)
-        if not owner_id:
-            break
-        owner = mounts_by_parent.get(owner_id)
-        if owner is None:
-            break
-        owner_id = owner.owner_id
-
-    occupied = [
-        *parent.packages,
-        *(package for component in scoped.components for package in component.packages),
-    ]
-    selected: list[ContractComponent] = []
-    for contract in contracts:
-        for component in contract.components:
-            if any(
-                in_scope(package, root) or in_scope(root, package)
-                for package in component.packages
-                for root in occupied
-            ):
-                continue
-            selected.append(component)
-            occupied.extend(component.packages)
-    return tuple(selected)
-
-
 def _evaluate_inside_contract(
     parent: ContractComponent,
     scoped: ArchitectureContract,
     source_modules: frozenset[str],
     *,
-    external_components: tuple[ContractComponent, ...],
+    ancestor_contracts: Sequence[ArchitectureContract],
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
@@ -416,7 +395,6 @@ def _evaluate_inside_contract(
         source_modules=source_modules,
     )
     failures.extend(profile_failures(scoped, profile))
-    boundary_contract = replace(scoped, components=(*scoped.components, *external_components))
     violations, allowance_facts = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -434,18 +412,19 @@ def _evaluate_inside_contract(
         source_roots=parent.packages,
         assessment_facts=assessments,
         assessment_parent=parent.label,
-        boundary_contract=boundary_contract,
+        ancestor_contracts=ancestor_contracts,
     )
     unknowns = boundary_type_limits(
         symbols,
         imports,
-        boundary_contract,
+        scoped,
         exports_by_module,
         evidence,
         uncertain_reexport_origins,
         scanned_modules,
         stable_bindings_by_module,
         source_modules,
+        ancestor_contracts,
     )
     return violations, unknowns, failures, allowance_facts
 

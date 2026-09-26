@@ -300,16 +300,14 @@ def test_deep_boundary_types_preserve_intermediate_target_ownership(
             _component_at(
                 "layer",
                 "sample.layer",
-                public=public_api,
+                public=[*public_api, *target_public],
                 inside="contracts/two.json",
             ),
-            _component_at("target", "sample.layer.target", public=target_public),
         ],
         [],
     )
-    root_public = sorted({*public_api, *target_public})
     root = _contract(
-        [_component_at("app", "sample", public=root_public, inside="contracts/one.json")],
+        [_component_at("app", "sample", public=public_api, inside="contracts/one.json")],
         [],
     )
     (tmp_path / "contract.json").write_text(json.dumps(root))
