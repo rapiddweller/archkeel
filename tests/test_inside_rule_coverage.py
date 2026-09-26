@@ -101,6 +101,55 @@ def test_inner_edge_without_complete_requires_is_observed_not_conforming(
     assert edge.rule_ids == ()
 
 
+def test_inner_type_checking_edge_excluded_by_rule_is_not_called_checked(tmp_path: Path) -> None:
+    _write_inside_case(
+        tmp_path,
+        rules=[
+            {
+                "id": "REQUIRES-COMPLETE",
+                "kind": "complete_requires",
+                "include_type_checking": False,
+                "rationale": "Check runtime imports only.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    (tmp_path / "sample/core/b.py").write_text(
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core.a\n"
+    )
+    result, edge = _inside_edge(tmp_path)
+    assert result.observation is not None
+    assert not result.observation.records("violations")
+    assert edge.state in {"observed", "undecided"}
+
+
+def test_inner_unknown_keeps_another_proven_violation(tmp_path: Path) -> None:
+    metadata = {
+        "rationale": "Preserve independent verdicts.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    _write_inside_case(
+        tmp_path,
+        rules=[
+            {**metadata, "id": "REQUIRES-COMPLETE", "kind": "complete_requires"},
+            {**metadata, "id": "TYPES", "kind": "boundary_types", "source": "sample.core.a"},
+        ],
+    )
+    result, edge = _inside_edge(tmp_path)
+    assert result.observation is not None
+    assert edge.state == "violation"
+    assert any(
+        record.rule_ids == ("core:REQUIRES-COMPLETE",)
+        for record in result.observation.records("violations") or ()
+    )
+    assert any(
+        record.rule_ids == ("core:TYPES",)
+        for record in result.observation.records("unknowns") or ()
+    )
+
+
 def test_inside_complete_requires_violation_control(tmp_path: Path) -> None:
     _write_inside_case(
         tmp_path,
