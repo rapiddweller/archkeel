@@ -787,8 +787,7 @@ def test_cli_never_reports_pass_for_an_unevaluated_inside_rule(
         observation = parse_observation(decode_canonical_model(artifact))
         assert code == 0
         assert any(
-            item.kind == "forbidden_construct"
-            and item.rule_ids == ("store:NO-INNER-EVAL",)
+            item.kind == "forbidden_construct" and item.rule_ids == ("store:NO-INNER-EVAL",)
             for item in observation.records("violations") or ()
         )
     else:

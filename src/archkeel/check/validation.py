@@ -1897,12 +1897,10 @@ def _observed_or_invalid(
     observed = observe_repository(root, config, analyzer)
     observation = observed.observation
     if observed.diagnostics or observation is None:
-        incomplete_inside = observation is not None and any(
+        if observation is not None and any(
             item.kind == "inside_contract_incomplete"
             for item in observation.records("unknowns") or ()
-        )
-        if incomplete_inside:
-            assert observation is not None
+        ):
             extra, _ = _repository_diagnostics(
                 root,
                 config,

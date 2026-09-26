@@ -345,14 +345,13 @@ def _evaluate_inside_contract(
     failures.extend(profile_failures(scoped, profile))
     boundary_contract = scoped
     if root_contract is not None:
-        parent_roots = parent.packages
         external_components = tuple(
             component
             for component in root_contract.components
             if all(
                 not in_scope(package, root) and not in_scope(root, package)
                 for package in component.packages
-                for root in parent_roots
+                for root in parent.packages
             )
         )
         boundary_contract = replace(scoped, components=(*scoped.components, *external_components))
@@ -375,19 +374,17 @@ def _evaluate_inside_contract(
         assessment_parent=parent.label,
         boundary_contract=boundary_contract,
     )
-    unknowns = [
-        *boundary_type_limits(
-            symbols,
-            imports,
-            boundary_contract,
-            exports_by_module,
-            evidence,
-            uncertain_reexport_origins,
-            scanned_modules,
-            stable_bindings_by_module,
-            source_modules,
-        ),
-    ]
+    unknowns = boundary_type_limits(
+        symbols,
+        imports,
+        boundary_contract,
+        exports_by_module,
+        evidence,
+        uncertain_reexport_origins,
+        scanned_modules,
+        stable_bindings_by_module,
+        source_modules,
+    )
     return violations, unknowns, failures, allowance_facts
 
 
