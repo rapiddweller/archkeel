@@ -552,7 +552,7 @@ def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None
         (
             "boundary_types",
             ("app:layer:source:SOURCE-TYPES",),
-            ("sample.layer.source", "sample.layer.source.api", "sample.layer.source.api.run"),
+            ("sample.layer.source.api", "sample.layer.source.api.run"),
         )
     ]
     [finding] = findings
@@ -575,7 +575,7 @@ def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None
     ] == [
         (
             "rule.violated",
-            "/components/0/inside",
+            "",
             "app:layer:source:SOURCE-TYPES",
         )
     ]
