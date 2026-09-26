@@ -12,14 +12,17 @@ LOCK_PATH = "architecture-accepted.json"
 
 
 class LockError(DiagnosticError):
-    def __init__(self, message: str) -> None:
+    def __init__(
+        self, message: str, *, subject: str = LOCK_PATH, pointer: str | None = None
+    ) -> None:
         super().__init__(
             Diagnostic(
                 "parse_error",
-                LOCK_PATH,
+                subject,
                 f"The accepted reference cannot be verified: {message}",
                 "Restore the valid CI lock and its bound inputs; "
                 "do not create an empty replacement.",
+                pointer,
             )
         )
 

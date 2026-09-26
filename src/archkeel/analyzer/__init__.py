@@ -14,10 +14,27 @@ from archkeel.ir.codec import (
     ContractVersionError,
     RawJson,
 )
+from archkeel.ir.codec import (
+    ContractInputError as _ContractInputError,
+)
 from archkeel.ir.codec import canonical_json_bytes as _canonical_json_bytes
 from archkeel.ir.codec import decode_json as _decode_json
+from archkeel.ir.codec import (
+    load_inside_contract_tree as _load_inside_contract_tree,
+)
 from archkeel.ir.codec import parse_observation as _parse_observation
-from archkeel.ir.model import Diagnostic, DiagnosticKind, Observation, ObservationResult
+from archkeel.ir.model import (
+    ArchitectureContract as _ArchitectureContract,
+)
+from archkeel.ir.model import (
+    Diagnostic,
+    DiagnosticKind,
+    Observation,
+    ObservationResult,
+)
+from archkeel.ir.model import (
+    contract_relative_path as _contract_relative_path,
+)
 from archkeel.ir.profiles import PROFILES, Language
 
 from .embedded.contract import ContractError, load_contract
@@ -28,9 +45,58 @@ def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> Obs
     return ObservationResult(None, None, (Diagnostic(kind, subject, claim, remedy),))
 
 
-def _contract_failure(path: Path) -> ObservationResult | None:
+def _contract_input_failure(error: _ContractInputError) -> ObservationResult:
+    return ObservationResult(
+        None,
+        None,
+        (
+            Diagnostic(
+                "parse_error",
+                error.subject,
+                f"The contract declaration is invalid: {error}.",
+                "Correct the contract declaration at this location.",
+                error.pointer,
+            ),
+        ),
+    )
+
+
+def _nested_reference_failure(
+    root: Path, contract_path: Path, contract: _ArchitectureContract, digest: str
+) -> ObservationResult | None:
+    repository = root.resolve()
+    identity = contract_path.resolve().relative_to(repository).as_posix()
+
+    def read_inside(reference: str) -> tuple[bytes, str]:
+        relative = _contract_relative_path(reference)
+        if relative is None:
+            raise ValueError("unsafe repository path")
+        target = (repository / relative).resolve()
+        if not target.is_relative_to(repository) or not target.is_file():
+            raise ValueError("file is missing or outside the repository")
+        return target.read_bytes(), target.relative_to(repository).as_posix()
+
+    tree = _load_inside_contract_tree(
+        identity,
+        contract,
+        digest,
+        identity,
+        read_inside,
+    )
+    for issue in tree.issues:
+        if issue.input_error is not None:
+            error = _ContractInputError(
+                f"{issue.pointer}{issue.input_error.pointer}",
+                issue.input_error.subject,
+                str(issue.input_error),
+            )
+            return _contract_input_failure(error)
+    return None
+
+
+def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | None:
     try:
-        load_contract(path)
+        contract, digest = load_contract(path)
     except ContractVersionError as error:
         return _failure(
             "parse_error",
@@ -38,6 +104,8 @@ def _contract_failure(path: Path) -> ObservationResult | None:
             f"Contract schema {error.actual} cannot be validated as {CONTRACT_SCHEMA_VERSION}.",
             "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
         )
+    except _ContractInputError as error:
+        return _contract_input_failure(error)
     except ContractError as error:
         return _failure(
             "parse_error",
@@ -45,7 +113,7 @@ def _contract_failure(path: Path) -> ObservationResult | None:
             f"The architecture contract cannot be decoded: {error}",
             "Correct the contract structure and run report again.",
         )
-    return None
+    return _nested_reference_failure(contract_root, path, contract, digest)
 
 
 # AD-97: a contract item the profile cannot decide is refused, never read as PASS.
@@ -133,7 +201,7 @@ def observe(
     suffix = PROFILES[language].source_suffix
     try:
         contract_file = contract_root / contract
-        if failure := _contract_failure(contract_file):
+        if failure := _contract_failure(contract_file, contract_root):
             return failure
         for root in roots:
             directory = source_root / root

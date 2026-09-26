@@ -21,6 +21,7 @@ from archkeel.ir.baseline import (
 )
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
+    ContractInputError,
     ContractVersionError,
     InsideContractTree,
     absent_contract_digest,
@@ -1498,13 +1499,10 @@ def inside_diagnostics(
     tree: InsideContractTree | None = None,
     observation: Observation | None = None,
 ) -> tuple[Diagnostic, ...]:
-    """AD-20: hold a component and the contract describing its inside to each other.
+    """AD-20: validate mounted contracts against parent scope and repository evidence.
 
-    The inside's public lists govern its local components; the mounted component's public list
-    remains its outward interface. The inside must also not grant what the level above denies.
-    Grants are read from the inside's `allowed_dependency` rules; an
-    `external_dependency_scope` there is not yet compared, which stays a blind spot. AD-99 adds
-    that the inside declares no budget.
+    Local public lists govern sibling imports; the mounted component's public list remains
+    its outward interface. Parent restrictions apply; external-scope grants are not compared.
     """
     diagnostics: list[Diagnostic] = []
     loaded = tree or _inside_contract_tree(root, config.contract, contract)
@@ -1512,15 +1510,27 @@ def inside_diagnostics(
         return ()
     scanned_modules = _scanned_modules(observation) if observation is not None else frozenset()
     for issue in loaded.issues:
-        diagnostics.append(
-            _diagnostic(
-                "contract.invalid",
-                issue.pointer,
-                issue.path,
-                f"The contract describing this inside cannot be loaded: {issue.reason}",
-                "Repair the repository-relative contract reference.",
+        if issue.input_error is not None:
+            error = issue.input_error
+            diagnostics.append(
+                _diagnostic(
+                    "contract.invalid",
+                    f"{issue.pointer}{error.pointer}",
+                    error.subject,
+                    f"The architecture contract cannot be validated: {error}",
+                    "Correct the contract declaration at this location.",
+                )
             )
-        )
+        else:
+            diagnostics.append(
+                _diagnostic(
+                    "contract.invalid",
+                    issue.pointer,
+                    issue.path,
+                    f"The contract describing this inside cannot be loaded: {issue.reason}",
+                    "Repair the repository-relative contract reference.",
+                )
+            )
     for mount in loaded.mounts:
         inner = mount.contract
         parent = mount.parent
@@ -1785,14 +1795,16 @@ def _budget_baseline_missing() -> RunResult:
 
 
 def _against_invalid(against: str, error: Exception) -> RunResult:
+    pointer = error.pointer if isinstance(error, ContractInputError) else ""
+    subject = error.subject if isinstance(error, ContractInputError) else against
     return RunResult(
         "validate",
         2,
         diagnostics=(
             _diagnostic(
                 "against.invalid",
-                "",
-                against,
+                pointer,
+                subject,
                 f"The compared revision cannot be read: {error}",
                 "Supply a Git revision this repository can resolve, with a valid contract at "
                 "its configured path.",
@@ -1837,6 +1849,8 @@ def _parse_contract_or_invalid(root: Path, config: ScanConfig) -> ArchitectureCo
                 ),
             ),
         )
+    except ContractInputError as error:
+        return invalid_result(error.subject, error, error.pointer)
     except (OSError, ValueError) as error:
         return invalid_result(config.contract, error)
 
@@ -1928,7 +1942,16 @@ def _revision_contract_tree(root: Path, revision: str, path: str) -> InsideContr
         read_inside,
     )
     if tree.issues:
-        issue = tree.issues[0]
+        issue = next(
+            (candidate for candidate in tree.issues if candidate.input_error is not None),
+            tree.issues[0],
+        )
+        if issue.input_error is not None:
+            raise ContractInputError(
+                f"{issue.pointer}{issue.input_error.pointer}",
+                issue.input_error.subject,
+                str(issue.input_error),
+            )
         raise ValueError(f"inside {issue.path!r}: {issue.reason}")
     return tree
 

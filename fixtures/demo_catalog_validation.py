@@ -13,6 +13,7 @@ from archkeel.ir.measurements import MeasurementBudget
 from fixtures.demo_catalog_dependencies import REPOSITORY_WITH_MONEY_IMPORT
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
+    FIXTURE_DIR,
     HEADER,
     Variant,
     contract_component_field_appended,
@@ -72,6 +73,20 @@ def _target_block_with_subgraph(page: str) -> str:
 
 
 _TARGET_PAGE_WITH_SUBGRAPH = _target_block_with_subgraph(CLEAN_SHOP_MD)
+
+
+def _component_requires(component: str, target: str) -> str:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    entry = next(item for item in contract["components"] if item["label"] == component)
+    entry["requires"] = [
+        {
+            "component": target,
+            "rationale": "The component uses this declared local dependency.",
+        }
+    ]
+    return json.dumps(contract, indent=2) + "\n"
+
+
 _INTERFACE_NARROWING_CONTRACT = contract_component_field_appended(
     "app", "public", "shop.app.orders:summarize"
 )
@@ -121,6 +136,9 @@ _CYCLE_BUDGET_FILES = {
     "architecture-baseline.json": _CYCLE_BUDGET_BASELINE,
 }
 
+_REQUIRES_LOCAL_TARGET_VALID = _component_requires("app", "model")
+_REQUIRES_LOCAL_TARGET_UNKNOWN = _component_requires("app", "missing-component")
+
 # AD-99: the shop's measured values are the ceilings; the model facade exports five names and
 # app imports three from model and three from store, OrderRepository through the store barrel.
 _FACADE_BUDGET = contract_interface_budgets((("model", 5),))
@@ -144,6 +162,35 @@ _APP_READS_PAYLOADS = HEADER + (
 
 
 _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
+    Variant(
+        id="validation-requires-local-target",
+        section="validation",
+        item="requires.target:local",
+        summary="A requires target resolves only among labels in the same contract.",
+        files={"architecture-contract.json": _REQUIRES_LOCAL_TARGET_VALID},
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-requires-target-unknown",
+        section="validation",
+        item="requires.target:undeclared",
+        summary="A misspelled local requires label is rejected before a partial report or write.",
+        files={"architecture-contract.json": _REQUIRES_LOCAL_TARGET_UNKNOWN},
+        expected_violations=(),
+        expected_codes=("contract.invalid",),
+    ),
+    Variant(
+        id="validation-component-label-duplicate",
+        section="validation",
+        item="component.label:duplicate",
+        summary="Different component IDs cannot make a shared label unambiguous.",
+        files={
+            "architecture-contract.json": contract_component_field_set("store", "label", "model")
+        },
+        expected_violations=(),
+        expected_codes=("contract.invalid",),
+    ),
     Variant(
         id="validation-module-placement-clean",
         section="validation",

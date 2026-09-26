@@ -130,8 +130,10 @@ different component covers nothing. A component pair absent from the list is dec
 absence forbids, the way `complete_assignment` makes an unassigned module a violation rather than a
 question (AD-32). `TYPE_CHECKING` imports count unless `include_type_checking` is false. Without the
 rule nothing changes, so a compatibility contract that never adopts it keeps deciding pairs one
-by one. A `requires` entry naming a component that does not exist covers nothing and remains a
-blind spot. A
+by one. Each `requires.component` must name a component in that same contract, even without
+this rule or any observed import. Unknown targets are invalid input with a pointer to the
+entry; ancestors and other mounts do not supply missing labels. Component labels must be
+unique within each contract, but may repeat across different levels or mounts (AD-113). A
 `render` component that imports `model` without requiring it is an example violation. The same
 rule kind is evaluated a second time against a component's declared inside, over the imports the
 outer scan already collected, so a crossing between two sub-components that no `requires` entry
