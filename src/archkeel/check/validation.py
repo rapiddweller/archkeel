@@ -465,17 +465,9 @@ def _public_entry_diagnostics(
     for item, entry in enumerate(component.public or ()):
         if _entry_used(entry, records, facade_types):
             continue
-        if _entry_module(entry) not in modules:
-            diagnostics.append(
-                _diagnostic(
-                    "interface.missing",
-                    f"/components/{index}/public/{item}",
-                    entry,
-                    "The public entry's module has not been scanned; it does not exist yet.",
-                    "Build the module, correct a typo, or move the entry to planned "
-                    "until it exists.",
-                )
-            )
+        missing = _missing_public_entry(f"/components/{index}/public/{item}", entry, modules)
+        if missing is not None:
+            diagnostics.append(missing)
         elif (component.label, entry) in resolved_public_entries:
             continue
         else:
@@ -490,6 +482,18 @@ def _public_entry_diagnostics(
                 )
             )
     return diagnostics
+
+
+def _missing_public_entry(pointer: str, entry: str, modules: frozenset[str]) -> Diagnostic | None:
+    if _entry_module(entry) in modules:
+        return None
+    return _diagnostic(
+        "interface.missing",
+        pointer,
+        entry,
+        "The public entry's module has not been scanned; it does not exist yet.",
+        "Build the module, correct a typo, or move the entry to planned until it exists.",
+    )
 
 
 def _planned_entry_diagnostics(
@@ -1433,11 +1437,6 @@ def invalid_result(subject: str, error: Exception, pointer: str = "") -> RunResu
     )
 
 
-def _inside_public(inner: ArchitectureContract) -> frozenset[str]:
-    """The inside's public surface: what its own components offer, taken together."""
-    return frozenset(entry for item in inner.components for entry in (item.public or ()))
-
-
 def _forbidden_targets(
     contract: ArchitectureContract, packages: tuple[str, ...]
 ) -> list[tuple[str, str]]:
@@ -1497,18 +1496,21 @@ def inside_diagnostics(
     contract: ArchitectureContract,
     config: ScanConfig,
     tree: InsideContractTree | None = None,
+    observation: Observation | None = None,
 ) -> tuple[Diagnostic, ...]:
     """AD-20: hold a component and the contract describing its inside to each other.
 
-    Two checks: the levels must agree on the component's public surface, and the inside must
-    not grant itself what the level above denies the component. Grants are read from the
-    inside's `allowed_dependency` rules; an `external_dependency_scope` there is not yet
-    compared, which stays a blind spot. AD-99 adds that the inside declares no budget.
+    The inside's public lists govern its local components; the mounted component's public list
+    remains its outward interface. The inside must also not grant what the level above denies.
+    Grants are read from the inside's `allowed_dependency` rules; an
+    `external_dependency_scope` there is not yet compared, which stays a blind spot. AD-99 adds
+    that the inside declares no budget.
     """
     diagnostics: list[Diagnostic] = []
     loaded = tree or _inside_contract_tree(root, config.contract, contract)
     if loaded is None:
         return ()
+    scanned_modules = _scanned_modules(observation) if observation is not None else frozenset()
     for issue in loaded.issues:
         diagnostics.append(
             _diagnostic(
@@ -1523,32 +1525,21 @@ def inside_diagnostics(
         inner = mount.contract
         parent = mount.parent
         pointer = mount.pointer
-        for path_pointer, values in _provenance(inner):
-            for index, value in enumerate(values):
-                if repository_file(root.resolve(), value) is None:
-                    diagnostics.append(
-                        _diagnostic(
-                            "reference.provenance",
-                            f"{pointer}{path_pointer}/{index}",
-                            value,
-                            "The provenance file is missing or outside the repository.",
-                            "Reference an existing repository-relative evidence file.",
-                        )
-                    )
+        for diagnostic in reference_diagnostics(root, config, inner):
+            diagnostics.append(replace(diagnostic, pointer=f"{pointer}{diagnostic.pointer or ''}"))
         diagnostics.extend(_inside_source_domain_diagnostics(pointer, parent, inner))
-        declared = frozenset(parent.public or ())
-        inside = _inside_public(inner)
-        if declared != inside:
-            diagnostics.append(
-                _diagnostic(
-                    "inside.public_mismatch",
-                    pointer,
-                    mount.parent_id,
-                    f"The level above declares {sorted(declared)} public for this component "
-                    f"while its inside declares {sorted(inside)}.",
-                    "Declare one public surface and repeat it in both contracts.",
-                )
-            )
+        if observation is not None and any(
+            isinstance(rule, InterfaceBoundaryRule) for rule in inner.rules
+        ):
+            for component_index, component in enumerate(inner.components):
+                for entry_index, entry in enumerate(component.public or ()):
+                    missing = _missing_public_entry(
+                        f"{pointer}/components/{component_index}/public/{entry_index}",
+                        entry,
+                        scanned_modules,
+                    )
+                    if missing is not None:
+                        diagnostics.append(missing)
         denied = _forbidden_targets(mount.parent_contract, parent.packages)
         required = frozenset(entry.component for entry in parent.requires or ())
         for rule in inner.rules:
@@ -1613,7 +1604,7 @@ def _repository_diagnostics(
             report_violations=report_violations,
             resolved_public_entries=resolved_public_entries,
         ),
-        *inside_diagnostics(root, contract, config, inside_tree),
+        *inside_diagnostics(root, contract, config, inside_tree, observation),
     ], edits
 
 

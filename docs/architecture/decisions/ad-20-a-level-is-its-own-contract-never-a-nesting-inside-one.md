@@ -2,6 +2,8 @@
 
 Amended by [AD-111](ad-111-recursive-inside-contract-tree.md): mounted levels are followed
 recursively in the root run, without requiring a separate configuration for each child.
+Amended by [AD-112](ad-112-local-publication-at-each-boundary.md): child APIs stay local;
+the public-surface equality and its mismatch diagnostic below are historical, not current policy.
 
 Depth is unlimited and
 always optional: a component's inside is described by its own `archkeel.toml` with its own scan

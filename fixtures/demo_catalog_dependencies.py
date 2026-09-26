@@ -450,11 +450,7 @@ _INSIDE_FORBIDDEN_CONSTRUCT_CLEAN = Variant(
     files={
         "architecture-contract.json": contract_without_rule("CONSTRUCT-NO-DYNAMIC"),
         "shop/store/architecture-contract.json": inside_contract(
-            [
-                "shop.store.repository:OrderRepository",
-                "shop.store.sqlite:vacuum",
-                "shop.store.sqlite:Connection",
-            ],
+            ["shop.store.repository:OrderRepository"],
             rule=_INSIDE_FORBIDDEN_CONSTRUCT,
         ),
         "shop/store/repository.py": HEADER
@@ -476,11 +472,7 @@ _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION = Variant(
     files={
         "architecture-contract.json": contract_without_rule("CONSTRUCT-NO-DYNAMIC"),
         "shop/store/architecture-contract.json": inside_contract(
-            [
-                "shop.store.repository:OrderRepository",
-                "shop.store.sqlite:vacuum",
-                "shop.store.sqlite:Connection",
-            ],
+            ["shop.store.repository:OrderRepository"],
             rule=_INSIDE_FORBIDDEN_CONSTRUCT,
         ),
         "shop/store/repository.py": HEADER

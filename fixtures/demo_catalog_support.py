@@ -261,9 +261,9 @@ def inside_contract(
 ) -> str:
     """A contract describing shop.store's inside, for the AD-20 level checks.
 
-    One sub-component over `shop.store.repository`: `public` is the surface the inside
-    declares, which the level above must declare identically, `allowed_target` an edge the
-    inside grants itself, and `rule` an additional rule for that nested level.
+    One sub-component over `shop.store.repository`: `public` is its local interface,
+    `allowed_target` an edge the inside grants itself, and `rule` an additional rule for that
+    nested level.
     """
     rules: list[dict[str, object]] = []
     if allowed_target is not None:

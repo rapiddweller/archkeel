@@ -9,7 +9,18 @@ from pathlib import Path
 import pytest
 from test_analyzer import _component, _inside_component, _observe
 
+from archkeel.check.ports import ScanConfig
+from archkeel.check.validation import inside_diagnostics
+from archkeel.ir.codec import parse_contract
 from archkeel.ir.trace import trace_valid_violations
+
+_INTERFACE_RULE = {
+    "id": "INTERFACE",
+    "kind": "interface_boundary",
+    "rationale": "Keep each level's declared public names in use.",
+    "provenance": ["docs/architecture/sample.md"],
+    "decided_by": "architect",
+}
 
 
 @pytest.mark.parametrize(
@@ -104,3 +115,91 @@ def test_inside_rule_preserves_top_level_findings(tmp_path: Path, rule: dict[str
         (item.kind, item.subjects) for item in top_findings
     )
     assert all(item.rule_ids == ("core:PROBE",) for item in nested_findings)
+
+
+def test_nested_public_is_local_and_parent_public_remains_outward(tmp_path: Path) -> None:
+    package = tmp_path / "sample/core"
+    (package / "a").mkdir(parents=True)
+    (package / "b").mkdir()
+    (tmp_path / "sample/cli").mkdir(parents=True)
+    docs = tmp_path / "docs/architecture"
+    docs.mkdir(parents=True)
+    (docs / "sample.md").write_text("Decision.\n")
+    (tmp_path / "sample/__init__.py").touch()
+    (package / "__init__.py").touch()
+    (package / "a/__init__.py").touch()
+    (package / "b/__init__.py").touch()
+    (tmp_path / "sample/cli/__init__.py").touch()
+    (package / "api.py").write_text("def entry() -> str:\n    return 'ok'\n")
+    (package / "a/client.py").write_text(
+        "from sample.core.b.api import helper\n\ndef run() -> str:\n    return helper()\n"
+    )
+    (package / "b/api.py").write_text("def helper() -> str:\n    return 'ok'\n")
+    (tmp_path / "sample/cli/client.py").write_text(
+        "from sample.core.api import entry\n\nVALUE = entry()\n"
+    )
+
+    parent = _component(
+        "core",
+        packages=["sample.core"],
+        public=["sample.core.api:entry"],
+    ) | {"inside": "inner.json"}
+    cli = _component("cli", packages=["sample.cli"], public=[])
+    inner = {
+        "schema_version": "2.1.0",
+        "components": [
+            _inside_component("a", []) | {"public": []},
+            _inside_component("b", []) | {"public": ["sample.core.b.api:helper"]},
+        ],
+        "rules": [_INTERFACE_RULE],
+    }
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [parent, cli],
+        "rules": [_INTERFACE_RULE],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "inner.json").write_text(json.dumps(inner))
+    config = ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
+
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    assert trace_valid_violations(observed.observation) == ()
+    parsed = parse_contract(contract)
+    assert inside_diagnostics(tmp_path, parsed, config) == ()
+
+    inner["components"][1]["public"] = ["sample.core.b.api.missing:helper"]
+    (tmp_path / "inner.json").write_text(json.dumps(inner))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    missing = inside_diagnostics(tmp_path, parsed, config, observation=observed.observation)
+    assert any(item.code == "interface.missing" for item in missing)
+
+    inner["rules"] = []
+    (tmp_path / "inner.json").write_text(json.dumps(inner))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    no_interface_rule = inside_diagnostics(
+        tmp_path, parsed, config, observation=observed.observation
+    )
+    assert not any(item.code == "interface.missing" for item in no_interface_rule)
+
+    inner["components"][1]["public"] = []
+    inner["rules"] = [_INTERFACE_RULE]
+    (tmp_path / "inner.json").write_text(json.dumps(inner))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    assert any(
+        item.rule_ids == ("core:INTERFACE",)
+        for item in trace_valid_violations(observed.observation)
+    )
+
+    inner["components"][1]["public"] = ["sample.core.b.api:helper"]
+    parent["public"] = []
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "inner.json").write_text(json.dumps(inner))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    assert any(
+        item.rule_ids == ("INTERFACE",) for item in trace_valid_violations(observed.observation)
+    )

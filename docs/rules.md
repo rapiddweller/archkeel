@@ -154,6 +154,17 @@ two parents, cycles, escaping paths and colliding scoped ids are rejected. No di
 contract implicitly. Nonempty `declarations` fields inside are unsupported and refused; component
 `public` entries and rule provenance are separate supported fields.
 
+`public` applies at its own contract level (AD-112). A child's API is available to local
+siblings, not automatically to callers outside its parent. The parent explicitly publishes
+its outward entries or proven facade reexports; the lists need not be equal or subsets.
+A parent facade may sit outside all child packages. Namespace, provenance and `public`/`planned`
+ownership and underscore checks also apply inside, with mount-qualified diagnostic pointers.
+Ancestor restrictions still apply. `inside.public_mismatch` is no longer emitted.
+With a local `interface_boundary`, an unscanned public module is `interface.missing`.
+Nested unused-public and planned-promotion diagnostics are not yet evaluated: they need scoped
+usage evidence, including parent facades. Local private imports are still checked. Do not infer
+that every listed inner API is used from a passing contract.
+
 `external_dependency_scope` fields are `dependency` (a top-level import name), `allowed_sources`
 and `exact_sources`, at least one of the two non-empty. It matches import records whose target is
 the dependency or one of its submodules, including `TYPE_CHECKING` imports, and allows those whose
@@ -282,8 +293,7 @@ diagnostic. A built entry remains target work until a cross-component import or 
 signature reaches it; then `interface.planned_built` asks you to move it to `public` and drop it
 from `planned` (AD-79). `planned` entries are held to the same ownership,
 underscore and namespace checks as `public` ones, but never reach the analyzer: `planned` is not
-projected into the observation, so it earns no `agent_decisions` count and takes no part in an
-AD-20 inside's public-surface match.
+projected into the observation, so it earns no `agent_decisions` count and grants no public access.
 
 `sibling_isolation` has the field `members`, at least two dotted prefixes, and the optional
 `include_type_checking` (default `true`). Peers reach shared modules and are reached from outside,

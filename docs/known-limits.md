@@ -139,6 +139,13 @@ modules without `__all__`, so its contract pins pair budgets only.
 - Inside contracts support components and rules, not nonempty `declarations` fields. Those
   fields are refused rather than silently ignored. Keep API, compatibility, measurement and
   interface-budget declarations at the root until they have scoped evaluators (AD-111).
+- Child `public` entries govern local sibling boundaries, not their parent's outward API
+  (AD-112). Publication does not prove cohesion or a well-designed interface. Inner
+  unused-public and planned-promotion diagnostics are not evaluated; their usage evidence needs
+  to distinguish siblings, parent facades and unrelated scopes (#182). Local private imports and,
+  under `interface_boundary`, unscanned public modules are checked. Inner
+  `external_dependency_scope` declarations are not compared against ancestor declarations;
+  ancestor rules still evaluate their own source scope.
 - `package_dependency` records name packages by their first two dotted segments. Component
   decisions and dependency rules use module-level edges and are not affected; the package records
   are coarse below that depth. Declared components nested below one such package collapse into it,
