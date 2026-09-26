@@ -23,6 +23,9 @@ def _write_app(
     public: list[str],
     init: str,
     api: str,
+    implementation: str = """def element_constraints(first: dict, second: dict) -> object:
+    return first
+""",
 ) -> None:
     (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     (root / "contract.json").write_text(
@@ -47,9 +50,7 @@ def _write_app(
     package.mkdir(parents=True)
     (package / "__init__.py").write_text(init)
     (package / "api.py").write_text(api)
-    (package / "impl.py").write_text(
-        "def element_constraints(first: dict, second: dict) -> object:\n    return first\n"
-    )
+    (package / "impl.py").write_text(implementation)
 
 
 def _reported_violations(root: Path) -> tuple[RunResult, tuple[Record, ...]]:
@@ -103,3 +104,21 @@ def test_init_py_reexport_control_reports_each_position_once(tmp_path: Path) -> 
     )
 
     _assert_one_per_position(*_reported_violations(tmp_path))
+
+
+def test_init_py_union_findings_at_one_position_have_stable_ids(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app:element_constraints"],
+        init=('from .impl import element_constraints\n__all__ = ["element_constraints"]\n'),
+        api="",
+        implementation="""def element_constraints(value: dict | object) -> str:
+    return str(value)
+""",
+    )
+
+    result, violations = _reported_violations(tmp_path)
+    assert result.exit_code == 0, result.diagnostics
+    assert violations
+    assert {item.data.get("position") for item in violations} == {"value"}
+    assert len({item.id for item in violations}) == len(violations)
