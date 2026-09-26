@@ -6,8 +6,11 @@
 import json
 from pathlib import Path
 
+import pytest
 from test_analyzer import _component, _inside_component, _observe
+from test_architecture_demo import FIXTURE_DIR, _prepare_repo
 
+from archkeel.cli import main
 from archkeel.render.flow import build_flow
 
 
@@ -212,3 +215,49 @@ def test_same_label_sibling_inside_levels_keep_findings_scoped(tmp_path: Path) -
         for item in result.observation.records("violations") or ()
         if item.kind == "complete_requires"
     ] == [("core:REQUIRES-COMPLETE",)]
+
+
+@pytest.mark.parametrize("command", ["report", "validate"])
+def test_cli_never_reports_pass_for_an_unevaluated_inside_rule(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    contract["rules"] = [rule for rule in contract["rules"] if rule["id"] != "CONSTRUCT-NO-DYNAMIC"]
+    inside_path = "shop/store/architecture-contract.json"
+    inner = json.loads((FIXTURE_DIR / inside_path).read_text())
+    inner["rules"].append(
+        {
+            "id": "NO-INNER-EVAL",
+            "kind": "forbidden_construct",
+            "source": "shop.store.codec",
+            "constructs": ["eval"],
+            "rationale": "The codec must not evaluate source text.",
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    codec_path = "shop/store/codec.py"
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "architecture-contract.json": json.dumps(contract),
+            inside_path: json.dumps(inner),
+            codec_path: (FIXTURE_DIR / codec_path).read_text() + '\neval("1")\n',
+        },
+    )
+
+    args = [command, "--root", str(root), "--json"]
+    if command == "report":
+        args.extend(["--output", str(tmp_path / "result.json")])
+    code = main(args)
+    payload = json.loads(capsys.readouterr().out)
+
+    if code == 2:
+        assert any(
+            diagnostic["kind"] == "rule_unsupported_by_profile"
+            and "NO-INNER-EVAL" in diagnostic["subject"]
+            for diagnostic in payload["diagnostics"]
+        ), payload["diagnostics"]
+    else:
+        assert payload["declared_rules"] == "FAIL", payload
+        assert "store:NO-INNER-EVAL" in json.dumps(payload["violations_by_rule"])
