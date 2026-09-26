@@ -454,6 +454,7 @@ def test_dart_inside_keeps_supported_violation_with_unsupported_rule_unknown(
                         "kind": "forbidden_dependency",
                         "source": "sample.core.a",
                         "target": "dart.io",
+                        "include_type_checking": True,
                         "rationale": "Keep I/O out of the core component.",
                         "provenance": ["docs/architecture/sample.md"],
                         "decided_by": "architect",
@@ -781,12 +782,15 @@ def test_cli_never_reports_pass_for_an_unevaluated_inside_rule(
     code = main(args)
     payload = json.loads(capsys.readouterr().out)
 
-    if code == 2:
+    if command == "report":
+        artifact = json.loads((tmp_path / "result.json").read_text())
+        observation = parse_observation(decode_canonical_model(artifact))
+        assert code == 0
         assert any(
-            diagnostic["kind"] == "rule_unsupported_by_profile"
-            and "NO-INNER-EVAL" in diagnostic["subject"]
-            for diagnostic in payload["diagnostics"]
-        ), payload["diagnostics"]
+            item.kind == "forbidden_construct"
+            and item.rule_ids == ("store:NO-INNER-EVAL",)
+            for item in observation.records("violations") or ()
+        )
     else:
-        assert payload["declared_rules"] == "FAIL", payload
+        assert code == 2, payload
         assert "store:NO-INNER-EVAL" in json.dumps(payload["violations_by_rule"])
