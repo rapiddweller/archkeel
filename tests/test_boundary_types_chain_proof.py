@@ -329,8 +329,26 @@ def test_public_alias_cycle_is_unknown_beside_a_typed_function(tmp_path: Path) -
         ('__all__ = ["constraints"]\n', True),
         ('constraints = 42\n__all__ = ["constraints"]\n', False),
         ('class constraints:\n    pass\n__all__ = ["constraints"]\n', False),
+        (
+            'constraints = 42\n__all__ = ["constraints"]\n'
+            "def other():\n    from .impl import element_constraints as constraints\n",
+            False,
+        ),
+        (
+            'class constraints:\n    pass\n__all__ = ["constraints"]\n'
+            "def other():\n    from .impl import element_constraints as constraints\n",
+            False,
+        ),
     ],
-    ids=("no-all", "conditional-all", "missing-symbol", "known-constant", "known-class"),
+    ids=(
+        "no-all",
+        "conditional-all",
+        "missing-symbol",
+        "known-constant",
+        "known-class",
+        "constant-with-local-import",
+        "class-with-local-import",
+    ),
 )
 def test_public_route_endpoint_must_be_known_beside_a_typed_function(
     tmp_path: Path, middle: str, unknown: bool
@@ -360,8 +378,33 @@ def test_public_route_endpoint_must_be_known_beside_a_typed_function(
         if "APP-TYPES-NOT-DICT" in record.rule_ids
     ]
     assert bool(unresolved) is unknown
+
     if unknown:
         assert all(record.kind == "boundary_type_route" for record in unresolved)
+
+
+def test_unscanned_public_alias_is_unknown_beside_a_typed_function(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from outside_package import exported as constraints\n" + EXPORT + SAFE,
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert not result.observation.records("violations")
+    assert any(
+        record.kind == "boundary_type_route" and "APP-TYPES-NOT-DICT" in record.rule_ids
+        for record in result.observation.records("unknowns") or ()
+    )
 
 
 @pytest.mark.parametrize(
