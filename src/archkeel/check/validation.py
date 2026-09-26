@@ -1351,11 +1351,31 @@ def _inside_pointers(contract: ArchitectureContract, observation: Observation) -
         for index, component in enumerate(contract.components)
         if component.inside is not None
     }
-    return {
-        record.id: f"/components/{positions[parent]}/inside"
-        for record in observation.records("declarations") or ()
-        if (parent := text_value(record.data.get("parent_id"))) in positions
+    declarations = observation.records("declarations") or ()
+    inside_parents = {
+        f"{parent}:{record.title}": parent
+        for record in declarations
+        if record.kind == "inside_component_responsibility"
+        and record.data.get("inside") is not None
+        and (parent := text_value(record.data.get("parent_id"))) is not None
     }
+    pointers: dict[str, str] = {}
+    for record in declarations:
+        parent = text_value(record.data.get("parent_id"))
+        if parent is None:
+            continue
+        visited: set[str] = set()
+        while parent not in positions:
+            if parent in visited:
+                break
+            visited.add(parent)
+            owner = inside_parents.get(parent)
+            if owner is None:
+                break
+            parent = owner
+        if parent in positions:
+            pointers[record.id] = f"/components/{positions[parent]}/inside"
+    return pointers
 
 
 def observation_diagnostics(
