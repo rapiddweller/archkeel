@@ -575,7 +575,7 @@ def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None
     ] == [
         (
             "rule.violated",
-            "",
+            "/components/0/inside",
             "app:layer:source:SOURCE-TYPES",
         )
     ]
@@ -584,6 +584,42 @@ def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None
         "The observed code violates the declared rule: "
         "sample.layer.source.api.run returns Payload which layer does not declare"
     )
+
+
+def test_deep_rule_diagnostic_pointer_uses_mount_with_colon_and_repeated_labels(
+    tmp_path: Path,
+) -> None:
+    _write_ancestor_type_case(tmp_path, layer_public_target=False)
+    root_path = tmp_path / "contract.json"
+    root_contract = json.loads(root_path.read_text())
+    app = root_contract["components"][0]
+    app["label"] = "outer:layer"
+    sibling = _component_at("layer", "sample.unused", inside="contracts/empty.json")
+    sibling["id"] = "COMP-ROOT-SIBLING-LAYER"
+    root_contract["components"] = [sibling, app]
+    root_path.write_text(json.dumps(root_contract))
+
+    middle_path = tmp_path / "contracts/one.json"
+    middle = json.loads(middle_path.read_text())
+    middle["components"][0]["id"] = "COMP-MIDDLE-LAYER"
+    middle_path.write_text(json.dumps(middle))
+    source_path = tmp_path / "contracts/two.json"
+    source_contract = json.loads(source_path.read_text())
+    source_contract["components"][0]["id"] = "COMP-MIDDLE-SOURCE"
+    source_path.write_text(json.dumps(source_contract))
+    deepest_path = tmp_path / "contracts/three.json"
+    deepest = json.loads(deepest_path.read_text())
+    deepest["components"][0]["id"] = "COMP-DEEP-SOURCE"
+    deepest_path.write_text(json.dumps(deepest))
+    (tmp_path / "contracts/empty.json").write_text(json.dumps(_contract([], [])))
+
+    _commit_tree(tmp_path)
+    result, _ = run_validate(tmp_path, _scan_config(), observe)
+    assert result.exit_code == 2
+    findings = [item for item in result.diagnostics if item.code == "rule.violated"]
+    assert len(findings) == 1, result.diagnostics
+    assert findings[0].subject.endswith(":SOURCE-TYPES")
+    assert findings[0].pointer == "/components/1/inside"
 
 
 def test_public_ancestor_type_is_accepted_by_deep_boundary_rule(tmp_path: Path) -> None:
