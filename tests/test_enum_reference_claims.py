@@ -110,7 +110,7 @@ def test_namespace_qualified_enum_member_references_its_source_class(tmp_path: P
     assert "sample.types.Unused" in candidates
 
 
-def test_shadowed_import_does_not_reference_the_shadowed_enum(tmp_path: Path) -> None:
+def test_shadowed_enum_member_does_not_resolve_to_the_imported_class(tmp_path: Path) -> None:
     _write_enum_app(
         tmp_path,
         "from typing import Literal\n"
@@ -123,8 +123,21 @@ def test_shadowed_import_does_not_reference_the_shadowed_enum(tmp_path: Path) ->
         "    status: Literal[State.READY] = State.READY\n",
     )
 
-    candidates = _enum_candidates(tmp_path)
+    result = _observe(tmp_path)
 
-    assert "sample.types.State" in candidates
-    assert "sample.types.Unused" in candidates
-    assert "sample.facade.State" not in candidates
+    assert result.observation is not None
+    imports = result.observation.records("imports") or ()
+    assert any(
+        item.data.get("source_module") == "sample.facade"
+        and item.data.get("target_module") == "sample.types"
+        and item.data.get("symbol") == "State"
+        for item in imports
+    )
+    member_references = [
+        item
+        for item in result.observation.records("references") or ()
+        if item.data.get("expression") == "State.READY"
+    ]
+    assert all(
+        "sample.types.State" not in item.data.get("targets", ()) for item in member_references
+    )
