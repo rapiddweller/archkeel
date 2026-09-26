@@ -98,23 +98,25 @@ class ParsedModule:
 def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     """Names with one direct definition or import and no competing binder in the module."""
     nodes = list(ast.walk(module.tree))
-    imports: list[tuple[str, bool]] = []
-    for node in nodes:
-        if isinstance(node, ast.Import | ast.ImportFrom):
-            is_direct = node in module.tree.body
-            for alias in node.names:
-                import_name: str = alias.name
-                root = alias.asname or (
-                    import_name.split(".")[0] if isinstance(node, ast.Import) else import_name
-                )
-                imports.append((root, is_direct))
+    imports = [
+        (name, node in module.tree.body)
+        for node in nodes
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        for name in _import_bindings(node)
+    ]
     type_parameters = [
         value
         for node in nodes
         for field_name, value in ast.iter_fields(node)
         if field_name == "type_params" and value
     ]
-    if "*" in [name for name, _ in imports] or type_parameters:
+    if (
+        any(
+            isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+            for node in nodes
+        )
+        or type_parameters
+    ):
         return frozenset()
     direct = [
         node.name
@@ -122,30 +124,7 @@ def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
         and node in module.tree.body
     ] + [name for name, is_direct in imports if is_direct]
-    binders = (
-        [
-            node.id
-            for node in nodes
-            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del)
-        ]
-        + [node.arg for node in nodes if isinstance(node, ast.arg)]
-        + [
-            node.name
-            for node in nodes
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
-        ]
-        + [name for name, _ in imports]
-        + [node.name for node in nodes if isinstance(node, ast.ExceptHandler) and node.name]
-        + [node.name for node in nodes if isinstance(node, ast.MatchAs) and node.name]
-        + [node.name for node in nodes if isinstance(node, ast.MatchStar) and node.name]
-        + [node.rest for node in nodes if isinstance(node, ast.MatchMapping) and node.rest]
-        + [
-            name
-            for node in nodes
-            if isinstance(node, ast.Global | ast.Nonlocal)
-            for name in node.names
-        ]
-    )
+    binders = _bound_names(module.tree)
     return frozenset(name for name in direct if binders.count(name) == 1)
 
 
@@ -156,6 +135,7 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     for statement in module.tree.body:
         if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             direct[statement.name] = direct.get(statement.name, 0) + 1
+            unstable.update(_module_definition_expression_writes(statement))
         elif isinstance(statement, ast.Import | ast.ImportFrom):
             for name in _import_bindings(statement):
                 direct[name] = direct.get(name, 0) + 1
@@ -164,32 +144,17 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
                 statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
             )
             for target in targets:
-                for name in _stored_names(target):
+                for name in _bound_names(target):
                     direct[name] = direct.get(name, 0) + 1
         else:
             unstable.update(_module_binding_writes(statement))
 
-    for node in ast.walk(module.tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-        scope = tuple(own_scope(node))
-        global_names = {
-            name for child in scope if isinstance(child, ast.Global) for name in child.names
-        }
-        if not global_names:
-            continue
-        writes = {
-            child.id
-            for child in scope
-            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store | ast.Del)
-        }
-        writes.update(
-            name
-            for child in scope
-            if isinstance(child, ast.Import | ast.ImportFrom)
-            for name in _import_bindings(child)
-        )
-        unstable.update(global_names & writes)
+    unstable.update(
+        name
+        for node in ast.walk(module.tree)
+        if isinstance(node, ast.Global)
+        for name in node.names
+    )
 
     return frozenset(name for name, count in direct.items() if count == 1 and name not in unstable)
 
@@ -202,11 +167,37 @@ def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
     )
 
 
-def _stored_names(node: ast.AST) -> frozenset[str]:
-    return frozenset(
-        child.id
-        for child in ast.walk(node)
-        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store | ast.Del)
+def _bound_names(node: ast.AST) -> list[str]:
+    nodes = list(ast.walk(node))
+    imports = [
+        name
+        for child in nodes
+        if isinstance(child, ast.Import | ast.ImportFrom)
+        for name in _import_bindings(child)
+    ]
+    return (
+        [
+            child.id
+            for child in nodes
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store | ast.Del)
+        ]
+        + [child.arg for child in nodes if isinstance(child, ast.arg)]
+        + [
+            child.name
+            for child in nodes
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        ]
+        + imports
+        + [child.name for child in nodes if isinstance(child, ast.ExceptHandler) and child.name]
+        + [child.name for child in nodes if isinstance(child, ast.MatchAs) and child.name]
+        + [child.name for child in nodes if isinstance(child, ast.MatchStar) and child.name]
+        + [child.rest for child in nodes if isinstance(child, ast.MatchMapping) and child.rest]
+        + [
+            name
+            for child in nodes
+            if isinstance(child, ast.Global | ast.Nonlocal)
+            for name in child.names
+        ]
     )
 
 
@@ -214,17 +205,36 @@ class _ModuleBindingWrites(ast.NodeVisitor):
     def __init__(self) -> None:
         self.names: set[str] = set()
 
+    def visit_definition_expressions(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
+        expressions: list[ast.AST | None] = list(node.decorator_list)
+        if isinstance(node, ast.ClassDef):
+            expressions.extend(node.bases)
+            expressions.extend(keyword.value for keyword in node.keywords)
+        else:
+            expressions.extend(node.args.defaults)
+            expressions.extend(node.args.kw_defaults)
+            expressions.extend(
+                argument.annotation
+                for argument in [
+                    *node.args.posonlyargs,
+                    *node.args.args,
+                    *node.args.kwonlyargs,
+                ]
+            )
+            if node.args.vararg:
+                expressions.append(node.args.vararg.annotation)
+            if node.args.kwarg:
+                expressions.append(node.args.kwarg.annotation)
+            expressions.append(node.returns)
+        for expression in expressions:
+            if expression is not None:
+                self.visit(expression)
+
     def visit_Name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Store | ast.Del):
             self.names.add(node.id)
-
-    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        self.names.add(node.name)
-
-    visit_AsyncFunctionDef = visit_FunctionDef
-
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        self.names.add(node.name)
 
     def visit_Import(self, node: ast.Import) -> None:
         self.names.update(_import_bindings(node))
@@ -232,10 +242,58 @@ class _ModuleBindingWrites(ast.NodeVisitor):
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         self.names.update(_import_bindings(node))
 
+    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self.names.add(node.name)
+        self.visit_definition_expressions(node)
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.names.add(node.name)
+        self.visit_definition_expressions(node)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        for expression in [*node.args.defaults, *node.args.kw_defaults]:
+            if expression is not None:
+                self.visit(expression)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if node.name:
+            self.names.add(node.name)
+        self.generic_visit(node)
+
+    def visit_MatchAs(self, node: ast.MatchAs) -> None:
+        if node.name:
+            self.names.add(node.name)
+        self.generic_visit(node)
+
+    def visit_MatchStar(self, node: ast.MatchStar) -> None:
+        if node.name:
+            self.names.add(node.name)
+        self.generic_visit(node)
+
+    def visit_MatchMapping(self, node: ast.MatchMapping) -> None:
+        if node.rest:
+            self.names.add(node.rest)
+        self.generic_visit(node)
+
+    def visit_comprehension(self, node: ast.comprehension) -> None:
+        self.visit(node.iter)
+        for condition in node.ifs:
+            self.visit(condition)
+
 
 def _module_binding_writes(statement: ast.stmt) -> frozenset[str]:
     visitor = _ModuleBindingWrites()
     visitor.visit(statement)
+    return frozenset(visitor.names)
+
+
+def _module_definition_expression_writes(
+    statement: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> frozenset[str]:
+    visitor = _ModuleBindingWrites()
+    visitor.visit_definition_expressions(statement)
     return frozenset(visitor.names)
 
 
