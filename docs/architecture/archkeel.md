@@ -141,10 +141,12 @@ often explains an earlier one; the index below keeps that order.
 | AD-102 | [A constant JSON cannot hold is recorded without its value](decisions/ad-102-a-constant-json-cannot-hold-is-recorded-without-its-value.md) |
 | AD-103 | [Baseline and amendment paths are relative to --root](decisions/ad-103-baseline-and-amendment-paths-are-relative-to-root.md) |
 | AD-104 | [A contract the compared revision lacks is introduced](decisions/ad-104-a-contract-the-compared-revision-lacks-is-introduced.md) |
+| AD-105 | [A package rename is compared under its new names](decisions/ad-105-a-package-rename-is-compared-under-its-new-names.md) |
 | AD-106 | [A baseline entry names its violation in any subject order](decisions/ad-106-a-baseline-entry-names-its-violation-in-any-subject-order.md) |
 | AD-107 | [A module's file is its evidence, even when the file is empty](decisions/ad-107-a-modules-file-is-its-evidence-even-when-empty.md) |
 | AD-108 | [Statically proven enum members reference their class](decisions/ad-108-statically-proven-enum-members-reference-their-class.md) |
 | AD-109 | [`boundary_types` follows literal exports from ordinary modules](decisions/ad-109-boundary-types-follows-literal-all-in-ordinary-modules.md) |
+| AD-110 | [Inside rules use the shared evaluator](decisions/ad-110-inside-rules-use-the-shared-evaluator.md) |
 
 ## Allowed dependencies
 

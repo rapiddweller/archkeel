@@ -1398,3 +1398,20 @@ def test_write_graph_leaves_a_target_block_it_cannot_read_to_the_architect() -> 
     assert drift.subject == "sample.md (target graph)"
     assert "`subgraph core`" in drift.remedy
     assert "by hand" in drift.remedy
+
+
+def test_names_outside_the_namespace_validate_where_the_namespace_never_held_them(
+    tmp_path: Path,
+) -> None:
+    """AD-105 renames commands, path steps and construct sources but does not hold them to the
+    namespace: a shell command, an external step or a test-tree source validates as before."""
+    raw = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    raw["declarations"]["public_commands"][0]["command"] = "python -m shop.cli.main"
+    raw["declarations"]["paths"][0]["steps"] += ["sqlite"]
+    broad = next(rule for rule in raw["rules"] if rule["id"] == "CONSTRUCT-NO-BROAD-EXCEPT")
+    broad["exact_sources"] += ["tests.conftest.main"]
+    root = _prepare_repo(tmp_path, {"architecture-contract.json": json.dumps(raw, indent=2)})
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe)
+
+    assert (result.exit_code, result.diagnostics) == (0, ())

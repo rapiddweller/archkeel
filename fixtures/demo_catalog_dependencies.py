@@ -22,6 +22,7 @@ from fixtures.demo_catalog_support import (
     contract_with_requires,
     contract_with_rule,
     contract_without_rule,
+    inside_contract,
     inside_requires_replaced,
 )
 
@@ -430,6 +431,67 @@ _INSIDE_COMPLETE_REQUIRES = Variant(
     ),
     expected_codes=("rule.violated", "rule.violated", "rule.violated"),
 )
+_INSIDE_FORBIDDEN_CONSTRUCT = {
+    "id": "STORE-NO-EVAL",
+    "kind": "forbidden_construct",
+    "source": "shop.store.repository",
+    "constructs": ["eval"],
+    "rationale": "The repository must not execute dynamically supplied code.",
+    "provenance": ["docs/architecture/shop.md"],
+    "decided_by": "architect",
+}
+_INSIDE_FORBIDDEN_CONSTRUCT_CLEAN = Variant(
+    id="class-a-forbidden-construct-inside-clean",
+    section="class_a",
+    item="forbidden_construct:inside_clean",
+    summary="The inside forbids eval in the repository; the repository does not use it.",
+    files={
+        "architecture-contract.json": contract_without_rule("CONSTRUCT-NO-DYNAMIC"),
+        "shop/store/architecture-contract.json": inside_contract(
+            [
+                "shop.store.repository:OrderRepository",
+                "shop.store.sqlite:vacuum",
+                "shop.store.sqlite:Connection",
+            ],
+            rule=_INSIDE_FORBIDDEN_CONSTRUCT,
+        ),
+        "shop/store/repository.py": HEADER
+        + '"""Persist orders without dynamic evaluation."""\n\n'
+        + "from __future__ import annotations\n\n\n"
+        + "class OrderRepository:\n"
+        + "    def save(self) -> None:\n"
+        + '        """Persist one order."""\n'
+        + "        return None\n",
+    },
+    expected_violations=(),
+    expected_codes=(),
+)
+_INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION = Variant(
+    id="class-a-forbidden-construct-inside-violation",
+    section="class_a",
+    item="forbidden_construct:inside_violation",
+    summary="The inside forbids eval in the repository, so its use is reported as an inside rule.",
+    files={
+        "architecture-contract.json": contract_without_rule("CONSTRUCT-NO-DYNAMIC"),
+        "shop/store/architecture-contract.json": inside_contract(
+            [
+                "shop.store.repository:OrderRepository",
+                "shop.store.sqlite:vacuum",
+                "shop.store.sqlite:Connection",
+            ],
+            rule=_INSIDE_FORBIDDEN_CONSTRUCT,
+        ),
+        "shop/store/repository.py": HEADER
+        + '"""Persist orders using a forbidden dynamic-evaluation call."""\n\n'
+        + "from __future__ import annotations\n\n\n"
+        + "class OrderRepository:\n"
+        + "    def save(self, source: str) -> object:\n"
+        + '        """Demonstrate the nested forbidden-construct rule."""\n'
+        + "        return eval(source)\n",
+    },
+    expected_violations=("store:STORE-NO-EVAL",),
+    expected_codes=("rule.violated",),
+)
 # Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
 ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE = HEADER + (
     '"""Reporting use case that reaches for an undeclared package."""\n\n'
@@ -547,6 +609,8 @@ VARIANTS: tuple[Variant, ...] = (
     _COMPLETE_REQUIRES,
     _COMPLETE_REQUIRES_TYPE_CHECKING,
     _INSIDE_COMPLETE_REQUIRES,
+    _INSIDE_FORBIDDEN_CONSTRUCT_CLEAN,
+    _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION,
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,

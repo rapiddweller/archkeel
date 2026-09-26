@@ -356,6 +356,97 @@ def test_unproven_ordinary_reexport_stays_unknown_in_cli_json(
     }
 
 
+@pytest.mark.parametrize(
+    ("variant_id", "expected_violations"),
+    [
+        ("class-a-boundary-types-owned-public-type", ()),
+        (
+            "class-a-boundary-types-owned-public-broad-field",
+            ("APP-TYPES-NOT-DICT",),
+        ),
+    ],
+)
+def test_owned_public_type_field_is_decided_by_cli_json(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    variant_id: str,
+    expected_violations: tuple[str, ...],
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+
+    validate_code = main(["validate", "--root", str(root), "--json"])
+    validation = json.loads(capsys.readouterr().out)
+    expected_codes = ("rule.violated",) if expected_violations else ()
+    assert tuple(sorted(item["code"] for item in validation["diagnostics"])) == expected_codes
+    if not expected_violations:
+        assert validation["declared_rules"] == "PASS"
+    if expected_violations:
+        assert validate_code != 0
+    else:
+        assert validate_code == 0
+
+    architecture_path = tmp_path / "architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(architecture_path), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    if expected_violations:
+        assert report["declared_rules"] != "PASS"
+    else:
+        assert report["declared_rules"] == "PASS"
+    observation = parse_observation(
+        decode_canonical_model(json.loads(architecture_path.read_bytes()))
+    )
+    violations = trace_valid_violations(observation)
+    assert tuple(sorted(item.rule_ids[0] for item in violations)) == expected_violations
+    relevant_unknowns = [
+        item
+        for item in observation.records("unknowns") or ()
+        if item.kind == "boundary_type_route" and "APP-TYPES-NOT-DICT" in item.rule_ids
+    ]
+    assert relevant_unknowns == []
+    if expected_violations:
+        [violation] = violations
+        assert len(violation.subjects) == 2
+        assert "field value" in violation.title
+        assert violation.data.get("nested_annotation") == "dict"
+    else:
+        assert violations == ()
+
+
+def test_inside_forbidden_construct_is_reported_by_validate_and_report_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    variant = next(
+        item for item in CATALOG if item.id == "class-a-forbidden-construct-inside-violation"
+    )
+    root = _prepare_repo(tmp_path, dict(variant.files))
+
+    validate_code = main(["validate", "--root", str(root), "--json"])
+    validation = json.loads(capsys.readouterr().out)
+    assert validate_code == 2
+    assert [
+        (item["code"], item["subject"], item["pointer"])
+        for item in validation["diagnostics"]
+        if item["code"] == "rule.violated"
+    ] == [("rule.violated", "store:STORE-NO-EVAL", "/components/1/inside")]
+
+    architecture_path = tmp_path / "inside-report.json"
+    report_code = main(
+        ["report", "--root", str(root), "--output", str(architecture_path), "--json"]
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report_code == 0
+    observation = parse_observation(
+        decode_canonical_model(json.loads(architecture_path.read_bytes()))
+    )
+    assert [
+        (item.rule_ids[0], item.subjects)
+        for item in trace_valid_violations(observation)
+        if item.rule_ids and item.rule_ids[0] == "store:STORE-NO-EVAL"
+    ] == [("store:STORE-NO-EVAL", ("shop.store.repository.OrderRepository.save",))]
+    assert report["declared_rules"] == "FAIL"
+
+
 def test_baseline_interface_narrowing_runs_a_real_validate_gate(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
@@ -511,11 +602,12 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
 def test_against_variant_produces_the_catalogued_verdict(tmp_path: Path, variant: Variant) -> None:
     against = variant.against
     assert against is not None
-    result = build_and_run_against(tmp_path, variant.files, against)
+    result = build_and_run_against(tmp_path, variant.files, against, variant.fixture)
 
     assert result.exit_code == against.exit_code
     assert result.diagnostics == ()
     assert result.failures == against.failures
+    assert result.renames == against.renames
 
 
 def test_graph_drift_names_the_command_or_the_line_it_refuses(tmp_path: Path) -> None:

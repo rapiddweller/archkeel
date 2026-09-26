@@ -288,8 +288,10 @@ fixing the code — add an `allowed_sources` entry, a `requires` edge, drop a ru
 change. `--against <ref>` classifies every difference from the contract at that Git revision as a
 widening (a new permission or a dropped restriction) or a narrowing, its harmless reverse; a
 widening fails unless `--amendment` names a file that an architect wrote, binding its exact
-before/after contract digests (AD-61, #11). Point it at the branch's own base, the commit CI
-would otherwise diff against.
+before/after contract digests (AD-61, #11). A package renamed together with every module name
+the contract gives it is not such a difference: it is compared under the new names and listed as
+`renames`, so only a widening beside it fails (AD-105). Point it at the branch's own base, the
+commit CI would otherwise diff against.
 
 Instead of removing the `Money` reach above, an agent under time pressure could "fix" the
 violation like this:

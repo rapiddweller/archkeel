@@ -54,17 +54,12 @@ from archkeel.ir.measurements import (
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
-    BoundaryTypesRule,
     CompatibilityShim,
-    CompleteAssignmentRule,
-    CompleteExternalScopeRule,
     CompleteRequiresRule,
     ContractComponent,
     ContractDeclarations,
     Diagnostic,
     DiagnosticCode,
-    ExternalDependencyScopeRule,
-    ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     InterfaceBudgetResult,
@@ -74,14 +69,14 @@ from archkeel.ir.model import (
     Record,
     RecordData,
     RunResult,
-    SiblingIsolationRule,
-    SymbolPlacementRule,
     UnresolvedCallChange,
     contract_relative_path,
     in_scope,
+    module_references,
     text_value,
 )
 from archkeel.ir.profiles import PROFILES
+from archkeel.ir.renames import Renamed, module_layouts, observed_names, renames_since
 from archkeel.ir.widening import (
     Amendment,
     baseline_widenings,
@@ -1194,83 +1189,16 @@ def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, .
 def _namespace_references(
     contract: ArchitectureContract, sdk_libraries: frozenset[str]
 ) -> list[tuple[str, str]]:
-    """Collect every contract-declared name that must resolve inside the scan namespace."""
-    declarations = contract.declarations or ContractDeclarations()
-    names: list[tuple[str, str]] = []
-    for index, component in enumerate(contract.components):
-        names.extend(
-            (f"/components/{index}/packages/{item}", value)
-            for item, value in enumerate(component.packages)
-        )
-        if component.public is not None:
-            names.extend(
-                (f"/components/{index}/public/{item}", value.split(":", 1)[0])
-                for item, value in enumerate(component.public)
-            )
-        if component.planned is not None:
-            names.extend(
-                (f"/components/{index}/planned/{item}", value.split(":", 1)[0])
-                for item, value in enumerate(component.planned)
-            )
-        names.extend(
-            (f"/components/{index}/requires/{position}/through/{item}", value)
-            for position, entry in enumerate(component.requires or ())
-            for item, value in enumerate(entry.through)
-        )
-    for index, rule in enumerate(contract.rules):
-        if isinstance(
-            rule,
-            ForbiddenDependencyRule
-            | AllowedDependencyRule
-            | ForbiddenConstructRule
-            | CompleteAssignmentRule
-            | CompleteExternalScopeRule
-            | SymbolPlacementRule
-            | BoundaryTypesRule,
-        ):
-            names.append((f"/rules/{index}/source", rule.source))
-        if isinstance(rule, AllowedDependencyRule) or (
-            isinstance(rule, ForbiddenDependencyRule) and rule.target not in sdk_libraries
-        ):
-            names.append((f"/rules/{index}/target", rule.target))
-        if isinstance(rule, SiblingIsolationRule):
-            names.extend(
-                (f"/rules/{index}/members/{item}", value) for item, value in enumerate(rule.members)
-            )
-        if isinstance(
-            rule,
-            ForbiddenDependencyRule
-            | ExternalDependencyScopeRule
-            | SymbolPlacementRule
-            | BoundaryTypesRule,
-        ):
-            names.extend(
-                (f"/rules/{index}/allowed_sources/{item}", value)
-                for item, value in enumerate(rule.allowed_sources)
-            )
-        if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
-            names.extend(
-                (f"/rules/{index}/exact_sources/{item}", value)
-                for item, value in enumerate(rule.exact_sources)
-            )
-    names.extend(
-        (f"/declarations/public_api/{index}", value)
-        for index, value in enumerate(declarations.public_api)
-    )
-    names.extend(
-        (f"/declarations/context_roots/{index}", value)
-        for index, value in enumerate(declarations.context_roots)
-    )
-    for index, scope in enumerate(declarations.review_scopes):
-        names.extend(
-            (f"/declarations/review_scopes/{index}/subjects/{item}", value)
-            for item, value in enumerate(scope.subjects)
-        )
-    names.extend(
-        (f"/declarations/spot_owners/{index}/owner", owner.owner)
-        for index, owner in enumerate(declarations.spot_owners)
-    )
-    return names
+    """Every contract-declared name that must resolve inside the scan namespace.
+
+    They are the entries `ir.model.module_references` marks held, from the list a rename
+    rewrites (AD-105).
+    """
+    return [
+        (item.pointer, _entry_module(item.value))
+        for item in module_references(contract, external=sdk_libraries)
+        if item.held
+    ]
 
 
 def _entry_ownership_diagnostics(
@@ -1920,12 +1848,10 @@ def _observed_or_invalid(
     observed = observe_repository(root, config, analyzer)
     observation = observed.observation
     if observed.diagnostics or observation is None:
-        incomplete_inside = observation is not None and any(
+        if observation is not None and any(
             item.kind == "inside_contract_incomplete"
             for item in observation.records("unknowns") or ()
         )
-        if incomplete_inside:
-            assert observation is not None
             extra, _ = _repository_diagnostics(
                 root,
                 config,
@@ -1977,6 +1903,7 @@ class _AgainstContext:
     parsed_amendment: Amendment | None
     decided_by: str | None
     rationale: str | None
+    config: ScanConfig | None
     tree_digest: str | None = None
 
 
@@ -2012,24 +1939,29 @@ def _resolve_against_context(
     write_amendment: bool,
     decided_by: str | None,
     rationale: str | None,
+    against_config: ScanConfig | None,
 ) -> tuple[_AgainstContext, RunResult | None]:
-    """The contract and baseline `--against` names, and `--amendment`'s record.
-
-    A missing violation baseline blob at that revision means no prior known debt. A declared
-    measurement budget is different: without its prior accepted value the comparison is not
-    decidable, so the revision is rejected instead of being treated as zero. A missing contract
-    blob is the contract's introduction (AD-104); a baseline the revision still holds is compared
-    as before, one it lacks too is not compared at all. Any other blob Git cannot hand over is
-    `against.invalid`.
-    """
+    """Resolve revision inputs without treating absent measurement budgets as zero."""
     empty = _AgainstContext(
-        against, None, (), (), amendment, write_amendment, None, decided_by, rationale
+        against,
+        None,
+        (),
+        (),
+        amendment,
+        write_amendment,
+        None,
+        decided_by,
+        rationale,
+        against_config,
     )
     if against is None:
         return empty, None
     parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
+    against_contract_path = (
+        against_config.contract if against_config is not None else config.contract
+    )
     try:
-        tree = _revision_contract_tree(root, against, config.contract)
+        tree = _revision_contract_tree(root, against, against_contract_path)
         against_contract: ArchitectureContract | _Introduced = tree.comparison_contract
         before_tree_digest: str | None = tree.digest
     except MissingBlobError as error:
@@ -2076,6 +2008,7 @@ def _resolve_against_context(
         parsed_amendment,
         decided_by,
         rationale,
+        against_config,
         before_tree_digest,
     )
     return context, amendment_error
@@ -2116,28 +2049,119 @@ def _cycle_rule_ids(contract: ArchitectureContract) -> frozenset[str]:
     return frozenset(rule.id for rule in contract.rules if isinstance(rule, NoComponentCyclesRule))
 
 
+def _rename_since(
+    ctx: _AgainstContext,
+    contract: ArchitectureContract,
+    observation: Observation,
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+) -> Renamed | None:
+    """AD-105: the compared revision under a rename supported by both physical layouts."""
+    if (
+        ctx.against is None
+        or not isinstance(ctx.contract, ArchitectureContract)
+        or ctx.config is None
+    ):
+        return None
+    if ctx.contract.components == contract.components:
+        return None
+    historical_config = ctx.config
+    current_layouts = module_layouts(observation)
+    historical_layouts = current_layouts
+    historical_scanned = False
+    if historical_config.language != config.language:
+        return None
+    if config.language == "python":
+        try:
+            historical = observe_revision(
+                analyzer, root, ctx.against, historical_config, declared_at=ctx.against
+            )
+        except (GitError, OSError, SnapshotError, ValueError):
+            return None
+        if historical.diagnostics or historical.observation is None:
+            return None
+        historical_layouts = module_layouts(historical.observation)
+        historical_scanned = True
+    elif historical_config.roots != config.roots:
+        return None
+    layouts = current_layouts | historical_layouts
+    recognised = renames_since(
+        ctx.contract,
+        contract,
+        violations=ctx.baseline or (),
+        budgets=ctx.budgets,
+        observed=observed_names(observation),
+        layouts=layouts,
+    )
+    historical_renames = renames_since(
+        ctx.contract,
+        contract,
+        violations=ctx.baseline or (),
+        budgets=ctx.budgets,
+        observed=observed_names(observation),
+        layouts=historical_layouts,
+    )
+    return next(
+        (
+            item
+            for item in recognised
+            if not historical_scanned
+            or any(previous.prefixes == item.prefixes for previous in historical_renames)
+            if not any(_left_behind(root, directory) for directory in item.directories)
+        ),
+        None,
+    )
+
+
+def _left_behind(root: Path, directory: str) -> bool:
+    """AD-105: whether a file lies at or below `directory`, or beside it as `directory.*`, where
+    an old prefix's code lived: scanned under a new name or not, it is code left behind. A file
+    in `__pycache__` is none, since Python loads one only beside its source."""
+    base: Path = root / directory
+    parent: Path = base.parent
+    files = [base, *base.rglob("*"), *parent.glob(f"{base.name}.*")]
+    return any(_code_file(root, path) for path in files)
+
+
+def _code_file(root: Path, path: Path) -> bool:
+    relative: Path = path.relative_to(root)
+    return path.is_file() and "__pycache__" not in relative.parts
+
+
 def _widening_failures(
     ctx: _AgainstContext,
     contract: ArchitectureContract,
+    rename: Renamed | None,
     baseline: Path | None,
     after_baseline: tuple[KnownViolation, ...],
     after_budgets: tuple[MeasurementBudget, ...],
     cycle_rules: frozenset[str],
     after_digest: str,
 ) -> tuple[str, ...]:
-    """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11)."""
+    """Every unamended widening from `ctx.contract` to `contract` (AD-61, #11).
+
+    A recognised rename is applied to the old side first (AD-105), so only what it does not
+    explain is compared, and a widening beside it is still reported.
+    """
     if ctx.against is None or ctx.contract is None:
         return ()
+    violations, budgets = ctx.baseline, ctx.budgets
     if isinstance(ctx.contract, _Introduced):
-        # AD-104: nothing at the revision to compare, so the whole contract is one widening.
+        # AD-104: nothing at the revision to compare, so the whole contract is one widening, and
+        # no rename applies to it (AD-105).
         findings = [f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}"]
         targets: dict[str, int] = {}
     else:
-        findings = list(contract_widenings(ctx.contract, contract))
-        targets = _name_budget_targets(ctx.contract.declarations or ContractDeclarations())
-    if baseline is not None and ctx.baseline is not None:
-        findings += baseline_widenings(ctx.baseline, after_baseline, cycle_rules=cycle_rules)
-        findings += measurement_budget_widenings(ctx.budgets, after_budgets, targets)
+        before = ctx.contract
+        if rename is not None:
+            before, budgets = rename.contract, rename.budgets
+            violations = None if violations is None else rename.violations
+        findings = list(contract_widenings(before, contract))
+        targets = _name_budget_targets(before.declarations or ContractDeclarations())
+    if baseline is not None and violations is not None:
+        findings += baseline_widenings(violations, after_baseline, cycle_rules=cycle_rules)
+        findings += measurement_budget_widenings(budgets, after_budgets, targets)
     amended = ctx.write_amendment or (
         ctx.parsed_amendment is not None
         and verify_amendment(
@@ -2239,6 +2263,7 @@ def run_validate(
     write_baseline: bool = False,
     accept_new: bool = False,
     against: str | None = None,
+    against_config: ScanConfig | None = None,
     amendment: Path | None = None,
     write_amendment: bool = False,
     decided_by: str | None = None,
@@ -2267,6 +2292,11 @@ def run_validate(
 
     AD-103: `baseline` and `amendment` are relative to `root`, like the contract, or absolute;
     either way one that resolves outside `root` is refused, so no write can land outside it.
+
+    AD-105: a component package moved since `against` proposes a rename. One that keeps every
+    relation between the old names, leaves no scanned module under an old prefix and renames the
+    old contract into one that still parses is applied to the old side before comparing and
+    named in `renames`.
     """
     if baseline is not None:
         try:
@@ -2314,7 +2344,15 @@ def run_validate(
             _BASELINE_WRITE,
         ), FilesToWrite()
     against_ctx, against_error = _resolve_against_context(
-        root, config, against, baseline, amendment, write_amendment, decided_by, rationale
+        root,
+        config,
+        against,
+        baseline,
+        amendment,
+        write_amendment,
+        decided_by,
+        rationale,
+        against_config,
     )
     if against_error is not None:
         return against_error, FilesToWrite()
@@ -2389,9 +2427,11 @@ def run_validate(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
     )
+    rename = _rename_since(against_ctx, contract, observation, root, config, analyzer)
     widening_failures = _widening_failures(
         against_ctx,
         comparison_contract,
+        rename,
         baseline,
         violations if write_baseline else known,
         observed_budgets if write_baseline else known_budgets,
@@ -2411,6 +2451,8 @@ def run_validate(
         baseline_resolved=baseline_resolved if baseline is not None else None,
         interface_budgets=budget_results or None,
     )
+    if against is not None:
+        result = replace(result, renames=rename.prefixes if rename is not None else ())
     # AD-100: a failing run whose calls_unresolved value moved from an accepted one names the
     # call sites against the other revision's code; only such a run pays for the second scan.
     # A revision without the contract has no declarations to observe that code under (AD-104).

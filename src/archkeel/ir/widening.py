@@ -42,6 +42,7 @@ from .model import (
     RequiredComponent,
     RootLayoutRule,
     SiblingIsolationRule,
+    last_name,
 )
 
 
@@ -424,10 +425,12 @@ def _component_widenings(before: ContractComponent, after: ContractComponent) ->
     before_planned = frozenset(before.planned or ())
     after_planned = frozenset(after.planned or ())
     promoted = (before_planned - after_planned) & after_public
+    gained = after_public - before_public - promoted
+    lost = before_public - after_public
     return [
         *[
-            f"{subject}.public gained {item!r}"
-            for item in sorted(after_public - before_public - promoted)
+            f"{subject}.public gained {item!r}{_in_place_of(item, gained, lost)}"
+            for item in sorted(gained)
         ],
         *[
             f"{subject}.planned lost {item!r}"
@@ -442,6 +445,24 @@ def _component_widenings(before: ContractComponent, after: ContractComponent) ->
             handled=frozenset({"public", "planned", "requires", "namespace"}),
         ),
     ]
+
+
+def _alike(entry: str, other: str) -> bool:
+    """Both entries modules or both symbols, with the same last name."""
+    return (":" in entry) == (":" in other) and last_name(entry) == last_name(other)
+
+
+def _in_place_of(entry: str, gained: frozenset[str], lost: frozenset[str]) -> str:
+    """Name the lost entry `entry` may replace, for the reader only (#151).
+
+    Only a one-to-one pair counts: one lost entry alike `entry`, and no other gain alike it. A
+    lost `public` entry is a narrowing and fails nothing; beside the gain that may replace it,
+    it tells a moved entry from a new one where no rename was recognised (AD-105).
+    """
+    matches = [item for item in lost if _alike(entry, item)]
+    if len(matches) != 1 or [item for item in gained if _alike(item, matches[0])] != [entry]:
+        return ""
+    return f" in place of {matches[0]!r}"
 
 
 def _components_widenings(

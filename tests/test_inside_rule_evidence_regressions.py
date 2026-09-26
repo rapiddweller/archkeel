@@ -11,6 +11,7 @@ from test_boundary_types_nested_dtos import _write_app
 from test_inside_rule_coverage import _commit_test_root, _scan_config, _write_inside_case
 
 from archkeel.check.run import inspect_observation
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
 from archkeel.cli import main
 from archkeel.ir.model import Observation
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
@@ -88,6 +89,59 @@ def test_inside_type_lookup_retains_foreign_owners_private_surface(tmp_path: Pat
         assert "Payload which foreign does not declare" in findings[0].title
         assert findings[0].rule_ids == (("core:TYPES" if nested else "TYPES"),)
         assert inspect_observation(observation)[1] == "FAIL"
+
+
+def test_inside_boundary_rule_does_not_judge_foreign_public_functions(tmp_path: Path) -> None:
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/foreign").mkdir(parents=True)
+    (tmp_path / "sample/core/api.py").write_text(
+        '__all__ = ["run"]\ndef run(value: str) -> str:\n    return value\n'
+    )
+    (tmp_path / "sample/foreign/impl.py").write_text("def foreign(value):\n    return value\n")
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component(
+                        "api",
+                        packages=["sample.core"],
+                        public=["sample.core.api:run"],
+                    )
+                ],
+                "rules": [
+                    {
+                        "id": "TYPES",
+                        "kind": "boundary_types",
+                        "source": "sample",
+                        "rationale": "Keep the inside facade typed.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("core", public=["sample.core.api:run"]) | {"inside": "inner.json"},
+                    _component("foreign", public=["sample.foreign.impl:foreign"]),
+                ],
+                "rules": [],
+            }
+        )
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    assert not any(
+        item.rule_ids == ("core:TYPES",) and item.data.get("module") == "sample.foreign.impl"
+        for item in result.observation.records("unknowns") or ()
+    )
 
 
 def test_inside_allowance_remains_a_fact_not_unknown(tmp_path: Path) -> None:
@@ -228,14 +282,43 @@ def test_validate_keeps_known_violations_with_missing_inside_diagnostics(
     (foreign / "api.py").write_text("VALUE = 1\n")
     docs = tmp_path / "docs/architecture"
     docs.mkdir(parents=True)
-    (docs / "sample.md").write_text("# Sample architecture\n")
+    (docs / "sample.md").write_text(
+        f"# Sample architecture\n\n{COMPONENT_GRAPH_MARKER}\n"
+        "```mermaid\ngraph TD\n  stale --> edge\n```\n"
+    )
+    (tmp_path / "baseline.json").write_text(
+        json.dumps({"schema_version": "1.3.0", "budgets": {}, "violations": []})
+    )
     _scan_config(tmp_path)
     _commit_test_root(tmp_path)
 
-    exit_code = main(["validate", "--root", str(tmp_path), "--json"])
+    before = {
+        path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(tmp_path).parts
+    }
+    exit_code = main(
+        [
+            "validate",
+            "--root",
+            str(tmp_path),
+            "--baseline",
+            "baseline.json",
+            "--write-baseline",
+            "--accept-new",
+            "--write-graph",
+            "--json",
+        ]
+    )
     result = json.loads(capsys.readouterr().out)
+    after = {
+        path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(tmp_path).parts
+    }
 
     assert exit_code == 2
+    assert after == before
     assert result["declared_rules"] == "UNKNOWN"
     diagnostics = result["diagnostics"]
     assert diagnostics

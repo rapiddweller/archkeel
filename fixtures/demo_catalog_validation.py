@@ -774,12 +774,16 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         id="validation-inside-contract-missing",
         section="validation",
         item="contract.invalid:inside",
-        summary="The contract COMP-STORE names for its inside is deleted. The observation "
-        "carries the level or none of it, so report stays silent and validate alone answers, "
-        "with contract.invalid at /components/1/inside (AD-20).",
-        files={"shop/store/architecture-contract.json": None},
-        expected_violations=(),
-        expected_codes=("contract.invalid",),
+        summary="The contract COMP-STORE names for its inside is deleted while the repository "
+        "still imports forbidden Money. Validate diagnoses the missing inside and the sibling "
+        "top-level rule violation remains visible (AD-20).",
+        files={
+            "shop/store/architecture-contract.json": None,
+            "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+        },
+        expected_violations=("DEP-STORE-NO-MONEY",),
+        expected_codes=("contract.invalid", "rule.violated"),
+        expected_kinds=("parse_error",),
     ),
 )
 

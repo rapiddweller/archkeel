@@ -141,6 +141,12 @@ finding reads `store:STORE-REQUIRES-COMPLETE` rather than the bare id the inside
 (AD-36). The same prefix keeps the two levels apart: a `complete_requires` an inside declares
 decides that level's pairs, never the pairs above it.
 
+Inside contracts use the shared rule evaluators over the same scan (AD-110). Source modules
+are limited to the parent's packages; global targets and origin signatures remain available.
+Missing contracts and unsupported rules remain incomplete, never PASS. The report marks an
+inside edge green only when every displayed import site has evaluation evidence and no
+relevant UNKNOWN or edge violation remains. A green edge is not a component-wide certificate.
+
 `external_dependency_scope` fields are `dependency` (a top-level import name), `allowed_sources`
 and `exact_sources`, at least one of the two non-empty. It matches import records whose target is
 the dependency or one of its submodules, including `TYPE_CHECKING` imports, and allows those whose
@@ -441,8 +447,14 @@ archkeel validate --against origin/main
 
 Widening is a new permission or a dropped restriction; narrowing is each reverse, and always
 passes. `boundary_types` and `symbol_placement` are restrictions too. A difference this
-classification does not name is reported as a widening, never passed over silently. A widening
-fails (`failures`, exit 1) unless `--amendment <path>` names a file
+classification does not name is reported as a widening, never passed over silently. A package
+renamed together with every module name the contract gives it widens nothing: it is recognised,
+named under `renames` and compared away, so only a widening beside it fails (AD-105). The CLI
+reads the same selected `--config` from the pinned historical revision; missing or invalid config
+cannot authorize a rename. Every Python rename candidate needs a complete historical layout scan,
+even when roots and namespace are unchanged, because physical layout may move within those roots.
+Changed-root Dart remains unsupported; same-root Dart renames keep their existing behavior. A
+widening fails (`failures`, exit 1) unless `--amendment <path>` names a file
 binding its exact before/after contract digest, recording who decided it and why:
 
 ```bash

@@ -349,14 +349,13 @@ def _evaluate_inside_contract(
     failures.extend(profile_failures(scoped, profile))
     boundary_contract = scoped
     if root_contract is not None:
-        parent_roots = parent.packages
         external_components = tuple(
             component
             for component in root_contract.components
             if all(
                 not in_scope(package, root) and not in_scope(root, package)
                 for package in component.packages
-                for root in parent_roots
+                for root in parent.packages
             )
         )
         boundary_contract = replace(scoped, components=(*scoped.components, *external_components))
@@ -379,19 +378,17 @@ def _evaluate_inside_contract(
         assessment_parent=parent.label,
         boundary_contract=boundary_contract,
     )
-    unknowns = [
-        *boundary_type_limits(
-            symbols,
-            imports,
-            boundary_contract,
-            exports_by_module,
-            evidence,
-            uncertain_reexport_origins,
-            scanned_modules,
-            stable_bindings_by_module,
-            source_modules,
-        ),
-    ]
+    unknowns = boundary_type_limits(
+        symbols,
+        imports,
+        boundary_contract,
+        exports_by_module,
+        evidence,
+        uncertain_reexport_origins,
+        scanned_modules,
+        stable_bindings_by_module,
+        source_modules,
+    )
     return violations, unknowns, failures, allowance_facts
 
 
@@ -497,6 +494,7 @@ def scan_repository(
         package_edges=package_edges,
         package_edge_pairs=package_edge_pairs,
     )
+    blank_modules = frozenset(module.module for module in parsed if not module.source.strip())
     violations, boundary_allowances = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -504,7 +502,7 @@ def scan_repository(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
-        blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
+        blank_modules=blank_modules,
         # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
         module_cycles=module_cycles,
         contract=contract,
@@ -512,7 +510,6 @@ def scan_repository(
         profile=PYTHON,
         uncertain_reexport_origins=uncertain_reexport_origins,
     )
-    blank_modules = frozenset(module.module for module in parsed if not module.source.strip())
     (
         inside_violations,
         inside_unknowns,

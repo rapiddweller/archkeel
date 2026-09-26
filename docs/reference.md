@@ -238,7 +238,28 @@ budget declaration narrows; removing one widens. Raising a facade or coupling bu
 `max_names`, or removing the entry, widens, and so does a baseline that accepts a name its
 `--against` revision did not; lowering or adding one narrows (AD-99). Any other
 difference - an unrecognised rule kind's presence, a field no classifier names, `declarations`,
-`$schema` - fails closed as a widening. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
+`$schema` - fails closed as a widening. A package rename is compared away first (AD-105): the
+component packages that moved, such as `shop.render` to `shop.view`, propose a prefix
+substitution. It holds when every prefix relation among the old contract's and baseline's
+module names and the renamed prefixes survives it, when no module the scan reads or an import
+reaches lies under an old prefix, whatever its file is called, and when the directory where the
+scan's layout reads each old prefix holds no file at all, scanned or not, outside `__pycache__`;
+a prefix that layout cannot place is no rename. Candidates go shortest first, and one whose renamed old contract the
+parser refuses is skipped; with none left, the comparison stays field by field and an amendment
+can accept it. Only the module and symbol fields `ir.model.module_references` lists are renamed;
+ids, labels, kinds, `decided_by` and constructs never are, nor paths, so a moved `inside`
+contract still compares as a changed `inside`. `reference.namespace` checks the same fields as
+before, the entries of that list marked `held`. The old contract and baseline are then renamed
+before the comparison, so a pure rename passes without an amendment and a widening beside it
+fails alone. `renames` in the JSON result lists each old and new prefix (`[]` when none holds,
+`null` when no revision was compared) and the terminal names them. Where no
+rename holds, a gained `public` entry names the one lost entry of its kind and last name, when
+no other gain matches it: `gained 'b.api.x' in place of 'a.api.x'`. The CLI pins the revision and
+reads the exact selected `--config` there; missing or malformed history cannot authorize a rename.
+Every Python rename candidate requires a complete historical layout scan, even when configured
+roots and namespace are unchanged: physical layout can move within those roots. Changed-root Dart
+renames are not supported; same-root Dart renames keep their existing behavior. A widening is
+reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
 each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contract_digest` - the
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment
@@ -450,6 +471,10 @@ Historical evidence and reproduction commands retain the names from their pinned
 `fixtures/C-valid`. `fixtures/F-architecture` is the shop sample behind the demo catalog (AD-11).
 It carries two levels: the top contract at its root, and the one `COMP-STORE` names for its inside
 at `shop/store/architecture-contract.json` (AD-20).
+
+The catalog also exercises inside rules with a clean and a violating `eval` example.
+Deleting the inside contract leaves the known root violation visible, reports incomplete
+evidence and prevents baseline or graph writes (AD-110).
 
 Every ordered component pair in the shop fixture is decided by one `allowed_dependency` or
 `forbidden_dependency` rule (AD-15). D-self also checks that all observed modules have declared
