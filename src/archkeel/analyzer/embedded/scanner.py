@@ -209,6 +209,7 @@ def api_surface_limits(
 def _inside_rule_results(
     inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]],
     *,
+    root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
@@ -223,12 +224,13 @@ def _inside_rule_results(
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
-) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate nested rules with the root scan's facts, limited to each parent's modules."""
     violations: list[RawRecord] = []
     unknowns: list[RawRecord] = []
     failures: list[RawRecord] = []
     assessments: list[RawRecord] = []
+    allowances: list[RawRecord] = []
     for parent, declared in inside_contracts:
         scoped, source_modules, scope_failures = _inside_source_domain(parent, declared, modules)
         failures.extend(scope_failures)
@@ -236,6 +238,7 @@ def _inside_rule_results(
             parent,
             scoped,
             source_modules,
+            root_contract=root_contract,
             imports=imports,
             typing_signals=typing_signals,
             constructs=constructs,
@@ -255,11 +258,13 @@ def _inside_rule_results(
         violations.extend(results[0])
         unknowns.extend(results[1])
         failures.extend(results[2])
+        allowances.extend(results[3])
     return (
         sorted(violations, key=lambda item: item["id"]),
         sorted(unknowns, key=lambda item: item["id"]),
         sorted(failures, key=lambda item: item["id"]),
         sorted(assessments, key=lambda item: item["id"]),
+        sorted(allowances, key=lambda item: item["id"]),
     )
 
 
@@ -306,6 +311,7 @@ def _evaluate_inside_contract(
     scoped: ArchitectureContract,
     source_modules: frozenset[str],
     *,
+    root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
@@ -321,11 +327,12 @@ def _evaluate_inside_contract(
     stable_bindings_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
     assessments: list[RawRecord],
-) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Run shared evaluators for one clipped contract over one already-collected scan."""
     failures = rule_subject_failures(
         tuple(rule for rule in scoped.rules if rule.kind not in profile.unsupported_rules),
         set(source_modules),
+        target_module_names={module["data"]["qualified_name"] for module in modules},
         symbols=symbols,
         imports=imports,
         contract=scoped,
@@ -336,6 +343,19 @@ def _evaluate_inside_contract(
         source_modules=source_modules,
     )
     failures.extend(profile_failures(scoped, profile))
+    boundary_contract = scoped
+    if root_contract is not None:
+        parent_roots = parent.packages
+        external_components = tuple(
+            component
+            for component in root_contract.components
+            if all(
+                not in_scope(package, root) and not in_scope(root, package)
+                for package in component.packages
+                for root in parent_roots
+            )
+        )
+        boundary_contract = replace(scoped, components=(*scoped.components, *external_components))
     violations, allowance_facts = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -353,13 +373,13 @@ def _evaluate_inside_contract(
         source_roots=parent.packages,
         assessment_facts=assessments,
         assessment_parent=parent.label,
+        boundary_contract=boundary_contract,
     )
     unknowns = [
-        *allowance_facts,
         *boundary_type_limits(
             symbols,
             imports,
-            scoped,
+            boundary_contract,
             exports_by_module,
             evidence,
             uncertain_reexport_origins,
@@ -368,7 +388,7 @@ def _evaluate_inside_contract(
             source_modules,
         ),
     ]
-    return violations, unknowns, failures
+    return violations, unknowns, failures, allowance_facts
 
 
 def scan_repository(
@@ -494,8 +514,10 @@ def scan_repository(
         inside_unknowns,
         inside_failures,
         inside_assessments,
+        inside_allowances,
     ) = _inside_rule_results(
         inside_contracts,
+        root_contract=contract,
         imports=imports,
         typing_signals=typing_signals,
         constructs=constructs,
@@ -516,7 +538,9 @@ def scan_repository(
     scope_observations = sorted(
         [*scope_observations, *inside_assessments], key=lambda item: item["id"]
     )
-    typing_signals = sorted([*typing_signals, *boundary_allowances], key=lambda item: item["id"])
+    typing_signals = sorted(
+        [*typing_signals, *boundary_allowances, *inside_allowances], key=lambda item: item["id"]
+    )
 
     unknowns = [
         *_analysis_limits(calls, declarations, namespace),

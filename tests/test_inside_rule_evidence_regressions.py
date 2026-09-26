@@ -8,9 +8,10 @@ from pathlib import Path
 
 from test_analyzer import _component, _observe
 from test_boundary_types_nested_dtos import _write_app
-from test_inside_rule_coverage import _write_inside_case
+from test_inside_rule_coverage import _commit_test_root, _scan_config, _write_inside_case
 
 from archkeel.check.run import inspect_observation
+from archkeel.cli import main
 from archkeel.ir.model import Observation
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 from archkeel.render.flow import build_flow
@@ -162,3 +163,84 @@ def test_inner_module_cycle_overrides_positive_requires_receipts(tmp_path: Path)
     assert all(
         edge.state == "violation" and edge.rule_ids == ("core:CYCLE",) for edge in inside.edges
     )
+
+
+def test_inside_forbidden_construct_matches_function_and_method_owners(tmp_path: Path) -> None:
+    _write_inside_case(
+        tmp_path,
+        rules=[
+            {
+                "id": "NO-EVAL",
+                "kind": "forbidden_construct",
+                "source": "sample.core.a",
+                "constructs": ["eval"],
+                "rationale": "Keep dynamic evaluation out of the inside.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    (tmp_path / "sample/core/a.py").write_text(
+        "def function():\n    return eval('1')\n\n"
+        "class Service:\n    def method(self):\n        return eval('2')\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    findings = [
+        item
+        for item in trace_valid_violations(result.observation)
+        if item.rule_ids == ("core:NO-EVAL",)
+    ]
+    assert len(findings) == 2
+    assert {subject for item in findings for subject in item.subjects} == {
+        "sample.core.a.function",
+        "sample.core.a.Service.method",
+    }
+
+
+def test_validate_keeps_known_violations_with_missing_inside_diagnostics(
+    tmp_path: Path, capsys
+) -> None:
+    _write_inside_case(tmp_path, rules=[])
+    contract_path = tmp_path / "contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["components"][0]["inside"] = "missing.json"
+    contract["components"].append(_component("foreign"))
+    contract["rules"] = [
+        {
+            "id": "NO-FOREIGN",
+            "kind": "forbidden_dependency",
+            "source": "sample.core",
+            "target": "sample.foreign",
+            "include_type_checking": True,
+            "rationale": "Keep core independent of foreign.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+    ]
+    contract_path.write_text(json.dumps(contract))
+    (tmp_path / "sample/core/a.py").write_text("import sample.foreign.api\n")
+    foreign = tmp_path / "sample/foreign"
+    foreign.mkdir()
+    (foreign / "__init__.py").write_text("")
+    (foreign / "api.py").write_text("VALUE = 1\n")
+    docs = tmp_path / "docs/architecture"
+    docs.mkdir(parents=True)
+    (docs / "sample.md").write_text("# Sample architecture\n")
+    _scan_config(tmp_path)
+    _commit_test_root(tmp_path)
+
+    exit_code = main(["validate", "--root", str(tmp_path), "--json"])
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert result["declared_rules"] == "UNKNOWN"
+    diagnostics = result["diagnostics"]
+    assert diagnostics
+    assert any(item.get("code") == "contract.invalid" for item in diagnostics)
+    assert any(
+        item.get("code") == "rule.violated" and item["subject"] == "NO-FOREIGN"
+        for item in diagnostics
+    ), diagnostics

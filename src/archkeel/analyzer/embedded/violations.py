@@ -177,8 +177,11 @@ def _construct_violations(
             construct = _CONSTRUCT_SIGNALS.get(item["kind"])
             owner = item["data"]["owner"]
             scope = owner.split(":", 1)[0]
+            belongs_to_source = source_modules is None or any(
+                owner == module or owner.startswith(f"{module}.") for module in source_modules
+            )
             if (
-                (source_modules is not None and scope not in source_modules)
+                not belongs_to_source
                 or construct is None
                 or construct not in rule.constructs
                 or not in_scope(scope, rule.source)
@@ -873,6 +876,7 @@ def rule_subject_failures(
     rules: Sequence[ArchitectureRule],
     module_names: set[str],
     *,
+    target_module_names: set[str] | None = None,
     symbols: Sequence[RawRecord] = (),
     imports: Sequence[RawRecord] = (),
     contract: ArchitectureContract | None = None,
@@ -895,10 +899,11 @@ def rule_subject_failures(
         scopes = rule_scopes(rule)
         if isinstance(rule, ForbiddenDependencyRule) and rule.target in sdk_libraries:
             scopes = {"source": scopes["source"]}
-        subjects: AbstractSet[str] = module_names | planned_subjects
+        source_subjects: AbstractSet[str] = module_names | planned_subjects
+        target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
-            subjects = _boundary_type_subject_modules(
+            source_subjects = _boundary_type_subject_modules(
                 rule,
                 symbols,
                 imports,
@@ -909,10 +914,13 @@ def rule_subject_failures(
                 stable_bindings_by_module or {},
                 source_modules,
             )
-            subjects = subjects | planned_subjects
+            source_subjects = source_subjects | planned_subjects
             facade_scoped = True
         matches = {
-            side: sum(any(in_scope(module, scope) for scope in side_scopes) for module in subjects)
+            side: sum(
+                any(in_scope(module, scope) for scope in side_scopes)
+                for module in (target_subjects if side == "target" else source_subjects)
+            )
             for side, side_scopes in scopes.items()
         }
         missing = [side for side, count in matches.items() if count == 0]
@@ -2854,14 +2862,10 @@ def boundary_type_limits(
         exports_by_module,
         uncertain_reexport_origins,
     )
-    ordered_symbols = sorted(
-        (
-            item
-            for item in symbols
-            if source_modules is None or item["data"]["module"] in source_modules
-        ),
-        key=lambda item: _symbol_source_location(item, evidence),
-    )
+    # The origin symbol can live outside the rule's source package when a facade re-exports it.
+    # `_boundary_rule_positions` selects the declared facade, so origin-module filtering here
+    # would drop an unannotated facade position before it can become UNKNOWN.
+    ordered_symbols = sorted(symbols, key=lambda item: _symbol_source_location(item, evidence))
     limits: list[RawRecord] = []
     positions_out: list[RawRecord] = []
     for rule in rules:
@@ -3239,6 +3243,7 @@ def rule_violations(
     source_roots: tuple[str, ...] = (),
     assessment_facts: list[RawRecord] | None = None,
     assessment_parent: str | None = None,
+    boundary_contract: ArchitectureContract | None = None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
@@ -3260,7 +3265,7 @@ def rule_violations(
     boundary_violations, allowance_facts = _boundary_types_violations(
         symbols,
         imports,
-        contract,
+        boundary_contract or contract,
         exports_by_module,
         uncertain_reexport_origins or {},
         source_modules,
