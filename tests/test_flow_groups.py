@@ -141,9 +141,12 @@ const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
 const fullBegin = text.indexOf("  function fullLevel()");
 const fullEnd = text.indexOf("  function focusLevel(", fullBegin);
+const insideBegin = text.indexOf("  function insideLevel(");
+const insideEnd = text.indexOf("  function rootPackage(", insideBegin);
 const enterBegin = text.indexOf("  function enter(label)");
 const enterEnd = text.indexOf("  // One step back per press", enterBegin);
-assert(fullBegin >= 0 && fullEnd > fullBegin && enterBegin >= 0 && enterEnd > enterBegin);
+assert(fullBegin >= 0 && fullEnd > fullBegin && insideBegin >= 0 && insideEnd > insideBegin
+  && enterBegin >= 0 && enterEnd > enterBegin);
 const levelTwo = {components: [{label: "source", inside: {
   components: [{label: "leaf", modules: ["sample.layer.source.leaf"]}], edges: [],
 }}], edges: []};
@@ -160,7 +163,8 @@ const componentByLabel = new Map([["app", root]]);
 const navigation = new Function("DATA", "opened", "selected", "positions", "focusLabel",
   "componentByLabel", "insideLevel", "cardLevel", "moduleLevel", "level", "defaultFocus",
   "defaultThreshold", "render", "fit",
-  text.slice(fullBegin, fullEnd) + text.slice(enterBegin, enterEnd)
+  text.slice(insideBegin, insideEnd) + text.slice(fullBegin, fullEnd)
+    + text.slice(enterBegin, enterEnd)
     + ";return {enter, fullLevel, getOpened: () => opened}")(
       {components: [], edges: []}, opened, selected, positions, focusLabel, componentByLabel,
       value => value, () => ({}), () => ({}), () => current, () => null, () => {},
@@ -175,6 +179,7 @@ const navigation = new Function("DATA", "opened", "selected", "positions", "focu
     assert.deepEqual(navigation.getOpened().insidePath, ["app", "source"]);
     current = levelTwo.components[0].inside;
 const nested = navigation.fullLevel();
+assert.equal(nested.declaredInside, true);
 assert.equal(nested.components[0].label, "leaf");
 """
     result = subprocess.run(
