@@ -66,9 +66,10 @@ The generated inventory and a green contract are not evidence that this structur
 - For uncertain boundaries, give the architect a recommended option, alternatives, evidence,
   trade-offs and system-wide impact. Follow the chosen decision mode; reviewing structure
   does not authorize moving files or changing behavior.
-- Record review coverage and unresolved decisions in the existing architecture document:
-  reviewed subtree, finding or keep-rationale, target change, and enforcement gap. Mark
-  unreviewed subtrees explicitly; never present a partial review as a complete assessment.
+- When the task includes an architecture-document update, record review coverage and unresolved
+  decisions there: reviewed subtree, finding or keep-rationale, target change, and enforcement
+  gap. Mark unreviewed subtrees explicitly; never present a partial review as a complete
+  assessment.
   Add `inside` contracts at meaningful independently governed boundaries, not at every folder.
   Encode approved constraints with supported rules. Deeper review remains necessary when
   the installed version cannot enforce nested contracts; do not invent unsupported rules.
@@ -139,10 +140,10 @@ omits. Show it to the architect with `archkeel report`. They resolve it by chang
 changing the target; the agent never does that itself and never loops `validate --json` waiting
 for exit 0.
 
-Once it ends, run `archkeel report` and commit the three generated files (`archkeel.toml`,
-`architecture-contract.json`, `docs/architecture/architecture.md`). A remaining
-`rule.violated` is follow-up code work, tracked separately from onboarding, not a reason to
-hold the commit.
+Once it ends, run `archkeel report`. Include the generated files (`archkeel.toml`,
+`architecture-contract.json`, `docs/architecture/architecture.md`) when they are part of the
+requested change. A remaining `rule.violated` is follow-up code work, tracked separately from
+onboarding.
 
 Where that follow-up is long — a contract that states the target architecture the code has
 yet to reach — freeze the known violations instead of weakening the contract:
@@ -219,13 +220,13 @@ top level does; it is a reason to ask, not permission to split.
 
 Once the architect decides:
 
-1. Draft the scope with `archkeel init --source <component path> --namespace <component
-   package>`. Read the draft as an inventory, not as a proposal: it writes one component per
-   module, so on Archkeel's own `check` it drafted 12 sub-components and 132 open decisions
-   where the three layers the architect settled on need 6. The drafted table and `init
-   --json`'s `draft_sizes` also carry each drafted component's modules and inner edges, so a
-   large or well-connected child is visible before you group anything, not only after.
-   Consolidate it into a few layers with the architect before deciding a single pair.
+1. Inventory the source tree and the existing `archkeel report --json` structure measurements.
+   Review every relevant child before grouping; a report does not cover detail it does not
+   expose. Do not rerun `init --source` at the repository root for this scope: `init` writes the
+   standard root onboarding files and requires `--force` if they already exist. On Archkeel's
+   own `check`, a per-module draft produced 12 sub-components and 132 open decisions where the
+   three layers the architect settled on need 6. Consolidate into a few layers with the architect
+   before deciding a single pair.
 2. Point the outer component at the resulting contract with
    `"inside": "<repository-relative path>"`.
 3. Decide the inside the way you decide the top level: a `requires` list per sub-component and
@@ -250,8 +251,9 @@ outer scan already collected, so a crossing between two sub-components that no `
 covers is a violation like any other, and the flow view opens that component into its
 sub-components before its modules. Such a finding names the rule as `<component>:<rule id>`,
 for example `store:STORE-REQUIRES-COMPLETE`: the id you will find in the inside contract is the
-part after the colon, and the part before it is the component that names that contract. Fix it
-in the inside contract, never by adding a rule above.
+part after the colon, and the part before it is the component that names that contract. Resolve
+it according to the target decision: update the inside `requires` only for an architect-approved
+crossing; otherwise change the code. Do not add a rule above to hide an inside crossing.
 
 Explicit `inside` references are followed recursively and use the shared rule evaluators.
 Mounting a contract does not create a standalone `archkeel.toml` for it. Nonempty inside
