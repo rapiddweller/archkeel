@@ -5,17 +5,28 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
+from test_analyzer import _component, _inside_component, _observe
+
+from archkeel.render.flow import build_flow
+from archkeel.render.html import _flow_payload
+
+
+def _node() -> str:
+    node = shutil.which("node")
+    assert node is not None, "Node.js 22 is required for flow browser tests"
+    version = subprocess.run([node, "--version"], capture_output=True, text=True, check=True)
+    major = int(version.stdout.removeprefix("v").split(".", 1)[0])
+    assert major >= 22, f"Node.js 22+ is required, found {version.stdout.strip()}"
+    return node
 
 
 def test_package_groups_keep_import_totals_and_violations() -> None:
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("Node.js is not installed")
+    node = _node()
     source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
     script = r"""
 const fs = require("node:fs");
@@ -68,6 +79,15 @@ assert(initializer, "an imports-only initializer remains reachable");
 assert.equal(initializer.folder, false);
 assert.equal(initializer.openable, true);
 assert.equal(initializer.opensModule, "pkg");
+const insideBegin = text.indexOf("  function insideLevel(");
+const insideEnd = text.indexOf("  function rootPackage(", insideBegin);
+assert(insideBegin >= 0 && insideEnd > insideBegin);
+const inside = new Function("DATA", text.slice(insideBegin, insideEnd) +
+  ";return insideLevel")(importsOnly);
+const [orphan] = inside({components: [], edges: [], unassigned: ["pkg"]}).components;
+assert.deepEqual(orphan.modules, ["pkg"]);
+assert.equal(orphan.openable, true);
+assert.equal(orphan.opensModule, "pkg");
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
@@ -75,10 +95,199 @@ assert.equal(initializer.opensModule, "pkg");
     assert result.returncode == 0, result.stderr
 
 
+def test_analyzer_payload_keeps_unassigned_and_import_only_modules_navigable(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("library:json", packages=["sample.owned"]),
+                    _component("Unassigned modules", packages=["sample.other"]),
+                ],
+                "rules": [
+                    {
+                        "id": "JSON-OWNED",
+                        "kind": "external_dependency_scope",
+                        "dependency": "json",
+                        "exact_sources": ["sample.owned"],
+                        "rationale": "Owned source rule.",
+                        "provenance": ["docs/architecture/owned.md"],
+                        "decided_by": "architect",
+                    },
+                    {
+                        "id": "JSON-OTHER",
+                        "kind": "external_dependency_scope",
+                        "dependency": "json",
+                        "exact_sources": ["sample.other"],
+                        "rationale": "Other source rule.",
+                        "provenance": ["docs/architecture/other.md"],
+                        "decided_by": "agent",
+                    },
+                ],
+            }
+        )
+    )
+    package = tmp_path / "sample"
+    (package / "owned").mkdir(parents=True)
+    (package / "other").mkdir(parents=True)
+    (package / "__init__.py").write_text("import sample.engine\n")
+    (package / "engine.py").write_text("VALUE = 1\n")
+    (package / "owned/__init__.py").write_text("import json\n")
+    (package / "owned/api.py").write_text("VALUE = 2\n")
+    (package / "other/__init__.py").write_text("import json\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    observation = result.observation
+    flow = build_flow(observation)
+    payload = _flow_payload(observation, flow)
+
+    assert set(flow.modules) >= {
+        "sample",
+        "sample.engine",
+        "sample.owned",
+        "sample.owned.api",
+    }
+    assert set(payload["unassigned"]["modules"]) == {"sample", "sample.engine"}
+    assert payload["unassigned"]["navigation_only"] is True
+    assert payload["unassigned"]["inner_edges"][0]["state"] == "observed"
+    assert payload["unassigned"]["inner_edges"][0]["rule_ids"] == []
+    assert payload["unassigned"]["label"] != "Unassigned modules"
+    assert {item["label"] for item in payload["components"]} == {
+        "library:json",
+        "Unassigned modules",
+    }
+    assert len(payload["libraries"]) == 1
+    library = payload["libraries"][0]
+    assert library["label"] != "library:json"
+    assert [rule["rule_id"] for rule in library["rules"]] == ["JSON-OTHER", "JSON-OWNED"]
+    assert {rule["rationale"] for rule in library["rules"]} == {
+        "Other source rule.",
+        "Owned source rule.",
+    }
+    assert {rule["decided_by"] for rule in library["rules"]} == {"agent", "architect"}
+    assert {tuple(rule["exact_sources"]) for rule in library["rules"]} == {
+        ("sample.other",),
+        ("sample.owned",),
+    }
+    assert {tuple(rule["provenance"]) for rule in library["rules"]} == {
+        ("docs/architecture/other.md",),
+        ("docs/architecture/owned.md",),
+    }
+    assert {edge["target"] for edge in payload["edges"] if edge["library"]} == {
+        library["label"],
+    }
+    assert {tuple(edge["rule_ids"]) for edge in payload["edges"] if edge["library"]} == {
+        ("JSON-OTHER",),
+        ("JSON-OWNED",),
+    }
+
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const source = fs.readFileSync(process.argv[1], "utf8");
+const data = JSON.parse(fs.readFileSync(0, "utf8"));
+const begin = source.indexOf("  function rootPackage(");
+const end = source.indexOf("  // The declared names a module publishes", begin);
+assert(begin >= 0 && end > begin);
+const {cardLevel} = new Function("DATA", source.slice(begin, end) + ";return {cardLevel}")(data);
+const groups = cardLevel(data.unassigned, []).components;
+assert(groups.some(card => card.label === "sample:__init__" && card.openable));
+assert(groups.some(card => card.label === "sample.engine" && card.openable));
+assert.notEqual(data.unassigned.label, "Unassigned modules");
+assert.equal(data.libraries.length, 1);
+assert.notEqual(data.libraries[0].label, "library:json");
+assert.deepEqual(data.libraries[0].rules.map(rule => rule.rule_id), ["JSON-OTHER", "JSON-OWNED"]);
+"""
+    completed = subprocess.run(
+        [_node(), "-e", script, str(source)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_root_library_projection_excludes_inside_only_scopes(tmp_path: Path) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_component("core") | {"inside": "inner.json"}],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_inside_component("api", []), _inside_component("other", [])],
+                "rules": [
+                    {
+                        "id": "INNER-JSON",
+                        "kind": "external_dependency_scope",
+                        "dependency": "json",
+                        "exact_sources": ["sample.core.other"],
+                        "rationale": "Keep the JSON use local to this inside.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    package = tmp_path / "sample/core"
+    package.mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (package / "api.py").write_text("VALUE = 1\n")
+    (package / "other.py").write_text("import json\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    payload = _flow_payload(result.observation, build_flow(result.observation))
+
+    assert payload["libraries"] == []
+    assert not any(edge.get("library") for edge in payload["edges"])
+
+
+def test_component_and_module_site_pairs_use_distinct_keys(tmp_path: Path) -> None:
+    components = [
+        _component("sample.a", packages=["sample.left"]) | {"id": "COMP-A"},
+        _component("sample.b", packages=["sample.right"]) | {"id": "COMP-B"},
+    ]
+    (tmp_path / "contract.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": components, "rules": []})
+    )
+    for package in ("left", "right"):
+        folder = tmp_path / f"sample/{package}"
+        folder.mkdir(parents=True)
+        (folder / "__init__.py").write_text(
+            "import sample.right\n" if package == "left" else "VALUE = 1\n"
+        )
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/a.py").write_text("import sample.b\n")
+    (tmp_path / "sample/b.py").write_text("VALUE = 1\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    flow = build_flow(result.observation)
+    payload = _flow_payload(result.observation, flow)
+
+    [root_edge] = [
+        edge
+        for edge in payload["edges"]
+        if (edge["source"], edge["target"]) == ("sample.a", "sample.b")
+    ]
+    assert root_edge["sites"] == ["sample/left/__init__.py:1"]
+    assert payload["unassigned"]["inner_edges"][0]["sites"] == ["sample/a.py:1"]
+
+
 def test_focused_diagram_keeps_violations_outside_its_top_connections() -> None:
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("Node.js is not installed")
+    node = _node()
     source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
     script = r"""
 const fs = require("node:fs");
@@ -87,7 +296,8 @@ const text = fs.readFileSync(process.argv[1], "utf8");
 const begin = text.indexOf("  function focusLevel(");
 const end = text.indexOf("  function level(", begin);
 assert(begin >= 0 && end > begin);
-const focusLevel = new Function(text.slice(begin, end) + ";return focusLevel")();
+const focusLevel = new Function("weight", text.slice(begin, end) + ";return focusLevel")(
+  edge => edge.kind === "symbol_use" ? 1 : edge.import_sites);
 const names = ["focus", ...Array.from({length: 7}, (_, index) => `used${index}`),
   "brokenSource", "brokenTarget"];
 const view = {components: names.map(label => ({label})), edges: [
@@ -101,6 +311,7 @@ assert(shown.edges.some(edge => edge.state === "violation"));
 assert(shown.components.some(card => card.label === "brokenSource"));
 assert(shown.components.some(card => card.label === "brokenTarget"));
 assert.equal(focusLevel(view, "missing"), view);
+assert.equal(focusLevel(view, null), view);
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
@@ -109,9 +320,7 @@ assert.equal(focusLevel(view, "missing"), view);
 
 
 def test_review_queue_shows_all_flagged_connections_before_busy_clean_ones() -> None:
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("Node.js is not installed")
+    node = _node()
     source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
     script = r"""
 const fs = require("node:fs");
@@ -122,9 +331,11 @@ const end = text.indexOf("  function renderAlternative(", begin);
 assert(begin >= 0 && end > begin);
 const alternative = {innerHTML: ""};
 const edgeKey = edge => `${edge.source}>${edge.target}`;
-const renderReview = new Function("alternative", "selected", "edgeKey", "esc",
+const renderReview = new Function("alternative", "selected", "edgeKey", "esc", "weight", "edgeCountLabel",
   text.slice(begin, end) + ";return renderReview")(
-    alternative, null, edgeKey, value => String(value));
+    alternative, null, edgeKey, value => String(value),
+    edge => edge.kind === "symbol_use" ? 1 : edge.import_sites,
+    edge => edge.kind === "symbol_use" ? "symbol-use edge" : `${edge.import_sites} import sites`);
 const components = Array.from({length: 16}, (_, index) => ({
   label: `pkg.mod.${index}`, display: `m${index}`,
 }));
@@ -142,6 +353,36 @@ assert(firstList.includes("m0 → m13"));
 assert(!firstList.includes("m0 → m14"));
 assert(alternative.innerHTML.includes("Other connections · 2"));
 assert(alternative.innerHTML.includes("Dependency matrix · 12 of 16 entries"));
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_symbol_use_edges_do_not_claim_import_site_counts() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function moduleLevel(");
+const end = text.indexOf("  // AD-24: the first tap", begin);
+assert(begin >= 0 && end > begin);
+const data = {modules: {pkg: {
+  symbols: [], edges: [{source: "pkg:caller", target: "pkg:callee"}],
+}}};
+const moduleLevel = new Function("DATA", text.slice(begin, end) +
+  ";return moduleLevel")(data);
+const [edge] = moduleLevel("pkg").edges;
+assert.equal(edge.kind, "symbol_use");
+assert(!Object.hasOwn(edge, "import_sites"));
+const countBegin = text.indexOf("  function edgeCountLabel(");
+const countEnd = text.indexOf("  function heaviestBlock(", countBegin);
+const edgeCountLabel = new Function(text.slice(countBegin, countEnd) +
+  ";return edgeCountLabel")();
+assert.equal(edgeCountLabel(edge), "symbol-use edge");
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False

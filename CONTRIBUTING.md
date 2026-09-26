@@ -13,6 +13,7 @@ uv sync --locked
 
 `.python-version` pins 3.11.12: CI runs the gate on it, and the saved self-observation records it.
 The runtime test in `make check` also starts `python3.12`, so 3.12 must be on your `PATH`.
+Flow browser tests require Node.js 22; CI and release builds install that pinned major version.
 
 ## Before you push
 

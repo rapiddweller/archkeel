@@ -33,3 +33,7 @@ and a malformed `requires` entry, and `init` on a fresh repository drafts no `re
 Archkeel's own contract adopted the rule in a step of its own: it now carries the 8 entries above,
 one `complete_requires` rule and 25 rules in total, where the 30 pair rules used to be.
 
+Each observation keeps a requirement's target, rationale and `through` list with its effective
+decider, so the report can explain the exact permission rather than show only its endpoint.
+`ANALYZER_VERSION` rises from `0.53.0` to `0.54.0` because these record fields change; the contract
+schema stays unchanged (AD-3, #163).

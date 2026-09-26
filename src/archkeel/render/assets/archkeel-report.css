@@ -260,6 +260,11 @@ h3 {
   display: flex;
   justify-content: space-between;
   gap: var(--ck-space-3);
+  min-width: 0;
+}
+.connection-row > summary code {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .connection-row > summary span {
   flex: none;
@@ -377,6 +382,7 @@ code {
   margin-bottom: var(--ck-space-4);
   border-bottom: 1px solid var(--ck-border);
 }
+.flow-toolbar[hidden],
 .flow-views[hidden],
 .flow-alternative[hidden] {
   display: none;
@@ -691,9 +697,10 @@ code {
 }
 .flow-inspector .bars .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) 32px minmax(40px, 72px);
   gap: var(--ck-space-2);
   align-items: center;
+  min-width: 0;
   padding: 2px 0;
   font-family: var(--ck-font-mono);
   font-size: 12px;
@@ -951,6 +958,10 @@ code {
   }
   .flow-item-list button {
     flex-direction: column;
+  }
+  .flow-inspector .bars .row {
+    grid-template-columns: minmax(0, 1fr) 28px 48px;
+    gap: 4px;
   }
 }
 @media print {

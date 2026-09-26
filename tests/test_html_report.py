@@ -358,7 +358,7 @@ def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> N
     assert "Cross-component imports" in page
     assert "Known unknowns" in page
     assert "Complete ArchitectureIR inventory" in page
-    assert "Broken edge rules (this level)" in page
+    assert "Broken edge rules in scope" in page
     assert "No violating edges at this level" in page
     assert "violationFocus.hidden = false" in page
 
@@ -435,6 +435,14 @@ def test_static_module_inventory_is_nested_without_duplicate_package_card() -> N
     assert "<summary><code>api</code>" in tree
     assert "<li><code>users</code></li>" in tree
     assert "<li><code>pkg.api.users</code></li>" not in tree
+
+
+def test_interactive_flow_controls_start_hidden_without_javascript(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "class-a-complete-requires")
+
+    assert '<div class="flow-toolbar" hidden>' in page
+    assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
+    assert "Observed module tree" in page
 
 
 def test_required_interface_projection_keeps_narrowing_and_decider() -> None:

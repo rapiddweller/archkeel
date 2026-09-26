@@ -32,6 +32,7 @@
   const nodeLayer = viewport.querySelector(".flow-nodes");
   const emptyLayer = viewport.querySelector(".flow-empty");
   const inspector = root.querySelector(".flow-inspector");
+  const toolbar = root.querySelector(".flow-toolbar");
   const legend = root.querySelector(".flow-legend");
   const thresholdInput = root.querySelector(".flow-threshold");
   const thresholdValue = root.querySelector(".flow-threshold-value");
@@ -43,6 +44,7 @@
   const breadcrumb = root.querySelector(".flow-breadcrumb");
   const viewButtons = root.querySelectorAll("[data-flow-view]");
   const alternative = root.querySelector(".flow-alternative");
+  let pendingAlternativeFocus = null;
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
   // already-captured element); the drag/pan state machine below tolerates that silently.
@@ -75,13 +77,39 @@
     return groups;
   }
 
-  const componentByLabel = new Map(DATA.components.map((c) => [c.label, c]));
+  function scopeRules(scope) {
+    return scope?.rules || (scope?.rule_id ? [{
+      rule_id: scope.rule_id, rationale: scope.rationale, decided_by: scope.decided_by,
+    }] : []);
+  }
+
+  function scopeRuleList(scope) {
+    const rules = scopeRules(scope);
+    if (!rules.length) return "<p>No scope rule details recorded.</p>";
+    const values = (label, items) => items?.length
+      ? `<br>${label}: ${items.map((value) => `<code>${esc(value)}</code>`).join(", ")}`
+      : "";
+    const items = rules.map((rule) => {
+      const rationale = rule.rationale ? ` — ${esc(rule.rationale)}` : "";
+      const decider = rule.decided_by ? ` (${esc(rule.decided_by)})` : "";
+      return `<li><code>${esc(rule.rule_id)}</code>${rationale}${decider}`
+        + values("Allowed", rule.allowed_sources)
+        + values("Exact", rule.exact_sources)
+        + values("Provenance", rule.provenance)
+        + values("Evidence", rule.evidence)
+        + "</li>";
+    });
+    return `<ul class="plain">${items.join("")}</ul>`;
+  }
+
+  const rootCards = DATA.components.concat(DATA.libraries || [], DATA.unassigned ? [DATA.unassigned] : []);
+  const componentByLabel = new Map(rootCards.map((c) => [c.label, c]));
 
   // AD-24: inner edges stay observed unless the declared inside rules decide their pair.
   // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
   // shape, because layout, ranking, routing and the inspector all consume that shape.
   function fullLevel() {
-    if (!opened) return { components: DATA.components.concat(DATA.libraries || []), edges: DATA.edges };
+    if (!opened) return { components: rootCards, edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
     const component = componentByLabel.get(opened.component);
     // AD-34: a component whose contract describes its inside opens into that level first, and
@@ -96,7 +124,7 @@
 
   function focusLevel(view, label) {
     if (!label || !view.components.some((card) => card.label === label)) return view;
-    const byWeight = (a, b) => b.import_sites - a.import_sites ||
+    const byWeight = (a, b) => weight(b) - weight(a) ||
       a.source.localeCompare(b.source) || a.target.localeCompare(b.target);
     const direct = [
       ...view.edges.filter((edge) => edge.target === label).sort(byWeight).slice(0, 5),
@@ -115,8 +143,8 @@
   function defaultFocus(view) {
     const scores = new Map(view.components.map((card) => [card.label, 0]));
     view.edges.forEach((edge) => {
-      scores.set(edge.source, (scores.get(edge.source) || 0) + edge.import_sites);
-      scores.set(edge.target, (scores.get(edge.target) || 0) + edge.import_sites);
+      scores.set(edge.source, (scores.get(edge.source) || 0) + weight(edge));
+      scores.set(edge.target, (scores.get(edge.target) || 0) + weight(edge));
     });
     return [...view.components].filter((card) => !card.library).sort((a, b) =>
       (scores.get(b.label) || 0) - (scores.get(a.label) || 0) || a.label.localeCompare(b.label))[0]?.label || null;
@@ -134,7 +162,7 @@
     const orphans = (inside.unassigned || []).map((name) => ({
       label: name,
       display: name.split(".").pop() || name,
-      modules: [],
+      modules: [name],
       openable: Boolean((DATA.modules || {})[name]),
       opensModule: name,
       public: null,
@@ -227,7 +255,7 @@
       edges: inside.edges.map((edge) => ({
         source: edge.source,
         target: edge.target,
-        import_sites: 1,
+        kind: "symbol_use",
         rule_ids: [],
         state: "observed",
         names: [],
@@ -373,7 +401,7 @@
   }
 
   function weight(edge) {
-    return edge.import_sites;
+    return edge.kind === "symbol_use" ? 1 : edge.import_sites;
   }
 
   // Dash lengths are multiples of the line's own width, never absolute pixels: a violation
@@ -426,13 +454,38 @@
     if (target) target.focus();
   }
 
+  function captureAlternativeFocus() {
+    const button = document.activeElement.closest("[data-flow-card], [data-flow-edge], [data-key]");
+    if (!button || !alternative.contains(button)) return null;
+    return button.dataset.flowCard !== undefined
+      ? { attribute: "data-flow-card", value: button.dataset.flowCard }
+      : button.dataset.flowEdge !== undefined
+        ? { attribute: "data-flow-edge", value: button.dataset.flowEdge }
+        : { attribute: "data-key", value: button.dataset.key };
+  }
+
+  function restoreAlternativeFocus(focused) {
+    if (!focused) return;
+    const target = alternative.querySelector(
+      `[${focused.attribute}="${CSS.escape(focused.value)}"]`,
+    );
+    if (target) target.focus();
+    else {
+      const heading = alternative.querySelector("h2");
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+    }
+  }
+
   function render() {
     updateNavigation();
     const scope = fullLevel();
-    if (!scope.components.some((card) => card.label === focusLabel)) focusLabel = defaultFocus(scope);
-    focusInput.innerHTML = scope.components.map((card) =>
+    if (focusLabel && !scope.components.some((card) => card.label === focusLabel)) focusLabel = defaultFocus(scope);
+    focusInput.innerHTML = `<option value="">All components and groups</option>` + scope.components.map((card) =>
       `<option value="${esc(card.label)}">${esc(card.display || card.label)}</option>`).join("");
-    if (focusLabel) focusInput.value = focusLabel;
+    focusInput.value = focusLabel || "";
     focusInput.disabled = !scope.components.length;
     root.dataset.view = viewMode;
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
@@ -465,7 +518,7 @@
     if (Number(thresholdInput.value) > max) thresholdInput.value = String(max);
     thresholdInput.disabled = violationsOnly.checked;
     const visible = visibleEdges();
-    thresholdValue.textContent = `≥ ${thresholdInput.value} import sites · ${visible.length}/${level().edges.length} shown`;
+    thresholdValue.textContent = `≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import sites"} · ${visible.length}/${fullLevel().edges.length} shown at this level`;
     const outs = groupBy(visible, (e) => e.source);
     const ins = groupBy(visible, (e) => e.target);
     const byX = (key) => (a, b) => positions[a[key]].x - positions[b[key]].x;
@@ -512,9 +565,9 @@
       }).join("; ");
       const through = r.edge.requirement?.through || [];
       const contractText = r.edge.library
-        ? `External library use. ${r.edge.scope?.rationale || ""}${r.edge.scope?.decided_by ? ` (${r.edge.scope.decided_by})` : ""}`
+        ? `External library use. ${scopeRules(r.edge.scope).map((rule) => `${rule.rule_id}: ${rule.rationale || "No rationale recorded"}${rule.decided_by ? ` (${rule.decided_by})` : ""}`).join("; ")}`
         : `${through.length ? `Interface narrowed through ${through.join(", ")}. ` : "Interface not narrowed. "}${r.edge.requirement?.rationale || ""}${r.edge.requirement?.decided_by ? ` (${r.edge.requirement.decided_by})` : ""}`;
-      title.textContent = `${r.edge.source} uses ${r.edge.target}; ${weight(r.edge)} import sites; ${r.edge.state}. ${contractText} ${ruleText}${(r.edge.sites || []).length ? ` Example: ${r.edge.sites.join(", ")}` : ""}`;
+      title.textContent = `${r.edge.source} uses ${r.edge.target}; ${edgeCountLabel(r.edge)}; ${r.edge.state}. ${contractText} ${ruleText}${(r.edge.sites || []).length ? ` Example: ${r.edge.sites.join(", ")}` : ""}`;
       const select = () => {
         selected = { type: "edge", key: edgeKey(r.edge) };
         render();
@@ -526,7 +579,7 @@
           d: r.d,
           tabindex: "0",
           role: "button",
-          "aria-label": `${r.edge.source} to ${r.edge.target}, ${weight(r.edge)} import sites`,
+          "aria-label": `${r.edge.source} to ${r.edge.target}, ${edgeCountLabel(r.edge)}`,
           "data-key": edgeKey(r.edge),
         },
         title,
@@ -630,7 +683,7 @@
       const label = el("text", { class: "label", x: "16", y: "37" });
       label.textContent = component.display || component.label;
       const stereotype = el("text", { class: "stereotype", x: "16", y: "17" });
-      stereotype.textContent = component.library ? "«library»" : !opened ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
+      stereotype.textContent = component.navigation_only ? "«unassigned»" : component.library ? "«library»" : !opened ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
       const meta = el("text", { class: "meta", x: "16", y: "68" });
       const modulesMeta = (card) =>
         `${card.modules.length} module${card.modules.length === 1 ? "" : "s"} · ${
@@ -649,23 +702,27 @@
               : component.public === null
                 ? "internal part"
                 : "provided part"
-        : component.library ? `${component.import_sites} import sites` : modulesMeta(component);
-      const umlIcon = !component.library && (!opened || (opened.inside === undefined && component.modules && component.modules.length > 1))
+        : component.navigation_only
+          ? `${component.modules.length} modules · navigation only`
+          : component.library ? `${component.import_sites} import sites` : modulesMeta(component);
+      const umlIcon = !component.library && !component.navigation_only && (!opened || (opened.inside === undefined && component.modules && component.modules.length > 1))
         ? el("g", { class: "uml-icon" },
           el("rect", { x: "175", y: "12", width: "15", height: "17" }),
           el("rect", { x: "170", y: "16", width: "7", height: "4" }),
           el("rect", { x: "170", y: "23", width: "7", height: "4" })) : null;
-      const provided = !opened && component.public !== null && component.public.length
+      const provided = !opened && !component.navigation_only && component.public !== null && component.public.length
         ? el("g", { class: "uml-provided" },
           el("line", { x1: "200", y1: "45", x2: "213", y2: "45" }),
           el("circle", { cx: "219", cy: "45", r: "6" })) : null;
-      const required = !opened && component.requires && component.requires.length
+      const required = !opened && !component.navigation_only && component.requires && component.requires.length
         ? el("g", { class: "uml-required" },
           el("line", { x1: "0", y1: "45", x2: "-9", y2: "45" }),
           el("path", { d: "M-9,37 Q-18,45 -9,53" })) : null;
       const tooltip = el("title");
-      tooltip.textContent = component.library
-        ? `${component.display}: external library allowed by ${component.rule_id}. ${component.rationale || ""}${component.decided_by ? ` (${component.decided_by})` : ""}`
+      tooltip.textContent = component.navigation_only
+        ? `${component.label}: modules without a unique declared owner. Navigation only; no component boundary or contract verdict is implied. Select to inspect the module inventory.`
+        : component.library
+        ? `${component.display}: external library scope under ${scopeRules(component).map((rule) => rule.rule_id).join(", ")}.`
         : !opened
         ? `${component.label}: ${component.modules.length} modules; ${component.public === null ? "no interface boundary declared" : `${component.public.length} provided entries`}; ${(component.requires || []).length} required components. Select for details; select again to open.`
         : `${component.label}: ${component.folder ? "physical package, not a declared component" : "module"}; ${component.import_sites || 0} import sites touching it.`;
@@ -676,7 +733,9 @@
           transform: `translate(${pos.x},${pos.y})`,
           tabindex: "0",
           role: "button",
-          "aria-label": component.library
+          "aria-label": component.navigation_only
+            ? `${component.modules.length} unassigned modules, navigation only`
+            : component.library
             ? `${component.display}, external library, ${component.import_sites} import sites`
             : `${component.label}, ${component.modules.length} modules`,
           "data-label": component.label,
@@ -762,7 +821,8 @@
     const libraries = view.components.filter((card) => card.library).map((card) =>
       `<button type="button" data-flow-card="${esc(card.label)}"><span>${esc(card.display)}</span>
       <small>external library</small></button>`).join("");
-    alternative.innerHTML = `<p>Physical structure. Tile area counts ${unit}, not code quality.
+    alternative.innerHTML = `<h2>Physical structure</h2>
+      <p>Tile area counts ${unit}, not code quality.
       Select a tile to open it; the full list also includes small entries.</p>
       ${tiles ? `<div class="flow-map" role="group" aria-label="Package and module map">${tiles}</div>`
         : "<p>No structure recorded at this level.</p>"}
@@ -774,8 +834,8 @@
     const display = new Map(view.components.map((card) => [card.label, card.display || card.label]));
     const scores = new Map(view.components.map((card) => [card.label, 0]));
     view.edges.forEach((edge) => {
-      scores.set(edge.source, (scores.get(edge.source) || 0) + edge.import_sites);
-      scores.set(edge.target, (scores.get(edge.target) || 0) + edge.import_sites);
+      scores.set(edge.source, (scores.get(edge.source) || 0) + weight(edge));
+      scores.set(edge.target, (scores.get(edge.target) || 0) + weight(edge));
     });
     const cards = [...view.components].sort((a, b) =>
       (scores.get(b.label) || 0) - (scores.get(a.label) || 0) || a.label.localeCompare(b.label));
@@ -787,14 +847,14 @@
       if (!edge) return "<td>·</td>";
       return `<td><button type="button" data-flow-edge="${esc(edgeKey(edge))}"
         data-state="${esc(edge.state)}" aria-label="${esc(source.label)} uses ${esc(target.label)}:
-        ${edge.import_sites} import sites, ${esc(edge.state)}"
+        ${esc(edgeCountLabel(edge))}, ${esc(edge.state)}"
         aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}">
-        ${edge.import_sites}</button></td>`;
+        ${edge.kind === "symbol_use" ? "•" : edge.import_sites}</button></td>`;
     }).join("")}</tr>`).join("");
     const urgency = { violation: 0, undecided: 1, conforms: 2, observed: 2 };
     const ordered = [...view.edges].sort((a, b) =>
       (urgency[a.state] ?? 3) - (urgency[b.state] ?? 3) ||
-      b.import_sites - a.import_sites || edgeKey(a).localeCompare(edgeKey(b)));
+      weight(b) - weight(a) || edgeKey(a).localeCompare(edgeKey(b)));
     const flagged = ordered.filter((edge) => edge.state === "violation" || edge.state === "undecided");
     const priority = [
       ...flagged,
@@ -803,15 +863,16 @@
     const remaining = ordered.filter((edge) => !priority.includes(edge));
     const edgeButton = (edge) => `<button type="button" data-flow-edge="${esc(edgeKey(edge))}"
       aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}"
-      title="${esc(edge.source)} → ${esc(edge.target)}">
+      title="${esc(edge.source)} → ${esc(edge.target)}${edge.sites?.length ? ` · ${esc(edge.sites.join(", "))}` : ""}">
       <span>${esc(display.get(edge.source) || edge.source)} → ${esc(display.get(edge.target) || edge.target)}${edge.rule_ids.length ? ` · ${esc(edge.rule_ids.join(", "))}` : ""}</span>
-      <small>${edge.import_sites} import sites${edge.names?.length ? ` · ${edge.names.length} names` : ""} · ${esc(edge.state)}</small></button>`;
+      <small>${esc(edgeCountLabel(edge))}${edge.names?.length ? ` · ${edge.names.length} names` : ""} · ${esc(edge.state)}</small></button>`;
     const broken = view.edges.filter((edge) => edge.state === "violation").length;
     const undecided = view.edges.filter((edge) => edge.state === "undecided").length;
     const nodeButtons = cards.map((card) => `<button type="button" data-flow-card="${esc(card.label)}">
       <span>${esc(card.display || card.label)}</span><small>${card.folder ? "package" : card.library ? "library" : "open"}</small>
       </button>`).join("");
-    alternative.innerHTML = `<p>${view.edges.length} observed connections at this level:
+    alternative.innerHTML = `<h2>Connections to inspect</h2>
+      <p>${view.edges.length} observed connections at this level:
       ${broken} break declared rules, ${undecided} need a decision. A clear rule check does not
       establish that the public API is well designed.</p>
       <h3>Connections to inspect</h3>
@@ -819,7 +880,7 @@
       ${remaining.length ? `<details><summary>Other connections · ${remaining.length}</summary>
         <div class="flow-item-list">${remaining.map(edgeButton).join("")}</div></details>` : ""}
       <details class="flow-review-matrix"><summary>Dependency matrix · ${shown.length} of ${cards.length} entries</summary>
-        <p>Row imports from column. Numbers count import sites; · means no observed connection.</p>
+        <p>Row uses column. Numbers count import sites; • marks a symbol-use edge; · means no observed connection.</p>
         ${shown.length ? `<div class="flow-matrix-wrap"><table class="flow-matrix"><thead>
           <tr><th scope="col">uses →</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
           : "<p>No components or modules recorded at this level.</p>"}</details>
@@ -827,29 +888,38 @@
   }
 
   function renderAlternative() {
+    const focused = captureAlternativeFocus() || pendingAlternativeFocus;
+    pendingAlternativeFocus = null;
     const view = level();
     if (viewMode === "structure") renderStructure(view);
     else renderReview(view);
     renderInspector(view.edges);
+    restoreAlternativeFocus(focused);
   }
 
   function statBlock() {
-    const view = fullLevel();
-    const sites = view.edges.reduce((acc, e) => acc + weight(e), 0);
+    const scope = fullLevel();
+    const view = level();
+    const edges = viewMode === "diagram" ? visibleEdges() : view.edges;
+    const importSites = (items) => items.reduce(
+      (total, edge) => total + (edge.kind === "symbol_use" ? 0 : weight(edge)), 0,
+    );
     if (opened && opened.module) {
       const inside = (DATA.modules || {})[opened.module] || {};
       const methods = view.components.reduce((acc, c) => acc + (c.members || []).length, 0);
-      return `<dl class="kv"><dt>Symbols</dt><dd>${view.components.length}</dd><dt>Methods</dt><dd>${methods}</dd><dt>Uses inside</dt><dd>${view.edges.length}</dd><dt>Used from outside</dt><dd>${(inside.exports || []).length}</dd><dt>Reaches outward</dt><dd>${(inside.imports || []).length}</dd></dl>`;
+      return `<dl class="kv"><dt>Symbols</dt><dd>${view.components.length}</dd><dt>Methods</dt><dd>${methods}</dd><dt>Symbol-use edges shown</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Used from outside</dt><dd>${(inside.exports || []).length}</dd><dt>Reaches outward</dt><dd>${(inside.imports || []).length}</dd></dl>`;
     }
     if (opened) {
       const owner = componentByLabel.get(opened.component);
       const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
-      return `<dl class="kv"><dt>Modules</dt><dd>${card.modules.length}</dd><dt>Groups at this level</dt><dd>${view.components.length}</dd><dt>Connections at this level</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd></dl>`;
+      const modules = view.components.reduce((total, item) => total + item.modules.length, 0);
+      return `<dl class="kv"><dt>Modules shown / in this scope</dt><dd>${modules}/${card.modules.length}</dd><dt>Groups shown / at this level</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Connections shown / at this level</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / at this level</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd></dl>`;
     }
-    const modules = view.components.reduce((acc, c) => acc + c.modules.length, 0);
-    const libraries = view.components.filter((card) => card.library).length;
-    const violations = new Set(view.edges.flatMap((e) => e.rule_ids)).size;
-    return `<dl class="kv"><dt>Components</dt><dd>${view.components.length - libraries}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Broken edge rules (this level)</dt><dd>${violations}</dd></dl>`;
+    const modules = (items) => items.reduce((total, card) => total + card.modules.length, 0);
+    const libraries = scope.components.filter((card) => card.library).length;
+    const navigation = scope.components.filter((card) => card.navigation_only).length;
+    const violations = new Set(scope.edges.flatMap((edge) => edge.rule_ids)).size;
+    return `<dl class="kv"><dt>Declared components</dt><dd>${scope.components.length - libraries - navigation}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Unassigned module groups</dt><dd>${navigation}</dd><dt>Modules shown / in scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Edges shown / in scope</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / in scope</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd><dt>Broken edge rules in scope</dt><dd>${violations}</dd></dl>`;
   }
 
   function topHeaviestEdges(limit) {
@@ -861,6 +931,20 @@
       .slice(0, limit);
   }
 
+  function relativeEdgeLabel(edge) {
+    const source = edge.source.split(".");
+    const target = edge.target.split(".");
+    let shared = 0;
+    while (shared < source.length - 1 && shared < target.length - 1 &&
+      source[shared] === target[shared]) shared += 1;
+    return `${source.slice(shared).join(".")} → ${target.slice(shared).join(".")}`;
+  }
+
+  function edgeCountLabel(edge) {
+    if (edge.kind === "symbol_use") return "symbol-use edge";
+    return `${edge.import_sites} import site${edge.import_sites === 1 ? "" : "s"}`;
+  }
+
   function heaviestBlock() {
     const top = topHeaviestEdges(5);
     if (!top.length) return emptyViolationBlock();
@@ -868,7 +952,7 @@
     const rows = top
       .map(
         (e) =>
-          `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}"><span class="name">${esc(e.source)} → ${esc(e.target)}</span><em>${weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
+          `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}: ${esc(edgeCountLabel(e))}" title="${esc(e.source)} → ${esc(e.target)}${e.sites?.length ? ` · ${esc(e.sites.join(", "))}` : ""}"><span class="name">${esc(relativeEdgeLabel(e))}</span><em>${e.kind === "symbol_use" ? "•" : weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
       )
       .join("");
     const heading = violationsOnly.checked ? "Violating connections" : "Heaviest connections";
@@ -908,9 +992,12 @@
         (edge.source === prefix || edge.source.startsWith(`${prefix}.`)) !==
         (edge.target === prefix || edge.target.startsWith(`${prefix}.`))) : [];
       const outNote = outside.length ? `<p>${outside.length} connections leave this folder, including ${outside.filter((edge) => edge.state === "violation").length} violations. Use the breadcrumb to inspect those crossings.</p>` : "";
-      return `<div class="kicker">Inside</div><h2>${esc(prefix || opened.inside || opened.component)}</h2><p>Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
+      const ownerNote = owner.navigation_only
+        ? "These modules have no unique declared owner. This view is navigation only and has no component verdict. "
+        : "";
+      return `<div class="kicker">Inside</div><h2>${esc(prefix || opened.inside || opened.component)}</h2><p>${ownerNote}Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
     }
-    return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>The diagram shows one component and its direct connections. Choose another focus to explore the rest; broken connections stay visible. A circle is a provided interface, a socket a requirement. Arrows show observed imports. Select a box twice to open it.</p>${statBlock()}${heaviestBlock()}`;
+    return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>Declared components are shown with their observed imports. “Unassigned modules” is navigation only and does not imply a component boundary or verdict. Select a box or connection for evidence; select a box again to open its physical module view.</p>${statBlock()}${heaviestBlock()}`;
   }
 
   function moduleTree(component, path = []) {
@@ -963,10 +1050,10 @@
       const relations = `<dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
         <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd>`;
       if (component.library) {
+        const rules = scopeRules(component);
         inspector.innerHTML = `<div class="kicker">External library</div><h2>${esc(component.display)}</h2>
           <dl class="kv"><dt>Observed import sites</dt><dd>${component.import_sites}</dd>
-          <dt>Scope rule</dt><dd>${esc(component.rule_id)}</dd>${relations}</dl>
-          <p>${esc(component.rationale || "No rationale recorded.")}${component.decided_by ? ` (${esc(component.decided_by)})` : ""}</p>`;
+          <dt>Scope rules</dt><dd>${rules.length}</dd>${relations}</dl>${scopeRuleList(component)}`;
         return;
       }
       if (opened && opened.module) {
@@ -983,6 +1070,13 @@
         inspector.innerHTML = `<div class="kicker">${component.folder ? "Physical package" : "Module"}</div><h2>${esc(component.label)}</h2>
           <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd><dt>Import sites touching group</dt><dd>${component.import_sites || 0}</dd>${relations}</dl>
           ${component.folder ? moduleTree({ ...card, modules: component.modules, inner_edges: card.inner_edges }, [...(opened.path || []), component.label]) : `<p>${component.openable ? "Select again to inspect its symbols." : "No symbols recorded."}</p>`}`;
+        return;
+      }
+      if (component.navigation_only) {
+        inspector.innerHTML = `<div class="kicker">Module inventory · navigation only</div><h2>${esc(component.display || component.label)}</h2>
+          <p>These modules have no unique declared owner. This view does not add a component boundary, permission or verdict.</p>
+          <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd>${relations}</dl>
+          <h3>Physical module tree</h3>${moduleTree(component)}`;
         return;
       }
       const required = component.requires || [];
@@ -1024,10 +1118,10 @@
       .join("");
     inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(sourceName)} → ${esc(targetName)}</h2>
       ${sourceName === edge.source && targetName === edge.target ? "" : `<details><summary>Exact names</summary><p><code>${esc(edge.source)}</code> → <code>${esc(edge.target)}</code></p></details>`}
-      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>Import sites</dt><dd>${edge.import_sites}</dd>${edge.library || !edge.names.length ? "" : `<dt>Imported names</dt><dd>${edge.names.length}</dd>`}</dl>
-      ${edge.library ? `<p>External library scope ${esc(edge.scope.rule_id)}: ${esc(edge.scope.rationale || "No rationale recorded.")}${edge.scope.decided_by ? ` (${esc(edge.scope.decided_by)})` : ""}.</p>` : ""}
+      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>${edge.kind === "symbol_use" ? "Relationship" : "Observed import sites"}</dt><dd>${edge.kind === "symbol_use" ? "Symbol use" : edge.import_sites}</dd>${edge.library || !edge.names.length ? "" : `<dt>Interface names</dt><dd>${edge.names.length}</dd>`}</dl>
+      ${edge.library ? `<h3>External library scope</h3>${scopeRuleList(edge.scope)}` : ""}
       ${edge.requirement && edge.requirement.component ? `<p>Declared dependency: ${edge.requirement.through && edge.requirement.through.length ? `through <code>${edge.requirement.through.map(esc).join(", ")}</code>` : "interface not narrowed"}${edge.requirement.rationale ? ` — ${esc(edge.requirement.rationale)}` : ""}${edge.requirement.decided_by ? ` (${esc(edge.requirement.decided_by)})` : ""}.</p>` : ""}
-      ${(edge.sites || []).length ? `<h3>Example import sites</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
+      ${edge.kind !== "symbol_use" && (edge.sites || []).length ? `<h3>Example import sites</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
       ${
         edge.rule_ids.length
           ? `<h3>Broken rules</h3><ul class="plain">${edge.rule_ids.map((r) => { const rule = (DATA.rules || {})[r] || {}; return `<li class="violation-card"><code>${esc(r)}</code>${rule.rationale ? ` — ${esc(rule.rationale)}` : ""}${rule.decided_by ? ` (${esc(rule.decided_by)})` : ""}</li>`; }).join("")}</ul>`
@@ -1270,6 +1364,7 @@
   }
 
   backButton.addEventListener("click", leave);
+  toolbar.hidden = false;
   root.querySelector(".flow-views").hidden = false;
   viewButtons.forEach((button) => button.addEventListener("click", () => {
     viewMode = button.dataset.flowView;
@@ -1282,7 +1377,7 @@
     fit(false);
   }));
   focusInput.addEventListener("change", () => {
-    focusLabel = focusInput.value;
+    focusLabel = focusInput.value || null;
     selected = null;
     positions = {};
     defaultThreshold();
@@ -1292,6 +1387,7 @@
   alternative.addEventListener("click", (event) => {
     const cardButton = event.target.closest("[data-flow-card]");
     if (cardButton) {
+      pendingAlternativeFocus = { attribute: "data-flow-card", value: cardButton.dataset.flowCard };
       const card = level().components.find((item) => item.label === cardButton.dataset.flowCard);
       if (!card) return;
       if ((!opened && !card.library) || (opened && card.openable)) enter(card.label);
