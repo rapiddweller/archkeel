@@ -103,6 +103,99 @@ def test_reexported_type_uses_its_owners_declared_public_facade(
         assert not [item for item in result.observation.records("unknowns") or () if item.rule_ids]
 
 
+def test_foreign_component_facade_does_not_publish_an_owned_type(tmp_path: Path) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("app", packages=["sample.app"], public=["sample.app.api"]),
+                    _component("owner", packages=["sample.owner"], public=[]),
+                ],
+                "rules": _contract("sample.app.api:run")["rules"],
+            }
+        )
+    )
+    package = tmp_path / "sample/app"
+    package.mkdir(parents=True)
+    (package / "api.py").write_text(
+        "from sample.owner.impl import Request\n"
+        "__all__ = ['run', 'Request']\n"
+        "def run() -> Request:\n    return Request()\n"
+    )
+    owner = tmp_path / "sample/owner"
+    owner.mkdir(parents=True)
+    (owner / "impl.py").write_text("class Request:\n    metadata: str\n")
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    [finding] = trace_valid_violations(result.observation)
+    assert "which owner does not declare" in finding.title
+
+
+def test_unproven_public_route_is_unknown_without_hiding_private_type_violation(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            _contract("sample.app.api:run", "sample.app.api:private", "sample.app.api:Payload")
+        )
+    )
+    package = tmp_path / "sample/app"
+    package.mkdir(parents=True)
+    (package / "api.py").write_text(
+        "from .middle import Payload\n"
+        "from .impl import Private\n"
+        "__all__ = ['run', 'Payload', 'private']\n"
+        "def run() -> Payload:\n    return Payload()\n"
+        "def private() -> Private:\n    return Private()\n"
+    )
+    (package / "middle.py").write_text(
+        "class Payload:\n    metadata: str\nif enabled:\n    Payload = object\n"
+    )
+    (package / "impl.py").write_text("class Private:\n    metadata: str\n")
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    findings = trace_valid_violations(result.observation)
+    assert len(findings) == 1
+    assert findings[0].subjects == ("sample.app.api", "sample.app.api.private")
+    assert any(
+        item.kind == "boundary_type_position"
+        and "APP-TYPES-NOT-DICT" in item.rule_ids
+        and item.evidence_class.value == "UNKNOWN"
+        for item in result.observation.records("unknowns") or ()
+    )
+
+
+def test_public_type_route_through_module_without_all_is_unknown(tmp_path: Path) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(_contract("sample.app.api:run", "sample.app.api:PublicPayload"))
+    )
+    package = tmp_path / "sample/app"
+    package.mkdir(parents=True)
+    (package / "api.py").write_text(
+        "from .middle import Payload as PublicPayload\n"
+        "__all__ = ['run', 'PublicPayload']\n"
+        "def run() -> PublicPayload:\n    return PublicPayload()\n"
+    )
+    (package / "middle.py").write_text("from .impl import Payload\n")
+    (package / "impl.py").write_text("class Payload:\n    metadata: str\n")
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    assert not trace_valid_violations(result.observation)
+    assert any(
+        item.kind == "boundary_type_position"
+        and "APP-TYPES-NOT-DICT" in item.rule_ids
+        and item.evidence_class.value == "UNKNOWN"
+        for item in result.observation.records("unknowns") or ()
+    )
+
+
 def test_boundary_types_uses_the_facade_in_the_rule_scope_when_reexported_twice(
     tmp_path: Path,
 ) -> None:
