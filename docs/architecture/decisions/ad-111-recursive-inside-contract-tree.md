@@ -22,9 +22,10 @@ mounts are refused. Normalized path identities also apply to Git snapshots. Rule
 retain mount-qualified ids; a real generated-id collision is rejected without banning all
 colons or renaming valid existing findings.
 
-Each level evaluates sources only within its immediate parent's valid scope. Invalid children
-cannot regain authority by mounting another contract. Ancestor and sibling ownership remain
-available for target/type lookup, not as extra rule sources or automatic public exports.
+Each level retains the source limits of its entire ancestor chain. Invalid children cannot
+regain authority by mounting another contract, including in the diagram's module ownership.
+Valid ancestor and sibling ownership remain available for target/type lookup, not as extra
+rule sources or automatic public exports. Invalid claims cannot override a valid type owner.
 Known findings survive incomplete branches. Incomplete validation cannot write a baseline or graph.
 
 All mounted contracts are authenticated in the accepted `check` revision; candidate policy edits
