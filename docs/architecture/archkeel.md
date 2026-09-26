@@ -144,6 +144,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-105 | [A package rename is compared under its new names](decisions/ad-105-a-package-rename-is-compared-under-its-new-names.md) |
 | AD-106 | [A baseline entry names its violation in any subject order](decisions/ad-106-a-baseline-entry-names-its-violation-in-any-subject-order.md) |
 | AD-107 | [A module's file is its evidence, even when the file is empty](decisions/ad-107-a-modules-file-is-its-evidence-even-when-empty.md) |
+| AD-108 | [Statically proven enum members reference their class](decisions/ad-108-statically-proven-enum-members-reference-their-class.md) |
 
 ## Allowed dependencies
 
