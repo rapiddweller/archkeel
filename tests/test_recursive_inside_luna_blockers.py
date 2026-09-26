@@ -75,6 +75,22 @@ def test_git_readers_normalize_duplicate_inside_mount_identities(tmp_path: Path)
     assert local is not None
     assert any("duplicate mount" in issue.reason for issue in local.issues)
 
+    symlink = tmp_path / "contracts/alias.json"
+    symlink.symlink_to("inner.json")
+    symlink_contract = _contract(
+        [
+            _component_at("left", "sample.left", inside="contracts/inner.json"),
+            _component_at("right", "sample.right", inside="contracts/alias.json"),
+        ],
+        [],
+    )
+    symlink_tree = _inside_contract_tree(
+        tmp_path, "contract.json", parse_contract(symlink_contract)
+    )
+    assert symlink_tree is not None
+    assert any("duplicate mount" in issue.reason for issue in symlink_tree.issues)
+    symlink.unlink()
+
     revision = _commit_tree(tmp_path)
     try:
         revision_tree = _revision_contract_tree(tmp_path, revision, "contract.json")
