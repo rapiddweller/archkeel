@@ -443,7 +443,7 @@ def test_inside_forbidden_construct_is_reported_by_validate_and_report_cli(
         (item.rule_ids[0], item.subjects)
         for item in trace_valid_violations(observation)
         if item.rule_ids and item.rule_ids[0] == "store:STORE-NO-EVAL"
-    ] == [("store:STORE-NO-EVAL", ("shop.store.repository.save",))]
+    ] == [("store:STORE-NO-EVAL", ("shop.store.repository.OrderRepository.save",))]
     assert report["declared_rules"] == "FAIL"
 
 
