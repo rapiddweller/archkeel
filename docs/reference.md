@@ -248,7 +248,10 @@ before the comparison, so a pure rename passes without an amendment and a wideni
 fails alone. `renames` in the JSON result lists each old and new prefix (`[]` when none holds,
 `null` when no revision was compared) and the terminal names them. Where no
 rename holds, a gained `public` entry names the one lost entry of its kind and last name, when
-no other gain matches it: `gained 'b.api.x' in place of 'a.api.x'`. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
+no other gain matches it: `gained 'b.api.x' in place of 'a.api.x'`. The CLI pins the revision and
+reads the exact selected `--config` there; missing or malformed history cannot authorize a rename.
+Python root or namespace changes require a complete historical layout scan; changed-root Dart is
+not supported. A widening is reported in `failures` with exit 1, exactly like `--baseline` drift,
 unless `--amendment <path>` names a file binding this exact before/after contract digest pair,
 each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contract_digest` - the
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment

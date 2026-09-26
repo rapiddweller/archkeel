@@ -46,18 +46,18 @@ Each clause has a test that fails without it:
   rename renamed reads its old names there too. A prefix it cannot place is no rename, and so is
   one with any file there, or beside it as `render.*`, scanned or not: a copy, a file the package
   rename names anew, or one outside narrowed roots. `__pycache__` is no code; Python reads it only
-  beside a source.
+  beside a source. The CLI reads the selected historical `--config`; missing or invalid config, or
+  omitted `against_config` for direct callers, cannot authorize a rename. Python root/namespace
+  changes require a complete historical scan; changed-root Dart remains unsupported.
 
-Candidates go shortest first; one the parser refuses once renamed, such as a `root_layout`
-child moved a level down, is skipped. With none left, the comparison stays field by field.
+Candidates go shortest first; unparseable renamed contracts are skipped, then compared field by field.
 
 ## Rejected
 
 - Scanning the compared revision: its snapshot holds Python files only, so Dart never matches.
 - Renaming every string spelled like a module: it turned `decided_by` and construct values too.
-- A rename line that still needs an amendment: the reviewer would redo the check by hand.
-- Matching tails of gained and lost entries as the rename: that can hide a widening. It stays
-  display only, one-to-one and of one kind: `gained 'b.api.x' in place of 'a.api.x'`.
+- Requiring an amendment for a proven rename outsources the check; matching name tails stays
+  display-only (`gained 'b.api.x' in place of 'a.api.x'`) because inferring a move can hide widening.
 
 ## Limits
 
@@ -67,4 +67,4 @@ child moved a level down, is skipped. With none left, the comparison stays field
 
 ## Tests
 
-`tests/test_renames.py`, `tests/test_contract_model.py` and the demo catalog's rename rows.
+`tests/test_renames.py`, `tests/test_rename_physical_roots.py`, and rename demo rows.

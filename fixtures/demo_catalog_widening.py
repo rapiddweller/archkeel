@@ -18,8 +18,9 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from archkeel.analyzer import observe
+from archkeel.check.git import read_blob
 from archkeel.check.validation import run_validate
-from archkeel.cli.config import load_config
+from archkeel.cli.config import load_config, parse_config
 from archkeel.ir.model import RunResult
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_dependencies import module_cycle_rule
@@ -50,7 +51,7 @@ def build_and_run_against(
     """Commit the clean sample on main, apply the scenario's overlay, then run `--against main`
     from the scenario's root.
 
-    The configuration is read after the overlay, so a row may rename the scanned namespace.
+    The selected configuration is read at both revisions, so a row may change roots or namespace.
     """
     root = tmp_path / "root"
     shutil.copytree(fixture, root)
@@ -64,9 +65,15 @@ def build_and_run_against(
     apply_overlay(root, files)
     run_root = root / scenario.root
     config = load_config(run_root)
+    try:
+        against_config = parse_config(read_blob(run_root, "main", "archkeel.toml"), "archkeel.toml")
+    except ValueError:
+        against_config = None
 
     if scenario.scenario not in ("widened_amended", "introduced_amended"):
-        return run_validate(run_root, config, observe, against="main")[0]
+        return run_validate(
+            run_root, config, observe, against="main", against_config=against_config
+        )[0]
     # AD-103: the amendment lives inside the root it is validated under.
     amendment = run_root / "widening-amendment.json"
     _, write_files = run_validate(
@@ -74,13 +81,21 @@ def build_and_run_against(
         config,
         observe,
         against="main",
+        against_config=against_config,
         amendment=amendment,
         write_amendment=True,
         decided_by="Demo architect",
         rationale="Recorded for the AD-11 demo catalog (#11).",
     )
     amendment.write_bytes(write_files[str(amendment)])
-    return run_validate(run_root, config, observe, against="main", amendment=amendment)[0]
+    return run_validate(
+        run_root,
+        config,
+        observe,
+        against="main",
+        against_config=against_config,
+        amendment=amendment,
+    )[0]
 
 
 # Each scenario widens or narrows DEP-APP-NO-STORE-SQLITE's allowed_sources, an exemption list
@@ -198,6 +213,41 @@ _RENAMED_WIDENED = AgainstExpectation(
 )
 _DART_RENAMED = AgainstExpectation(
     "renamed", 0, (), renames=(("shop", "field_shop"), ("shop.presentation", "field_shop.ui"))
+)
+
+
+def _relocated_source_root() -> dict[str, str | None]:
+    files: dict[str, str | None] = {}
+    for source in sorted((FIXTURE_DIR / "shop").rglob("*.py")):
+        relative = source.relative_to(FIXTURE_DIR).as_posix()
+        files[f"src/{relative}"] = source.read_text()
+        files[relative] = None
+    files["archkeel.toml"] = (
+        (FIXTURE_DIR / "archkeel.toml").read_text().replace('roots = ["shop"]', 'roots = ["src"]')
+    )
+    return files
+
+
+def _relocated_renamed_render() -> dict[str, str | None]:
+    files: dict[str, str | None] = {}
+    for source in sorted((FIXTURE_DIR / "shop").rglob("*.py")):
+        relative = source.relative_to(FIXTURE_DIR).as_posix()
+        moved = relative.replace("shop/render/", "shop/view/")
+        files[f"src/{relative}"] = None
+        files[f"lib/{moved}"] = source.read_text().replace("shop.render", "shop.view")
+    files["architecture-contract.json"] = _CLEAN_CONTRACT.replace("shop.render", "shop.view")
+    files["archkeel.toml"] = (
+        (FIXTURE_DIR / "archkeel.toml").read_text().replace('roots = ["shop"]', 'roots = ["lib"]')
+    )
+    return files
+
+
+_RELOCATED_ROOT = AgainstExpectation(
+    "relocated_root",
+    0,
+    (),
+    base_files=_relocated_source_root(),
+    renames=(("shop.render", "shop.view"),),
 )
 
 VARIANTS: tuple[Variant, ...] = (
@@ -349,6 +399,17 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         against=_RENAMED_WIDENED,
+    ),
+    Variant(
+        id="against-package-renamed-relocated-root",
+        section="validation",
+        item="against:package_renamed_relocated_root",
+        summary="shop.render moves from the historical src root to lib as shop.view; the CLI's "
+        "historical config proves both physical layouts before it compares the rename.",
+        files=_relocated_renamed_render(),
+        expected_violations=(),
+        expected_codes=(),
+        against=_RELOCATED_ROOT,
     ),
     Variant(
         id="dart-against-package-renamed",

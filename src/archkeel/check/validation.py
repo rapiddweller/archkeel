@@ -1835,6 +1835,7 @@ class _AgainstContext:
     parsed_amendment: Amendment | None
     decided_by: str | None
     rationale: str | None
+    config: ScanConfig | None
 
 
 def _resolve_against_context(
@@ -1846,6 +1847,7 @@ def _resolve_against_context(
     write_amendment: bool,
     decided_by: str | None,
     rationale: str | None,
+    against_config: ScanConfig | None,
 ) -> tuple[_AgainstContext, RunResult | None]:
     """The contract and baseline `--against` names, and `--amendment`'s record.
 
@@ -1857,14 +1859,26 @@ def _resolve_against_context(
     `against.invalid`.
     """
     empty = _AgainstContext(
-        against, None, (), (), amendment, write_amendment, None, decided_by, rationale
+        against,
+        None,
+        (),
+        (),
+        amendment,
+        write_amendment,
+        None,
+        decided_by,
+        rationale,
+        against_config,
     )
     if against is None:
         return empty, None
     parsed_amendment, amendment_error = _resolve_amendment(amendment, write_amendment)
+    against_contract_path = (
+        against_config.contract if against_config is not None else config.contract
+    )
     try:
         against_contract: ArchitectureContract | _Introduced = parse_contract(
-            decode_json(read_blob(root, against, config.contract))
+            decode_json(read_blob(root, against, against_contract_path))
         )
     except MissingBlobError as error:
         against_contract = _Introduced(error.path)
@@ -1909,6 +1923,7 @@ def _resolve_against_context(
         parsed_amendment,
         decided_by,
         rationale,
+        against_config,
     )
     return context, amendment_error
 
@@ -1951,22 +1966,58 @@ def _rename_since(
     contract: ArchitectureContract,
     observation: Observation,
     root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
 ) -> Renamed | None:
-    """AD-105: the compared revision under the package rename to `contract`, if one holds."""
-    if not isinstance(ctx.contract, ArchitectureContract):
+    """AD-105: the compared revision under a rename supported by both physical layouts."""
+    if (
+        ctx.against is None
+        or not isinstance(ctx.contract, ArchitectureContract)
+        or ctx.config is None
+    ):
         return None
+    historical_config = ctx.config
+    current_layouts = module_layouts(observation)
+    historical_layouts = current_layouts
+    historical_scanned = False
+    if historical_config.roots != config.roots or (
+        historical_config.namespace != config.namespace and config.language == "python"
+    ):
+        if historical_config.language != "python":
+            return None
+        try:
+            historical = observe_revision(
+                analyzer, root, ctx.against, historical_config, declared_at=ctx.against
+            )
+        except (GitError, OSError, SnapshotError, ValueError):
+            return None
+        if historical.diagnostics or historical.observation is None:
+            return None
+        historical_layouts = module_layouts(historical.observation)
+        historical_scanned = True
+    layouts = current_layouts | historical_layouts
     recognised = renames_since(
         ctx.contract,
         contract,
         violations=ctx.baseline or (),
         budgets=ctx.budgets,
         observed=observed_names(observation),
-        layouts=module_layouts(observation),
+        layouts=layouts,
+    )
+    historical_renames = renames_since(
+        ctx.contract,
+        contract,
+        violations=ctx.baseline or (),
+        budgets=ctx.budgets,
+        observed=observed_names(observation),
+        layouts=historical_layouts,
     )
     return next(
         (
             item
             for item in recognised
+            if not historical_scanned
+            or any(previous.prefixes == item.prefixes for previous in historical_renames)
             if not any(_left_behind(root, directory) for directory in item.directories)
         ),
         None,
@@ -2121,6 +2172,7 @@ def run_validate(
     write_baseline: bool = False,
     accept_new: bool = False,
     against: str | None = None,
+    against_config: ScanConfig | None = None,
     amendment: Path | None = None,
     write_amendment: bool = False,
     decided_by: str | None = None,
@@ -2194,7 +2246,15 @@ def run_validate(
             _BASELINE_WRITE,
         ), FilesToWrite()
     against_ctx, against_error = _resolve_against_context(
-        root, config, against, baseline, amendment, write_amendment, decided_by, rationale
+        root,
+        config,
+        against,
+        baseline,
+        amendment,
+        write_amendment,
+        decided_by,
+        rationale,
+        against_config,
     )
     if against_error is not None:
         return against_error, FilesToWrite()
@@ -2268,7 +2328,7 @@ def run_validate(
         f"resolved public entry: {entry} is no longer reached; remove it from {component}.public"
         for component, entry in sorted(resolved_public_entries)
     )
-    rename = _rename_since(against_ctx, contract, observation, root)
+    rename = _rename_since(against_ctx, contract, observation, root, config, analyzer)
     widening_failures = _widening_failures(
         against_ctx,
         contract,

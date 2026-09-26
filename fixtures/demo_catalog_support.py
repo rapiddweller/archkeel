@@ -67,6 +67,7 @@ AgainstScenario = Literal[
     "introduced_amended",
     "renamed",
     "renamed_widened",
+    "relocated_root",
 ]
 
 

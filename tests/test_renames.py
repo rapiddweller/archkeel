@@ -18,6 +18,7 @@ from test_architecture_demo import _prepare_repo
 
 from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
+from archkeel.cli import main
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.model import (
@@ -364,6 +365,148 @@ def _git(root: Path, *args: str) -> str:
     ).strip()
 
 
+def _source_root_rename_repo(
+    tmp_path: Path, *, keep_old_copy: bool, config_path: str = "archkeel.toml"
+) -> tuple[Path, str]:
+    root = _prepare_repo(tmp_path, {})
+    for source in (root / "shop").rglob("*.py"):
+        target = root / "src" / source.relative_to(root)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        source.unlink()
+    default_config = root / "archkeel.toml"
+    old_config = default_config.read_text().replace('roots = ["shop"]', 'roots = ["src"]')
+    if config_path == "archkeel.toml":
+        default_config.write_text(old_config)
+    else:
+        (root / config_path).write_text(old_config)
+        default_config.write_text(
+            default_config.read_text().replace('namespace = "shop"', 'namespace = "unrelated"')
+        )
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "move source root to src")
+    base = _git(root, "rev-parse", "HEAD")
+
+    shutil.copytree(root / "src/shop", root / "lib/shop")
+    shutil.move(root / "lib/shop/render", root / "lib/shop/view")
+    for source in (root / "lib/shop").rglob("*.py"):
+        source.write_text(source.read_text().replace("shop.render", "shop.view"))
+    contract = root / "architecture-contract.json"
+    contract.write_text(contract.read_text().replace("shop.render", "shop.view"))
+    selected_config = root / config_path
+    selected_config.write_text(
+        selected_config.read_text().replace('roots = ["src"]', 'roots = ["lib"]')
+    )
+    if not keep_old_copy:
+        shutil.rmtree(root / "src/shop")
+    return root, base
+
+
+def test_cli_recognizes_package_rename_across_source_root_move(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, base = _source_root_rename_repo(tmp_path, keep_old_copy=False)
+
+    assert main(["validate", "--root", str(root), "--against", base, "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["renames"] == [["shop.render", "shop.view"]]
+
+
+def test_cli_does_not_recognize_copied_package_after_source_root_move(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, base = _source_root_rename_repo(tmp_path, keep_old_copy=True)
+
+    assert main(["validate", "--root", str(root), "--against", base, "--json"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["renames"] == []
+
+
+def test_cli_uses_historical_custom_configuration_for_rename_provenance(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, base = _source_root_rename_repo(
+        tmp_path, keep_old_copy=False, config_path="archkeel-app.toml"
+    )
+
+    assert (
+        main(
+            [
+                "validate",
+                "--root",
+                str(root),
+                "--config",
+                "archkeel-app.toml",
+                "--against",
+                base,
+                "--json",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["renames"] == [["shop.render", "shop.view"]]
+
+
+def _namespace_rename_repo(tmp_path: Path, *, keep_old_copy: bool) -> tuple[Path, str]:
+    root = _prepare_repo(
+        tmp_path, {"architecture-contract.json": _without_rules(_SHOP, "MODEL-TYPES-IN-ENTITIES")}
+    )
+    for source in (root / "shop").rglob("*.py"):
+        target = root / "src" / source.relative_to(root)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        source.unlink()
+    config = root / "archkeel.toml"
+    config.write_text(config.read_text().replace('roots = ["shop"]', 'roots = ["src"]'))
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "use src root")
+    base = _git(root, "rev-parse", "HEAD")
+
+    shutil.copytree(root / "src/shop", root / "src/field_shop")
+    shutil.move(root / "src/field_shop/render", root / "src/field_shop/view")
+    for source in (root / "src/field_shop").rglob("*.py"):
+        source.write_text(
+            source.read_text()
+            .replace("shop.", "field_shop.")
+            .replace("field_shop.render", "field_shop.view")
+        )
+    contract = root / "architecture-contract.json"
+    contract.write_text(
+        contract.read_text()
+        .replace("shop.", "field_shop.")
+        .replace("field_shop.render", "field_shop.view")
+        .replace('"shop"', '"field_shop"')
+        .replace("docs/architecture/field_shop.md", "docs/architecture/shop.md")
+    )
+    inside = root / "shop/store/architecture-contract.json"
+    inside.write_text(inside.read_text().replace("shop.", "field_shop."))
+    config.write_text(config.read_text().replace('namespace = "shop"', 'namespace = "field_shop"'))
+    if not keep_old_copy:
+        shutil.rmtree(root / "src/shop")
+    return root, base
+
+
+def test_cli_recognizes_package_rename_after_python_namespace_change(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, base = _namespace_rename_repo(tmp_path, keep_old_copy=False)
+
+    assert main(["validate", "--root", str(root), "--against", base, "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["renames"] == [["shop", "field_shop"], ["shop.render", "field_shop.view"]]
+
+
+def test_old_namespace_copy_makes_python_namespace_comparison_incomplete(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, base = _namespace_rename_repo(tmp_path, keep_old_copy=True)
+
+    assert main(["validate", "--root", str(root), "--against", base, "--json"]) != 0
+    result = json.loads(capsys.readouterr().out)
+    assert not result["renames"]
+
+
 def test_a_renamed_baseline_entry_is_not_a_padded_one(tmp_path: Path) -> None:
     """The known violation moves with its module; compared unrenamed it reads as new debt."""
     text = (FIXTURE_DIR / "shop/render/text.py").read_text()
@@ -379,7 +522,14 @@ def test_a_renamed_baseline_entry_is_not_a_padded_one(tmp_path: Path) -> None:
 
     apply_overlay(root, {**renamed_render(), "shop/view/text.py": violating})
     baseline.write_text(baseline.read_text().replace("shop.render", "shop.view"))
-    result, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
+    result, _ = run_validate(
+        root,
+        SHOP_CONFIG,
+        observe,
+        baseline=baseline,
+        against=base,
+        against_config=SHOP_CONFIG,
+    )
 
     assert (result.exit_code, result.failures) == (0, ())
     assert result.renames == (("shop.render", "shop.view"),)
@@ -399,7 +549,14 @@ def test_renamed_coupling_names_are_not_a_widened_budget(tmp_path: Path) -> None
 
     apply_overlay(root, renamed_render(contract))
     baseline.write_text(baseline.read_text().replace("shop.render", "shop.view"))
-    result, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
+    result, _ = run_validate(
+        root,
+        SHOP_CONFIG,
+        observe,
+        baseline=baseline,
+        against=base,
+        against_config=SHOP_CONFIG,
+    )
 
     assert (result.exit_code, result.failures) == (0, ())
     assert result.renames == (("shop.render", "shop.view"),)
@@ -415,7 +572,7 @@ def test_a_module_left_behind_under_the_old_package_keeps_the_plain_comparison(
     base = _git(root, "rev-parse", "HEAD")
 
     apply_overlay(root, {**renamed_render(contract), f"shop/render/{leftover}": _LEFT_BEHIND})
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, against_config=SHOP_CONFIG)
 
     assert (result.exit_code, result.renames) == (1, ())
     assert (
@@ -441,7 +598,7 @@ def test_an_import_of_a_module_left_unread_under_the_old_name_is_no_rename(tmp_p
     source.unlink()
     _import_from_app(root, "from shop.render.legacy import V as _leak")
 
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, against_config=SHOP_CONFIG)
 
     assert (result.exit_code, result.renames) == (1, ())
     assert (
@@ -480,7 +637,13 @@ def test_a_copy_left_outside_narrowed_roots_is_no_rename(tmp_path: Path) -> None
     del overlay["shop/render/text.py"], overlay["shop/view/text.py"]
     apply_overlay(root, overlay)
 
-    result, _ = run_validate(root, replace(SHOP_CONFIG, roots=_NARROWED), observe, against=base)
+    result, _ = run_validate(
+        root,
+        replace(SHOP_CONFIG, roots=_NARROWED),
+        observe,
+        against=base,
+        against_config=SHOP_CONFIG,
+    )
 
     assert (result.exit_code, result.renames) == (1, ())
 
@@ -534,7 +697,7 @@ def test_a_stale_bytecode_cache_under_the_old_root_leaves_the_rename_standing(
     cache.mkdir(parents=True)
     (cache / "text.cpython-311.pyc").write_bytes(b"stale")
 
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, against_config=SHOP_CONFIG)
 
     assert (result.exit_code, result.renames) == (0, (("shop.render", "shop.view"),))
 
@@ -546,7 +709,13 @@ def test_a_move_with_narrowed_roots_is_still_a_rename(tmp_path: Path) -> None:
     apply_overlay(root, renamed_render())
     (root / "shop/render").rmdir()
 
-    result, _ = run_validate(root, replace(SHOP_CONFIG, roots=_NARROWED), observe, against=base)
+    result, _ = run_validate(
+        root,
+        replace(SHOP_CONFIG, roots=_NARROWED),
+        observe,
+        against=base,
+        against_config=SHOP_CONFIG,
+    )
 
     assert (result.exit_code, result.failures) == (0, ())
     assert result.renames == (("shop.render", "shop.view"),)
