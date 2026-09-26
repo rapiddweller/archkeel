@@ -20,6 +20,9 @@ writer suppresses the augmentation. External writes leave unrelated enums alone.
 This is syntactic evidence, not proof of runtime immutability: assignments that
 copy an alias and dynamic mutation are not followed. No code is executed.
 
+Analyzer version 0.53.0 names the changed evidence (AD-3); package release versions
+and the contract schema are separate and unchanged here.
+
 Check: `tests/test_references.py` covers annotations, defaults, constructor
 arguments, unused enums, unknown members, and competing parameter, class,
 assignment, lambda, comprehension, exception and match binders independently,
