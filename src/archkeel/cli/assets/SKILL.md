@@ -6,19 +6,19 @@ description: Use when setting up or changing architecture rules, or checking arc
 # Archkeel
 
 Archkeel is a deterministic architecture checker. It observes Python imports, evaluates a
-declared contract of components and rules against that observation, and reports PASS/FAIL
-per rule. Rules are declared once in `architecture-contract.json`; nothing is enforced by
+declared contract of components and rules against that observation, and distinguishes
+PASS, FAIL and UNKNOWN. Rules are declared once in `architecture-contract.json`; nothing is enforced by
 convention alone.
 
 ## Onboarding (first time in this repository): a target, not a description
 
 `architecture-contract.json` is the target architecture — where the system should be, not
-where the code already is. `archkeel report` measures the code's distance from that target
-as violations. The architect owns the target and review scope; within that scope, inspect
+where the code already is. `archkeel report` measures declared constraints, not the quality
+of the whole architecture. The architect owns the target and review scope; within that scope, inspect
 the physical structure at every depth, not just the top level. Support them with evidence
 from the repository and the architect's quality goals for this codebase (which components
-must scale, stay easy to change, or are
-performance-critical). Read those goals from ADRs and architecture documents first; ask the
+must scale, stay easy to change, or are performance-critical). Read those goals from ADRs
+and architecture documents first; ask the
 architect only when a goal is unknown and would change your recommendation. Every
 recommendation and every rationale you write cites the goal it rests on. There is no
 contract field for a quality goal: it lives in the rationale, in your own words, next to the
