@@ -2878,6 +2878,7 @@ def boundary_type_limits(
             imports_by_binding,
             classes_by_location,
             uncertain_reexport_origins,
+            source_modules,
         )
         positions_out.extend(rule_positions)
         limit = _boundary_type_limit_record(rule, seen, undecidable_positions)
@@ -2908,6 +2909,7 @@ def _boundary_rule_positions(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     uncertain_reexport_origins: UncertainReexportOrigins,
+    source_modules: frozenset[str] | None,
 ) -> tuple[int, list[dict[str, object]], list[RawRecord]]:
     undecidable_positions: list[dict[str, object]] = []
     positions_out: list[RawRecord] = []
@@ -2920,6 +2922,8 @@ def _boundary_rule_positions(
         if found is None:
             continue
         module, qualified_name, positions, resolution_module, ambiguous_facade, _ = found
+        if source_modules is not None and module not in source_modules:
+            continue
         callable_key = (module, qualified_name)
         occurrence = occurrences.get(callable_key, 0)
         occurrences[callable_key] = occurrence + 1

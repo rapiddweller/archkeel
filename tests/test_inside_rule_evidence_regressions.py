@@ -90,6 +90,59 @@ def test_inside_type_lookup_retains_foreign_owners_private_surface(tmp_path: Pat
         assert inspect_observation(observation)[1] == "FAIL"
 
 
+def test_inside_boundary_rule_does_not_judge_foreign_public_functions(tmp_path: Path) -> None:
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/foreign").mkdir(parents=True)
+    (tmp_path / "sample/core/api.py").write_text(
+        '__all__ = ["run"]\ndef run(value: str) -> str:\n    return value\n'
+    )
+    (tmp_path / "sample/foreign/impl.py").write_text("def foreign(value):\n    return value\n")
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component(
+                        "api",
+                        packages=["sample.core"],
+                        public=["sample.core.api:run"],
+                    )
+                ],
+                "rules": [
+                    {
+                        "id": "TYPES",
+                        "kind": "boundary_types",
+                        "source": "sample",
+                        "rationale": "Keep the inside facade typed.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("core", public=["sample.core.api:run"]) | {"inside": "inner.json"},
+                    _component("foreign", public=["sample.foreign.impl:foreign"]),
+                ],
+                "rules": [],
+            }
+        )
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    assert not any(
+        item.rule_ids == ("core:TYPES",) and item.data.get("module") == "sample.foreign.impl"
+        for item in result.observation.records("unknowns") or ()
+    )
+
+
 def test_inside_allowance_remains_a_fact_not_unknown(tmp_path: Path) -> None:
     _write_app(
         tmp_path,
