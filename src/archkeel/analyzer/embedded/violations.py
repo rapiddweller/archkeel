@@ -1415,6 +1415,7 @@ class BindingIndex(dict[tuple[str, str], RecordData | _AmbiguousBinding]):
     def __init__(self) -> None:
         super().__init__()
         self.owner_facade_type_states: dict[tuple[str, str, str], bool] = {}
+        self.ownership_contracts: tuple[ArchitectureContract, ...] = ()
 
 
 def _binding_is_ambiguous(
@@ -1502,6 +1503,7 @@ def boundary_type_indexes(
     contract: ArchitectureContract | None = None,
     exports_by_module: dict[str, frozenset[str]] | None = None,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    ancestor_contracts: Sequence[ArchitectureContract] = (),
 ) -> tuple[BindingIndex, BindingIndex]:
     """Index `imports` by (module, local binding) and top-level classes by (module, name).
 
@@ -1535,11 +1537,13 @@ def boundary_type_indexes(
         key = (data["module"], data["name"])
         if item["kind"] == "function" and (key in classes_by_location or key in imports_by_binding):
             classes_by_location[key] = _AMBIGUOUS
-    if contract is not None:
+    ownership_contracts = ((contract,) if contract is not None else ()) + tuple(ancestor_contracts)
+    imports_by_binding.ownership_contracts = ownership_contracts
+    for owner_contract in ownership_contracts:
         _index_owner_facade_type_states(
             imports,
             imports_by_binding,
-            contract,
+            owner_contract,
             exports_by_module or {},
             uncertain_reexport_origins or {},
         )
@@ -1565,7 +1569,7 @@ def _index_owner_facade_type_states(
         for origin in uncertain_reexport_origins.get(qualified_binding, frozenset()):
             origin_module, separator, origin_name = origin.rpartition(".")
             if separator and contract.component_for(origin_module) == owner:
-                uncertain.add((owner.label, origin_module, origin_name))
+                uncertain.add((owner.id, origin_module, origin_name))
         origin_definition = data.get("origin_definition")
         if (
             data.get("reexport") is True
@@ -1574,7 +1578,7 @@ def _index_owner_facade_type_states(
         ):
             origin_module, separator, origin_name = origin_definition.rpartition(".")
             if separator and contract.component_for(origin_module) == owner:
-                proven.add((owner.label, origin_module, origin_name))
+                proven.add((owner.id, origin_module, origin_name))
     imports_by_binding.owner_facade_type_states.update({key: False for key in uncertain})
     imports_by_binding.owner_facade_type_states.update({key: True for key in proven})
 
@@ -1920,11 +1924,22 @@ def _owned_type_verdict(
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     resolved = (origin_module, origin_name)
-    origin_component = contract.component_for(origin_module)
+    origin_component = None
+    for level in imports_by_binding.ownership_contracts or (contract,):
+        claims = [
+            component
+            for component in level.components
+            if any(in_scope(origin_module, package) for package in component.packages)
+        ]
+        if len(claims) > 1:
+            return _Position(undecidable="other", resolved=reached)
+        if claims:
+            origin_component = claims[0]
+            break
     if origin_component is None:
         return _Position(undecidable="external_type", resolved=reached)
     owner_facade_proof = imports_by_binding.owner_facade_type_states.get(
-        (origin_component.label, origin_module, origin_name)
+        (origin_component.id, origin_module, origin_name)
     )
     directly_public = _facade_covers(
         origin_module, origin_name, origin_component, exports_by_module
@@ -2498,6 +2513,7 @@ def _boundary_types_violations(
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins,
     source_modules: frozenset[str] | None = None,
+    ancestor_contracts: Sequence[ArchitectureContract] = (),
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """AD-58, amended by AD-63: a component's declared facade function takes and returns no
     bare `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a
@@ -2513,7 +2529,12 @@ def _boundary_types_violations(
     if not rules:
         return [], []
     imports_by_binding, classes_by_location = boundary_type_indexes(
-        symbols, imports, contract, exports_by_module, uncertain_reexport_origins
+        symbols,
+        imports,
+        contract,
+        exports_by_module,
+        uncertain_reexport_origins,
+        ancestor_contracts,
     )
     violations: list[RawRecord] = []
     allowance_facts: list[RawRecord] = []
@@ -2850,6 +2871,7 @@ def boundary_type_limits(
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
     source_modules: frozenset[str] | None = None,
+    ancestor_contracts: Sequence[ArchitectureContract] = (),
 ) -> list[RawRecord]:
     """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
@@ -2861,6 +2883,7 @@ def boundary_type_limits(
         contract,
         exports_by_module,
         uncertain_reexport_origins,
+        ancestor_contracts,
     )
     # The origin symbol can live outside the rule's source package when a facade re-exports it.
     # `_boundary_rule_positions` selects the declared facade, so origin-module filtering here
@@ -3230,7 +3253,7 @@ def rule_violations(
     source_roots: tuple[str, ...] = (),
     assessment_facts: list[RawRecord] | None = None,
     assessment_parent: str | None = None,
-    boundary_contract: ArchitectureContract | None = None,
+    ancestor_contracts: Sequence[ArchitectureContract] = (),
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
@@ -3252,10 +3275,11 @@ def rule_violations(
     boundary_violations, allowance_facts = _boundary_types_violations(
         symbols,
         imports,
-        boundary_contract or contract,
+        contract,
         exports_by_module,
         uncertain_reexport_origins or {},
         source_modules,
+        ancestor_contracts,
     )
     checked = assessment_facts if assessment_facts is not None else []
     return sorted(
