@@ -21,6 +21,7 @@
         "archkeel.check.report:run_report",
         "archkeel.check.report:unknown_result",
         "archkeel.check.run:run_check",
+        "archkeel.check.snapshot:resolve_commit",
         "archkeel.check.validation:invalid_result",
         "archkeel.check.validation:run_validate"
       ],

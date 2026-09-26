@@ -49,6 +49,26 @@ def _contract() -> ArchitectureContract:
     return parse_contract(decode_json((ROOT / "architecture-contract.json").read_bytes()))
 
 
+def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
+    public = "archkeel.check.snapshot:resolve_commit"
+    contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
+    check = next(component for component in contract["components"] if component["label"] == "check")
+    inside = json.loads((ROOT / "src/archkeel/check/architecture-contract.json").read_bytes())
+    foundation = next(
+        component for component in inside["components"] if component["label"] == "foundation"
+    )
+    coupling = next(
+        item
+        for item in contract["declarations"]["coupling_budgets"]
+        if (item["source"], item["target"]) == ("cli", "check")
+    )
+    baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
+
+    assert public in check["public"] and public in foundation["public"]
+    assert coupling["max_names"] == 10
+    assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
+
+
 def _architecture_documents() -> tuple[tuple[str, str], ...]:
     paths = (ROOT / "docs/architecture/archkeel.md", ROOT / "README.md")
     return tuple((str(path.relative_to(ROOT)), path.read_text()) for path in paths)

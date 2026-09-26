@@ -54,6 +54,12 @@ Each clause has a test that fails without it:
 
 Candidates go shortest first; unparseable renamed contracts are skipped, then compared field by field.
 
+## Published resolver (#158)
+
+The CLI already uses `archkeel.check.snapshot.resolve_commit` for `--against`; publish that
+existing function in the `check` and nested `foundation` interfaces. This adds exactly one
+observed name, so the `cli -> check` ceiling and accepted baseline both move from 9 to 10.
+
 ## Rejected
 
 - Scanning the compared revision: its snapshot holds Python files only, so Dart never matches.

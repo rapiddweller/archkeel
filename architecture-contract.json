@@ -86,6 +86,7 @@
         "archkeel.check.ports:ScanConfig",
         "archkeel.check.report",
         "archkeel.check.run:run_check",
+        "archkeel.check.snapshot:resolve_commit",
         "archkeel.check.validation:invalid_result",
         "archkeel.check.validation:run_validate"
       ],
@@ -284,7 +285,7 @@
       {
         "source": "cli",
         "target": "check",
-        "max_names": 9,
+        "max_names": 10,
         "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
       },
       {
