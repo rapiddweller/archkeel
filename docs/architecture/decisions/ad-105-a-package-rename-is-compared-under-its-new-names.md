@@ -62,7 +62,8 @@ observed name, so the `cli -> check` ceiling and accepted baseline both move fro
 
 ## Rejected
 
-- Scanning the compared revision: its snapshot holds Python files only, so Dart never matches.
+- Using the Python-only revision snapshot to prove a Dart layout: it contains no Dart sources.
+  Python renames do require the historical scan described above.
 - Renaming every string spelled like a module: it turned `decided_by` and construct values too.
 - Requiring an amendment for a proven rename outsources the check; matching name tails stays
   display-only (`gained 'b.api.x' in place of 'a.api.x'`) because inferring a move can hide widening.
