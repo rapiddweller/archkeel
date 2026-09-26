@@ -1,3 +1,64 @@
+# Archkeel 0.8.0 — Nested contracts and comparisons you can trust
+
+0.8.0 makes nested contracts a real policy boundary and makes `validate --against` compare what
+actually changed. What Archkeel cannot decide stays `UNKNOWN` or is refused with exit 2; it never
+reads PASS.
+
+## Highlights
+
+- **Nested contracts are evaluated, not assumed.** An `inside` contract runs the same rule
+  evaluators as the root, over the same scan, and explicit `inside` references form one tree at
+  any depth for validation, `check`, comparison and the report (AD-110, AD-111).
+- **A package rename is one change.** `validate --against` recognises a proven prefix rename,
+  compares the old contract and baseline under the new names and lists it under `renames`. A
+  real widening next to a rename still fails; copies, leftovers and missing history fall back to
+  the normal comparison (AD-105).
+- **A new contract can pass the widening gate.** A contract the compared revision lacks is one
+  `contract introduced` widening, amended like any other, instead of exit 2. The amendment binds
+  its path, so it cannot be replayed for a moved contract (AD-104).
+- **Baseline and amendment paths follow `--root`.** With a second code base in `mobile/`,
+  `--root mobile --baseline architecture-baseline.json` reads mobile's file, not the one at the
+  repository root (AD-103).
+- **Baseline entries match in any subject order.** A namespace renamed by text replace no longer
+  reads as one new and one resolved violation. A refused `--write-baseline` says why and names
+  `--accept-new` (AD-106).
+- **An empty `__init__.py` is evidence.** A module whose first line is empty cites its file, so
+  `root_layout`, `complete_assignment` and `module.placement` report FAIL instead of turning the
+  run UNKNOWN (AD-107).
+- **The report shows every module.** Components open into physical package groups and every
+  observed module; the explorer has diagram, structure and review views with honest shown/total
+  counts, keyboard and no-JS access.
+- **Sharper evidence.** Proven enum members count as references to their class (AD-108);
+  `boundary_types` follows a literal `__all__` export from an ordinary module (AD-109); an
+  unread binding is no longer presented as safe to remove.
+
+## Compatibility
+
+- Analyzer version moves from `0.51.0` to `0.55.0`. Earlier observations are not comparable.
+- `validate --baseline` and `--amendment` resolve a relative path against `--root`; an absolute
+  path is used as given. A path outside the root is `baseline.invalid` or `amendment.invalid`,
+  exit 2. With `--root .` every path inside the root names the same file as before.
+- A baseline with two entries that differ only in subject order is `baseline.invalid`, exit 2.
+- Amendments written for root-only comparisons of a contract with `inside` children must be
+  regenerated and reviewed. A non-empty `declarations` block in an `inside` contract is refused.
+- Result JSON gains `renames`, `null` when no revision was compared.
+- Contract schema stays `2.1.0`, baseline schema `1.3.0`, observation schema `1.3.0`. The
+  observation schema accepts line 0 only for evidence that cites a whole file.
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
+## Self-observation
+
+Archkeel parses 72 of 72 source files with 100% AST coverage. It resolves 6,053 of 7,550 calls,
+partially resolves 974 and leaves 523 unresolved: 80.17% call-resolution coverage. The self-check
+reports 0 known violations, holds its own modules acyclic and pins six coupling budgets;
+`declared_rules` stays `UNKNOWN` because 41 positions remain undecided.
+
 # Archkeel 0.7.0 — Dart layers and targets you can hold
 
 0.7.0 adds a Dart profile and turns four report-only observations into contract targets. What
