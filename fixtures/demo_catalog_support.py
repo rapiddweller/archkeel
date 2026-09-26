@@ -63,6 +63,8 @@ AgainstScenario = Literal[
     "compat_promoted",
     "budget_raised",
     "cycle_rule_scoped",
+    "introduced_unamended",
+    "introduced_amended",
 ]
 
 
@@ -73,12 +75,15 @@ class AgainstExpectation:
     `base_files` overlays the committed --against revision itself, on top of the clean sample;
     the narrowing row needs one non-clean base (an exemption the code never actually needs) so
     narrowing it back does not also expose a real violation the clean base never had.
+    `root` is the run's --root below the repository, where a second scope keeps its own
+    archkeel.toml and contract (AD-104).
     """
 
     scenario: AgainstScenario
     exit_code: Literal[0, 1]
     failures: tuple[str, ...]
     base_files: Mapping[str, str | None] = field(default_factory=dict)
+    root: str = "."
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +98,8 @@ class Variant:
     expected_violations: tuple[str, ...]
     expected_codes: tuple[DiagnosticCode, ...]
     baseline: str | None = None
+    # The row runs `validate --baseline <baseline> --write-baseline`: what a refusal says (AD-106).
+    write_baseline: bool = False
     expected_kinds: tuple[DiagnosticKind, ...] = ()
     # (kind, subject) pairs a real run's `unknowns` records must contain (checked as a subset,
     # not full equality: dynamic_call_limit/context_alias_limit/boundary_type_limit fire on

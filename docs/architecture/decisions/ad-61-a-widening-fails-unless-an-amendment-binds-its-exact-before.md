@@ -33,7 +33,8 @@ via the new `ir.codec.contract_digest`, the way the lock binds its own inputs. `
 it, the way `--write-baseline` does; an amendment written for one change does not verify against
 a different one, because its digests will not match. A missing or malformed `--amendment` file,
 or an `--against` revision or its contract that cannot be read, is exit 2 with a diagnostic -
-`amendment.invalid` or `against.invalid` - the way an unreadable baseline is `baseline.invalid`.
+`amendment.invalid` or `against.invalid` - the way an unreadable baseline is `baseline.invalid`;
+a contract that revision does not hold at all is its introduction instead (AD-104).
 `validate` without `--against` is unchanged.
 
 Reason: a contract that states the target architecture is only a specification for as long as it
@@ -62,7 +63,8 @@ predicate does not need for this question. Comparing `--baseline` only when `--a
 compares a baseline path outside the repository root, because that file has no Git history in
 this repository to compare against, and refusing the run over a file `--against` cannot see would
 make `--baseline` and `--against` unusable together in that one configuration for no gain; it is
-simply not checked there instead. Threading the widening check through `check`'s M -> B -> E -> H
+simply not checked there instead. [AD-103](ad-103-baseline-and-amendment-paths-are-relative-to-root.md)
+supersedes this: a baseline outside the root is `baseline.invalid`, exit 2. Threading the widening check through `check`'s M -> B -> E -> H
 protocol, because that protocol already rejects a contract change between the accepted commit and
 the candidate; this answers a different question, a branch against its base, that the protocol
 was never asked.

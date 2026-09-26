@@ -80,6 +80,8 @@ def _demo_type(variant: Variant) -> str:
         return "validate --against run"
     if variant.evidence is not None:
         return "tested only"
+    if variant.write_baseline:
+        return "validate --write-baseline run"
     if variant.config != CONFIG_PATH:
         return f"validate/report --config {variant.config} run"
     return "validate/report run"

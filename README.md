@@ -195,11 +195,16 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   and runtime provenance remain available beside the verdict.
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
+- **Nested flow stays inspectable.** Physical folders lead to every observed module, including
+  import-only package initializers. An inside connection stays observed unless an inside rule
+  decides it; no finding by itself is not a conformance claim.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
-  level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
-  and under `claims` in `--json`, while the HTML report lists the candidates. None of it reaches
-  an exit code.
+  level, 25 cross-component type fan-ins, 0 unread-binding candidates and 0 repetitions — in
+  the terminal and under `claims` in `--json`, while the HTML report lists the candidates.
+  Unread bindings are lexical candidates; the claim does not assess whether an interface requires
+  them. Statically proven `Enum.MEMBER` uses in field annotations and defaults reference their
+  enum class (AD-108). None of these claims reaches an exit code.
 - **Facade shape stays measured, not inferred.** The report shows declared export counts,
   re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
   width. These facts do not claim a barrel is complete (AD-88). A contract may set a target for
@@ -278,8 +283,12 @@ archkeel validate --baseline known-violations.json --write-baseline   # initial 
 archkeel validate --baseline known-violations.json                    # in CI
 archkeel validate --baseline known-violations.json --write-baseline   # resolved-only cleanup
 archkeel validate --baseline known-violations.json --write-baseline --accept-new  # deliberate widening
+archkeel validate --root mobile --baseline known-violations.json      # reads mobile/known-violations.json
 ```
 
+The baseline path is relative to `--root`, like the contract, or absolute inside it, so a second
+code base in a subdirectory is gated from the repository root against its own file; a path
+outside the root is `baseline.invalid`, exit 2 (AD-103).
 The gate exits 1 on a violation the file does not state, and on one it states that nobody
 violates any more, so the budget only shrinks. An existing baseline is compared before a write:
 resolved-only drift may be written, while new or increased fingerprints refuse the write unless

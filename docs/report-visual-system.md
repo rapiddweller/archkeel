@@ -151,9 +151,10 @@ unless the check has already classified them as a failure.
 - Level 2 uses UML component boxes. A circle marks a declared provided interface; a socket
   marks declared `requires`. Only a conforming observed edge with `through` gets an assembly
   marker. An unrestricted or undecided edge must not imply a specific interface connection.
-- Level 3 groups physical subpackages as folders, not new semantic components. Empty package
-  roots are folders, not module cards. Group edges sum import sites and preserve rule ids;
-  hidden same-folder edges reappear when the folder opens.
+- Level 3 groups physical subpackages as folders, not new semantic components. Package
+  initializers stay openable module cards, including import-only initializers; folder navigation
+  reaches every observed module. Group edges sum import sites and preserve rule ids; hidden
+  same-folder edges reappear when the folder opens.
 - One provided interface marker per component keeps large APIs legible; the inspector expands
   the exact entries. Breadcrumbs return through component, package, and module levels.
 - An observed import governed by `external_dependency_scope` draws a `«library»` card and
@@ -162,6 +163,8 @@ unless the check has already classified them as a failure.
   visible regardless of threshold, and the slider can restore every edge.
 - Edges carry their import sites; a conforming edge is solid teal, a violated edge is dashed red
   with a chip naming the rule id.
+- Inside edges stay observed unless an inside rule decides them; absence of a finding alone is
+  not conformance.
 - Right-angle connectors routed in lanes per row pair; labels never overlap, and a weight badge
   gives way to a rule chip.
 - The legend is drawn from the same edge states that style the graph, and the overview lists the
