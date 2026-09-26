@@ -1,5 +1,8 @@
 # AD-110 Inside rules use the shared evaluator
 
+Depth extended by [AD-111](ad-111-recursive-inside-contract-tree.md). This record describes
+the separately reviewed one-level evaluator change.
+
 Previously, an inside contract enforced `complete_requires` but could silently ignore
 other rule kinds. A declared rule is not evidence that its imports were checked.
 

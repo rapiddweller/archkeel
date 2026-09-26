@@ -147,6 +147,13 @@ Missing contracts and unsupported rules remain incomplete, never PASS. The repor
 inside edge green only when every displayed import site has evaluation evidence and no
 relevant UNKNOWN or edge violation remains. A green edge is not a component-wide certificate.
 
+An `inside` can name another contract recursively (AD-111). Paths are relative to the selected
+`--root`, not to the referring file. Each level owns its own component labels and rule ids:
+`store:backend:NO-EVAL` names a rule inside `store`'s `backend`. Reusing a contract file under
+two parents, cycles, escaping paths and colliding scoped ids are rejected. No directory gets a
+contract implicitly. Nonempty `declarations` fields inside are unsupported and refused; component
+`public` entries and rule provenance are separate supported fields.
+
 `external_dependency_scope` fields are `dependency` (a top-level import name), `allowed_sources`
 and `exact_sources`, at least one of the two non-empty. It matches import records whose target is
 the dependency or one of its submodules, including `TYPE_CHECKING` imports, and allows those whose
@@ -466,6 +473,11 @@ archkeel validate --against origin/main --amendment widening.json         # the 
 An amendment written for one change does not verify against a different one: its digests will
 not match. A contract the revision does not hold yet, a new scope's or a moved one's, is one
 widening, `contract introduced: <path> does not exist at <ref>`, amended the same way (AD-104).
+The comparison includes every mounted inside contract, canonically, so whitespace alone is not
+a policy change. **Migration:** an older root-only amendment for a tree with inside contracts
+must be regenerated and reviewed with the command above. It is not silently accepted against
+the larger policy tree. No-inside amendment digests and existing one-level finding ids retain
+their meaning. Observation digests still bind the actual contract bytes (AD-111).
 A missing or malformed `--amendment` file, or one outside the root, is
 `amendment.invalid`, and an `--against` revision,
 or a contract or baseline there that cannot be read, is `against.invalid`, both exit 2.
