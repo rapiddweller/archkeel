@@ -1875,12 +1875,8 @@ def _owned_type_verdict(
     origin_component = contract.component_for(origin_module)
     if origin_component is None:
         return _Position(undecidable="external_type", resolved=reached)
-    owner_facade_proof = (
-        imports_by_binding.owner_facade_type_states.get(
-            (origin_component.label, origin_module, origin_name)
-        )
-        if isinstance(imports_by_binding, BindingIndex)
-        else None
+    owner_facade_proof = imports_by_binding.owner_facade_type_states.get(
+        (origin_component.label, origin_module, origin_name)
     )
     directly_public = _facade_covers(
         origin_module, origin_name, origin_component, exports_by_module
@@ -2756,6 +2752,15 @@ def _public_alias_route_has_unproven_hop(
     stable_bindings_by_module: dict[str, frozenset[str]],
 ) -> bool:
     """A public alias is known only while each traversed binding has one proven definition."""
+    if not route:
+        return True
+    module, separator, binding = route[0].rpartition(".")
+    if (
+        not separator
+        or module not in scanned_modules
+        or binding not in stable_bindings_by_module.get(module, frozenset())
+    ):
+        return True
     for alias in route[1:]:
         alias_name: str = alias
         module, separator, name = alias_name.rpartition(".")

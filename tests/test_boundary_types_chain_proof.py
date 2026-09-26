@@ -461,6 +461,7 @@ def test_public_route_does_not_infer_proof_from_missing_target_ownership(
         ("Export = 42\nmatch (lambda value: value):\n    case Export:\n        pass\n", True, 0),
         ("Export = 42\ndef configure(value=(Export := lambda item: item)):\n    pass\n", True, 0),
         ("Export = 42\nother = (Export := lambda value: value)\n", True, 0),
+        ("Export = 42\nfrom unknown_external import *\n", True, 0),
         (
             "Export = 42\ndef configure():\n    global Export\n"
             "    def Export(value: dict) -> object:\n        return value\nconfigure()\n",
@@ -480,6 +481,7 @@ def test_public_route_does_not_infer_proof_from_missing_target_ownership(
         "match-capture-rebinding",
         "default-expression-rebinding",
         "assignment-rhs-rebinding",
+        "star-import-rebinding",
         "nested-global-function-rebinding",
         "stable-constant",
         "stable-class",
@@ -515,3 +517,97 @@ def test_public_endpoint_needs_stable_kind_evidence(
     assert bool(undecided) is unknown
     if unknown:
         assert all(record.kind == "boundary_type_route" for record in undecided)
+
+
+def test_star_import_keeps_rebound_builtin_endpoint_unknown(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from .impl import open as constraints\n" + EXPORT + SAFE,
+        implementation="open = 42\nfrom builtins import *\n",
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert not result.observation.records("violations")
+    assert any(
+        record.kind == "boundary_type_route" and "APP-TYPES-NOT-DICT" in record.rule_ids
+        for record in result.observation.records("unknowns") or ()
+    )
+
+
+def test_rebound_public_union_alias_is_unknown_beside_private_violation(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api=("from .impl import run, Payload\n__all__ = ['run', 'Payload']\nPayload = object\n"),
+        implementation=(
+            "class Payload:\n    value: str\n"
+            "class Private:\n    value: str\n"
+            "def run() -> Payload | Private:\n    return Payload()\n"
+        ),
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    violations = result.observation.records("violations") or ()
+    assert len(violations) == 1
+    assert any(
+        record.kind == "boundary_type_route"
+        and record.data.get("qualified_name") == "sample.app.api.Payload"
+        for record in result.observation.records("unknowns") or ()
+    )
+
+
+def test_proven_public_alias_survives_an_unstable_alias_to_same_type(
+    tmp_path: Path,
+) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api=(
+            "from .impl import run, Payload\n"
+            "from .impl import Payload as PublicPayload\n"
+            "__all__ = ['run', 'Payload', 'PublicPayload']\n"
+            "Payload = object\n"
+        ),
+        implementation=(
+            "class Payload:\n    value: str\n"
+            "def run() -> PublicPayload:\n    return PublicPayload()\n"
+        ),
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert not result.observation.records("violations")
+    assert any(
+        record.kind == "boundary_type_route"
+        and record.data.get("qualified_name") == "sample.app.api.Payload"
+        for record in result.observation.records("unknowns") or ()
+    )

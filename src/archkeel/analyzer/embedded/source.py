@@ -147,6 +147,11 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
                 for name in _bound_names(ast.walk(target)):
                     direct[name] = direct.get(name, 0) + 1
     nodes = list(_module_scope_nodes(module.tree))
+    if any(
+        isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+        for node in nodes
+    ):
+        return frozenset()
     counts = Counter(_bound_names(nodes))
     global_names = {
         name
