@@ -148,6 +148,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-109 | [`boundary_types` follows literal exports from ordinary modules](decisions/ad-109-boundary-types-follows-literal-all-in-ordinary-modules.md) |
 | AD-110 | [Inside rules use the shared evaluator](decisions/ad-110-inside-rules-use-the-shared-evaluator.md) |
 | AD-111 | [Explicit inside contracts form one revision-bound tree](decisions/ad-111-recursive-inside-contract-tree.md) |
+| AD-112 | [Public means public at that boundary](decisions/ad-112-local-publication-at-each-boundary.md) |
 
 ## Allowed dependencies
 

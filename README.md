@@ -202,7 +202,9 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Nested flow stays inspectable.** Physical folders lead to every observed module, including
   import-only package initializers. Explicit `inside` contracts can nest; their rules and
-  findings remain attached to that level. Folders alone are not contracts. An inside connection
+  findings remain attached to that level. Child APIs stay local unless the parent explicitly
+  publishes them; internal and outward APIs need not match (AD-112). Folders alone are not
+  contracts. An inside connection
   is green only when all its displayed
   imports were checked, with no relevant UNKNOWN or edge violation (AD-110). No finding alone
   is not a conformance claim. Structure and Review remain

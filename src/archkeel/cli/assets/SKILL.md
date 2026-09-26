@@ -199,8 +199,10 @@ Once the architect decides:
 
 `validate` then holds the two levels to each other, and you read its diagnostics by `code`:
 
-- `inside.public_mismatch` — the component's `public` above and the public surface of the
-  inside must be the same list. Declare it once and repeat it in both contracts.
+- Each level's `public` list serves that boundary. Child APIs stay local unless the parent
+  explicitly publishes them or a proven facade reexport. Do not copy every child API upward.
+- `reference.public_owner`, `reference.public_underscore` and `reference.namespace` also apply
+  inside. Correct the declaration at its mounted pointer; do not broaden ownership to silence it.
 - `inside.forbidden_import` — the inside grants an edge the level above forbids the component,
   by a rule or by absence under `requires`. Remove the grant, or change the decision above.
 - `contract.invalid` at `/components/<n>/inside` — the file is missing, outside the repository,
@@ -214,10 +216,11 @@ for example `store:STORE-REQUIRES-COMPLETE`: the id you will find in the inside 
 part after the colon, and the part before it is the component that names that contract. Fix it
 in the inside contract, never by adding a rule above.
 
-Three limits hold today: the inside has no `archkeel.toml`, so it cannot be validated as a
-level of its own; of its rules only `complete_requires` is evaluated, and an
-`external_dependency_scope` declared inside is not compared with the level above; and only one
-level down is recorded, so an inside declared within an inside is not read.
+Explicit `inside` references are followed recursively and use the shared rule evaluators.
+Mounting a contract does not create a standalone `archkeel.toml` for it. Nonempty inside
+`declarations` fields remain unsupported and are refused. An inner `external_dependency_scope`
+declaration is not compared with ancestor declarations; ancestor rules still evaluate their
+own source scope. A physical folder alone is not a declared contract.
 
 ## Rule catalog (summary)
 
