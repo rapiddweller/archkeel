@@ -14,7 +14,6 @@ from test_analyzer import _component
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
-from archkeel.check.run import observe_revision
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, run_validate
 from archkeel.cli import main
 from archkeel.ir.model import Diagnostic
@@ -142,6 +141,13 @@ def _write_repo(
     return ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
 
 
+def _append_component(root: Path, contract_path: str, component: dict[str, object]) -> None:
+    path = root / contract_path
+    raw = json.loads(path.read_bytes())
+    raw["components"].append(component)
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+
 def _assert_requires_diagnostic(
     diagnostics: Iterable[Diagnostic], *, target: str, pointer: str
 ) -> None:
@@ -190,6 +196,96 @@ def test_unknown_requires_target_is_rejected_at_its_declaring_level(
 
 def test_same_level_requires_targets_pass_at_root_nested_and_deep_levels(tmp_path: Path) -> None:
     config = _write_repo(tmp_path)
+
+    result, _ = run_validate(tmp_path, config, observe)
+
+    assert result.exit_code == 0, result.diagnostics
+    assert result.diagnostics == ()
+
+
+@pytest.mark.parametrize(
+    ("contract_path", "pointer"),
+    [
+        ("contract.json", "/components/2/label"),
+        (
+            "contracts/two.json",
+            "/components/0/inside/components/0/inside/components/2/label",
+        ),
+    ],
+    ids=["root", "deep"],
+)
+def test_duplicate_component_labels_are_rejected_with_second_label_pointer(
+    tmp_path: Path, contract_path: str, pointer: str
+) -> None:
+    config = _write_repo(tmp_path)
+    package = "sample.other" if contract_path == "contract.json" else "sample.app.service.other"
+    contract_file = tmp_path / contract_path
+    original_contract = contract_file.read_bytes()
+    label = json.loads(original_contract)["components"][0]["label"]
+    package_path = tmp_path / package.replace(".", "/")
+    package_path.mkdir(parents=True)
+    (package_path / "__init__.py").write_text("", encoding="utf-8")
+    _append_component(
+        tmp_path,
+        contract_path,
+        {**_component_at(label, package), "id": "COMP-OTHER"},
+    )
+    subprocess.run(
+        ["git", "add", contract_path, package.replace(".", "/")],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "duplicate label"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    result, _ = run_validate(tmp_path, config, observe)
+    report, _ = run_report(tmp_path, config=config, analyzer=observe)
+    observed = observe(
+        tmp_path,
+        roots=config.roots,
+        namespace=config.namespace,
+        contract=config.contract,
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    contract_file.write_bytes(original_contract)
+    historical, _ = run_validate(tmp_path, config, observe, against="HEAD")
+
+    assert result.exit_code == 2, result.diagnostics
+    assert [item.pointer for item in result.diagnostics] == [pointer]
+    assert (report.exit_code, tuple(item.pointer for item in report.diagnostics)) == (2, (pointer,))
+    assert tuple(item.pointer for item in observed.diagnostics) == (pointer,)
+    assert (historical.exit_code, tuple(item.pointer for item in historical.diagnostics)) == (
+        2,
+        (pointer,),
+    )
+
+
+def test_duplicate_component_labels_are_valid_across_contract_levels_and_mounts(
+    tmp_path: Path,
+) -> None:
+    config = _write_repo(
+        tmp_path,
+        app_requires=(),
+        service_requires=(),
+        deep_requires=(),
+    )
+    for contract_path in (
+        "contract.json",
+        "contracts/one.json",
+        "contracts/two.json",
+        "contracts/peer.json",
+    ):
+        path = tmp_path / contract_path
+        raw = json.loads(path.read_bytes())
+        raw["components"][0]["label"] = "shared"
+        path.write_text(json.dumps(raw), encoding="utf-8")
 
     result, _ = run_validate(tmp_path, config, observe)
 
@@ -263,14 +359,29 @@ def test_report_and_historical_observation_reject_unknown_requires_targets(
         dirty=False,
         contract_root=tmp_path,
     )
-    historical = observe_revision(observe, tmp_path, "HEAD", config, declared_at="HEAD")
     exit_code = main(["report", "--root", str(tmp_path), "--json"])
     cli_result = json.loads(capsys.readouterr().out)
+
+    contract_file = tmp_path / (
+        "contract.json"
+        if "app_requires" in requirements
+        else "contracts/one.json"
+        if "service_requires" in requirements
+        else "contracts/two.json"
+    )
+    contract = json.loads(contract_file.read_bytes())
+    contract["components"][0]["requires"] = []
+    contract_file.write_text(json.dumps(contract))
+    historical_exit = main(["validate", "--root", str(tmp_path), "--against", "HEAD", "--json"])
+    historical = json.loads(capsys.readouterr().out)
 
     actual = {
         "run_report": (report.exit_code, tuple(item.pointer for item in report.diagnostics)),
         "observe": tuple(item.pointer for item in observed.diagnostics),
-        "historical": tuple(item.pointer for item in historical.diagnostics),
+        "historical": (
+            historical_exit,
+            tuple(item["pointer"] for item in historical["diagnostics"]),
+        ),
         "cli_report": (
             exit_code,
             tuple(item["pointer"] for item in cli_result["diagnostics"]),
@@ -279,7 +390,7 @@ def test_report_and_historical_observation_reject_unknown_requires_targets(
     expected = {
         "run_report": (2, (pointer,)),
         "observe": (pointer,),
-        "historical": (pointer,),
+        "historical": (2, (pointer,)),
         "cli_report": (2, (pointer,)),
     }
     assert actual == expected, actual
