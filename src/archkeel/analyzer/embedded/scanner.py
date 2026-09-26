@@ -330,6 +330,7 @@ def scan_repository(
             facade_exports,
             evidence,
             uncertain_reexport_origins,
+            module_names,
         ),
         *api_surface_limits(
             declarations,

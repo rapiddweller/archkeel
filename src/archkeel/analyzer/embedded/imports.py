@@ -255,6 +255,7 @@ class ImportCollector(ast.NodeVisitor):
                     "relative_level": relative_level,
                     "under_type_checking": self.under_type_checking,
                     "ordinary_module": self.module.path.name != "__init__.py",
+                    "module_level_import": id(node) in self.module_level_imports,
                     "reexport": self.module.path.name == "__init__.py"
                     or (
                         self.module.all_literal
@@ -418,9 +419,10 @@ def _record_import_origins(
         source_binding_unique = data["source_module"] not in unique_bindings or (
             data["binding"] in unique_bindings[data["source_module"]]
         )
-        current = f"{data['target_module']}.{data['symbol']}"
+        symbol: str = data["symbol"]
+        current = f"{data['target_module']}.{symbol}"
         chain = [current]
-        seen = {current}
+        seen: set[str] = {current}
         while current in reexports and reexports[current] not in seen:
             current = reexports[current]
             seen.add(current)
@@ -438,7 +440,7 @@ def _record_import_origins(
         ):
             data["reexport_candidate"] = True
             data["reexport"] = False
-        data["symbol_visibility"] = "private" if data["symbol"].startswith("_") else "public_name"
+        data["symbol_visibility"] = "private" if symbol.startswith("_") else "public_name"
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()
         )
@@ -454,6 +456,8 @@ def strip_internal_reexport_facts(imports: Sequence[RawRecord]) -> None:
             del data["origin_binding_unique"]
         if "reexport_candidate" in data:
             del data["reexport_candidate"]
+        if "module_level_import" in data:
+            del data["module_level_import"]
 
 
 def all_is_one_literal(tree: ast.Module) -> bool:

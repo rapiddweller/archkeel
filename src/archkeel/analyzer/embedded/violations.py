@@ -783,6 +783,7 @@ def _boundary_type_subject_modules(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins,
+    scanned_modules: set[str],
 ) -> frozenset[str]:
     """Modules carrying at least one function `rule` actually inspects (issue #56).
 
@@ -812,7 +813,13 @@ def _boundary_type_subject_modules(
     route_subjects = frozenset(
         module
         for record in _unresolved_public_alias_routes(
-            rule, imports, contract, exports_by_module, uncertain_reexport_origins
+            rule,
+            symbols,
+            imports,
+            contract,
+            exports_by_module,
+            uncertain_reexport_origins,
+            scanned_modules,
         )
         if "module" in record["data"] and isinstance((module := record["data"]["module"]), str)
     )
@@ -863,6 +870,7 @@ def rule_subject_failures(
                 contract,
                 exports_by_module or {},
                 uncertain_reexport_origins or {},
+                module_names,
             )
             subjects = subjects | planned_subjects
             facade_scoped = True
@@ -2594,10 +2602,12 @@ def _uncertain_facade_position_records(
 
 def _unresolved_public_alias_routes(
     rule: BoundaryTypesRule,
+    symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins,
+    scanned_modules: set[str],
 ) -> list[RawRecord]:
     records: dict[str, RawRecord] = {}
     for item in imports:
@@ -2619,7 +2629,9 @@ def _unresolved_public_alias_routes(
             for alias in route
             if alias in uncertain_reexport_origins and not uncertain_reexport_origins[alias]
         )
-        if not unresolved:
+        if not unresolved and not _public_alias_route_has_unproven_hop(
+            route, symbols, imports, scanned_modules
+        ):
             continue
         qualified_name = f"{module}.{binding}"
         record = classified(
@@ -2643,6 +2655,49 @@ def _unresolved_public_alias_routes(
     return sorted(records.values(), key=lambda item: item["id"])
 
 
+def _public_alias_route_has_unproven_hop(
+    route: tuple[str, ...],
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    scanned_modules: set[str],
+) -> bool:
+    """A public alias is known only while each traversed binding has one proven definition."""
+    for alias in route[1:]:
+        alias_name: str = alias
+        module, separator, name = alias_name.rpartition(".")
+        if not separator:
+            return True
+        if module not in scanned_modules:
+            return True
+        definitions: list[RawRecord] = []
+        for item in symbols:
+            data: RecordData = item["data"]
+            if (
+                data["module"] == module
+                and data["name"] == name
+                and ("parent" not in data or data["parent"] is None)
+            ):
+                definitions.append(item)
+        bindings: list[RawRecord] = []
+        for item in imports:
+            data = item["data"]
+            if (
+                data["source_module"] == module
+                and data["binding"] == name
+                and "module_level_import" in data
+                and data["module_level_import"] is True
+            ):
+                bindings.append(item)
+        if definitions:
+            return len(definitions) != 1 or bool(bindings)
+        if len(bindings) != 1:
+            return True
+        binding_data = bindings[0]["data"]
+        if not binding_data["reexport"]:
+            return True
+    return False
+
+
 def boundary_type_limits(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
@@ -2650,6 +2705,7 @@ def boundary_type_limits(
     exports_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
     uncertain_reexport_origins: UncertainReexportOrigins,
+    scanned_modules: set[str],
 ) -> list[RawRecord]:
     """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
@@ -2676,7 +2732,13 @@ def boundary_type_limits(
             limits.append(limit)
         limits.extend(
             _unresolved_public_alias_routes(
-                rule, imports, contract, exports_by_module, uncertain_reexport_origins
+                rule,
+                symbols,
+                imports,
+                contract,
+                exports_by_module,
+                uncertain_reexport_origins,
+                scanned_modules,
             )
         )
     return sorted([*positions_out, *limits], key=lambda item: item["id"])
@@ -2787,9 +2849,7 @@ def _selected_facade(
     module: str, qualified_name: str, resolution_module: str
 ) -> tuple[str, str, str]:
     prefix = f"{module}."
-    selected_name = (
-        qualified_name[len(prefix) :] if qualified_name[: len(prefix)] == prefix else qualified_name
-    )
+    selected_name = qualified_name.removeprefix(prefix)
     return module, selected_name, resolution_module
 
 

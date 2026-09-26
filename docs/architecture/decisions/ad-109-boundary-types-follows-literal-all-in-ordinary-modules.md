@@ -6,9 +6,11 @@ unambiguous module binding. The rule checks that definition's signature and repo
 facade as the subject. An exported import with incomplete proof contributes UNKNOWN, even when
 another local function in the same module is decidable.
 
-Every alias hop needs proof. Candidate paths stay internal and never populate proven IR origins,
-chains or facade types. An unresolved public alias cycle records `boundary_type_route` UNKNOWN,
-not invented parameter positions; known constants and classes remain outside function-only scope.
+Every alias hop and endpoint needs proof. Candidate paths stay internal and never populate
+proven IR origins, chains or facade types. A missing, ambiguous, or unproven public alias route
+records `boundary_type_route` UNKNOWN, not invented parameter positions. The analyzer does not
+scan an external endpoint to settle it. Known constants and classes remain outside function-only
+scope.
 
 Reason: package `__init__.py` is not the only place a component can declare a public facade.
 Rejected: treating every ordinary import as a re-export, which would guess intent and can choose
