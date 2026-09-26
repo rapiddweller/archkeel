@@ -63,7 +63,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-24a | [A module opens the same way, and its interface is what crosses its edge](decisions/ad-24a-a-module-opens-the-same-way-and-its-interface-is-what.md) |
 | AD-24 | [The report opens a component without requiring a decision](decisions/ad-24-the-report-opens-a-component-without-requiring-a-decision.md) |
 | AD-25 | [Peers are isolated by one rule, not by n·(n-1) prohibitions](decisions/ad-25-peers-are-isolated-by-one-rule-not-by-nn1-prohibitions.md) |
-| AD-26 | [A quality claim is a signal, a derivation and a claim, and never guesses](decisions/ad-26-a-quality-claim-is-a-signal-a-derivation-and-a-claim-and.md) — unread bindings are lexical candidates, not safe-removal claims |
+| AD-26 | [A quality claim is a signal, a derivation and a claim, and never guesses](decisions/ad-26-a-quality-claim-is-a-signal-a-derivation-and-a-claim-and.md) |
 | AD-27 | [A type escape hatch is decided, not merely observed](decisions/ad-27-a-type-escape-hatch-is-decided-not-merely-observed.md) |
 | AD-30 | [A declared owner is worth nothing until something can contradict it](decisions/ad-30-a-declared-owner-is-worth-nothing-until-something-can.md) |
 | AD-29 | [A function that does nothing is a claim, not a stub](decisions/ad-29-a-function-that-does-nothing-is-a-claim-not-a-stub.md) |
