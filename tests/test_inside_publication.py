@@ -390,7 +390,13 @@ def test_inside_public_and_planned_entries_keep_reference_validation(
         (item.code, item.pointer, item.subject)
         for item in diagnostics
         if item.code == expected_code
-    ] == [(expected_code, f"/components/0/inside/components/0/{field}/0", entry)]
+    ] == [
+        (
+            expected_code,
+            f"/components/0/inside/components/0/{field}/0",
+            "outside.api" if expected_code == "reference.namespace" else entry,
+        )
+    ]
 
 
 @pytest.mark.parametrize("external_import", [False, True], ids=["local-pass", "outside-blocked"])
