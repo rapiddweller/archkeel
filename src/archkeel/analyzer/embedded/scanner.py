@@ -32,11 +32,11 @@ from .dependencies import (
     package_records,
     transitive_path_records,
 )
-from .imports import collect_imports, resolve_reexports
+from .imports import collect_imports, resolve_reexports, strip_internal_reexport_facts
 from .records import RawEvidence, RawRecord, classified
 from .references import collect_references
 from .resolve import build_symbol_index
-from .source import file_evidence, parse_sources
+from .source import file_evidence, parse_sources, stable_direct_module_bindings
 from .symbols import collect_symbols
 from .typing_signals import collect_typing_signals
 from .violations import (
@@ -219,6 +219,9 @@ def scan_repository(
     parsed_sources = parse_sources(paths, root=root, namespace=namespace)
     parsed = parsed_sources.modules
     failures = parsed_sources.failures
+    stable_bindings_by_module = {
+        module.module: stable_direct_module_bindings(module) for module in parsed
+    }
     evidence: dict[str, RawEvidence] = {}
 
     module_names = {module.module for module in parsed}
@@ -229,7 +232,7 @@ def scan_repository(
 
     # Exports exist only after the import loop, and re-exports must resolve before symbols.
     module_all_exports = {module.module: module.all_exports for module in parsed}
-    resolve_reexports(imports, module_all_exports)
+    uncertain_reexport_origins = resolve_reexports(imports, module_all_exports, parsed)
 
     symbols, symbol_nodes, symbol_owners = collect_symbols(parsed, evidence)
     symbol_index = build_symbol_index(symbols)
@@ -272,7 +275,9 @@ def scan_repository(
     # AD-65: a type a declared facade signature names reaches the boundary without any import,
     # so the resolution boundary_types already runs is recorded on the facade function itself
     # and travels to validate's unused-entry check in the observation, not in a second copy.
-    symbols = facade_signature_types(symbols, imports, contract, facade_exports)
+    symbols = facade_signature_types(
+        symbols, imports, contract, facade_exports, uncertain_reexport_origins
+    )
     rule_failures = rule_subject_failures(
         contract.rules,
         module_names,
@@ -280,6 +285,8 @@ def scan_repository(
         imports=imports,
         contract=contract,
         exports_by_module=facade_exports,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        stable_bindings_by_module=stable_bindings_by_module,
     )
     scope_observations = component_scope_observations(
         components=contract.components,
@@ -310,6 +317,7 @@ def scan_repository(
         contract=contract,
         exports_by_module=facade_exports,
         profile=PYTHON,
+        uncertain_reexport_origins=uncertain_reexport_origins,
     )
     typing_signals = sorted([*typing_signals, *boundary_allowances], key=lambda item: item["id"])
 
@@ -319,7 +327,16 @@ def scan_repository(
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.
-        *boundary_type_limits(symbols, imports, contract, facade_exports, evidence),
+        *boundary_type_limits(
+            symbols,
+            imports,
+            contract,
+            facade_exports,
+            evidence,
+            uncertain_reexport_origins,
+            module_names,
+            stable_bindings_by_module,
+        ),
         *api_surface_limits(
             declarations,
             symbols,
@@ -340,6 +357,7 @@ def scan_repository(
         calls=calls,
     )
 
+    strip_internal_reexport_facts(imports)
     return ScanResult(
         source_digest=parsed_sources.source_digest,
         coverage=coverage,

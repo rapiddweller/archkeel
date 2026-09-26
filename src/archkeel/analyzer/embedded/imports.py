@@ -12,7 +12,14 @@ from collections.abc import Sequence
 from archkeel.ir.model import EvidenceClass, in_scope, stable_id
 
 from .records import RawEvidence, RawRecord, classified
-from .source import AliasBinding, ParsedModule, add_evidence, location, package_for
+from .source import (
+    AliasBinding,
+    ParsedModule,
+    add_evidence,
+    location,
+    package_for,
+    unique_direct_module_bindings,
+)
 
 
 def _is_type_checking_test(node: ast.AST) -> bool:
@@ -105,6 +112,19 @@ class ImportCollector(ast.NodeVisitor):
         self.evidence = evidence
         self.package_bindings = package_bindings
         self.namespace = namespace
+        self.unique_bindings = unique_direct_module_bindings(module)
+        self.module_level_imports: set[int] = set()
+        stack: list[ast.AST] = [module.tree]
+        while stack:
+            statement = stack.pop()
+            if isinstance(statement, ast.Import | ast.ImportFrom):
+                self.module_level_imports.add(id(statement))
+            if isinstance(
+                statement,
+                ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda,
+            ):
+                continue
+            stack.extend(ast.iter_child_nodes(statement))
         self.under_type_checking = False
         self.items: list[RawRecord] = []
 
@@ -234,7 +254,21 @@ class ImportCollector(ast.NodeVisitor):
                     "binding": binding,
                     "relative_level": relative_level,
                     "under_type_checking": self.under_type_checking,
-                    "reexport": self.module.path.name == "__init__.py",
+                    "ordinary_module": self.module.path.name != "__init__.py",
+                    "module_level_import": id(node) in self.module_level_imports,
+                    "reexport": self.module.path.name == "__init__.py"
+                    or (
+                        self.module.all_literal
+                        and binding in self.module.all_exports
+                        and binding in self.unique_bindings
+                    ),
+                    "reexport_candidate": (
+                        self.module.path.name != "__init__.py"
+                        and id(node) in self.module_level_imports
+                        and binding in self.module.all_exports
+                        and symbol is not None
+                        and not (self.module.all_literal and binding in self.unique_bindings)
+                    ),
                     # A Python import always names what it binds; a Dart import without `show`
                     # does not, and every rule reading `symbol` must tell the two apart (AD-97).
                     "symbols_known": True,
@@ -265,16 +299,115 @@ def collect_imports(
     return imports
 
 
-def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str, set[str]]) -> None:
+def _reexport_route_is_proven(
+    binding: str,
+    alias_targets: dict[str, set[str]],
+    uncertain_bindings: set[str],
+) -> bool:
+    current = binding
+    visited: set[str] = set()
+    while current in alias_targets:
+        if current in visited or current in uncertain_bindings:
+            return False
+        targets = alias_targets[current]
+        if len(targets) != 1:
+            return False
+        visited.add(current)
+        current = next(iter(targets))
+    return True
+
+
+def _terminal_reexport_origins(binding: str, alias_targets: dict[str, set[str]]) -> frozenset[str]:
+    pending = [binding]
+    visited: set[str] = set()
+    terminals: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        targets = alias_targets.get(current)
+        if targets:
+            pending.extend(targets - visited)
+        else:
+            terminals.add(current)
+    return frozenset(terminals)
+
+
+def resolve_reexports(
+    imports: Sequence[RawRecord],
+    exports_by_module: dict[str, set[str]],
+    parsed: Sequence[ParsedModule] = (),
+) -> dict[str, frozenset[str]]:
     """Follow re-export chains in place so each import records its origin definition."""
+    unique_bindings: dict[str, frozenset[str]] = {
+        module.module: unique_direct_module_bindings(module) for module in parsed
+    }
+    alias_targets: dict[str, set[str]] = {}
+    uncertain_bindings: set[str] = set()
+    _collect_reexport_targets(imports, unique_bindings, alias_targets, uncertain_bindings)
+    reexports = _proven_reexports(imports, alias_targets, uncertain_bindings)
+    _record_import_origins(imports, exports_by_module, unique_bindings, reexports)
+    return {
+        binding: _terminal_reexport_origins(binding, alias_targets)
+        for binding in uncertain_bindings
+    }
+
+
+def _collect_reexport_targets(
+    imports: Sequence[RawRecord],
+    unique_bindings: dict[str, frozenset[str]],
+    alias_targets: dict[str, set[str]],
+    uncertain_bindings: set[str],
+) -> None:
+    for item in imports:
+        data = item["data"]
+        if not data["symbol"] or not (data["reexport"] or data.get("reexport_candidate")):
+            continue
+        binding = f"{data['source_module']}.{data['binding']}"
+        target = f"{data['target_module']}.{data['symbol']}"
+        targets: set[str] = {target}
+        if binding in alias_targets:
+            targets |= alias_targets[binding]
+        alias_targets[binding] = targets
+        source_unique = data["source_module"] not in unique_bindings or (
+            data["binding"] in unique_bindings[data["source_module"]]
+        )
+        target_unique = data["target_module"] not in unique_bindings or (
+            data["symbol"] in unique_bindings[data["target_module"]]
+        )
+        if data.get("reexport_candidate") is True or not source_unique or not target_unique:
+            uncertain_bindings.add(binding)
+            data["reexport_candidate"] = True
+            data["reexport"] = False
+
+
+def _proven_reexports(
+    imports: Sequence[RawRecord],
+    alias_targets: dict[str, set[str]],
+    uncertain_bindings: set[str],
+) -> dict[str, str]:
     reexports: dict[str, str] = {}
     for item in imports:
         data = item["data"]
         if not data["reexport"] or not data["symbol"]:
             continue
-        reexports[f"{data['source_module']}.{data['binding']}"] = (
-            f"{data['target_module']}.{data['symbol']}"
-        )
+        binding = f"{data['source_module']}.{data['binding']}"
+        if not _reexport_route_is_proven(binding, alias_targets, uncertain_bindings):
+            uncertain_bindings.add(binding)
+            data["reexport_candidate"] = True
+            data["reexport"] = False
+            continue
+        reexports[binding] = f"{data['target_module']}.{data['symbol']}"
+    return reexports
+
+
+def _record_import_origins(
+    imports: Sequence[RawRecord],
+    exports_by_module: dict[str, set[str]],
+    unique_bindings: dict[str, frozenset[str]],
+    reexports: dict[str, str],
+) -> None:
     for item in imports:
         data = item["data"]
         if not data["symbol"]:
@@ -283,19 +416,48 @@ def resolve_reexports(imports: Sequence[RawRecord], exports_by_module: dict[str,
             data["symbol_visibility"] = None
             data["declared_in_all"] = False
             continue
-        current = f"{data['target_module']}.{data['symbol']}"
+        source_binding_unique = data["source_module"] not in unique_bindings or (
+            data["binding"] in unique_bindings[data["source_module"]]
+        )
+        symbol: str = data["symbol"]
+        current = f"{data['target_module']}.{symbol}"
         chain = [current]
-        seen = {current}
+        seen: set[str] = {current}
         while current in reexports and reexports[current] not in seen:
             current = reexports[current]
             seen.add(current)
             chain.append(current)
         data["reexport_chain"] = chain
-        data["origin_definition"] = chain[-1]
-        data["symbol_visibility"] = "private" if data["symbol"].startswith("_") else "public_name"
+        origin_definition: str = chain[-1]
+        data["origin_definition"] = origin_definition
+        origin_module, _, origin_name = origin_definition.rpartition(".")
+        data["origin_binding_unique"] = (
+            origin_module not in unique_bindings or origin_name in unique_bindings[origin_module]
+        )
+        if data["reexport"] and (
+            not source_binding_unique
+            or (data.get("ordinary_module") and not data["origin_binding_unique"])
+        ):
+            data["reexport_candidate"] = True
+            data["reexport"] = False
+        data["symbol_visibility"] = "private" if symbol.startswith("_") else "public_name"
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()
         )
+
+
+def strip_internal_reexport_facts(imports: Sequence[RawRecord]) -> None:
+    """Keep proof bookkeeping out of serialized IR import records."""
+    for item in imports:
+        data = item["data"]
+        if "ordinary_module" in data:
+            del data["ordinary_module"]
+        if "origin_binding_unique" in data:
+            del data["origin_binding_unique"]
+        if "reexport_candidate" in data:
+            del data["reexport_candidate"]
+        if "module_level_import" in data:
+            del data["module_level_import"]
 
 
 def all_is_one_literal(tree: ast.Module) -> bool:

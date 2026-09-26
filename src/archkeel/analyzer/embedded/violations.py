@@ -44,6 +44,9 @@ from .records import RawEvidence, RawRecord, RecordData, classified
 # AD-97: an import either decides a symbol rule or, when the scan cannot see which names it
 # uses (a Dart import without `show`), leaves it undecided -- never a pass, never a violation.
 _Verdict: TypeAlias = Literal["violation", "allowed", "undecided"]
+UncertainReexportOrigins: TypeAlias = dict[str, frozenset[str]]
+FacadeEntry: TypeAlias = tuple[str, str, str, bool]
+DeclaredFacade: TypeAlias = tuple[str, str, list[tuple[str, str]], str, tuple[FacadeEntry, ...]]
 
 
 def _forbidden_dependency_verdicts(
@@ -779,6 +782,9 @@ def _boundary_type_subject_modules(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins,
+    scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
 ) -> frozenset[str]:
     """Modules carrying at least one function `rule` actually inspects (issue #56).
 
@@ -789,13 +795,37 @@ def _boundary_type_subject_modules(
     decided subject for this one rule kind, and `rule_subject_failures` has to see that instead
     of reading an empty result as a clean pass.
     """
-    return frozenset(
+    function_subjects = frozenset(
         module
         for item in symbols
-        if (found := _facade_positions(item, rule, contract, exports_by_module, imports))
+        if (
+            found := _facade_positions(
+                item,
+                rule,
+                contract,
+                exports_by_module,
+                imports,
+                uncertain_reexport_origins,
+            )
+        )
         is not None
         for module in (found[0],)
     )
+    route_subjects = frozenset(
+        module
+        for record in _unresolved_public_alias_routes(
+            rule,
+            symbols,
+            imports,
+            contract,
+            exports_by_module,
+            uncertain_reexport_origins,
+            scanned_modules,
+            stable_bindings_by_module,
+        )
+        if "module" in record["data"] and isinstance((module := record["data"]["module"]), str)
+    )
+    return function_subjects | route_subjects
 
 
 def _planned_subject_modules(contract: ArchitectureContract) -> frozenset[str]:
@@ -816,6 +846,8 @@ def rule_subject_failures(
     imports: Sequence[RawRecord] = (),
     contract: ArchitectureContract | None = None,
     exports_by_module: dict[str, frozenset[str]] | None = None,
+    uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
     sdk_libraries: frozenset[str] = frozenset(),
 ) -> list[RawRecord]:
     """Flag scopes with neither observed subjects nor explicitly declared target work.
@@ -835,7 +867,14 @@ def rule_subject_failures(
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
             subjects = _boundary_type_subject_modules(
-                rule, symbols, imports, contract, exports_by_module or {}
+                rule,
+                symbols,
+                imports,
+                contract,
+                exports_by_module or {},
+                uncertain_reexport_origins or {},
+                module_names,
+                stable_bindings_by_module or {},
             )
             subjects = subjects | planned_subjects
             facade_scoped = True
@@ -1319,9 +1358,15 @@ class _AmbiguousBinding:
 
 _AMBIGUOUS: Final = _AmbiguousBinding()
 
+
 # `boundary_type_indexes`'s own return shape: a `(module, name)` key maps to one binding target,
 # or to `_AMBIGUOUS` when distinct targets or definitions claim it.
-BindingIndex: TypeAlias = dict[tuple[str, str], "RecordData | _AmbiguousBinding"]
+class BindingIndex(dict[tuple[str, str], RecordData | _AmbiguousBinding]):
+    """Bindings plus same-owner facade evidence kept internal to type resolution."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.owner_facade_type_states: dict[tuple[str, str, str], bool] = {}
 
 
 def _binding_is_ambiguous(
@@ -1391,7 +1436,7 @@ def _binding_index(entries: Iterator[tuple[str, str, object, RecordData]]) -> Bi
     Separate class definitions carry separate identities even when their bodies are identical
     (AD-74).
     """
-    index: BindingIndex = {}
+    index = BindingIndex()
     identities: dict[tuple[str, str], object] = {}
     for scope, name, identity, data in entries:
         key = (scope, name)
@@ -1404,7 +1449,11 @@ def _binding_index(entries: Iterator[tuple[str, str, object, RecordData]]) -> Bi
 
 
 def boundary_type_indexes(
-    symbols: Sequence[RawRecord], imports: Sequence[RawRecord]
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract | None = None,
+    exports_by_module: dict[str, frozenset[str]] | None = None,
+    uncertain_reexport_origins: UncertainReexportOrigins | None = None,
 ) -> tuple[BindingIndex, BindingIndex]:
     """Index `imports` by (module, local binding) and top-level classes by (module, name).
 
@@ -1438,7 +1487,48 @@ def boundary_type_indexes(
         key = (data["module"], data["name"])
         if item["kind"] == "function" and (key in classes_by_location or key in imports_by_binding):
             classes_by_location[key] = _AMBIGUOUS
+    if contract is not None:
+        _index_owner_facade_type_states(
+            imports,
+            imports_by_binding,
+            contract,
+            exports_by_module or {},
+            uncertain_reexport_origins or {},
+        )
     return imports_by_binding, classes_by_location
+
+
+def _index_owner_facade_type_states(
+    imports: Sequence[RawRecord],
+    imports_by_binding: BindingIndex,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins,
+) -> None:
+    proven: set[tuple[str, str, str]] = set()
+    uncertain: set[tuple[str, str, str]] = set()
+    for item in imports:
+        data = item["data"]
+        module, binding = data["source_module"], data["binding"]
+        owner = contract.component_for(module)
+        if owner is None or not _facade_covers(module, binding, owner, exports_by_module):
+            continue
+        qualified_binding = f"{module}.{binding}"
+        for origin in uncertain_reexport_origins.get(qualified_binding, frozenset()):
+            origin_module, separator, origin_name = origin.rpartition(".")
+            if separator and contract.component_for(origin_module) == owner:
+                uncertain.add((owner.label, origin_module, origin_name))
+        origin_definition = data.get("origin_definition")
+        if (
+            data.get("reexport") is True
+            and imports_by_binding.get((module, binding)) is not _AMBIGUOUS
+            and isinstance(origin_definition, str)
+        ):
+            origin_module, separator, origin_name = origin_definition.rpartition(".")
+            if separator and contract.component_for(origin_module) == owner:
+                proven.add((owner.label, origin_module, origin_name))
+    imports_by_binding.owner_facade_type_states.update({key: False for key in uncertain})
+    imports_by_binding.owner_facade_type_states.update({key: True for key in proven})
 
 
 def _typing_wrapper_verdict(
@@ -1785,7 +1875,18 @@ def _owned_type_verdict(
     origin_component = contract.component_for(origin_module)
     if origin_component is None:
         return _Position(undecidable="external_type", resolved=reached)
-    if _facade_covers(origin_module, origin_name, origin_component, exports_by_module):
+    owner_facade_proof = imports_by_binding.owner_facade_type_states.get(
+        (origin_component.label, origin_module, origin_name)
+    )
+    directly_public = _facade_covers(
+        origin_module, origin_name, origin_component, exports_by_module
+    )
+    if not directly_public and (
+        owner_facade_proof is False
+        or (owner_facade_proof is True and not isinstance(origin_symbol, dict))
+    ):
+        return _Position(undecidable="unresolved_name", resolved=reached)
+    if directly_public or owner_facade_proof is True:
         if resolved in visited:
             return _Position(resolved=reached)
         fields = _declared_field_verdict(
@@ -2069,17 +2170,8 @@ def _declared_facade_positions(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     imports: Sequence[RawRecord] = (),
-) -> (
-    tuple[
-        str,
-        str,
-        list[tuple[str, str]],
-        str,
-        bool,
-        tuple[tuple[str, str, str], ...],
-    ]
-    | None
-):
+    uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+) -> DeclaredFacade | None:
     """The (module, qualified name, annotated positions) of one declared facade function, or
     None when the record is not a module-level function its own `component.public` covers -- a
     naming convention used to guess at that last one (AD-63). No rule is consulted: whether a
@@ -2090,20 +2182,24 @@ def _declared_facade_positions(
     if item["kind"] != "function" or data.get("symbol_category") != "function":
         return None
     module, name = data["module"], data["name"]
-    facade_entries: list[tuple[str, str, str]] = []
+    facade_entries: list[tuple[str, str, str, bool]] = []
     component = contract.component_for(module)
     if component is not None and _facade_covers(module, name, component, exports_by_module):
-        facade_entries.append((module, name, module))
+        facade_entries.append((module, name, module, False))
 
     origin = data["qualified_name"]
-    reexport_entries, ambiguous_facade = _reexport_facade_entries(
-        origin, contract, exports_by_module, imports
+    reexport_entries = _reexport_facade_entries(
+        origin,
+        contract,
+        exports_by_module,
+        imports,
+        uncertain_reexport_origins or {},
     )
     facade_entries.extend(reexport_entries)
     if not facade_entries:
         return None
     facade_entries = sorted(set(facade_entries))
-    facade_module, facade_name, resolution_module = facade_entries[0]
+    facade_module, facade_name, resolution_module, _ = facade_entries[0]
     # An unannotated position carries an empty annotation rather than being dropped: it is a
     # position of the facade the rule cannot decide, and dropping it hid it from the rule's own
     # denominator (AD-67).
@@ -2116,7 +2212,6 @@ def _declared_facade_positions(
         f"{facade_module}.{facade_name}",
         positions,
         resolution_module,
-        ambiguous_facade,
         tuple(facade_entries),
     )
 
@@ -2126,8 +2221,9 @@ def _reexport_facade_entries(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     imports: Sequence[RawRecord],
-) -> tuple[list[tuple[str, str, str]], bool]:
-    """Match exact re-export facts and flag one facade binding with multiple origins."""
+    uncertain_reexport_origins: UncertainReexportOrigins,
+) -> list[FacadeEntry]:
+    """Match re-export facts while keeping uncertain bindings scoped to one entry."""
     reexport_origins: dict[tuple[str, str], set[str]] = {}
     for imported in imports:
         imported_data = imported["data"]
@@ -2138,28 +2234,34 @@ def _reexport_facade_entries(
     ambiguous_bindings = {
         binding for binding, origins in reexport_origins.items() if len(origins) > 1
     }
-    ambiguous_facade = False
-    facade_entries: list[tuple[str, str, str]] = []
+    facade_entries: list[FacadeEntry] = []
     for imported in imports:
         imported_data = imported["data"]
         binding_key = (imported_data.get("source_module"), imported_data.get("binding"))
-        if (
-            imported_data.get("reexport")
-            and imported_data.get("origin_definition") == origin
-            and binding_key in ambiguous_bindings
-        ):
-            ambiguous_facade = True
-        if not imported_data.get("reexport") or imported_data.get("origin_definition") != origin:
+        binding_name = f"{imported_data['source_module']}.{imported_data['binding']}"
+        candidate_origins = uncertain_reexport_origins.get(binding_name, frozenset())
+        own_uncertainty = origin in candidate_origins
+        if not (imported_data.get("reexport") or own_uncertainty):
+            continue
+        chain = imported_data.get("reexport_chain", ())
+        inherited_uncertainty = any(
+            origin in uncertain_reexport_origins.get(alias, frozenset()) for alias in chain
+        )
+        entry_origin = imported_data.get("origin_definition")
+        if entry_origin != origin and not own_uncertainty and not inherited_uncertainty:
             continue
         facade_module = imported_data["source_module"]
         binding = imported_data["binding"]
         resolution_module, _, _ = origin.rpartition(".")
+        entry_uncertain = (
+            own_uncertainty or binding_key in ambiguous_bindings or inherited_uncertainty
+        )
         for owner in contract.components:
             if contract.component_for(facade_module) == owner and _facade_covers(
                 facade_module, binding, owner, exports_by_module
             ):
-                facade_entries.append((facade_module, binding, resolution_module))
-    return facade_entries, ambiguous_facade
+                facade_entries.append((facade_module, binding, resolution_module, entry_uncertain))
+    return facade_entries
 
 
 def _facade_positions(
@@ -2168,32 +2270,44 @@ def _facade_positions(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     imports: Sequence[RawRecord] = (),
-) -> tuple[str, str, list[tuple[str, str]], str, bool, tuple[tuple[str, str, str], ...]] | None:
+    uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+) -> (
+    tuple[
+        str,
+        str,
+        list[tuple[str, str]],
+        str,
+        bool,
+        tuple[tuple[str, str, str, bool], ...],
+    ]
+    | None
+):
     """The declared facade positions `rule` must check, or None when the function is out of
     scope or exempted (AD-49)."""
-    found = _declared_facade_positions(item, contract, exports_by_module, imports)
+    found = _declared_facade_positions(
+        item, contract, exports_by_module, imports, uncertain_reexport_origins
+    )
     if found is None:
         return None
     candidates = [
         entry
-        for entry in found[5]
+        for entry in found[4]
         if in_scope(entry[0], rule.source)
         and not any(in_scope(entry[0], allowed) for allowed in rule.allowed_sources)
         and entry[0] not in rule.exact_sources
     ]
     if not candidates:
         return None
-    facade_module, facade_name, resolution_module = sorted(candidates)[0]
+    facade_module, facade_name, resolution_module, entry_uncertain = sorted(
+        candidates, key=lambda entry: (entry[3], entry[:3])
+    )[0]
     return (
         facade_module,
         f"{facade_module}.{facade_name}",
         found[2],
         resolution_module,
-        # Multiple facade entries can be aliases of this same function origin.  The shared
-        # re-export walk already marks a binding ambiguous only when it reaches distinct
-        # origins; candidate count is therefore not an ambiguity signal.
+        entry_uncertain,
         found[4],
-        found[5],
     )
 
 
@@ -2202,6 +2316,7 @@ def facade_signature_types(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins | None = None,
 ) -> list[RawRecord]:
     """Record on every declared facade function the types its signature exposes (AD-65).
 
@@ -2221,10 +2336,19 @@ def facade_signature_types(
     be declared for this -- every component that declares a facade gets the same record,
     because `resolved` fills in on its own walk regardless of the verdict built alongside it.
     """
-    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    imports_by_binding, classes_by_location = boundary_type_indexes(
+        symbols,
+        imports,
+        contract,
+        exports_by_module,
+        uncertain_reexport_origins or {},
+    )
     recorded: list[RawRecord] = []
     for item in symbols:
-        found = _declared_facade_positions(item, contract, exports_by_module, imports)
+        found = _declared_facade_positions(
+            item, contract, exports_by_module, imports, uncertain_reexport_origins
+        )
+        has_proven_facade = found is not None and any(not entry[3] for entry in found[4])
         names = (
             _resolved_position_types(
                 found[3],
@@ -2234,7 +2358,7 @@ def facade_signature_types(
                 imports_by_binding,
                 classes_by_location,
             )
-            if found is not None
+            if has_proven_facade and found is not None
             else []
         )
         recorded.append(
@@ -2324,6 +2448,7 @@ def _boundary_types_violations(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """AD-58, amended by AD-63: a component's declared facade function takes and returns no
     bare `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a
@@ -2338,12 +2463,16 @@ def _boundary_types_violations(
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return [], []
-    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    imports_by_binding, classes_by_location = boundary_type_indexes(
+        symbols, imports, contract, exports_by_module, uncertain_reexport_origins
+    )
     violations: list[RawRecord] = []
     allowance_facts: list[RawRecord] = []
     for rule in rules:
         for item in symbols:
-            found = _facade_positions(item, rule, contract, exports_by_module, imports)
+            found = _facade_positions(
+                item, rule, contract, exports_by_module, imports, uncertain_reexport_origins
+            )
             if found is None:
                 continue
             facade_module, qualname, positions, resolution_module, ambiguous_facade, _ = found
@@ -2392,15 +2521,19 @@ def _boundary_type_violation_records(
     if verdict.violation is None:
         return []
     verb = "returns" if position == "return" else f"takes {position} as"
-    findings = verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation),)
+    findings = sorted(
+        set(verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation),)),
+        key=lambda finding: (finding[0], finding[1], finding[2] or ""),
+    )
     records: list[RawRecord] = []
     for reason, path, nested_annotation in findings:
         path_data = ".".join((position, *path)) if path else None
-        identity_parts = (
-            (rule.id, item["id"], position, *path, nested_annotation or "", reason)
-            if path
-            else (rule.id, item["id"], position)
-        )
+        if path:
+            identity_parts = (rule.id, item["id"], position, *path, nested_annotation or "", reason)
+        elif len(findings) > 1:
+            identity_parts = (rule.id, item["id"], position, nested_annotation or "", reason)
+        else:
+            identity_parts = (rule.id, item["id"], position)
         nested_fields = " ".join(f"field {name}" for name in path)
         field_detail = f"{nested_fields} " if nested_fields else ""
         records.append(
@@ -2506,72 +2639,315 @@ def _symbol_source_location(
     return item["file"], item["line"], item["column"]
 
 
+def _uncertain_facade_position_records(
+    item: RawRecord,
+    rule: BoundaryTypesRule,
+    facade_entries: Sequence[FacadeEntry],
+    positions: Sequence[tuple[str, str]],
+    selected: tuple[str, str, str],
+    occurrences: dict[tuple[str, str], int],
+) -> list[tuple[dict[str, object], RawRecord]]:
+    records: list[tuple[dict[str, object], RawRecord]] = []
+    for module, name, resolution_module, uncertain in facade_entries:
+        if (
+            not uncertain
+            or (module, name, resolution_module) == selected
+            or not in_scope(module, rule.source)
+            or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
+            or module in rule.exact_sources
+        ):
+            continue
+        qualname = f"{module}.{name}"
+        key = (module, qualname)
+        occurrence = occurrences.get(key, 0)
+        occurrences[key] = occurrence + 1
+        for position, annotation in positions:
+            detail: dict[str, object] = {
+                "module": module,
+                "qualified_name": qualname,
+                "position": position,
+                "annotation": annotation,
+                "reason": "ambiguous_facade",
+                "occurrence": occurrence,
+            }
+            records.append((detail, _boundary_type_position_record(rule, item, detail)))
+    return records
+
+
+def _unresolved_public_alias_routes(
+    rule: BoundaryTypesRule,
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins,
+    scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
+) -> list[RawRecord]:
+    records: dict[str, RawRecord] = {}
+    symbols_by_binding: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
+    imports_by_binding: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
+    for item in symbols:
+        data = item["data"]
+        if "parent" not in data or data["parent"] is None:
+            symbols_by_binding[(data["module"], data["name"])].append(item)
+    for item in imports:
+        data = item["data"]
+        if data.get("module_level_import") is True:
+            imports_by_binding[(data["source_module"], data["binding"])].append(item)
+    for item in imports:
+        data = item["data"]
+        module, binding = data["source_module"], data["binding"]
+        if (
+            not data["symbol"]
+            or not in_scope(module, rule.source)
+            or any(in_scope(module, allowed) for allowed in rule.allowed_sources)
+            or module in rule.exact_sources
+        ):
+            continue
+        owner = contract.component_for(module)
+        if owner is None or not _facade_covers(module, binding, owner, exports_by_module):
+            continue
+        route = (f"{module}.{binding}", *data.get("reexport_chain", ()))
+        unresolved = tuple(
+            alias
+            for alias in route
+            if alias in uncertain_reexport_origins and not uncertain_reexport_origins[alias]
+        )
+        if not unresolved and not _public_alias_route_has_unproven_hop(
+            route,
+            symbols_by_binding,
+            imports_by_binding,
+            scanned_modules,
+            stable_bindings_by_module,
+        ):
+            continue
+        qualified_name = f"{module}.{binding}"
+        record = classified(
+            item_id=stable_id("UNKNOWN-BOUNDARY-TYPE-ROUTE", rule.id, qualified_name),
+            evidence_class=EvidenceClass.UNKNOWN,
+            area="type_architecture",
+            kind="boundary_type_route",
+            title=f"{rule.id} cannot resolve a declared facade alias route",
+            subjects=[qualified_name, module],
+            evidence_ids=item["evidence_ids"],
+            rule_ids=[rule.id],
+            fact_ids=[item["id"]],
+            data={
+                "module": module,
+                "qualified_name": qualified_name,
+                "reason": "unresolved_reexport_route",
+                "route": list(route),
+            },
+        )
+        records[record["id"]] = record
+    return sorted(records.values(), key=lambda item: item["id"])
+
+
+def _public_alias_route_has_unproven_hop(
+    route: tuple[str, ...],
+    symbols_by_binding: dict[tuple[str, str], list[RawRecord]],
+    imports_by_binding: dict[tuple[str, str], list[RawRecord]],
+    scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
+) -> bool:
+    """A public alias is known only while each traversed binding has one proven definition."""
+    if not route:
+        return True
+    module, separator, binding = route[0].rpartition(".")
+    if (
+        not separator
+        or module not in scanned_modules
+        or binding not in stable_bindings_by_module.get(module, frozenset())
+    ):
+        return True
+    for alias in route[1:]:
+        alias_name: str = alias
+        module, separator, name = alias_name.rpartition(".")
+        if not separator:
+            return True
+        if module not in scanned_modules:
+            return True
+        definitions = symbols_by_binding.get((module, name), [])
+        bindings = imports_by_binding.get((module, name), [])
+        if definitions:
+            if (
+                len(definitions) != 1
+                or bindings
+                or name not in stable_bindings_by_module.get(module, frozenset())
+            ):
+                return True
+            category = definitions[0]["kind"]
+            return category not in {"function", "class", "static_constant"}
+        if len(bindings) != 1:
+            return True
+        binding_data = bindings[0]["data"]
+        if not binding_data["reexport"]:
+            return True
+    return False
+
+
 def boundary_type_limits(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
+    uncertain_reexport_origins: UncertainReexportOrigins,
+    scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
 ) -> list[RawRecord]:
     """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return []
-    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
+    imports_by_binding, classes_by_location = boundary_type_indexes(
+        symbols,
+        imports,
+        contract,
+        exports_by_module,
+        uncertain_reexport_origins,
+    )
     ordered_symbols = sorted(symbols, key=lambda item: _symbol_source_location(item, evidence))
     limits: list[RawRecord] = []
     positions_out: list[RawRecord] = []
     for rule in rules:
-        undecidable_positions: list[dict[str, object]] = []
-        occurrences: dict[tuple[str, str], int] = {}
-        seen = 0
-        for item in ordered_symbols:
-            found = _facade_positions(item, rule, contract, exports_by_module, imports)
-            if found is None:
-                continue
-            module, qualified_name, positions, resolution_module, ambiguous_facade, _ = found
-            callable_key = (module, qualified_name)
-            occurrence = occurrences.get(callable_key, 0)
-            occurrences[callable_key] = occurrence + 1
-            for position, annotation in positions:
-                seen += 1
-                verdict = (
-                    _Position(undecidable="ambiguous_facade")
-                    if ambiguous_facade
-                    else _boundary_type_verdict(
-                        annotation,
-                        resolution_module,
-                        contract,
-                        exports_by_module,
-                        imports_by_binding,
-                        classes_by_location,
-                    )
-                )
-                reason = verdict.undecidable
-                if reason is not None:
-                    detail = {
-                        "module": module,
-                        "qualified_name": qualified_name,
-                        "position": position,
-                        "annotation": annotation,
-                        "reason": reason,
-                        "occurrence": occurrence,
-                    }
-                    if verdict.path:
-                        detail["path"] = ".".join((position, *verdict.path))
-                        detail["nested_annotation"] = verdict.nested_annotation or annotation
-                    undecidable_positions.append(detail)
-                    positions_out.append(
-                        _boundary_type_position_record(
-                            rule,
-                            item,
-                            detail,
-                        )
-                    )
+        seen, undecidable_positions, rule_positions = _boundary_rule_positions(
+            rule,
+            ordered_symbols,
+            contract,
+            exports_by_module,
+            imports,
+            imports_by_binding,
+            classes_by_location,
+            uncertain_reexport_origins,
+        )
+        positions_out.extend(rule_positions)
         limit = _boundary_type_limit_record(rule, seen, undecidable_positions)
         if limit is not None:
             limits.append(limit)
+        limits.extend(
+            _unresolved_public_alias_routes(
+                rule,
+                symbols,
+                imports,
+                contract,
+                exports_by_module,
+                uncertain_reexport_origins,
+                scanned_modules,
+                stable_bindings_by_module or {},
+            )
+        )
     return sorted([*positions_out, *limits], key=lambda item: item["id"])
+
+
+def _boundary_rule_positions(
+    rule: BoundaryTypesRule,
+    ordered_symbols: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports: Sequence[RawRecord],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    uncertain_reexport_origins: UncertainReexportOrigins,
+) -> tuple[int, list[dict[str, object]], list[RawRecord]]:
+    undecidable_positions: list[dict[str, object]] = []
+    positions_out: list[RawRecord] = []
+    occurrences: dict[tuple[str, str], int] = {}
+    seen = 0
+    for item in ordered_symbols:
+        found = _facade_positions(
+            item, rule, contract, exports_by_module, imports, uncertain_reexport_origins
+        )
+        if found is None:
+            continue
+        module, qualified_name, positions, resolution_module, ambiguous_facade, _ = found
+        callable_key = (module, qualified_name)
+        occurrence = occurrences.get(callable_key, 0)
+        occurrences[callable_key] = occurrence + 1
+        details = _undecidable_declared_positions(
+            module,
+            qualified_name,
+            positions,
+            resolution_module,
+            ambiguous_facade,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            occurrence,
+        )
+        seen += len(positions)
+        undecidable_positions.extend(details)
+        positions_out.extend(
+            _boundary_type_position_record(rule, item, detail) for detail in details
+        )
+        selected = _selected_facade(module, qualified_name, resolution_module)
+        declared = _declared_facade_positions(
+            item, contract, exports_by_module, imports, uncertain_reexport_origins
+        )
+        if declared is None:
+            continue
+        uncertain = _uncertain_facade_position_records(
+            item, rule, declared[4], declared[2], selected, occurrences
+        )
+        for detail, record in uncertain:
+            seen += 1
+            undecidable_positions.append(detail)
+            positions_out.append(record)
+    return seen, undecidable_positions, positions_out
+
+
+def _undecidable_declared_positions(
+    module: str,
+    qualified_name: str,
+    positions: Sequence[tuple[str, str]],
+    resolution_module: str,
+    ambiguous_facade: bool,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    occurrence: int,
+) -> list[dict[str, object]]:
+    details: list[dict[str, object]] = []
+    for position, annotation in positions:
+        verdict = (
+            _Position(undecidable="ambiguous_facade")
+            if ambiguous_facade
+            else _boundary_type_verdict(
+                annotation,
+                resolution_module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+        )
+        reason = verdict.undecidable
+        if reason is None:
+            continue
+        detail: dict[str, object] = {
+            "module": module,
+            "qualified_name": qualified_name,
+            "position": position,
+            "annotation": annotation,
+            "reason": reason,
+            "occurrence": occurrence,
+        }
+        if verdict.path:
+            detail["path"] = ".".join((position, *verdict.path))
+            detail["nested_annotation"] = verdict.nested_annotation or annotation
+        details.append(detail)
+    return details
+
+
+def _selected_facade(
+    module: str, qualified_name: str, resolution_module: str
+) -> tuple[str, str, str]:
+    prefix = f"{module}."
+    selected_name = qualified_name.removeprefix(prefix)
+    return module, selected_name, resolution_module
 
 
 def _public_api_symbol(
@@ -2623,33 +2999,18 @@ def public_api_exposed_types(
     modules: Sequence[RawRecord],
     contract: ArchitectureContract,
 ) -> dict[str, list[str]]:
-    """Every `declarations.public_api` entry mapped to the non-builtin types its own signature
-    exposes and no declared entry already names, as `module:name` strings (AD-70) -- the
-    package-external twin of `boundary_types`, reading `_boundary_type_verdict`'s own `resolved`
-    field (AD-69) rather than a second, bare-name-only reading of the same annotations: a type
-    inside `tuple[X, ...]` or `list[X]` must be as visible here as it is to `boundary_types`, or
-    the two readings disagree on silence. `check.validation` compares this published answer
-    against the declared `public_api` set and resolves nothing itself (AD-2's open payload,
-    AD-4's one channel out of the analyzer).
+    """Map public entries to exposed types not already declared, by origin (AD-70).
 
-    An identifier is always the type's *origin*, `resolved`'s own pair -- the one name that is
-    true of it regardless of which module a consumer happens to reach it through. A declared
-    entry may name that same origin directly (`shop.model.entities:Order`, where `Order` is
-    defined) or name a facade that only re-exports it (`archkeel.api:ViolationRow`, defined in
-    `archkeel.ir.baseline`); both are legitimate promises for the same type, so a declared
-    entry's own name is resolved exactly the same way, through the one shared walk, to decide
-    which origin *it* names -- `declared_origins` below -- and an exposed type already covered
-    that way is left out rather than reported as a second, redundant promise.
-
-    A type whose origin module this scan never saw -- a builtin, a stdlib or a third-party type
-    -- is not part of the promise a *scanned* package can make about itself, so it is left out
-    here rather than reported as missing; `scanned_modules` is exactly `check._scanned_modules`'
-    own source, read here instead of derived a second time.
+    Reuse boundary_types' resolution so facade aliases and nested types have one meaning.
+    Unscanned external types are outside this package's publication promise. Validation
+    consumes this result without resolving annotations again (AD-4).
     """
     if not public_api:
         return {}
-    imports_by_binding, classes_by_location = boundary_type_indexes(symbols, imports)
     exports = exports_by_module(modules)
+    imports_by_binding, classes_by_location = boundary_type_indexes(
+        symbols, imports, contract, exports
+    )
     scanned_modules = frozenset(item["data"]["qualified_name"] for item in modules)
     declared_positions = {
         entry: _boundary_type_verdict(
@@ -2769,13 +3130,14 @@ def rule_violations(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     profile: Profile,
+    uncertain_reexport_origins: UncertainReexportOrigins | None = None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
     forbidden_matches = list(_forbidden_dependency_matches(imports, contract.rules, components))
     forbidden_rejected_ids = frozenset(item["id"] for _, item in forbidden_matches)
     boundary_violations, allowance_facts = _boundary_types_violations(
-        symbols, imports, contract, exports_by_module
+        symbols, imports, contract, exports_by_module, uncertain_reexport_origins or {}
     )
     return sorted(
         [
