@@ -57,6 +57,52 @@ def test_boundary_types_checks_a_function_at_its_reexport_definition(
     assert violation.data.get("qualified_name") == "sample.app.run"
 
 
+@pytest.mark.parametrize(
+    ("facade", "public_type", "field_type", "expected_violations"),
+    [
+        ("sample.app", "Request", "str", 0),
+        ("sample.app.api", "Request", "str", 0),
+        ("sample.app.api", "PublicRequest", "str", 0),
+        ("sample.app.api", None, "str", 1),
+        ("sample.app.api", "Request", "dict", 1),
+    ],
+    ids=("package", "ordinary", "renamed-type", "private-type", "broad-field"),
+)
+def test_reexported_type_uses_its_owners_declared_public_facade(
+    tmp_path: Path,
+    facade: str,
+    public_type: str | None,
+    field_type: str,
+    expected_violations: int,
+) -> None:
+    package = tmp_path / "sample/app"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "impl.py").write_text(
+        f"class Request:\n    metadata: {field_type}\n\n"
+        "def run() -> Request:\n    return Request()\n"
+    )
+    names = ["run"]
+    imports = "from .impl import run\n"
+    if public_type is not None:
+        names.append(public_type)
+        imports += f"from .impl import Request as {public_type}\n"
+    path = package / ("__init__.py" if facade == "sample.app" else "api.py")
+    path.write_text(imports + f"__all__ = {names!r}\n")
+    (tmp_path / "contract.json").write_text(json.dumps(_contract(facade)))
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    findings = trace_valid_violations(result.observation)
+    assert len(findings) == expected_violations
+    if expected_violations:
+        expected_reason = "does not declare" if public_type is None else "metadata"
+        assert expected_reason in findings[0].title
+    else:
+        assert not [item for item in result.observation.records("unknowns") or () if item.rule_ids]
+
+
 def test_boundary_types_uses_the_facade_in_the_rule_scope_when_reexported_twice(
     tmp_path: Path,
 ) -> None:
