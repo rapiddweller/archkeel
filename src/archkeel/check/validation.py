@@ -1502,7 +1502,7 @@ def inside_diagnostics(
     """AD-20: validate mounted contracts against parent scope and repository evidence.
 
     Local public lists govern sibling imports; the mounted component's public list remains
-    its outward interface. External-scope grants and inside budgets are not compared (AD-99).
+    its outward interface. Parent restrictions apply; external-scope grants are not compared.
     """
     diagnostics: list[Diagnostic] = []
     loaded = tree or _inside_contract_tree(root, config.contract, contract)
