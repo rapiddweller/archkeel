@@ -443,3 +443,62 @@ def test_public_route_does_not_infer_proof_from_missing_target_ownership(
         if "APP-TYPES-NOT-DICT" in record.rule_ids
     ]
     assert bool(unresolved) is unknown
+
+
+@pytest.mark.parametrize(
+    ("implementation", "unknown", "violations"),
+    [
+        ("Export = lambda value: value\n", True, 0),
+        ("def actual(value: dict) -> object:\n    return value\nExport = actual\n", True, 0),
+        ("Export = 42\ndel Export\n", True, 0),
+        ("class Export:\n    pass\nif enabled:\n    Export = lambda value: value\n", True, 0),
+        (
+            "Export = 42\ndef configure():\n    global Export\n"
+            "    Export = lambda value: value\nconfigure()\n",
+            True,
+            0,
+        ),
+        ("Export = 42\n", False, 0),
+        ("class Export:\n    pass\n", False, 0),
+        ("def Export(value: dict) -> object:\n    return value\n", False, 2),
+    ],
+    ids=(
+        "lambda",
+        "function-alias",
+        "deleted",
+        "conditional-rebinding",
+        "global-rebinding",
+        "stable-constant",
+        "stable-class",
+        "declared-function",
+    ),
+)
+def test_public_endpoint_needs_stable_kind_evidence(
+    tmp_path: Path, implementation: str, unknown: bool, violations: int
+) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from .impl import Export as constraints\n" + EXPORT + SAFE,
+        implementation=implementation,
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert len(result.observation.records("violations") or ()) == violations
+    undecided = [
+        record
+        for record in result.observation.records("unknowns") or ()
+        if "APP-TYPES-NOT-DICT" in record.rule_ids
+    ]
+    assert bool(undecided) is unknown
+    if unknown:
+        assert all(record.kind == "boundary_type_route" for record in undecided)
