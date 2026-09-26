@@ -800,9 +800,10 @@
 
   function renderStructure(view) {
     const cards = view.components.filter((card) => !card.library);
-    const area = (card) => opened?.module ? 1 + (card.members || []).length : Math.max(1, card.modules.length);
+    const count = (card) => opened?.module ? 1 + (card.members || []).length : card.modules.length;
+    const area = (card) => Math.max(1, count(card));
     const sorted = [...cards].sort((a, b) => area(b) - area(a) || a.label.localeCompare(b.label));
-    const mapped = sorted.slice(0, 20).map((card) => ({ card, area: area(card) }));
+    const mapped = sorted.slice(0, 20).map((card) => ({ card, area: area(card), count: count(card) }));
     const rectangles = mapped.length ? splitMap(mapped, 0, 0, 100, 100) : [];
     const unit = opened?.module ? "definitions and members" : "observed modules";
     const tiles = rectangles.map(({ item, x, y, width, height }) => {
@@ -812,12 +813,12 @@
         data-flow-card="${esc(card.label)}" aria-label="Open ${esc(card.label)}"
         aria-pressed="${selected?.type === "node" && selected.label === card.label}"
         style="left:${x}%;top:${y}%;width:${width}%;height:${height}%">
-        <b>${esc(label)}</b><small>${item.area} ${unit}</small></button>`;
+        <b>${esc(label)}</b><small>${item.count} ${unit}</small></button>`;
     }).join("");
     const all = sorted.map((card) => `<button type="button" data-flow-card="${esc(card.label)}"
       aria-pressed="${selected?.type === "node" && selected.label === card.label}">
       <span><code>${esc(card.display || card.label)}</code></span>
-      <small>${area(card)} ${unit}</small></button>`).join("");
+      <small>${count(card)} ${unit}</small></button>`).join("");
     const libraries = view.components.filter((card) => card.library).map((card) =>
       `<button type="button" data-flow-card="${esc(card.label)}"><span>${esc(card.display)}</span>
       <small>external library</small></button>`).join("");
@@ -1044,8 +1045,9 @@
         showOverview();
         return;
       }
-      const uses = level().edges.filter((e) => e.source === component.label);
-      const usedBy = level().edges.filter((e) => e.target === component.label);
+      const edges = fullLevel().edges;
+      const uses = edges.filter((e) => e.source === component.label);
+      const usedBy = edges.filter((e) => e.target === component.label);
       const relations = `<dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
         <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd>`;
       if (component.library) {
