@@ -23,7 +23,7 @@ It catches two failure modes that finding-only diffs miss:
   the graph became blinder.
 
 <p>
-  <img src="docs/assets/archkeel-component-flow.png" alt="Component flow with Violating edges only checked: five components, six dashed red violated edges and seven broken edge rules at this level" width="1000">
+  <img src="docs/assets/archkeel-component-flow.png" alt="Shop tour focused on app: five components and the json library, seven dashed red connections, eight broken edge rules, and explicit shown-versus-total counts" width="1000">
 </p>
 
 <sub>A real negative case from the <code>fixtures/F-architecture</code> tour:
@@ -31,7 +31,11 @@ It catches two failure modes that finding-only diffs miss:
 <code>DEP-STORE-NO-MONEY</code>. In the open HTML report, <strong>Violations only</strong> collapses
 secondary detail and leaves the verdict, failures, unknowns and evidence available; Component
 flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
-Both change the view, never the verdict or evidence.</sub>
+Both change the view, never the verdict or evidence. This capture focuses on <code>app</code>;
+<strong>All components and groups</strong> restores the unassigned module omitted by that focus.</sub>
+
+Modules without a unique declared owner remain reachable through a navigation-only
+<code>Unassigned modules</code> group; it does not create a component boundary or verdict.
 
 <p>
   <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
@@ -79,10 +83,11 @@ settles them with 3 `requires` entries, because absence forbids. The two levels 
 to one public surface, and the flow view opens the component into them.
 
 <p>
-  <img src="docs/assets/archkeel-shop-components.png" alt="Component flow of the clean shop sample: cli, app, render, store and model, all six edges teal, with the heaviest connections listed beside the graph" width="980">
+  <img src="docs/assets/archkeel-shop-components.png" alt="Clean shop sample: five components and the json library, seven connections, all twelve modules, with the heaviest connections listed beside the graph" width="980">
 </p>
 
-<sub>The five components. Every edge carries its import sites; teal means the contract allows it.
+<sub>The five components and their scoped <code>json</code> dependency. Every edge carries its
+import sites; teal means the contract allows it.
 <code>store</code> shows 7 modules against a level of 5 components — that is the claim.</sub>
 
 <p>
@@ -195,12 +200,18 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   and runtime provenance remain available beside the verdict.
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
+- **Nested flow stays inspectable.** Physical folders lead to every observed module, including
+  import-only package initializers. An inside connection stays observed unless an inside rule
+  decides it; no finding by itself is not a conformance claim. Structure and Review remain
+  keyboard-operable, and the diagram can restore its complete current scope with “All components
+  and groups”; visible and total counts disclose focus and threshold filtering.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
-  level, 25 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
-  and under `claims` in `--json`, while the HTML report lists the candidates. Statically proven
-  `Enum.MEMBER` uses in field annotations and defaults reference their enum class (AD-108). None
-  of these claims reaches an exit code.
+  level, 25 cross-component type fan-ins, 0 unread-binding candidates and 0 repetitions — in
+  the terminal and under `claims` in `--json`, while the HTML report lists the candidates.
+  Unread bindings are lexical candidates; the claim does not assess whether an interface requires
+  them. Statically proven `Enum.MEMBER` uses in field annotations and defaults reference their
+  enum class (AD-108). None of these claims reaches an exit code.
 - **Facade shape stays measured, not inferred.** The report shows declared export counts,
   re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
   width. These facts do not claim a barrel is complete (AD-88). A contract may set a target for

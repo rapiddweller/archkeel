@@ -244,6 +244,8 @@ def _requires_entries(component: ContractComponent) -> list[RecordData]:
         entries.append(
             {
                 "component": entry.component,
+                "rationale": entry.rationale,
+                "through": list(entry.through),
                 **({"decided_by": decided_by} if decided_by is not None else {}),
             }
         )

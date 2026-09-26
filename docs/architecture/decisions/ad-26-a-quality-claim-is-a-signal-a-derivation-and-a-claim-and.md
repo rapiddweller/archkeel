@@ -17,6 +17,10 @@ binding` is the second claim, and its signal is the `bindings` section, which re
 or local no expression in its own function reads. That question is settled inside one scope, so
 the claim is supported wherever the analyzer ran; what it cannot observe is how many bindings the
 collector set aside, so it reports the functions it examined as its denominator instead of
-inventing that number. On Archkeel itself it names nothing, because `ARG` and `RUF059` reject such
-a binding at lint time: a claim that stays empty on a clean repository is working, not missing.
-
+inventing that number. The collector skips leading-underscore names, `self` and `cls`, and
+parameters in methods of classes with any base, decorated functions, or empty bodies. The last
+three are syntactic heuristics, not proof of an override or structural conformance. The fact is
+lexical: it does not decide whether an implementation parameter is required by an interface or safe
+to remove. An empty candidate list means none were recorded, not that every parameter is read. On
+Archkeel itself it names nothing, because `ARG` and `RUF059` reject such a binding at lint time: a
+claim that stays empty on a clean repository is working, not missing.

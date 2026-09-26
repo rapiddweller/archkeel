@@ -586,14 +586,17 @@ existing meaning.
   had reported, and the remainder are public API used only by tests.
 
 `unread binding` is the second claim. Its signal is the `bindings` section, which records every
-parameter or local that no expression in its own function reads. Nothing is resolved across
-modules, so the claim is supported wherever the analyzer ran. It sets aside a name with a leading
-underscore, which is Python's own mark for a deliberately unused binding, `self` and `cls`, and
-the parameters of a method that overrides another or fills an empty stub, because something other
-than the body chose them.
+parameter or local whose name no expression in its own function reads. This is a lexical fact, not
+a test of whether removing the binding is safe: an implementation parameter may still be required
+by an interface. Nothing is resolved across modules, so the claim is supported wherever the
+analyzer ran. It sets aside a name with a leading underscore, which is Python's own mark for a
+deliberately unused binding, `self` and `cls`. It also skips parameters in methods of classes with
+any base, in decorated functions, and in empty function bodies. Those are syntactic heuristics; they
+do not prove that a method overrides another or satisfies a structural interface.
 
-- **Measurement:** candidates, and the functions examined beside them. The bindings set aside are
-  not counted, because the signal records only what it names.
+- **Measurement:** lexical candidates, and the functions examined beside them. The bindings set
+  aside are not counted, because the signal records only what it names. An empty list means no
+  candidates were recorded; it does not establish that every parameter is read.
 - **Determinism:** the candidate list is deterministic for one observation; it never becomes a
   verdict or an exit code.
 - **Blind spots:** a name bound by an import inside the function, by `except ... as` or by a

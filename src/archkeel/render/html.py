@@ -8,8 +8,10 @@ from __future__ import annotations
 import base64
 import html
 import json
+import re
 from dataclasses import replace
 from importlib.resources import files
+from typing import TypeAlias
 
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -18,11 +20,22 @@ from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_lo
 from archkeel.ir.interfaces import (
     InterfaceEdge,
     InterfaceName,
+    component_owners,
     interface_edges,
     interface_profile,
+    owner_of,
 )
+from archkeel.ir.levels import inside_levels
 from archkeel.ir.measurements import Measurements
-from archkeel.ir.model import CallRow, Diagnostic, Observation, Record, RunResult
+from archkeel.ir.model import (
+    CallRow,
+    Diagnostic,
+    Observation,
+    Record,
+    RecordData,
+    RunResult,
+    in_scope,
+)
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.structure import (
     InsideSizes,
@@ -32,7 +45,7 @@ from archkeel.ir.structure import (
 )
 from archkeel.ir.type_fanin import MINIMUM_CROSSINGS, TypeFanin, type_fanin
 
-from .flow import FlowData, FlowInnerEdge, FlowInside, build_flow
+from .flow import FlowComponent, FlowData, FlowEdge, FlowInnerEdge, FlowInside, build_flow
 from .summary import (
     Comparison,
     VerdictRow,
@@ -137,13 +150,15 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
     rows = "".join(_record_row(item, observation) for item in items)
     return f"""
     <section class="report-section">
-      <h2>{_text(title)}</h2>
+      <h2>{_text(title)} · {len(items)}</h2>
+      <p>Recorded analysis limits, not declared-rule violations.</p>
+      <details class="report-evidence"><summary>Inspect all {len(items)} records</summary>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Fingerprint</th><th>Finding</th><th>Subjects</th><th>Evidence</th></tr></thead>
           <tbody>{rows}</tbody>
         </table>
-      </div>
+      </div></details>
     </section>"""
 
 
@@ -213,13 +228,12 @@ def _interface_name_line(item: InterfaceName) -> str:
 
 
 def _interface_edge_row(edge: InterfaceEdge) -> str:
-    names = "<br>".join(_interface_name_line(item) for item in edge.names)
+    names = "".join(f"<li>{_interface_name_line(item)}</li>" for item in edge.names)
     return (
-        "<tr>"
-        f"<td><code>{_text(edge.source)} → {_text(edge.target)}</code></td>"
-        f'<td class="numeric">{len(edge.names)}</td>'
-        f"<td>{names}</td>"
-        "</tr>"
+        '<details class="connection-row">'
+        f"<summary><code>{_text(edge.source)} → {_text(edge.target)}</code>"
+        f"<span>{len(edge.names)} imported names</span></summary>"
+        f"<ul>{names}</ul></details>"
     )
 
 
@@ -230,11 +244,15 @@ def _interfaces_section(observation: Observation) -> str:
     else:
         rows = "".join(_interface_edge_row(edge) for edge in edges)
         body = (
-            '<div class="table-wrap"><table><thead><tr><th>Edge</th>'
-            '<th class="numeric">Names</th><th>Interface</th></tr></thead>'
-            f"<tbody>{rows}</tbody></table></div>"
+            f'<details class="report-evidence"><summary>All {len(edges)} component pairs · '
+            f"{sum(len(edge.names) for edge in edges)} imported names</summary>"
+            f'<div class="connection-list">{rows}</div></details>'
         )
-    return f'<section class="report-section"><h2>Component communication</h2>{body}</section>'
+    return (
+        '<section class="report-section"><h2>Cross-component imports</h2>'
+        "<p>Observed imports, not runtime calls or proof of a declared public interface.</p>"
+        f"{body}</section>"
+    )
 
 
 def _interface_profile_section(observation: Observation) -> str:
@@ -273,23 +291,24 @@ def _interface_profile_section(observation: Observation) -> str:
     )
     return f"""
     <section class="report-section">
-      <h2>Declared facade measurements</h2>
+      <h2>Public API measurements</h2>
       <p>Observed from declared facades and imports: exported-name count, re-exports, names
       defined in the facade, unused re-exports, consumers per exported name and coupling width.
       They do not claim a barrel is complete (AD-88); <code>validate</code> holds declared
       facade and coupling budgets to them (AD-99).</p>
-      <h3>Facades</h3>
+      <details class="report-evidence"><summary>Facades · {len(profile.facades)}</summary>
       <div class="table-wrap"><table><thead><tr><th>Component</th><th>Module</th>
       <th class="numeric">Exports</th><th class="numeric">Re-exports</th><th>Defined</th>
-      <th>Unused re-exports</th></tr></thead><tbody>{facade_rows}</tbody></table></div>
-      <h3>Export consumers</h3>
+      <th>Unused re-exports</th></tr></thead><tbody>{facade_rows}</tbody></table></div></details>
+      <details class="report-evidence"><summary>Export consumers · {len(profile.exports)}</summary>
       <div class="table-wrap"><table><thead><tr><th>Component</th><th>Export</th>
       <th class="numeric">Consumers</th><th>Components</th></tr></thead>
-      <tbody>{usage_rows}</tbody></table></div>
-      <h3>Coupling width</h3>
+      <tbody>{usage_rows}</tbody></table></div></details>
+      <details class="report-evidence">
+      <summary>Coupling width · {len(profile.coupling)} pairs</summary>
       <div class="table-wrap"><table><thead><tr><th>Component pair</th>
       <th class="numeric">Distinct names</th><th>Names</th></tr></thead>
-      <tbody>{coupling_rows}</tbody></table></div>
+      <tbody>{coupling_rows}</tbody></table></div></details>
     </section>
     """
 
@@ -299,7 +318,9 @@ def _within(qualified: str, module: str) -> str:
     return qualified[len(module) + 1 :] if qualified.startswith(f"{module}.") else qualified
 
 
-def _inner_edge_payload(edges: tuple[FlowInnerEdge, ...]) -> list[dict[str, object]]:
+def _inner_edge_payload(
+    edges: tuple[FlowInnerEdge, ...], sites: dict[tuple[str, ...], set[str]]
+) -> list[dict[str, object]]:
     return [
         {
             "source": edge.source,
@@ -307,12 +328,17 @@ def _inner_edge_payload(edges: tuple[FlowInnerEdge, ...]) -> list[dict[str, obje
             "import_sites": edge.import_sites,
             "rule_ids": list(edge.rule_ids),
             "state": edge.state,
+            "sites": sorted(sites.get(("module", edge.source, edge.target), ()))[:3],
         }
         for edge in edges
     ]
 
 
-def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
+def _inside_payload(
+    inside: FlowInside | None,
+    sites: dict[tuple[str, ...], set[str]],
+    parent: str,
+) -> dict[str, object] | None:
     """Serialise a declared inside the way `level()` consumes it, or None when none exists."""
     if inside is None:
         return None
@@ -322,7 +348,7 @@ def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
                 "label": card.label,
                 "modules": list(card.modules),
                 "public": list(card.public) if card.public is not None else None,
-                "inner_edges": _inner_edge_payload(card.inner_edges),
+                "inner_edges": _inner_edge_payload(card.inner_edges, sites),
             }
             for card in inside.components
         ],
@@ -333,6 +359,7 @@ def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
                 "import_sites": edge.import_sites,
                 "rule_ids": list(edge.rule_ids),
                 "state": edge.state,
+                "sites": sorted(sites.get(("inside", parent, edge.source, edge.target), ()))[:3],
             }
             for edge in inside.edges
         ],
@@ -340,63 +367,383 @@ def _inside_payload(inside: FlowInside | None) -> dict[str, object] | None:
     }
 
 
+def _flow_sites(observation: Observation) -> dict[tuple[str, ...], set[str]]:
+    evidence = {item.id: f"{item.file}:{item.line}" for item in observation.evidence}
+    owners = component_owners(observation)
+    inside_owners = {
+        level.parent: {module: card.label for card in level.components for module in card.modules}
+        for level in inside_levels(observation)
+    }
+    sites: dict[tuple[str, ...], set[str]] = {}
+    for item in observation.records("imports") or ():
+        source = item.data.get("source_module")
+        target = item.data.get("target_module")
+        if not isinstance(source, str) or not isinstance(target, str):
+            continue
+        locations = {evidence[key] for key in item.evidence_ids if key in evidence}
+        module_pair = ("module", source, target)
+        sites[module_pair] = sites.get(module_pair, set()) | locations
+        source_owner = owner_of(source, owners)
+        target_owner = owner_of(target, owners)
+        if source_owner and target_owner:
+            pair = ("component", source_owner, target_owner)
+            sites[pair] = sites.get(pair, set()) | locations
+        for parent, level in inside_owners.items():
+            if source in level and target in level:
+                inside_pair = ("inside", parent, level[source], level[target])
+                sites[inside_pair] = sites.get(inside_pair, set()) | locations
+    return sites
+
+
+def _flow_requires(record: Record | None) -> list[dict[str, object]]:
+    if record is None:
+        return []
+    entries = record.data.get("requires")
+    if not isinstance(entries, tuple):
+        return []
+    return [
+        {
+            "component": entry.get("component"),
+            "through": entry.get("through") or (),
+            "rationale": entry.get("rationale"),
+            "decided_by": entry.get("decided_by"),
+        }
+        for entry in entries
+        if isinstance(entry, RecordData)
+    ]
+
+
+def _flow_modules_payload(flow: FlowData) -> dict[str, object]:
+    # Symbol names are relative to the module that keys them; repeating the prefix on
+    # every card and edge would multiply a large report payload.
+    return {
+        name: {
+            "symbols": [
+                {
+                    "name": _within(symbol.name, name),
+                    "kind": symbol.kind,
+                    "visibility": symbol.visibility,
+                    "members": list(symbol.members),
+                }
+                for symbol in module.symbols
+            ],
+            "edges": [
+                {"source": _within(edge.source, name), "target": _within(edge.target, name)}
+                for edge in module.edges
+            ],
+            "exports": list(module.exports),
+            "imports": list(module.imports),
+        }
+        for name, module in sorted(flow.modules.items())
+    }
+
+
+def _library_imports(observation: Observation, dependency: str) -> dict[str, list[Record]]:
+    owners = component_owners(observation)
+    matching = [
+        (owner_of(source, owners), item)
+        for item in observation.records("imports") or ()
+        if isinstance(source := item.data.get("source_module"), str)
+        and isinstance(target := item.data.get("target_module"), str)
+        and in_scope(target, dependency)
+    ]
+    return {
+        owner: [item for source, item in matching if source == owner]
+        for owner in sorted({source for source, _ in matching if source is not None})
+    }
+
+
+def _library_scope_rules(scopes: list[Record], evidence: dict[str, str]) -> list[dict[str, object]]:
+    rules: list[dict[str, object]] = []
+    for scope in scopes:
+        allowed_sources = scope.data.get("allowed_sources")
+        exact_sources = scope.data.get("exact_sources")
+        rules.append(
+            {
+                "rule_id": scope.id,
+                "rationale": scope.data.get("rationale"),
+                "decided_by": scope.data.get("decided_by"),
+                "provenance": list(scope.provenance),
+                "allowed_sources": [value for value in allowed_sources if isinstance(value, str)]
+                if isinstance(allowed_sources, tuple)
+                else [],
+                "exact_sources": [value for value in exact_sources if isinstance(value, str)]
+                if isinstance(exact_sources, tuple)
+                else [],
+                "evidence": sorted(evidence[key] for key in scope.evidence_ids if key in evidence),
+            }
+        )
+    return sorted(rules, key=lambda rule: str(rule["rule_id"]))
+
+
+def _library_edge(
+    source: str,
+    items: list[Record],
+    label: str,
+    scope_rules: list[dict[str, object]],
+    violated_imports: set[tuple[str, str]],
+    evidence: dict[str, str],
+) -> dict[str, object]:
+    broken_rules = [
+        rule
+        for rule in scope_rules
+        if any((item.id, rule["rule_id"]) in violated_imports for item in items)
+    ]
+    return {
+        "source": source,
+        "target": label,
+        "import_sites": len(items),
+        "rule_ids": [rule["rule_id"] for rule in broken_rules],
+        "state": "violation" if broken_rules else "conforms",
+        "sites": sorted(
+            {evidence[key] for item in items for key in item.evidence_ids if key in evidence}
+        )[:3],
+        "requirement": {},
+        "scope": {"rules": scope_rules},
+        "library": True,
+        "names": [],
+    }
+
+
+def _flow_libraries(
+    observation: Observation,
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    scopes_by_dependency: dict[str, list[Record]] = {}
+    for item in observation.records("declarations") or ():
+        dependency = item.data.get("dependency")
+        if (
+            item.kind == "external_dependency_scope"
+            and item.data.get("parent_id") is None
+            and isinstance(dependency, str)
+        ):
+            scopes_by_dependency[dependency] = [
+                *scopes_by_dependency.get(dependency, []),
+                item,
+            ]
+    evidence = {item.id: f"{item.file}:{item.line}" for item in observation.evidence}
+    violated_imports = {
+        (fact_id, rule_id)
+        for item in observation.records("violations") or ()
+        for fact_id in item.fact_ids
+        for rule_id in item.rule_ids
+    }
+    libraries: list[dict[str, object]] = []
+    edges: list[dict[str, object]] = []
+    for dependency, scopes in sorted(scopes_by_dependency.items()):
+        grouped = _library_imports(observation, dependency)
+        if not grouped:
+            continue
+        label = f"library:{dependency}"
+        scope_rules = _library_scope_rules(scopes, evidence)
+        library = {
+            "label": label,
+            "display": dependency,
+            "library": True,
+            "modules": [],
+            "public": None,
+            "import_sites": sum(len(grouped[source]) for source in grouped),
+            "rules": scope_rules,
+        }
+        if len(scope_rules) == 1:
+            rule = scope_rules[0]
+            for key in (
+                "rationale",
+                "decided_by",
+                "provenance",
+                "allowed_sources",
+                "exact_sources",
+                "evidence",
+            ):
+                library[key] = rule[key]
+            library["rule_id"] = rule["rule_id"]
+        libraries.append(library)
+        for source, items in sorted(grouped.items()):
+            edges.append(
+                _library_edge(source, items, label, scope_rules, violated_imports, evidence)
+            )
+    return sorted(libraries, key=lambda item: str(item["label"])), edges
+
+
+def _flow_component_payload(
+    component: FlowComponent,
+    sites: dict[tuple[str, ...], set[str]],
+    requires: dict[str, list[dict[str, object]]],
+) -> dict[str, object]:
+    return {
+        "label": component.label,
+        "modules": list(component.modules),
+        "public": list(component.public) if component.public is not None else None,
+        "requires": requires.get(component.label, []),
+        "inner_edges": _inner_edge_payload(component.inner_edges, sites),
+        "inside": _inside_payload(component.inside, sites, component.label),
+    }
+
+
+def _flow_edge_payload(
+    edge: FlowEdge,
+    sites: dict[tuple[str, ...], set[str]],
+    requires: dict[str, list[dict[str, object]]],
+    names_by_pair: dict[tuple[str, str], tuple[InterfaceName, ...]],
+) -> dict[str, object]:
+    return {
+        "source": edge.source,
+        "target": edge.target,
+        "import_sites": edge.import_sites,
+        "rule_ids": list(edge.rule_ids),
+        "state": edge.state,
+        "sites": sorted(sites.get(("component", edge.source, edge.target), ()))[:3],
+        "requirement": next(
+            (entry for entry in requires.get(edge.source, []) if entry["component"] == edge.target),
+            {},
+        ),
+        "names": [
+            {
+                "name": name.name,
+                "kind": name.kind,
+                "params": list(name.parameters),
+                "returns": name.returns,
+            }
+            for name in names_by_pair.get((edge.source, edge.target), ())
+        ],
+    }
+
+
+def _unique_flow_label(label: str, occupied: set[str]) -> tuple[str, set[str]]:
+    candidate = label
+    suffix = 2
+    while candidate in occupied:
+        candidate = f"{label} ({suffix})"
+        suffix += 1
+    return candidate, occupied | {candidate}
+
+
+def _collision_free_library_labels(
+    components: tuple[FlowComponent, ...],
+    libraries: list[dict[str, object]],
+    edges: list[dict[str, object]],
+    has_unassigned: bool,
+) -> str | None:
+    occupied = {component.label for component in components}
+    for library in libraries:
+        old = str(library["label"])
+        new, occupied = _unique_flow_label(old, occupied)
+        if new != old:
+            library["label"] = new
+            for edge in edges:
+                if edge["target"] == old:
+                    edge["target"] = new
+    if has_unassigned:
+        label, _ = _unique_flow_label("Unassigned modules", occupied)
+        return label
+    return None
+
+
 def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
     names_by_pair = {
         (edge.source, edge.target): edge.names for edge in interface_edges(observation)
     }
-    return {
-        "components": [
-            {
-                "label": component.label,
-                "modules": list(component.modules),
-                "public": list(component.public) if component.public is not None else None,
-                "inner_edges": _inner_edge_payload(component.inner_edges),
-                "inside": _inside_payload(component.inside),
-            }
-            for component in flow.components
-        ],
-        "edges": [
-            {
-                "source": edge.source,
-                "target": edge.target,
-                "import_sites": edge.import_sites,
-                "rule_ids": list(edge.rule_ids),
-                "state": edge.state,
-                "names": [
-                    {
-                        "name": name.name,
-                        "kind": name.kind,
-                        "params": list(name.parameters),
-                        "returns": name.returns,
-                    }
-                    for name in names_by_pair.get((edge.source, edge.target), ())
-                ],
-            }
-            for edge in flow.edges
-        ],
-        # Symbol names are stored relative to the module that keys them: the prefix is already
-        # the key, and repeating it on 466 cards and both ends of 596 edges tripled the payload.
-        "modules": {
-            name: {
-                "symbols": [
-                    {
-                        "name": _within(symbol.name, name),
-                        "kind": symbol.kind,
-                        "visibility": symbol.visibility,
-                        "members": list(symbol.members),
-                    }
-                    for symbol in module.symbols
-                ],
-                "edges": [
-                    {"source": _within(edge.source, name), "target": _within(edge.target, name)}
-                    for edge in module.edges
-                ],
-                "exports": list(module.exports),
-                "imports": list(module.imports),
-            }
-            for name, module in sorted(flow.modules.items())
-        },
+    declarations = observation.records("declarations") or ()
+    by_component = {
+        record.title: record for record in declarations if record.kind == "component_responsibility"
     }
+    rules = {
+        record.id: {
+            "rationale": record.data.get("rationale"),
+            "decided_by": record.data.get("decided_by"),
+        }
+        for record in declarations
+        if record.data.get("rationale") is not None
+    }
+    sites = _flow_sites(observation)
+    requires = {label: _flow_requires(record) for label, record in by_component.items()}
+    libraries, library_edges = _flow_libraries(observation)
+    unassigned_label = _collision_free_library_labels(
+        flow.components, libraries, library_edges, bool(flow.unassigned_modules)
+    )
+
+    return {
+        "rules": rules,
+        "libraries": libraries,
+        "components": [
+            _flow_component_payload(component, sites, requires) for component in flow.components
+        ],
+        "unassigned": (
+            {
+                "label": unassigned_label,
+                "display": "Unassigned modules",
+                "modules": list(flow.unassigned_modules),
+                "public": None,
+                "requires": [],
+                "inner_edges": _inner_edge_payload(flow.unassigned_edges, sites),
+                "inside": None,
+                "navigation_only": True,
+            }
+            if flow.unassigned_modules
+            else None
+        ),
+        "edges": [_flow_edge_payload(edge, sites, requires, names_by_pair) for edge in flow.edges]
+        + library_edges,
+        "modules": _flow_modules_payload(flow),
+    }
+
+
+_FLOW_GUIDE = """
+      <details class="flow-how-to-read"><summary>How to read this report</summary>
+        <p>Level 2 shows declared components. If modules have no unique declared owner, an
+        “Unassigned modules” card provides navigation only; it is not a component or a boundary.
+        A circle marks a provided interface; a socket
+        marks a declared dependency. A ball-and-socket on an arrow marks an observed use
+        narrowed to a specific interface by <code>through</code>. Arrows are observed imports
+        from user to provider, not every dependency the contract permits. Teal conforms,
+        red breaks a rule, amber needs a decision, and grey shows imports inside a component.
+        A <code>«library»</code> box and dashed teal arrow show observed use of a scoped
+        external dependency; a forbidden use is red.
+        The diagram focuses one box and its direct connections at a time; all violations
+        at that level remain visible. Choose another focus from the menu. Select a box twice
+        for level 3: physical package folders and modules inside it.
+        Folders are not declared architectural boundaries. Open a module for level 4 symbols.
+        Use the breadcrumb to go back. Hover or select a connection for its evidence. Level 1,
+        interfaces between repositories, is unavailable because this observation contains
+        no cross-repository interface contract. The import evidence below works without
+        JavaScript.</p>
+      </details>
+"""
+
+
+_FLOW_SVG = """
+<svg id="flow-graph" class="flow-graph" role="group" aria-label="Component flow diagram">
+  <defs>
+    <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
+         line: a heavy edge grew a 26px head, a light one 8px, so the size read as
+         weight instead of direction. userSpaceOnUse keeps every head the same. -->
+    <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+    <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+    <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+    <marker id="flow-arrow-observed" class="flow-arrow observed" viewBox="0 0 8 8"
+            refX="6" refY="4" markerWidth="8" markerHeight="8"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0,0.5 L7,4 L0,7.5 z"></path>
+    </marker>
+  </defs>
+  <g class="flow-viewport">
+    <g class="flow-edges"></g>
+    <g class="flow-chips"></g>
+    <g class="flow-nodes"></g>
+    <g class="flow-empty"></g>
+  </g>
+</svg>"""
 
 
 def _flow_section(observation: Observation) -> str:
@@ -410,63 +757,37 @@ def _flow_section(observation: Observation) -> str:
     return f"""
     <section class="report-section flow-section" aria-labelledby="flow-heading">
       <h2 id="flow-heading">Component flow</h2>
-      <p>Component cards and the observed edges between them. Every edge is drawn at one
-        width and carries a label: the rule it breaks, or the number of import sites that
-        cross it. An arrow and a travelling pulse run from the importer to the imported. Red
-        breaks a declared rule and the label names it; teal conforms; amber is undecided, a
-        decision the contract still owes; grey is observed inside a component, where none is
-        owed (AD-24b). This view needs JavaScript; the table below lists the same crossings
-        for print and no-script use.</p>
+      {_FLOW_GUIDE}
       <div id="flow" class="flow">
-        <div class="flow-toolbar">
+        <nav class="flow-views" aria-label="Architecture views" hidden>
+          <button type="button" data-flow-view="diagram" aria-pressed="true">Diagram</button>
+          <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
+          <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
+        </nav>
+        <div class="flow-toolbar" hidden>
+          <label class="flow-diagram-control" for="flow-focus">Focus
+            <select id="flow-focus" class="flow-focus"></select>
+          </label>
           <label class="flow-violation-focus" for="flow-violations-only" hidden>
             <input id="flow-violations-only" class="flow-violations-only" type="checkbox"
                    aria-controls="flow-graph">
             Violating edges only
           </label>
-          <label for="flow-threshold-input">Hide edges below
+          <label class="flow-diagram-control" for="flow-threshold-input">Hide edges below
             <output id="flow-threshold-value" class="flow-threshold-value">≥ 0 import sites</output>
           </label>
-          <input id="flow-threshold-input" class="flow-threshold" type="range" min="0" value="0">
+          <input id="flow-threshold-input" class="flow-threshold flow-diagram-control"
+                 type="range" min="0" value="0">
           <button type="button" class="flow-back" hidden>Back to components</button>
-          <button type="button" class="flow-fit"
+          <nav class="flow-breadcrumb" aria-label="Diagram breadcrumb"></nav>
+          <button type="button" class="flow-fit flow-diagram-control"
             title="Lay the cards out again and fit them into view">Arrange</button>
         </div>
-        <div class="flow-canvas">
-          <svg id="flow-graph" class="flow-graph" role="group"
-               aria-label="Component flow diagram">
-            <defs>
-              <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
-                   line: a heavy edge grew a 26px head, a light one 8px, so the size read as
-                   weight instead of direction. userSpaceOnUse keeps every head the same. -->
-              <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-              <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-              <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-              <marker id="flow-arrow-observed" class="flow-arrow observed" viewBox="0 0 8 8"
-                      refX="6" refY="4" markerWidth="8" markerHeight="8"
-                      markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                <path d="M0,0.5 L7,4 L0,7.5 z"></path>
-              </marker>
-            </defs>
-            <g class="flow-viewport">
-              <g class="flow-edges"></g>
-              <g class="flow-chips"></g>
-              <g class="flow-nodes"></g>
-              <g class="flow-empty"></g>
-            </g>
-          </svg>
+        <div class="flow-layout">
+          <div class="flow-canvas">
+            {_FLOW_SVG}
+          </div>
+          <div class="flow-alternative" hidden></div>
           <aside class="flow-inspector" aria-label="Selection details"></aside>
         </div>
         <div class="flow-legend" aria-label="Legend"></div>
@@ -541,10 +862,48 @@ def _section_inventory(observation: Observation | None) -> str:
         f'<td class="numeric">{len(section.records)}</td></tr>'
         for section in observation.sections
     )
+    modules = sorted(
+        name
+        for item in observation.records("modules") or ()
+        if isinstance(name := item.data.get("qualified_name"), str)
+    )
+    module_tree = (
+        f"<details><summary>Observed module tree · {len(modules)} modules</summary>"
+        f"{_module_tree_html(modules)}</details>"
+        if modules
+        else ""
+    )
     return (
         '<div class="table-wrap"><table><thead><tr><th>ArchitectureIR section</th>'
         f'<th class="numeric">Records</th></tr></thead><tbody>{rows}</tbody></table></div>'
+        f"{module_tree}"
     )
+
+
+ModuleTree: TypeAlias = dict[str, "ModuleTree"]
+
+
+def _render_module_tree(branch: ModuleTree) -> str:
+    items = []
+    for part, children in sorted(branch.items()):
+        label = f"<code>{_text(part)}</code>"
+        items.append(
+            f"<li><details><summary>{label}</summary>{_render_module_tree(children)}</details></li>"
+            if children
+            else f"<li>{label}</li>"
+        )
+    return f'<ul class="inventory-module-tree">{"".join(items)}</ul>'
+
+
+def _module_tree_html(modules: list[str]) -> str:
+    tree: ModuleTree = {}
+    for module in modules:
+        branch = tree
+        for part in re.split(r"\.", module):
+            if part not in branch:
+                branch[part] = {}
+            branch = branch[part]
+    return _render_module_tree(tree)
 
 
 def _compatibility_migration_work(observation: Observation) -> str:
@@ -558,10 +917,10 @@ def _compatibility_migration_work(observation: Observation) -> str:
     )
     if not modules:
         return ""
-    items = "".join(f"<li><code>{_text(module)}</code></li>" for module in modules)
     return (
         '<section class="report-section"><h2>Compatibility migration work</h2>'
-        f"<p>{len(modules)} migration shim(s) remain.</p><ul>{items}</ul></section>"
+        f"<p>{len(modules)} migration shim(s) remain.</p>"
+        f"{_module_tree_html(modules)}</section>"
     )
 
 
@@ -664,6 +1023,16 @@ def render_html(
         if architecture_href is not None
         else "Canonical architecture.json is unavailable."
     )
+    scope_note = (
+        '<p class="report-scope"><strong>One repository snapshot.</strong> This report checks '
+        "declared rules, not change against an earlier revision or runtime behavior. "
+        f"{len(unknowns or ())} recorded analysis limits; "
+        f"{observation.coverage.calls_unresolved} of "
+        f"{observation.coverage.calls_analyzed} calls unresolved. "
+        "These counts are not declared-rule violations.</p>"
+        if observation is not None and not focused
+        else ""
+    )
     content = f"""
     <section class="report-heading">
       <span class="eyebrow">Repository observation</span>
@@ -684,6 +1053,7 @@ def render_html(
       <h2 id="verdicts-heading">Independent verdicts</h2>
       <div class="verdict-grid">{verdicts}</div>
     </section>
+    {scope_note}
     <section class="report-section">
       <h2>Check evidence</h2>
       <h3>Failures</h3><ul class="failure-list">{failures}</ul>
@@ -695,12 +1065,14 @@ def render_html(
     <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>
     {unknowns_html}
     {migration_work_html}
-    <div id="report-secondary-detail" data-secondary-detail>
+    <details id="report-secondary-detail" data-secondary-detail
+             class="report-section report-evidence">
+      <summary>More measurements and review claims</summary>
       <section class="report-section"><h2>Measurements</h2>{measurements_html}</section>
       <section class="report-section"><h2>Coverage</h2>{coverage_html}</section>
       {structure_html}
       {claims_html}
-    </div>
+    </details>
     <section class="report-section">
       <h2>Complete ArchitectureIR inventory</h2>
       <p>{raw_link}. The JSON remains the source for complete records and evidence.</p>
@@ -858,12 +1230,13 @@ def _binding_claim_body(claim: BindingReads) -> str:
     if claim.status == "UNKNOWN":
         return (
             "<p>Not available: this observation carries no binding signal, so nothing here can "
-            "say which parameter or local its own function never reads.</p>"
+            "list which parameter or local the collector found unread.</p>"
         )
     if not claim.candidates:
         return (
-            f"<p>None: across {claim.functions} functions and methods, every parameter and local "
-            "is read where it is bound.</p>"
+            f"<p>None recorded: no unread-binding candidates across {claim.functions} functions "
+            "and methods. This does not establish that every unlisted binding is read; removal "
+            "safety is not assessed.</p>"
         )
     rows = "".join(
         f"<tr><td><code>{_text(item.owner)}</code></td><td><code>{_text(item.name)}</code></td>"
@@ -871,10 +1244,8 @@ def _binding_claim_body(claim: BindingReads) -> str:
         for item in claim.candidates
     )
     return f"""
-      <p>{len(claim.candidates)} bindings across {claim.functions} functions and methods are never
-      read where they are bound. A name with a leading underscore, <code>self</code>,
-      <code>cls</code> and the parameters of an override or an empty stub are set aside, so these
-      are candidates for review, never a verdict.</p>
+      <p>Code in these functions does not read the listed names ({len(claim.candidates)}). A
+      parameter may still be required by an interface; review before removing it.</p>
       <table class="data-table"><thead><tr><th>Function</th><th>Name</th><th>Binding</th></tr>
       </thead><tbody>{rows}</tbody></table>
 """
@@ -976,7 +1347,7 @@ def _claims(observation: Observation) -> str:
       {_inside_claim_body(oversized_insides(observation))}
     </section>
     <section class="report-section">
-      <h2>Review claim: bindings nobody reads</h2>
+      <h2>Review candidates: unread parameters and locals</h2>
       {_binding_claim_body(unread_bindings(observation))}
     </section>
     <section class="report-section">
