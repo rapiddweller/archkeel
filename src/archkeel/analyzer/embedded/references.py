@@ -17,7 +17,7 @@ from archkeel.ir.model import EvidenceClass, stable_id
 
 from .records import RawEvidence, RawRecord, classified
 from .resolve import SymbolIndex, dotted_expression, resolve_name
-from .source import ParsedModule, add_evidence, annotation_text, location
+from .source import ParsedModule, add_evidence, annotation_text, location, own_scope
 
 
 class ReferenceCollector(ast.NodeVisitor):
@@ -35,18 +35,68 @@ class ReferenceCollector(ast.NodeVisitor):
         self.items: list[RawRecord] = []
         self.class_stack: list[str] = []
         self.scope_stack: list[str] = [module.module]
+        self.shadowed_names: list[frozenset[str]] = []
+
+    @staticmethod
+    def _target_names(node: ast.AST) -> set[str]:
+        return {
+            child.id
+            for child in ast.walk(node)
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
+        }
+
+    @classmethod
+    def _class_bound_names(cls, node: ast.ClassDef) -> frozenset[str]:
+        names: set[str] = set()
+        for statement in node.body:
+            if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                names.add(statement.name)
+            elif isinstance(statement, ast.Assign):
+                for target in statement.targets:
+                    names.update(cls._target_names(target))
+            elif isinstance(statement, ast.AnnAssign | ast.AugAssign):
+                names.update(cls._target_names(statement.target))
+            elif isinstance(statement, ast.Import):
+                names.update(alias.asname or alias.name.split(".")[0] for alias in statement.names)
+            elif isinstance(statement, ast.ImportFrom):
+                names.update(alias.asname or alias.name for alias in statement.names)
+        return frozenset(names)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         qualname = f"{self.scope_stack[-1]}.{node.name}"
+        for child in ast.iter_child_nodes(node):
+            if child not in node.body:
+                self.visit(child)
         self.class_stack.append(qualname)
         self.scope_stack.append(qualname)
-        self.generic_visit(node)
+        self.shadowed_names.append(self._class_bound_names(node))
+        for statement in node.body:
+            self.visit(statement)
+        self.shadowed_names.pop()
         self.scope_stack.pop()
         self.class_stack.pop()
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        for child in ast.iter_child_nodes(node):
+            if child not in node.body:
+                self.visit(child)
+
+        arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+        if node.args.vararg:
+            arguments.append(node.args.vararg)
+        if node.args.kwarg:
+            arguments.append(node.args.kwarg)
+        bound_names = {argument.arg for argument in arguments}
+        bound_names.update(
+            child.id
+            for child in own_scope(node)
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
+        )
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
-        self.generic_visit(node)
+        self.shadowed_names.append(frozenset(bound_names))
+        for statement in node.body:
+            self.visit(statement)
+        self.shadowed_names.pop()
         self.scope_stack.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -109,23 +159,24 @@ class ReferenceCollector(ast.NodeVisitor):
 
     def _enum_member_class(self, node: ast.expr) -> str | None:
         """Resolve only a member listed on one statically bound enum class."""
+        if not isinstance(node, ast.Attribute):
+            return None
         dotted = dotted_expression(node)
         if dotted is None:
             return None
         parts = dotted.split(".")
         if len(parts) < 2:
             return None
-        binding = self.module.aliases.get(parts[0])
-        candidates = (
-            (".".join([binding.target, *parts[1:-1]]),)
-            if binding
-            else (".".join([self.module.module, *parts[:-1]]), ".".join(parts[:-1]))
+        if any(parts[0] in names for names in self.shadowed_names):
+            return None
+        status, targets, _, _ = resolve_name(
+            node.value, module=self.module, index=self.index, class_stack=self.class_stack
         )
-        for enum_name in candidates:
-            members = self.index.enum_members.get(enum_name)
-            if members is not None and parts[-1] in members:
-                return enum_name
-        return None
+        if status != "resolved" or len(targets) != 1:
+            return None
+        enum_name = targets[0]
+        members = self.index.enum_members.get(enum_name)
+        return enum_name if members is not None and parts[-1] in members else None
 
 
 def collect_references(

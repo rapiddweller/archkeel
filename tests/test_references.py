@@ -95,3 +95,69 @@ def test_enum_members_in_field_annotations_and_defaults_reference_their_class(
     assert "sample.IntentRepairKind" not in candidates
     assert "sample.ScaffoldParameter" not in candidates
     assert "sample.Unused" in candidates
+
+
+def test_enum_member_evidence_requires_a_proven_unshadowed_member(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "sample.py"
+    source.write_text(
+        "from enum import Enum\n"
+        "from typing import Literal\n\n"
+        "class State(Enum):\n"
+        "    READY = 'ready'\n\n"
+        "class Other:\n"
+        "    READY = 'ready'\n\n"
+        "class Unused(Enum):\n"
+        "    IDLE = 'idle'\n\n"
+        "class Payload:\n"
+        "    status: Literal[State.MISSING]\n"
+        "    other: Literal[Other.READY]\n\n"
+        "class Shadowed:\n"
+        "    State = Other\n"
+        "    status: Literal[State.READY]\n\n"
+        "def dynamic():\n"
+        "    return make_state().READY\n\n"
+        "def shadowed(State):\n"
+        "    return State.READY\n\n"
+        "def build():\n"
+        "    return Payload(State.READY)\n"
+    )
+
+    monkeypatch.setenv("PYTHONPATH", str(ROOT / "src"))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None
+    references = observed.observation.records("references") or ()
+    member_references = [
+        item for item in references if item.data.get("expression") == "State.READY"
+    ]
+
+    assert [item.data.get("source_scope") for item in member_references] == ["sample.build"]
+    assert member_references[0].data.get("targets") == ("sample.State",)
+
+
+def test_shadowed_import_does_not_create_enum_member_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/types.py").write_text(
+        "from enum import Enum\nclass State(Enum):\n    READY = 'ready'\n"
+    )
+    (tmp_path / "sample/facade.py").write_text(
+        "from typing import Literal\n"
+        "from sample.types import State\n\n"
+        "class Payload:\n"
+        "    State = object\n"
+        "    status: Literal[State.READY]\n"
+    )
+
+    monkeypatch.setenv("PYTHONPATH", str(ROOT / "src"))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None
+    member_references = [
+        item
+        for item in observed.observation.records("references") or ()
+        if item.data.get("expression") == "State.READY"
+    ]
+
+    assert all(item.data.get("targets") != ("sample.types.State",) for item in member_references)

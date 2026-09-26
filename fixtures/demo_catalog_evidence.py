@@ -107,8 +107,9 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         id="class-d-enum-member-reference",
         section="class_d",
         item="unreferenced_symbols:enum-member-reference",
-        summary="A proven enum member in a field annotation or default references its enum "
-        "class, while an unused enum remains a candidate.",
+        summary="Proven enum members in field annotations, defaults and constructor arguments "
+        "reference their class; unknown, dynamic and shadowed members do not add enum-member "
+        "evidence.",
         files={},
         expected_violations=(),
         expected_codes=(),

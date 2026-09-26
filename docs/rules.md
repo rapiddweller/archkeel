@@ -555,9 +555,10 @@ code.
 every use of a scanned symbol that is not a call: a function put into a table, passed as an
 argument, or read as a property. The derivation names each symbol that no call, reference or import
 inside the scan scope mentions, after setting aside dunder names, `__all__` entries and methods of a
-subclass, which the runtime dispatches without naming them. A statically resolved `Enum.MEMBER`
-also references its enum class when the member is recorded as a literal member (AD-108); dynamic or
-unproven attributes do not.
+subclass, which the runtime dispatches without naming them. For this claim, an `Enum.MEMBER`
+expression references its enum class only when the class binding and recorded literal member both
+resolve statically (AD-108). This evidence does not resolve dynamic, non-enum, missing or shadowed
+members; other references, including explicit imports, retain their existing meaning.
 
 - **Measurement:** candidates, symbols examined, symbols set aside, and the unresolved-call share
   beside them.
