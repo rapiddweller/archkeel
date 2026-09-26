@@ -8,6 +8,7 @@ from pathlib import Path
 
 from test_analyzer import _component, _inside_component, _observe
 
+from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import inside_diagnostics
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.levels import inside_levels
@@ -45,7 +46,11 @@ def _write_project(
     )
     for path, contract in insides.items():
         (root / path).write_text(json.dumps(contract))
-    for relative_path, contents in {"sample/__init__.py": "", **files}.items():
+    for relative_path, contents in {
+        "sample/__init__.py": "",
+        "docs/architecture/sample.md": "Architecture decision.\n",
+        **files,
+    }.items():
         path = root / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(contents)
@@ -89,7 +94,9 @@ def test_child_public_can_be_local_to_the_inside(tmp_path: Path) -> None:
     ]
     assert (
         inside_diagnostics(
-            tmp_path, parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
+            tmp_path,
+            parse_contract(json.loads((tmp_path / "contract.json").read_bytes())),
+            ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
         )
         == ()
     )
