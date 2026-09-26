@@ -1960,29 +1960,12 @@ def _resolve_against_context(
         before_tree_digest = None
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
-    # Without the contract every entry of a baseline the revision lacks too would repeat the
-    # introduction, so that baseline is not compared rather than read as no known debt.
-    against_baseline: tuple[KnownViolation, ...] | None = (
-        None if isinstance(against_contract, _Introduced) else ()
-    )
-    against_budgets: tuple[MeasurementBudget, ...] = ()
-    baseline_at = _baseline_at(root, baseline)
     try:
-        prior = None if baseline_at is None else _prior_baseline(root, against, baseline_at)
+        against_baseline, against_budgets, missing_budgets = _against_baseline_state(
+            root, against, baseline, against_contract
+        )
     except (GitError, ValueError) as error:
         return empty, _against_invalid(against, error)
-    if prior is not None:
-        against_baseline, against_budgets = prior.violations, prior.budgets
-    declarations = (
-        against_contract.declarations
-        if isinstance(against_contract, ArchitectureContract)
-        else None
-    )
-    declared_budgets: set[str] = {
-        item.name for item in (declarations or ContractDeclarations()).measurement_budgets
-    }
-    known_budgets = {item.label for item in against_budgets}
-    missing_budgets = sorted(declared_budgets - known_budgets)
     if missing_budgets:
         missing = ", ".join(missing_budgets)
         return empty, _against_invalid(
@@ -2003,6 +1986,37 @@ def _resolve_against_context(
         before_tree_digest,
     )
     return context, amendment_error
+
+
+def _against_baseline_state(
+    root: Path,
+    against: str,
+    baseline: Path | None,
+    contract: ArchitectureContract | _Introduced,
+) -> tuple[
+    tuple[KnownViolation, ...] | None,
+    tuple[MeasurementBudget, ...],
+    list[str],
+]:
+    # Without the contract every entry of a baseline the revision lacks too would repeat the
+    # introduction, so that baseline is not compared rather than read as no known debt.
+    violations: tuple[KnownViolation, ...] | None = (
+        None if isinstance(contract, _Introduced) else ()
+    )
+    budgets: tuple[MeasurementBudget, ...] = ()
+    baseline_at = _baseline_at(root, baseline)
+    prior = None if baseline_at is None else _prior_baseline(root, against, baseline_at)
+    if prior is not None:
+        violations, budgets = prior.violations, prior.budgets
+    declarations = contract.declarations if isinstance(contract, ArchitectureContract) else None
+    declared: set[str] = set()
+    for item in (declarations or ContractDeclarations()).measurement_budgets:
+        declared.add(item.name)
+    known: set[str] = set()
+    for budget in budgets:
+        known.add(budget.label)
+    missing = sorted(declared - known)
+    return violations, budgets, missing
 
 
 def _prior_baseline(root: Path, against: str, path: str) -> ValidationBaseline | None:
