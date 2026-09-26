@@ -19,7 +19,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from .interfaces import owner_of
-from .model import Observation, Record, in_scope, text_value
+from .model import Observation, Record, RecordData, in_scope, text_value
 from .structure import module_edges
 
 
@@ -36,6 +36,7 @@ class InsideComponent:
     packages: tuple[str, ...]
     modules: tuple[str, ...]
     public: tuple[str, ...] | None
+    requires: tuple[RecordData, ...]
     has_inside: bool
 
 
@@ -86,6 +87,13 @@ def _public(record: Record) -> tuple[str, ...] | None:
     if not isinstance(value, tuple):
         return None
     return tuple(item for item in value if isinstance(item, str))
+
+
+def _requires(record: Record) -> tuple[RecordData, ...]:
+    value = record.data.get("requires")
+    if not isinstance(value, tuple):
+        return ()
+    return tuple(item for item in value if isinstance(item, RecordData))
 
 
 def _crossings(
@@ -142,6 +150,7 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
                         record.subjects,
                         tuple(owned[record.title]),
                         _public(record),
+                        _requires(record),
                         isinstance(record.data.get("inside"), str),
                     )
                     for record in records

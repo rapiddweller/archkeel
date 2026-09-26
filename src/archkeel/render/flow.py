@@ -12,7 +12,7 @@ from typing import Literal
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.levels import inside_levels
-from archkeel.ir.model import Observation, Record, text_value
+from archkeel.ir.model import Observation, Record, RecordData, text_value
 
 EdgeState = Literal["conforms", "violation", "undecided", "observed"]
 
@@ -85,6 +85,7 @@ class FlowComponent:
     label: str
     modules: tuple[str, ...]
     public: tuple[str, ...] | None
+    requires: tuple[RecordData, ...] = ()
     inner_edges: tuple[FlowInnerEdge, ...] = ()
     inside: FlowInside | None = None
 
@@ -354,11 +355,7 @@ def _violated_pairs(
 
 
 def _inside_views(observation: Observation) -> dict[str, FlowInside]:
-    """Draw each declared inside as its own level, by the parent component that holds it.
-
-    A crossing is green only when the evaluator recorded every displayed import site as checked.
-    The view never infers a verdict from a declaration alone (AD-32, AD-34).
-    """
+    """Build declared inside levels; only checked evidence can color a crossing (AD-32, AD-34)."""
     views: dict[str, FlowInside] = {}
     nested_owners: set[tuple[str, str]] = set()
     imports_by_id = {item.id: item for item in observation.records("imports") or ()}
@@ -407,6 +404,7 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
                 label=item.label,
                 modules=item.modules,
                 public=item.public,
+                requires=item.requires,
                 inner_edges=tuple(inner_by_owner.get(item.label, ())),
             )
             for item in level.components

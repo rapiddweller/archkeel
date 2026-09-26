@@ -108,33 +108,42 @@
   // AD-24: inner edges stay observed unless the declared inside rules decide their pair.
   // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
   // shape, because layout, ranking, routing and the inspector all consume that shape.
+  function insideScope() {
+    if (!opened || opened.module) return null;
+    const component = componentByLabel.get(opened.component);
+    if (!component) return null;
+    if (!opened.inside) {
+      return component.inside
+        ? { inside: component.inside, card: component, declared: true }
+        : { card: component, declared: false };
+    }
+    let inside = component.inside;
+    let card = (inside?.components || []).find((item) => item.label === opened.inside);
+    if (!card) return null;
+    if (!(opened.insidePath || []).length) {
+      if (card.inside) return { inside: card.inside, card, declared: true };
+      return opened.physicalInsideCard ? { card, declared: false } : null;
+    }
+    for (const [index, label] of opened.insidePath.entries()) {
+      inside = card.inside;
+      card = (inside?.components || []).find((item) => item.label === label);
+      if (!card) return null;
+      if (card.inside) continue;
+      return opened.physicalInsideCard && index === opened.insidePath.length - 1
+        ? { card, declared: false }
+        : null;
+    }
+    return card.inside ? { inside: card.inside, card, declared: true } : null;
+  }
+
   function fullLevel() {
     if (!opened) return { components: rootCards, edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
-    const component = componentByLabel.get(opened.component);
-    if (opened.inside) {
-      let card = (component.inside?.components || []).find((c) => c.label === opened.inside);
-      if (!card) return { components: [], edges: [] };
-      if (!(opened.insidePath || []).length && !card.inside) {
-        return cardLevel(card, opened.path || []);
-      }
-      let inside = card.inside;
-      for (const [index, label] of (opened.insidePath || []).entries()) {
-        card = (inside?.components || []).find((item) => item.label === label);
-        if (!card) return { components: [], edges: [] };
-        if (card.inside) {
-          inside = card.inside;
-        } else if (opened.physicalInsideCard && index === opened.insidePath.length - 1) {
-          return cardLevel(card, opened.path || []);
-        } else {
-          return { components: [], edges: [] };
-        }
-      }
-      if (inside) return insideLevel(inside);
-      return { components: [], edges: [] };
-    }
-    if (component.inside) return insideLevel(component.inside);
-    return cardLevel(component, opened.path || []);
+    const scope = insideScope();
+    if (!scope) return { components: [], edges: [] };
+    return scope.declared
+      ? insideLevel(scope.inside)
+      : cardLevel(scope.card, opened.path || []);
   }
 
   function focusLevel(view, label) {
@@ -171,7 +180,9 @@
       modules: card.modules,
       openable: Boolean(card.inside) || card.modules.length > 0,
       public: card.public,
+      requires: card.requires || [],
       inside: card.inside,
+      declared_component: true,
     }));
     // A module no sub-component owns keeps a card: one that vanished between two levels is
     // exactly what this tool exists to prevent (AD-34). Opening it opens the module itself.
@@ -182,6 +193,7 @@
       openable: Boolean((DATA.modules || {})[name]),
       opensModule: name,
       public: null,
+      declared_component: false,
     }));
     return {
       components: cards.concat(orphans),
@@ -701,7 +713,8 @@
       label.textContent = component.display || component.label;
       const stereotype = el("text", { class: "stereotype", x: "16", y: "17" });
       const declaredInside = Boolean(level().declaredInside);
-      stereotype.textContent = component.navigation_only ? "«unassigned»" : component.library ? "«library»" : (!opened || declaredInside) ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
+      const declaredComponent = declaredInside && component.declared_component;
+      stereotype.textContent = component.navigation_only ? "«unassigned»" : component.library ? "«library»" : (!opened || declaredComponent) ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
       const meta = el("text", { class: "meta", x: "16", y: "68" });
       const modulesMeta = (card) =>
         `${card.modules.length} module${card.modules.length === 1 ? "" : "s"} · ${
@@ -723,16 +736,16 @@
         : component.navigation_only
           ? `${component.modules.length} modules · navigation only`
           : component.library ? `${component.import_sites} import sites` : modulesMeta(component);
-      const umlIcon = !component.library && !component.navigation_only && (!opened || declaredInside || (opened.inside === undefined && component.modules && component.modules.length > 1))
+      const umlIcon = !component.library && !component.navigation_only && (!opened || declaredComponent || (opened.inside === undefined && component.modules && component.modules.length > 1))
         ? el("g", { class: "uml-icon" },
           el("rect", { x: "175", y: "12", width: "15", height: "17" }),
           el("rect", { x: "170", y: "16", width: "7", height: "4" }),
           el("rect", { x: "170", y: "23", width: "7", height: "4" })) : null;
-      const provided = (!opened || declaredInside) && !component.navigation_only && component.public !== null && component.public.length
+      const provided = (!opened || declaredComponent) && !component.navigation_only && component.public !== null && component.public.length
         ? el("g", { class: "uml-provided" },
           el("line", { x1: "200", y1: "45", x2: "213", y2: "45" }),
           el("circle", { cx: "219", cy: "45", r: "6" })) : null;
-      const required = (!opened || declaredInside) && !component.navigation_only && component.requires && component.requires.length
+      const required = (!opened || declaredComponent) && !component.navigation_only && component.requires && component.requires.length
         ? el("g", { class: "uml-required" },
           el("line", { x1: "0", y1: "45", x2: "-9", y2: "45" }),
           el("path", { d: "M-9,37 Q-18,45 -9,53" })) : null;
@@ -1005,7 +1018,7 @@
     }
     if (opened) {
       const owner = componentByLabel.get(opened.component);
-      const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
+      const card = insideScope()?.card || owner;
       const prefix = (opened.path || []).at(-1);
       const outside = prefix ? (card.inner_edges || []).filter((edge) =>
         (edge.source === prefix || edge.source.startsWith(`${prefix}.`)) !==
@@ -1085,12 +1098,12 @@
         return;
       }
       if (opened) {
-        const owner = componentByLabel.get(opened.component);
-        const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
-        const declaredInside = Boolean(level().declaredInside);
-        inspector.innerHTML = `<div class="kicker">${declaredInside ? "Declared component" : component.folder ? "Physical package" : "Module"}</div><h2>${esc(component.label)}</h2>
+        const scope = insideScope();
+        const declaredComponent = Boolean(level().declaredInside && component.declared_component);
+        const card = scope?.card || componentByLabel.get(opened.component);
+        inspector.innerHTML = `<div class="kicker">${declaredComponent ? "Declared component" : component.folder ? "Physical package" : "Module"}</div><h2>${esc(component.label)}</h2>
           <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd><dt>Import sites touching group</dt><dd>${component.import_sites || 0}</dd>${relations}</dl>
-          ${component.folder ? moduleTree({ ...card, modules: component.modules, inner_edges: card.inner_edges }, [...(opened.path || []), component.label]) : `<p>${component.openable ? "Select again to inspect its symbols." : "No symbols recorded."}</p>`}`;
+          ${component.folder ? moduleTree({ ...card, modules: component.modules, inner_edges: card.inner_edges }, [...(opened.path || []), component.label]) : `<p>${declaredComponent ? "Select again to open its declared inside or inspect its physical modules." : component.openable ? "Select again to inspect its symbols." : "No symbols recorded."}</p>`}`;
         return;
       }
       if (component.navigation_only) {

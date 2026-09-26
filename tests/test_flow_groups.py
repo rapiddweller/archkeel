@@ -139,17 +139,20 @@ def test_declared_inside_navigation_reaches_nested_levels() -> None:
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
+const scopeBegin = text.indexOf("  function insideScope()");
+const scopeEnd = text.indexOf("  function fullLevel()", scopeBegin);
 const fullBegin = text.indexOf("  function fullLevel()");
 const fullEnd = text.indexOf("  function focusLevel(", fullBegin);
 const insideBegin = text.indexOf("  function insideLevel(");
 const insideEnd = text.indexOf("  function rootPackage(", insideBegin);
 const enterBegin = text.indexOf("  function enter(label)");
 const enterEnd = text.indexOf("  // One step back per press", enterBegin);
-assert(fullBegin >= 0 && fullEnd > fullBegin && insideBegin >= 0 && insideEnd > insideBegin
+assert(scopeBegin >= 0 && scopeEnd > scopeBegin && fullBegin >= 0 && fullEnd > fullBegin
+  && insideBegin >= 0 && insideEnd > insideBegin
   && enterBegin >= 0 && enterEnd > enterBegin);
-const levelTwo = {components: [{label: "source", inside: {
-  components: [{label: "leaf", modules: ["sample.layer.source.leaf"]}], edges: [],
-}}], edges: []};
+const deepLevel = {components: [{label: "leaf", modules: ["sample.layer.source.leaf"]}],
+  unassigned: ["sample.layer.orphan"], edges: []};
+const levelTwo = {components: [{label: "source", inside: deepLevel}], edges: []};
 const levelOne = {components: [{label: "app", inside: levelTwo}], edges: []};
 const root = {label: "app", inside: {components: [
   {label: "app", inside: levelOne},
@@ -163,10 +166,12 @@ const componentByLabel = new Map([["app", root]]);
 const navigation = new Function("DATA", "opened", "selected", "positions", "focusLabel",
   "componentByLabel", "insideLevel", "cardLevel", "moduleLevel", "level", "defaultFocus",
   "defaultThreshold", "render", "fit",
-  text.slice(insideBegin, insideEnd) + text.slice(fullBegin, fullEnd)
+  text.slice(insideBegin, insideEnd) + text.slice(scopeBegin, scopeEnd)
+    + text.slice(fullBegin, fullEnd)
     + text.slice(enterBegin, enterEnd)
     + ";return {enter, fullLevel, getOpened: () => opened}")(
-      {components: [], edges: []}, opened, selected, positions, focusLabel, componentByLabel,
+      {modules: {"sample.layer.orphan": {symbols: []}}, components: [], edges: []},
+      opened, selected, positions, focusLabel, componentByLabel,
       value => value, () => ({}), () => ({}), () => current, () => null, () => {},
       () => {}, () => {});
     navigation.enter("app");
@@ -181,6 +186,9 @@ const navigation = new Function("DATA", "opened", "selected", "positions", "focu
 const nested = navigation.fullLevel();
 assert.equal(nested.declaredInside, true);
 assert.equal(nested.components[0].label, "leaf");
+assert.equal(nested.components[0].declared_component, true);
+assert.equal(nested.components[1].declared_component, false);
+assert.equal(nested.components[1].opensModule, "sample.layer.orphan");
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False
@@ -458,6 +466,71 @@ def test_component_and_module_site_pairs_use_distinct_keys(tmp_path: Path) -> No
     ]
     assert root_edge["sites"] == ["sample/left/__init__.py:1"]
     assert payload["unassigned"]["inner_edges"][0]["sites"] == ["sample/a.py:1"]
+
+
+def test_nested_declared_requirements_stay_bound_to_each_parent_level(tmp_path: Path) -> None:
+    def requirement(name: str) -> dict[str, str]:
+        return {"component": name, "rationale": f"The API needs {name}."}
+
+    root_components = [
+        _component("api", packages=["sample.api"])
+        | {"inside": "contracts/one.json", "requires": [requirement("target-root")]},
+        _component("target-root", packages=["sample.target"]),
+    ]
+    (tmp_path / "contract.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": root_components, "rules": []})
+    )
+    (tmp_path / "contracts").mkdir()
+    (tmp_path / "contracts/one.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("api", packages=["sample.api.core"])
+                    | {
+                        "inside": "contracts/two.json",
+                        "requires": [requirement("target-child")],
+                    },
+                    _component("target-child", packages=["sample.api.target"]),
+                ],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "contracts/two.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("api", packages=["sample.api.core.deep"])
+                    | {"requires": [requirement("target-deep")]},
+                    _component("target-deep", packages=["sample.api.core.target"]),
+                ],
+                "rules": [],
+            }
+        )
+    )
+    for module in (
+        "sample/api/__init__.py",
+        "sample/api/core/__init__.py",
+        "sample/api/core/deep.py",
+        "sample/target.py",
+        "sample/api/target.py",
+        "sample/api/core/target.py",
+    ):
+        path = tmp_path / module
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("VALUE = 1\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    payload = _flow_payload(result.observation, build_flow(result.observation))
+    root_api = next(item for item in payload["components"] if item["label"] == "api")
+    one_api = next(item for item in root_api["inside"]["components"] if item["label"] == "api")
+    two_api = next(item for item in one_api["inside"]["components"] if item["label"] == "api")
+    assert [item["component"] for item in root_api["requires"]] == ["target-root"]
+    assert [item["component"] for item in one_api["requires"]] == ["target-child"]
+    assert [item["component"] for item in two_api["requires"]] == ["target-deep"]
 
 
 def test_focused_diagram_keeps_violations_outside_its_top_connections() -> None:
