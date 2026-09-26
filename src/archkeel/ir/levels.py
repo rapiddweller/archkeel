@@ -121,16 +121,33 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
         if (name := text_value(record.data.get("qualified_name")))
     )
     scopes: dict[str, tuple[str, ...]] = {}
+    nested_records = []
     for record in observation.records("declarations") or ():
         if record.kind == "component_responsibility":
             scopes[record.title] = record.subjects
         elif record.kind == "inside_component_responsibility":
+            nested_records.append(record)
+    while nested_records:
+        pending = []
+        for record in nested_records:
             parent = text_value(record.data.get("parent_id"))
-            if parent:
-                scopes[f"{parent}:{record.title}"] = record.subjects
+            if parent and parent in scopes:
+                parent_packages = scopes.get(parent, ())
+                scopes[f"{parent}:{record.title}"] = tuple(
+                    package
+                    for package in record.subjects
+                    if any(in_scope(package, root) for root in parent_packages)
+                )
+            else:
+                pending.append(record)
+        if len(pending) == len(nested_records):
+            break
+        nested_records = pending
     levels: list[InsideLevel] = []
     for parent, records in sorted(grouped.items()):
-        inner = tuple((record.title, record.subjects) for record in records)
+        inner = tuple(
+            (record.title, scopes.get(f"{parent}:{record.title}", ())) for record in records
+        )
         parent_packages = scopes.get(parent, ())
         owned: dict[str, list[str]] = defaultdict(list)
         unassigned: list[str] = []
@@ -147,7 +164,7 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
                 (
                     InsideComponent(
                         record.title,
-                        record.subjects,
+                        scopes.get(f"{parent}:{record.title}", ()),
                         tuple(owned[record.title]),
                         _public(record),
                         _requires(record),
