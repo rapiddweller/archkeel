@@ -33,7 +33,7 @@ EXPORT = '__all__ = ["constraints", "safe"]\n'
         ),
         (
             "from .middle import constraints\n" + EXPORT + SAFE,
-            'from .impl import element_constraints as constraints\n'
+            "from .impl import element_constraints as constraints\n"
             '__all__ = ["constraints"]\n__all__.append("other")\n',
             False,
             False,
@@ -50,7 +50,7 @@ EXPORT = '__all__ = ["constraints", "safe"]\n'
         ),
         (
             "from .impl import element_constraints as constraints\n" + EXPORT + SAFE,
-            'from .impl import element_constraints as constraints\n'
+            "from .impl import element_constraints as constraints\n"
             '__all__ = ["constraints"]\nconstraints = object\n',
             False,
             True,
@@ -124,3 +124,33 @@ def test_public_chain_proof_is_complete_and_entry_scoped(
             for record in observation.records("symbols") or ()
             if record.data.get("facade_types")
         ]
+
+
+def test_uncertain_public_alias_keeps_other_alias_violations(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api", "sample.app.middle"],
+        init="",
+        api="from .impl import element_constraints as constraints\n" + EXPORT + SAFE,
+    )
+    (tmp_path / "sample/app/middle.py").write_text(
+        "from .impl import element_constraints as constraints\n"
+        '__all__ = ["constraints"]\nconstraints = object\n'
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    observation = result.observation
+    violations = observation.records("violations") or ()
+    assert len(violations) == 3
+    assert all(record.data.get("module") == "sample.app.api" for record in violations)
+    assert any(
+        record.kind.startswith("boundary") for record in observation.records("unknowns") or ()
+    )
