@@ -784,6 +784,7 @@ def _boundary_type_subject_modules(
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
 ) -> frozenset[str]:
     """Modules carrying at least one function `rule` actually inspects (issue #56).
 
@@ -820,6 +821,7 @@ def _boundary_type_subject_modules(
             exports_by_module,
             uncertain_reexport_origins,
             scanned_modules,
+            stable_bindings_by_module,
         )
         if "module" in record["data"] and isinstance((module := record["data"]["module"]), str)
     )
@@ -845,6 +847,7 @@ def rule_subject_failures(
     contract: ArchitectureContract | None = None,
     exports_by_module: dict[str, frozenset[str]] | None = None,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
     sdk_libraries: frozenset[str] = frozenset(),
 ) -> list[RawRecord]:
     """Flag scopes with neither observed subjects nor explicitly declared target work.
@@ -871,6 +874,7 @@ def rule_subject_failures(
                 exports_by_module or {},
                 uncertain_reexport_origins or {},
                 module_names,
+                stable_bindings_by_module or {},
             )
             subjects = subjects | planned_subjects
             facade_scoped = True
@@ -2175,14 +2179,14 @@ def _reexport_facade_entries(
         binding_name = f"{imported_data['source_module']}.{imported_data['binding']}"
         candidate_origins = uncertain_reexport_origins.get(binding_name, frozenset())
         own_uncertainty = origin in candidate_origins
+        if not (imported_data.get("reexport") or own_uncertainty):
+            continue
         chain = imported_data.get("reexport_chain", ())
         inherited_uncertainty = any(
-            alias in chain and origin in possible_origins
-            for alias, possible_origins in uncertain_reexport_origins.items()
+            origin in uncertain_reexport_origins.get(alias, frozenset()) for alias in chain
         )
         entry_origin = imported_data.get("origin_definition")
-        matches_origin = entry_origin == origin or own_uncertainty or inherited_uncertainty
-        if not (imported_data.get("reexport") or own_uncertainty) or not matches_origin:
+        if entry_origin != origin and not own_uncertainty and not inherited_uncertainty:
             continue
         facade_module = imported_data["source_module"]
         binding = imported_data["binding"]
@@ -2608,8 +2612,19 @@ def _unresolved_public_alias_routes(
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
 ) -> list[RawRecord]:
     records: dict[str, RawRecord] = {}
+    symbols_by_binding: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
+    imports_by_binding: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
+    for item in symbols:
+        data = item["data"]
+        if "parent" not in data or data["parent"] is None:
+            symbols_by_binding[(data["module"], data["name"])].append(item)
+    for item in imports:
+        data = item["data"]
+        if data.get("module_level_import") is True:
+            imports_by_binding[(data["source_module"], data["binding"])].append(item)
     for item in imports:
         data = item["data"]
         module, binding = data["source_module"], data["binding"]
@@ -2630,7 +2645,11 @@ def _unresolved_public_alias_routes(
             if alias in uncertain_reexport_origins and not uncertain_reexport_origins[alias]
         )
         if not unresolved and not _public_alias_route_has_unproven_hop(
-            route, symbols, imports, scanned_modules
+            route,
+            symbols_by_binding,
+            imports_by_binding,
+            scanned_modules,
+            stable_bindings_by_module,
         ):
             continue
         qualified_name = f"{module}.{binding}"
@@ -2657,9 +2676,10 @@ def _unresolved_public_alias_routes(
 
 def _public_alias_route_has_unproven_hop(
     route: tuple[str, ...],
-    symbols: Sequence[RawRecord],
-    imports: Sequence[RawRecord],
+    symbols_by_binding: dict[tuple[str, str], list[RawRecord]],
+    imports_by_binding: dict[tuple[str, str], list[RawRecord]],
     scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
 ) -> bool:
     """A public alias is known only while each traversed binding has one proven definition."""
     for alias in route[1:]:
@@ -2669,27 +2689,17 @@ def _public_alias_route_has_unproven_hop(
             return True
         if module not in scanned_modules:
             return True
-        definitions: list[RawRecord] = []
-        for item in symbols:
-            data: RecordData = item["data"]
-            if (
-                data["module"] == module
-                and data["name"] == name
-                and ("parent" not in data or data["parent"] is None)
-            ):
-                definitions.append(item)
-        bindings: list[RawRecord] = []
-        for item in imports:
-            data = item["data"]
-            if (
-                data["source_module"] == module
-                and data["binding"] == name
-                and "module_level_import" in data
-                and data["module_level_import"] is True
-            ):
-                bindings.append(item)
+        definitions = symbols_by_binding.get((module, name), [])
+        bindings = imports_by_binding.get((module, name), [])
         if definitions:
-            return len(definitions) != 1 or bool(bindings)
+            if (
+                len(definitions) != 1
+                or bindings
+                or name not in stable_bindings_by_module.get(module, frozenset())
+            ):
+                return True
+            category = definitions[0]["kind"]
+            return category not in {"function", "class", "static_constant"}
         if len(bindings) != 1:
             return True
         binding_data = bindings[0]["data"]
@@ -2706,6 +2716,7 @@ def boundary_type_limits(
     evidence: dict[str, RawEvidence],
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
 ) -> list[RawRecord]:
     """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
@@ -2739,6 +2750,7 @@ def boundary_type_limits(
                 exports_by_module,
                 uncertain_reexport_origins,
                 scanned_modules,
+                stable_bindings_by_module or {},
             )
         )
     return sorted([*positions_out, *limits], key=lambda item: item["id"])

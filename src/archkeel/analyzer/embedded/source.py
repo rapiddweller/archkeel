@@ -149,6 +149,96 @@ def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     return frozenset(name for name in direct if binders.count(name) == 1)
 
 
+def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
+    """Names bound once at module level without a conditional or explicit global rebind."""
+    direct: dict[str, int] = {}
+    unstable: set[str] = set()
+    for statement in module.tree.body:
+        if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            direct[statement.name] = direct.get(statement.name, 0) + 1
+        elif isinstance(statement, ast.Import | ast.ImportFrom):
+            for name in _import_bindings(statement):
+                direct[name] = direct.get(name, 0) + 1
+        elif isinstance(statement, ast.Assign | ast.AnnAssign):
+            targets = (
+                statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
+            )
+            for target in targets:
+                for name in _stored_names(target):
+                    direct[name] = direct.get(name, 0) + 1
+        else:
+            unstable.update(_module_binding_writes(statement))
+
+    for node in ast.walk(module.tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        scope = tuple(own_scope(node))
+        global_names = {
+            name for child in scope if isinstance(child, ast.Global) for name in child.names
+        }
+        if not global_names:
+            continue
+        writes = {
+            child.id
+            for child in scope
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store | ast.Del)
+        }
+        writes.update(
+            name
+            for child in scope
+            if isinstance(child, ast.Import | ast.ImportFrom)
+            for name in _import_bindings(child)
+        )
+        unstable.update(global_names & writes)
+
+    return frozenset(name for name, count in direct.items() if count == 1 and name not in unstable)
+
+
+def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
+    return tuple(
+        alias.asname or (alias.name.split(".")[0] if isinstance(node, ast.Import) else alias.name)
+        for alias in node.names
+        if alias.name != "*"
+    )
+
+
+def _stored_names(node: ast.AST) -> frozenset[str]:
+    return frozenset(
+        child.id
+        for child in ast.walk(node)
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store | ast.Del)
+    )
+
+
+class _ModuleBindingWrites(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Store | ast.Del):
+            self.names.add(node.id)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self.names.add(node.name)
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.names.add(node.name)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        self.names.update(_import_bindings(node))
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        self.names.update(_import_bindings(node))
+
+
+def _module_binding_writes(statement: ast.stmt) -> frozenset[str]:
+    visitor = _ModuleBindingWrites()
+    visitor.visit(statement)
+    return frozenset(visitor.names)
+
+
 def _excerpt(module: ParsedModule, node: ast.AST) -> str:
     start, _, _ = location(node)
     return module.lines[start - 1].rstrip() if start <= len(module.lines) else ""
