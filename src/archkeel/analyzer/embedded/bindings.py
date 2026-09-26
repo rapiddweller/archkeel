@@ -1,11 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Record the names a function binds and never reads (AD-26).
+"""Record names with no read in a function's AST (AD-26).
 
-A parameter or local that no expression in its own body loads is settled inside one scope,
-so this signal needs no cross-module resolution: the function's own tree answers it. The
-record stays a fact; calling such a binding dead is a review claim in `ir`, never a verdict.
+The AST answers whether a name is read in the function's tree, without cross-module resolution.
+That lexical fact does not establish whether a parameter is required by an interface; the
+derivation in `ir` presents candidates for review, never a verdict.
 """
 
 from __future__ import annotations
@@ -52,9 +52,10 @@ def _local_names(node: FunctionNode) -> set[str]:
 
 
 def _signature_is_fixed(node: FunctionNode, *, inherits: bool) -> bool:
-    """True where something other than the body chooses the parameters.
+    """Skip signatures with syntactic signs that parameters may be externally required.
 
-    A protocol, overload or abstract stub binds parameters it cannot read.
+    A base class, decorator, or empty body is only a heuristic; this scan does not resolve
+    protocol or other structural conformance.
     """
     return inherits or bool(node.decorator_list) or body_is_empty(node)
 
@@ -65,7 +66,7 @@ def _is_deliberate(name: str) -> bool:
 
 
 class BindingCollector(ast.NodeVisitor):
-    """Walk one module and record every parameter or local its function never reads."""
+    """Walk one module and record parameters and locals with no lexical read."""
 
     def __init__(self, module: ParsedModule, evidence: dict[str, RawEvidence]) -> None:
         self.module = module
@@ -111,7 +112,7 @@ class BindingCollector(ast.NodeVisitor):
                 evidence_class=EvidenceClass.FACT,
                 area="repository_topology",
                 kind=f"unused_{binding}",
-                title=f"{owner} never reads {name}",
+                title=f"{owner} has no body read of {name}",
                 subjects=[owner, self.module.module],
                 evidence_ids=[evidence_id],
                 data={

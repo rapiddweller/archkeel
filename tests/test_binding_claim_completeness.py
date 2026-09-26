@@ -57,7 +57,7 @@ context: ExporterContext = _SmokeExporterContext()
         ("sample.ports._SmokeExporterContext.get_client_by_id", "client_id"),
     ]
     assert "client_id" in body and "memstore_id" in body
-    assert "not assessed" in body.lower() or "removability" in body.lower()
+    assert "review before removing it" in body.lower()
     assert "safe to remove" not in body.lower()
 
 

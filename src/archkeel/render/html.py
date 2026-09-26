@@ -858,7 +858,7 @@ def _binding_claim_body(claim: BindingReads) -> str:
     if claim.status == "UNKNOWN":
         return (
             "<p>Not available: this observation carries no binding signal, so nothing here can "
-            "say which parameter or local its own function never reads.</p>"
+            "list which parameter or local the collector found unread.</p>"
         )
     if not claim.candidates:
         return (
@@ -872,11 +872,8 @@ def _binding_claim_body(claim: BindingReads) -> str:
         for item in claim.candidates
     )
     return f"""
-      <p>{len(claim.candidates)} bindings across {claim.functions} functions and methods are not
-      syntactically read in their own body. A name with a leading underscore, <code>self</code>,
-      <code>cls</code> and the parameters of an override or an empty stub are set aside, so these
-      are candidates for review, never a verdict. A parameter may still be required by an interface;
-      removability is not assessed.</p>
+      <p>Code in these functions does not read the listed names ({len(claim.candidates)}). A
+      parameter may still be required by an interface; review before removing it.</p>
       <table class="data-table"><thead><tr><th>Function</th><th>Name</th><th>Binding</th></tr>
       </thead><tbody>{rows}</tbody></table>
 """
@@ -978,7 +975,7 @@ def _claims(observation: Observation) -> str:
       {_inside_claim_body(oversized_insides(observation))}
     </section>
     <section class="report-section">
-      <h2>Review claim: bindings their own body does not read</h2>
+      <h2>Review candidates: unread parameters and locals</h2>
       {_binding_claim_body(unread_bindings(observation))}
     </section>
     <section class="report-section">

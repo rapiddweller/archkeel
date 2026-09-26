@@ -58,6 +58,6 @@ def test_an_unread_parameter_candidate_is_not_a_removal_claim() -> None:
         )
     )
 
-    assert "syntactically read in their own body" in result
+    assert "Code in these functions does not read the listed names" in result
     assert "required by an interface" in result
-    assert "removability is not assessed" in result
+    assert "review before removing it" in result
