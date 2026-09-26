@@ -10,7 +10,9 @@ import pytest
 from test_analyzer import _component, _inside_component, _observe
 from test_architecture_demo import FIXTURE_DIR, _prepare_repo
 
+from archkeel.check.validation import inside_diagnostics
 from archkeel.cli import main
+from archkeel.ir.codec import parse_contract
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 from archkeel.render.flow import build_flow
 
@@ -191,6 +193,22 @@ def test_inside_namespace_finding_references_its_scoped_component(tmp_path: Path
     assert tuple(findings) == trace_valid_violations(observation)
 
 
+def test_inside_component_cannot_claim_packages_outside_its_parent(tmp_path: Path) -> None:
+    _write_inside_case(tmp_path, rules=[])
+    path = tmp_path / "inner.json"
+    inner = json.loads(path.read_bytes())
+    inner["components"][0]["packages"] = ["sample.foreign"]
+    path.write_text(json.dumps(inner))
+
+    outer = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
+    diagnostics = inside_diagnostics(tmp_path, outer)
+
+    assert any(
+        item.pointer == "/components/0/inside" and "sample.foreign" in item.unknown_claim
+        for item in diagnostics
+    ), diagnostics
+
+
 def test_inner_edge_without_complete_requires_is_observed_not_conforming(
     tmp_path: Path,
 ) -> None:
@@ -365,6 +383,47 @@ def test_same_label_sibling_inside_levels_keep_findings_scoped(tmp_path: Path) -
         for item in result.observation.records("violations") or ()
         if item.kind == "complete_requires"
     ] == [("core:REQUIRES-COMPLETE",)]
+
+
+def test_missing_inside_does_not_suppress_valid_sibling_violation(tmp_path: Path) -> None:
+    rule = {
+        "id": "REQUIRES-COMPLETE",
+        "kind": "complete_requires",
+        "rationale": "Declare every inner dependency.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    components = [
+        _component("core") | {"inside": "missing.json"},
+        _component("service") | {"inside": "service-inner.json"},
+    ]
+    inner = {
+        "schema_version": "2.1.0",
+        "components": [
+            _inside_component("a", []) | {"packages": ["sample.service.a"]},
+            _inside_component("b", []) | {"packages": ["sample.service.b"]},
+        ],
+        "rules": [rule],
+    }
+    (tmp_path / "contract.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": components, "rules": []})
+    )
+    (tmp_path / "service-inner.json").write_text(json.dumps(inner))
+    for module in ("core", "service"):
+        package = tmp_path / f"sample/{module}"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+    (tmp_path / "sample/service/a.py").write_text("VALUE = 1\n")
+    (tmp_path / "sample/service/b.py").write_text("import sample.service.a\n")
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    assert [
+        item.rule_ids
+        for item in trace_valid_violations(result.observation)
+        if item.kind == "complete_requires"
+    ] == [("service:REQUIRES-COMPLETE",)]
 
 
 @pytest.mark.parametrize("command", ["report", "validate"])
