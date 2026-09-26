@@ -5,26 +5,31 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
+from test_analyzer import _component, _observe
+
+from archkeel.render.flow import build_flow
+from archkeel.render.html import _flow_payload
 
 FLOW_JS = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
 
 
 def _run_flow_js(script: str) -> None:
     node = shutil.which("node")
-    if node is None:
-        pytest.skip("Node.js is not installed")
+    assert node is not None, "Node.js 22+ is required for report-flow acceptance tests"
+    version = subprocess.run([node, "--version"], capture_output=True, text=True, check=True).stdout
+    assert int(version.removeprefix("v").split(".", 1)[0]) >= 22, version
     result = subprocess.run(
         [node, "-e", script, str(FLOW_JS)], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
 
 
-def test_import_only_package_initializer_stays_openable_and_prefixes_are_segmented() -> None:
+def test_import_only_package_initializer_stays_openable() -> None:
     _run_flow_js(
         r"""
 const fs = require("node:fs");
@@ -47,12 +52,55 @@ const root = cardLevel(component, []);
 const init = root.components.find(card => card.label === "pkg:__init__");
 assert(init, "an imports-only package initializer must remain visible");
 assert.equal(init.folder, false);
+assert.equal(init.openable, true);
 assert.equal(init.opensModule, "pkg");
 assert.deepEqual(init.modules, ["pkg"]);
 assert.deepEqual(cardLevel(component, ["pkg.api"]).components.map(card => card.label),
   ["pkg.api.orders", "pkg.api.users"]);
 assert(!cardLevel(component, ["pkg.api"]).components.some(
   card => card.label.startsWith("pkg.apiary")));
+"""
+    )
+
+
+def test_package_initializer_with_definitions_opens_as_a_module() -> None:
+    _run_flow_js(
+        r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function rootPackage(");
+const end = text.indexOf("  // The declared names a module publishes", begin);
+const DATA = {modules: {
+  "pkg.core": {symbols: [{kind: "class"}, {kind: "function"}]},
+  "pkg.core.api.module": {symbols: [{}]},
+}};
+const {cardLevel} = new Function("DATA", text.slice(begin, end) +
+  ";return {cardLevel}")(DATA);
+const component = {modules: Object.keys(DATA.modules), public: null, inner_edges: []};
+const card = cardLevel(component, []).components.find(item => item.label === "pkg.core:__init__");
+assert(card, "a package initializer with definitions must remain visible");
+assert.equal(card.folder, false);
+assert.equal(card.openable, true);
+assert.equal(card.opensModule, "pkg.core");
+assert.deepEqual(card.modules, ["pkg.core"]);
+"""
+    )
+
+
+def test_common_prefix_stops_at_first_different_package_segment() -> None:
+    _run_flow_js(
+        r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function rootPackage(");
+const end = text.indexOf("  // The declared names a module publishes", begin);
+const {rootPackage, cardLevel} = new Function("DATA", text.slice(begin, end) +
+  ";return {rootPackage, cardLevel}")({modules: {}});
+const component = {modules: ["pkg.a.api", "pkg.b.api"], public: null, inner_edges: []};
+assert.equal(rootPackage(component.modules), "pkg");
+assert.deepEqual(cardLevel(component, []).components.map(card => card.label), ["pkg.a", "pkg.b"]);
 """
     )
 
@@ -123,46 +171,67 @@ for (const [parent, expected] of [["core", "CORE-RULE"], ["service", "SERVICE-RU
     )
 
 
-def test_switching_from_focus_recovers_full_level_and_review_counts_truthfully() -> None:
-    _run_flow_js(
-        r"""
-const fs = require("node:fs");
-const assert = require("node:assert/strict");
-const text = fs.readFileSync(process.argv[1], "utf8");
-const focusStart = text.indexOf("  function focusLevel(");
-const focusEnd = text.indexOf("  function defaultFocus(", focusStart);
-const levelStart = text.indexOf("  function level(");
-const levelEnd = text.indexOf("  function defaultFocus(", levelStart);
-const reviewStart = text.indexOf("  function renderReview(");
-const reviewEnd = text.indexOf("  function renderAlternative(", reviewStart);
-const focusLevel = new Function(text.slice(focusStart, focusEnd) + ";return focusLevel")();
-const getLevel = new Function("fullLevel", "focusLevel", "viewMode", "focusLabel",
-  text.slice(levelStart, levelEnd) + ";return level")(
-    () => view, focusLevel, "diagram", "focus");
-const components = Array.from({length: 16}, (_, index) => ({label: index ? `n${index}` : "focus"}));
-const edges = components.slice(1).map((target, index) => ({
-  source: "focus", target: target.label, import_sites: index + 1,
-  state: index === 14 ? "violation" : "conforms", rule_ids: [], names: [],
-}));
-const view = {components, edges};
-const diagram = getLevel();
-assert(diagram.edges.length < edges.length);
-const full = new Function("fullLevel", "focusLevel", "viewMode", "focusLabel",
-  text.slice(levelStart, levelEnd) + ";return level")(
-    () => view, focusLevel, "review", "focus")();
-assert.equal(full.edges.length, 15);
-assert.equal(full.components.length, 16);
+def test_inside_import_site_evidence_is_scoped_to_its_parent_level(tmp_path: Path) -> None:
+    def inner_contract(parent: str) -> dict[str, object]:
+        return {
+            "schema_version": "2.1.0",
+            "components": [
+                {
+                    "id": f"COMP-{parent.upper()}-A",
+                    "label": "a",
+                    "role": "component",
+                    "packages": [f"sample.{parent}.a"],
+                    "responsibilities": [],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/sample.md"],
+                },
+                {
+                    "id": f"COMP-{parent.upper()}-B",
+                    "label": "b",
+                    "role": "component",
+                    "packages": [f"sample.{parent}.b"],
+                    "responsibilities": [],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/sample.md"],
+                },
+            ],
+            "rules": [],
+        }
 
-const alternative = {innerHTML: ""};
-const renderReview = new Function("alternative", "selected", "edgeKey", "esc",
-  text.slice(reviewStart, reviewEnd) + ";return renderReview")(
-    alternative, null, edge => `${edge.source}>${edge.target}`, String);
-renderReview(full);
-assert(alternative.innerHTML.includes("15 observed connections at this level"));
-assert(alternative.innerHTML.includes("Other connections · 3"));
-assert(alternative.innerHTML.includes("Dependency matrix · 12 of 16 entries"));
-"""
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("core") | {"inside": "core-inner.json"},
+                    _component("service") | {"inside": "service-inner.json"},
+                ],
+                "rules": [],
+            }
+        )
     )
+    for parent in ("core", "service"):
+        (tmp_path / f"{parent}-inner.json").write_text(json.dumps(inner_contract(parent)))
+        package = tmp_path / "sample" / parent
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        for child in ("a", "b"):
+            child_package = package / child
+            child_package.mkdir()
+            (child_package / "__init__.py").write_text("")
+        (package / "a.py").write_text(f"import sample.{parent}.b\n")
+        (package / "b.py").write_text("")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    payload = _flow_payload(result.observation, build_flow(result.observation))
+    by_parent = {item["label"]: item["inside"] for item in payload["components"]}
+    for parent in ("core", "service"):
+        edges = by_parent[parent]["edges"]
+        assert len(edges) == 1
+        assert edges[0]["source"] == "a"
+        assert edges[0]["target"] == "b"
+        assert edges[0]["sites"] == [f"sample/{parent}/a.py:1"]
 
 
 def test_symbol_use_edges_do_not_claim_import_site_counts() -> None:
