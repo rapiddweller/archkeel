@@ -8,7 +8,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from archkeel.ir.codec import InsideContractMount, load_inside_contract_tree
+from archkeel.ir.codec import (
+    InsideContractMount,
+    RequiresComponentReferenceError,
+    load_inside_contract_tree,
+)
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureContract,
@@ -63,6 +67,11 @@ def _inside_levels(
         read_inside,
     )
     for issue in tree.issues:
+        if issue.requires_error is not None:
+            raise RequiresComponentReferenceError(
+                f"{issue.pointer}{issue.requires_error.pointer}",
+                issue.requires_error.target,
+            )
         record = classified(
             item_id=stable_id("UNKNOWN-INSIDE-CONTRACT", issue.parent_id, issue.path),
             evidence_class=EvidenceClass.UNKNOWN,

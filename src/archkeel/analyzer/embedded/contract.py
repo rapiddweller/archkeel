@@ -10,7 +10,12 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import assert_never
 
-from archkeel.ir.codec import ContractVersionError, decode_json, parse_contract
+from archkeel.ir.codec import (
+    ContractVersionError,
+    RequiresComponentReferenceError,
+    decode_json,
+    parse_contract,
+)
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -49,6 +54,8 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
     try:
         contract = parse_contract(decode_json(raw))
     except ContractVersionError:
+        raise
+    except RequiresComponentReferenceError:
         raise
     except ValueError as exc:
         raise ContractError(f"invalid architecture contract JSON: {exc}") from exc

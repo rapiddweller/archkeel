@@ -149,6 +149,15 @@ class ContractVersionError(ValueError):
         super().__init__(f"contract.schema_version {actual!r} is not {CONTRACT_SCHEMA_VERSION}")
 
 
+class RequiresComponentReferenceError(ValueError):
+    """A requires target is not a component label in the same contract."""
+
+    def __init__(self, pointer: str, target: str) -> None:
+        self.pointer = pointer
+        self.target = target
+        super().__init__(f"{pointer} names undeclared requires component {target!r}")
+
+
 def _object(raw: object, label: str) -> dict[str, RawJson]:
     if not isinstance(raw, dict) or not all(isinstance(k, str) for k in raw):
         raise ValueError(f"{label} must be an object")
@@ -772,6 +781,13 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
+    for component_index, component in enumerate(components):
+        for requires_index, entry in enumerate(component.requires or ()):
+            if entry.component not in labels:
+                raise RequiresComponentReferenceError(
+                    f"/components/{component_index}/requires/{requires_index}/component",
+                    entry.component,
+                )
     for index, rule in enumerate(rules):
         if isinstance(rule, NoComponentCyclesRule) and rule.components is not None:
             unknown = sorted(set(rule.components) - labels)
@@ -1828,6 +1844,7 @@ class InsideContractIssue:
     pointer: str
     path: str
     reason: str
+    requires_error: RequiresComponentReferenceError | None = None
 
 
 @dataclass(frozen=True)
@@ -1989,6 +2006,11 @@ def _read_inside_mount(
         if identity in active or identity in seen:
             raise ValueError("reference cycle" if identity in active else "duplicate mount")
         contract = parse_contract(decode_json(payload))
+    except RequiresComponentReferenceError as error:
+        issues.append(
+            InsideContractIssue(parent, parent_id, location, reference, str(error), error)
+        )
+        return None
     except (OSError, ContractVersionError, ValueError) as error:
         issues.append(InsideContractIssue(parent, parent_id, location, reference, str(error)))
         return None
@@ -2163,6 +2185,11 @@ def declaration_paths(
     )
     if tree.issues:
         issue = tree.issues[0]
+        if issue.requires_error is not None:
+            raise RequiresComponentReferenceError(
+                f"{issue.pointer}{issue.requires_error.pointer}",
+                issue.requires_error.target,
+            )
         raise ValueError(f"inside {issue.path!r}: {issue.reason}")
     return tree.paths
 

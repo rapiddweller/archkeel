@@ -23,6 +23,7 @@ from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
     InsideContractTree,
+    RequiresComponentReferenceError,
     absent_contract_digest,
     amendment_bytes,
     baseline_bytes,
@@ -1512,15 +1513,27 @@ def inside_diagnostics(
         return ()
     scanned_modules = _scanned_modules(observation) if observation is not None else frozenset()
     for issue in loaded.issues:
-        diagnostics.append(
-            _diagnostic(
-                "contract.invalid",
-                issue.pointer,
-                issue.path,
-                f"The contract describing this inside cannot be loaded: {issue.reason}",
-                "Repair the repository-relative contract reference.",
+        if issue.requires_error is not None:
+            error = issue.requires_error
+            diagnostics.append(
+                _diagnostic(
+                    "contract.invalid",
+                    f"{issue.pointer}{error.pointer}",
+                    error.target,
+                    f"The architecture contract cannot be validated: {error}",
+                    "Correct the target to a component declared in this contract.",
+                )
             )
-        )
+        else:
+            diagnostics.append(
+                _diagnostic(
+                    "contract.invalid",
+                    issue.pointer,
+                    issue.path,
+                    f"The contract describing this inside cannot be loaded: {issue.reason}",
+                    "Repair the repository-relative contract reference.",
+                )
+            )
     for mount in loaded.mounts:
         inner = mount.contract
         parent = mount.parent
@@ -1785,14 +1798,16 @@ def _budget_baseline_missing() -> RunResult:
 
 
 def _against_invalid(against: str, error: Exception) -> RunResult:
+    pointer = error.pointer if isinstance(error, RequiresComponentReferenceError) else ""
+    subject = error.target if isinstance(error, RequiresComponentReferenceError) else against
     return RunResult(
         "validate",
         2,
         diagnostics=(
             _diagnostic(
                 "against.invalid",
-                "",
-                against,
+                pointer,
+                subject,
                 f"The compared revision cannot be read: {error}",
                 "Supply a Git revision this repository can resolve, with a valid contract at "
                 "its configured path.",
@@ -1837,6 +1852,8 @@ def _parse_contract_or_invalid(root: Path, config: ScanConfig) -> ArchitectureCo
                 ),
             ),
         )
+    except RequiresComponentReferenceError as error:
+        return invalid_result(error.target, error, error.pointer)
     except (OSError, ValueError) as error:
         return invalid_result(config.contract, error)
 
@@ -1929,6 +1946,11 @@ def _revision_contract_tree(root: Path, revision: str, path: str) -> InsideContr
     )
     if tree.issues:
         issue = tree.issues[0]
+        if issue.requires_error is not None:
+            raise RequiresComponentReferenceError(
+                f"{issue.pointer}{issue.requires_error.pointer}",
+                issue.requires_error.target,
+            )
         raise ValueError(f"inside {issue.path!r}: {issue.reason}")
     return tree
 

@@ -13,11 +13,20 @@ from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
     RawJson,
+    RequiresComponentReferenceError,
+    load_inside_contract_tree,
 )
 from archkeel.ir.codec import canonical_json_bytes as _canonical_json_bytes
 from archkeel.ir.codec import decode_json as _decode_json
 from archkeel.ir.codec import parse_observation as _parse_observation
-from archkeel.ir.model import Diagnostic, DiagnosticKind, Observation, ObservationResult
+from archkeel.ir.model import (
+    ArchitectureContract,
+    Diagnostic,
+    DiagnosticKind,
+    Observation,
+    ObservationResult,
+    contract_relative_path,
+)
 from archkeel.ir.profiles import PROFILES, Language
 
 from .embedded.contract import ContractError, load_contract
@@ -28,9 +37,57 @@ def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> Obs
     return ObservationResult(None, None, (Diagnostic(kind, subject, claim, remedy),))
 
 
-def _contract_failure(path: Path) -> ObservationResult | None:
+def _requires_reference_failure(error: RequiresComponentReferenceError) -> ObservationResult:
+    return ObservationResult(
+        None,
+        None,
+        (
+            Diagnostic(
+                "parse_error",
+                error.target,
+                f"Requires target {error.target!r} is not a local component label.",
+                "Correct the target to a component declared in this contract.",
+                error.pointer,
+            ),
+        ),
+    )
+
+
+def _nested_reference_failure(
+    root: Path, contract_path: Path, contract: ArchitectureContract, digest: str
+) -> ObservationResult | None:
+    repository = root.resolve()
+    identity = contract_path.resolve().relative_to(repository).as_posix()
+
+    def read_inside(reference: str) -> tuple[bytes, str]:
+        relative = contract_relative_path(reference)
+        if relative is None:
+            raise ValueError("unsafe repository path")
+        target = (repository / relative).resolve()
+        if not target.is_relative_to(repository) or not target.is_file():
+            raise ValueError("file is missing or outside the repository")
+        return target.read_bytes(), target.relative_to(repository).as_posix()
+
+    tree = load_inside_contract_tree(
+        identity,
+        contract,
+        digest,
+        identity,
+        read_inside,
+    )
+    for issue in tree.issues:
+        if issue.requires_error is not None:
+            error = RequiresComponentReferenceError(
+                f"{issue.pointer}{issue.requires_error.pointer}",
+                issue.requires_error.target,
+            )
+            return _requires_reference_failure(error)
+    return None
+
+
+def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | None:
     try:
-        load_contract(path)
+        contract, digest = load_contract(path)
     except ContractVersionError as error:
         return _failure(
             "parse_error",
@@ -38,6 +95,8 @@ def _contract_failure(path: Path) -> ObservationResult | None:
             f"Contract schema {error.actual} cannot be validated as {CONTRACT_SCHEMA_VERSION}.",
             "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
         )
+    except RequiresComponentReferenceError as error:
+        return _requires_reference_failure(error)
     except ContractError as error:
         return _failure(
             "parse_error",
@@ -45,7 +104,7 @@ def _contract_failure(path: Path) -> ObservationResult | None:
             f"The architecture contract cannot be decoded: {error}",
             "Correct the contract structure and run report again.",
         )
-    return None
+    return _nested_reference_failure(contract_root, path, contract, digest)
 
 
 # AD-97: a contract item the profile cannot decide is refused, never read as PASS.
@@ -133,7 +192,7 @@ def observe(
     suffix = PROFILES[language].source_suffix
     try:
         contract_file = contract_root / contract
-        if failure := _contract_failure(contract_file):
+        if failure := _contract_failure(contract_file, contract_root):
             return failure
         for root in roots:
             directory = source_root / root
