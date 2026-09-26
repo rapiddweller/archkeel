@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pytest
 from test_analyzer import _component, _inside_component, _observe
-from test_recursive_inside_independent_contracts import _commit_tree, _scan_config
+from test_recursive_inside_independent_contracts import (
+    _commit_tree,
+    _scan_config,
+    _write_three_levels,
+)
 
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
@@ -475,3 +479,71 @@ def test_nested_child_public_stays_local_in_validate(tmp_path: Path, external_im
         for item in result.diagnostics
         if item.code != "rule.violated"
     ]
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "missing-public",
+        "no-interface-rule",
+        "constant",
+        "planned",
+        "planned-import",
+        "parent-facade",
+    ],
+)
+def test_local_public_module_validation(tmp_path: Path, case: str) -> None:
+    _write_three_levels(tmp_path)
+    path = tmp_path / "contracts/two.json"
+    contract = json.loads(path.read_text())
+    contract["rules"] = (
+        [] if case == "no-interface-rule" else [_rule("INTERFACE", "interface_boundary")]
+    )
+    source = contract["components"][0]
+    if case == "constant":
+        source["public"] = ["sample.layer.source.api:VALUE"]
+        (tmp_path / "sample/layer/source/api.py").write_text("VALUE = 1\n")
+        (tmp_path / "sample/layer/target/api.py").write_text(
+            "from sample.layer.source.api import VALUE\n"
+        )
+    elif case == "planned":
+        source["planned"] = ["sample.layer.source.missing:run"]
+    elif case in {"planned-import", "parent-facade"}:
+        (tmp_path / "sample/layer/source/api.py").write_text(
+            "def run() -> str:\n    return 'ok'\n__all__ = ['run']\n"
+        )
+        if case == "planned-import":
+            source["planned"] = ["sample.layer.source.api:run"]
+            (tmp_path / "sample/layer/target/api.py").write_text(
+                "from sample.layer.source.api import run\n"
+            )
+        else:
+            source["public"] = ["sample.layer.source.api:run"]
+            (tmp_path / "sample/layer/__init__.py").write_text(
+                "from sample.layer.source.api import run\n__all__ = ['run']\n"
+            )
+            root_path = tmp_path / "contract.json"
+            root_contract = json.loads(root_path.read_text())
+            root_contract["components"][0]["public"] = ["sample.layer:run"]
+            root_path.write_text(json.dumps(root_contract))
+    else:
+        source["public"] = ["sample.layer.source.missing:run"]
+    path.write_text(json.dumps(contract))
+    _commit_tree(tmp_path)
+
+    result, _ = run_validate(tmp_path, _scan_config(), observe)
+
+    if case == "missing-public":
+        assert result.exit_code == 2, result
+        assert [(item.code, item.pointer, item.subject) for item in result.diagnostics] == [
+            (
+                "interface.missing",
+                "/components/0/inside/components/0/inside/components/0/public/0",
+                "sample.layer.source.missing:run",
+            )
+        ]
+    elif case == "planned-import":
+        assert result.exit_code == 2, result
+        assert any(item.code == "rule.violated" for item in result.diagnostics), result
+    else:
+        assert result.exit_code == 0, result.diagnostics

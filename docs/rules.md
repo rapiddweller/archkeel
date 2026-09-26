@@ -160,6 +160,10 @@ its outward entries or proven facade reexports; the lists need not be equal or s
 A parent facade may sit outside all child packages. Namespace, provenance and `public`/`planned`
 ownership and underscore checks also apply inside, with mount-qualified diagnostic pointers.
 Ancestor restrictions still apply. `inside.public_mismatch` is no longer emitted.
+With a local `interface_boundary`, an unscanned public module is `interface.missing`.
+Nested unused-public and planned-promotion diagnostics are not yet evaluated: they need scoped
+usage evidence, including parent facades. Local private imports are still checked. Do not infer
+that every listed inner API is used from a passing contract.
 
 `external_dependency_scope` fields are `dependency` (a top-level import name), `allowed_sources`
 and `exact_sources`, at least one of the two non-empty. It matches import records whose target is

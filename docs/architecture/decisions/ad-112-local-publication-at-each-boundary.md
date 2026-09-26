@@ -18,9 +18,15 @@ flowchart LR
 ```
 
 Inside validation reuses the existing reference checks for namespace, provenance and
-`public`/`planned` ownership and underscore names. Diagnostics point to the mounted entry.
-It does not add new unused-public or unbuilt-package checks. Schema 2.1.0 stays unchanged;
+`public`/`planned` ownership and underscore names. A local `interface_boundary` also rejects
+public entries whose modules were not scanned. Diagnostics point to the mounted entry.
+It does not add general unused-public or unbuilt-package checks. Schema 2.1.0 stays unchanged;
 old `inside.public_mismatch` results remain readable, but new validation never emits that code.
+
+Nested unused-public and planned-promotion diagnostics (#182) need level-specific importer and facade
+type evidence. Reusing the root's global usage index would misclassify parent facades and leak
+unrelated usage. Those lifecycle diagnostics remain root-only; local private imports are still
+checked by the declared interface rule. Missing symbol records do not prove a missing constant.
 
 Migration: keep outward publication explicit. Review copied child entries rather than
 promoting every local API. ArchKeel's analyzer inside wrongly listed `archkeel.analyzer` under

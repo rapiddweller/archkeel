@@ -203,6 +203,9 @@ Once the architect decides:
   explicitly publishes them or a proven facade reexport. Do not copy every child API upward.
 - `reference.public_owner`, `reference.public_underscore` and `reference.namespace` also apply
   inside. Correct the declaration at its mounted pointer; do not broaden ownership to silence it.
+- With an inner `interface_boundary`, `interface.missing` names an unscanned public module.
+  Inner unused-public and planned-promotion diagnostics are not yet evaluated; review usage
+  explicitly, including parent facades. A green contract does not prove every local API is used.
 - `inside.forbidden_import` — the inside grants an edge the level above forbids the component,
   by a rule or by absence under `requires`. Remove the grant, or change the decision above.
 - `contract.invalid` at `/components/<n>/inside` — the file is missing, outside the repository,
