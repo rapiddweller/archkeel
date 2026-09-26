@@ -48,3 +48,9 @@ part of recursive loading. A report drills through mounted levels and retains th
 its physical folder view does not claim rule coverage.
 
 Evidence: recursive inside contract, independent contract, boundary and flow-navigation tests.
+
+Approved on 2026-09-26 under the architect's evidence-backed budget decision: unresolved-call
+budget 513 → 523. `validate --against 50a3490` reports 19 added and 9 removed unresolved
+call-site identities, including moves between functions. These are changed-code operations,
+not better detection in unchanged code; the call resolver is unchanged. UNKNOWN stays 41,
+with no known violations or cycle edges. No violation exemption or other budget is added.
