@@ -12,6 +12,7 @@ from archkeel.analyzer.embedded.source import AliasBinding, ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.analyzer.embedded.violations import (
     _AMBIGUOUS,
+    BindingIndex,
     _boundary_type_verdict,
     _typing_wrapper_inner,
     boundary_type_indexes,
@@ -165,14 +166,16 @@ def test_alias_preserves_nested_violation_and_unknown_coordinates() -> None:
             "fields": [{"name": "payload", "annotation": "dict[str, str]"}],
         },
     }
-    violation = _boundary_type_verdict("RequestAlias", "sample", contract, {}, {}, alias)
+    violation = _boundary_type_verdict(
+        "RequestAlias", "sample", contract, {}, BindingIndex(), alias
+    )
     assert violation.violation == "instead of a typed model"
     assert violation.path == ("payload",)
     assert violation.nested_annotation == "dict[str, str]"
     assert violation.violations == (("instead of a typed model", ("payload",), "dict[str, str]"),)
 
     alias[("sample", "Request")]["fields"] = [{"name": "payload", "annotation": "Unresolved"}]
-    unknown = _boundary_type_verdict("RequestAlias", "sample", contract, {}, {}, alias)
+    unknown = _boundary_type_verdict("RequestAlias", "sample", contract, {}, BindingIndex(), alias)
     assert unknown.undecidable == "unresolved_name"
     assert unknown.path == ("payload",)
     assert unknown.nested_annotation == "Unresolved"

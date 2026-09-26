@@ -257,6 +257,153 @@ _BOUNDARY_TYPES_REEXPORT_ALIASES = Variant(
     expected_codes=("rule.violated",),
 )
 
+
+_BOUNDARY_TYPES_ORDINARY_REEXPORT = Variant(
+    id="class-a-boundary-types-ordinary-reexport",
+    section="class_a",
+    item="boundary_types:ordinary_reexport",
+    summary="An ordinary shop.render.facade module explicitly exports its imported entry in one "
+    "literal __all__. boundary_types follows that declared facade to the implementation "
+    "signature; imports without that proof remain UNKNOWN (AD-109).",
+    files={
+        "shop/render/facade.py": HEADER
+        + (
+            '"""Ordinary module facade for the renderer."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.text import render_order\n\n"
+            '__all__ = ["render_order"]\n'
+        ),
+        "shop/render/text.py": _REEXPORTED_BROAD_MODULE,
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from shop.render.text import render_order",
+            "from shop.render.facade import render_order",
+        ),
+        "architecture-contract.json": _render_reexport_contract().replace(
+            "shop.render:render_order", "shop.render.facade:render_order"
+        ),
+    },
+    expected_violations=("RENDER-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
+
+def _render_ordinary_chain_contract() -> str:
+    contract = json.loads(_render_reexport_contract())
+    render = next(item for item in contract["components"] if item["label"] == "render")
+    render["public"] = [
+        entry.replace("shop.render:render_order", "shop.render.facade:render_order")
+        for entry in render["public"]
+    ]
+    render["public"].append("shop.render.facade:safe")
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN = Variant(
+    id="class-a-boundary-types-ordinary-reexport-chain-unknown",
+    section="class_a",
+    item="boundary_types:ordinary_reexport_chain",
+    summary="The public ordinary facade exports render_order through an intermediate ordinary "
+    "module with no literal __all__. That hop cannot prove the broad implementation signature, "
+    "so the route stays UNKNOWN; the facade's local typed safe() remains decidable (AD-109).",
+    files={
+        "shop/render/facade.py": HEADER
+        + (
+            '"""Public ordinary facade for rendering."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.intermediate import render_order\n\n\n"
+            "def safe(value: str) -> str:\n"
+            "    return value\n\n"
+            '__all__ = ["render_order", "safe"]\n'
+        ),
+        "shop/render/intermediate.py": HEADER
+        + (
+            '"""Intermediate ordinary import with no declared export list."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.text import render_order\n"
+        ),
+        "shop/render/text.py": _REEXPORTED_BROAD_MODULE,
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from shop.render.text import render_order",
+            "from shop.render.facade import render_order, safe",
+        )
+        .replace("print(render_order(order))", "print(safe(render_order(order)))"),
+        "architecture-contract.json": _render_ordinary_chain_contract(),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(
+        ("boundary_type_route", "shop.render.facade.render_order"),
+        ("boundary_type_route", "shop.render.facade"),
+    ),
+    expected_declared_rules="UNKNOWN",
+)
+
+
+def _owned_public_payload(value_type: str) -> dict[str, str]:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    app = next(item for item in contract["components"] if item["label"] == "app")
+    app["public"].extend(["shop.app.api:Payload", "shop.app.api:make"])
+    value = "{}" if value_type == "dict" else '"ready"'
+    return {
+        "shop/app/payloads.py": HEADER
+        + (
+            '"""Payload owned and constructed by the app component."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from dataclasses import dataclass\n\n\n"
+            "@dataclass(frozen=True, slots=True)\n"
+            "class Payload:\n"
+            f"    value: {value_type}\n\n\n"
+            "def make() -> Payload:\n"
+            f"    return Payload(value={value})\n"
+        ),
+        "shop/app/api.py": HEADER
+        + (
+            '"""The app component public API."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.app.payloads import Payload, make\n\n"
+            '__all__ = ["Payload", "make"]\n'
+        ),
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from shop.render.text import render_order",
+            "from shop.render.text import render_order\nfrom shop.app.api import Payload, make",
+        )
+        .replace(
+            "print(render_order(order))",
+            "payload: Payload = make()\n        print(render_order(order), payload.value)",
+        ),
+        "architecture-contract.json": json.dumps(contract, indent=2) + "\n",
+    }
+
+
+_BOUNDARY_TYPES_OWNED_PUBLIC_TYPE = Variant(
+    id="class-a-boundary-types-owned-public-type",
+    section="class_a",
+    item="boundary_types:owned_public_type",
+    summary="shop.app.api explicitly re-exports its own Payload and make from an ordinary module. "
+    "The typed field is a proven same-owner public boundary and stays clean.",
+    files=_owned_public_payload("str"),
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="PASS",
+)
+
+_BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD = Variant(
+    id="class-a-boundary-types-owned-public-broad-field",
+    section="class_a",
+    item="boundary_types:owned_public_broad_field",
+    summary="The same proven app-owned public Payload has a broad dict field. The field remains "
+    "a real APP-TYPES-NOT-DICT violation rather than being cleared with the re-export route.",
+    files=_owned_public_payload("dict"),
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
 _REQUEST_MODEL_MODULE = HEADER + (
     '"""A request model with a broad directly declared field."""\n\n'
     "from __future__ import annotations\n\n"
@@ -299,5 +446,9 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_IN_COLLECTION,
     _BOUNDARY_TYPES_REEXPORT,
     _BOUNDARY_TYPES_REEXPORT_ALIASES,
+    _BOUNDARY_TYPES_ORDINARY_REEXPORT,
+    _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN,
+    _BOUNDARY_TYPES_OWNED_PUBLIC_TYPE,
+    _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD,
     _BOUNDARY_TYPES_MODEL_FIELD,
 )
