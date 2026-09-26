@@ -154,3 +154,49 @@ def test_uncertain_public_alias_keeps_other_alias_violations(tmp_path: Path) -> 
     assert any(
         record.kind.startswith("boundary") for record in observation.records("unknowns") or ()
     )
+
+
+@pytest.mark.parametrize("uncertain", [False, True])
+@pytest.mark.parametrize("hops", [2, 3])
+def test_uncertainty_survives_multiple_intermediate_aliases(
+    tmp_path: Path, hops: int, uncertain: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from .middle0 import constraints\n" + EXPORT + SAFE,
+    )
+    for index in range(hops):
+        target = (
+            "from .impl import element_constraints as constraints\n"
+            if index == hops - 1
+            else f"from .middle{index + 1} import constraints\n"
+        )
+        (tmp_path / f"sample/app/middle{index}.py").write_text(
+            target
+            + '__all__ = ["constraints"]\n'
+            + ('__all__.append("other")\n' if uncertain else "")
+        )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    findings = result.observation.records("violations") or ()
+    unknowns = [
+        record
+        for record in result.observation.records("unknowns") or ()
+        if record.kind.startswith("boundary")
+    ]
+    if uncertain:
+        assert not findings
+        assert unknowns, "Every uncertain hop must reach the public facade as UNKNOWN"
+    else:
+        assert len(findings) == 3
+        assert not unknowns
