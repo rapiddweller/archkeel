@@ -527,6 +527,24 @@ def test_an_inside_contract_cannot_hold_a_budget_nobody_measures(tmp_path: Path)
         tmp_path, files={"shop/store/architecture-contract.json": json.dumps(inside, indent=2)}
     )
 
-    assert [(item.code, item.pointer) for item in diagnostics] == [
-        ("contract.invalid", "/components/1/inside")
-    ]
+    assert diagnostics == (
+        Diagnostic(
+            "parse_error",
+            "shop/store/architecture-contract.json, store",
+            "Scan completeness cannot be established: store inside contract cannot be evaluated: "
+            "unsupported non-empty declarations: facade_budgets",
+            "Inspect the reported failure using the declared target runtime; rerun after resolving "
+            "its cause.",
+            "",
+            None,
+        ),
+        Diagnostic(
+            "contract_invalid",
+            "shop/store/architecture-contract.json",
+            "The contract describing this inside cannot be loaded: unsupported non-empty "
+            "declarations: facade_budgets",
+            "Repair the repository-relative contract reference.",
+            "/components/1/inside",
+            "contract.invalid",
+        ),
+    )

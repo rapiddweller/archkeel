@@ -43,9 +43,14 @@ def test_check_keeps_partial_observation_on_exit_two(tmp_path: Path, stage: str)
     expected = _expectation_payload()
     expected.update(accepted_digest=sha256(lock_bytes).hexdigest(), baseline_commit="b" * 40)
     expected_bytes = json.dumps(expected).encode()
+    contract_bytes = json.dumps({"schema_version": "2.1.0", "components": [], "rules": []}).encode()
 
     def read_blob(root: Path, commit: str, path: str) -> bytes:
-        return expected_bytes if path == "expectation.json" else lock_bytes
+        if path == "expectation.json":
+            return expected_bytes
+        if path == "contract.json":
+            return contract_bytes
+        return lock_bytes
 
     with (
         patch("archkeel.check.run.remote_tip", return_value="b" * 40),
