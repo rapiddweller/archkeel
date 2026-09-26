@@ -26,7 +26,9 @@ from test_recursive_inside_independent_contracts import (
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
 from archkeel.check.validation import _inside_contract_tree, _revision_contract_tree
 from archkeel.ir.codec import parse_contract
+from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
+from archkeel.render.flow import build_flow
 
 
 def _component_at(
@@ -246,6 +248,37 @@ def test_nested_scope_escape_stays_unknown_while_valid_sibling_is_evaluated(
         any(rule_id.endswith("FOREIGN-NO-EDGE") for rule_id in item.rule_ids) for item in violations
     )
 
+    levels = {level.parent: level for level in inside_levels(result.observation)}
+    foreign_level = levels["app:app:foreign"]
+    assert {item.label: item.modules for item in foreign_level.components} == {
+        "source": (),
+        "target": (),
+    }
+    assert foreign_level.edges == ()
+    good_level = levels["app:app:good"]
+    assert {item.label: item.modules for item in good_level.components} == {
+        "source": ("sample.layer.good.source", "sample.layer.good.source.api"),
+        "target": ("sample.layer.good.target", "sample.layer.good.target.api"),
+    }
+    assert [(edge.source, edge.target) for edge in good_level.edges] == [("source", "target")]
+
+    flow = build_flow(result.observation)
+    app = next(item for item in flow.components if item.label == "app")
+    assert app.inside is not None
+    foreign = next(item for item in app.inside.components if item.label == "foreign")
+    assert foreign.inside is not None
+    assert {item.label: item.modules for item in foreign.inside.components} == {
+        "source": (),
+        "target": (),
+    }
+    assert foreign.inside.edges == ()
+    good = next(item for item in app.inside.components if item.label == "good")
+    assert good.inside is not None
+    assert any(
+        edge.source == "source" and edge.target == "target" and edge.state == "violation"
+        for edge in good.inside.edges
+    )
+
 
 @pytest.mark.parametrize(
     ("target_public", "expected_violation"),
@@ -340,3 +373,81 @@ def test_deep_boundary_types_preserve_intermediate_target_ownership(
     else:
         assert not violations
         assert not unknowns
+
+
+@pytest.mark.parametrize(
+    ("external_public", "invalid_public", "expected_violation"),
+    [
+        (["sample.foreign.api:Payload"], [], False),
+        ([], ["sample.foreign.api:Payload"], True),
+    ],
+    ids=["root-public-survives-invalid-sibling", "invalid-sibling-cannot-publish"],
+)
+def test_invalid_inside_sibling_does_not_replace_root_type_ownership(
+    tmp_path: Path,
+    external_public: list[str],
+    invalid_public: list[str],
+    expected_violation: bool,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (tmp_path / "docs/architecture").mkdir(parents=True)
+    (tmp_path / "docs/architecture/sample.md").write_text("Architecture decision.\n")
+    for package in ("sample", "sample/layer", "sample/layer/source", "sample/foreign"):
+        path = tmp_path / package
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "__init__.py").touch()
+    (tmp_path / "contracts").mkdir()
+    (tmp_path / "sample/layer/source/api.py").write_text(
+        "from sample.foreign.api import Payload\n\ndef run() -> Payload: ...\n"
+    )
+    (tmp_path / "sample/foreign/api.py").write_text("class Payload: pass\n")
+
+    public_api = ["sample.layer.source.api:run"]
+    deepest = _contract(
+        [_component_at("source", "sample.layer.source", public=public_api)],
+        [
+            {
+                "id": "SOURCE-TYPES",
+                "kind": "boundary_types",
+                "source": "sample.layer.source",
+                "rationale": "Keep exported source types within published boundaries.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    inside = _contract(
+        [
+            _component_at(
+                "source",
+                "sample.layer.source",
+                public=public_api,
+                inside="contracts/two.json",
+            ),
+            _component_at("invalid", "sample.foreign", public=invalid_public),
+        ],
+        [],
+    )
+    root = _contract(
+        [
+            _component_at("app", "sample.layer", inside="contracts/one.json"),
+            _component_at("external", "sample.foreign", public=external_public),
+        ],
+        [],
+    )
+    (tmp_path / "contract.json").write_text(json.dumps(root))
+    (tmp_path / "contracts/one.json").write_text(json.dumps(inside))
+    (tmp_path / "contracts/two.json").write_text(json.dumps(deepest))
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    violations = [
+        item
+        for item in result.observation.records("violations") or ()
+        if item.kind == "boundary_types"
+        and any(rule_id.endswith("SOURCE-TYPES") for rule_id in item.rule_ids)
+    ]
+    unknowns = result.observation.records("unknowns") or ()
+
+    assert any(item.kind == "inside_source_domain_incomplete" for item in unknowns), unknowns
+    assert bool(violations) is expected_violation, (violations, unknowns)
