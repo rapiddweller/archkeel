@@ -50,6 +50,34 @@ def test_literal_field_and_default_reference_the_enum(tmp_path: Path) -> None:
     assert "sample.types.Unused" in candidates
 
 
+def test_same_module_literal_field_and_default_reference_enum(tmp_path: Path) -> None:
+    (tmp_path / "sample").mkdir(parents=True)
+    (tmp_path / "sample/facade.py").write_text(
+        "from enum import Enum\n"
+        "from typing import Literal\n"
+        "from pydantic import BaseModel\n"
+        "\n"
+        "class IntentRepairKind(str, Enum):\n"
+        "    INVALID_DISCRIMINATOR = 'invalid_discriminator'\n"
+        "\n"
+        "class DefaultRepairKind(str, Enum):\n"
+        "    OTHER = 'other'\n"
+        "\n"
+        "class UnusedRepairKind(str, Enum):\n"
+        "    NEVER_USED = 'never_used'\n"
+        "\n"
+        "class IntentRepair(BaseModel):\n"
+        "    kind: Literal[IntentRepairKind.INVALID_DISCRIMINATOR]\n"
+        "    default_kind: str = DefaultRepairKind.OTHER\n"
+    )
+
+    candidates = _enum_candidates(tmp_path)
+
+    assert "sample.facade.IntentRepairKind" not in candidates
+    assert "sample.facade.DefaultRepairKind" not in candidates
+    assert "sample.facade.UnusedRepairKind" in candidates
+
+
 def test_aliased_imported_enum_member_references_its_source_class(tmp_path: Path) -> None:
     _write_enum_app(
         tmp_path,
@@ -58,6 +86,22 @@ def test_aliased_imported_enum_member_references_its_source_class(tmp_path: Path
         "\n"
         "class Payload:\n"
         "    status: Literal[WorkflowState.READY] = WorkflowState.READY\n",
+    )
+
+    candidates = _enum_candidates(tmp_path)
+
+    assert "sample.types.State" not in candidates
+    assert "sample.types.Unused" in candidates
+
+
+def test_namespace_qualified_enum_member_references_its_source_class(tmp_path: Path) -> None:
+    _write_enum_app(
+        tmp_path,
+        "from typing import Literal\n"
+        "import sample.types as types\n"
+        "\n"
+        "class Payload:\n"
+        "    status: Literal[types.State.READY] = types.State.READY\n",
     )
 
     candidates = _enum_candidates(tmp_path)
