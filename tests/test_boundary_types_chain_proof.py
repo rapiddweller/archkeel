@@ -315,3 +315,50 @@ def test_public_alias_cycle_is_unknown_beside_a_typed_function(tmp_path: Path) -
         record.kind == "rule-without-subjects"
         for record in result.observation.records("unknowns") or ()
     )
+
+
+@pytest.mark.parametrize(
+    ("middle", "unknown"),
+    [
+        ("from .impl import element_constraints as constraints\n", True),
+        (
+            "from .impl import element_constraints as constraints\n"
+            'if enabled:\n    __all__ = ["constraints"]\n',
+            True,
+        ),
+        ('__all__ = ["constraints"]\n', True),
+        ('constraints = 42\n__all__ = ["constraints"]\n', False),
+        ('class constraints:\n    pass\n__all__ = ["constraints"]\n', False),
+    ],
+    ids=("no-all", "conditional-all", "missing-symbol", "known-constant", "known-class"),
+)
+def test_public_route_endpoint_must_be_known_beside_a_typed_function(
+    tmp_path: Path, middle: str, unknown: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.api"],
+        init="",
+        api="from .middle import constraints\n" + EXPORT + SAFE,
+    )
+    (tmp_path / "sample/app/middle.py").write_text(middle)
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    observation = result.observation
+    assert not observation.records("violations")
+    unresolved = [
+        record
+        for record in observation.records("unknowns") or ()
+        if "APP-TYPES-NOT-DICT" in record.rule_ids
+    ]
+    assert bool(unresolved) is unknown
+    if unknown:
+        assert all(record.kind == "boundary_type_route" for record in unresolved)
