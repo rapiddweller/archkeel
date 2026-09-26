@@ -754,7 +754,7 @@
         ? `${component.label}: modules without a unique declared owner. Navigation only; no component boundary or contract verdict is implied. Select to inspect the module inventory.`
         : component.library
         ? `${component.display}: external library scope under ${scopeRules(component).map((rule) => rule.rule_id).join(", ")}.`
-        : !opened
+        : !opened || declaredComponent
         ? `${component.label}: ${component.modules.length} modules; ${component.public === null ? "no interface boundary declared" : `${component.public.length} provided entries`}; ${(component.requires || []).length} required components. Select for details; select again to open.`
         : `${component.label}: ${component.folder ? "physical package, not a declared component" : "module"}; ${component.import_sites || 0} import sites touching it.`;
       const group = el(
@@ -1027,7 +1027,7 @@
       const ownerNote = owner.navigation_only
         ? "These modules have no unique declared owner. This view is navigation only and has no component verdict. "
         : "";
-      return `<div class="kicker">Inside</div><h2>${esc(prefix || opened.inside || opened.component)}</h2><p>${ownerNote}Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
+      return `<div class="kicker">Inside</div><h2>${esc(prefix || insideScope()?.card?.label || opened.inside || opened.component)}</h2><p>${ownerNote}Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
     }
     return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>Declared components are shown with their observed imports. “Unassigned modules” is navigation only and does not imply a component boundary or verdict. Select a box or connection for evidence; select a box again to open its physical module view.</p>${statBlock()}${heaviestBlock()}`;
   }

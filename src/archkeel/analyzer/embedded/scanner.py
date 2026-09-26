@@ -234,19 +234,22 @@ def _inside_rule_results(
     allowances: list[RawRecord] = []
     all_modules = frozenset(module["data"]["qualified_name"] for module in modules)
     available_by_owner = {"": all_modules}
+    contract_by_owner = {"": root_contract} if root_contract is not None else {}
     mounts_by_parent = {mount.parent_id: mount for mount in inside_contracts}
     for mount in inside_contracts:
         available = available_by_owner.get(mount.owner_id, frozenset())
+        parent = _inside_parent_component(mount, contract_by_owner)
         scoped, source_modules, scope_failures = _inside_source_domain(
-            mount.parent, mount.contract, modules, mount.parent_id, available
+            parent, mount.contract, modules, mount.parent_id, available
         )
         available_by_owner[mount.parent_id] = source_modules
+        contract_by_owner[mount.parent_id] = scoped
         failures.extend(scope_failures)
         external_components = _inside_external_components(
-            mount, mounts_by_parent, root_contract, scoped
+            mount, mounts_by_parent, contract_by_owner, parent, scoped
         )
         results = _evaluate_inside_contract(
-            mount.parent,
+            parent,
             scoped,
             source_modules,
             external_components=external_components,
@@ -277,6 +280,23 @@ def _inside_rule_results(
         sorted(assessments, key=lambda item: item["id"]),
         sorted(allowances, key=lambda item: item["id"]),
     )
+
+
+def _inside_parent_component(
+    mount: InsideContractMount,
+    contract_by_owner: dict[str, ArchitectureContract],
+) -> ContractComponent:
+    """Resolve a mount's owner from the already-clipped ancestor contract."""
+    owner_contract = contract_by_owner.get(mount.owner_id)
+    if owner_contract is None and not mount.owner_id:
+        owner_contract = mount.parent_contract
+    if owner_contract is not None:
+        parent = next(
+            (item for item in owner_contract.components if item.id == mount.parent.id), None
+        )
+        if parent is not None:
+            return parent
+    return replace(mount.parent, packages=()) if mount.owner_id else mount.parent
 
 
 def _inside_source_domain(
@@ -323,23 +343,26 @@ def _inside_source_domain(
 def _inside_external_components(
     mount: InsideContractMount,
     mounts_by_parent: dict[str, InsideContractMount],
-    root_contract: ArchitectureContract | None,
+    contract_by_owner: dict[str, ArchitectureContract],
+    parent: ContractComponent,
     scoped: ArchitectureContract,
 ) -> tuple[ContractComponent, ...]:
     """Keep established sibling owners visible without promoting the parent's scope."""
-    contracts = [mount.parent_contract]
+    contracts = []
     owner_id = mount.owner_id
-    while owner_id:
+    while True:
+        contract = contract_by_owner.get(owner_id)
+        if contract is not None:
+            contracts.append(contract)
+        if not owner_id:
+            break
         owner = mounts_by_parent.get(owner_id)
         if owner is None:
             break
-        contracts.append(owner.parent_contract)
         owner_id = owner.owner_id
-    if root_contract is not None and all(item is not root_contract for item in contracts):
-        contracts.append(root_contract)
 
     occupied = [
-        *mount.parent.packages,
+        *parent.packages,
         *(package for component in scoped.components for package in component.packages),
     ]
     selected: list[ContractComponent] = []
