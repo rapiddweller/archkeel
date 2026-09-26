@@ -92,14 +92,16 @@ def test_deep_no_show_symbol_boundary_is_unknown_not_incomplete(tmp_path: Path) 
     assert result.observation_complete == "PASS"
     assert result.declared_rules == "UNKNOWN"
     assert result.exit_code == 0
-    assert result.observation is not None
+    observed = _observe(root)
+    assert observed.exit_code == 0, observed.diagnostics
+    assert observed.observation is not None
     unknowns = [
         record
-        for record in result.observation.records("unknowns") or ()
+        for record in observed.observation.records("unknowns") or ()
         if record.kind == "interface_symbol_limit"
     ]
     assert len(unknowns) == 1
-    assert unknowns[0].rule_ids == ("INTERFACE",)
+    assert unknowns[0].rule_ids == ("app:app:INTERFACE",)
     assert unknowns[0].subjects == ("sample.layer.source.root.nested.deep",)
 
 
@@ -148,15 +150,19 @@ def test_known_symbol_violation_survives_alongside_deep_unknown(tmp_path: Path) 
     assert observed.exit_code == 0, observed.diagnostics
     assert observed.observation is not None
     assert inspect_observation(observed.observation)[1] == "FAIL"
-    assert any(
-        record.kind == "interface_symbol_limit"
-        and record.subjects == ("sample.layer.source.root.nested.deep",)
-        for record in observed.observation.records("unknowns") or ()
-    )
-    assert any(
-        "sample.layer.source.known_violation" in record.subjects
+    (violation,) = [
+        record
         for record in observed.observation.records("violations") or ()
-    )
+        if "sample.layer.source.known_violation" in record.subjects
+    ]
+    assert violation.rule_ids == ("app:app:INTERFACE",)
+    (unknown,) = [
+        record
+        for record in observed.observation.records("unknowns") or ()
+        if record.kind == "interface_symbol_limit"
+        and record.subjects == ("sample.layer.source.root.nested.deep",)
+    ]
+    assert unknown.rule_ids == ("app:app:INTERFACE",)
 
 
 def test_deep_no_show_forbidden_symbol_limit_is_unknown(tmp_path: Path) -> None:
@@ -184,14 +190,16 @@ def test_deep_no_show_forbidden_symbol_limit_is_unknown(tmp_path: Path) -> None:
     assert result.observation_complete == "PASS"
     assert result.declared_rules == "UNKNOWN"
     assert result.exit_code == 0
-    assert result.observation is not None
+    observed = _observe(root)
+    assert observed.exit_code == 0, observed.diagnostics
+    assert observed.observation is not None
     unknowns = [
         record
-        for record in result.observation.records("unknowns") or ()
+        for record in observed.observation.records("unknowns") or ()
         if record.kind == "dependency_symbol_limit"
     ]
     assert len(unknowns) == 1
-    assert unknowns[0].rule_ids == ("NO-SECRET",)
+    assert unknowns[0].rule_ids == ("app:app:NO-SECRET",)
     assert unknowns[0].subjects == ("sample.layer.source.root.nested.deep",)
 
 
@@ -227,12 +235,16 @@ def test_known_forbidden_symbol_violation_survives_alongside_deep_unknown(
     assert observed.exit_code == 0, observed.diagnostics
     assert observed.observation is not None
     assert inspect_observation(observed.observation)[1] == "FAIL"
-    assert any(
-        record.kind == "dependency_symbol_limit"
-        and record.subjects == ("sample.layer.source.root.nested.deep",)
-        for record in observed.observation.records("unknowns") or ()
-    )
-    assert any(
-        "sample.layer.source.known_violation" in record.subjects
+    (violation,) = [
+        record
         for record in observed.observation.records("violations") or ()
-    )
+        if "sample.layer.source.known_violation" in record.subjects
+    ]
+    assert violation.rule_ids == ("app:app:NO-SECRET",)
+    (unknown,) = [
+        record
+        for record in observed.observation.records("unknowns") or ()
+        if record.kind == "dependency_symbol_limit"
+        and record.subjects == ("sample.layer.source.root.nested.deep",)
+    ]
+    assert unknown.rule_ids == ("app:app:NO-SECRET",)
