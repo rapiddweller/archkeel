@@ -57,6 +57,7 @@ class SymbolIndex:
     names: frozenset[str]
     by_tail: dict[str, list[str]]
     evidence: dict[str, list[str]]
+    enum_members: dict[str, frozenset[str]]
 
 
 def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
@@ -67,7 +68,13 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
     evidence: dict[str, list[str]] = {
         item["data"]["qualified_name"]: item["evidence_ids"] for item in symbols
     }
-    return SymbolIndex(frozenset(names), dict(by_tail), evidence)
+    enum_members = {
+        item["data"]["qualified_name"]: frozenset(members)
+        for item in symbols
+        if item["data"].get("class_kind") == "enum"
+        and isinstance((members := item["data"].get("enum_members")), list)
+    }
+    return SymbolIndex(frozenset(names), dict(by_tail), evidence, enum_members)
 
 
 def _static_receiver_type(

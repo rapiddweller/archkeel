@@ -9,8 +9,8 @@ raise instead of returning a typed FAIL, and coverage_must_pass is a fixed guard
 a comparable dimension. See `fixtures/demo_catalog_check.py` for every scalar and guardrail
 dimension that a `check` demo can fire, and its protocol rows for `git_order`/`host_order`.
 class_c (declarations Archkeel decodes but does not check against the code beyond `public_api`'s
-existence check, catalogued as `validation-api-surface-missing`, AD-66) and class_d (not
-implemented) each cite the existing test or fixture that demonstrates them instead.
+existence check, catalogued as `validation-api-surface-missing`, AD-66) and report-only class_d
+claims each cite the existing test or fixture that demonstrates them instead.
 """
 
 from __future__ import annotations
@@ -95,13 +95,24 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         id="class-d-review-claims",
         section="class_d",
         item="review_claims",
-        summary="Class D review claims are planned but not implemented: no contract field or "
-        "diagnostic binds a review verdict to an evidence digest yet, so no overlay changes "
-        "the clean sample's findings.",
+        summary="Class D review claims are report-only: no contract field or diagnostic binds "
+        "a review verdict to an evidence digest, so no overlay changes the clean sample's "
+        "findings.",
         files={},
         expected_violations=(),
         expected_codes=(),
         evidence="docs/rules.md",
+    ),
+    Variant(
+        id="class-d-enum-member-reference",
+        section="class_d",
+        item="unreferenced_symbols:enum-member-reference",
+        summary="A proven enum member in a field annotation or default references its enum "
+        "class, while an unused enum remains a candidate.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_references.py",
     ),
     Variant(
         id="class-d-oversized-inside",

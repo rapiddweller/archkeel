@@ -7,6 +7,9 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+from test_analyzer import _observe
+
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.references import unreferenced_symbols
 
@@ -63,3 +66,32 @@ def test_the_claim_stays_small_enough_to_read() -> None:
 
     assert result.symbols > 400
     assert len(result.candidates) < 10
+
+
+def test_enum_members_in_field_annotations_and_defaults_reference_their_class(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "sample.py"
+    source.write_text(
+        "from enum import Enum\n"
+        "from typing import Literal\n\n"
+        "class IntentRepairKind(str, Enum):\n"
+        "    REPLACE_FIELD = 'replace_field'\n\n"
+        "class ScaffoldParameter(str, Enum):\n"
+        "    MAX_COUNT = 'max_count'\n\n"
+        "class Unused(Enum):\n"
+        "    ITEM = 'item'\n\n"
+        "class Request:\n"
+        "    repair: Literal[IntentRepairKind.REPLACE_FIELD]\n"
+        "    limit: str = ScaffoldParameter.MAX_COUNT\n"
+    )
+
+    monkeypatch.setenv("PYTHONPATH", str(ROOT / "src"))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None
+    result = unreferenced_symbols(observed.observation)
+    candidates = {candidate.name for candidate in result.candidates}
+
+    assert "sample.IntentRepairKind" not in candidates
+    assert "sample.ScaffoldParameter" not in candidates
+    assert "sample.Unused" in candidates

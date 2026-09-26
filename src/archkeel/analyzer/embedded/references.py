@@ -74,9 +74,13 @@ class ReferenceCollector(ast.NodeVisitor):
         self._record(node, dotted, "attribute")
 
     def _record(self, node: ast.expr, expression: str, use: str) -> None:
-        status, targets, _, _ = resolve_name(
-            node, module=self.module, index=self.index, class_stack=self.class_stack
-        )
+        enum_member = self._enum_member_class(node)
+        if enum_member is None:
+            status, targets, _, _ = resolve_name(
+                node, module=self.module, index=self.index, class_stack=self.class_stack
+            )
+        else:
+            status, targets = "resolved", [enum_member]
         internal = [target for target in targets if target in self.index.names]
         if status == "unresolved" or not internal:
             return
@@ -102,6 +106,26 @@ class ReferenceCollector(ast.NodeVisitor):
                 },
             )
         )
+
+    def _enum_member_class(self, node: ast.expr) -> str | None:
+        """Resolve only a member listed on one statically bound enum class."""
+        dotted = dotted_expression(node)
+        if dotted is None:
+            return None
+        parts = dotted.split(".")
+        if len(parts) < 2:
+            return None
+        binding = self.module.aliases.get(parts[0])
+        candidates = (
+            (".".join([binding.target, *parts[1:-1]]),)
+            if binding
+            else (".".join([self.module.module, *parts[:-1]]), ".".join(parts[:-1]))
+        )
+        for enum_name in candidates:
+            members = self.index.enum_members.get(enum_name)
+            if members is not None and parts[-1] in members:
+                return enum_name
+        return None
 
 
 def collect_references(
