@@ -144,10 +144,8 @@ def test_same_inside_child_labels_keep_parent_evidence_separate() -> None:
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
-const insideStart = text.indexOf("  function insideLevel(");
-const insideEnd = text.indexOf("  function rootPackage(", insideStart);
-const levelStart = text.indexOf("  function fullLevel(");
-const levelEnd = text.indexOf("  function focusLevel(", levelStart);
+const scopeStart = text.indexOf("  function insideScope()");
+const scopeEnd = text.indexOf("  function rootPackage(", scopeStart);
 const DATA = {components: [
   {label: "core", inside: {components: [{label: "api", modules: ["pkg.core.api"], public: null}],
     edges: [{source: "api", target: "storage", import_sites: 1,
@@ -159,7 +157,7 @@ const DATA = {components: [
 ]};
 const viewFor = new Function("DATA", "moduleLevel", "cardLevel",
   "let opened; const componentByLabel = new Map(DATA.components.map(c => [c.label, c]));" +
-  text.slice(insideStart, insideEnd) + text.slice(levelStart, levelEnd) +
+  text.slice(scopeStart, scopeEnd) +
   ";return parent => {opened = {component: parent, path: []}; return fullLevel();}")(
     DATA, () => ({components: [], edges: []}), () => ({components: [], edges: []}));
 for (const [parent, expected] of [["core", "CORE-RULE"], ["service", "SERVICE-RULE"]]) {
