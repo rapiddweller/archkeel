@@ -443,37 +443,27 @@ def test_nested_child_public_stays_local_in_validate(tmp_path: Path, external_im
             "sample/core/service/worker.py": "from sample.core.service.api import helper\n",
             "sample/client.py": (
                 "from sample.core import published\n"
-                + (
-                    "from sample.core.service.api import helper\n"
-                    if external_import
-                    else ""
-                )
+                + ("from sample.core.service.api import helper\n" if external_import else "")
             ),
         },
     )
     (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     graph_edge = "  client --> core\n"
     (tmp_path / "docs/architecture/sample.md").write_text(
-        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n"
-        f"{graph_edge}```\n"
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n{graph_edge}```\n"
     )
     _commit_tree(tmp_path)
 
     result, _ = run_validate(tmp_path, _scan_config(), observe)
 
     assert result.exit_code == (2 if external_import else 0), [
-        (item.code, item.subject, item.unknown_claim)
-        for item in result.diagnostics
+        (item.code, item.subject, item.unknown_claim) for item in result.diagnostics
     ]
     assert [
         (item.code, item.pointer, item.subject)
         for item in result.diagnostics
         if item.code == "rule.violated"
-    ] == (
-        [("rule.violated", "/rules/0", "ROOT-INTERFACE")]
-        if external_import
-        else []
-    )
+    ] == ([("rule.violated", "/rules/0", "ROOT-INTERFACE")] if external_import else [])
     assert not [item for item in result.diagnostics if item.code != "rule.violated"], [
         (item.code, item.subject, item.unknown_claim)
         for item in result.diagnostics
