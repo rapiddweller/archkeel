@@ -347,6 +347,7 @@ def _owned_public_payload(value_type: str) -> dict[str, str]:
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     app = next(item for item in contract["components"] if item["label"] == "app")
     app["public"].extend(["shop.app.api:Payload", "shop.app.api:make"])
+    value = "{}" if value_type == "dict" else '"ready"'
     return {
         "shop/app/payloads.py": HEADER
         + (
@@ -357,7 +358,7 @@ def _owned_public_payload(value_type: str) -> dict[str, str]:
             "class Payload:\n"
             f"    value: {value_type}\n\n\n"
             "def make() -> Payload:\n"
-            '    return Payload(value="ready")\n'
+            f"    return Payload(value={value})\n"
         ),
         "shop/app/api.py": HEADER
         + (
@@ -389,6 +390,7 @@ _BOUNDARY_TYPES_OWNED_PUBLIC_TYPE = Variant(
     files=_owned_public_payload("str"),
     expected_violations=(),
     expected_codes=(),
+    expected_declared_rules="PASS",
 )
 
 _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD = Variant(

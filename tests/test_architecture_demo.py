@@ -379,6 +379,8 @@ def test_owned_public_type_field_is_decided_by_cli_json(
     validation = json.loads(capsys.readouterr().out)
     expected_codes = ("rule.violated",) if expected_violations else ()
     assert tuple(sorted(item["code"] for item in validation["diagnostics"])) == expected_codes
+    if not expected_violations:
+        assert validation["declared_rules"] == "PASS"
     if expected_violations:
         assert validate_code != 0
     else:
@@ -386,17 +388,27 @@ def test_owned_public_type_field_is_decided_by_cli_json(
 
     architecture_path = tmp_path / "architecture.json"
     assert main(["report", "--root", str(root), "--output", str(architecture_path), "--json"]) == 0
-    capsys.readouterr()
+    report = json.loads(capsys.readouterr().out)
+    if expected_violations:
+        assert report["declared_rules"] != "PASS"
+    else:
+        assert report["declared_rules"] == "PASS"
     observation = parse_observation(
         decode_canonical_model(json.loads(architecture_path.read_bytes()))
     )
     violations = trace_valid_violations(observation)
     assert tuple(sorted(item.rule_ids[0] for item in violations)) == expected_violations
+    relevant_unknowns = [
+        item
+        for item in observation.records("unknowns") or ()
+        if item.kind == "boundary_type_route" and "APP-TYPES-NOT-DICT" in item.rule_ids
+    ]
+    assert relevant_unknowns == []
     if expected_violations:
         [violation] = violations
         assert len(violation.subjects) == 2
         assert "field value" in violation.title
-        assert violation.data.get("annotation") == "dict"
+        assert violation.data.get("nested_annotation") == "dict"
     else:
         assert violations == ()
 
