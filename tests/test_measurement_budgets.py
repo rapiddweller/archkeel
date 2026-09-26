@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from test_architecture_demo import CONFIG, _prepare_repo
+from test_baseline import REFUSED
 
 from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
@@ -17,7 +18,7 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_validation_baseline,
 )
-from archkeel.ir.measurements import MeasurementBudget
+from archkeel.ir.measurements import MeasurementBudget, compare_budgets
 from archkeel.ir.model import ArchitectureContract
 from archkeel.ir.widening import contract_widenings, measurement_budget_widenings
 
@@ -57,7 +58,7 @@ def test_cycle_edge_budget_passes_then_blocks_a_rise(tmp_path: Path) -> None:
     result, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
 
     assert result.exit_code == 1
-    assert result.failures == ("measurement budget exceeded in cycle_edges: 0->2",)
+    assert result.failures == ("measurement budget exceeded in cycle_edges: 0->2", REFUSED)
     assert files == {}
 
     accepted, files = run_validate(
@@ -90,7 +91,7 @@ def test_unknown_position_budget_blocks_a_new_undecided_promise(tmp_path: Path) 
     result, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
 
     assert result.exit_code == 1
-    assert result.failures == ("measurement budget exceeded in unknown_positions: 0->1",)
+    assert result.failures == ("measurement budget exceeded in unknown_positions: 0->1", REFUSED)
     assert files == {}
 
     accepted, files = run_validate(
@@ -115,6 +116,17 @@ def test_reduced_budget_must_be_written_back(tmp_path: Path) -> None:
     assert updated.exit_code == 0
     written = parse_validation_baseline(decode_json(files[str(baseline)]))
     assert written.budgets == (MeasurementBudget("cycle_edges", 0),)
+
+
+def test_a_refused_write_advises_no_rewrite_of_a_budget() -> None:
+    """AD-106: the refused run's own last line names the way on; no budget line repeats it."""
+    accepted = (MeasurementBudget("cycle_edges", 2), MeasurementBudget("typing_positions", 1))
+    observed = (MeasurementBudget("cycle_edges", 0), MeasurementBudget("typing_positions", 3))
+
+    assert compare_budgets(accepted, observed, against=False, refused=True) == (
+        "measurement budget reduced in cycle_edges: 2->0",
+        "measurement budget exceeded in typing_positions: 1->3",
+    )
 
 
 def test_declared_budget_requires_a_baseline(tmp_path: Path) -> None:

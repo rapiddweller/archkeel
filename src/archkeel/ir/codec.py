@@ -22,6 +22,8 @@ from archkeel.ir.baseline import (
     KnownViolation,
     ValidationBaseline,
     ViolationFingerprint,
+    canonical_fingerprint,
+    violation_name,
 )
 from archkeel.ir.lock import AcceptedLock, LockError
 from archkeel.ir.measurements import (
@@ -831,6 +833,15 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
 def contract_digest(contract: ArchitectureContract) -> str:
     """The digest an amendment binds to (AD-61): the canonical bytes `contract_bytes` writes."""
     return hashlib.sha256(contract_bytes(contract)).hexdigest()
+
+
+def absent_contract_digest(path: str) -> str:
+    """The digest an amendment binds to for no contract at `path`, a repository path (AD-104).
+
+    A canonical contract is a JSON object, so no contract's bytes begin with the NUL these do;
+    the path keeps a record for one introduction from verifying a contract moved to another.
+    """
+    return hashlib.sha256(b"\0no contract at " + path.encode()).hexdigest()
 
 
 def _without_none(value: object) -> object:
@@ -1841,7 +1852,7 @@ def _known_violation(raw: RawJson, label: str, *, with_roles: bool) -> KnownViol
             raise ValueError(f"{label}.roles repeats a role")
         roles = tuple(sorted(parsed_roles))
     return KnownViolation(
-        ViolationFingerprint(
+        canonical_fingerprint(
             _strings(value["rules"], f"{label}.rules"),
             _strings(value["subjects"], f"{label}.subjects"),
         ),
@@ -1920,8 +1931,15 @@ def parse_validation_baseline(raw: object) -> ValidationBaseline:
         )
         for index, entry in enumerate(entries)
     )
-    if len({item.fingerprint for item in violations}) != len(violations):
-        raise ValueError("baseline.violations repeats a fingerprint; give it one count instead")
+    first: dict[ViolationFingerprint, int] = {}
+    for index, item in enumerate(violations):
+        if item.fingerprint in first:
+            raise ValueError(
+                f"baseline.violations[{index}] repeats baseline.violations"
+                f"[{first[item.fingerprint]}], {violation_name(item.fingerprint)} (subjects "
+                "match in any order); give it one count instead"
+            )
+        first[item.fingerprint] = index
     ordered = tuple(
         sorted(violations, key=lambda item: (item.fingerprint.rules, item.fingerprint.subjects))
     )

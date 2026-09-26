@@ -22,6 +22,16 @@ read, and its scan-complete reason names them, so a pass says what it covered. `
 report takes its own `--output`, such as `test-artifacts/tests/architecture.json`; without it
 the test report replaces the product report.
 
+`validate` reads a relative `--baseline` or `--amendment`, and writes it with `--write-baseline`
+or `--write-amendment`, relative to `--root` as well; an absolute path is used as it is. A path
+that resolves outside the root, by `..`, an absolute path or a symlink, is `baseline.invalid` or
+`amendment.invalid`, exit 2, read or write (AD-103). A second code base in `mobile/` is checked
+from the repository root with `archkeel validate --root mobile --baseline
+architecture-baseline.json`, which reads `mobile/architecture-baseline.json`. The root-prefixed
+`mobile/architecture-baseline.json` names no file there and is `baseline.invalid`, naming both
+paths; it never falls back to the working directory. `report --output` and `check --output` name
+where an artifact goes, not an input, and stay relative to the working directory.
+
 ## Analyzer and runtime
 
 The Python analyzer is bundled under `archkeel.analyzer`. `report` and `check`
@@ -141,19 +151,22 @@ the code that has yet to reach it
 (AD-52). Each entry names one violation by fingerprint — the rule ids it cites and its sorted
 `subjects`, the modules, construct owner or cycle members it is about — with the number of
 violations sharing it. No position enters a fingerprint, so an unrelated edit above a violating
-line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Counts must match
-the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
-violation`, both in `failures` with exit 1, so the budget only shrinks. A cycle whose members are
-a strict subset of a baselined cycle is `contracted violation`, written back like a resolved one
-(AD-98). A run whose baseline is exactly right exits 0 with `declared_rules: FAIL`. Results
-expose deterministic `baseline_new` and `baseline_resolved` counts. `baseline_new` counts
-fingerprints whose occurrence count rose, except a contracted cycle; `baseline_resolved` counts
-fingerprints whose occurrence count fell, so the baselined cycle a contraction shrank from counts
-there. Each changed fingerprint contributes one, not its occurrence-count delta. Only `rule.violated` is answered this way; every
-other diagnostic still exits 2, as does a baseline that cannot be read (`baseline.invalid`).
-`--write-baseline` writes the observed violations to that same path only after comparing an
-existing file: resolved-only drift and contracted cycles may be written, while new or increased
-fingerprints refuse the write unless `--accept-new` is explicit. It writes nothing from a run that exited 2.
+line leaves it alone, while the `VIO-` id in `architecture.json` still moves. Both lists are read in
+any order, so an entry whose subjects a text replace reordered still matches (AD-106). Counts must
+match the observation exactly: a higher one is reported as `new violation`, a lower one as `resolved
+violation`, both in `failures` with exit 1, so the budget only shrinks. A cycle whose members are a
+strict subset of a baselined cycle is `contracted violation`, written back like a resolved one
+(AD-98). A run whose baseline is exactly right exits 0 with `declared_rules: FAIL`. Results expose
+deterministic `baseline_new` and `baseline_resolved` counts. `baseline_new` counts fingerprints
+whose occurrence count rose, except a contracted cycle; `baseline_resolved` counts fingerprints
+whose occurrence count fell, so the baselined cycle a contraction shrank from counts there. Each
+changed fingerprint contributes one, not its occurrence-count delta. Only `rule.violated` is
+answered this way; every other diagnostic still exits 2, as does a baseline that cannot be read
+or lies outside the root (`baseline.invalid`). `--write-baseline` writes the observed violations to that same path only after
+comparing an existing file: resolved-only drift and contracted cycles may be written, while new or
+increased fingerprints refuse the write unless `--accept-new` is explicit; the refused run's last
+failure says so and names `--accept-new`, and none of its lines advises `--write-baseline` (AD-106).
+It writes nothing from a run that exited 2.
 
 `declarations.measurement_budgets` may select `cycle_edges`, `private_crossings`,
 `typing_positions`, `calls_unresolved`, `untyped_private_accesses` and `unknown_positions`. Each
@@ -225,8 +238,17 @@ each a SHA-256 of `ir.codec.contract_bytes`' canonical form via `ir.codec.contra
 way the lock binds its own inputs - with free-text `decided_by` and `rationale`. An amendment
 written for one change does not verify against a different one. `--write-amendment`, with
 `--decided-by` and `--rationale`, writes that file instead of checking it. A missing or malformed
-`--amendment` file is `amendment.invalid`, exit 2; an `--against` revision or its contract that
-cannot be read is `against.invalid`, exit 2. When a run fails and the observed
+`--amendment` file, or one outside the root, is `amendment.invalid`, exit 2. A contract the `--against` revision does not
+hold, a new scope's or one moved to a new path, is one widening, `contract introduced: <path>
+does not exist at <ref>`. Its amendment's `before_digest` is `ir.codec.absent_contract_digest`,
+the SHA-256 of a NUL, `no contract at ` and that repository path, so no contract digest equals it
+and a record for one path does not verify the contract moved to another. A baseline the revision
+still holds is compared as before; one it lacks too is not, so a baseline that arrives with its
+contract adds no finding (AD-104). An `--against` revision Git cannot resolve, or a contract or
+baseline there that is not a regular file or does not parse, is `against.invalid`, exit 2. A
+missing or non-regular blob's message names its repository path, including a `--root` below the
+top level, such as `mobile/architecture-contract.json`; a parse error names no path. When a run
+fails and the observed
 `calls_unresolved` budget value differs from an accepted one, `--against` also observes the code
 at that revision, under that revision's own contract, and reports `unresolved_call_changes`; a
 passing run pays for no second scan. Removed rows and rows in files the revision's snapshot

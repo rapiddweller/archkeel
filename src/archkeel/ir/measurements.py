@@ -140,6 +140,7 @@ def compare_budgets(
     observed: tuple[MeasurementBudget, ...],
     *,
     against: bool,
+    refused: bool = False,
 ) -> tuple[str, ...]:
     """Report every changed or mismatched budget; equality is the passing baseline state.
 
@@ -147,30 +148,26 @@ def compare_budgets(
     it holds that is gone, whatever the count does, so freed room cannot be reused unseen.
     `against` says the run compares a second revision, which names a calls_unresolved rise's
     call sites itself; without it the finding points at the flag that does (AD-100).
+    `refused` says the findings explain a `--write-baseline` that refused, so none advises
+    running it (AD-106).
     """
+    rewrite = "" if refused else "; rewrite the baseline with --write-baseline"
     before = {item.label: item for item in accepted}
     after = {item.label: item for item in observed}
     findings = []
     for label in sorted(before.keys() | after.keys()):
         if label not in before:
-            findings.append(
-                f"measurement budget {label} is not in the baseline; rewrite the baseline "
-                "with --write-baseline"
-            )
+            findings.append(f"measurement budget {label} is not in the baseline{rewrite}")
             continue
         if label not in after:
-            findings.append(
-                f"measurement budget {label} is no longer declared; rewrite the baseline "
-                "with --write-baseline"
-            )
+            findings.append(f"measurement budget {label} is no longer declared{rewrite}")
             continue
         new, removed = name_drift(before[label], after[label])
         if new:
             findings.append(f"measurement budget exceeded in {label}: new {', '.join(new)}")
         if removed:
             findings.append(
-                f"measurement budget reduced in {label}: removed {', '.join(removed)}; "
-                "rewrite the baseline with --write-baseline"
+                f"measurement budget reduced in {label}: removed {', '.join(removed)}{rewrite}"
             )
         if new or removed:
             continue
@@ -184,8 +181,8 @@ def compare_budgets(
             findings.append(finding)
         elif observed_value < accepted_value:
             findings.append(
-                f"measurement budget reduced in {label}: {accepted_value}->{observed_value}; "
-                "rewrite the baseline with --write-baseline"
+                f"measurement budget reduced in {label}: {accepted_value}->{observed_value}"
+                f"{rewrite}"
             )
     return tuple(findings)
 

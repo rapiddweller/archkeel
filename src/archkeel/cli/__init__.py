@@ -170,7 +170,8 @@ def build_parser() -> _Parser:
             "revision (and, with --baseline, the baseline file there too) as a widening -\n"
             "a new permission or a dropped restriction, including a padded violation or\n"
             "raised or removed measurement budget -\n"
-            "or a narrowing, its harmless reverse. A widening fails unless --amendment names\n"
+            "or a narrowing, its harmless reverse. A contract the revision does not hold yet\n"
+            "is one widening, its introduction. A widening fails unless --amendment names\n"
             "a file recording who decided it and why, bound to this exact before/after pair;\n"
             "write it with --write-amendment, --decided-by and --rationale.\n\n"
             "Examples:\n"
@@ -183,7 +184,8 @@ def build_parser() -> _Parser:
             "  archkeel validate --against main --amendment widening.json \\\n"
             '    --write-amendment --decided-by "Jordan (architect)" --rationale "..."\n'
             "  archkeel validate --against main --amendment widening.json\n"
-            "  archkeel validate --config archkeel-tests.toml\n\n"
+            "  archkeel validate --config archkeel-tests.toml\n"
+            "  archkeel validate --root mobile --baseline known-violations.json\n\n"
             "Exit codes:\n"
             "  0  the contract is valid for this repository\n"
             "  1  with --baseline: a violation or selected measurement changed; with\n"
@@ -202,8 +204,9 @@ def build_parser() -> _Parser:
     validate.add_argument(
         "--baseline",
         type=Path,
-        help="File of known violations and contract-selected measurement values. Fail when "
-        "either differs from the current observation.",
+        help="File of known violations and contract-selected measurement values, relative to "
+        "--root like the contract, or absolute inside it (AD-103). Fail when either differs "
+        "from the current observation.",
     )
     validate.add_argument(
         "--write-baseline",
@@ -222,7 +225,8 @@ def build_parser() -> _Parser:
     validate.add_argument(
         "--amendment",
         type=Path,
-        help="File recording who decided a widening from --against, and why. Needs --against.",
+        help="File recording who decided a widening from --against, and why, relative to "
+        "--root or absolute inside it. Needs --against.",
     )
     validate.add_argument(
         "--write-amendment",
@@ -423,13 +427,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     config,
                     observe,
                     write_graph=args.write_graph,
-                    # Resolved here so the file is read and written at one path, whatever
-                    # --root says; the result then names the path the user will open.
-                    baseline=None if args.baseline is None else args.baseline.resolve(),
+                    # AD-103: run_validate reads both relative to --root, like the contract.
+                    baseline=args.baseline,
                     write_baseline=args.write_baseline,
                     accept_new=args.accept_new,
                     against=args.against,
-                    amendment=None if args.amendment is None else args.amendment.resolve(),
+                    amendment=args.amendment,
                     write_amendment=args.write_amendment,
                     decided_by=args.decided_by,
                     rationale=args.rationale,
