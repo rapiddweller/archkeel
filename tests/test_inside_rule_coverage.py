@@ -11,7 +11,7 @@ from test_analyzer import _component, _inside_component, _observe
 from test_architecture_demo import FIXTURE_DIR, _prepare_repo
 
 from archkeel.cli import main
-from archkeel.ir.trace import trace_valid_violations
+from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 from archkeel.render.flow import build_flow
 
 
@@ -122,6 +122,19 @@ def test_inside_scope_keeps_parent_orphans_and_global_targets_but_not_foreign_so
     assert findings[0].kind == kind
     assert set(findings[0].subjects) == subjects
     assert findings[0].rule_ids == ("core:SCOPED",)
+    if kind == "module_cycle":
+        imports = {record.id: record for record in result.observation.records("imports") or ()}
+        closing = [imports[item_id] for item_id in findings[0].fact_ids]
+        assert {
+            (record.data.get("source_module"), record.data.get("target_module"))
+            for record in closing
+        } == {
+            ("sample.core.a", "sample.foreign.x"),
+            ("sample.foreign.x", "sample.core.a"),
+        }
+        assert set(findings[0].evidence_ids) == {
+            evidence for record in closing for evidence in record.evidence_ids
+        }
 
 
 def test_inside_forbidden_construct_is_evaluated_or_explicitly_refused(tmp_path: Path) -> None:
@@ -151,6 +164,31 @@ def test_inside_forbidden_construct_is_evaluated_or_explicitly_refused(tmp_path:
         if item.rule_ids == ("core:NO-EVAL",)
     )
     assert violations, "inside NO-EVAL was silently reported as clean"
+
+
+def test_inside_namespace_finding_references_its_scoped_component(tmp_path: Path) -> None:
+    _write_inside_case(tmp_path, rules=[])
+    path = tmp_path / "inner.json"
+    inner = json.loads(path.read_bytes())
+    inner["components"][0]["packages"].append("sample.core.extra")
+    inner["components"][0]["namespace"] = "sample.core.a"
+    path.write_text(json.dumps(inner))
+    (tmp_path / "sample/core/extra.py").write_text("VALUE = 1\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    observation = result.observation
+    validate_evidence_classes(observation)
+    findings = [
+        record
+        for record in observation.records("violations") or ()
+        if record.kind == "module.placement"
+    ]
+    assert len(findings) == 1
+    declaration_id = f"core:{inner['components'][0]['id']}"
+    assert findings[0].rule_ids == (declaration_id,)
+    assert any(record.id == declaration_id for record in observation.records("declarations") or ())
+    assert tuple(findings) == trace_valid_violations(observation)
 
 
 def test_inner_edge_without_complete_requires_is_observed_not_conforming(
