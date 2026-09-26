@@ -254,12 +254,16 @@ def inside_requires_replaced(label: str, entries: list[dict[str, str]]) -> str:
     return _dump_contract(contract)
 
 
-def inside_contract(public: list[str], allowed_target: str | None = None) -> str:
+def inside_contract(
+    public: list[str],
+    allowed_target: str | None = None,
+    rule: dict[str, object] | None = None,
+) -> str:
     """A contract describing shop.store's inside, for the AD-20 level checks.
 
     One sub-component over `shop.store.repository`: `public` is the surface the inside
-    declares, which the level above must declare identically, and `allowed_target` an edge
-    the inside grants itself, which the level above may forbid to store.
+    declares, which the level above must declare identically, `allowed_target` an edge the
+    inside grants itself, and `rule` an additional rule for that nested level.
     """
     rules: list[dict[str, object]] = []
     if allowed_target is not None:
@@ -274,6 +278,8 @@ def inside_contract(public: list[str], allowed_target: str | None = None) -> str
                 "decided_by": "architect",
             }
         )
+    if rule is not None:
+        rules.append(rule)
     return _dump_contract(
         {
             "schema_version": "2.1.0",

@@ -201,8 +201,9 @@ archkeel report --only calls --component store   # unresolved and partial calls 
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Nested flow stays inspectable.** Physical folders lead to every observed module, including
-  import-only package initializers. An inside connection stays observed unless an inside rule
-  decides it; no finding by itself is not a conformance claim. Structure and Review remain
+  import-only package initializers. An inside connection is green only when all its displayed
+  imports were checked, with no relevant UNKNOWN or edge violation (AD-110). No finding alone
+  is not a conformance claim. Structure and Review remain
   keyboard-operable, and the diagram can restore its complete current scope with “All components
   and groups”; visible and total counts disclose focus and threshold filtering.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review

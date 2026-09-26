@@ -472,6 +472,10 @@ Historical evidence and reproduction commands retain the names from their pinned
 It carries two levels: the top contract at its root, and the one `COMP-STORE` names for its inside
 at `shop/store/architecture-contract.json` (AD-20).
 
+The catalog also exercises inside rules with a clean and a violating `eval` example.
+Deleting the inside contract leaves the known root violation visible, reports incomplete
+evidence and prevents baseline or graph writes (AD-110).
+
 Every ordered component pair in the shop fixture is decided by one `allowed_dependency` or
 `forbidden_dependency` rule (AD-15). D-self also checks that all observed modules have declared
 components and that analyzer imports stay within the declared IR API.

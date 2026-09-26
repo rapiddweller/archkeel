@@ -1,5 +1,8 @@
 # AD-34 A declared inside is recorded, so the report draws it without reading a second contract
 
+Amended by [AD-110](ad-110-inside-rules-use-the-shared-evaluator.md): green now requires
+evaluated import-site evidence, not the declaration alone. Missing contracts remain UNKNOWN.
+The counts below describe the original observation.
 
 The observation carries a declared inside as a record kind of its own: one record per sub-component
 with its packages, its `requires` and the `parent_id` of the component holding it, and the inside

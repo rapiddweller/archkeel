@@ -413,6 +413,40 @@ def test_owned_public_type_field_is_decided_by_cli_json(
         assert violations == ()
 
 
+def test_inside_forbidden_construct_is_reported_by_validate_and_report_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    variant = next(
+        item for item in CATALOG if item.id == "class-a-forbidden-construct-inside-violation"
+    )
+    root = _prepare_repo(tmp_path, dict(variant.files))
+
+    validate_code = main(["validate", "--root", str(root), "--json"])
+    validation = json.loads(capsys.readouterr().out)
+    assert validate_code == 2
+    assert [
+        (item["code"], item["subject"], item["pointer"])
+        for item in validation["diagnostics"]
+        if item["code"] == "rule.violated"
+    ] == [("rule.violated", "store:STORE-NO-EVAL", "/components/1/inside")]
+
+    architecture_path = tmp_path / "inside-report.json"
+    report_code = main(
+        ["report", "--root", str(root), "--output", str(architecture_path), "--json"]
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report_code == 0
+    observation = parse_observation(
+        decode_canonical_model(json.loads(architecture_path.read_bytes()))
+    )
+    assert [
+        (item.rule_ids[0], item.subjects)
+        for item in trace_valid_violations(observation)
+        if item.rule_ids and item.rule_ids[0] == "store:STORE-NO-EVAL"
+    ] == [("store:STORE-NO-EVAL", ("shop.store.repository.OrderRepository.save",))]
+    assert report["declared_rules"] == "FAIL"
+
+
 def test_baseline_interface_narrowing_runs_a_real_validate_gate(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:

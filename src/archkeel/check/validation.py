@@ -1443,6 +1443,24 @@ def _inside_budgets(pointer: str, inside: str, inner: ArchitectureContract) -> l
     ]
 
 
+def _inside_source_domain_diagnostics(
+    pointer: str, component: ContractComponent, inner: ArchitectureContract
+) -> list[Diagnostic]:
+    """Reject nested physical claims outside the component holding the inside."""
+    return [
+        _diagnostic(
+            "contract.invalid",
+            pointer,
+            package,
+            f"The inside claims {package}, outside {component.label}'s physical packages.",
+            "Keep every inside component package within the parent component's packages.",
+        )
+        for child in inner.components
+        for package in child.packages
+        if not any(in_scope(package, parent) for parent in component.packages)
+    ]
+
+
 def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
     """AD-20: hold a component and the contract describing its inside to each other.
 
@@ -1482,6 +1500,7 @@ def inside_diagnostics(root: Path, contract: ArchitectureContract) -> tuple[Diag
                 )
             )
             continue
+        diagnostics.extend(_inside_source_domain_diagnostics(pointer, component, inner))
         diagnostics.extend(_inside_budgets(pointer, component.inside, inner))
         declared = frozenset(component.public or ())
         inside = _inside_public(inner)
@@ -1797,12 +1816,38 @@ def _parse_contract_or_invalid(root: Path, config: ScanConfig) -> ArchitectureCo
 
 
 def _observed_or_invalid(
-    root: Path, config: ScanConfig, analyzer: Analyzer
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    contract: ArchitectureContract,
 ) -> Observation | RunResult:
     """The complete observation, or the exit-2 result naming what analyzer evidence is missing."""
     observed = observe_repository(root, config, analyzer)
     observation = observed.observation
     if observed.diagnostics or observation is None:
+        if observation is not None and any(
+            item.kind == "inside_contract_incomplete"
+            for item in observation.records("unknowns") or ()
+        ):
+            extra, _ = _repository_diagnostics(
+                root,
+                config,
+                contract,
+                observation,
+                write_graph=False,
+                report_violations=True,
+            )
+            diagnostics = [
+                *(replace(item, pointer=item.pointer or "") for item in observed.diagnostics),
+                *extra,
+            ]
+            return RunResult(
+                "validate",
+                2,
+                diagnostics=tuple(dict.fromkeys(diagnostics)),
+                coverage=observed.coverage,
+                python_version=observation.python_version,
+            )
         return RunResult(
             "validate",
             2,
@@ -2255,7 +2300,7 @@ def run_validate(
     references = reference_diagnostics(root, config, contract)
     if references:
         return RunResult("validate", 2, diagnostics=references), FilesToWrite()
-    observed = _observed_or_invalid(root, config, analyzer)
+    observed = _observed_or_invalid(root, config, analyzer, contract)
     if isinstance(observed, RunResult):
         return observed, FilesToWrite()
     observation = observed

@@ -7,17 +7,19 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, TypeAlias
 
 from archkeel.ir.model import (
     ArchitectureContract,
+    ContractComponent,
     ContractDeclarations,
     EvidenceClass,
+    in_scope,
     stable_id,
 )
-from archkeel.ir.profiles import PYTHON
+from archkeel.ir.profiles import PYTHON, Profile
 
 from .bindings import collect_bindings
 from .calls import collect_calls
@@ -43,6 +45,7 @@ from .violations import (
     boundary_type_limits,
     exports_by_module,
     facade_signature_types,
+    profile_failures,
     rule_subject_failures,
     rule_violations,
 )
@@ -203,6 +206,188 @@ def api_surface_limits(
     return limits
 
 
+def _inside_rule_results(
+    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]],
+    *,
+    root_contract: ArchitectureContract | None = None,
+    imports: Sequence[RawRecord],
+    typing_signals: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
+    packages: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    blank_modules: frozenset[str],
+    module_cycles: Sequence[RawRecord],
+    profile: Profile,
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: dict[str, frozenset[str]],
+    scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
+    evidence: dict[str, RawEvidence],
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
+    """Evaluate nested rules with the root scan's facts, limited to each parent's modules."""
+    violations: list[RawRecord] = []
+    unknowns: list[RawRecord] = []
+    failures: list[RawRecord] = []
+    assessments: list[RawRecord] = []
+    allowances: list[RawRecord] = []
+    for parent, declared in inside_contracts:
+        scoped, source_modules, scope_failures = _inside_source_domain(parent, declared, modules)
+        failures.extend(scope_failures)
+        results = _evaluate_inside_contract(
+            parent,
+            scoped,
+            source_modules,
+            root_contract=root_contract,
+            imports=imports,
+            typing_signals=typing_signals,
+            constructs=constructs,
+            packages=packages,
+            modules=modules,
+            symbols=symbols,
+            blank_modules=blank_modules,
+            module_cycles=module_cycles,
+            profile=profile,
+            exports_by_module=exports_by_module,
+            uncertain_reexport_origins=uncertain_reexport_origins,
+            scanned_modules=scanned_modules,
+            stable_bindings_by_module=stable_bindings_by_module,
+            evidence=evidence,
+            assessments=assessments,
+        )
+        violations.extend(results[0])
+        unknowns.extend(results[1])
+        failures.extend(results[2])
+        allowances.extend(results[3])
+    return (
+        sorted(violations, key=lambda item: item["id"]),
+        sorted(unknowns, key=lambda item: item["id"]),
+        sorted(failures, key=lambda item: item["id"]),
+        sorted(assessments, key=lambda item: item["id"]),
+        sorted(allowances, key=lambda item: item["id"]),
+    )
+
+
+def _inside_source_domain(
+    parent: ContractComponent,
+    declared: ArchitectureContract,
+    modules: Sequence[RawRecord],
+) -> tuple[ArchitectureContract, frozenset[str], list[RawRecord]]:
+    """Clip child ownership claims to the parent's physical packages and report what was cut."""
+    roots = parent.packages
+    source_modules = frozenset(
+        module["data"]["qualified_name"]
+        for module in modules
+        if any(in_scope(module["data"]["qualified_name"], root) for root in roots)
+    )
+    components = []
+    failures = []
+    for component in declared.components:
+        packages = tuple(
+            package
+            for package in component.packages
+            if any(in_scope(package, root) for root in roots)
+        )
+        outside = sorted(set(component.packages) - set(packages))
+        if outside:
+            failures.append(
+                classified(
+                    item_id=stable_id("UNKNOWN-INSIDE-SOURCE-DOMAIN", parent.label, component.id),
+                    evidence_class=EvidenceClass.UNKNOWN,
+                    area="analysis_coverage",
+                    kind="inside_source_domain_incomplete",
+                    title=(f"{component.label} claims {', '.join(outside)} outside {parent.label}"),
+                    subjects=[component.label, *outside],
+                    rule_ids=[rule.id for rule in declared.rules],
+                    data={"parent_id": parent.label, "packages": outside},
+                )
+            )
+        components.append(replace(component, packages=packages))
+    return replace(declared, components=tuple(components)), source_modules, failures
+
+
+def _evaluate_inside_contract(
+    parent: ContractComponent,
+    scoped: ArchitectureContract,
+    source_modules: frozenset[str],
+    *,
+    root_contract: ArchitectureContract | None = None,
+    imports: Sequence[RawRecord],
+    typing_signals: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
+    packages: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    blank_modules: frozenset[str],
+    module_cycles: Sequence[RawRecord],
+    profile: Profile,
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: dict[str, frozenset[str]],
+    scanned_modules: set[str],
+    stable_bindings_by_module: dict[str, frozenset[str]],
+    evidence: dict[str, RawEvidence],
+    assessments: list[RawRecord],
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
+    """Run shared evaluators for one clipped contract over one already-collected scan."""
+    failures = rule_subject_failures(
+        tuple(rule for rule in scoped.rules if rule.kind not in profile.unsupported_rules),
+        set(source_modules),
+        target_module_names={module["data"]["qualified_name"] for module in modules},
+        symbols=symbols,
+        imports=imports,
+        contract=scoped,
+        exports_by_module=exports_by_module,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        stable_bindings_by_module=stable_bindings_by_module,
+        sdk_libraries=profile.sdk_libraries,
+        source_modules=source_modules,
+    )
+    failures.extend(profile_failures(scoped, profile))
+    boundary_contract = scoped
+    if root_contract is not None:
+        external_components = tuple(
+            component
+            for component in root_contract.components
+            if all(
+                not in_scope(package, root) and not in_scope(root, package)
+                for package in component.packages
+                for root in parent.packages
+            )
+        )
+        boundary_contract = replace(scoped, components=(*scoped.components, *external_components))
+    violations, allowance_facts = rule_violations(
+        imports=imports,
+        typing_signals=typing_signals,
+        constructs=constructs,
+        packages=packages,
+        modules=modules,
+        symbols=symbols,
+        blank_modules=blank_modules,
+        module_cycles=module_cycles,
+        contract=scoped,
+        exports_by_module=exports_by_module,
+        profile=profile,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        source_modules=source_modules,
+        source_roots=parent.packages,
+        assessment_facts=assessments,
+        assessment_parent=parent.label,
+        boundary_contract=boundary_contract,
+    )
+    unknowns = boundary_type_limits(
+        symbols,
+        imports,
+        boundary_contract,
+        exports_by_module,
+        evidence,
+        uncertain_reexport_origins,
+        scanned_modules,
+        stable_bindings_by_module,
+        source_modules,
+    )
+    return violations, unknowns, failures, allowance_facts
+
+
 def scan_repository(
     root: Path,
     contract: ArchitectureContract,
@@ -210,6 +395,7 @@ def scan_repository(
     source_paths: Sequence[Path] | None = None,
     roots: tuple[str, ...],
     namespace: str,
+    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]] = (),
 ) -> ScanResult:
     """Scan production Python and return the deterministic observed model sections."""
     paths = (
@@ -304,6 +490,7 @@ def scan_repository(
         package_edges=package_edges,
         package_edge_pairs=package_edge_pairs,
     )
+    blank_modules = frozenset(module.module for module in parsed if not module.source.strip())
     violations, boundary_allowances = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -311,7 +498,7 @@ def scan_repository(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
-        blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
+        blank_modules=blank_modules,
         # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
         module_cycles=module_cycles,
         contract=contract,
@@ -319,7 +506,38 @@ def scan_repository(
         profile=PYTHON,
         uncertain_reexport_origins=uncertain_reexport_origins,
     )
-    typing_signals = sorted([*typing_signals, *boundary_allowances], key=lambda item: item["id"])
+    (
+        inside_violations,
+        inside_unknowns,
+        inside_failures,
+        inside_assessments,
+        inside_allowances,
+    ) = _inside_rule_results(
+        inside_contracts,
+        root_contract=contract,
+        imports=imports,
+        typing_signals=typing_signals,
+        constructs=constructs,
+        packages=package_facts,
+        modules=module_facts,
+        symbols=symbols,
+        blank_modules=blank_modules,
+        module_cycles=module_cycles,
+        profile=PYTHON,
+        exports_by_module=facade_exports,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        scanned_modules=module_names,
+        stable_bindings_by_module=stable_bindings_by_module,
+        evidence=evidence,
+    )
+    violations = sorted([*violations, *inside_violations], key=lambda item: item["id"])
+    rule_failures = sorted([*rule_failures, *inside_failures], key=lambda item: item["id"])
+    scope_observations = sorted(
+        [*scope_observations, *inside_assessments], key=lambda item: item["id"]
+    )
+    typing_signals = sorted(
+        [*typing_signals, *boundary_allowances, *inside_allowances], key=lambda item: item["id"]
+    )
 
     unknowns = [
         *_analysis_limits(calls, declarations, namespace),
@@ -344,6 +562,7 @@ def scan_repository(
             "The module declares no __all__ and the scan records no class or function of this "
             "name.",
         ),
+        *inside_unknowns,
         *failures,
         *rule_failures,
     ]

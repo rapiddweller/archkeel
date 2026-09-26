@@ -29,6 +29,7 @@ only when its row names repository evidence.
 | PASS, FAIL and NOT CHECKED check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
 | Contract 2.0 has one typed model, JSON Schema and deterministic validation | `schema/architecture-contract.schema.json`; `tests/test_contract_model.py`; `tests/test_validation.py` |
 | All class-A rule types are enforced with one violation probe each and applied to Archkeel | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json` |
+| Inside contracts use shared rule evaluators; green inner edges require checked import sites, not declarations alone (AD-110, #168) | `tests/test_inside_rule_parity.py`; `tests/test_inside_rule_coverage.py`; `tests/test_inside_rule_evidence_regressions.py`; `tests/test_architecture_demo.py` |
 | Terminals get a Rich summary with real `--help`; pipes and `--json` keep JSON | `376a3ab`; `tests/test_cli.py`; `tests/test_terminal.py` |
 | `init` drafts a closed contract that reproduces Archkeel's own component rules | `fe5214a`; `tests/test_onboarding.py`; `docs/onboarding.md` |
 | `skill install claude\|codex` writes one packaged agent instruction source | `99f5743`; `tests/test_skill.py` |
