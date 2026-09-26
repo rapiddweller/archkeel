@@ -230,10 +230,28 @@ def test_cli_validate_rejects_unknown_requires_without_writing_baseline_or_graph
     assert actual == (2, ("/components/0/requires/0/component",), None, False, True), result
 
 
+@pytest.mark.parametrize(
+    ("requirements", "pointer"),
+    [
+        ({"app_requires": ("ghost",)}, "/components/0/requires/0/component"),
+        (
+            {"service_requires": ("ghost",)},
+            "/components/0/inside/components/0/requires/0/component",
+        ),
+        (
+            {"deep_requires": ("ghost",)},
+            "/components/0/inside/components/0/inside/components/0/requires/0/component",
+        ),
+    ],
+    ids=["root", "nested", "deep"],
+)
 def test_report_and_historical_observation_reject_unknown_requires_targets(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    requirements: dict[str, tuple[str, ...]],
+    pointer: str,
 ) -> None:
-    config = _write_repo(tmp_path, app_requires=("ghost",))
+    config = _write_repo(tmp_path, **requirements)
 
     report, _ = run_report(tmp_path, config=config, analyzer=observe)
     observed = observe(
@@ -249,7 +267,6 @@ def test_report_and_historical_observation_reject_unknown_requires_targets(
     exit_code = main(["report", "--root", str(tmp_path), "--json"])
     cli_result = json.loads(capsys.readouterr().out)
 
-    pointer = "/components/0/requires/0/component"
     actual = {
         "run_report": (report.exit_code, tuple(item.pointer for item in report.diagnostics)),
         "observe": tuple(item.pointer for item in observed.diagnostics),
