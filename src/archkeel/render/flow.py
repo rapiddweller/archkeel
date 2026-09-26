@@ -432,11 +432,14 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
             )
         views[level.parent] = FlowInside(cards, tuple(edges), level.unassigned)
 
+    return _attach_inside_views(views, nested_owners)
+
+
+def _attach_inside_views(
+    views: dict[str, FlowInside], nested_owners: set[tuple[str, str]]
+) -> dict[str, FlowInside]:
     def attach(parent: str, active: frozenset[str] = frozenset()) -> FlowInside | None:
-        if parent in active:
-            return None
-        view = views.get(parent)
-        if view is None:
+        if parent in active or (view := views.get(parent)) is None:
             return None
         path = active | {parent}
         components = tuple(
