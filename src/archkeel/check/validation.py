@@ -1851,7 +1851,7 @@ def _observed_or_invalid(
         if observation is not None and any(
             item.kind == "inside_contract_incomplete"
             for item in observation.records("unknowns") or ()
-        )
+        ):
             extra, _ = _repository_diagnostics(
                 root,
                 config,
