@@ -288,6 +288,57 @@ _BOUNDARY_TYPES_ORDINARY_REEXPORT = Variant(
     expected_codes=("rule.violated",),
 )
 
+
+def _render_ordinary_chain_contract() -> str:
+    contract = json.loads(_render_reexport_contract())
+    render = next(item for item in contract["components"] if item["label"] == "render")
+    render["public"] = [
+        entry.replace("shop.render:render_order", "shop.render.facade:render_order")
+        for entry in render["public"]
+    ]
+    render["public"].append("shop.render.facade:safe")
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN = Variant(
+    id="class-a-boundary-types-ordinary-reexport-chain-unknown",
+    section="class_a",
+    item="boundary_types:ordinary_reexport_chain",
+    summary="The public ordinary facade exports render_order through an intermediate ordinary "
+    "module with no literal __all__. That hop cannot prove the broad implementation signature, "
+    "so the route stays UNKNOWN; the facade's local typed safe() remains decidable (AD-109).",
+    files={
+        "shop/render/facade.py": HEADER
+        + (
+            '"""Public ordinary facade for rendering."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.intermediate import render_order\n\n\n"
+            "def safe(value: str) -> str:\n"
+            "    return value\n\n"
+            '__all__ = ["render_order", "safe"]\n'
+        ),
+        "shop/render/intermediate.py": HEADER
+        + (
+            '"""Intermediate ordinary import with no declared export list."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from shop.render.text import render_order\n"
+        ),
+        "shop/render/text.py": _REEXPORTED_BROAD_MODULE,
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from shop.render.text import render_order",
+            "from shop.render.facade import render_order, safe",
+        )
+        .replace("print(render_order(order))", "print(safe(render_order(order)))"),
+        "architecture-contract.json": _render_ordinary_chain_contract(),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("boundary_type_route", "shop.render.facade:render_order"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 _REQUEST_MODEL_MODULE = HEADER + (
     '"""A request model with a broad directly declared field."""\n\n'
     "from __future__ import annotations\n\n"
@@ -331,5 +382,6 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_REEXPORT,
     _BOUNDARY_TYPES_REEXPORT_ALIASES,
     _BOUNDARY_TYPES_ORDINARY_REEXPORT,
+    _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN,
     _BOUNDARY_TYPES_MODEL_FIELD,
 )

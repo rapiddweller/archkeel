@@ -17,6 +17,7 @@ from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.measurements import SCALARS, compare_measurements
@@ -313,6 +314,41 @@ def test_variant_produces_the_catalogued_findings(
     assert set(variant.expected_unknowns) <= set(actual_unknowns)
     if variant.expected_declared_rules is not None:
         assert declared_rules == variant.expected_declared_rules
+
+
+def test_unproven_ordinary_reexport_stays_unknown_in_cli_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    variant = next(
+        item
+        for item in CATALOG
+        if item.id == "class-a-boundary-types-ordinary-reexport-chain-unknown"
+    )
+    root = _prepare_repo(tmp_path, dict(variant.files))
+
+    validate_code = main(["validate", "--root", str(root), "--json"])
+    validation = json.loads(capsys.readouterr().out)
+    assert validate_code == 0
+    assert validation["diagnostics"] == []
+    assert validation["declared_rules"] == "UNKNOWN"
+
+    architecture_path = tmp_path / "architecture.json"
+    report_code = main(
+        ["report", "--root", str(root), "--output", str(architecture_path), "--json"]
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report_code == 0
+    assert report["declared_rules"] == "UNKNOWN"
+
+    architecture = json.loads(architecture_path.read_bytes())
+    assert architecture["violations"] == []
+    uncertain_routes = [
+        subject
+        for item in architecture["unknowns"]
+        if item["kind"] == "boundary_type_route"
+        for subject in item["subjects"]
+    ]
+    assert uncertain_routes == ["shop.render.facade:render_order"]
 
 
 def test_baseline_interface_narrowing_runs_a_real_validate_gate(
