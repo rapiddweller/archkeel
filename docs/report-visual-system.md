@@ -170,8 +170,8 @@ unless the check has already classified them as a failure.
   is dashed red with a chip naming the rule id.
 - Inside edges stay observed unless an inside rule decides them; absence of a finding alone is
   not conformance.
-- Right-angle connectors routed in lanes per row pair; labels never overlap, and a weight badge
-  gives way to a rule chip.
+- Right-angle connectors use lanes per row pair to reduce crossings. Rule chips take priority
+  over weight badges; dense levels can still need filtering or manual arrangement.
 - The legend is drawn from the same edge states that style the graph, and the overview lists the
   five heaviest connections.
 - Structure and Review work by keyboard as well as pointer. Without script, the component

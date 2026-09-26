@@ -23,7 +23,7 @@ It catches two failure modes that finding-only diffs miss:
   the graph became blinder.
 
 <p>
-  <img src="docs/assets/archkeel-component-flow.png" alt="Component flow with Violating edges only checked: five components, six dashed red violated edges and seven broken edge rules at this level" width="1000">
+  <img src="docs/assets/archkeel-component-flow.png" alt="Shop tour focused on app: five components and the json library, seven dashed red connections, eight broken edge rules, and explicit shown-versus-total counts" width="1000">
 </p>
 
 <sub>A real negative case from the <code>fixtures/F-architecture</code> tour:
@@ -31,7 +31,8 @@ It catches two failure modes that finding-only diffs miss:
 <code>DEP-STORE-NO-MONEY</code>. In the open HTML report, <strong>Violations only</strong> collapses
 secondary detail and leaves the verdict, failures, unknowns and evidence available; Component
 flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
-Both change the view, never the verdict or evidence.</sub>
+Both change the view, never the verdict or evidence. This capture focuses on <code>app</code>;
+<strong>All components and groups</strong> restores the unassigned module omitted by that focus.</sub>
 
 Modules without a unique declared owner remain reachable through a navigation-only
 <code>Unassigned modules</code> group; it does not create a component boundary or verdict.
@@ -82,10 +83,11 @@ settles them with 3 `requires` entries, because absence forbids. The two levels 
 to one public surface, and the flow view opens the component into them.
 
 <p>
-  <img src="docs/assets/archkeel-shop-components.png" alt="Component flow of the clean shop sample: cli, app, render, store and model, all six edges teal, with the heaviest connections listed beside the graph" width="980">
+  <img src="docs/assets/archkeel-shop-components.png" alt="Clean shop sample: five components and the json library, seven connections, all twelve modules, with the heaviest connections listed beside the graph" width="980">
 </p>
 
-<sub>The five components. Every edge carries its import sites; teal means the contract allows it.
+<sub>The five components and their scoped <code>json</code> dependency. Every edge carries its
+import sites; teal means the contract allows it.
 <code>store</code> shows 7 modules against a level of 5 components — that is the claim.</sub>
 
 <p>
