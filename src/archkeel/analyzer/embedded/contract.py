@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import assert_never
 
 from archkeel.ir.codec import (
+    ContractInputError,
     ContractVersionError,
-    RequiresComponentReferenceError,
     decode_json,
     parse_contract,
 )
@@ -55,7 +55,7 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
         contract = parse_contract(decode_json(raw))
     except ContractVersionError:
         raise
-    except RequiresComponentReferenceError:
+    except ContractInputError:
         raise
     except ValueError as exc:
         raise ContractError(f"invalid architecture contract JSON: {exc}") from exc

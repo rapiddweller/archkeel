@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from archkeel.ir.codec import (
+    ContractInputError,
     InsideContractMount,
-    RequiresComponentReferenceError,
     load_inside_contract_tree,
 )
 from archkeel.ir.model import (
@@ -67,10 +67,11 @@ def _inside_levels(
         read_inside,
     )
     for issue in tree.issues:
-        if issue.requires_error is not None:
-            raise RequiresComponentReferenceError(
-                f"{issue.pointer}{issue.requires_error.pointer}",
-                issue.requires_error.target,
+        if issue.input_error is not None:
+            raise ContractInputError(
+                f"{issue.pointer}{issue.input_error.pointer}",
+                issue.input_error.subject,
+                str(issue.input_error),
             )
         record = classified(
             item_id=stable_id("UNKNOWN-INSIDE-CONTRACT", issue.parent_id, issue.path),

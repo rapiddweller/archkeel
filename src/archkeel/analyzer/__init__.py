@@ -13,11 +13,15 @@ from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractVersionError,
     RawJson,
-    RequiresComponentReferenceError,
-    load_inside_contract_tree,
+)
+from archkeel.ir.codec import (
+    ContractInputError as _ContractInputError,
 )
 from archkeel.ir.codec import canonical_json_bytes as _canonical_json_bytes
 from archkeel.ir.codec import decode_json as _decode_json
+from archkeel.ir.codec import (
+    load_inside_contract_tree as _load_inside_contract_tree,
+)
 from archkeel.ir.codec import parse_observation as _parse_observation
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -25,7 +29,9 @@ from archkeel.ir.model import (
     DiagnosticKind,
     Observation,
     ObservationResult,
-    contract_relative_path,
+)
+from archkeel.ir.model import (
+    contract_relative_path as _contract_relative_path,
 )
 from archkeel.ir.profiles import PROFILES, Language
 
@@ -37,16 +43,16 @@ def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> Obs
     return ObservationResult(None, None, (Diagnostic(kind, subject, claim, remedy),))
 
 
-def _requires_reference_failure(error: RequiresComponentReferenceError) -> ObservationResult:
+def _contract_input_failure(error: _ContractInputError) -> ObservationResult:
     return ObservationResult(
         None,
         None,
         (
             Diagnostic(
                 "parse_error",
-                error.target,
-                f"Requires target {error.target!r} is not a local component label.",
-                "Correct the target to a component declared in this contract.",
+                error.subject,
+                f"The contract declaration is invalid: {error}.",
+                "Correct the contract declaration at this location.",
                 error.pointer,
             ),
         ),
@@ -60,7 +66,7 @@ def _nested_reference_failure(
     identity = contract_path.resolve().relative_to(repository).as_posix()
 
     def read_inside(reference: str) -> tuple[bytes, str]:
-        relative = contract_relative_path(reference)
+        relative = _contract_relative_path(reference)
         if relative is None:
             raise ValueError("unsafe repository path")
         target = (repository / relative).resolve()
@@ -68,7 +74,7 @@ def _nested_reference_failure(
             raise ValueError("file is missing or outside the repository")
         return target.read_bytes(), target.relative_to(repository).as_posix()
 
-    tree = load_inside_contract_tree(
+    tree = _load_inside_contract_tree(
         identity,
         contract,
         digest,
@@ -76,12 +82,13 @@ def _nested_reference_failure(
         read_inside,
     )
     for issue in tree.issues:
-        if issue.requires_error is not None:
-            error = RequiresComponentReferenceError(
-                f"{issue.pointer}{issue.requires_error.pointer}",
-                issue.requires_error.target,
+        if issue.input_error is not None:
+            error = _ContractInputError(
+                f"{issue.pointer}{issue.input_error.pointer}",
+                issue.input_error.subject,
+                str(issue.input_error),
             )
-            return _requires_reference_failure(error)
+            return _contract_input_failure(error)
     return None
 
 
@@ -95,8 +102,8 @@ def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | No
             f"Contract schema {error.actual} cannot be validated as {CONTRACT_SCHEMA_VERSION}.",
             "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
         )
-    except RequiresComponentReferenceError as error:
-        return _requires_reference_failure(error)
+    except _ContractInputError as error:
+        return _contract_input_failure(error)
     except ContractError as error:
         return _failure(
             "parse_error",

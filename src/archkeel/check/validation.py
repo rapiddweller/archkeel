@@ -21,9 +21,9 @@ from archkeel.ir.baseline import (
 )
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
+    ContractInputError,
     ContractVersionError,
     InsideContractTree,
-    RequiresComponentReferenceError,
     absent_contract_digest,
     amendment_bytes,
     baseline_bytes,
@@ -1513,15 +1513,15 @@ def inside_diagnostics(
         return ()
     scanned_modules = _scanned_modules(observation) if observation is not None else frozenset()
     for issue in loaded.issues:
-        if issue.requires_error is not None:
-            error = issue.requires_error
+        if issue.input_error is not None:
+            error = issue.input_error
             diagnostics.append(
                 _diagnostic(
                     "contract.invalid",
                     f"{issue.pointer}{error.pointer}",
-                    error.target,
+                    error.subject,
                     f"The architecture contract cannot be validated: {error}",
-                    "Correct the target to a component declared in this contract.",
+                    "Correct the contract declaration at this location.",
                 )
             )
         else:
@@ -1798,8 +1798,8 @@ def _budget_baseline_missing() -> RunResult:
 
 
 def _against_invalid(against: str, error: Exception) -> RunResult:
-    pointer = error.pointer if isinstance(error, RequiresComponentReferenceError) else ""
-    subject = error.target if isinstance(error, RequiresComponentReferenceError) else against
+    pointer = error.pointer if isinstance(error, ContractInputError) else ""
+    subject = error.subject if isinstance(error, ContractInputError) else against
     return RunResult(
         "validate",
         2,
@@ -1852,8 +1852,8 @@ def _parse_contract_or_invalid(root: Path, config: ScanConfig) -> ArchitectureCo
                 ),
             ),
         )
-    except RequiresComponentReferenceError as error:
-        return invalid_result(error.target, error, error.pointer)
+    except ContractInputError as error:
+        return invalid_result(error.subject, error, error.pointer)
     except (OSError, ValueError) as error:
         return invalid_result(config.contract, error)
 
@@ -1945,11 +1945,15 @@ def _revision_contract_tree(root: Path, revision: str, path: str) -> InsideContr
         read_inside,
     )
     if tree.issues:
-        issue = tree.issues[0]
-        if issue.requires_error is not None:
-            raise RequiresComponentReferenceError(
-                f"{issue.pointer}{issue.requires_error.pointer}",
-                issue.requires_error.target,
+        issue = next(
+            (candidate for candidate in tree.issues if candidate.input_error is not None),
+            tree.issues[0],
+        )
+        if issue.input_error is not None:
+            raise ContractInputError(
+                f"{issue.pointer}{issue.input_error.pointer}",
+                issue.input_error.subject,
+                str(issue.input_error),
             )
         raise ValueError(f"inside {issue.path!r}: {issue.reason}")
     return tree

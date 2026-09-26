@@ -19,7 +19,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
 from archkeel.check.validation import run_validate
-from archkeel.ir.codec import RequiresComponentReferenceError, declaration_paths, parse_contract
+from archkeel.ir.codec import ContractInputError, declaration_paths, parse_contract
 from archkeel.ir.lock import LOCK_PATH, LockError
 
 
@@ -84,10 +84,25 @@ def test_requires_target_must_name_a_component_in_the_same_contract() -> None:
 
     invalid = json.loads(json.dumps(valid))
     invalid["components"][0]["requires"][0]["component"] = "missing"
-    with pytest.raises(RequiresComponentReferenceError) as caught:
+    with pytest.raises(ContractInputError) as caught:
         parse_contract(invalid)
     assert caught.value.pointer == "/components/0/requires/0/component"
-    assert caught.value.target == "missing"
+    assert caught.value.subject == "missing"
+
+
+def test_component_labels_must_be_unique_within_one_contract() -> None:
+    raw = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component("shared", packages=["sample.a"]),
+            _component("shared", packages=["sample.b"]),
+        ],
+        "rules": [],
+    }
+    with pytest.raises(ContractInputError) as caught:
+        parse_contract(raw)
+    assert caught.value.pointer == "/components/1/label"
+    assert caught.value.subject == "shared"
 
 
 def test_validate_and_report_reject_root_reference_before_writes(tmp_path: Path) -> None:
@@ -160,14 +175,20 @@ def test_nested_and_deep_references_are_validated_in_their_own_contracts(
     )
     assert observed.diagnostics[0].subject == "middle"
 
-    with pytest.raises(RequiresComponentReferenceError) as caught:
+    report, architecture = run_report(tmp_path, config=config, analyzer=observe)
+    assert report.exit_code == 2
+    assert report.diagnostics[0].pointer == observed.diagnostics[0].pointer
+    assert report.diagnostics[0].subject == "middle"
+    assert architecture is None
+
+    with pytest.raises(ContractInputError) as caught:
         declaration_paths(
             (tmp_path / "contract.json").read_bytes(),
             "contract.json",
             read_contract=lambda path: ((tmp_path / path).read_bytes(), path),
         )
     assert caught.value.pointer == observed.diagnostics[0].pointer
-    assert caught.value.target == "middle"
+    assert caught.value.subject == "middle"
 
 
 def test_nested_reference_may_not_borrow_a_parent_label(tmp_path: Path) -> None:
@@ -215,7 +236,7 @@ def test_revision_materialization_and_check_auth_keep_nested_pointer(tmp_path: P
     ).strip()
     expected_pointer = "/components/0/inside/components/0/requires/0/component"
 
-    with pytest.raises(RequiresComponentReferenceError) as caught:
+    with pytest.raises(ContractInputError) as caught:
         materialize_declarations(
             tmp_path,
             revision,
