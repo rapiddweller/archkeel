@@ -150,7 +150,9 @@ const makeRenderer = () => new Function("alternative", "selected", "opened", "sp
     String,
   );
 const renderStructure = makeRenderer();
-renderStructure({components: [{label: "one", display: "one", modules: ["pkg.one"], library: false}]});
+renderStructure({components: [
+  {label: "one", display: "one", modules: ["pkg.one"], library: false}
+]});
 assert(alternative.innerHTML.includes("1 observed modules"), alternative.innerHTML);
 renderStructure({components: [{label: "empty", display: "empty", modules: [], library: false}]});
 assert(alternative.innerHTML.includes("0 observed modules"), alternative.innerHTML);
