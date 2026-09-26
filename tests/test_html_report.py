@@ -78,6 +78,8 @@ def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
     assert page.count("data:image/svg+xml;base64,") == 3
     assert "architecture score" not in page.lower()
     assert 'src="http' not in page and 'href="http' not in page
+    assert "One repository snapshot." in page
+    assert "not change against an earlier revision or runtime behavior" in page
 
 
 def test_html_report_lists_compatibility_migration_work() -> None:
@@ -171,7 +173,7 @@ def test_html_report_names_agent_decisions_awaiting_the_architect() -> None:
     assert "2 of 5 decisions made by the agent, awaiting the architect." in page
 
 
-def test_html_report_renders_component_communication_table() -> None:
+def test_html_report_collapses_cross_component_import_evidence() -> None:
     raw = _model(
         git_head="a" * 40,
         imports=[
@@ -188,6 +190,13 @@ def test_html_report_renders_component_communication_table() -> None:
                 target_module="pkg.b",
                 symbol="untyped",
                 origin_definition="pkg.b.untyped",
+            ),
+            _import_record(
+                "IMP-3",
+                source_module="pkg.a.mod",
+                target_module="pkg.b",
+                symbol="Missing",
+                origin_definition="pkg.b.Missing",
             ),
         ],
     )
@@ -219,8 +228,11 @@ def test_html_report_renders_component_communication_table() -> None:
         result, observation, repository="sample", architecture_href="architecture.json"
     ).decode()
 
-    assert "Component communication" in page
+    assert "Cross-component imports" in page
+    assert "All 1 component pairs · 3 imported names" in page
+    assert '<details class="connection-row">' in page
     assert "pkg.b:typed" in page and "pkg.b:untyped" in page
+    assert "pkg.b:Missing</code> unknown" in page
     assert "value: int" in page and ") → str" in page
     assert "value: UNKNOWN" in page and ") → UNKNOWN" in page
     assert "a → b" in page
@@ -236,7 +248,7 @@ def test_html_report_reports_no_cross_component_imports() -> None:
         result, observation, repository="sample", architecture_href="architecture.json"
     ).decode()
 
-    assert "Component communication" in page
+    assert "Cross-component imports" in page
     assert "No cross-component imports were observed." in page
 
 
@@ -315,6 +327,21 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
     assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
 
 
+def test_html_report_explorer_uses_one_observation_for_three_views(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "tour")
+
+    assert page.count('id="flow-data"') == 1
+    assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
+    assert 'data-flow-view="diagram"' in page
+    assert 'data-flow-view="structure"' in page
+    assert 'data-flow-view="review"' in page
+    assert 'class="flow-alternative" hidden' in page
+    assert "Connections to inspect" in page
+    assert "Physical structure" in page
+    assert "Cross-component imports" in page  # no-JavaScript evidence fallback
+    assert "Dependency matrix" in page
+
+
 def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> None:
     page = _shop_sample_report(tmp_path, "tour")
 
@@ -328,10 +355,10 @@ def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> N
     # No JavaScript still gets the complete evidence: the rows and positive sections are in
     # the document; only the initially hidden control can collapse them after explicit input.
     assert "DEP-STORE-NO-MONEY" in page
-    assert "Component communication" in page
+    assert "Cross-component imports" in page
     assert "Known unknowns" in page
     assert "Complete ArchitectureIR inventory" in page
-    assert "Broken edge rules (this level)" in page
+    assert "Broken edge rules in scope" in page
     assert "No violating edges at this level" in page
     assert "violationFocus.hidden = false" in page
 
@@ -408,6 +435,14 @@ def test_static_module_inventory_is_nested_without_duplicate_package_card() -> N
     assert "<summary><code>api</code>" in tree
     assert "<li><code>users</code></li>" in tree
     assert "<li><code>pkg.api.users</code></li>" not in tree
+
+
+def test_interactive_flow_controls_start_hidden_without_javascript(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "class-a-complete-requires")
+
+    assert '<div class="flow-toolbar" hidden>' in page
+    assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
+    assert "Observed module tree" in page
 
 
 def test_required_interface_projection_keeps_narrowing_and_decider() -> None:

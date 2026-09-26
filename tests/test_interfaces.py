@@ -227,7 +227,7 @@ def test_ownership_overlap_produces_no_edge() -> None:
     assert interface_edges(observation) == ()
 
 
-def test_origin_definition_follows_reexport_chain_and_reports_constants() -> None:
+def test_origin_definition_follows_reexport_chain_without_guessing_missing_kinds() -> None:
     observation = _observation(
         declarations=(_declaration("a", ["pkg.a"]), _declaration("b", ["pkg.b"])),
         imports=(
@@ -243,6 +243,20 @@ def test_origin_definition_follows_reexport_chain_and_reports_constants() -> Non
                 source_module="pkg.a.mod",
                 target_module="pkg.b",
                 symbol=None,
+                origin_definition=None,
+            ),
+            _import_record(
+                "IMP-3",
+                source_module="pkg.a.mod",
+                target_module="pkg.b",
+                symbol="Missing",
+                origin_definition="pkg.b.Missing",
+            ),
+            _import_record(
+                "IMP-4",
+                source_module="pkg.a.mod",
+                target_module="pkg.b",
+                symbol="*",
                 origin_definition=None,
             ),
         ),
@@ -263,7 +277,9 @@ def test_origin_definition_follows_reexport_chain_and_reports_constants() -> Non
             "a",
             "b",
             (
-                InterfaceName("pkg.b", "constant", (), ""),
+                InterfaceName("pkg.b", "module", (), ""),
+                InterfaceName("pkg.b:*", "star import", (), ""),
+                InterfaceName("pkg.b:Missing", "unknown", (), ""),
                 InterfaceName("pkg.b:Widget", "dataclass", (), ""),
             ),
         ),

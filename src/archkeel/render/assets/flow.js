@@ -32,14 +32,19 @@
   const nodeLayer = viewport.querySelector(".flow-nodes");
   const emptyLayer = viewport.querySelector(".flow-empty");
   const inspector = root.querySelector(".flow-inspector");
+  const toolbar = root.querySelector(".flow-toolbar");
   const legend = root.querySelector(".flow-legend");
   const thresholdInput = root.querySelector(".flow-threshold");
   const thresholdValue = root.querySelector(".flow-threshold-value");
   const violationFocus = root.querySelector(".flow-violation-focus");
   const violationsOnly = root.querySelector(".flow-violations-only");
   const fitButton = root.querySelector(".flow-fit");
+  const focusInput = root.querySelector(".flow-focus");
   const backButton = root.querySelector(".flow-back");
   const breadcrumb = root.querySelector(".flow-breadcrumb");
+  const viewButtons = root.querySelectorAll("[data-flow-view]");
+  const alternative = root.querySelector(".flow-alternative");
+  let pendingAlternativeFocus = null;
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
   // already-captured element); the drag/pan state machine below tolerates that silently.
@@ -103,7 +108,7 @@
   // AD-24: inner edges stay observed unless the declared inside rules decide their pair.
   // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
   // shape, because layout, ranking, routing and the inspector all consume that shape.
-  function level() {
+  function fullLevel() {
     if (!opened) return { components: rootCards, edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
     const component = componentByLabel.get(opened.component);
@@ -115,6 +120,34 @@
     }
     if (component.inside) return insideLevel(component.inside);
     return cardLevel(component, opened.path || []);
+  }
+
+  function focusLevel(view, label) {
+    if (!label || !view.components.some((card) => card.label === label)) return view;
+    const byWeight = (a, b) => weight(b) - weight(a) ||
+      a.source.localeCompare(b.source) || a.target.localeCompare(b.target);
+    const direct = [
+      ...view.edges.filter((edge) => edge.target === label).sort(byWeight).slice(0, 5),
+      ...view.edges.filter((edge) => edge.source === label).sort(byWeight).slice(0, 5),
+    ];
+    const edges = [...new Set([...direct, ...view.edges.filter((edge) => edge.state === "violation")])];
+    const names = new Set([label, ...edges.flatMap((edge) => [edge.source, edge.target])]);
+    return { components: view.components.filter((card) => names.has(card.label)), edges };
+  }
+
+  function level() {
+    const view = fullLevel();
+    return viewMode === "diagram" ? focusLevel(view, focusLabel) : view;
+  }
+
+  function defaultFocus(view) {
+    const scores = new Map(view.components.map((card) => [card.label, 0]));
+    view.edges.forEach((edge) => {
+      scores.set(edge.source, (scores.get(edge.source) || 0) + weight(edge));
+      scores.set(edge.target, (scores.get(edge.target) || 0) + weight(edge));
+    });
+    return [...view.components].filter((card) => !card.library).sort((a, b) =>
+      (scores.get(b.label) || 0) - (scores.get(a.label) || 0) || a.label.localeCompare(b.label))[0]?.label || null;
   }
 
   function insideLevel(inside) {
@@ -222,7 +255,7 @@
       edges: inside.edges.map((edge) => ({
         source: edge.source,
         target: edge.target,
-        import_sites: 1,
+        kind: "symbol_use",
         rule_ids: [],
         state: "observed",
         names: [],
@@ -241,6 +274,11 @@
       return;
     }
     selected = { type: "node", label };
+    if (viewMode === "diagram") {
+      focusLabel = label;
+      positions = {};
+      defaultThreshold();
+    }
     render();
   }
 
@@ -249,6 +287,8 @@
   const linkedComponent = new URLSearchParams(window.location.hash.slice(1)).get("component");
   let opened = componentByLabel.has(linkedComponent) ? { component: linkedComponent, path: [] } : null;
   let selected = null;
+  let viewMode = "diagram";
+  let focusLabel = null;
   let transform = { x: 0, y: 0, k: 1 };
 
   function computeRanks() {
@@ -266,6 +306,28 @@
   }
 
   function layout() {
+    const view = level();
+    if (viewMode === "diagram" && focusLabel && view.components.length) {
+      const incoming = [...new Set(view.edges.filter((edge) => edge.target === focusLabel)
+        .map((edge) => edge.source))].filter((name) => name !== focusLabel).sort();
+      const outgoing = [...new Set(view.edges.filter((edge) => edge.source === focusLabel)
+        .map((edge) => edge.target))].filter((name) => name !== focusLabel && !incoming.includes(name)).sort();
+      const other = view.components.map((card) => card.label).filter((name) =>
+        name !== focusLabel && !incoming.includes(name) && !outgoing.includes(name));
+      const rows = Math.max(incoming.length, outgoing.length, 1);
+      const centerY = (rows - 1) * 145 / 2;
+      if (!positions[focusLabel]) positions[focusLabel] = { x: 0, y: centerY };
+      incoming.forEach((name, index) => {
+        if (!positions[name]) positions[name] = { x: -310, y: index * 145 };
+      });
+      outgoing.forEach((name, index) => {
+        if (!positions[name]) positions[name] = { x: 310, y: index * 145 };
+      });
+      other.forEach((name, index) => {
+        if (!positions[name]) positions[name] = { x: (index % 2 ? 310 : -310), y: (rows + Math.floor(index / 2)) * 145 };
+      });
+      return rows + Math.ceil(other.length / 2);
+    }
     const rank = computeRanks();
     const byRank = groupBy(level().components, (c) => rank.get(c.label));
     const ranks = [...byRank.keys()].sort((a, b) => a - b);
@@ -339,7 +401,7 @@
   }
 
   function weight(edge) {
-    return edge.import_sites;
+    return edge.kind === "symbol_use" ? 1 : edge.import_sites;
   }
 
   // Dash lengths are multiples of the line's own width, never absolute pixels: a violation
@@ -392,8 +454,46 @@
     if (target) target.focus();
   }
 
+  function captureAlternativeFocus() {
+    const button = document.activeElement.closest("[data-flow-card], [data-flow-edge], [data-key]");
+    if (!button || !alternative.contains(button)) return null;
+    return button.dataset.flowCard !== undefined
+      ? { attribute: "data-flow-card", value: button.dataset.flowCard }
+      : button.dataset.flowEdge !== undefined
+        ? { attribute: "data-flow-edge", value: button.dataset.flowEdge }
+        : { attribute: "data-key", value: button.dataset.key };
+  }
+
+  function restoreAlternativeFocus(focused) {
+    if (!focused) return;
+    const target = alternative.querySelector(
+      `[${focused.attribute}="${CSS.escape(focused.value)}"]`,
+    );
+    if (target) target.focus();
+    else {
+      const heading = alternative.querySelector("h2");
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+    }
+  }
+
   function render() {
     updateNavigation();
+    const scope = fullLevel();
+    if (focusLabel && !scope.components.some((card) => card.label === focusLabel)) focusLabel = defaultFocus(scope);
+    focusInput.innerHTML = `<option value="">All components and groups</option>` + scope.components.map((card) =>
+      `<option value="${esc(card.label)}">${esc(card.display || card.label)}</option>`).join("");
+    focusInput.value = focusLabel || "";
+    focusInput.disabled = !scope.components.length;
+    root.dataset.view = viewMode;
+    viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
+    alternative.hidden = viewMode === "diagram";
+    if (viewMode !== "diagram") {
+      renderAlternative();
+      return;
+    }
     // render() replaces every card and edge, which would otherwise silently drop keyboard focus.
     const focused = capturedFocus();
     emptyLayer.textContent = "";
@@ -418,7 +518,7 @@
     if (Number(thresholdInput.value) > max) thresholdInput.value = String(max);
     thresholdInput.disabled = violationsOnly.checked;
     const visible = visibleEdges();
-    thresholdValue.textContent = `≥ ${thresholdInput.value} import sites · ${visible.length}/${level().edges.length} shown`;
+    thresholdValue.textContent = `≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import sites"} · ${visible.length}/${fullLevel().edges.length} shown at this level`;
     const outs = groupBy(visible, (e) => e.source);
     const ins = groupBy(visible, (e) => e.target);
     const byX = (key) => (a, b) => positions[a[key]].x - positions[b[key]].x;
@@ -467,7 +567,7 @@
       const contractText = r.edge.library
         ? `External library use. ${scopeRules(r.edge.scope).map((rule) => `${rule.rule_id}: ${rule.rationale || "No rationale recorded"}${rule.decided_by ? ` (${rule.decided_by})` : ""}`).join("; ")}`
         : `${through.length ? `Interface narrowed through ${through.join(", ")}. ` : "Interface not narrowed. "}${r.edge.requirement?.rationale || ""}${r.edge.requirement?.decided_by ? ` (${r.edge.requirement.decided_by})` : ""}`;
-      title.textContent = `${r.edge.source} uses ${r.edge.target}; ${weight(r.edge)} import sites; ${r.edge.state}. ${contractText} ${ruleText}${(r.edge.sites || []).length ? ` Example: ${r.edge.sites.join(", ")}` : ""}`;
+      title.textContent = `${r.edge.source} uses ${r.edge.target}; ${edgeCountLabel(r.edge)}; ${r.edge.state}. ${contractText} ${ruleText}${(r.edge.sites || []).length ? ` Example: ${r.edge.sites.join(", ")}` : ""}`;
       const select = () => {
         selected = { type: "edge", key: edgeKey(r.edge) };
         render();
@@ -479,7 +579,7 @@
           d: r.d,
           tabindex: "0",
           role: "button",
-          "aria-label": `${r.edge.source} to ${r.edge.target}, ${weight(r.edge)} import sites`,
+          "aria-label": `${r.edge.source} to ${r.edge.target}, ${edgeCountLabel(r.edge)}`,
           "data-key": edgeKey(r.edge),
         },
         title,
@@ -680,24 +780,146 @@
     renderInspector(visible);
   }
 
-  function statBlock() {
+  function splitMap(items, x, y, width, height) {
+    if (items.length === 1) return [{ item: items[0], x, y, width, height }];
+    const total = items.reduce((sum, item) => sum + item.area, 0);
+    let first = 0;
+    let cut = 0;
+    for (let index = 0; index < items.length - 1; index += 1) {
+      first += items[index].area;
+      cut = index + 1;
+      if (first >= total / 2) break;
+    }
+    const share = first / total;
+    return width >= height
+      ? [...splitMap(items.slice(0, cut), x, y, width * share, height),
+        ...splitMap(items.slice(cut), x + width * share, y, width * (1 - share), height)]
+      : [...splitMap(items.slice(0, cut), x, y, width, height * share),
+        ...splitMap(items.slice(cut), x, y + height * share, width, height * (1 - share))];
+  }
+
+  function renderStructure(view) {
+    const cards = view.components.filter((card) => !card.library);
+    const count = (card) => opened?.module ? 1 + (card.members || []).length : card.modules.length;
+    const area = (card) => Math.max(1, count(card));
+    const sorted = [...cards].sort((a, b) => area(b) - area(a) || a.label.localeCompare(b.label));
+    const mapped = sorted.slice(0, 20).map((card) => ({ card, area: area(card), count: count(card) }));
+    const rectangles = mapped.length ? splitMap(mapped, 0, 0, 100, 100) : [];
+    const unit = opened?.module ? "definitions and members" : "observed modules";
+    const tiles = rectangles.map(({ item, x, y, width, height }) => {
+      const card = item.card;
+      const label = card.display || card.label;
+      return `<button type="button" class="${card.folder ? "folder" : "module"}"
+        data-flow-card="${esc(card.label)}" aria-label="Open ${esc(card.label)}"
+        aria-pressed="${selected?.type === "node" && selected.label === card.label}"
+        style="left:${x}%;top:${y}%;width:${width}%;height:${height}%">
+        <b>${esc(label)}</b><small>${item.count} ${unit}</small></button>`;
+    }).join("");
+    const all = sorted.map((card) => `<button type="button" data-flow-card="${esc(card.label)}"
+      aria-pressed="${selected?.type === "node" && selected.label === card.label}">
+      <span><code>${esc(card.display || card.label)}</code></span>
+      <small>${count(card)} ${unit}</small></button>`).join("");
+    const libraries = view.components.filter((card) => card.library).map((card) =>
+      `<button type="button" data-flow-card="${esc(card.label)}"><span>${esc(card.display)}</span>
+      <small>external library</small></button>`).join("");
+    alternative.innerHTML = `<h2>Physical structure</h2>
+      <p>Tile area counts ${unit}, not code quality.
+      Select a tile to open it; the full list also includes small entries.</p>
+      ${tiles ? `<div class="flow-map" role="group" aria-label="Package and module map">${tiles}</div>`
+        : "<p>No structure recorded at this level.</p>"}
+      <p>${mapped.length} of ${cards.length} entries in the map.</p>
+      <div class="flow-item-list">${all}${libraries}</div>`;
+  }
+
+  function renderReview(view) {
+    const display = new Map(view.components.map((card) => [card.label, card.display || card.label]));
+    const scores = new Map(view.components.map((card) => [card.label, 0]));
+    view.edges.forEach((edge) => {
+      scores.set(edge.source, (scores.get(edge.source) || 0) + weight(edge));
+      scores.set(edge.target, (scores.get(edge.target) || 0) + weight(edge));
+    });
+    const cards = [...view.components].sort((a, b) =>
+      (scores.get(b.label) || 0) - (scores.get(a.label) || 0) || a.label.localeCompare(b.label));
+    const shown = cards.slice(0, 12);
+    const edges = new Map(view.edges.map((edge) => [edgeKey(edge), edge]));
+    const head = shown.map((card) => `<th scope="col" title="${esc(card.label)}">${esc(card.display || card.label)}</th>`).join("");
+    const rows = shown.map((source) => `<tr><th scope="row" title="${esc(source.label)}">${esc(source.display || source.label)}</th>${shown.map((target) => {
+      const edge = edges.get(`${source.label}>${target.label}`);
+      if (!edge) return "<td>·</td>";
+      return `<td><button type="button" data-flow-edge="${esc(edgeKey(edge))}"
+        data-state="${esc(edge.state)}" aria-label="${esc(source.label)} uses ${esc(target.label)}:
+        ${esc(edgeCountLabel(edge))}, ${esc(edge.state)}"
+        aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}">
+        ${edge.kind === "symbol_use" ? "•" : edge.import_sites}</button></td>`;
+    }).join("")}</tr>`).join("");
+    const urgency = { violation: 0, undecided: 1, conforms: 2, observed: 2 };
+    const ordered = [...view.edges].sort((a, b) =>
+      (urgency[a.state] ?? 3) - (urgency[b.state] ?? 3) ||
+      weight(b) - weight(a) || edgeKey(a).localeCompare(edgeKey(b)));
+    const flagged = ordered.filter((edge) => edge.state === "violation" || edge.state === "undecided");
+    const priority = [
+      ...flagged,
+      ...ordered.filter((edge) => !flagged.includes(edge)).slice(0, Math.max(0, 12 - flagged.length)),
+    ];
+    const remaining = ordered.filter((edge) => !priority.includes(edge));
+    const edgeButton = (edge) => `<button type="button" data-flow-edge="${esc(edgeKey(edge))}"
+      aria-pressed="${selected?.type === "edge" && selected.key === edgeKey(edge)}"
+      title="${esc(edge.source)} → ${esc(edge.target)}${edge.sites?.length ? ` · ${esc(edge.sites.join(", "))}` : ""}">
+      <span>${esc(display.get(edge.source) || edge.source)} → ${esc(display.get(edge.target) || edge.target)}${edge.rule_ids.length ? ` · ${esc(edge.rule_ids.join(", "))}` : ""}</span>
+      <small>${esc(edgeCountLabel(edge))}${edge.names?.length ? ` · ${edge.names.length} names` : ""} · ${esc(edge.state)}</small></button>`;
+    const broken = view.edges.filter((edge) => edge.state === "violation").length;
+    const undecided = view.edges.filter((edge) => edge.state === "undecided").length;
+    const nodeButtons = cards.map((card) => `<button type="button" data-flow-card="${esc(card.label)}">
+      <span>${esc(card.display || card.label)}</span><small>${card.folder ? "package" : card.library ? "library" : "open"}</small>
+      </button>`).join("");
+    alternative.innerHTML = `<h2>Connections to inspect</h2>
+      <p>${view.edges.length} observed connections at this level:
+      ${broken} break declared rules, ${undecided} need a decision. A clear rule check does not
+      establish that the public API is well designed.</p>
+      <h3>Connections to inspect</h3>
+      <div class="flow-item-list">${priority.map(edgeButton).join("") || "<p>No observed connections.</p>"}</div>
+      ${remaining.length ? `<details><summary>Other connections · ${remaining.length}</summary>
+        <div class="flow-item-list">${remaining.map(edgeButton).join("")}</div></details>` : ""}
+      <details class="flow-review-matrix"><summary>Dependency matrix · ${shown.length} of ${cards.length} entries</summary>
+        <p>Row uses column. Numbers count import sites; • marks a symbol-use edge; · means no observed connection.</p>
+        ${shown.length ? `<div class="flow-matrix-wrap"><table class="flow-matrix"><thead>
+          <tr><th scope="col">uses →</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
+          : "<p>No components or modules recorded at this level.</p>"}</details>
+      <details><summary>Open an entry</summary><div class="flow-item-list">${nodeButtons}</div></details>`;
+  }
+
+  function renderAlternative() {
+    const focused = captureAlternativeFocus() || pendingAlternativeFocus;
+    pendingAlternativeFocus = null;
     const view = level();
-    const sites = view.edges.reduce((acc, e) => acc + weight(e), 0);
+    if (viewMode === "structure") renderStructure(view);
+    else renderReview(view);
+    renderInspector(view.edges);
+    restoreAlternativeFocus(focused);
+  }
+
+  function statBlock() {
+    const scope = fullLevel();
+    const view = level();
+    const edges = viewMode === "diagram" ? visibleEdges() : view.edges;
+    const importSites = (items) => items.reduce(
+      (total, edge) => total + (edge.kind === "symbol_use" ? 0 : weight(edge)), 0,
+    );
     if (opened && opened.module) {
       const inside = (DATA.modules || {})[opened.module] || {};
-      const methods = view.components.reduce((acc, c) => acc + (c.members || []).length, 0);
-      return `<dl class="kv"><dt>Symbols</dt><dd>${view.components.length}</dd><dt>Methods</dt><dd>${methods}</dd><dt>Uses inside</dt><dd>${view.edges.length}</dd><dt>Used from outside</dt><dd>${(inside.exports || []).length}</dd><dt>Reaches outward</dt><dd>${(inside.imports || []).length}</dd></dl>`;
+      const methods = (items) => items.reduce((total, card) => total + (card.members || []).length, 0);
+      return `<dl class="kv"><dt>Symbols shown / in module</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Methods shown / in module</dt><dd>${methods(view.components)}/${methods(scope.components)}</dd><dt>Symbol-use edges shown / in module</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Used from outside</dt><dd>${(inside.exports || []).length}</dd><dt>Reaches outward</dt><dd>${(inside.imports || []).length}</dd></dl>`;
     }
     if (opened) {
       const owner = componentByLabel.get(opened.component);
-      const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
-      return `<dl class="kv"><dt>Modules</dt><dd>${card.modules.length}</dd><dt>Visible groups</dt><dd>${view.components.length}</dd><dt>Visible crossings</dt><dd>${view.edges.length}</dd><dt>Crossing import sites</dt><dd>${sites}</dd></dl>`;
+      const modules = (items) => items.reduce((total, item) => total + item.modules.length, 0);
+      return `<dl class="kv"><dt>Modules shown / in this scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Groups shown / at this level</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Connections shown / at this level</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / at this level</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd></dl>`;
     }
-    const modules = view.components.reduce((acc, c) => acc + c.modules.length, 0);
-    const libraries = view.components.filter((card) => card.library).length;
-    const navigation = view.components.filter((card) => card.navigation_only).length;
-    const violations = new Set(view.edges.flatMap((e) => e.rule_ids)).size;
-    return `<dl class="kv"><dt>Components</dt><dd>${view.components.length - libraries - navigation}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Unassigned module groups</dt><dd>${navigation}</dd><dt>Modules</dt><dd>${modules}</dd><dt>Edges</dt><dd>${view.edges.length}</dd><dt>Import sites</dt><dd>${sites}</dd><dt>Broken edge rules (this level)</dt><dd>${violations}</dd></dl>`;
+    const modules = (items) => items.reduce((total, card) => total + card.modules.length, 0);
+    const libraries = scope.components.filter((card) => card.library).length;
+    const navigation = scope.components.filter((card) => card.navigation_only).length;
+    const violations = new Set(scope.edges.flatMap((edge) => edge.rule_ids)).size;
+    return `<dl class="kv"><dt>Declared components</dt><dd>${scope.components.length - libraries - navigation}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Unassigned module groups</dt><dd>${navigation}</dd><dt>Modules shown / in scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Edges shown / in scope</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / in scope</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd><dt>Broken edge rules in scope</dt><dd>${violations}</dd></dl>`;
   }
 
   function topHeaviestEdges(limit) {
@@ -709,6 +931,20 @@
       .slice(0, limit);
   }
 
+  function relativeEdgeLabel(edge) {
+    const source = edge.source.split(".");
+    const target = edge.target.split(".");
+    let shared = 0;
+    while (shared < source.length - 1 && shared < target.length - 1 &&
+      source[shared] === target[shared]) shared += 1;
+    return `${source.slice(shared).join(".")} → ${target.slice(shared).join(".")}`;
+  }
+
+  function edgeCountLabel(edge) {
+    if (edge.kind === "symbol_use") return "symbol-use edge";
+    return `${edge.import_sites} import site${edge.import_sites === 1 ? "" : "s"}`;
+  }
+
   function heaviestBlock() {
     const top = topHeaviestEdges(5);
     if (!top.length) return emptyViolationBlock();
@@ -716,7 +952,7 @@
     const rows = top
       .map(
         (e) =>
-          `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}"><span class="name">${esc(e.source)} → ${esc(e.target)}</span><em>${weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
+          `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}: ${esc(edgeCountLabel(e))}" title="${esc(e.source)} → ${esc(e.target)}${e.sites?.length ? ` · ${esc(e.sites.join(", "))}` : ""}"><span class="name">${esc(relativeEdgeLabel(e))}</span><em>${e.kind === "symbol_use" ? "•" : weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
       )
       .join("");
     const heading = violationsOnly.checked ? "Violating connections" : "Heaviest connections";
@@ -730,6 +966,16 @@
   }
 
   function overview() {
+    if (viewMode === "structure") {
+      return `<div class="kicker">Structure</div><h2>${esc(opened?.module || opened?.component || "Repository")}</h2>
+        <p>Open a component, package, or module. Tile area counts observed modules or symbol definitions;
+        it does not rate their quality.</p>${statBlock()}`;
+    }
+    if (viewMode === "review") {
+      return `<div class="kicker">Review</div><h2>${esc(opened?.module || opened?.component || "Repository")}</h2>
+        <p>Select a connection for its rule and import evidence. Open an entry to inspect a smaller scope.
+        Missing observations are not a pass.</p>${statBlock()}`;
+    }
     if (opened && opened.module) {
       const inside = (DATA.modules || {})[opened.module] || {};
       const reaches = (inside.imports || []).slice(0, 12).map((name) => `<li><code>${esc(name)}</code></li>`).join("");
@@ -799,8 +1045,9 @@
         showOverview();
         return;
       }
-      const uses = level().edges.filter((e) => e.source === component.label);
-      const usedBy = level().edges.filter((e) => e.target === component.label);
+      const edges = fullLevel().edges;
+      const uses = edges.filter((e) => e.source === component.label);
+      const usedBy = edges.filter((e) => e.target === component.label);
       const relations = `<dt>Uses</dt><dd>${uses.map((e) => esc(e.target)).join(", ") || "—"}</dd>
         <dt>Used by</dt><dd>${usedBy.map((e) => esc(e.source)).join(", ") || "—"}</dd>`;
       if (component.library) {
@@ -853,6 +1100,9 @@
       showOverview();
       return;
     }
+    const display = new Map(level().components.map((card) => [card.label, card.display || card.label]));
+    const sourceName = display.get(edge.source) || edge.source;
+    const targetName = display.get(edge.target) || edge.target;
     const grouped = groupBy(edge.names, (n) => n.name.split(":")[0]);
     const names = [...grouped.entries()]
       .map(
@@ -867,17 +1117,18 @@
             .join("")}</ul></div>`,
       )
       .join("");
-    inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(edge.source)} → ${esc(edge.target)}</h2>
-      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>Import sites</dt><dd>${edge.import_sites}</dd>${edge.library ? "" : `<dt>Interface names</dt><dd>${edge.names.length}</dd>`}</dl>
+    inspector.innerHTML = `<div class="kicker">Connection</div><h2>${esc(sourceName)} → ${esc(targetName)}</h2>
+      ${sourceName === edge.source && targetName === edge.target ? "" : `<details><summary>Exact names</summary><p><code>${esc(edge.source)}</code> → <code>${esc(edge.target)}</code></p></details>`}
+      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>${edge.kind === "symbol_use" ? "Relationship" : "Observed import sites"}</dt><dd>${edge.kind === "symbol_use" ? "Symbol use" : edge.import_sites}</dd>${edge.library || !edge.names.length ? "" : `<dt>Interface names</dt><dd>${edge.names.length}</dd>`}</dl>
       ${edge.library ? `<h3>External library scope</h3>${scopeRuleList(edge.scope)}` : ""}
       ${edge.requirement && edge.requirement.component ? `<p>Declared dependency: ${edge.requirement.through && edge.requirement.through.length ? `through <code>${edge.requirement.through.map(esc).join(", ")}</code>` : "interface not narrowed"}${edge.requirement.rationale ? ` — ${esc(edge.requirement.rationale)}` : ""}${edge.requirement.decided_by ? ` (${esc(edge.requirement.decided_by)})` : ""}.</p>` : ""}
-      ${(edge.sites || []).length ? `<h3>Example import sites</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
+      ${edge.kind !== "symbol_use" && (edge.sites || []).length ? `<h3>Example import sites</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
       ${
         edge.rule_ids.length
           ? `<h3>Broken rules</h3><ul class="plain">${edge.rule_ids.map((r) => { const rule = (DATA.rules || {})[r] || {}; return `<li class="violation-card"><code>${esc(r)}</code>${rule.rationale ? ` — ${esc(rule.rationale)}` : ""}${rule.decided_by ? ` (${esc(rule.decided_by)})` : ""}</li>`; }).join("")}</ul>`
           : ""
       }
-      ${edge.names.length ? `<h3>Names used across the boundary</h3>${names}` : ""}`;
+      ${edge.names.length ? `<details class="flow-names"><summary>Imported names · ${edge.names.length}</summary>${names}</details>` : ""}`;
   }
 
   function legendSwatch(state) {
@@ -922,6 +1173,7 @@
   }
 
   function fit(animate) {
+    if (viewMode !== "diagram") return;
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height) return;
     const box = svg.getBoundingClientRect();
@@ -1057,6 +1309,7 @@
         opened = item.state;
         selected = null;
         positions = {};
+        focusLabel = defaultFocus(fullLevel());
         defaultThreshold();
         render();
         fit(false);
@@ -1091,6 +1344,7 @@
     }
     selected = null;
     positions = {};
+    focusLabel = defaultFocus(fullLevel());
     defaultThreshold();
     render();
     fit(false);
@@ -1104,12 +1358,54 @@
     opened = history[history.length - 2].state;
     selected = null;
     positions = {};
+    focusLabel = defaultFocus(fullLevel());
     defaultThreshold();
     render();
     fit(false);
   }
 
   backButton.addEventListener("click", leave);
+  toolbar.hidden = false;
+  root.querySelector(".flow-views").hidden = false;
+  viewButtons.forEach((button) => button.addEventListener("click", () => {
+    viewMode = button.dataset.flowView;
+    if (viewMode === "diagram" && selected) {
+      focusLabel = selected.type === "node" ? selected.label : selected.key.split(">")[0];
+      positions = {};
+      defaultThreshold();
+    }
+    render();
+    fit(false);
+  }));
+  focusInput.addEventListener("change", () => {
+    focusLabel = focusInput.value || null;
+    selected = null;
+    positions = {};
+    defaultThreshold();
+    render();
+    fit(false);
+  });
+  alternative.addEventListener("click", (event) => {
+    const cardButton = event.target.closest("[data-flow-card]");
+    if (cardButton) {
+      pendingAlternativeFocus = { attribute: "data-flow-card", value: cardButton.dataset.flowCard };
+      const card = level().components.find((item) => item.label === cardButton.dataset.flowCard);
+      if (!card) return;
+      if ((!opened && !card.library) || (opened && card.openable)) enter(card.label);
+      else {
+        selected = { type: "node", label: card.label };
+        render();
+      }
+      return;
+    }
+    const edgeButton = event.target.closest("[data-flow-edge]");
+    if (edgeButton) {
+      selected = { type: "edge", key: edgeButton.dataset.flowEdge };
+      alternative.querySelectorAll("[data-flow-edge]").forEach((button) =>
+        button.setAttribute("aria-pressed", String(button.dataset.flowEdge === selected.key)));
+      renderInspector(level().edges);
+    }
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") leave();
   });
@@ -1138,6 +1434,7 @@
   violationFocus.hidden = false;
 
   renderLegend();
+  focusLabel = defaultFocus(fullLevel());
   defaultThreshold();
   render();
   fit(false);

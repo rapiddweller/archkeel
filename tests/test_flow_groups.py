@@ -95,6 +95,124 @@ assert.equal(orphan.opensModule, "pkg");
     assert result.returncode == 0, result.stderr
 
 
+def test_deep_isolated_and_ownerless_modules_remain_reachable() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function rootPackage(");
+const end = text.indexOf("  // The declared names a module publishes", begin);
+assert(begin >= 0 && end > begin);
+const names = ["pkg", "pkg.deep", "pkg.deep.leaf", "pkg.deep.other", "solo", "unowned.nested.leaf"];
+const DATA = {modules: Object.fromEntries(names.map(name => [name, {
+  symbols: [], imports: [], exports: [], edges: [],
+}]))};
+const {cardLevel} = new Function("DATA", text.slice(begin, end) + ";return {cardLevel}")(DATA);
+function reachableModules(component) {
+  const reached = new Set();
+  function visit(path) {
+    for (const card of cardLevel(component, path).components) {
+      if (card.folder) visit([...path, card.label]);
+      else if (card.openable && card.opensModule) reached.add(card.opensModule);
+    }
+  }
+  visit([]);
+  return reached;
+}
+const owned = {label: "owned", modules: names.slice(0, 5), public: null, inner_edges: []};
+const unassigned = {label: "unassigned", modules: [names[5]], public: null, inner_edges: []};
+assert.deepEqual([...reachableModules(owned)].sort(), names.slice(0, 5).sort());
+assert.deepEqual([...reachableModules(unassigned)].sort(), [names[5]]);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_structure_reports_zero_modules_for_an_empty_module_group() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function renderStructure(view)");
+const end = text.indexOf("  function renderReview(view)", begin);
+assert(begin >= 0 && end > begin);
+const alternative = {innerHTML: ""};
+const makeRenderer = () => new Function("alternative", "selected", "opened", "splitMap", "esc",
+  text.slice(begin, end) + ";return renderStructure")(
+    alternative, null, null,
+    mapped => mapped.map((item, index) => ({item, x: index, y: 0, width: 100, height: 100})),
+    String,
+  );
+const renderStructure = makeRenderer();
+renderStructure({components: [
+  {label: "one", display: "one", modules: ["pkg.one"], library: false}
+]});
+assert(alternative.innerHTML.includes("1 observed modules"), alternative.innerHTML);
+renderStructure({components: [{label: "empty", display: "empty", modules: [], library: false}]});
+assert(alternative.innerHTML.includes("0 observed modules"), alternative.innerHTML);
+assert(!alternative.innerHTML.includes("1 observed modules"), alternative.innerHTML);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_component_inspector_lists_all_connections_independent_of_focus() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function renderInspector(visible)");
+const end = text.indexOf("  function legendSwatch(state)", begin);
+assert(begin >= 0 && end > begin);
+function render(componentLabel, allEdges, focusedEdges) {
+  const component = {label: componentLabel, modules: [], public: null, requires: []};
+  const inspector = {innerHTML: ""};
+  const selected = {type: "node", label: componentLabel};
+  const view = {components: [component], edges: focusedEdges};
+  const complete = {components: [component], edges: allEdges};
+  const renderInspector = new Function(
+    "selected", "showOverview", "level", "fullLevel", "esc", "opened",
+    "componentByLabel", "moduleTree", "DATA", "scopeRules", "scopeRuleList", "inspector",
+    text.slice(begin, end) + ";return renderInspector",
+  )(
+    selected, () => {}, () => view, () => complete, String, null,
+    new Map(), () => "", {}, () => [], () => "", inspector,
+  );
+  renderInspector([]);
+  return inspector.innerHTML;
+}
+const outbound = Array.from({length: 6}, (_, i) => ({source: "api", target: `consumer${i}`}));
+const inbound = Array.from({length: 6}, (_, i) => ({source: `provider${i}`, target: "api"}));
+const allEdges = [...outbound, ...inbound];
+// Model a focused diagram that includes only five of each direction.
+const focusedEdges = [...outbound.slice(0, 5), ...inbound.slice(0, 5)];
+const details = render("api", allEdges, focusedEdges);
+const empty = render("isolated", [], []);
+assert(empty.includes("<dt>Uses</dt><dd>—</dd>"), empty);
+assert(empty.includes("<dt>Used by</dt><dd>—</dd>"), empty);
+const missing = [];
+if (!details.includes("consumer0, consumer1, consumer2, consumer3, consumer4, consumer5"))
+  missing.push("sixth outgoing relationship is absent");
+if (!details.includes("provider0, provider1, provider2, provider3, provider4, provider5"))
+  missing.push("sixth incoming relationship is absent");
+assert.deepEqual(missing, [], details);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_analyzer_payload_keeps_unassigned_and_import_only_modules_navigable(
     tmp_path: Path,
 ) -> None:
@@ -284,3 +402,160 @@ def test_component_and_module_site_pairs_use_distinct_keys(tmp_path: Path) -> No
     ]
     assert root_edge["sites"] == ["sample/left/__init__.py:1"]
     assert payload["unassigned"]["inner_edges"][0]["sites"] == ["sample/a.py:1"]
+
+
+def test_focused_diagram_keeps_violations_outside_its_top_connections() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function focusLevel(");
+const end = text.indexOf("  function level(", begin);
+assert(begin >= 0 && end > begin);
+const focusLevel = new Function("weight", text.slice(begin, end) + ";return focusLevel")(
+  edge => edge.kind === "symbol_use" ? 1 : edge.import_sites);
+const names = ["focus", ...Array.from({length: 7}, (_, index) => `used${index}`),
+  "brokenSource", "brokenTarget"];
+const view = {components: names.map(label => ({label})), edges: [
+  ...names.slice(1, 8).map((target, index) =>
+    ({source: "focus", target, import_sites: 10 - index, state: "conforms"})),
+  {source: "brokenSource", target: "brokenTarget", import_sites: 1, state: "violation"},
+]};
+const shown = focusLevel(view, "focus");
+assert.equal(shown.edges.length, 6);
+assert(shown.edges.some(edge => edge.state === "violation"));
+assert(shown.components.some(card => card.label === "brokenSource"));
+assert(shown.components.some(card => card.label === "brokenTarget"));
+assert.equal(focusLevel(view, "missing"), view);
+assert.equal(focusLevel(view, null), view);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_review_queue_shows_all_flagged_connections_before_busy_clean_ones() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function renderReview(");
+const end = text.indexOf("  function renderAlternative(", begin);
+assert(begin >= 0 && end > begin);
+const alternative = {innerHTML: ""};
+const edgeKey = edge => `${edge.source}>${edge.target}`;
+const renderReview = new Function(
+  "alternative", "selected", "edgeKey", "esc", "weight", "edgeCountLabel",
+  text.slice(begin, end) + ";return renderReview")(
+    alternative, null, edgeKey, value => String(value),
+    edge => edge.kind === "symbol_use" ? 1 : edge.import_sites,
+    edge => edge.kind === "symbol_use" ? "symbol-use edge" : `${edge.import_sites} import sites`);
+const components = Array.from({length: 16}, (_, index) => ({
+  label: `pkg.mod.${index}`, display: `m${index}`,
+}));
+const edges = components.slice(1).map((target, index) => ({
+  source: components[0].label, target: target.label,
+  import_sites: index < 13 ? 1 : 200,
+  state: index < 12 ? "violation" : index === 12 ? "undecided" : "conforms",
+  rule_ids: [], names: [],
+}));
+renderReview({components, edges});
+const firstList = alternative.innerHTML.split("<details><summary>Other connections")[0];
+assert.equal((firstList.match(/data-flow-edge=/g) || []).length, 13);
+assert(firstList.includes("m0 → m1"));
+assert(firstList.includes("m0 → m13"));
+assert(!firstList.includes("m0 → m14"));
+assert(alternative.innerHTML.includes("Other connections · 2"));
+assert(alternative.innerHTML.includes("Dependency matrix · 12 of 16 entries"));
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_symbol_use_edges_do_not_claim_import_site_counts() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function moduleLevel(");
+const end = text.indexOf("  // AD-24: the first tap", begin);
+assert(begin >= 0 && end > begin);
+const data = {modules: {pkg: {
+  symbols: [], edges: [{source: "pkg:caller", target: "pkg:callee"}],
+}}};
+const moduleLevel = new Function("DATA", text.slice(begin, end) +
+  ";return moduleLevel")(data);
+const [edge] = moduleLevel("pkg").edges;
+assert.equal(edge.kind, "symbol_use");
+assert(!Object.hasOwn(edge, "import_sites"));
+const countBegin = text.indexOf("  function edgeCountLabel(");
+const countEnd = text.indexOf("  function heaviestBlock(", countBegin);
+const edgeCountLabel = new Function(text.slice(countBegin, countEnd) +
+  ";return edgeCountLabel")();
+assert.equal(edgeCountLabel(edge), "symbol-use edge");
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_scope_counts_use_current_physical_and_symbol_levels() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function statBlock()");
+const end = text.indexOf("  function topHeaviestEdges", begin);
+assert(begin >= 0 && end > begin);
+const run = ({scope, view, opened, owner, data = {modules: {}}}) => {
+  const componentByLabel = new Map([["runtime", owner]]);
+  const visibleEdges = () => view.edges;
+  const statBlock = new Function(
+    "fullLevel", "level", "viewMode", "visibleEdges", "opened", "componentByLabel",
+    "DATA", "weight",
+    text.slice(begin, end) + ";return statBlock",
+  )(
+    () => scope, () => view, "diagram", visibleEdges, opened, componentByLabel, data,
+    edge => edge.kind === "symbol_use" ? 1 : edge.import_sites,
+  );
+  return statBlock();
+};
+const folder = run({
+  scope: {components: [{label: "runtime.tasks.generate", modules: Array(9).fill("x")}], edges: []},
+  view: {components: [{label: "runtime.tasks.generate", modules: Array(9).fill("x")}], edges: []},
+  opened: {component: "runtime", path: ["runtime", "tasks"]},
+  owner: {modules: Array(51).fill("x")},
+});
+assert(folder.includes("Modules shown / in this scope</dt><dd>9/9"), folder);
+assert(!folder.includes("9/51"), folder);
+const module = run({
+  scope: {components: [
+    {label: "pkg:one", members: ["a", "b"]},
+    {label: "pkg:two", members: ["c"]},
+    {label: "pkg:three", members: []},
+  ], edges: [{kind: "symbol_use"}, {kind: "symbol_use"}]},
+  view: {components: [{label: "pkg:one", members: ["a", "b"]}], edges: [{kind: "symbol_use"}]},
+  opened: {component: "runtime", module: "pkg"},
+  owner: {modules: []},
+  data: {modules: {pkg: {exports: [], imports: []}}},
+});
+assert(module.includes("Symbols shown / in module</dt><dd>1/3"), module);
+assert(module.includes("Methods shown / in module</dt><dd>2/3"), module);
+assert(module.includes("Symbol-use edges shown / in module</dt><dd>1/2"), module);
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr

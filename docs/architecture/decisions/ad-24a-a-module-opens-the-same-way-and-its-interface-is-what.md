@@ -13,4 +13,5 @@ symbols and the 165 edges between them. The module inventory comes from every ob
 including empty or import-only package initializers. Modules with no unique declared owner remain
 reachable from a clearly labeled navigation-only root group; that group is not a component and
 adds no boundary verdict or permission. Physical folders are only navigation, and every inventory
-card opens the corresponding module even when it has no recorded symbols.
+card opens the corresponding module even when it has no recorded symbols. Call and reference edges
+are symbol-use relationships; they do not claim import-site counts.

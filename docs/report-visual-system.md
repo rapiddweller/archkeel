@@ -139,6 +139,16 @@ unless the check has already classified them as a failure.
 
 ### Component flow
 
+- One observation feeds three views at the same breadcrumb level: focused UML diagram to explain
+  interfaces, physical structure map to find modules, and a connection-first review queue.
+  The diagram keeps all violated edges visible outside its five heaviest direct connections.
+  Review shows every violated or undecided connection before the busiest conforming ones;
+  the matrix is optional and shows up to twelve high-traffic entries. Focus can be reset to
+  “All components and groups”; each view reports shown and total entries for its current scope.
+- Never infer a symbol kind from a missing definition. A whole-module import is `module`, a star
+  import is `star import`, and an unresolved named import is `unknown`, not `constant`.
+- Long lists of imported names and facade measurements use native disclosure controls. The
+  summary keeps counts visible and the complete evidence accessible without JavaScript.
 - Level 2 uses UML component boxes. A circle marks a declared provided interface; a socket
   marks declared `requires`. Only a conforming observed edge with `through` gets an assembly
   marker. An unrestricted or undecided edge must not imply a specific interface connection.
@@ -155,15 +165,17 @@ unless the check has already classified them as a failure.
   scope rules name it; all rule details and violating rule ids stay inspectable.
 - More than twelve inside connections defaults to a labelled heavy-edge view. Violations stay
   visible regardless of threshold, and the slider can restore every edge.
-- Edges carry their import sites; a conforming edge is solid teal, a violated edge is dashed red
-  with a chip naming the rule id.
+- Import edges carry their observed import-site counts. Module call/reference edges are marked
+  as symbol-use relationships, not import sites. A conforming edge is solid teal; a violated edge
+  is dashed red with a chip naming the rule id.
 - Inside edges stay observed unless an inside rule decides them; absence of a finding alone is
   not conformance.
-- Right-angle connectors routed in lanes per row pair; labels never overlap, and a weight badge
-  gives way to a rule chip.
+- Right-angle connectors use lanes per row pair to reduce crossings. Rule chips take priority
+  over weight badges; dense levels can still need filtering or manual arrangement.
 - The legend is drawn from the same edge states that style the graph, and the overview lists the
   five heaviest connections.
-- Without script, the component communication table and nested inventory are fallbacks.
+- Structure and Review work by keyboard as well as pointer. Without script, the component
+  communication table and nested inventory remain readable; interactive flow controls stay hidden.
 - Level 1 is not drawn until the observation can state cross-repository interfaces.
 - No gradients, glow, shadows or decorative icons; the UML glyph is semantic notation.
 
