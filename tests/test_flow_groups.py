@@ -29,7 +29,8 @@ const DATA = {modules: {
   "pkg.api.users": {symbols: [{}]}, "pkg.api.orders": {symbols: [{}]},
   "pkg.util": {symbols: [{}]},
 }};
-const {cardLevel} = new Function("DATA", text.slice(begin, end) + ";return {cardLevel}")(DATA);
+const {rootPackage, cardLevel} = new Function("DATA", text.slice(begin, end) +
+  ";return {rootPackage, cardLevel}")(DATA);
 const component = {
   modules: ["pkg", "pkg.api", "pkg.api.users", "pkg.api.orders", "pkg.util"],
   public: ["pkg.api.users"],
@@ -40,20 +41,33 @@ const component = {
   ],
 };
 const root = cardLevel(component, []);
-assert.deepEqual(root.components.map(card => card.label), ["pkg.api", "pkg.util"]);
-assert.equal(root.components[0].folder, true);
-assert.equal(root.components[0].modules.length, 3);
-assert.equal(root.components[0].public.length, 1);
+assert.deepEqual(root.components.map(card => card.label), ["pkg:__init__", "pkg.api", "pkg.util"]);
+assert.equal(root.components[1].folder, true);
+assert.equal(root.components[1].modules.length, 3);
+assert.equal(root.components[1].public.length, 1);
 assert.equal(root.edges.length, 1);
 assert.equal(root.edges[0].import_sites, 5);
 assert.equal(root.edges[0].state, "violation");
 assert.deepEqual(root.edges[0].rule_ids, ["R1"]);
 assert.deepEqual(cardLevel(component, ["pkg.api"]).components.map(card => card.label),
-  ["pkg.api.orders", "pkg.api.users"]);
+  ["pkg.api:__init__", "pkg.api.orders", "pkg.api.users"]);
 DATA.modules.pkg.symbols = [{}];
 assert(cardLevel(component, []).components.some(card => card.label === "pkg:__init__"));
 component.public = null;
 assert(cardLevel(component, []).components.every(card => card.public === null));
+assert.equal(rootPackage(["pkg.a.api", "pkg.b.api"]), "pkg");
+const importsOnly = {modules: {
+  pkg: {symbols: [], imports: ["pkg.api.users"]},
+  "pkg.api.users": {symbols: [{}]}, "pkg.api.orders": {symbols: [{}]},
+}};
+const onlyCardLevel = new Function("DATA", text.slice(begin, end) +
+  ";return cardLevel")(importsOnly);
+const initializer = onlyCardLevel({modules: Object.keys(importsOnly.modules),
+  public: null, inner_edges: []}, []).components.find(card => card.label === "pkg:__init__");
+assert(initializer, "an imports-only initializer remains reachable");
+assert.equal(initializer.folder, false);
+assert.equal(initializer.openable, true);
+assert.equal(initializer.opensModule, "pkg");
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False

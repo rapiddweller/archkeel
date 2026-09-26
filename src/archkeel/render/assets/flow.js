@@ -74,7 +74,7 @@
 
   const componentByLabel = new Map(DATA.components.map((c) => [c.label, c]));
 
-  // AD-24: inside a component nothing is decided, so every inner edge is drawn as observed.
+  // AD-24: inner edges stay observed unless the declared inside rules decide their pair.
   // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
   // shape, because layout, ranking, routing and the inspector all consume that shape.
   function level() {
@@ -117,10 +117,11 @@
   function rootPackage(modules) {
     if (!modules.length) return "";
     if (modules.length === 1) return modules[0].split(".").slice(0, -1).join(".");
-    return modules.slice(1).reduce(
-      (prefix, name) => prefix.split(".").filter((part, index) => name.split(".")[index] === part).join("."),
-      modules[0],
-    );
+    const first = modules[0].split(".");
+    let length = 0;
+    while (length < first.length &&
+      modules.slice(1).every((name) => name.split(".")[length] === first[length])) length += 1;
+    return first.slice(0, length).join(".");
   }
 
   // Physical folders are navigation, not declared semantic components. Keep raw module
@@ -138,11 +139,10 @@
     const own = groups.get(prefix);
     if (own && groups.size > 1) {
       groups.delete(prefix);
-      const hasCode = ((DATA.modules || {})[prefix]?.symbols || []).length > 0;
-      if (hasCode) groups.set(`${prefix}:__init__`, own);
+      if ((DATA.modules || {})[prefix]) groups.set(`${prefix}:__init__`, own);
     }
     const cards = [...groups].map(([label, modules]) => {
-      const folder = modules.some((name) => name !== label);
+      const folder = !label.endsWith(":__init__") && modules.some((name) => name !== label);
       const publicNames = (component.public || []).filter((entry) =>
         modules.some((module) => entry.split(":")[0] === module));
       const touching = (component.inner_edges || []).filter((edge) =>

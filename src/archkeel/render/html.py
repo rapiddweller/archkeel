@@ -313,7 +313,7 @@ def _within(qualified: str, module: str) -> str:
 
 
 def _inner_edge_payload(
-    edges: tuple[FlowInnerEdge, ...], sites: dict[tuple[str, str], set[str]]
+    edges: tuple[FlowInnerEdge, ...], sites: dict[tuple[str, ...], set[str]]
 ) -> list[dict[str, object]]:
     return [
         {
@@ -329,7 +329,9 @@ def _inner_edge_payload(
 
 
 def _inside_payload(
-    inside: FlowInside | None, sites: dict[tuple[str, str], set[str]]
+    inside: FlowInside | None,
+    sites: dict[tuple[str, ...], set[str]],
+    parent: str,
 ) -> dict[str, object] | None:
     """Serialise a declared inside the way `level()` consumes it, or None when none exists."""
     if inside is None:
@@ -351,7 +353,7 @@ def _inside_payload(
                 "import_sites": edge.import_sites,
                 "rule_ids": list(edge.rule_ids),
                 "state": edge.state,
-                "sites": sorted(sites.get((edge.source, edge.target), ()))[:3],
+                "sites": sorted(sites.get((parent, edge.source, edge.target), ()))[:3],
             }
             for edge in inside.edges
         ],
@@ -359,14 +361,16 @@ def _inside_payload(
     }
 
 
-def _flow_sites(observation: Observation) -> dict[tuple[str, str], set[str]]:
+def _flow_sites(observation: Observation) -> dict[tuple[str, ...], set[str]]:
     evidence = {item.id: f"{item.file}:{item.line}" for item in observation.evidence}
     owners = component_owners(observation)
-    inside_owners = [
-        {module: card.label for card in level.components for module in card.modules}
+    inside_owners = {
+        level.parent: {
+            module: card.label for card in level.components for module in card.modules
+        }
         for level in inside_levels(observation)
-    ]
-    sites: dict[tuple[str, str], set[str]] = {}
+    }
+    sites: dict[tuple[str, ...], set[str]] = {}
     for item in observation.records("imports") or ():
         source = item.data.get("source_module")
         target = item.data.get("target_module")
@@ -379,10 +383,10 @@ def _flow_sites(observation: Observation) -> dict[tuple[str, str], set[str]]:
         if source_owner and target_owner:
             pair = (source_owner, target_owner)
             sites[pair] = sites.get(pair, set()) | locations
-        for level in inside_owners:
+        for parent, level in inside_owners.items():
             if source in level and target in level:
-                pair = (level[source], level[target])
-                sites[pair] = sites.get(pair, set()) | locations
+                inside_pair = (parent, level[source], level[target])
+                sites[inside_pair] = sites.get(inside_pair, set()) | locations
     return sites
 
 
@@ -542,7 +546,7 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
                 "public": list(component.public) if component.public is not None else None,
                 "requires": requires.get(component.label, []),
                 "inner_edges": _inner_edge_payload(component.inner_edges, sites),
-                "inside": _inside_payload(component.inside, sites),
+                "inside": _inside_payload(component.inside, sites, component.label),
             }
             for component in flow.components
         ],

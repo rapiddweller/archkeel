@@ -195,6 +195,9 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   and runtime provenance remain available beside the verdict.
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
+- **Nested flow stays inspectable.** Physical folders lead to every observed module, including
+  import-only package initializers. An inside connection stays observed unless an inside rule
+  decides it; no finding by itself is not a conformance claim.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
   level, 25 cross-component type fan-ins, 0 unread-binding candidates and 0 repetitions — in

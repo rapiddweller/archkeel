@@ -310,12 +310,17 @@ def _violated_pairs(
 def _inside_views(observation: Observation) -> dict[str, FlowInside]:
     """Draw each declared inside as its own level, by the parent component that holds it.
 
-    The verdict is read where every other edge reads it, from the violation records: a crossing
-    the inside contract forbids carries the rule that forbids it, and there is no `undecided`,
-    because inside a declared level absence decides (AD-32, AD-34).
+    A violating crossing carries its rule from the violation records. A non-violating crossing
+    conforms only when the inside declares `complete_requires`; without that rule it stays
+    observed, not green by default (AD-32, AD-34).
     """
     views: dict[str, FlowInside] = {}
     for level in inside_levels(observation):
+        has_complete_requires = any(
+            record.kind == "complete_requires"
+            and record.data.get("parent_id") == level.parent
+            for record in observation.records("declarations") or ()
+        )
         components = tuple((item.label, item.packages) for item in level.components)
         inner_by_owner = _inner_edges(observation, components)
         pair_rules: dict[tuple[str, str], set[str]] = defaultdict(set)
@@ -334,7 +339,13 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
         edges = []
         for edge in level.edges:
             rule_ids = tuple(sorted(pair_rules.get((edge.source, edge.target), ())))
-            state: EdgeState = "violation" if rule_ids else "conforms"
+            state: EdgeState = (
+                "violation"
+                if rule_ids
+                else "conforms"
+                if has_complete_requires
+                else "observed"
+            )
             edges.append(FlowEdge(edge.source, edge.target, edge.import_sites, rule_ids, state))
         views[level.parent] = FlowInside(cards, tuple(edges), level.unassigned)
     return views
