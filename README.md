@@ -33,6 +33,9 @@ secondary detail and leaves the verdict, failures, unknowns and evidence availab
 flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
 Both change the view, never the verdict or evidence.</sub>
 
+Modules without a unique declared owner remain reachable through a navigation-only
+<code>Unassigned modules</code> group; it does not create a component boundary or verdict.
+
 <p>
   <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
 </p>
@@ -195,6 +198,9 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   and runtime provenance remain available beside the verdict.
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
+- **Nested flow stays inspectable.** Physical folders lead to every observed module, including
+  import-only package initializers. An inside connection stays observed unless an inside rule
+  decides it; no finding by itself is not a conformance claim.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
   level, 25 cross-component type fan-ins, 0 unread-binding candidates and 0 repetitions — in

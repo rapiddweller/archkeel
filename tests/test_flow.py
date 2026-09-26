@@ -6,6 +6,8 @@
 import json
 from pathlib import Path
 
+from test_analyzer import _component, _inside_component
+from test_analyzer import _observe as observe_case
 from test_architecture_demo import CONFIG, _prepare_repo
 
 from archkeel.analyzer import observe
@@ -62,6 +64,150 @@ def test_flow_derives_components_and_weighted_edges(tmp_path: Path) -> None:
     assert actual_edges == _TOUR_EDGES
     assert {edge.state for edge in flow.edges if edge.rule_ids} == {"violation"}
     assert {edge.state for edge in flow.edges if not edge.rule_ids} == {"conforms"}
+
+
+def test_inside_crossing_without_a_deciding_rule_stays_observed(tmp_path: Path) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_component("core") | {"inside": "inner.json"}],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_inside_component("a", ["b"]), _inside_component("b", [])],
+                "rules": [],
+            }
+        )
+    )
+    package = tmp_path / "sample/core"
+    package.mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (package / "__init__.py").write_text("")
+    (package / "a.py").write_text("VALUE = 1\n")
+    (package / "b.py").write_text("import sample.core.a\n")
+
+    result = observe_case(tmp_path)
+    assert result.observation is not None
+    core = next(item for item in build_flow(result.observation).components if item.label == "core")
+    assert core.inside is not None
+    edge = next(edge for edge in core.inside.edges if (edge.source, edge.target) == ("b", "a"))
+    assert edge.state == "observed"
+    assert edge.rule_ids == ()
+
+
+def test_same_local_inside_labels_do_not_share_violation_state(tmp_path: Path) -> None:
+    rule = {
+        "id": "REQUIRES-COMPLETE",
+        "kind": "complete_requires",
+        "rationale": "Declare every inner dependency.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    components = []
+    for parent in ("core", "service"):
+        components.append(
+            _component(parent, packages=[f"sample.{parent}"]) | {"inside": f"{parent}-inner.json"}
+        )
+        inner_components = [
+            _inside_component("a", ["b"]) | {"packages": [f"sample.{parent}.a"]},
+            _inside_component("b", ["a"] if parent == "service" else [])
+            | {"packages": [f"sample.{parent}.b"]},
+        ]
+        (tmp_path / f"{parent}-inner.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "2.1.0",
+                    "components": inner_components,
+                    "rules": [rule],
+                }
+            )
+        )
+        package = tmp_path / "sample" / parent
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "a.py").write_text("VALUE = 1\n")
+        (package / "b.py").write_text(f"import sample.{parent}.a\n")
+    (tmp_path / "contract.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": components, "rules": []})
+    )
+    (tmp_path / "sample/__init__.py").write_text("")
+
+    result = observe_case(tmp_path)
+    assert result.observation is not None
+    by_parent = {
+        item.label: item.inside
+        for item in build_flow(result.observation).components
+        if item.label in {"core", "service"}
+    }
+    core = next(
+        edge for edge in by_parent["core"].edges if (edge.source, edge.target) == ("b", "a")
+    )
+    service = next(
+        edge for edge in by_parent["service"].edges if (edge.source, edge.target) == ("b", "a")
+    )
+
+    assert core.state == "violation"
+    assert core.rule_ids == ("core:REQUIRES-COMPLETE",)
+    assert service.state == "conforms"
+    assert service.rule_ids == ()
+
+
+def test_inside_violation_cannot_colour_unrelated_root_edge(tmp_path: Path) -> None:
+    package = tmp_path / "sample/core"
+    package.mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/a.py").write_text("import sample.b\n")
+    (tmp_path / "sample/b.py").write_text("VALUE = 1\n")
+    (package / "a.py").write_text("import sample.core.b\n")
+    (package / "b.py").write_text("VALUE = 1\n")
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("a"),
+                    _component("b"),
+                    _component("core") | {"inside": "inner.json"},
+                ],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_inside_component("a", []), _inside_component("b", [])],
+                "rules": [
+                    {
+                        "id": "INNER",
+                        "kind": "complete_requires",
+                        "rationale": "Declare inner dependencies.",
+                        "decided_by": "architect",
+                        "provenance": ["docs/architecture/sample.md"],
+                    }
+                ],
+            }
+        )
+    )
+
+    result = observe_case(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    flow = build_flow(result.observation)
+    [root_edge] = [edge for edge in flow.edges if (edge.source, edge.target) == ("a", "b")]
+    assert root_edge.state != "violation"
+    assert root_edge.rule_ids == ()
+    core = next(component for component in flow.components if component.label == "core")
+    assert core.inside is not None
+    [inside_edge] = core.inside.edges
+    assert inside_edge.state == "violation"
+    assert inside_edge.rule_ids == ("core:INNER",)
 
 
 def test_flow_violated_edges_carry_only_pair_scoped_rule_ids(tmp_path: Path) -> None:

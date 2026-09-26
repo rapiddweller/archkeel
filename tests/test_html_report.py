@@ -13,11 +13,24 @@ from test_expectation import _delta_payload
 from test_interfaces import _declaration, _import_record, _symbol_record
 
 from archkeel.analyzer import observe
+from archkeel.analyzer.embedded.contract import _requires_entries
 from archkeel.check.report import run_report
 from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
-from archkeel.ir.model import Diagnostic, RatchetObservations, RunResult
-from archkeel.render.html import render_architecture_html, render_check_html, render_html
+from archkeel.ir.model import (
+    ComponentRole,
+    ContractComponent,
+    Diagnostic,
+    RatchetObservations,
+    RequiredComponent,
+    RunResult,
+)
+from archkeel.render.html import (
+    _module_tree_html,
+    render_architecture_html,
+    render_check_html,
+    render_html,
+)
 from archkeel.render.summary import check_decision_sentence, check_summary, report_summary
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
@@ -93,7 +106,8 @@ def test_html_report_lists_compatibility_migration_work() -> None:
 
     assert "Compatibility migration work" in page
     assert "1 migration shim(s) remain." in page
-    assert "<code>pkg.old</code>" in page
+    assert "<summary><code>pkg</code>" in page
+    assert "<li><code>old</code></li>" in page
 
 
 def test_html_report_shows_fail_headline_when_declared_rules_fail() -> None:
@@ -275,6 +289,7 @@ _TOUR_FLOW_RULE_IDS = (
     "DEP-RENDER-NO-STORE",
     "DEP-STORE-NO-MONEY",
     "INTERFACE-BOUNDARY",
+    "EXTERNAL-JSON-STORE",
 )
 
 
@@ -294,9 +309,9 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
         tuple(edge["rule_ids"]) for edge in payload["edges"] if edge["state"] == "violation"
     }
     assert set().union(*violated) == set(_TOUR_FLOW_RULE_IDS)
-    # A single-subject or unowned-target rule never names a component pair (see test_flow.py).
+    # An unowned-target rule has a library card only when it declares an external scope.
     assert "ASSIGNMENT-COMPLETE" not in set().union(*violated)
-    assert "EXTERNAL-JSON-STORE" not in set().union(*violated)
+    assert "EXTERNAL-JSON-STORE" in set().union(*violated)
     assert all(edge["state"] in ("conforms", "violation") for edge in payload["edges"])
 
 
@@ -365,6 +380,80 @@ def test_html_report_flow_view_clean_sample_has_no_violated_edges(tmp_path: Path
     assert payload["edges"]
     assert all(edge["state"] == "conforms" for edge in payload["edges"])
     assert all(edge["rule_ids"] == [] for edge in payload["edges"])
+
+
+def test_flow_report_keeps_interface_decisions_and_import_sites(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "class-a-complete-requires")
+    start = page.index('id="flow-data"')
+    payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
+
+    assert "How to read this report" in page
+    assert 'class="flow-breadcrumb"' in page
+    assert "Observed module tree" in page
+    assert any(component["requires"] for component in payload["components"])
+    requirement = next(
+        entry
+        for component in payload["components"]
+        for entry in component["requires"]
+        if entry["rationale"]
+    )
+    assert "decided_by" in requirement
+    assert any(edge["sites"] for edge in payload["edges"])
+    assert all(":" in site for edge in payload["edges"] for site in edge["sites"])
+
+
+def test_static_module_inventory_is_nested_without_duplicate_package_card() -> None:
+    tree = _module_tree_html(["pkg", "pkg.api", "pkg.api.users", "pkg.util"])
+    assert "<summary><code>pkg</code>" in tree
+    assert "<summary><code>api</code>" in tree
+    assert "<li><code>users</code></li>" in tree
+    assert "<li><code>pkg.api.users</code></li>" not in tree
+
+
+def test_required_interface_projection_keeps_narrowing_and_decider() -> None:
+    component = ContractComponent(
+        "COMP",
+        "app",
+        ComponentRole.COMPONENT,
+        ("pkg.app",),
+        (),
+        (),
+        (),
+        requires=(
+            RequiredComponent("domain", "Only use the facade", ("pkg.domain.api",), "agent"),
+        ),
+        decided_by="architect",
+    )
+    entry = _requires_entries(component)[0]
+    assert entry == {
+        "component": "domain",
+        "through": ["pkg.domain.api"],
+        "rationale": "Only use the facade",
+        "decided_by": "agent",
+    }
+
+
+def test_external_scope_is_a_library_with_a_red_observed_use(tmp_path: Path) -> None:
+    page = _shop_sample_report(tmp_path, "class-a-external-dependency-scope")
+    start = page.index('id="flow-data"')
+    payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
+
+    library = next(item for item in payload["libraries"] if item["label"] == "library:json")
+    assert library["rule_id"] == "EXTERNAL-JSON-STORE"
+    edge = next(
+        item
+        for item in payload["edges"]
+        if item["source"] == "app" and item["target"] == "library:json"
+    )
+    assert edge["state"] == "violation"
+    assert edge["rule_ids"] == ["EXTERNAL-JSON-STORE"]
+    assert edge["sites"]
+    assert any(
+        item["source"] == "store"
+        and item["target"] == "library:json"
+        and item["state"] == "conforms"
+        for item in payload["edges"]
+    )
 
 
 def test_html_report_never_styles_missing_evidence_as_pass() -> None:
