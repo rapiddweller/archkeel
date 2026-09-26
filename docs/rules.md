@@ -447,8 +447,8 @@ named under `renames` and compared away, so only a widening beside it fails (AD-
 reads the same selected `--config` from the pinned historical revision; missing or invalid config
 cannot authorize a rename. Every Python rename candidate needs a complete historical layout scan,
 even when roots and namespace are unchanged, because physical layout may move within those roots.
-Changed-root or changed-namespace Dart remains unsupported. A widening
-fails (`failures`, exit 1) unless `--amendment <path>` names a file
+Changed-root Dart remains unsupported; same-root Dart renames keep their existing behavior. A
+widening fails (`failures`, exit 1) unless `--amendment <path>` names a file
 binding its exact before/after contract digest, recording who decided it and why:
 
 ```bash

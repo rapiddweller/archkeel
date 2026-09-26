@@ -1995,7 +1995,7 @@ def _rename_since(
             return None
         historical_layouts = module_layouts(historical.observation)
         historical_scanned = True
-    elif historical_config.roots != config.roots or historical_config.namespace != config.namespace:
+    elif historical_config.roots != config.roots:
         return None
     layouts = current_layouts | historical_layouts
     recognised = renames_since(

@@ -49,8 +49,8 @@ Each clause has a test that fails without it:
   beside a source. The CLI reads the selected historical `--config`; missing or invalid config, or
   omitted `against_config` for direct callers, cannot authorize a rename. Every Python rename
   candidate requires a complete historical scan under that config: physical layout can change
-  even when configured roots and namespace strings do not. Dart keeps the existing same-layout
-  path; changed-root or changed-namespace Dart renames remain unsupported.
+  even when configured roots and namespace strings do not. Dart keeps the existing same-root
+  path; changed-root Dart renames remain unsupported.
 
 Candidates go shortest first; unparseable renamed contracts are skipped, then compared field by field.
 
