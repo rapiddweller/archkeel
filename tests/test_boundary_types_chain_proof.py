@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: MIT
 """Every public re-export hop needs proof; private aliases cannot change that proof."""
 
+import json
 from pathlib import Path
 
 import pytest
+from test_analyzer import _component
 from test_boundary_types_non_init_facades import _write_app
 
 from archkeel.analyzer import observe
@@ -200,3 +202,47 @@ def test_uncertainty_survives_multiple_intermediate_aliases(
     else:
         assert len(findings) == 3
         assert not unknowns
+
+
+@pytest.mark.parametrize("rebound", [False, True])
+def test_candidate_chain_cannot_authorize_an_interface_import(
+    tmp_path: Path, rebound: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        public=["sample.app.impl:element_constraints"],
+        init="",
+        api='from .impl import element_constraints as constraints\n__all__ = ["constraints"]\n'
+        + ("constraints = object\n" if rebound else ""),
+    )
+    (tmp_path / "sample/client.py").write_text("from sample.app.api import constraints\n")
+    path = tmp_path / "contract.json"
+    contract = json.loads(path.read_bytes())
+    contract["components"].append(_component("client", public=[]))
+    contract["rules"] = [
+        {
+            "id": "APP-BOUNDARY",
+            "kind": "interface_boundary",
+            "rationale": "Only the declared implementation symbol is public.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+    ]
+    path.write_text(json.dumps(contract))
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    blocked = [
+        record
+        for section in ("violations", "unknowns")
+        for record in result.observation.records(section) or ()
+        if "APP-BOUNDARY" in record.rule_ids
+    ]
+    assert bool(blocked) is rebound, "A candidate origin cannot prove a public interface route"
