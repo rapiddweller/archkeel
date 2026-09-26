@@ -197,9 +197,10 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
-  level, 23 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
-  and under `claims` in `--json`, while the HTML report lists the candidates. None of it reaches
-  an exit code.
+  level, 25 cross-component type fan-ins, 0 unread bindings and 0 repetitions — in the terminal
+  and under `claims` in `--json`, while the HTML report lists the candidates. Statically proven
+  `Enum.MEMBER` uses in field annotations and defaults reference their enum class (AD-108). None
+  of these claims reaches an exit code.
 - **Facade shape stays measured, not inferred.** The report shows declared export counts,
   re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
   width. These facts do not claim a barrel is complete (AD-88). A contract may set a target for
