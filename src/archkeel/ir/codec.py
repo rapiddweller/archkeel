@@ -1809,9 +1809,11 @@ class InsideContractMount:
 
     parent: ContractComponent
     parent_contract: ArchitectureContract
+    owner_id: str
     parent_id: str
     pointer: str
     path: str
+    identity: str
     contract: ArchitectureContract
     digest: str
     canonical_digest: str
@@ -1862,6 +1864,11 @@ def _safe_inside_reference(value: str) -> bool:
     )
 
 
+def _contract_identity(value: str) -> str | None:
+    path = contract_relative_path(value)
+    return path.as_posix() if path is not None and path.parts else None
+
+
 def _load_inside_children(
     owner_contract: ArchitectureContract,
     owner_id: str,
@@ -1879,92 +1886,29 @@ def _load_inside_children(
     for index, parent in enumerate(owner_contract.components):
         if parent.inside is None:
             continue
-        parent_id = f"{owner_id}:{parent.label}" if owner_id else parent.label
-        location = f"{pointer}/components/{index}/inside"
-        reference = parent.inside
-        paths.add(reference)
-        if owner_id and parent_id in root_labels:
-            issues.append(
-                InsideContractIssue(
-                    parent, parent_id, location, reference, "generated inside parent ID collision"
-                )
-            )
-            continue
-        previous_parent = parent_ids.get(parent_id)
-        if previous_parent is not None and previous_parent != location:
-            issues.append(
-                InsideContractIssue(
-                    parent, parent_id, location, reference, "generated inside parent ID collision"
-                )
-            )
-            continue
-        parent_ids[parent_id] = location
-        if not _safe_inside_reference(reference):
-            issues.append(
-                InsideContractIssue(
-                    parent, parent_id, location, reference, "unsafe repository path"
-                )
-            )
-            continue
-        try:
-            payload, identity = read_contract(reference)
-        except (OSError, ValueError) as error:
-            issues.append(InsideContractIssue(parent, parent_id, location, reference, str(error)))
-            continue
-        if identity in active or identity in seen:
-            reason = "reference cycle" if identity in active else "duplicate mount"
-            issues.append(InsideContractIssue(parent, parent_id, location, reference, reason))
-            continue
-        try:
-            contract = parse_contract(decode_json(payload))
-        except (ContractVersionError, ValueError) as error:
-            issues.append(InsideContractIssue(parent, parent_id, location, reference, str(error)))
-            continue
-        declarations = contract.declarations or ContractDeclarations()
-        unsupported = _unsupported_inside_declaration_fields(declarations)
-        if unsupported:
-            issues.append(
-                InsideContractIssue(
-                    parent,
-                    parent_id,
-                    location,
-                    reference,
-                    f"unsupported non-empty declarations: {', '.join(unsupported)}",
-                )
-            )
-        seen.add(identity)
-        paths.update(contract_provenance_paths(contract))
-        scoped = _scoped_inside_contract(parent_id, contract)
-        scoped_ids = {item.id for item in (*scoped.components, *scoped.rules)}
-        collision = next((item for item in sorted(scoped_ids) if item in record_ids), None)
-        if collision is not None:
-            issues.append(
-                InsideContractIssue(
-                    parent,
-                    parent_id,
-                    location,
-                    reference,
-                    f"generated declaration ID collision: {collision}",
-                )
-            )
-            continue
-        record_ids.update(scoped_ids)
-        mount = InsideContractMount(
-            parent,
+        mount = _inside_mount(
             owner_contract,
-            parent_id,
-            location,
-            reference,
-            scoped,
-            hashlib.sha256(payload).hexdigest(),
-            contract_digest(contract),
+            owner_id,
+            pointer,
+            index,
+            parent,
+            active,
+            seen,
+            read_contract,
+            issues,
+            paths,
+            root_labels,
+            parent_ids,
+            record_ids,
         )
+        if mount is None:
+            continue
         mounts.append(mount)
         _load_inside_children(
-            scoped,
-            parent_id,
-            location,
-            active | {identity},
+            mount.contract,
+            mount.parent_id,
+            mount.pointer,
+            active | {mount.identity},
             seen,
             read_contract,
             mounts,
@@ -1974,6 +1918,133 @@ def _load_inside_children(
             parent_ids,
             record_ids,
         )
+
+
+def _inside_mount(
+    owner_contract: ArchitectureContract,
+    owner_id: str,
+    pointer: str,
+    index: int,
+    parent: ContractComponent,
+    active: frozenset[str],
+    seen: set[str],
+    read_contract: Callable[[str], tuple[bytes, str]],
+    issues: list[InsideContractIssue],
+    paths: set[str],
+    root_labels: frozenset[str],
+    parent_ids: dict[str, str],
+    record_ids: set[str],
+) -> InsideContractMount | None:
+    parent_id = f"{owner_id}:{parent.label}" if owner_id else parent.label
+    location = f"{pointer}/components/{index}/inside"
+    reference = parent.inside
+    if reference is None:
+        return None
+    paths.add(reference)
+    if owner_id and parent_id in root_labels:
+        reason = "generated inside parent ID collision"
+    elif (previous := parent_ids.get(parent_id)) is not None and previous != location:
+        reason = "generated inside parent ID collision"
+    elif not _safe_inside_reference(reference):
+        reason = "unsafe repository path"
+    else:
+        parent_ids[parent_id] = location
+        return _read_inside_mount(
+            owner_contract,
+            owner_id,
+            parent,
+            parent_id,
+            location,
+            reference,
+            active,
+            seen,
+            read_contract,
+            issues,
+            paths,
+            record_ids,
+        )
+    issues.append(InsideContractIssue(parent, parent_id, location, reference, reason))
+    return None
+
+
+def _read_inside_mount(
+    owner_contract: ArchitectureContract,
+    owner_id: str,
+    parent: ContractComponent,
+    parent_id: str,
+    location: str,
+    reference: str,
+    active: frozenset[str],
+    seen: set[str],
+    read_contract: Callable[[str], tuple[bytes, str]],
+    issues: list[InsideContractIssue],
+    paths: set[str],
+    record_ids: set[str],
+) -> InsideContractMount | None:
+    try:
+        payload, raw_identity = read_contract(reference)
+        identity = _contract_identity(raw_identity)
+        if identity is None:
+            raise ValueError("unsafe repository path")
+        if identity in active or identity in seen:
+            raise ValueError("reference cycle" if identity in active else "duplicate mount")
+        contract = parse_contract(decode_json(payload))
+    except (OSError, ContractVersionError, ValueError) as error:
+        issues.append(InsideContractIssue(parent, parent_id, location, reference, str(error)))
+        return None
+    seen.add(identity)
+    _record_inside_policy(parent, parent_id, location, reference, contract, paths, issues)
+    scoped = _scoped_inside_contract(parent_id, contract)
+    scoped_ids = {item.id for item in (*scoped.components, *scoped.rules)}
+    collision = next((item for item in sorted(scoped_ids) if item in record_ids), None)
+    if collision is not None:
+        issues.append(
+            InsideContractIssue(
+                parent,
+                parent_id,
+                location,
+                reference,
+                f"generated declaration ID collision: {collision}",
+            )
+        )
+        return None
+    record_ids.update(scoped_ids)
+    return InsideContractMount(
+        parent,
+        owner_contract,
+        owner_id,
+        parent_id,
+        location,
+        reference,
+        identity,
+        scoped,
+        hashlib.sha256(payload).hexdigest(),
+        contract_digest(contract),
+    )
+
+
+def _record_inside_policy(
+    parent: ContractComponent,
+    parent_id: str,
+    location: str,
+    reference: str,
+    contract: ArchitectureContract,
+    paths: set[str],
+    issues: list[InsideContractIssue],
+) -> None:
+    declarations = contract.declarations or ContractDeclarations()
+    unsupported = _unsupported_inside_declaration_fields(declarations)
+    if unsupported:
+        issues.append(
+            InsideContractIssue(
+                parent,
+                parent_id,
+                location,
+                reference,
+                f"unsupported non-empty declarations: {', '.join(unsupported)}",
+            )
+        )
+    paths.update(contract_provenance_paths(contract))
 
 
 def _unsupported_inside_declaration_fields(declarations: ContractDeclarations) -> tuple[str, ...]:
@@ -2020,6 +2091,12 @@ def load_inside_contract_tree(
     read_contract: Callable[[str], tuple[bytes, str]],
 ) -> InsideContractTree:
     """Resolve every explicit inside once; the reader supplies bytes and canonical identity."""
+    canonical_root_path = _contract_identity(root_path)
+    canonical_root_identity = _contract_identity(root_identity)
+    if canonical_root_path is None or canonical_root_identity is None:
+        raise ValueError("unsafe root contract path")
+    root_path = canonical_root_path
+    root_identity = canonical_root_identity
     mounts: list[InsideContractMount] = []
     issues: list[InsideContractIssue] = []
     paths = {root_path, *contract_provenance_paths(root_contract)}
