@@ -11,6 +11,7 @@ from test_analyzer import _component, _inside_component, _observe
 from test_architecture_demo import FIXTURE_DIR, _prepare_repo
 
 from archkeel.cli import main
+from archkeel.ir.trace import trace_valid_violations
 from archkeel.render.flow import build_flow
 
 
@@ -59,6 +60,68 @@ def _inside_edge(root: Path):
     return result, next(
         edge for edge in core.inside.edges if (edge.source, edge.target) == ("b", "a")
     )
+
+
+@pytest.mark.parametrize(
+    ("rule", "kind", "subjects"),
+    [
+        (
+            {
+                "kind": "external_dependency_scope",
+                "dependency": "json",
+                "allowed_sources": ["sample.core.b"],
+            },
+            "external_dependency_scope",
+            {"sample.core.a", "json"},
+        ),
+        (
+            {"kind": "complete_assignment", "source": "sample.core"},
+            "complete_assignment",
+            {"sample.core.orphan"},
+        ),
+        (
+            {"kind": "no_component_cycles", "level": "module"},
+            "module_cycle",
+            {"sample.core.a", "sample.foreign.x"},
+        ),
+    ],
+)
+def test_inside_scope_keeps_parent_orphans_and_global_targets_but_not_foreign_sources(
+    tmp_path: Path, rule: dict[str, object], kind: str, subjects: set[str]
+) -> None:
+    _write_inside_case(
+        tmp_path,
+        rules=[
+            {
+                "id": "SCOPED",
+                "rationale": "Judge this parent with complete global target evidence.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+                **rule,
+            }
+        ],
+    )
+    path = tmp_path / "contract.json"
+    contract = json.loads(path.read_bytes())
+    contract["components"].append(_component("foreign"))
+    path.write_text(json.dumps(contract))
+    foreign = tmp_path / "sample/foreign"
+    foreign.mkdir()
+    (foreign / "__init__.py").write_text("")
+    (foreign / "x.py").write_text("import json\nimport sample.core.a\n")
+    (foreign / "y.py").write_text("import sample.foreign.z\n")
+    (foreign / "z.py").write_text("import sample.foreign.y\n")
+    (tmp_path / "sample/core/a.py").write_text("import json\nimport sample.foreign.x\n")
+    (tmp_path / "sample/core/b.py").write_text("import json\n")
+    (tmp_path / "sample/core/orphan.py").write_text("VALUE = 1\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    findings = trace_valid_violations(result.observation)
+    assert len(findings) == 1
+    assert findings[0].kind == kind
+    assert set(findings[0].subjects) == subjects
+    assert findings[0].rule_ids == ("core:SCOPED",)
 
 
 def test_inside_forbidden_construct_is_evaluated_or_explicitly_refused(tmp_path: Path) -> None:
