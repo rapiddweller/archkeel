@@ -3053,28 +3053,11 @@ def public_api_exposed_types(
     modules: Sequence[RawRecord],
     contract: ArchitectureContract,
 ) -> dict[str, list[str]]:
-    """Every `declarations.public_api` entry mapped to the non-builtin types its own signature
-    exposes and no declared entry already names, as `module:name` strings (AD-70) -- the
-    package-external twin of `boundary_types`, reading `_boundary_type_verdict`'s own `resolved`
-    field (AD-69) rather than a second, bare-name-only reading of the same annotations: a type
-    inside `tuple[X, ...]` or `list[X]` must be as visible here as it is to `boundary_types`, or
-    the two readings disagree on silence. `check.validation` compares this published answer
-    against the declared `public_api` set and resolves nothing itself (AD-2's open payload,
-    AD-4's one channel out of the analyzer).
+    """Map public entries to exposed types not already declared, by origin (AD-70).
 
-    An identifier is always the type's *origin*, `resolved`'s own pair -- the one name that is
-    true of it regardless of which module a consumer happens to reach it through. A declared
-    entry may name that same origin directly (`shop.model.entities:Order`, where `Order` is
-    defined) or name a facade that only re-exports it (`archkeel.api:ViolationRow`, defined in
-    `archkeel.ir.baseline`); both are legitimate promises for the same type, so a declared
-    entry's own name is resolved exactly the same way, through the one shared walk, to decide
-    which origin *it* names -- `declared_origins` below -- and an exposed type already covered
-    that way is left out rather than reported as a second, redundant promise.
-
-    A type whose origin module this scan never saw -- a builtin, a stdlib or a third-party type
-    -- is not part of the promise a *scanned* package can make about itself, so it is left out
-    here rather than reported as missing; `scanned_modules` is exactly `check._scanned_modules`'
-    own source, read here instead of derived a second time.
+    Reuse boundary_types' resolution so facade aliases and nested types have one meaning.
+    Unscanned external types are outside this package's publication promise. Validation
+    consumes this result without resolving annotations again (AD-4).
     """
     if not public_api:
         return {}

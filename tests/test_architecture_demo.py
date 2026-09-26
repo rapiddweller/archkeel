@@ -356,6 +356,63 @@ def test_unproven_ordinary_reexport_stays_unknown_in_cli_json(
     }
 
 
+@pytest.mark.parametrize(
+    ("variant_id", "expected_violations"),
+    [
+        ("class-a-boundary-types-owned-public-type", ()),
+        (
+            "class-a-boundary-types-owned-public-broad-field",
+            ("APP-TYPES-NOT-DICT",),
+        ),
+    ],
+)
+def test_owned_public_type_field_is_decided_by_cli_json(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    variant_id: str,
+    expected_violations: tuple[str, ...],
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+
+    validate_code = main(["validate", "--root", str(root), "--json"])
+    validation = json.loads(capsys.readouterr().out)
+    expected_codes = ("rule.violated",) if expected_violations else ()
+    assert tuple(sorted(item["code"] for item in validation["diagnostics"])) == expected_codes
+    if not expected_violations:
+        assert validation["declared_rules"] == "PASS"
+    if expected_violations:
+        assert validate_code != 0
+    else:
+        assert validate_code == 0
+
+    architecture_path = tmp_path / "architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(architecture_path), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    if expected_violations:
+        assert report["declared_rules"] != "PASS"
+    else:
+        assert report["declared_rules"] == "PASS"
+    observation = parse_observation(
+        decode_canonical_model(json.loads(architecture_path.read_bytes()))
+    )
+    violations = trace_valid_violations(observation)
+    assert tuple(sorted(item.rule_ids[0] for item in violations)) == expected_violations
+    relevant_unknowns = [
+        item
+        for item in observation.records("unknowns") or ()
+        if item.kind == "boundary_type_route" and "APP-TYPES-NOT-DICT" in item.rule_ids
+    ]
+    assert relevant_unknowns == []
+    if expected_violations:
+        [violation] = violations
+        assert len(violation.subjects) == 2
+        assert "field value" in violation.title
+        assert violation.data.get("nested_annotation") == "dict"
+    else:
+        assert violations == ()
+
+
 def test_baseline_interface_narrowing_runs_a_real_validate_gate(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:

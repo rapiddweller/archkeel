@@ -570,6 +570,8 @@ def test_rebound_public_union_alias_is_unknown_beside_private_violation(
     assert result.observation is not None, result.diagnostics
     violations = result.observation.records("violations") or ()
     assert len(violations) == 1
+    assert "Private" in violations[0].title
+    assert violations[0].data.get("qualified_name") == "sample.app.api.run"
     assert any(
         record.kind == "boundary_type_route"
         and record.data.get("qualified_name") == "sample.app.api.Payload"
@@ -591,8 +593,7 @@ def test_proven_public_alias_survives_an_unstable_alias_to_same_type(
             "Payload = object\n"
         ),
         implementation=(
-            "class Payload:\n    value: str\n"
-            "def run() -> PublicPayload:\n    return PublicPayload()\n"
+            "class Payload:\n    value: str\ndef run() -> Payload:\n    return Payload()\n"
         ),
     )
     result = observe(
@@ -606,8 +607,11 @@ def test_proven_public_alias_survives_an_unstable_alias_to_same_type(
     )
     assert result.observation is not None, result.diagnostics
     assert not result.observation.records("violations")
-    assert any(
-        record.kind == "boundary_type_route"
-        and record.data.get("qualified_name") == "sample.app.api.Payload"
+    boundary_unknowns = [
+        record
         for record in result.observation.records("unknowns") or ()
-    )
+        if "APP-TYPES-NOT-DICT" in record.rule_ids
+    ]
+    assert [(item.kind, item.data.get("qualified_name")) for item in boundary_unknowns] == [
+        ("boundary_type_route", "sample.app.api.Payload")
+    ]

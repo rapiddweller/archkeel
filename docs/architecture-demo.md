@@ -90,6 +90,8 @@ demo-dart`.
 | class_a | boundary_types:reexport_aliases | class-a-boundary-types-reexport-aliases | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/__init__.py, shop/render/text.py |
 | class_a | boundary_types:ordinary_reexport | class-a-boundary-types-ordinary-reexport | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/facade.py, shop/render/text.py |
 | class_a | boundary_types:ordinary_reexport_chain | class-a-boundary-types-ordinary-reexport-chain-unknown | validate/report run | - | - | architecture-contract.json, shop/cli/main.py, shop/render/facade.py, shop/render/intermediate.py, shop/render/text.py |
+| class_a | boundary_types:owned_public_type | class-a-boundary-types-owned-public-type | validate/report run | - | - | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
+| class_a | boundary_types:owned_public_broad_field | class-a-boundary-types-owned-public-broad-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
 | class_a | boundary_types:model_field | class-a-boundary-types-model-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/requests.py, shop/cli/main.py |
 | validation | module.placement:clean | validation-module-placement-clean | validate/report run | - | - | shop/model/catalog.py |
 | validation | module.placement | validation-module-placement | validate/report run | COMP-MODEL, ROOT-LAYOUT | rule.violated, rule.violated | architecture-contract.json, shop/model_rules.py |
