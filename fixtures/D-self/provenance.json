@@ -3,7 +3,7 @@
     "checker_digest": "e77a666082b6da28b36025349caa455f46c84d377a195d40696e0188ec521abe",
     "source_digest": "f4acd8416f7f933da19bbfbe9957423df87ef9d507fd30d12590c4f0a999d8f3",
     "contract_digest": "9ab12d1099292a85790a4e35924992e2e7e5724c04cfaf6882b3e92251f0bab8",
-    "artifact_digest": "d28b13af8a8c6273118c9116f5e17bff968bae53580c8fe256efbabcbf3f23bd",
+    "artifact_digest": "8eeab994f89a4ed99bc9356b269b6517d0f54838165ec9156cc989191ca38820",
     "command": "archkeel report --root . --output fixtures/D-self/architecture.json",
     "exit_code": 0,
     "python_version": "3.11.12"
