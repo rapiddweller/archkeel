@@ -336,6 +336,52 @@ code {
   white-space: nowrap;
 }
 /* AD-10 component flow view. */
+.flow-how-to-read {
+  margin-bottom: var(--ck-space-3);
+}
+.flow-how-to-read summary,
+.flow-inspector summary {
+  cursor: pointer;
+}
+.flow-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.flow-breadcrumb button {
+  border: 0;
+  background: none;
+  color: var(--ck-teal);
+  cursor: pointer;
+  font: inherit;
+}
+.flow-breadcrumb button:disabled {
+  color: var(--ck-text);
+  cursor: default;
+}
+.flow-inspector .module-tree {
+  list-style: none;
+  padding-left: var(--ck-space-3);
+  overflow-wrap: anywhere;
+}
+.flow-inspector .module-tree li {
+  margin: 4px 0;
+}
+.inventory-module-tree {
+  list-style: none;
+  padding-left: var(--ck-space-3);
+  overflow-wrap: anywhere;
+}
+.inventory-module-tree summary {
+  cursor: pointer;
+}
+.flow-inspector .module-tree small {
+  color: var(--ck-muted);
+}
+.flow-inspector .interface-label {
+  color: var(--ck-teal);
+}
 .flow-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -517,6 +563,32 @@ code {
 .node .meta {
   fill: var(--ck-muted);
   font: 12px var(--ck-font-mono);
+}
+.node .stereotype {
+  fill: var(--ck-muted);
+  font: 11px var(--ck-font-mono);
+}
+.node .uml-icon rect {
+  fill: var(--ck-surface);
+  stroke: var(--ck-text);
+  stroke-width: 1.3;
+}
+.node .uml-provided line,
+.node .uml-provided circle,
+.node .uml-required line,
+.node .uml-required path {
+  fill: var(--ck-surface);
+  stroke: var(--ck-teal);
+  stroke-width: 2;
+}
+.edge .uml-assembly circle,
+.edge .uml-assembly path {
+  fill: var(--ck-surface);
+  stroke: var(--ck-teal);
+  stroke-width: 2;
+}
+.edge.library-use.conforms .line {
+  stroke-dasharray: 5 3;
 }
 /* A marker does not inherit its line's stroke, so each state names its own colour. */
 .flow-arrow.conforms path {
