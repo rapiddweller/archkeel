@@ -143,7 +143,9 @@ demo-dart`.
 | validation | baseline.refused | validation-baseline-refused | validate --write-baseline run | DEP-STORE-NO-MONEY | - | architecture-baseline.json, shop/store/repository.py |
 | validation | against.invalid | validation-against-invalid | tested only | - | - | tests/test_widening.py |
 | validation | amendment.invalid | validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
-| validation | inside.public_mismatch | validation-inside-public-mismatch | validate/report run | - | inside.public_mismatch | shop/store/architecture-contract.json |
+| validation | inside.local_public | validation-inside-local-public | validate/report run | - | - | shop/store/architecture-contract.json |
+| validation | interface.missing | validation-inside-public-module-missing | validate/report run | - | interface.missing | shop/store/architecture-contract.json |
+| validation | inside.public_mismatch | validation-inside-public-mismatch-retired | tested only | - | - | tests/test_inside_rule_parity.py |
 | validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | shop/store/architecture-contract.json |
 | validation | contract.invalid:inside | validation-inside-contract-missing | validate/report run | DEP-STORE-NO-MONEY | contract.invalid, rule.violated | shop/store/architecture-contract.json, shop/store/repository.py |
 | validation | api_surface_unknown | validation-api-surface-unknown | validate/report run | - | - | architecture-contract.json |

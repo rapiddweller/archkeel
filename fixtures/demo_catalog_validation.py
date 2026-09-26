@@ -736,34 +736,59 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         evidence="tests/test_widening.py",
     ),
     Variant(
-        id="validation-inside-public-mismatch",
+        id="validation-inside-local-public",
         section="validation",
-        item="inside.public_mismatch",
-        summary="The contract COMP-STORE names for its inside is replaced by one whose single "
-        "sub-component offers a different public surface than the level above declares for "
-        "store (AD-20).",
+        item="inside.local_public",
+        summary="The inside contract gives its sub-component a local public interface distinct "
+        "from COMP-STORE's outward interface; neither list is inferred from the other (AD-112).",
         files={
             "shop/store/architecture-contract.json": inside_contract(
                 ["shop.store.repository:Ledger"]
             ),
         },
         expected_violations=(),
-        expected_codes=("inside.public_mismatch",),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-inside-public-module-missing",
+        section="validation",
+        item="interface.missing",
+        summary="An inside interface boundary reports a public module that has not been built.",
+        files={
+            "shop/store/architecture-contract.json": inside_contract(
+                ["shop.store.repository.not_built:OrderRepository"],
+                rule={
+                    "id": "INSIDE-INTERFACE",
+                    "kind": "interface_boundary",
+                    "rationale": "An inside public module must exist before it can be used.",
+                    "provenance": ["docs/architecture/shop.md"],
+                    "decided_by": "architect",
+                },
+            ),
+        },
+        expected_violations=(),
+        expected_codes=("interface.missing",),
+    ),
+    Variant(
+        id="validation-inside-public-mismatch-retired",
+        section="validation",
+        item="inside.public_mismatch",
+        summary="The former parent/inside public-list equality diagnostic is retained as a code "
+        "for compatibility but is no longer emitted; nested public lists are local interfaces.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        evidence="tests/test_inside_rule_parity.py",
     ),
     Variant(
         id="validation-inside-forbidden-import",
         section="validation",
         item="inside.forbidden_import",
-        summary="The replacement inside contract repeats store's public surface exactly, so only "
-        "the second AD-20 check fires: the inside allows shop.render, which DEP-STORE-NO-RENDER "
-        "forbids.",
+        summary="The inside allows shop.render, which DEP-STORE-NO-RENDER forbids at the outer "
+        "level, regardless of the inside's local public interface.",
         files={
             "shop/store/architecture-contract.json": inside_contract(
-                [
-                    "shop.store.repository:OrderRepository",
-                    "shop.store.sqlite:vacuum",
-                    "shop.store.sqlite:Connection",
-                ],
+                ["shop.store.repository:OrderRepository"],
                 "shop.render",
             ),
         },

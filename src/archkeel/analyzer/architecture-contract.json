@@ -38,9 +38,7 @@
           "decided_by": "agent"
         }
       ],
-      "public": [
-        "archkeel.analyzer"
-      ],
+      "public": [],
       "decided_by": "architect"
     },
     {
