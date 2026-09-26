@@ -2660,73 +2660,17 @@ def boundary_type_limits(
     limits: list[RawRecord] = []
     positions_out: list[RawRecord] = []
     for rule in rules:
-        undecidable_positions: list[dict[str, object]] = []
-        occurrences: dict[tuple[str, str], int] = {}
-        seen = 0
-        for item in ordered_symbols:
-            found = _facade_positions(
-                item, rule, contract, exports_by_module, imports, uncertain_reexport_origins
-            )
-            if found is None:
-                continue
-            module, qualified_name, positions, resolution_module, ambiguous_facade, _ = found
-            callable_key = (module, qualified_name)
-            occurrence = occurrences.get(callable_key, 0)
-            occurrences[callable_key] = occurrence + 1
-            for position, annotation in positions:
-                seen += 1
-                verdict = (
-                    _Position(undecidable="ambiguous_facade")
-                    if ambiguous_facade
-                    else _boundary_type_verdict(
-                        annotation,
-                        resolution_module,
-                        contract,
-                        exports_by_module,
-                        imports_by_binding,
-                        classes_by_location,
-                    )
-                )
-                reason = verdict.undecidable
-                if reason is not None:
-                    detail = {
-                        "module": module,
-                        "qualified_name": qualified_name,
-                        "position": position,
-                        "annotation": annotation,
-                        "reason": reason,
-                        "occurrence": occurrence,
-                    }
-                    if verdict.path:
-                        detail["path"] = ".".join((position, *verdict.path))
-                        detail["nested_annotation"] = verdict.nested_annotation or annotation
-                    undecidable_positions.append(detail)
-                    positions_out.append(
-                        _boundary_type_position_record(
-                            rule,
-                            item,
-                            detail,
-                        )
-                    )
-            prefix = f"{module}."
-            selected_name = (
-                qualified_name[len(prefix) :]
-                if qualified_name[: len(prefix)] == prefix
-                else qualified_name
-            )
-            selected = (module, selected_name, resolution_module)
-            declared = _declared_facade_positions(
-                item, contract, exports_by_module, imports, uncertain_reexport_origins
-            )
-            if declared is None:
-                continue
-            uncertain = _uncertain_facade_position_records(
-                item, rule, declared[4], declared[2], selected, occurrences
-            )
-            for detail, record in uncertain:
-                seen += 1
-                undecidable_positions.append(detail)
-                positions_out.append(record)
+        seen, undecidable_positions, rule_positions = _boundary_rule_positions(
+            rule,
+            ordered_symbols,
+            contract,
+            exports_by_module,
+            imports,
+            imports_by_binding,
+            classes_by_location,
+            uncertain_reexport_origins,
+        )
+        positions_out.extend(rule_positions)
         limit = _boundary_type_limit_record(rule, seen, undecidable_positions)
         if limit is not None:
             limits.append(limit)
@@ -2736,6 +2680,117 @@ def boundary_type_limits(
             )
         )
     return sorted([*positions_out, *limits], key=lambda item: item["id"])
+
+
+def _boundary_rule_positions(
+    rule: BoundaryTypesRule,
+    ordered_symbols: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports: Sequence[RawRecord],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    uncertain_reexport_origins: UncertainReexportOrigins,
+) -> tuple[int, list[dict[str, object]], list[RawRecord]]:
+    undecidable_positions: list[dict[str, object]] = []
+    positions_out: list[RawRecord] = []
+    occurrences: dict[tuple[str, str], int] = {}
+    seen = 0
+    for item in ordered_symbols:
+        found = _facade_positions(
+            item, rule, contract, exports_by_module, imports, uncertain_reexport_origins
+        )
+        if found is None:
+            continue
+        module, qualified_name, positions, resolution_module, ambiguous_facade, _ = found
+        callable_key = (module, qualified_name)
+        occurrence = occurrences.get(callable_key, 0)
+        occurrences[callable_key] = occurrence + 1
+        details = _undecidable_declared_positions(
+            module,
+            qualified_name,
+            positions,
+            resolution_module,
+            ambiguous_facade,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            occurrence,
+        )
+        seen += len(positions)
+        undecidable_positions.extend(details)
+        positions_out.extend(
+            _boundary_type_position_record(rule, item, detail) for detail in details
+        )
+        selected = _selected_facade(module, qualified_name, resolution_module)
+        declared = _declared_facade_positions(
+            item, contract, exports_by_module, imports, uncertain_reexport_origins
+        )
+        if declared is None:
+            continue
+        uncertain = _uncertain_facade_position_records(
+            item, rule, declared[4], declared[2], selected, occurrences
+        )
+        for detail, record in uncertain:
+            seen += 1
+            undecidable_positions.append(detail)
+            positions_out.append(record)
+    return seen, undecidable_positions, positions_out
+
+
+def _undecidable_declared_positions(
+    module: str,
+    qualified_name: str,
+    positions: Sequence[tuple[str, str]],
+    resolution_module: str,
+    ambiguous_facade: bool,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    occurrence: int,
+) -> list[dict[str, object]]:
+    details: list[dict[str, object]] = []
+    for position, annotation in positions:
+        verdict = (
+            _Position(undecidable="ambiguous_facade")
+            if ambiguous_facade
+            else _boundary_type_verdict(
+                annotation,
+                resolution_module,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+        )
+        reason = verdict.undecidable
+        if reason is None:
+            continue
+        detail: dict[str, object] = {
+            "module": module,
+            "qualified_name": qualified_name,
+            "position": position,
+            "annotation": annotation,
+            "reason": reason,
+            "occurrence": occurrence,
+        }
+        if verdict.path:
+            detail["path"] = ".".join((position, *verdict.path))
+            detail["nested_annotation"] = verdict.nested_annotation or annotation
+        details.append(detail)
+    return details
+
+
+def _selected_facade(
+    module: str, qualified_name: str, resolution_module: str
+) -> tuple[str, str, str]:
+    prefix = f"{module}."
+    selected_name = (
+        qualified_name[len(prefix) :] if qualified_name[: len(prefix)] == prefix else qualified_name
+    )
+    return module, selected_name, resolution_module
 
 
 def _public_api_symbol(

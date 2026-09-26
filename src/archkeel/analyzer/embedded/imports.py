@@ -339,9 +339,26 @@ def resolve_reexports(
     parsed: Sequence[ParsedModule] = (),
 ) -> dict[str, frozenset[str]]:
     """Follow re-export chains in place so each import records its origin definition."""
-    unique_bindings = {module.module: unique_direct_module_bindings(module) for module in parsed}
+    unique_bindings: dict[str, frozenset[str]] = {
+        module.module: unique_direct_module_bindings(module) for module in parsed
+    }
     alias_targets: dict[str, set[str]] = {}
     uncertain_bindings: set[str] = set()
+    _collect_reexport_targets(imports, unique_bindings, alias_targets, uncertain_bindings)
+    reexports = _proven_reexports(imports, alias_targets, uncertain_bindings)
+    _record_import_origins(imports, exports_by_module, unique_bindings, reexports)
+    return {
+        binding: _terminal_reexport_origins(binding, alias_targets)
+        for binding in uncertain_bindings
+    }
+
+
+def _collect_reexport_targets(
+    imports: Sequence[RawRecord],
+    unique_bindings: dict[str, frozenset[str]],
+    alias_targets: dict[str, set[str]],
+    uncertain_bindings: set[str],
+) -> None:
     for item in imports:
         data = item["data"]
         if not data["symbol"] or not (data["reexport"] or data.get("reexport_candidate")):
@@ -363,6 +380,12 @@ def resolve_reexports(
             data["reexport_candidate"] = True
             data["reexport"] = False
 
+
+def _proven_reexports(
+    imports: Sequence[RawRecord],
+    alias_targets: dict[str, set[str]],
+    uncertain_bindings: set[str],
+) -> dict[str, str]:
     reexports: dict[str, str] = {}
     for item in imports:
         data = item["data"]
@@ -375,6 +398,15 @@ def resolve_reexports(
             data["reexport"] = False
             continue
         reexports[binding] = f"{data['target_module']}.{data['symbol']}"
+    return reexports
+
+
+def _record_import_origins(
+    imports: Sequence[RawRecord],
+    exports_by_module: dict[str, set[str]],
+    unique_bindings: dict[str, frozenset[str]],
+    reexports: dict[str, str],
+) -> None:
     for item in imports:
         data = item["data"]
         if not data["symbol"]:
@@ -410,11 +442,6 @@ def resolve_reexports(
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()
         )
-
-    return {
-        binding: _terminal_reexport_origins(binding, alias_targets)
-        for binding in uncertain_bindings
-    }
 
 
 def strip_internal_reexport_facts(imports: Sequence[RawRecord]) -> None:
