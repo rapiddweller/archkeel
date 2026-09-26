@@ -65,6 +65,9 @@ AgainstScenario = Literal[
     "cycle_rule_scoped",
     "introduced_unamended",
     "introduced_amended",
+    "renamed",
+    "renamed_widened",
+    "relocated_root",
 ]
 
 
@@ -84,6 +87,8 @@ class AgainstExpectation:
     failures: tuple[str, ...]
     base_files: Mapping[str, str | None] = field(default_factory=dict)
     root: str = "."
+    # AD-105: the package renames the comparison recognised, old name first.
+    renames: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

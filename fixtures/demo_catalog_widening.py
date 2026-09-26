@@ -18,8 +18,9 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from archkeel.analyzer import observe
+from archkeel.check.git import read_blob
 from archkeel.check.validation import run_validate
-from archkeel.cli.config import load_config
+from archkeel.cli.config import load_config, parse_config
 from archkeel.ir.model import RunResult
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_dependencies import module_cycle_rule
@@ -42,12 +43,18 @@ def _git(root: Path, *args: str) -> str:
 
 
 def build_and_run_against(
-    tmp_path: Path, files: Mapping[str, str | None], scenario: AgainstExpectation
+    tmp_path: Path,
+    files: Mapping[str, str | None],
+    scenario: AgainstExpectation,
+    fixture: Path = FIXTURE_DIR,
 ) -> RunResult:
-    """Commit the clean shop sample on main, apply the scenario's overlay, then run
-    `--against main` from the scenario's root."""
+    """Commit the clean sample on main, apply the scenario's overlay, then run `--against main`
+    from the scenario's root.
+
+    The selected configuration is read at both revisions, so a row may change roots or namespace.
+    """
     root = tmp_path / "root"
-    shutil.copytree(FIXTURE_DIR, root)
+    shutil.copytree(fixture, root)
     apply_overlay(root, scenario.base_files)
     _git(root, "init", "-q", "-b", "main")
     _git(root, "config", "user.email", "demo@example.invalid")
@@ -58,9 +65,15 @@ def build_and_run_against(
     apply_overlay(root, files)
     run_root = root / scenario.root
     config = load_config(run_root)
+    try:
+        against_config = parse_config(read_blob(run_root, "main", "archkeel.toml"), "archkeel.toml")
+    except ValueError:
+        against_config = None
 
     if scenario.scenario not in ("widened_amended", "introduced_amended"):
-        return run_validate(run_root, config, observe, against="main")[0]
+        return run_validate(
+            run_root, config, observe, against="main", against_config=against_config
+        )[0]
     # AD-103: the amendment lives inside the root it is validated under.
     amendment = run_root / "widening-amendment.json"
     _, write_files = run_validate(
@@ -68,13 +81,21 @@ def build_and_run_against(
         config,
         observe,
         against="main",
+        against_config=against_config,
         amendment=amendment,
         write_amendment=True,
         decided_by="Demo architect",
         rationale="Recorded for the AD-11 demo catalog (#11).",
     )
     amendment.write_bytes(write_files[str(amendment)])
-    return run_validate(run_root, config, observe, against="main", amendment=amendment)[0]
+    return run_validate(
+        run_root,
+        config,
+        observe,
+        against="main",
+        against_config=against_config,
+        amendment=amendment,
+    )[0]
 
 
 # Each scenario widens or narrows DEP-APP-NO-STORE-SQLITE's allowed_sources, an exemption list
@@ -142,6 +163,92 @@ _INTRODUCED = AgainstExpectation(
     root="mobile",
 )
 _INTRODUCED_AMENDED = AgainstExpectation("introduced_amended", 0, (), root="mobile")
+
+# AD-105 (#151): a package moved together with every name the contract gives it widens nothing.
+_RENDER_TEXT = (FIXTURE_DIR / "shop/render/text.py").read_text()
+_CLI_MAIN = (FIXTURE_DIR / "shop/cli/main.py").read_text()
+
+
+def renamed_render(contract: str = _CLEAN_CONTRACT) -> dict[str, str | None]:
+    """`shop.render` moved to `shop.view`: its module, the one import of it and `contract`."""
+    return {
+        "shop/render/text.py": None,
+        "shop/view/text.py": _RENDER_TEXT,
+        "shop/cli/main.py": _CLI_MAIN.replace("shop.render", "shop.view"),
+        "architecture-contract.json": contract.replace("shop.render", "shop.view"),
+    }
+
+
+def _dart_renamed() -> dict[str, str | None]:
+    """The issue's Dart case: package `shop` renamed `field_shop`, and `presentation` `ui`."""
+    files: dict[str, str | None] = {}
+    for path in sorted(DART_FIXTURE_DIR.glob("lib/**/*.dart")):
+        relative = path.relative_to(DART_FIXTURE_DIR).as_posix()
+        moved = relative.replace("lib/presentation/", "lib/ui/")
+        text = path.read_text()
+        renamed = text.replace("package:shop/", "package:field_shop/").replace(
+            "'presentation/", "'ui/"
+        )
+        if moved != relative:
+            files[relative] = None
+        if moved != relative or renamed != text:
+            files[moved] = renamed
+    for relative, old, new in (
+        ("pubspec.yaml", "name: shop\n", "name: field_shop\n"),
+        ("archkeel.toml", 'namespace = "shop"', 'namespace = "field_shop"'),
+    ):
+        files[relative] = (DART_FIXTURE_DIR / relative).read_text().replace(old, new)
+    contract = (DART_FIXTURE_DIR / "architecture-contract.json").read_text()
+    files["architecture-contract.json"] = (
+        contract.replace('"shop.presentation', '"field_shop.ui')
+        .replace('"shop.', '"field_shop.')
+        .replace('"shop"', '"field_shop"')
+    )
+    return files
+
+
+_RENAMED = AgainstExpectation("renamed", 0, (), renames=(("shop.render", "shop.view"),))
+_RENAMED_WIDENED = AgainstExpectation(
+    "renamed_widened", 1, _WIDENED.failures, renames=(("shop.render", "shop.view"),)
+)
+_DART_RENAMED = AgainstExpectation(
+    "renamed", 0, (), renames=(("shop", "field_shop"), ("shop.presentation", "field_shop.ui"))
+)
+
+
+def _relocated_source_root() -> dict[str, str | None]:
+    files: dict[str, str | None] = {}
+    for source in sorted((FIXTURE_DIR / "shop").rglob("*.py")):
+        relative = source.relative_to(FIXTURE_DIR).as_posix()
+        files[f"src/{relative}"] = source.read_text()
+        files[relative] = None
+    files["archkeel.toml"] = (
+        (FIXTURE_DIR / "archkeel.toml").read_text().replace('roots = ["shop"]', 'roots = ["src"]')
+    )
+    return files
+
+
+def _relocated_renamed_render() -> dict[str, str | None]:
+    files: dict[str, str | None] = {}
+    for source in sorted((FIXTURE_DIR / "shop").rglob("*.py")):
+        relative = source.relative_to(FIXTURE_DIR).as_posix()
+        moved = relative.replace("shop/render/", "shop/view/")
+        files[f"src/{relative}"] = None
+        files[f"lib/{moved}"] = source.read_text().replace("shop.render", "shop.view")
+    files["architecture-contract.json"] = _CLEAN_CONTRACT.replace("shop.render", "shop.view")
+    files["archkeel.toml"] = (
+        (FIXTURE_DIR / "archkeel.toml").read_text().replace('roots = ["shop"]', 'roots = ["lib"]')
+    )
+    return files
+
+
+_RELOCATED_ROOT = AgainstExpectation(
+    "relocated_root",
+    0,
+    (),
+    base_files=_relocated_source_root(),
+    renames=(("shop.render", "shop.view"),),
+)
 
 VARIANTS: tuple[Variant, ...] = (
     Variant(
@@ -270,5 +377,50 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         against=_INTRODUCED_AMENDED,
+    ),
+    Variant(
+        id="against-package-renamed",
+        section="validation",
+        item="against:package_renamed",
+        summary="shop.render moves to shop.view, and the contract renames it everywhere: one "
+        "rename line and no widening, where each renamed name read as one before (#151).",
+        files=renamed_render(),
+        expected_violations=(),
+        expected_codes=(),
+        against=_RENAMED,
+    ),
+    Variant(
+        id="against-package-renamed-widened",
+        section="validation",
+        item="against:package_renamed_widened",
+        summary="The same rename beside one real widening: the rename is compared away and "
+        "only the gained allowed_sources entry fails.",
+        files=renamed_render(_WIDEN_FILES["architecture-contract.json"]),
+        expected_violations=(),
+        expected_codes=(),
+        against=_RENAMED_WIDENED,
+    ),
+    Variant(
+        id="against-package-renamed-relocated-root",
+        section="validation",
+        item="against:package_renamed_relocated_root",
+        summary="shop.render moves from the historical src root to lib as shop.view; the CLI's "
+        "historical config proves both physical layouts before it compares the rename.",
+        files=_relocated_renamed_render(),
+        expected_violations=(),
+        expected_codes=(),
+        against=_RELOCATED_ROOT,
+    ),
+    Variant(
+        id="dart-against-package-renamed",
+        section="validation",
+        item="dart:against:package_renamed",
+        summary="The Dart package is renamed shop -> field_shop, its presentation folder ui, "
+        "with pubspec, namespace, imports and contract: two rename lines, no widening.",
+        files=_dart_renamed(),
+        expected_violations=(),
+        expected_codes=(),
+        against=_DART_RENAMED,
+        fixture=DART_FIXTURE_DIR,
     ),
 )

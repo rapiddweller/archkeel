@@ -1,0 +1,378 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Recognise a package rename between two contract revisions (AD-105, #151).
+
+A rename moves code without widening anything, yet compared field by field every renamed
+package reads as a gained permission. This module derives the prefix substitution the
+component packages imply, checks that it leaves every relation between names as it was and
+that the code moved with it, and renames the old side with it, so `ir.widening` compares like
+with like: whatever the substitution does not explain is still compared, and so still reported.
+Only the fields `ir.model.module_references` lists are renamed; an id, label, kind or other
+value never is.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
+
+from .baseline import KnownViolation, ViolationFingerprint
+from .codec import RawJson, contract_bytes, parse_contract
+from .measurements import MeasurementBudget
+from .model import (
+    ArchitectureContract,
+    NoComponentCyclesRule,
+    Observation,
+    in_scope,
+    last_name,
+    module_references,
+    text_value,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Renamed:
+    """The compared revision under a recognised rename's new names (AD-105)."""
+
+    prefixes: tuple[tuple[str, str], ...]
+    contract: ArchitectureContract
+    violations: tuple[KnownViolation, ...]
+    budgets: tuple[MeasurementBudget, ...]
+    # Where the scan's layout places the old prefixes' modules: any file left there, scanned or
+    # not, stops the rename.
+    directories: tuple[str, ...]
+
+
+def renamed(name: str, renames: Mapping[str, str]) -> str:
+    """`name` under the longest renamed prefix holding it, or `name` itself."""
+    module, colon, symbol = name.partition(":")
+    old = max((prefix for prefix in renames if in_scope(module, prefix)), key=len, default=None)
+    if old is None:
+        return name
+    return f"{renames[old]}{module[len(old) :]}{colon}{symbol}"
+
+
+def _shortest(old: str, new: str) -> tuple[str, str]:
+    """Drop the trailing segments a move kept, so `a.x -> b.x` reads `a -> b`."""
+    old_parts, new_parts = old.split("."), new.split(".")
+    kept = 0
+    while (
+        kept < min(len(old_parts), len(new_parts)) - 1
+        and old_parts[-1 - kept] == new_parts[-1 - kept]
+    ):
+        kept += 1
+    return ".".join(old_parts[: len(old_parts) - kept]), ".".join(
+        new_parts[: len(new_parts) - kept]
+    )
+
+
+def _mapping(pairs: Iterable[tuple[str, str]]) -> dict[str, str]:
+    """One substitution for every pair, without an entry a shorter one implies; {} when two
+    pairs disagree or two old prefixes would become one."""
+    mapping: dict[str, str] = {}
+    for old, new in sorted(set(pairs), key=lambda pair: (len(pair[0]), pair)):
+        if renamed(old, mapping) == new:
+            continue
+        if old in mapping or new in mapping.values():
+            return {}
+        mapping[old] = new
+    return mapping
+
+
+def _named(name: str, items: list[str]) -> list[str]:
+    """The items whose last segment is `name`'s."""
+    return [item for item in items if last_name(item) == last_name(name)]
+
+
+def _moved(old: tuple[str, ...], new: tuple[str, ...]) -> list[tuple[str, str]]:
+    """One component's moved packages paired by a last segment only one on each side has,
+    since a package move keeps it; a single package left on each side pairs too."""
+    gone = [item for item in old if item not in new]
+    came = [item for item in new if item not in old]
+    if len(gone) != len(came):
+        return []
+    by_name: dict[str, str] = {
+        item: _named(item, came)[0]
+        for item in gone
+        if len(_named(item, came)) == 1 and len(_named(item, gone)) == 1
+    }
+    taken = set(by_name.values())
+    left = [item for item in gone if item not in by_name]
+    arrived = [item for item in came if item not in taken]
+    single = [(left[0], arrived[0])] if len(left) == len(arrived) == 1 else []
+    return [*by_name.items(), *single]
+
+
+def rename_candidates(
+    before: ArchitectureContract, after: ArchitectureContract
+) -> tuple[dict[str, str], ...]:
+    """The substitutions the moved component packages imply, shortest prefixes first.
+
+    A component keeps its id across a rename. `rename_holds` decides whether a candidate
+    explains the change; none is trusted here.
+    """
+    after_packages = {component.id: component.packages for component in after.components}
+    pairs = [
+        pair
+        for component in before.components
+        for pair in _moved(component.packages, after_packages.get(component.id, ()))
+    ]
+    candidates: list[dict[str, str]] = []
+    for mapping in (_mapping(_shortest(old, new) for old, new in pairs), _mapping(pairs)):
+        if mapping and mapping not in candidates:
+            candidates.append(mapping)
+    return tuple(candidates)
+
+
+def rename_holds(
+    renames: Mapping[str, str], *, names: frozenset[str], observed: frozenset[str]
+) -> bool:
+    """Whether `renames` renames the old side and leaves every relation between names as it was.
+
+    `names` are the module and symbol names the old contract and baseline hold, `observed` every
+    module the scan reads now or sees an import reach. A rule, package or entry scopes by prefix,
+    so a name held another before exactly when their new names hold each other, the renamed
+    prefixes themselves included: then the renamed contract states for each new name what the old
+    one stated for its old name. No observed module may lie under an old prefix, where the renamed
+    contract no longer governs it, whatever its file is called (AD-105).
+    """
+    olds = frozenset(_module(name) for name in names) | frozenset(renames)
+    news = {old: renamed(old, renames) for old in olds}
+    holders: dict[str, list[str]] = {}
+    for old in sorted(olds):
+        holders[news[old]] = [*holders.get(news[old], []), old]
+    return all(
+        {prefix for prefix in _prefixes(old) if prefix in olds}
+        == {each for prefix in _prefixes(news[old]) for each in holders.get(prefix, [])}
+        for old in olds
+    ) and not any(in_scope(module, old) for module in observed for old in renames)
+
+
+def _prefixes(module: str) -> list[str]:
+    """`module` and every dotted prefix of it: the names that hold it."""
+    parts = module.split(".")
+    return [".".join(parts[:end]) for end in range(1, len(parts) + 1)]
+
+
+def observed_names(observation: Observation) -> frozenset[str]:
+    """Every module the scan read or saw an import reach, whether it read that module or not."""
+    modules = {
+        text_value(record.data.get("qualified_name"))
+        for record in observation.records("modules") or ()
+    }
+    imported = {
+        text_value(record.data.get(field))
+        for record in observation.records("imports") or ()
+        for field in ("target_module", "origin_definition")
+    }
+    return frozenset(modules | imported) - {""}
+
+
+def module_layouts(observation: Observation) -> frozenset[tuple[str, str]]:
+    """Each module base and the directory the scan reads its modules from.
+
+    A module's name and its file share their last segments; what precedes them is the pair:
+    `shop.view.text` from `shop/view/text.py` is base "" in "", the Dart `app.ui.page` from
+    `lib/ui/page.dart` base `app` in `lib`.
+    """
+    return frozenset(
+        _layout(module, file)
+        for record in observation.records("modules") or ()
+        if (module := text_value(record.data.get("qualified_name")))
+        and (file := text_value(record.data.get("file")))
+    )
+
+
+def _layout(module: str, file: str) -> tuple[str, str]:
+    folder: str = file.rpartition("/")[0]
+    name: str = file.rpartition("/")[2]
+    stem: str = name.rpartition(".")[0] or name
+    parts = [*(folder.split("/") if folder else []), *([] if stem == "__init__" else [stem])]
+    names = module.split(".")
+    shared = 0
+    while shared < min(len(parts), len(names)) and parts[-1 - shared] == names[-1 - shared]:
+        shared += 1
+    return ".".join(names[: len(names) - shared]), "/".join(parts[: len(parts) - shared])
+
+
+def _below(name: str, base: str) -> str | None:
+    """`name` relative to `base`, or None when `base` does not hold it."""
+    if not base or name == base:
+        return name if not base else ""
+    return name[len(base) + 1 :] if in_scope(name, base) else None
+
+
+def _directories(
+    renames: Mapping[str, str], layouts: frozenset[tuple[str, str]]
+) -> tuple[str, ...] | None:
+    """Where each layout places each old prefix's modules and not its new name's; None when a
+    prefix fits no layout.
+
+    A base the rename itself renamed, such as a Dart package renamed in its pubspec, reads its
+    old names from the same directory as the new ones, which then holds the renamed code.
+    """
+    placed: set[str] = set()
+    for old in renames:
+        here = {
+            _joined(directory, rest)
+            for base, directory in layouts
+            for known in (base, *(key for key in renames if renames[key] == base))
+            if (rest := _below(old, known)) is not None
+        }
+        if not here:
+            return None
+        now = {
+            _joined(directory, rest)
+            for base, directory in layouts
+            if (rest := _below(renames[old], base)) is not None
+        }
+        placed |= here - now
+    return tuple(sorted(placed))
+
+
+def _joined(directory: str, rest: str) -> str:
+    return "/".join(part for part in (directory, rest.replace(".", "/")) if part)
+
+
+def _labelled(contract: ArchitectureContract) -> frozenset[str]:
+    """The rules whose violations name component labels, not modules: component cycles."""
+    return frozenset(
+        rule.id
+        for rule in contract.rules
+        if isinstance(rule, NoComponentCyclesRule) and rule.level is None
+    )
+
+
+def _renamable(item: KnownViolation, labelled: frozenset[str]) -> bool:
+    return not frozenset(item.fingerprint.rules) <= labelled
+
+
+def _baseline_names(
+    violations: tuple[KnownViolation, ...],
+    budgets: tuple[MeasurementBudget, ...],
+    labelled: frozenset[str],
+) -> frozenset[str]:
+    """Every module or symbol name a validation baseline holds."""
+    held = [item for item in violations if _renamable(item, labelled)]
+    return frozenset(
+        {
+            *(subject for item in held for subject in item.fingerprint.subjects),
+            *(name for item in held for role in item.roles for name in role),
+            *(name for item in budgets for name in item.names),
+        }
+    )
+
+
+def _written(document: RawJson, parts: tuple[str, ...], value: str) -> RawJson:
+    """`document` with the string at the pointer `parts` replaced by `value`."""
+    if not parts:
+        return value
+    head, rest = parts[0], parts[1:]
+    if isinstance(document, list):
+        index = int(head)
+        return [*document[:index], _written(document[index], rest, value), *document[index + 1 :]]
+    if isinstance(document, dict):
+        return {**document, head: _written(document[head], rest, value)}
+    raise ValueError(f"the contract holds no field at /{'/'.join(parts)}")
+
+
+def renamed_contract(
+    contract: ArchitectureContract, renames: Mapping[str, str]
+) -> ArchitectureContract:
+    """`contract` with each name `module_references` lists renamed, through its canonical JSON.
+
+    Raises ValueError when the renamed document is no valid contract.
+    """
+    document: RawJson = json.loads(contract_bytes(contract))
+    for item in module_references(contract):
+        name = renamed(item.value, renames)
+        if name != item.value:
+            pointer: str = item.pointer
+            document = _written(document, tuple(pointer.split("/")[1:]), name)
+    return parse_contract(document)
+
+
+def renamed_baseline(
+    violations: tuple[KnownViolation, ...],
+    renames: Mapping[str, str],
+    labelled: frozenset[str] = frozenset(),
+) -> tuple[KnownViolation, ...]:
+    """Known violations under the new names, their subjects sorted the way the analyzer does.
+
+    An entry of a `labelled` rule names component labels, which a rename leaves alone.
+    """
+    return tuple(
+        KnownViolation(
+            ViolationFingerprint(
+                item.fingerprint.rules,
+                tuple(sorted(renamed(subject, renames) for subject in item.fingerprint.subjects)),
+            ),
+            item.count,
+            tuple(
+                sorted(
+                    (renamed(source, renames), renamed(target, renames))
+                    for source, target in item.roles
+                )
+            ),
+        )
+        if _renamable(item, labelled)
+        else item
+        for item in violations
+    )
+
+
+def _renamed_budgets(
+    budgets: tuple[MeasurementBudget, ...], renames: Mapping[str, str]
+) -> tuple[MeasurementBudget, ...]:
+    """Accepted facade and coupling names under the new names (AD-99)."""
+    return tuple(
+        replace(item, names=tuple(sorted(renamed(name, renames) for name in item.names)))
+        for item in budgets
+    )
+
+
+def renames_since(
+    before: ArchitectureContract,
+    after: ArchitectureContract,
+    *,
+    violations: tuple[KnownViolation, ...],
+    budgets: tuple[MeasurementBudget, ...],
+    observed: frozenset[str],
+    layouts: frozenset[tuple[str, str]],
+) -> tuple[Renamed, ...]:
+    """The compared revision under each candidate that holds, shortest prefixes first.
+
+    `observed` and `layouts` are `observed_names` and `module_layouts` of the scan now. A
+    candidate whose old prefixes no layout places is no rename, and neither is one whose renamed
+    contract the parser refuses, such as a `root_layout` child moved one level down. The caller
+    takes the first whose `directories` hold no file; with none, the
+    comparison stays field by field, where an amendment can accept the change.
+    """
+    labelled = _labelled(before)
+    names = frozenset(item.value for item in module_references(before))
+    names |= _baseline_names(violations, budgets, labelled)
+    recognised: list[Renamed] = []
+    for candidate in rename_candidates(before, after):
+        directories = _directories(candidate, layouts)
+        if directories is None or not rename_holds(candidate, names=names, observed=observed):
+            continue
+        try:
+            contract = renamed_contract(before, candidate)
+        except ValueError:
+            continue
+        recognised += [
+            Renamed(
+                tuple(sorted((old, candidate[old]) for old in candidate)),
+                contract,
+                renamed_baseline(violations, candidate, labelled),
+                _renamed_budgets(budgets, candidate),
+                directories,
+            )
+        ]
+    return tuple(recognised)
+
+
+def _module(name: str) -> str:
+    return name.partition(":")[0]

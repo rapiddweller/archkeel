@@ -318,6 +318,9 @@ contract (`declarations.facade_budgets`, `declarations.coupling_budgets`); basel
 adds each one's accepted names, so a new name fails while a known gap to the target passes
 (AD-99).
 With `--against <ref>`, a `calls_unresolved` change names its call sites (AD-100).
+A package rename is accepted only when the selected historical `--config` and both layouts prove
+the move; Python candidates always scan that config, even when its roots and namespace are
+unchanged. Missing historical config or a copied old package leaves the comparison unrenamed.
 
 Baseline roles, introduced in schema 1.1, also prove when a resolved importer was the last reach
 of one exact public module or symbol. `validate --baseline` reports the resolved violation,
