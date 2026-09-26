@@ -19,6 +19,7 @@ def _observe_facade(
     *,
     api: str,
     init: str = "",
+    intermediate: str | None = None,
     implementation: str | None = None,
     public: str = "sample.app.api:constraints",
 ):
@@ -46,6 +47,8 @@ def _observe_facade(
     (tmp_path / "sample/__init__.py").write_text("")
     (package / "__init__.py").write_text(init)
     (package / "api.py").write_text(api)
+    if intermediate is not None:
+        (package / "intermediate.py").write_text(intermediate)
     (package / "impl.py").write_text(
         implementation
         or "def element_constraints(first: dict, second: dict) -> object:\n    return first\n"
@@ -115,6 +118,21 @@ def test_init_facade_does_not_make_an_unproven_module_export_decidable(tmp_path:
     assert not observation.records("violations")
     assert any(
         item.kind == "rule-without-subjects" for item in observation.records("unknowns") or ()
+    )
+
+
+def test_unproven_intermediate_reexport_hop_keeps_facade_unknown(tmp_path: Path) -> None:
+    observation = _observe_facade(
+        tmp_path,
+        public="sample.app.api:constraints",
+        api=('from .intermediate import constraints\n__all__ = ["constraints"]\n'),
+        intermediate="from .impl import element_constraints as constraints\n",
+    )
+
+    assert not observation.records("violations")
+    assert any(
+        item.kind == "boundary_type_route" and "sample.app.api.constraints" in item.subjects
+        for item in observation.records("unknowns") or ()
     )
 
 
