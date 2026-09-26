@@ -108,18 +108,42 @@
   // AD-24: inner edges stay observed unless the declared inside rules decide their pair.
   // AD-24a: a module opens the same way, one level deeper, in the same {components, edges}
   // shape, because layout, ranking, routing and the inspector all consume that shape.
+  function insideScope() {
+    if (!opened || opened.module) return null;
+    const component = componentByLabel.get(opened.component);
+    if (!component) return null;
+    if (!opened.inside) {
+      return component.inside
+        ? { inside: component.inside, card: component, declared: true }
+        : { card: component, declared: false };
+    }
+    let inside = component.inside;
+    let card = (inside?.components || []).find((item) => item.label === opened.inside);
+    if (!card) return null;
+    if (!(opened.insidePath || []).length) {
+      if (card.inside) return { inside: card.inside, card, declared: true };
+      return opened.physicalInsideCard ? { card, declared: false } : null;
+    }
+    for (const [index, label] of opened.insidePath.entries()) {
+      inside = card.inside;
+      card = (inside?.components || []).find((item) => item.label === label);
+      if (!card) return null;
+      if (card.inside) continue;
+      return opened.physicalInsideCard && index === opened.insidePath.length - 1
+        ? { card, declared: false }
+        : null;
+    }
+    return card.inside ? { inside: card.inside, card, declared: true } : null;
+  }
+
   function fullLevel() {
     if (!opened) return { components: rootCards, edges: DATA.edges };
     if (opened.module) return moduleLevel(opened.module);
-    const component = componentByLabel.get(opened.component);
-    // AD-34: a component whose contract describes its inside opens into that level first, and
-    // its modules sit one step deeper, inside the sub-component that owns them.
-    if (opened.inside) {
-      const card = (component.inside.components || []).find((c) => c.label === opened.inside);
-      return card ? cardLevel(card, opened.path || []) : { components: [], edges: [] };
-    }
-    if (component.inside) return insideLevel(component.inside);
-    return cardLevel(component, opened.path || []);
+    const scope = insideScope();
+    if (!scope) return { components: [], edges: [] };
+    return scope.declared
+      ? insideLevel(scope.inside)
+      : cardLevel(scope.card, opened.path || []);
   }
 
   function focusLevel(view, label) {
@@ -132,7 +156,7 @@
     ];
     const edges = [...new Set([...direct, ...view.edges.filter((edge) => edge.state === "violation")])];
     const names = new Set([label, ...edges.flatMap((edge) => [edge.source, edge.target])]);
-    return { components: view.components.filter((card) => names.has(card.label)), edges };
+    return { ...view, components: view.components.filter((card) => names.has(card.label)), edges };
   }
 
   function level() {
@@ -154,8 +178,11 @@
     const cards = inside.components.map((card) => ({
       label: card.label,
       modules: card.modules,
-      openable: card.modules.length > 0,
+      openable: Boolean(card.inside) || card.modules.length > 0,
       public: card.public,
+      requires: card.requires || [],
+      inside: card.inside,
+      declared_component: true,
     }));
     // A module no sub-component owns keeps a card: one that vanished between two levels is
     // exactly what this tool exists to prevent (AD-34). Opening it opens the module itself.
@@ -166,10 +193,12 @@
       openable: Boolean((DATA.modules || {})[name]),
       opensModule: name,
       public: null,
+      declared_component: false,
     }));
     return {
       components: cards.concat(orphans),
       edges: inside.edges.map((edge) => ({ ...edge, names: [] })),
+      declaredInside: true,
     };
   }
 
@@ -683,7 +712,9 @@
       const label = el("text", { class: "label", x: "16", y: "37" });
       label.textContent = component.display || component.label;
       const stereotype = el("text", { class: "stereotype", x: "16", y: "17" });
-      stereotype.textContent = component.navigation_only ? "«unassigned»" : component.library ? "«library»" : !opened ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
+      const declaredInside = Boolean(level().declaredInside);
+      const declaredComponent = declaredInside && component.declared_component;
+      stereotype.textContent = component.navigation_only ? "«unassigned»" : component.library ? "«library»" : (!opened || declaredComponent) ? "«component»" : opened.module ? "«code»" : component.folder ? "«package»" : "«module»";
       const meta = el("text", { class: "meta", x: "16", y: "68" });
       const modulesMeta = (card) =>
         `${card.modules.length} module${card.modules.length === 1 ? "" : "s"} · ${
@@ -705,16 +736,16 @@
         : component.navigation_only
           ? `${component.modules.length} modules · navigation only`
           : component.library ? `${component.import_sites} import sites` : modulesMeta(component);
-      const umlIcon = !component.library && !component.navigation_only && (!opened || (opened.inside === undefined && component.modules && component.modules.length > 1))
+      const umlIcon = !component.library && !component.navigation_only && (!opened || declaredComponent || (opened.inside === undefined && component.modules && component.modules.length > 1))
         ? el("g", { class: "uml-icon" },
           el("rect", { x: "175", y: "12", width: "15", height: "17" }),
           el("rect", { x: "170", y: "16", width: "7", height: "4" }),
           el("rect", { x: "170", y: "23", width: "7", height: "4" })) : null;
-      const provided = !opened && !component.navigation_only && component.public !== null && component.public.length
+      const provided = (!opened || declaredComponent) && !component.navigation_only && component.public !== null && component.public.length
         ? el("g", { class: "uml-provided" },
           el("line", { x1: "200", y1: "45", x2: "213", y2: "45" }),
           el("circle", { cx: "219", cy: "45", r: "6" })) : null;
-      const required = !opened && !component.navigation_only && component.requires && component.requires.length
+      const required = (!opened || declaredComponent) && !component.navigation_only && component.requires && component.requires.length
         ? el("g", { class: "uml-required" },
           el("line", { x1: "0", y1: "45", x2: "-9", y2: "45" }),
           el("path", { d: "M-9,37 Q-18,45 -9,53" })) : null;
@@ -723,7 +754,7 @@
         ? `${component.label}: modules without a unique declared owner. Navigation only; no component boundary or contract verdict is implied. Select to inspect the module inventory.`
         : component.library
         ? `${component.display}: external library scope under ${scopeRules(component).map((rule) => rule.rule_id).join(", ")}.`
-        : !opened
+        : !opened || declaredComponent
         ? `${component.label}: ${component.modules.length} modules; ${component.public === null ? "no interface boundary declared" : `${component.public.length} provided entries`}; ${(component.requires || []).length} required components. Select for details; select again to open.`
         : `${component.label}: ${component.folder ? "physical package, not a declared component" : "module"}; ${component.import_sites || 0} import sites touching it.`;
       const group = el(
@@ -981,12 +1012,13 @@
       const reaches = (inside.imports || []).slice(0, 12).map((name) => `<li><code>${esc(name)}</code></li>`).join("");
       return `<div class="kicker">Inside</div><h2>${esc(opened.module)}</h2><p>The functions and classes it declares and the calls and references between them; methods are listed on the card of the class that owns them. A card marked public is imported by another module (AD-24a). Press Escape or use Back to leave.</p>${statBlock()}${reaches ? `<h3>Reaches outward</h3><ul class="names">${reaches}</ul>` : ""}${emptyViolationBlock()}`;
     }
-    if (opened && !opened.inside && (componentByLabel.get(opened.component) || {}).inside) {
-      return `<div class="kicker">Inside</div><h2>${esc(opened.component)}</h2><p>These are declared sub-components. A green connection is allowed; a red one breaks a rule. Select a card twice to open it.</p>${statBlock()}${heaviestBlock()}`;
+    if (opened && level().declaredInside) {
+      const title = (opened.insidePath || []).at(-1) || opened.inside || opened.component;
+      return `<div class="kicker">Declared components</div><h2>${esc(title)}</h2><p>These are declared architecture components at this scope. A green connection is allowed by the checked dependency rule; a red one breaks a rule. Select a card twice to open it.</p>${statBlock()}${heaviestBlock()}`;
     }
     if (opened) {
       const owner = componentByLabel.get(opened.component);
-      const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
+      const card = insideScope()?.card || owner;
       const prefix = (opened.path || []).at(-1);
       const outside = prefix ? (card.inner_edges || []).filter((edge) =>
         (edge.source === prefix || edge.source.startsWith(`${prefix}.`)) !==
@@ -995,7 +1027,7 @@
       const ownerNote = owner.navigation_only
         ? "These modules have no unique declared owner. This view is navigation only and has no component verdict. "
         : "";
-      return `<div class="kicker">Inside</div><h2>${esc(prefix || opened.inside || opened.component)}</h2><p>${ownerNote}Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
+      return `<div class="kicker">Inside</div><h2>${esc(prefix || insideScope()?.card?.label || opened.inside || opened.component)}</h2><p>${ownerNote}Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
     }
     return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>Declared components are shown with their observed imports. “Unassigned modules” is navigation only and does not imply a component boundary or verdict. Select a box or connection for evidence; select a box again to open its physical module view.</p>${statBlock()}${heaviestBlock()}`;
   }
@@ -1066,11 +1098,12 @@
         return;
       }
       if (opened) {
-        const owner = componentByLabel.get(opened.component);
-        const card = opened.inside ? (owner.inside.components || []).find((item) => item.label === opened.inside) : owner;
-        inspector.innerHTML = `<div class="kicker">${component.folder ? "Physical package" : "Module"}</div><h2>${esc(component.label)}</h2>
+        const scope = insideScope();
+        const declaredComponent = Boolean(level().declaredInside && component.declared_component);
+        const card = scope?.card || componentByLabel.get(opened.component);
+        inspector.innerHTML = `<div class="kicker">${declaredComponent ? "Declared component" : component.folder ? "Physical package" : "Module"}</div><h2>${esc(component.label)}</h2>
           <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd><dt>Import sites touching group</dt><dd>${component.import_sites || 0}</dd>${relations}</dl>
-          ${component.folder ? moduleTree({ ...card, modules: component.modules, inner_edges: card.inner_edges }, [...(opened.path || []), component.label]) : `<p>${component.openable ? "Select again to inspect its symbols." : "No symbols recorded."}</p>`}`;
+          ${component.folder ? moduleTree({ ...card, modules: component.modules, inner_edges: card.inner_edges }, [...(opened.path || []), component.label]) : `<p>${declaredComponent ? "Select again to open its declared inside or inspect its physical modules." : component.openable ? "Select again to inspect its symbols." : "No symbols recorded."}</p>`}`;
         return;
       }
       if (component.navigation_only) {
@@ -1279,8 +1312,10 @@
 
   // Where one press of Back returns to, named for the level the viewer is standing on.
   function backLabel() {
-    if (opened.module) return `Back to ${(opened.path || []).at(-1) || opened.inside || opened.component}`;
-    if (opened.path && opened.path.length) return `Back to ${opened.path.length > 1 ? opened.path[opened.path.length - 2] : opened.inside || opened.component}`;
+    const insidePath = [opened.inside, ...(opened.insidePath || [])].filter(Boolean);
+    if (opened.module) return `Back to ${(opened.path || []).at(-1) || insidePath.at(-1) || opened.component}`;
+    if (opened.path && opened.path.length) return `Back to ${opened.path.length > 1 ? opened.path[opened.path.length - 2] : insidePath.at(-1) || opened.component}`;
+    if (insidePath.length > 1) return `Back to ${insidePath[insidePath.length - 2]}`;
     if (opened.inside) return `Back to ${opened.component}`;
     return "Back to components";
   }
@@ -1290,7 +1325,17 @@
     if (!opened) return items;
     items.push({ label: opened.component, state: { component: opened.component, path: [] } });
     if (opened.inside) items.push({ label: opened.inside, state: { component: opened.component, inside: opened.inside, path: [] } });
-    (opened.path || []).forEach((name, index) => items.push({ label: name.split(".").pop(), state: { component: opened.component, ...(opened.inside ? { inside: opened.inside } : {}), path: opened.path.slice(0, index + 1) } }));
+    (opened.insidePath || []).forEach((name, index) => items.push({
+      label: name,
+      state: {
+        component: opened.component,
+        inside: opened.inside,
+        insidePath: opened.insidePath.slice(0, index + 1),
+        ...(opened.physicalInsideCard && index === opened.insidePath.length - 1 ? { physicalInsideCard: true } : {}),
+        path: [],
+      },
+    }));
+    (opened.path || []).forEach((name, index) => items.push({ label: name.split(".").pop(), state: { component: opened.component, ...(opened.inside ? { inside: opened.inside } : {}), ...(opened.insidePath ? { insidePath: opened.insidePath } : {}), ...(opened.physicalInsideCard ? { physicalInsideCard: true } : {}), path: opened.path.slice(0, index + 1) } }));
     if (opened.module) items.push({ label: opened.module.split(".").pop(), state: opened });
     return items;
   }
@@ -1329,6 +1374,29 @@
   function enter(label) {
     if (!opened) {
       opened = { component: label, path: [] };
+    } else if (opened.module) {
+      return;
+    } else if (!opened.physicalInsideCard && (opened.inside || componentByLabel.get(opened.component).inside)) {
+      const card = level().components.find((c) => c.label === label);
+      if (!card) return;
+      if (card.inside) {
+        opened = opened.inside
+          ? { ...opened, insidePath: [...(opened.insidePath || []), label], path: [] }
+          : { component: opened.component, inside: label, path: [] };
+      } else if (card.folder) {
+        opened = { ...opened, path: [...(opened.path || []), label] };
+      } else if (card.opensModule) {
+        opened = { ...opened, module: card.opensModule };
+      } else if (!opened.inside) {
+        opened = { component: opened.component, inside: label, physicalInsideCard: true, path: [] };
+      } else {
+        opened = {
+          ...opened,
+          insidePath: [...(opened.insidePath || []), label],
+          physicalInsideCard: true,
+          path: [],
+        };
+      }
     } else if (opened.inside || !componentByLabel.get(opened.component).inside) {
       const card = level().components.find((c) => c.label === label);
       opened = card && card.folder

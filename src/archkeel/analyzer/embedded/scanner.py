@@ -11,6 +11,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, TypeAlias
 
+from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.model import (
     ArchitectureContract,
     ContractComponent,
@@ -207,7 +208,7 @@ def api_surface_limits(
 
 
 def _inside_rule_results(
-    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]],
+    inside_contracts: Sequence[InsideContractMount],
     *,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
@@ -231,14 +232,28 @@ def _inside_rule_results(
     failures: list[RawRecord] = []
     assessments: list[RawRecord] = []
     allowances: list[RawRecord] = []
-    for parent, declared in inside_contracts:
-        scoped, source_modules, scope_failures = _inside_source_domain(parent, declared, modules)
+    all_modules = frozenset(module["data"]["qualified_name"] for module in modules)
+    available_by_owner = {"": all_modules}
+    contract_by_owner = {"": root_contract} if root_contract is not None else {}
+    mounts_by_parent = {mount.parent_id: mount for mount in inside_contracts}
+    for mount in inside_contracts:
+        available = available_by_owner.get(mount.owner_id, frozenset())
+        owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner)
+        if not owner_levels and not mount.owner_id:
+            owner_levels = (mount.parent_contract,)
+        owner_contract = owner_levels[0] if owner_levels else None
+        parent = _inside_parent_component(mount, owner_contract)
+        scoped, source_modules, scope_failures = _inside_source_domain(
+            parent, mount.contract, modules, mount.parent_id, available
+        )
+        available_by_owner[mount.parent_id] = source_modules
+        contract_by_owner[mount.parent_id] = scoped
         failures.extend(scope_failures)
         results = _evaluate_inside_contract(
             parent,
             scoped,
             source_modules,
-            root_contract=root_contract,
+            ancestor_contracts=owner_levels,
             imports=imports,
             typing_signals=typing_signals,
             constructs=constructs,
@@ -268,17 +283,54 @@ def _inside_rule_results(
     )
 
 
+def _inside_parent_component(
+    mount: InsideContractMount,
+    owner_contract: ArchitectureContract | None,
+) -> ContractComponent:
+    """Resolve a mount's owner from the already-clipped ancestor contract."""
+    if owner_contract is not None:
+        parent = next(
+            (item for item in owner_contract.components if item.id == mount.parent.id), None
+        )
+        if parent is not None:
+            return parent
+    return replace(mount.parent, packages=()) if mount.owner_id else mount.parent
+
+
+def _inside_owner_levels(
+    mount: InsideContractMount,
+    mounts_by_parent: dict[str, InsideContractMount],
+    contract_by_owner: dict[str, ArchitectureContract],
+) -> tuple[ArchitectureContract, ...]:
+    """Return the current owner contract and its already-clipped ancestors, nearest first."""
+    levels = []
+    owner_id = mount.owner_id
+    while True:
+        if contract := contract_by_owner.get(owner_id):
+            levels.append(contract)
+        if not owner_id:
+            break
+        owner = mounts_by_parent.get(owner_id)
+        if owner is None:
+            break
+        owner_id = owner.owner_id
+    return tuple(levels)
+
+
 def _inside_source_domain(
     parent: ContractComponent,
     declared: ArchitectureContract,
     modules: Sequence[RawRecord],
+    parent_id: str,
+    available_modules: frozenset[str],
 ) -> tuple[ArchitectureContract, frozenset[str], list[RawRecord]]:
     """Clip child ownership claims to the parent's physical packages and report what was cut."""
     roots = parent.packages
     source_modules = frozenset(
         module["data"]["qualified_name"]
         for module in modules
-        if any(in_scope(module["data"]["qualified_name"], root) for root in roots)
+        if module["data"]["qualified_name"] in available_modules
+        and any(in_scope(module["data"]["qualified_name"], root) for root in roots)
     )
     components = []
     failures = []
@@ -292,14 +344,14 @@ def _inside_source_domain(
         if outside:
             failures.append(
                 classified(
-                    item_id=stable_id("UNKNOWN-INSIDE-SOURCE-DOMAIN", parent.label, component.id),
+                    item_id=stable_id("UNKNOWN-INSIDE-SOURCE-DOMAIN", parent_id, component.id),
                     evidence_class=EvidenceClass.UNKNOWN,
                     area="analysis_coverage",
                     kind="inside_source_domain_incomplete",
                     title=(f"{component.label} claims {', '.join(outside)} outside {parent.label}"),
                     subjects=[component.label, *outside],
                     rule_ids=[rule.id for rule in declared.rules],
-                    data={"parent_id": parent.label, "packages": outside},
+                    data={"parent_id": parent_id, "packages": outside},
                 )
             )
         components.append(replace(component, packages=packages))
@@ -311,7 +363,7 @@ def _evaluate_inside_contract(
     scoped: ArchitectureContract,
     source_modules: frozenset[str],
     *,
-    root_contract: ArchitectureContract | None = None,
+    ancestor_contracts: Sequence[ArchitectureContract],
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
@@ -343,18 +395,6 @@ def _evaluate_inside_contract(
         source_modules=source_modules,
     )
     failures.extend(profile_failures(scoped, profile))
-    boundary_contract = scoped
-    if root_contract is not None:
-        external_components = tuple(
-            component
-            for component in root_contract.components
-            if all(
-                not in_scope(package, root) and not in_scope(root, package)
-                for package in component.packages
-                for root in parent.packages
-            )
-        )
-        boundary_contract = replace(scoped, components=(*scoped.components, *external_components))
     violations, allowance_facts = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -372,18 +412,19 @@ def _evaluate_inside_contract(
         source_roots=parent.packages,
         assessment_facts=assessments,
         assessment_parent=parent.label,
-        boundary_contract=boundary_contract,
+        ancestor_contracts=ancestor_contracts,
     )
     unknowns = boundary_type_limits(
         symbols,
         imports,
-        boundary_contract,
+        scoped,
         exports_by_module,
         evidence,
         uncertain_reexport_origins,
         scanned_modules,
         stable_bindings_by_module,
         source_modules,
+        ancestor_contracts,
     )
     return violations, unknowns, failures, allowance_facts
 
@@ -395,7 +436,7 @@ def scan_repository(
     source_paths: Sequence[Path] | None = None,
     roots: tuple[str, ...],
     namespace: str,
-    inside_contracts: Sequence[tuple[ContractComponent, ArchitectureContract]] = (),
+    inside_contracts: Sequence[InsideContractMount] = (),
 ) -> ScanResult:
     """Scan production Python and return the deterministic observed model sections."""
     paths = (

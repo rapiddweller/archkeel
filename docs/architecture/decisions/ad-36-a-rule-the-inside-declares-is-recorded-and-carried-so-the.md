@@ -1,5 +1,9 @@
 # AD-36 A rule the inside declares is recorded and carried, so the verdict it produces survives every command
 
+Amended by [AD-110](ad-110-inside-rules-use-the-shared-evaluator.md) and
+[AD-111](ad-111-recursive-inside-contract-tree.md): shared rule evaluation and revision-bound
+contracts/provenance now extend through explicit inside levels recursively.
+
 Three things follow from it. An inside contract is renamed once as it is loaded,
 each of its rules under `<parent>:<rule id>` the way a sub-component already is, so the projected
 declaration, the violation and the id that violation is filed under are all built from the name
@@ -38,4 +42,3 @@ drops one `requires` entry and reads three `rule.violated` findings under
 `store:STORE-REQUIRES-COMPLETE` at `/components/1/inside`, `class-a-decision-open` still reports
 its open pair with an inside declared, and every `check` protocol row verifies its lock over both
 levels.
-

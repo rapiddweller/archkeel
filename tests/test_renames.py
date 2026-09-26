@@ -480,7 +480,11 @@ def _namespace_rename_repo(tmp_path: Path, *, keep_old_copy: bool) -> tuple[Path
         .replace("docs/architecture/field_shop.md", "docs/architecture/shop.md")
     )
     inside = root / "shop/store/architecture-contract.json"
-    inside.write_text(inside.read_text().replace("shop.", "field_shop."))
+    inside.write_text(
+        inside.read_text()
+        .replace("shop.", "field_shop.")
+        .replace("docs/architecture/field_shop.md", "docs/architecture/shop.md")
+    )
     config.write_text(config.read_text().replace('namespace = "shop"', 'namespace = "field_shop"'))
     if not keep_old_copy:
         shutil.rmtree(root / "src/shop")

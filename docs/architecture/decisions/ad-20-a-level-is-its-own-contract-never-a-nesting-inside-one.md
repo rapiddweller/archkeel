@@ -1,5 +1,8 @@
 # AD-20 A level is its own contract, never a nesting inside one contract
 
+Amended by [AD-111](ad-111-recursive-inside-contract-tree.md): mounted levels are followed
+recursively in the root run, without requiring a separate configuration for each child.
+
 Depth is unlimited and
 always optional: a component's inside is described by its own `archkeel.toml` with its own scan
 scope and its own contract, and the component model gains no parent or child field. Levels are tied
@@ -17,4 +20,3 @@ packages. Check: the shop sample declares an inside for `store` and passes on bo
 replaces that contract, a third row deletes it and reads `contract.invalid` at
 `/components/1/inside`, and a test holds `init` to drafting no component carrying `inside`.
 An `external_dependency_scope` declared inside is not yet compared against the level above.
-

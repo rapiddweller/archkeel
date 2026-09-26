@@ -155,9 +155,14 @@ def _run_check_snapshots(
         selected_changes=[],
     )
     expected_bytes = json.dumps(expected).encode()
+    contract_bytes = json.dumps({"schema_version": "2.1.0", "components": [], "rules": []}).encode()
 
     def read_blob(root: Path, commit: str, path: str) -> bytes:
-        return expected_bytes if path == "expectation.json" else lock_bytes
+        if path == "expectation.json":
+            return expected_bytes
+        if path == "contract.json":
+            return contract_bytes
+        return lock_bytes
 
     with (
         patch("archkeel.check.run.remote_tip", return_value="b" * 40),

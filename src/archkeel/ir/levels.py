@@ -18,8 +18,8 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .interfaces import component_owners, owner_of
-from .model import Observation, Record, text_value
+from .interfaces import owner_of
+from .model import Observation, Record, RecordData, in_scope, text_value
 from .structure import module_edges
 
 
@@ -36,6 +36,8 @@ class InsideComponent:
     packages: tuple[str, ...]
     modules: tuple[str, ...]
     public: tuple[str, ...] | None
+    requires: tuple[RecordData, ...]
+    has_inside: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +89,13 @@ def _public(record: Record) -> tuple[str, ...] | None:
     return tuple(item for item in value if isinstance(item, str))
 
 
+def _requires(record: Record) -> tuple[RecordData, ...]:
+    value = record.data.get("requires")
+    if not isinstance(value, tuple):
+        return ()
+    return tuple(item for item in value if isinstance(item, RecordData))
+
+
 def _crossings(
     observation: Observation, inner: tuple[tuple[str, tuple[str, ...]], ...]
 ) -> dict[tuple[str, str], int]:
@@ -106,18 +115,45 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
     grouped = _declared_insides(observation)
     if not grouped:
         return ()
-    outer = component_owners(observation)
     names = tuple(
         name
         for record in observation.records("modules") or ()
         if (name := text_value(record.data.get("qualified_name")))
     )
+    scopes: dict[str, tuple[str, ...]] = {}
+    nested_records = []
+    for record in observation.records("declarations") or ():
+        if record.kind == "component_responsibility":
+            scopes[record.title] = record.subjects
+        elif record.kind == "inside_component_responsibility":
+            nested_records.append(record)
+    while nested_records:
+        pending = []
+        for record in nested_records:
+            parent = text_value(record.data.get("parent_id"))
+            if parent and parent in scopes:
+                parent_packages = scopes.get(parent, ())
+                scopes[f"{parent}:{record.title}"] = tuple(
+                    package
+                    for package in record.subjects
+                    if any(in_scope(package, root) for root in parent_packages)
+                )
+            else:
+                pending.append(record)
+        if len(pending) == len(nested_records):
+            break
+        nested_records = pending
     levels: list[InsideLevel] = []
     for parent, records in sorted(grouped.items()):
-        inner = tuple((record.title, record.subjects) for record in records)
+        inner = tuple(
+            (record.title, scopes.get(f"{parent}:{record.title}", ())) for record in records
+        )
+        parent_packages = scopes.get(parent, ())
         owned: dict[str, list[str]] = defaultdict(list)
         unassigned: list[str] = []
-        for module in sorted(name for name in names if owner_of(name, outer) == parent):
+        for module in sorted(
+            name for name in names if any(in_scope(name, package) for package in parent_packages)
+        ):
             owner = owner_of(module, inner)
             if owner is None:
                 unassigned.append(module)
@@ -128,9 +164,11 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
                 (
                     InsideComponent(
                         record.title,
-                        record.subjects,
+                        scopes.get(f"{parent}:{record.title}", ()),
                         tuple(owned[record.title]),
                         _public(record),
+                        _requires(record),
+                        isinstance(record.data.get("inside"), str),
                     )
                     for record in records
                 ),

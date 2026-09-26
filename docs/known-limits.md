@@ -133,8 +133,12 @@ modules without `__all__`, so its contract pins pair budgets only.
 
 ## Components and packages
 
-- Only one explicit `inside` level is loaded. Deeper physical folder navigation does not
-  mean deeper contracts were evaluated; recursive contract loading is tracked in #169.
+- Explicit `inside` references are followed recursively. Physical folder navigation alone
+  declares no boundary and proves no contract was evaluated. An invalid mount makes the
+  observation incomplete; valid findings remain visible, but baseline/graph writes are refused.
+- Inside contracts support components and rules, not nonempty `declarations` fields. Those
+  fields are refused rather than silently ignored. Keep API, compatibility, measurement and
+  interface-budget declarations at the root until they have scoped evaluators (AD-111).
 - `package_dependency` records name packages by their first two dotted segments. Component
   decisions and dependency rules use module-level edges and are not affected; the package records
   are coarse below that depth. Declared components nested below one such package collapse into it,

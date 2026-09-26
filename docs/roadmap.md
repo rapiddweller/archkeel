@@ -165,13 +165,11 @@ only when its row names repository evidence.
 - Let a second level run on its own (AD-20): an inside is recorded, derived, judged, drawn and
   carried through `check` from the outer run (AD-34, AD-36), but it still has no `archkeel.toml`
   of its own, so `validate --root src/archkeel/check` cannot evaluate it as a level in its own
-  right. Of its rules only `complete_requires` is evaluated, against the imports the outer scan
-  collected; every other kind it declares is recorded and shown but never enforced, an
-  `external_dependency_scope` in particular, which is also not compared against the level above.
-  An inside contract's own provenance documents are not materialized for `check`, because no
-  command reads them. One level down is recorded, so an inside declared within an inside is not
-  drawn. Evidence: `init` on that scope drafts 12 sub-components and 132 open decisions, one
-  component per module, where the three decided layers need 6.
+  right. Recursive mounted contracts now share the outer scan and rule evaluators, preserve
+  revision-bound provenance, and appear in the report (AD-110, AD-111). This does not create
+  a standalone configuration for each level. Evidence: `init` on that scope drafts 12
+  sub-components and 132 open decisions, one component per module, where the three decided
+  layers need 6.
 - Make the analyzer a process port with a language profile and prove it with a second analyzer
   (AD-22). Six places still assume Python: the import in the CLI, the namespace pattern in the
   configuration, the `public` and dependency patterns in the schema, the construct enum and the

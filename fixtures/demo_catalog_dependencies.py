@@ -12,6 +12,8 @@ tests reuse the rule and the cycle this family shows failing.
 
 from __future__ import annotations
 
+import json
+
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
     FIXTURE_DIR,
@@ -492,6 +494,137 @@ _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION = Variant(
     expected_violations=("store:STORE-NO-EVAL",),
     expected_codes=("rule.violated",),
 )
+
+
+def _recursive_inside_rule_contract(*, require_target: bool) -> str:
+    requires = (
+        [{"component": "target", "rationale": "The task delegates this operation."}]
+        if require_target
+        else []
+    )
+    return (
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        "id": "COMP-SOURCE",
+                        "label": "source",
+                        "role": "component",
+                        "packages": ["shop.store.backend.tasks.source"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["docs/architecture/shop.md"],
+                        "requires": requires,
+                        "public": [],
+                    },
+                    {
+                        "id": "COMP-TARGET",
+                        "label": "target",
+                        "role": "component",
+                        "packages": ["shop.store.backend.tasks.target"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["docs/architecture/shop.md"],
+                        "public": [],
+                    },
+                ],
+                "rules": [
+                    {
+                        "id": "DEEP-REQUIRES-COMPLETE",
+                        "kind": "complete_requires",
+                        "rationale": "Task-layer edges must be declared.",
+                        "provenance": ["docs/architecture/shop.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
+def _recursive_inside_parent_contract() -> str:
+    contract = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    backend = next(item for item in contract["components"] if item["label"] == "backend")
+    backend["inside"] = "shop/store/backend/architecture-contract.json"
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_RECURSIVE_INSIDE_FILES: dict[str, str] = {
+    "shop/store/architecture-contract.json": _recursive_inside_parent_contract(),
+}
+_RECURSIVE_INSIDE_FILES["shop/store/backend/architecture-contract.json"] = (
+    json.dumps(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                {
+                    "id": "COMP-TASKS",
+                    "label": "tasks",
+                    "role": "component",
+                    "packages": ["shop.store.backend.tasks"],
+                    "responsibilities": [],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/shop.md"],
+                    "public": [],
+                    "inside": "shop/store/backend/tasks/architecture-contract.json",
+                }
+            ],
+            "rules": [],
+        },
+        indent=2,
+    )
+    + "\n"
+)
+_RECURSIVE_INSIDE_FILES.update(
+    {
+        "shop/store/backend/tasks/__init__.py": HEADER
+        + '"""A recursive inside-contract demo."""\n',
+        "shop/store/backend/tasks/source.py": HEADER
+        + '"""Source task that calls its declared target."""\n\n'
+        + "from shop.store.backend.tasks.target import run_target\n\n\n"
+        + "def run() -> str:\n    return run_target()\n",
+        "shop/store/backend/tasks/target.py": HEADER
+        + '"""Target task used by the recursive inside demo."""\n\n'
+        + 'def run_target() -> str:\n    return "done"\n',
+    }
+)
+
+_RECURSIVE_INSIDE_CLEAN = Variant(
+    id="class-a-recursive-inside-clean",
+    section="class_a",
+    item="complete_requires:recursive_inside_clean",
+    summary="A task-level dependency three declared inside levels deep is covered by its local "
+    "requires entry.",
+    files={
+        **_RECURSIVE_INSIDE_FILES,
+        "shop/store/backend/tasks/architecture-contract.json": _recursive_inside_rule_contract(
+            require_target=True
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="PASS",
+)
+_RECURSIVE_INSIDE_VIOLATION = Variant(
+    id="class-a-recursive-inside-violation",
+    section="class_a",
+    item="complete_requires:recursive_inside_violation",
+    summary="Removing that local requires entry reports the task edge under its full recursive "
+    "rule ID.",
+    files={
+        **_RECURSIVE_INSIDE_FILES,
+        "shop/store/backend/tasks/architecture-contract.json": _recursive_inside_rule_contract(
+            require_target=False
+        ),
+    },
+    expected_violations=("store:backend:tasks:DEEP-REQUIRES-COMPLETE",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+
 # Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
 ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE = HEADER + (
     '"""Reporting use case that reaches for an undeclared package."""\n\n'
@@ -611,6 +744,8 @@ VARIANTS: tuple[Variant, ...] = (
     _INSIDE_COMPLETE_REQUIRES,
     _INSIDE_FORBIDDEN_CONSTRUCT_CLEAN,
     _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION,
+    _RECURSIVE_INSIDE_CLEAN,
+    _RECURSIVE_INSIDE_VIOLATION,
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,

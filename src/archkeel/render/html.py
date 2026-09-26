@@ -348,7 +348,9 @@ def _inside_payload(
                 "label": card.label,
                 "modules": list(card.modules),
                 "public": list(card.public) if card.public is not None else None,
+                "requires": _flow_requirement_entries(card.requires),
                 "inner_edges": _inner_edge_payload(card.inner_edges, sites),
+                "inside": _inside_payload(card.inside, sites, f"{parent}:{card.label}"),
             }
             for card in inside.components
         ],
@@ -401,6 +403,12 @@ def _flow_requires(record: Record | None) -> list[dict[str, object]]:
     entries = record.data.get("requires")
     if not isinstance(entries, tuple):
         return []
+    return _flow_requirement_entries(
+        tuple(entry for entry in entries if isinstance(entry, RecordData))
+    )
+
+
+def _flow_requirement_entries(entries: tuple[RecordData, ...]) -> list[dict[str, object]]:
     return [
         {
             "component": entry.get("component"),
@@ -409,7 +417,6 @@ def _flow_requires(record: Record | None) -> list[dict[str, object]]:
             "decided_by": entry.get("decided_by"),
         }
         for entry in entries
-        if isinstance(entry, RecordData)
     ]
 
 

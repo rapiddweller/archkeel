@@ -1,0 +1,56 @@
+# AD-111 Explicit inside contracts form one revision-bound tree
+
+One-level loading could leave a deeper declared rule unread while the report looked complete.
+One shared loader now follows every explicit `inside` reference for observation, validation,
+snapshots and comparison. It does not discover contracts from folders or impose a seven-item
+limit. A physical group is navigation; a mounted contract is a policy boundary.
+
+```mermaid
+flowchart LR
+    Root[Root contract] --> Child[Inside contract]
+    Child --> Leaf[Deeper inside contract]
+    Root --> Tree[Shared contract tree]
+    Child --> Tree
+    Leaf --> Tree
+    Tree --> Rules[Scoped rule evaluation]
+    Tree --> Check[Revision-bound check and comparison]
+    Rules --> Report[Evidence and navigable report]
+```
+
+Paths are relative to the selected `--root`. Missing, malformed, cyclic, duplicate or escaping
+mounts are refused. Normalized path identities also apply to Git snapshots. Rules and components
+retain mount-qualified ids; a real generated-id collision is rejected without banning all
+colons or renaming valid existing findings.
+
+Each level retains the source limits of its entire ancestor chain. Invalid children cannot
+regain authority by mounting another contract, including in the diagram's module ownership.
+Valid ancestor and sibling ownership remain available for target/type lookup, not as extra
+rule sources or automatic public exports. Invalid claims cannot override a valid type owner.
+Type lookup checks the current level, then already-clipped ancestors, nearest first. A unique
+owner decides publication; multiple owners at one level stop with non-neutral UNKNOWN.
+A higher public declaration cannot override a nearer private one. Reexport proof uses scoped
+component ids so repeated labels cannot share authority.
+Known findings survive incomplete branches. Incomplete validation cannot write a baseline or graph.
+
+All mounted contracts are authenticated in the accepted `check` revision; candidate policy edits
+are refused there. Provenance is read from the corresponding revision, so candidate documentation
+edits need not be forbidden. `validate --against` compares the whole tree: a deep policy edit is
+not invisible merely because the root stayed unchanged.
+
+Observation digests retain raw-byte binding. Amendment digests use canonical contracts across
+the tree; formatting alone does not require approval. No-inside digests and valid one-level
+finding ids stay stable. Existing root-only amendments for inside trees must be regenerated and
+reviewed explicitly; no legacy fallback silently blesses newly included policy. Schema 2.1.0 stays.
+
+Nonempty inside `declarations` fields are unsupported and fail closed. Components, their `public`
+entries, and rules are supported. Child-local publication is a separate decision (#170), not
+part of recursive loading. A report drills through mounted levels and retains their findings;
+its physical folder view does not claim rule coverage.
+
+Evidence: recursive inside contract, independent contract, boundary and flow-navigation tests.
+
+Approved on 2026-09-26 under the architect's evidence-backed budget decision: unresolved-call
+budget 513 → 523. `validate --against 50a3490` reports 19 added and 9 removed unresolved
+call-site identities, including moves between functions. These are changed-code operations,
+not better detection in unchanged code; the call resolver is unchanged. UNKNOWN stays 41,
+with no known violations or cycle edges. No violation exemption or other budget is added.
