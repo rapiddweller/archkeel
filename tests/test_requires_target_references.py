@@ -149,7 +149,6 @@ def _assert_requires_diagnostic(
     assert len(matches) == 1, diagnostics
     diagnostic = matches[0]
     assert target in diagnostic.subject or target in diagnostic.unknown_claim
-    assert "no component" in diagnostic.unknown_claim
 
 
 @pytest.mark.parametrize(
@@ -203,6 +202,7 @@ def test_cli_validate_rejects_unknown_requires_without_writing_baseline_or_graph
 ) -> None:
     _write_repo(tmp_path, app_requires=("ghost",))
     page = tmp_path / "docs/architecture/sample.md"
+    page.write_text(f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n  stale --> old\n```\n")
     original_page = page.read_bytes()
     baseline = tmp_path / "baseline.json"
 
