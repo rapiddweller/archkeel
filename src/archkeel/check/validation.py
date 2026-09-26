@@ -1272,6 +1272,7 @@ def _inside_contract_tree(
     target = repository_file(root, contract_path)
     if target is None:
         return None
+    identity = target.relative_to(root).as_posix()
 
     def read_inside(path: str) -> tuple[bytes, str]:
         child = repository_file(root, path)
@@ -1280,10 +1281,10 @@ def _inside_contract_tree(
         return child.read_bytes(), child.relative_to(root).as_posix()
 
     return load_inside_contract_tree(
-        target.relative_to(root).as_posix(),
+        identity,
         contract,
         contract_digest(contract),
-        target.relative_to(root).as_posix(),
+        identity,
         read_inside,
     )
 
