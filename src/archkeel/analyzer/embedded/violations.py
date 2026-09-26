@@ -814,7 +814,7 @@ def _boundary_type_subject_modules(
         for record in _unresolved_public_alias_routes(
             rule, imports, contract, exports_by_module, uncertain_reexport_origins
         )
-        if isinstance((module := record["data"].get("module")), str)
+        if "module" in record["data"] and isinstance((module := record["data"]["module"]), str)
     )
     return function_subjects | route_subjects
 
@@ -2708,7 +2708,13 @@ def boundary_type_limits(
                             detail,
                         )
                     )
-            selected = (module, qualified_name.removeprefix(f"{module}."), resolution_module)
+            prefix = f"{module}."
+            selected_name = (
+                qualified_name[len(prefix) :]
+                if qualified_name[: len(prefix)] == prefix
+                else qualified_name
+            )
+            selected = (module, selected_name, resolution_module)
             declared = _declared_facade_positions(
                 item, contract, exports_by_module, imports, uncertain_reexport_origins
             )
