@@ -17,7 +17,58 @@ from archkeel.ir.model import EvidenceClass, stable_id
 
 from .records import RawEvidence, RawRecord, classified
 from .resolve import SymbolIndex, dotted_expression, resolve_name
-from .source import ParsedModule, add_evidence, annotation_text, location, own_scope
+from .source import ParsedModule, add_evidence, annotation_text, location
+
+
+def _enum_member_roots(module: ParsedModule) -> frozenset[str]:
+    """Return direct module bindings with no competing binder anywhere in the module."""
+    nodes = list(ast.walk(module.tree))
+    imports: list[tuple[str, bool]] = []
+    for node in nodes:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            is_direct = node in module.tree.body
+            for alias in node.names:
+                import_name: str = alias.name
+                root = alias.asname or (
+                    import_name.split(".")[0] if isinstance(node, ast.Import) else import_name
+                )
+                imports.append((root, is_direct))
+    type_parameters = [
+        value
+        for node in nodes
+        for field_name, value in ast.iter_fields(node)
+        if field_name == "type_params" and value
+    ]
+    if "*" in [name for name, _ in imports] or type_parameters:
+        return frozenset()
+    direct = [
+        node.name for node in nodes if isinstance(node, ast.ClassDef) and node in module.tree.body
+    ] + [name for name, is_direct in imports if is_direct]
+    binders = (
+        [
+            node.id
+            for node in nodes
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del)
+        ]
+        + [node.arg for node in nodes if isinstance(node, ast.arg)]
+        + [
+            node.name
+            for node in nodes
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        ]
+        + [name for name, _ in imports]
+        + [node.name for node in nodes if isinstance(node, ast.ExceptHandler) and node.name]
+        + [node.name for node in nodes if isinstance(node, ast.MatchAs) and node.name]
+        + [node.name for node in nodes if isinstance(node, ast.MatchStar) and node.name]
+        + [node.rest for node in nodes if isinstance(node, ast.MatchMapping) and node.rest]
+        + [
+            name
+            for node in nodes
+            if isinstance(node, ast.Global | ast.Nonlocal)
+            for name in node.names
+        ]
+    )
+    return frozenset(name for name in direct if binders.count(name) == 1)
 
 
 class ReferenceCollector(ast.NodeVisitor):
@@ -35,68 +86,19 @@ class ReferenceCollector(ast.NodeVisitor):
         self.items: list[RawRecord] = []
         self.class_stack: list[str] = []
         self.scope_stack: list[str] = [module.module]
-        self.shadowed_names: list[frozenset[str]] = []
-
-    @staticmethod
-    def _target_names(node: ast.AST) -> set[str]:
-        return {
-            child.id
-            for child in ast.walk(node)
-            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
-        }
-
-    @classmethod
-    def _class_bound_names(cls, node: ast.ClassDef) -> frozenset[str]:
-        names: set[str] = set()
-        for statement in node.body:
-            if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-                names.add(statement.name)
-            elif isinstance(statement, ast.Assign):
-                for target in statement.targets:
-                    names.update(cls._target_names(target))
-            elif isinstance(statement, ast.AnnAssign | ast.AugAssign):
-                names.update(cls._target_names(statement.target))
-            elif isinstance(statement, ast.Import):
-                names.update(alias.asname or alias.name.split(".")[0] for alias in statement.names)
-            elif isinstance(statement, ast.ImportFrom):
-                names.update(alias.asname or alias.name for alias in statement.names)
-        return frozenset(names)
+        self.enum_member_roots = _enum_member_roots(module)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         qualname = f"{self.scope_stack[-1]}.{node.name}"
-        for child in ast.iter_child_nodes(node):
-            if child not in node.body:
-                self.visit(child)
         self.class_stack.append(qualname)
         self.scope_stack.append(qualname)
-        self.shadowed_names.append(self._class_bound_names(node))
-        for statement in node.body:
-            self.visit(statement)
-        self.shadowed_names.pop()
+        self.generic_visit(node)
         self.scope_stack.pop()
         self.class_stack.pop()
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        for child in ast.iter_child_nodes(node):
-            if child not in node.body:
-                self.visit(child)
-
-        arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
-        if node.args.vararg:
-            arguments.append(node.args.vararg)
-        if node.args.kwarg:
-            arguments.append(node.args.kwarg)
-        bound_names = {argument.arg for argument in arguments}
-        bound_names.update(
-            child.id
-            for child in own_scope(node)
-            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
-        )
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
-        self.shadowed_names.append(frozenset(bound_names))
-        for statement in node.body:
-            self.visit(statement)
-        self.shadowed_names.pop()
+        self.generic_visit(node)
         self.scope_stack.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -161,13 +163,10 @@ class ReferenceCollector(ast.NodeVisitor):
         """Resolve only a member listed on one statically bound enum class."""
         if not isinstance(node, ast.Attribute):
             return None
-        dotted = dotted_expression(node)
-        if dotted is None:
-            return None
-        parts = dotted.split(".")
-        if len(parts) < 2:
-            return None
-        if any(parts[0] in names for names in self.shadowed_names):
+        root = node.value
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if not isinstance(root, ast.Name) or root.id not in self.enum_member_roots:
             return None
         status, targets, _, _ = resolve_name(
             node.value, module=self.module, index=self.index, class_stack=self.class_stack
@@ -176,7 +175,7 @@ class ReferenceCollector(ast.NodeVisitor):
             return None
         enum_name = targets[0]
         members = self.index.enum_members.get(enum_name)
-        return enum_name if members is not None and parts[-1] in members else None
+        return enum_name if members is not None and node.attr in members else None
 
 
 def collect_references(

@@ -68,36 +68,32 @@ def test_the_claim_stays_small_enough_to_read() -> None:
     assert len(result.candidates) < 10
 
 
-def test_enum_members_in_field_annotations_and_defaults_reference_their_class(
+def test_enum_member_constructor_argument_references_its_class(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    source = tmp_path / "sample.py"
-    source.write_text(
+    (tmp_path / "sample.py").write_text(
         "from enum import Enum\n"
-        "from typing import Literal\n\n"
-        "class IntentRepairKind(str, Enum):\n"
-        "    REPLACE_FIELD = 'replace_field'\n\n"
-        "class ScaffoldParameter(str, Enum):\n"
-        "    MAX_COUNT = 'max_count'\n\n"
-        "class Unused(Enum):\n"
-        "    ITEM = 'item'\n\n"
-        "class Request:\n"
-        "    repair: Literal[IntentRepairKind.REPLACE_FIELD]\n"
-        "    limit: str = ScaffoldParameter.MAX_COUNT\n"
+        "class State(Enum):\n"
+        "    READY = 'ready'\n"
+        "class Payload: pass\n"
+        "def build():\n"
+        "    return Payload(State.READY)\n"
     )
 
     monkeypatch.setenv("PYTHONPATH", str(ROOT / "src"))
     observed = _observe(tmp_path)
     assert observed.observation is not None
-    result = unreferenced_symbols(observed.observation)
-    candidates = {candidate.name for candidate in result.candidates}
+    member_references = [
+        item
+        for item in observed.observation.records("references") or ()
+        if item.data.get("expression") == "State.READY"
+    ]
 
-    assert "sample.IntentRepairKind" not in candidates
-    assert "sample.ScaffoldParameter" not in candidates
-    assert "sample.Unused" in candidates
+    assert len(member_references) == 1
+    assert member_references[0].data.get("targets") == ("sample.State",)
 
 
-def test_enum_member_evidence_requires_a_proven_unshadowed_member(
+def test_ambiguous_enum_member_roots_do_not_add_enum_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     source = tmp_path / "sample.py"
@@ -120,8 +116,21 @@ def test_enum_member_evidence_requires_a_proven_unshadowed_member(
         "    return make_state().READY\n\n"
         "def shadowed(State):\n"
         "    return State.READY\n\n"
-        "def build():\n"
-        "    return Payload(State.READY)\n"
+        "def State(): pass\n"
+        "def module_rebind():\n"
+        "    State = object\n"
+        "    return State.READY\n\n"
+        "class LambdaShadow:\n"
+        "    value = lambda State: State.READY\n"
+        "class ComprehensionShadow:\n"
+        "    values = [State.READY for State in items]\n\n"
+        "def except_shadow():\n"
+        "    try: raise ValueError\n"
+        "    except ValueError as State:\n"
+        "        return Payload(State.READY)\n"
+        "def match_shadow(value):\n"
+        "    match value:\n"
+        "        case {'state': State}: return State.READY\n"
     )
 
     monkeypatch.setenv("PYTHONPATH", str(ROOT / "src"))
@@ -132,8 +141,7 @@ def test_enum_member_evidence_requires_a_proven_unshadowed_member(
         item for item in references if item.data.get("expression") == "State.READY"
     ]
 
-    assert [item.data.get("source_scope") for item in member_references] == ["sample.build"]
-    assert member_references[0].data.get("targets") == ("sample.State",)
+    assert all(item.data.get("targets") != ("sample.State",) for item in member_references)
 
 
 def test_shadowed_import_does_not_create_enum_member_evidence(
@@ -161,3 +169,27 @@ def test_shadowed_import_does_not_create_enum_member_evidence(
     ]
 
     assert all(item.data.get("targets") != ("sample.types.State",) for item in member_references)
+
+
+def test_wildcard_import_disables_enum_member_evidence_for_the_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "sample.py").write_text(
+        "from enum import Enum\n"
+        "from other import *\n"
+        "class State(Enum):\n"
+        "    READY = 'ready'\n"
+        "class Payload:\n"
+        "    status: State.READY\n"
+    )
+
+    monkeypatch.setenv("PYTHONPATH", str(ROOT / "src"))
+    observed = _observe(tmp_path)
+    assert observed.observation is not None
+    member_references = [
+        item
+        for item in observed.observation.records("references") or ()
+        if item.data.get("expression") == "State.READY"
+    ]
+
+    assert all(item.data.get("targets") != ("sample.State",) for item in member_references)

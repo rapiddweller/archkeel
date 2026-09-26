@@ -108,8 +108,9 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         section="class_d",
         item="unreferenced_symbols:enum-member-reference",
         summary="Proven enum members in field annotations, defaults and constructor arguments "
-        "reference their class; unknown, dynamic and shadowed members do not add enum-member "
-        "evidence.",
+        "reference their class only for one direct module-level class/import binding with no "
+        "competing binder or type parameter anywhere in the module; ambiguous roots add no "
+        "enum-member evidence.",
         files={},
         expected_violations=(),
         expected_codes=(),
