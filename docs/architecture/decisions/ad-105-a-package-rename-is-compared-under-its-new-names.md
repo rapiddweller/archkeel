@@ -47,8 +47,10 @@ Each clause has a test that fails without it:
   one with any file there, or beside it as `render.*`, scanned or not: a copy, a file the package
   rename names anew, or one outside narrowed roots. `__pycache__` is no code; Python reads it only
   beside a source. The CLI reads the selected historical `--config`; missing or invalid config, or
-  omitted `against_config` for direct callers, cannot authorize a rename. Python root/namespace
-  changes require a complete historical scan; changed-root Dart remains unsupported.
+  omitted `against_config` for direct callers, cannot authorize a rename. Every Python rename
+  candidate requires a complete historical scan under that config: physical layout can change
+  even when configured roots and namespace strings do not. Dart keeps the existing same-layout
+  path; changed-root or changed-namespace Dart renames remain unsupported.
 
 Candidates go shortest first; unparseable renamed contracts are skipped, then compared field by field.
 

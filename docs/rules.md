@@ -445,8 +445,9 @@ classification does not name is reported as a widening, never passed over silent
 renamed together with every module name the contract gives it widens nothing: it is recognised,
 named under `renames` and compared away, so only a widening beside it fails (AD-105). The CLI
 reads the same selected `--config` from the pinned historical revision; missing or invalid config
-cannot authorize a rename, and Python root/namespace changes require complete historical layout
-evidence. Changed-root Dart remains unsupported. A widening
+cannot authorize a rename. Every Python rename candidate needs a complete historical layout scan,
+even when roots and namespace are unchanged, because physical layout may move within those roots.
+Changed-root or changed-namespace Dart remains unsupported. A widening
 fails (`failures`, exit 1) unless `--amendment <path>` names a file
 binding its exact before/after contract digest, recording who decided it and why:
 

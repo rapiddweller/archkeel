@@ -1976,15 +1976,15 @@ def _rename_since(
         or ctx.config is None
     ):
         return None
+    if ctx.contract.components == contract.components:
+        return None
     historical_config = ctx.config
     current_layouts = module_layouts(observation)
     historical_layouts = current_layouts
     historical_scanned = False
-    if historical_config.roots != config.roots or (
-        historical_config.namespace != config.namespace and config.language == "python"
-    ):
-        if historical_config.language != "python":
-            return None
+    if historical_config.language != config.language:
+        return None
+    if config.language == "python":
         try:
             historical = observe_revision(
                 analyzer, root, ctx.against, historical_config, declared_at=ctx.against
@@ -1995,6 +1995,8 @@ def _rename_since(
             return None
         historical_layouts = module_layouts(historical.observation)
         historical_scanned = True
+    elif historical_config.roots != config.roots or historical_config.namespace != config.namespace:
+        return None
     layouts = current_layouts | historical_layouts
     recognised = renames_since(
         ctx.contract,
