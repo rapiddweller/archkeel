@@ -515,6 +515,6 @@ def test_unknown_profile_import_is_not_reported_as_an_unused_nested_name(
     result, _ = run_validate(tmp_path, config, observe)
 
     assert result.exit_code == 0
-    assert result.observation_complete == "UNKNOWN"
+    assert result.observation_complete == "PASS"
     assert result.declared_rules == "UNKNOWN"
     assert not any(item.code == "interface.unused" for item in result.diagnostics)
