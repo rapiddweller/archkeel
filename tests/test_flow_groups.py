@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from test_analyzer import _component, _observe
+from test_analyzer import _component, _inside_component, _observe
 
 from archkeel.render.flow import build_flow
 from archkeel.render.html import _flow_payload
@@ -209,3 +209,78 @@ assert.deepEqual(data.libraries[0].rules.map(rule => rule.rule_id), ["JSON-OTHER
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_root_library_projection_excludes_inside_only_scopes(tmp_path: Path) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_component("core") | {"inside": "inner.json"}],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_inside_component("api", []), _inside_component("other", [])],
+                "rules": [
+                    {
+                        "id": "INNER-JSON",
+                        "kind": "external_dependency_scope",
+                        "dependency": "json",
+                        "exact_sources": ["sample.core.other"],
+                        "rationale": "Keep the JSON use local to this inside.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    package = tmp_path / "sample/core"
+    package.mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (package / "api.py").write_text("VALUE = 1\n")
+    (package / "other.py").write_text("import json\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    payload = _flow_payload(result.observation, build_flow(result.observation))
+
+    assert payload["libraries"] == []
+    assert not any(edge.get("library") for edge in payload["edges"])
+
+
+def test_component_and_module_site_pairs_use_distinct_keys(tmp_path: Path) -> None:
+    components = [
+        _component("sample.a", packages=["sample.left"]) | {"id": "COMP-A"},
+        _component("sample.b", packages=["sample.right"]) | {"id": "COMP-B"},
+    ]
+    (tmp_path / "contract.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": components, "rules": []})
+    )
+    for package in ("left", "right"):
+        folder = tmp_path / f"sample/{package}"
+        folder.mkdir(parents=True)
+        (folder / "__init__.py").write_text(
+            "import sample.right\n" if package == "left" else "VALUE = 1\n"
+        )
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/a.py").write_text("import sample.b\n")
+    (tmp_path / "sample/b.py").write_text("VALUE = 1\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    flow = build_flow(result.observation)
+    payload = _flow_payload(result.observation, flow)
+
+    [root_edge] = [
+        edge
+        for edge in payload["edges"]
+        if (edge["source"], edge["target"]) == ("sample.a", "sample.b")
+    ]
+    assert root_edge["sites"] == ["sample/left/__init__.py:1"]
+    assert payload["unassigned"]["inner_edges"][0]["sites"] == ["sample/a.py:1"]

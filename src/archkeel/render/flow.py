@@ -404,7 +404,7 @@ def build_flow(observation: Observation) -> FlowData:
         if (name := text_value(record.data.get("qualified_name")))
     }
     modules_by_owner = _modules_by_owner(observation, components)
-    assigned = {name for names in modules_by_owner.values() for name in names}
+    assigned = {name for name in all_modules if owner_of(name, components) is not None}
     unassigned = all_modules - assigned
     inner_by_owner = _inner_edges(observation, components)
     inside_by_owner = _inside_views(observation)
