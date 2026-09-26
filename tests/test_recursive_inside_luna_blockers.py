@@ -34,6 +34,7 @@ from archkeel.check.validation import (
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
+from archkeel.ir.trace import trace_valid_violations
 from archkeel.render.flow import build_flow
 
 
@@ -468,10 +469,10 @@ def test_invalid_inside_sibling_does_not_replace_root_type_ownership(
     assert bool(violations) is expected_violation, (violations, unknowns)
 
 
-def test_validate_does_not_pass_for_an_ancestor_owned_private_type(tmp_path: Path) -> None:
-    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
-    (tmp_path / "docs/architecture").mkdir(parents=True)
-    (tmp_path / "docs/architecture/sample.md").write_text(
+def _write_ancestor_type_case(root: Path, *, public_target: bool) -> None:
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text(
         f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
     )
     for package in (
@@ -480,15 +481,15 @@ def test_validate_does_not_pass_for_an_ancestor_owned_private_type(tmp_path: Pat
         "sample/layer/source",
         "sample/layer/target",
     ):
-        path = tmp_path / package
+        path = root / package
         path.mkdir(parents=True, exist_ok=True)
         (path / "__init__.py").touch()
-    (tmp_path / "contracts").mkdir()
-    (tmp_path / "sample/layer/source/api.py").write_text(
+    (root / "contracts").mkdir()
+    (root / "sample/layer/source/api.py").write_text(
         "from sample.layer.target.api import Payload\n\n"
         "def run() -> Payload:\n    return Payload()\n"
     )
-    (tmp_path / "sample/layer/target/api.py").write_text("class Payload: pass\n")
+    (root / "sample/layer/target/api.py").write_text("class Payload: pass\n")
 
     public_api = ["sample.layer.source.api:run"]
     deepest = _contract(
@@ -526,26 +527,113 @@ def test_validate_does_not_pass_for_an_ancestor_owned_private_type(tmp_path: Pat
         ],
         [],
     )
-    root = _contract(
-        [_component_at("app", "sample", public=public_api, inside="contracts/one.json")],
+    root_public = list(public_api)
+    if public_target:
+        root_public.append("sample.layer.target.api:Payload")
+    root_contract = _contract(
+        [_component_at("app", "sample", public=root_public, inside="contracts/one.json")],
         [],
     )
-    (tmp_path / "contract.json").write_text(json.dumps(root))
-    (tmp_path / "contracts/one.json").write_text(json.dumps(layer))
-    (tmp_path / "contracts/two.json").write_text(json.dumps(middle))
-    (tmp_path / "contracts/three.json").write_text(json.dumps(deepest))
-    _commit_tree(tmp_path)
+    (root / "contract.json").write_text(json.dumps(root_contract))
+    (root / "contracts/one.json").write_text(json.dumps(layer))
+    (root / "contracts/two.json").write_text(json.dumps(middle))
+    (root / "contracts/three.json").write_text(json.dumps(deepest))
 
-    result, _ = run_validate(tmp_path, _scan_config(), observe)
 
-    findings = [
-        item
-        for item in (result.observation.records("violations") if result.observation else ()) or ()
-        if item.kind == "boundary_types"
-        and any(rule_id.endswith("SOURCE-TYPES") for rule_id in item.rule_ids)
+def test_validate_reports_an_ancestor_owned_private_type(tmp_path: Path) -> None:
+    _write_ancestor_type_case(tmp_path, public_target=False)
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    findings = trace_valid_violations(observed.observation)
+    assert [(item.kind, item.rule_ids, item.subjects) for item in findings] == [
+        (
+            "boundary_types",
+            ("app:layer:source:SOURCE-TYPES",),
+            ("sample.layer.source", "sample.layer.source.api", "sample.layer.source.api.run"),
+        )
     ]
-    assert result.declared_rules == "FAIL", (result.declared_rules, result.diagnostics)
-    assert len(findings) == 1 and "Payload" in findings[0].title
+    [finding] = findings
+    assert finding.title == (
+        "sample.layer.source.api.run returns Payload which app does not declare"
+    )
+    assert (finding.data.get("position"), finding.data.get("annotation")) == ("return", "Payload")
+    assert not any(
+        item.kind == "boundary_type_position" and item.data.get("reason") == "external_type"
+        for item in observed.observation.records("unknowns") or ()
+    )
+
+    _commit_tree(tmp_path)
+    result, _ = run_validate(tmp_path, _scan_config(), observe)
+    assert result.exit_code == 2
+    assert [
+        (item.code, item.pointer, item.subject)
+        for item in result.diagnostics
+        if item.code == "rule.violated"
+    ] == [
+        (
+            "rule.violated",
+            "/components/0/inside",
+            "app:layer:source:SOURCE-TYPES",
+        )
+    ]
+    [diagnostic] = [item for item in result.diagnostics if item.code == "rule.violated"]
+    assert diagnostic.unknown_claim == (
+        "The observed code violates the declared rule: "
+        "sample.layer.source.api.run returns Payload which app does not declare"
+    )
+
+
+def test_public_ancestor_type_is_accepted_by_deep_boundary_rule(tmp_path: Path) -> None:
+    _write_ancestor_type_case(tmp_path, public_target=True)
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    assert trace_valid_violations(observed.observation) == ()
+    rule_id = "app:layer:source:SOURCE-TYPES"
+    assert not any(
+        item.kind in {"boundary_type_position", "boundary_type_limit"} and rule_id in item.rule_ids
+        for item in observed.observation.records("unknowns") or ()
+    )
+
+
+def test_overlapping_same_level_owners_do_not_fall_back_to_public_ancestor(
+    tmp_path: Path,
+) -> None:
+    _write_ancestor_type_case(tmp_path, public_target=True)
+    path = tmp_path / "contracts/two.json"
+    middle = json.loads(path.read_text())
+    middle["components"].extend(
+        [
+            _component_at("target_one", "sample.layer.target"),
+            _component_at("target_two", "sample.layer.target"),
+        ]
+    )
+    path.write_text(json.dumps(middle))
+
+    observed = _observe(tmp_path)
+    assert observed.observation is not None, observed.diagnostics
+    rule_id = "app:layer:source:SOURCE-TYPES"
+    assert not [
+        item for item in trace_valid_violations(observed.observation) if rule_id in item.rule_ids
+    ]
+    positions = [
+        item
+        for item in observed.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position" and rule_id in item.rule_ids
+    ]
+    assert len(positions) == 1, observed.observation.records("unknowns")
+    assert positions[0].data.get("reason") not in {None, "external_type"}, positions[0]
+    limits = [
+        item
+        for item in observed.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit" and rule_id in item.rule_ids
+    ]
+    assert len(limits) == 1
+    assert (
+        limits[0].data.get("positions"),
+        limits[0].data.get("decided"),
+        limits[0].data.get("undecided"),
+        limits[0].data.get("external_type"),
+    ) == (1, 0, 1, 0)
 
 
 def test_partially_valid_multi_package_ancestor_cannot_claim_foreign_type(
