@@ -490,6 +490,7 @@ def scan_repository(
         package_edges=package_edges,
         package_edge_pairs=package_edge_pairs,
     )
+    blank_modules = frozenset(module.module for module in parsed if not module.source.strip())
     violations, boundary_allowances = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -497,7 +498,7 @@ def scan_repository(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
-        blank_modules=frozenset(module.module for module in parsed if not module.source.strip()),
+        blank_modules=blank_modules,
         # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
         module_cycles=module_cycles,
         contract=contract,
@@ -505,7 +506,6 @@ def scan_repository(
         profile=PYTHON,
         uncertain_reexport_origins=uncertain_reexport_origins,
     )
-    blank_modules = frozenset(module.module for module in parsed if not module.source.strip())
     (
         inside_violations,
         inside_unknowns,
