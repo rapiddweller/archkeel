@@ -1814,6 +1814,7 @@ class InsideContractMount:
     path: str
     contract: ArchitectureContract
     digest: str
+    canonical_digest: str
 
 
 @dataclass(frozen=True)
@@ -1836,6 +1837,7 @@ class InsideContractTree:
     issues: tuple[InsideContractIssue, ...]
     paths: tuple[str, ...]
     digest: str
+    comparison_digest: str
     comparison_contract: ArchitectureContract
 
 
@@ -1870,6 +1872,9 @@ def _load_inside_children(
     mounts: list[InsideContractMount],
     issues: list[InsideContractIssue],
     paths: set[str],
+    root_labels: frozenset[str],
+    parent_ids: dict[str, str],
+    record_ids: set[str],
 ) -> None:
     for index, parent in enumerate(owner_contract.components):
         if parent.inside is None:
@@ -1878,6 +1883,22 @@ def _load_inside_children(
         location = f"{pointer}/components/{index}/inside"
         reference = parent.inside
         paths.add(reference)
+        if owner_id and parent_id in root_labels:
+            issues.append(
+                InsideContractIssue(
+                    parent, parent_id, location, reference, "generated inside parent ID collision"
+                )
+            )
+            continue
+        previous_parent = parent_ids.get(parent_id)
+        if previous_parent is not None and previous_parent != location:
+            issues.append(
+                InsideContractIssue(
+                    parent, parent_id, location, reference, "generated inside parent ID collision"
+                )
+            )
+            continue
+        parent_ids[parent_id] = location
         if not _safe_inside_reference(reference):
             issues.append(
                 InsideContractIssue(
@@ -1897,13 +1918,37 @@ def _load_inside_children(
         try:
             contract = parse_contract(decode_json(payload))
         except (ContractVersionError, ValueError) as error:
-            issues.append(
-                InsideContractIssue(parent, parent_id, location, reference, str(error))
-            )
+            issues.append(InsideContractIssue(parent, parent_id, location, reference, str(error)))
             continue
+        declarations = contract.declarations or ContractDeclarations()
+        unsupported = _unsupported_inside_declaration_fields(declarations)
+        if unsupported:
+            issues.append(
+                InsideContractIssue(
+                    parent,
+                    parent_id,
+                    location,
+                    reference,
+                    f"unsupported non-empty declarations: {', '.join(unsupported)}",
+                )
+            )
         seen.add(identity)
         paths.update(contract_provenance_paths(contract))
         scoped = _scoped_inside_contract(parent_id, contract)
+        scoped_ids = {item.id for item in (*scoped.components, *scoped.rules)}
+        collision = next((item for item in sorted(scoped_ids) if item in record_ids), None)
+        if collision is not None:
+            issues.append(
+                InsideContractIssue(
+                    parent,
+                    parent_id,
+                    location,
+                    reference,
+                    f"generated declaration ID collision: {collision}",
+                )
+            )
+            continue
+        record_ids.update(scoped_ids)
         mount = InsideContractMount(
             parent,
             owner_contract,
@@ -1912,6 +1957,7 @@ def _load_inside_children(
             reference,
             scoped,
             hashlib.sha256(payload).hexdigest(),
+            contract_digest(contract),
         )
         mounts.append(mount)
         _load_inside_children(
@@ -1924,7 +1970,46 @@ def _load_inside_children(
             mounts,
             issues,
             paths,
+            root_labels,
+            parent_ids,
+            record_ids,
         )
+
+
+def _unsupported_inside_declaration_fields(declarations: ContractDeclarations) -> tuple[str, ...]:
+    fields = (
+        ("capabilities", declarations.capabilities),
+        ("review_scopes", declarations.review_scopes),
+        ("public_api", declarations.public_api),
+        ("public_api_provenance", declarations.public_api_provenance),
+        ("public_commands", declarations.public_commands),
+        ("context_roots", declarations.context_roots),
+        ("context_roots_provenance", declarations.context_roots_provenance),
+        ("paths", declarations.paths),
+        ("spot_owners", declarations.spot_owners),
+        ("compat", declarations.compat),
+        ("measurement_budgets", declarations.measurement_budgets),
+        ("facade_budgets", declarations.facade_budgets or ()),
+        ("coupling_budgets", declarations.coupling_budgets or ()),
+    )
+    return tuple(name for name, values in fields if values)
+
+
+def _contract_record_ids(contract: ArchitectureContract) -> set[str]:
+    declarations = contract.declarations or ContractDeclarations()
+    return {
+        item.id
+        for items in (
+            contract.components,
+            contract.rules,
+            declarations.capabilities,
+            declarations.review_scopes,
+            declarations.public_commands,
+            declarations.paths,
+            declarations.spot_owners,
+        )
+        for item in items
+    }
 
 
 def load_inside_contract_tree(
@@ -1938,6 +2023,7 @@ def load_inside_contract_tree(
     mounts: list[InsideContractMount] = []
     issues: list[InsideContractIssue] = []
     paths = {root_path, *contract_provenance_paths(root_contract)}
+    root_labels = frozenset(component.label for component in root_contract.components)
     _load_inside_children(
         root_contract,
         "",
@@ -1948,9 +2034,21 @@ def load_inside_contract_tree(
         mounts,
         issues,
         paths,
+        root_labels,
+        {},
+        _contract_record_ids(root_contract),
     )
     digests = [root_digest, *(item.digest for item in mounts)]
     digest = root_digest if not mounts else hashlib.sha256("".join(digests).encode()).hexdigest()
+    canonical_digests = [
+        contract_digest(root_contract),
+        *(item.canonical_digest for item in mounts),
+    ]
+    comparison_digest = (
+        canonical_digests[0]
+        if not mounts
+        else hashlib.sha256("".join(canonical_digests).encode()).hexdigest()
+    )
     comparison_contract = replace(
         root_contract,
         components=(
@@ -1965,6 +2063,7 @@ def load_inside_contract_tree(
         tuple(issues),
         tuple(sorted(paths)),
         digest,
+        comparison_digest,
         comparison_contract,
     )
 

@@ -46,9 +46,7 @@ def _three_level_contract(root: Path, *, deepest_rule: bool) -> None:
         root / "contract.json",
         {
             "schema_version": "2.1.0",
-            "components": [
-                _component("sample", packages=["sample"]) | {"inside": "one.json"}
-            ],
+            "components": [_component("sample", packages=["sample"]) | {"inside": "one.json"}],
             "rules": [],
         },
     )
@@ -56,9 +54,7 @@ def _three_level_contract(root: Path, *, deepest_rule: bool) -> None:
         root / "one.json",
         {
             "schema_version": "2.1.0",
-            "components": [
-                _inside_component("core", "sample.core", inside="two.json")
-            ],
+            "components": [_inside_component("core", "sample.core", inside="two.json")],
             "rules": [],
         },
     )
@@ -131,6 +127,36 @@ def test_deep_contract_bytes_change_digest_deterministically(tmp_path: Path) -> 
     assert changed.contract.digest != first.contract.digest
 
 
+def test_amendment_digest_is_canonical_while_observation_digest_keeps_source_bytes(
+    tmp_path: Path,
+) -> None:
+    root = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [_component("sample", packages=["sample"]) | {"inside": "one.json"}],
+            "rules": [],
+        }
+    )
+    payloads = [
+        b'{"schema_version":"2.1.0","components":[],"rules":[]}',
+        b'{\n  "schema_version": "2.1.0",\n  "components": [],\n  "rules": []\n}\n',
+    ]
+
+    def tree(payload: bytes):
+        return load_inside_contract_tree(
+            "contract.json",
+            root,
+            "root-source-digest",
+            "contract.json",
+            lambda path: (payload, path),
+        )
+
+    compact, formatted = map(tree, payloads)
+
+    assert compact.digest != formatted.digest
+    assert compact.comparison_digest == formatted.comparison_digest
+
+
 def _git(root: Path, *args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
 
@@ -196,9 +222,7 @@ def test_inside_tree_rejects_missing_unsafe_and_duplicate_mounts(
             raise ValueError("missing or outside")
         return target.read_bytes(), target.relative_to(tmp_path.resolve()).as_posix()
 
-    tree = load_inside_contract_tree(
-        "contract.json", root, "root-digest", "contract.json", read
-    )
+    tree = load_inside_contract_tree("contract.json", root, "root-digest", "contract.json", read)
 
     assert any(expected in issue.reason for issue in tree.issues)
 
@@ -212,9 +236,7 @@ def test_inside_tree_rejects_cycles_and_symlink_escapes(tmp_path: Path) -> None:
         }
     )
     cyclic = {"schema_version": "2.1.0", "components": [], "rules": []}
-    cyclic["components"] = [
-        _component("loop", packages=["sample"]) | {"inside": "contract.json"}
-    ]
+    cyclic["components"] = [_component("loop", packages=["sample"]) | {"inside": "contract.json"}]
     (tmp_path / "inner.json").write_text(json.dumps(cyclic), encoding="utf-8")
     root_payload = {
         "schema_version": "2.1.0",
@@ -248,3 +270,63 @@ def test_inside_tree_rejects_cycles_and_symlink_escapes(tmp_path: Path) -> None:
 
     assert any(issue.reason == "reference cycle" for issue in cycle_tree.issues)
     assert any("outside repository" in issue.reason for issue in escape_tree.issues)
+
+
+def test_inside_tree_rejects_generated_parent_and_record_id_collisions(tmp_path: Path) -> None:
+    root_payload = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component("a:b", packages=["sample.ab"]) | {"inside": "ab.json"},
+            _component("a", packages=["sample.a"]) | {"inside": "a.json"},
+        ],
+        "rules": [],
+    }
+    (tmp_path / "ab.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": [], "rules": []})
+    )
+    (tmp_path / "a.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_inside_component("b", "sample.a.b", inside="leaf.json")],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "leaf.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": [], "rules": []})
+    )
+    root = parse_contract(root_payload)
+    tree = load_inside_contract_tree(
+        "contract.json",
+        root,
+        "root-digest",
+        "contract.json",
+        lambda path: ((tmp_path / path).read_bytes(), path),
+    )
+
+    assert any("generated inside parent ID collision" in issue.reason for issue in tree.issues)
+
+    root_component = _component("app", packages=["sample"]) | {"inside": "child.json"}
+    root_component["id"] = "app:COMP-CHILD"
+    id_root = parse_contract(
+        {"schema_version": "2.1.0", "components": [root_component], "rules": []}
+    )
+    (tmp_path / "child.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_inside_component("child", "sample.child")],
+                "rules": [],
+            }
+        )
+    )
+    id_tree = load_inside_contract_tree(
+        "contract.json",
+        id_root,
+        "root-digest",
+        "contract.json",
+        lambda path: ((tmp_path / path).read_bytes(), path),
+    )
+
+    assert any("generated declaration ID collision" in issue.reason for issue in id_tree.issues)

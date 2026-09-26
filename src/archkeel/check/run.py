@@ -7,7 +7,14 @@ from collections.abc import Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from archkeel.ir.codec import canonical_report_bytes, declaration_paths, decode_json, parse_lock
+from archkeel.ir.codec import (
+    canonical_report_bytes,
+    declaration_paths,
+    decode_json,
+    load_inside_contract_tree,
+    parse_contract,
+    parse_lock,
+)
 from archkeel.ir.digest import package_digest
 from archkeel.ir.host_records import parse_records
 from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observation
@@ -119,7 +126,27 @@ def _authenticate_inputs(
         or expectation.baseline_commit != baseline
     ):
         raise LockError("expectation does not bind the accepted lock and baseline")
-    for path in (LOCK_PATH, config.contract):
+    try:
+        contract_bytes = read_blob(root, baseline, config.contract)
+        contract = parse_contract(decode_json(contract_bytes))
+
+        def read_accepted_contract(path: str) -> tuple[bytes, str]:
+            return read_blob(root, baseline, path), path
+
+        tree = load_inside_contract_tree(
+            config.contract,
+            contract,
+            sha256_bytes(contract_bytes),
+            config.contract,
+            read_accepted_contract,
+        )
+    except (GitError, ValueError) as error:
+        raise LockError(f"cannot load accepted contract tree: {error}") from error
+    if tree.issues:
+        issue = tree.issues[0]
+        raise LockError(f"accepted contract tree is invalid at {issue.pointer}: {issue.reason}")
+    policy_paths = {config.contract, *(mount.path for mount in tree.mounts)}
+    for path in (LOCK_PATH, *sorted(policy_paths)):
         if read_blob(root, baseline, path) != read_blob(root, head, path):
             raise LockError(f"candidate changed accepted policy input: {path}")
     return lock, lock_bytes, expectation

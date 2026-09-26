@@ -1453,22 +1453,6 @@ def _denied_by_absence(
     return rule.id
 
 
-def _inside_budgets(pointer: str, inside: str, inner: ArchitectureContract) -> list[Diagnostic]:
-    """AD-99: the level above measures only its own components, so nothing holds these."""
-    declarations = inner.declarations or ContractDeclarations()
-    if not declarations.facade_budgets and not declarations.coupling_budgets:
-        return []
-    return [
-        _diagnostic(
-            "contract.invalid",
-            pointer,
-            inside,
-            "The inside declares facade or coupling budgets, which the level above never measures.",
-            "Declare the budget in the top-level contract, whose components it can name.",
-        )
-    ]
-
-
 def _inside_source_domain_diagnostics(
     pointer: str, component: ContractComponent, inner: ArchitectureContract
 ) -> list[Diagnostic]:
@@ -1518,10 +1502,7 @@ def inside_diagnostics(
         inner = mount.contract
         parent = mount.parent
         pointer = mount.pointer
-        diagnostics.extend(
-            _inside_source_domain_diagnostics(pointer, parent, inner)
-        )
-        diagnostics.extend(_inside_budgets(pointer, mount.path, inner))
+        diagnostics.extend(_inside_source_domain_diagnostics(pointer, parent, inner))
         declared = frozenset(parent.public or ())
         inside = _inside_public(inner)
         if declared != inside:
@@ -1541,9 +1522,7 @@ def inside_diagnostics(
             if not isinstance(rule, AllowedDependencyRule):
                 continue
             blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
-            absent = _denied_by_absence(
-                mount.parent_contract, parent.label, required, rule.target
-            )
+            absent = _denied_by_absence(mount.parent_contract, parent.label, required, rule.target)
             if absent is not None:
                 blocked.append(absent)
             if blocked:
@@ -1963,7 +1942,7 @@ def _resolve_against_context(
     try:
         tree = _revision_contract_tree(root, against, against_contract_path)
         against_contract: ArchitectureContract | _Introduced = tree.comparison_contract
-        before_tree_digest: str | None = tree.digest
+        before_tree_digest: str | None = tree.comparison_digest
     except MissingBlobError as error:
         against_contract = _Introduced(error.path)
         before_tree_digest = None
@@ -2324,11 +2303,9 @@ def run_validate(
         return parsed_contract, FilesToWrite()
     contract = parsed_contract
     inside_tree = _inside_contract_tree(root, config.contract, contract)
-    comparison_contract = (
-        contract if inside_tree is None else inside_tree.comparison_contract
-    )
+    comparison_contract = contract if inside_tree is None else inside_tree.comparison_contract
     current_tree_digest = (
-        contract_digest(contract) if inside_tree is None else inside_tree.digest
+        contract_digest(contract) if inside_tree is None else inside_tree.comparison_digest
     )
     declarations = contract.declarations or ContractDeclarations()
     declared_budgets = tuple(item.name for item in declarations.measurement_budgets)
