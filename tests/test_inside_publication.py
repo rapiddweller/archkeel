@@ -6,10 +6,13 @@
 import json
 from pathlib import Path
 
+import pytest
 from test_analyzer import _component, _inside_component, _observe
+from test_recursive_inside_independent_contracts import _commit_tree, _scan_config
 
+from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import inside_diagnostics
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER, inside_diagnostics, run_validate
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.trace import trace_valid_violations
@@ -341,3 +344,138 @@ def test_overlapping_child_scopes_leave_init_and_ambiguous_module_unassigned(
     assert level.unassigned == ("sample.core", "sample.core.api.nested")
     owners = {item.label: item.modules for item in level.components}
     assert owners == {"api": ("sample.core.api",), "nested": ()}
+
+
+@pytest.mark.parametrize(
+    ("field", "entry", "expected_code"),
+    [
+        ("public", "sample.core.worker:helper", "reference.public_owner"),
+        ("public", "sample.core.api:_helper", "reference.public_underscore"),
+        ("planned", "sample.core.worker:helper", "reference.public_owner"),
+        ("planned", "sample.core.api:_helper", "reference.public_underscore"),
+        ("public", "outside.api:helper", "reference.namespace"),
+    ],
+    ids=["public-owner", "public-underscore", "planned-owner", "planned-underscore", "namespace"],
+)
+def test_inside_public_and_planned_entries_keep_reference_validation(
+    tmp_path: Path, field: str, entry: str, expected_code: str
+) -> None:
+    api = _child("api", "sample.core.api")
+    api[field] = [entry]
+    _write_project(
+        tmp_path,
+        components=[
+            _component(
+                "core",
+                packages=["sample.core"],
+                public=[entry] if field == "public" else [],
+            )
+            | {"inside": "core.json"}
+        ],
+        rules=[],
+        insides={"core.json": _inside([api, _child("worker", "sample.core.worker")], [])},
+        files={
+            "sample/core/api.py": "def helper() -> int:\n    return 1\n",
+            "sample/core/worker.py": "def helper() -> int:\n    return 1\n",
+        },
+    )
+
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        parse_contract(json.loads((tmp_path / "contract.json").read_bytes())),
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+    )
+
+    assert [
+        (item.code, item.pointer, item.subject)
+        for item in diagnostics
+        if item.code == expected_code
+    ] == [(expected_code, f"/components/0/inside/components/0/{field}/0", entry)]
+
+
+@pytest.mark.parametrize("external_import", [False, True], ids=["local-pass", "outside-blocked"])
+def test_nested_child_public_stays_local_in_validate(tmp_path: Path, external_import: bool) -> None:
+    local_api = "sample.core.service.api:helper"
+    root_api = "sample.core:published"
+    service = _child("service", "sample.core.service") | {"inside": "service.json"}
+    service_contract = _inside(
+        [
+            _child("api", "sample.core.service.api", public=[local_api]),
+            _child("worker", "sample.core.service.worker"),
+        ],
+        [
+            _rule("LOCAL-INTERFACE", "interface_boundary"),
+            _rule(
+                "LOCAL-ALLOW-WORKER",
+                "allowed_dependency",
+                source="sample.core.service.worker",
+                target="sample.core.service.api",
+            ),
+        ],
+    )
+    _write_project(
+        tmp_path,
+        components=[
+            _component("core", packages=["sample.core"], public=[root_api])
+            | {"inside": "core.json"},
+            _component("client", packages=["sample.client"]),
+        ],
+        rules=[
+            _rule("ROOT-INTERFACE", "interface_boundary"),
+            _rule(
+                "ROOT-ALLOW-CLIENT",
+                "allowed_dependency",
+                source="sample.client",
+                target="sample.core",
+            ),
+            _rule(
+                "ROOT-NO-REVERSE",
+                "forbidden_dependency",
+                source="sample.core",
+                target="sample.client",
+                include_type_checking=True,
+            ),
+        ],
+        insides={"core.json": _inside([service], []), "service.json": service_contract},
+        files={
+            "sample/core/__init__.py": "def published() -> int:\n    return 1\n",
+            "sample/core/service/api.py": "def helper() -> int:\n    return 1\n",
+            "sample/core/service/worker.py": "from sample.core.service.api import helper\n",
+            "sample/client.py": (
+                "from sample.core import published\n"
+                + (
+                    "from sample.core.service.api import helper\n"
+                    if external_import
+                    else ""
+                )
+            ),
+        },
+    )
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    graph_edge = "  client --> core\n"
+    (tmp_path / "docs/architecture/sample.md").write_text(
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n"
+        f"{graph_edge}```\n"
+    )
+    _commit_tree(tmp_path)
+
+    result, _ = run_validate(tmp_path, _scan_config(), observe)
+
+    assert result.exit_code == (2 if external_import else 0), [
+        (item.code, item.subject, item.unknown_claim)
+        for item in result.diagnostics
+    ]
+    assert [
+        (item.code, item.pointer, item.subject)
+        for item in result.diagnostics
+        if item.code == "rule.violated"
+    ] == (
+        [("rule.violated", "/rules/0", "ROOT-INTERFACE")]
+        if external_import
+        else []
+    )
+    assert not [item for item in result.diagnostics if item.code != "rule.violated"], [
+        (item.code, item.subject, item.unknown_claim)
+        for item in result.diagnostics
+        if item.code != "rule.violated"
+    ]
