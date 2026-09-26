@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import ast
 import hashlib
-from collections.abc import Iterator, Sequence
+from collections import Counter
+from collections.abc import Iterable, Iterator, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -124,18 +125,17 @@ def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
         and node in module.tree.body
     ] + [name for name, is_direct in imports if is_direct]
-    binders = _bound_names(module.tree)
-    return frozenset(name for name in direct if binders.count(name) == 1)
+    binders = _bound_names(nodes)
+    counts = Counter(binders)
+    return frozenset(name for name in direct if counts[name] == 1)
 
 
 def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     """Names bound once at module level without a conditional or explicit global rebind."""
     direct: dict[str, int] = {}
-    unstable: set[str] = set()
     for statement in module.tree.body:
         if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             direct[statement.name] = direct.get(statement.name, 0) + 1
-            unstable.update(_module_definition_expression_writes(statement))
         elif isinstance(statement, ast.Import | ast.ImportFrom):
             for name in _import_bindings(statement):
                 direct[name] = direct.get(name, 0) + 1
@@ -144,19 +144,21 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
                 statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
             )
             for target in targets:
-                for name in _bound_names(target):
+                for name in _bound_names(ast.walk(target)):
                     direct[name] = direct.get(name, 0) + 1
-        else:
-            unstable.update(_module_binding_writes(statement))
-
-    unstable.update(
+    nodes = list(_module_scope_nodes(module.tree))
+    counts = Counter(_bound_names(nodes))
+    global_names = {
         name
         for node in ast.walk(module.tree)
         if isinstance(node, ast.Global)
         for name in node.names
+    }
+    return frozenset(
+        name
+        for name, count in direct.items()
+        if count == 1 and counts[name] == 1 and name not in global_names
     )
-
-    return frozenset(name for name, count in direct.items() if count == 1 and name not in unstable)
 
 
 def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
@@ -167,8 +169,8 @@ def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
     )
 
 
-def _bound_names(node: ast.AST) -> list[str]:
-    nodes = list(ast.walk(node))
+def _bound_names(nodes: Iterable[ast.AST]) -> list[str]:
+    nodes = list(nodes)
     imports = [
         name
         for child in nodes
@@ -201,100 +203,43 @@ def _bound_names(node: ast.AST) -> list[str]:
     )
 
 
-class _ModuleBindingWrites(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.names: set[str] = set()
-
-    def visit_definition_expressions(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
-    ) -> None:
-        expressions: list[ast.AST | None] = list(node.decorator_list)
-        if isinstance(node, ast.ClassDef):
-            expressions.extend(node.bases)
-            expressions.extend(keyword.value for keyword in node.keywords)
-        else:
-            expressions.extend(node.args.defaults)
-            expressions.extend(node.args.kw_defaults)
+def _module_scope_nodes(module: ast.Module) -> Iterator[ast.AST]:
+    """Walk module-evaluated expressions, excluding nested function/class bodies."""
+    pending: list[ast.AST] = [module]
+    while pending:
+        node = pending.pop()
+        yield node
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            expressions: list[ast.AST] = [*node.decorator_list, *node.args.defaults]
+            expressions.extend(item for item in node.args.kw_defaults if item is not None)
             expressions.extend(
                 argument.annotation
-                for argument in [
-                    *node.args.posonlyargs,
-                    *node.args.args,
-                    *node.args.kwonlyargs,
-                ]
+                for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+                if argument.annotation is not None
             )
-            if node.args.vararg:
+            if node.args.vararg and node.args.vararg.annotation:
                 expressions.append(node.args.vararg.annotation)
-            if node.args.kwarg:
+            if node.args.kwarg and node.args.kwarg.annotation:
                 expressions.append(node.args.kwarg.annotation)
-            expressions.append(node.returns)
-        for expression in expressions:
-            if expression is not None:
-                self.visit(expression)
-
-    def visit_Name(self, node: ast.Name) -> None:
-        if isinstance(node.ctx, ast.Store | ast.Del):
-            self.names.add(node.id)
-
-    def visit_Import(self, node: ast.Import) -> None:
-        self.names.update(_import_bindings(node))
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        self.names.update(_import_bindings(node))
-
-    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        self.names.add(node.name)
-        self.visit_definition_expressions(node)
-
-    visit_AsyncFunctionDef = visit_FunctionDef
-
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        self.names.add(node.name)
-        self.visit_definition_expressions(node)
-
-    def visit_Lambda(self, node: ast.Lambda) -> None:
-        for expression in [*node.args.defaults, *node.args.kw_defaults]:
-            if expression is not None:
-                self.visit(expression)
-
-    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
-        if node.name:
-            self.names.add(node.name)
-        self.generic_visit(node)
-
-    def visit_MatchAs(self, node: ast.MatchAs) -> None:
-        if node.name:
-            self.names.add(node.name)
-        self.generic_visit(node)
-
-    def visit_MatchStar(self, node: ast.MatchStar) -> None:
-        if node.name:
-            self.names.add(node.name)
-        self.generic_visit(node)
-
-    def visit_MatchMapping(self, node: ast.MatchMapping) -> None:
-        if node.rest:
-            self.names.add(node.rest)
-        self.generic_visit(node)
-
-    def visit_comprehension(self, node: ast.comprehension) -> None:
-        self.visit(node.iter)
-        for condition in node.ifs:
-            self.visit(condition)
-
-
-def _module_binding_writes(statement: ast.stmt) -> frozenset[str]:
-    visitor = _ModuleBindingWrites()
-    visitor.visit(statement)
-    return frozenset(visitor.names)
-
-
-def _module_definition_expression_writes(
-    statement: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
-) -> frozenset[str]:
-    visitor = _ModuleBindingWrites()
-    visitor.visit_definition_expressions(statement)
-    return frozenset(visitor.names)
+            if node.returns:
+                expressions.append(node.returns)
+            pending.extend(reversed(expressions))
+        elif isinstance(node, ast.ClassDef):
+            expressions = [*node.decorator_list, *node.bases]
+            expressions.extend(keyword.value for keyword in node.keywords)
+            pending.extend(reversed(expressions))
+        elif isinstance(node, ast.Lambda):
+            expressions = [*node.args.defaults]
+            expressions.extend(item for item in node.args.kw_defaults if item is not None)
+            pending.extend(reversed(expressions))
+        elif isinstance(node, ast.comprehension):
+            pending.extend(reversed([node.iter, *node.ifs]))
+        elif isinstance(node, ast.ListComp | ast.SetComp | ast.GeneratorExp):
+            pending.extend(reversed([node.elt, *node.generators]))
+        elif isinstance(node, ast.DictComp):
+            pending.extend(reversed([node.key, node.value, *node.generators]))
+        else:
+            pending.extend(reversed(list(ast.iter_child_nodes(node))))
 
 
 def _excerpt(module: ParsedModule, node: ast.AST) -> str:

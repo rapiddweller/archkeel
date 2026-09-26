@@ -460,6 +460,7 @@ def test_public_route_does_not_infer_proof_from_missing_target_ownership(
         ),
         ("Export = 42\nmatch (lambda value: value):\n    case Export:\n        pass\n", True, 0),
         ("Export = 42\ndef configure(value=(Export := lambda item: item)):\n    pass\n", True, 0),
+        ("Export = 42\nother = (Export := lambda value: value)\n", True, 0),
         (
             "Export = 42\ndef configure():\n    global Export\n"
             "    def Export(value: dict) -> object:\n        return value\nconfigure()\n",
@@ -478,6 +479,7 @@ def test_public_route_does_not_infer_proof_from_missing_target_ownership(
         "global-rebinding",
         "match-capture-rebinding",
         "default-expression-rebinding",
+        "assignment-rhs-rebinding",
         "nested-global-function-rebinding",
         "stable-constant",
         "stable-class",
