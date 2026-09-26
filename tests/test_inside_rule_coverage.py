@@ -317,6 +317,42 @@ def test_inner_type_checking_edge_excluded_by_rule_is_not_called_checked(tmp_pat
     assert edge.state in {"observed", "undecided"}
 
 
+def test_runtime_requirement_does_not_cover_excluded_type_checking_site(
+    tmp_path: Path,
+) -> None:
+    _write_inside_case(
+        tmp_path,
+        b_requires=["a"],
+        rules=[
+            {
+                "id": "REQUIRES-COMPLETE",
+                "kind": "complete_requires",
+                "include_type_checking": False,
+                "rationale": "Check runtime imports only.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    )
+    (tmp_path / "sample/core/b.py").write_text(
+        "import sample.core.a\n"
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n    import sample.core.a\n"
+    )
+
+    result, edge = _inside_edge(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    imports = [
+        item
+        for item in result.observation.records("imports") or ()
+        if item.data.get("source_module") == "sample.core.b"
+        and item.data.get("target_module") == "sample.core.a"
+    ]
+    assert sorted(item.data.get("under_type_checking") for item in imports) == [False, True]
+    assert edge.import_sites == 2
+    assert edge.state in {"observed", "undecided"}
+
+
 def test_runtime_finding_does_not_attribute_excluded_type_checking_import(
     tmp_path: Path,
 ) -> None:
