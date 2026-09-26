@@ -606,6 +606,7 @@ _RECURSIVE_INSIDE_CLEAN = Variant(
     },
     expected_violations=(),
     expected_codes=(),
+    expected_declared_rules="PASS",
 )
 _RECURSIVE_INSIDE_VIOLATION = Variant(
     id="class-a-recursive-inside-violation",
@@ -621,6 +622,7 @@ _RECURSIVE_INSIDE_VIOLATION = Variant(
     },
     expected_violations=("store:backend:tasks:DEEP-REQUIRES-COMPLETE",),
     expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
 )
 
 # Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
