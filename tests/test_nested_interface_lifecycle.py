@@ -28,6 +28,40 @@ _INTERFACE_RULE = {
 }
 
 
+def test_ancestor_facade_usage_does_not_leak_into_a_deeper_mount(tmp_path: Path) -> None:
+    _prepare(tmp_path, public=[_ENTRY], facade_case="ancestor-facade")
+    leaf_path = tmp_path / "contracts/two.json"
+    leaf = json.loads(leaf_path.read_text())
+    leaf["components"][0]["inside"] = "contracts/three.json"
+    leaf_path.write_text(json.dumps(leaf))
+    (tmp_path / "contracts/three.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component(
+                        "implementation",
+                        packages=["sample.layer.source.api"],
+                        public=[_ENTRY],
+                    )
+                ],
+                "rules": [_INTERFACE_RULE],
+            }
+        )
+    )
+    _commit_tree(tmp_path)
+
+    result, _ = run_validate(tmp_path, _scan_config(), observe)
+
+    assert [(item.code, item.pointer, item.subject) for item in result.diagnostics] == [
+        (
+            "interface.unused",
+            "/components/0/inside/components/0/inside/components/0/inside/components/0/public/0",
+            _ENTRY,
+        )
+    ]
+
+
 def _prepare(
     root: Path,
     *,
