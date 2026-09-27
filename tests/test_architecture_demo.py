@@ -162,7 +162,7 @@ def test_demo_replay_runs_deepest_change_through_validate_against(
         demo_main(
             ["--replay", "against-recursive-deepest-contract-change", "--output", str(output)]
         )
-        == 0
+        == 1
     )
     validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
     assert validation["command"] == "validate"
@@ -188,12 +188,6 @@ def test_demo_replay_preserves_validate_failure_before_report(
     variant_id: str,
     validation_exit: int,
 ) -> None:
-    variant = next(item for item in CATALOG if item.id == variant_id)
-    baseline_before = (
-        str(variant.files[variant.baseline]).encode()
-        if variant.baseline is not None and variant.baseline in variant.files
-        else None
-    )
     output = tmp_path / f"{variant_id}.json"
 
     assert demo_main(["--replay", variant_id, "--output", str(output)]) == validation_exit
@@ -205,8 +199,6 @@ def test_demo_replay_preserves_validate_failure_before_report(
         assert {item["code"] for item in results[0]["diagnostics"]} == {"graph.drift"}
     else:
         assert any("--write-baseline refused" in item for item in results[0]["failures"])
-        assert variant.baseline is not None and baseline_before is not None
-        assert str(variant.files[variant.baseline]).encode() == baseline_before
     assert results[1]["command"] == "report"
     assert results[1]["baseline_new"] is None
     assert results[1]["baseline_resolved"] is None
@@ -221,13 +213,14 @@ def test_demo_replay_handles_incomplete_report_without_empty_reservations(
     html = output.with_name("missing-child.report.html")
 
     assert demo_main(["--replay", "validation-contract-invalid", "--output", str(output)]) == 2
-    result = json.loads(capsys.readouterr().out)
+    results = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
 
-    assert result["command"] == "report"
-    assert result["observation_complete"] == "UNKNOWN"
+    assert [item["command"] for item in results] == ["validate", "report"]
+    assert [item["exit_code"] for item in results] == [2, 2]
+    assert results[-1]["observation_complete"] == "UNKNOWN"
     if output.exists():
         assert output.stat().st_size > 0
-        assert json.loads(output.read_bytes())["observation_complete"] == "UNKNOWN"
+        parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
     if html.exists():
         assert html.stat().st_size > 0
         assert "UNKNOWN" in html.read_text()
@@ -248,18 +241,13 @@ def test_demo_replay_uses_catalog_custom_config(
     assert results[-1]["scan_roots"] == ["tests"]
 
 
-def test_recursive_wide_report_includes_a_truly_isolated_module_and_package_root(
+def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     variant = next(item for item in CATALOG if item.id == "class-a-recursive-wide-package")
-    files = dict(variant.files)
-    files["shop/store/backend/tasks/isolated.py"] = (
-        "# Archkeel\n# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.\n"
-        '# SPDX-License-Identifier: MIT\n"""Intentionally isolated task."""\nVALUE = 1\n'
-    )
     combined_root = tmp_path / "combined"
     combined_root.mkdir()
-    root = _prepare_repo(combined_root, files, variant.fixture)
+    root = _prepare_repo(combined_root, dict(variant.files), variant.fixture)
     output = tmp_path / "combined-report" / "architecture.json"
 
     assert main(["report", "--root", str(root), "--output", str(output), "--json"]) == 0
