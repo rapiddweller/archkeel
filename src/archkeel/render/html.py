@@ -210,6 +210,8 @@ def _violations(
 def _violation_row(
     item: Record,
     observation: Observation,
+    *,
+    known: bool = False,
 ) -> str:
     evidence = {entry.id: entry for entry in observation.evidence}
     location = ""
@@ -221,11 +223,15 @@ def _violation_row(
     components = sorted(
         {owner for subject in item.subjects if (owner := owner_of(subject, owners)) is not None}
     )
+    baseline = ' data-baseline="known"' if known else ""
+    known_badge = '<span class="known-badge">KNOWN</span>' if known else ""
     return (
-        f'<tr data-filter-row data-kind="{_text(item.kind)}" data-status="FAIL" '
+        f'<tr class="violation-row" data-filter-row data-kind="{_text(item.kind)}" '
+        f'data-status="FAIL"{baseline} '
         f'data-component="{_text(" ".join(components))}" '
         f'data-search="{_text(" ".join((item.id, item.title, *item.rule_ids, *item.subjects)))}">'
-        f"<td><code>{_text(item.id)}</code></td>"
+        f'<td><code>{_text(item.id)}</code> <span class="violation-status">FAIL</span> '
+        f"{known_badge}</td>"
         f"<td>{_text(item.kind)}</td>"
         f"<td><code>{_text(', '.join(item.rule_ids))}</code></td>"
         f"<td>{_text(item.title)}</td>"
@@ -241,23 +247,33 @@ def _violation_group(
     comparisons: tuple[BaselineViolationComparison, ...],
 ) -> str:
     subjects = {tuple(sorted(item.subjects)) for item in items}
-    known = " ".join(
-        f'<span class="known-badge" aria-label="Known violation; still a failure">'
-        f"KNOWN · {item.shared_count} of {item.current_count} current for "
-        f"{_text(' · '.join(item.subjects))}</span>"
-        + (
-            ' <span class="muted">extra occurrence identity unknown</span>'
-            if item.new_count
-            else ""
-        )
+    matches = tuple(
+        item
         for item in comparisons
-        if item.rules == rule_ids and item.subjects in subjects and item.shared_count
+        if item.rules == rule_ids and item.subjects in subjects and item.current_count
     )
+    known_count = sum(item.shared_count for item in matches)
+    new_count = sum(item.new_count for item in matches)
+    baseline = f'<span class="known-badge">KNOWN · {known_count}</span>' if known_count else ""
+    if new_count:
+        baseline += f' <span class="new-badge">NEW · {new_count}</span>'
+        if known_count:
+            baseline += ' <span class="muted">physical occurrence identity unknown</span>'
     heading = (
         f'<tr class="rule-group" data-group-header><th colspan="6">Rules: '
-        f"{_text(', '.join(rule_ids))} · {len(items)} findings {known}</th></tr>"
+        f"{_text(', '.join(rule_ids))} · {len(items)} findings {baseline}</th></tr>"
     )
-    return heading + "".join(_violation_row(item, observation) for item in items)
+    rows = []
+    for item in items:
+        fingerprint = tuple(sorted(item.subjects))
+        known = any(
+            entry.subjects == fingerprint
+            and entry.shared_count == entry.current_count
+            and entry.new_count == 0
+            for entry in matches
+        )
+        rows.append(_violation_row(item, observation, known=known))
+    return heading + "".join(rows)
 
 
 def _rule_assessments(items: tuple[RuleAssessment, ...] | None) -> str:
@@ -1092,17 +1108,20 @@ def _report_filters(
     count = len(violations) + len(assessments or ())
     return f"""
     <form class="report-filters" data-report-filters aria-label="Filter report evidence" hidden>
-      <label for="report-search">Search rules and violations</label>
-      <input id="report-search" type="search" name="search" autocomplete="off">
-      <label for="report-kind">Kind</label><select id="report-kind" name="kind">
+      <label>Search rules and violations
+        <input id="report-search" type="search" name="search" autocomplete="off">
+      </label>
+      <label>Kind<select id="report-kind" name="kind">
       <option value="">All kinds</option>{options(kinds)}</select>
-      <label for="report-component">Component</label><select id="report-component" name="component">
+      </label>
+      <label>Component<select id="report-component" name="component">
       <option value="">All components</option>{options(components)}</select>
-      <label for="report-status">Status</label><select id="report-status" name="status">
+      </label>
+      <label>Status<select id="report-status" name="status">
       <option value="">All statuses</option>{
         options(("PASS", "FAIL", "FAIL+UNKNOWN", "UNKNOWN", "DECLARATION"))
     }
-      </select>
+      </select></label>
       <button type="reset">Reset filters</button>
       <output data-filter-count aria-live="polite">{count} rows</output>
     </form>"""

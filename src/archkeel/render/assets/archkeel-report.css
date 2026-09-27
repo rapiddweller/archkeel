@@ -79,9 +79,9 @@ a {
   padding: 48px 0 80px;
 }
 .report-filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(120px, 1fr)) auto auto;
   align-items: end;
-  flex-wrap: wrap;
   gap: var(--ck-space-3);
   margin: var(--ck-space-5) 0;
   padding: var(--ck-space-4);
@@ -113,12 +113,21 @@ a {
   color: var(--ck-muted);
   font-family: var(--ck-font-mono);
 }
+.report-filters button {
+  cursor: pointer;
+}
 .known-badge {
   display: inline-block;
   padding: 2px 6px;
   border: 1px solid var(--ck-muted);
   border-radius: 999px;
   color: var(--ck-muted);
+  font-size: 11px;
+}
+.new-badge {
+  display: inline-block;
+  color: var(--ck-fail);
+  font-family: var(--ck-font-mono);
   font-size: 11px;
 }
 .muted {
@@ -277,6 +286,38 @@ h3 {
 }
 [data-status="info"] {
   color: var(--ck-info);
+}
+.report-section tr.violation-row[data-status="FAIL"] td,
+.report-section tr.violation-row[data-status="FAIL"] td code,
+.report-section tr[data-status="FAIL"]:not(.violation-row) td:first-child code {
+  color: var(--ck-fail);
+}
+.report-section tr.violation-row[data-status="UNKNOWN"] td,
+.report-section tr.violation-row[data-status="UNKNOWN"] td code,
+.report-section tr[data-status="UNKNOWN"]:not(.violation-row) td:first-child code {
+  color: var(--ck-unknown);
+}
+.report-section tr.violation-row[data-status="PASS"] td,
+.report-section tr.violation-row[data-status="PASS"] td code,
+.report-section tr[data-status="PASS"]:not(.violation-row) td:first-child code {
+  color: var(--ck-pass);
+}
+.report-section tr[data-status="DECLARATION"] td:first-child code,
+.report-section tr[data-status="DECLARATION"] td [data-status="info"] {
+  color: var(--ck-muted);
+}
+.report-section tr.violation-row[data-status="FAIL"][data-baseline="known"] td,
+.report-section tr.violation-row[data-status="FAIL"][data-baseline="known"] td code {
+  color: var(--ck-muted);
+}
+.report-section tr.violation-row[data-status="FAIL"][data-baseline="known"]
+  .violation-status {
+  color: var(--ck-fail);
+}
+.violation-status {
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+  font-weight: 700;
 }
 .regression-table [data-status="pass"] {
   color: var(--ck-muted);
@@ -1026,6 +1067,9 @@ code {
     width: auto;
     margin-right: 20px;
     margin-left: 20px;
+  }
+  .report-filters {
+    grid-template-columns: minmax(0, 1fr);
   }
   .verdict-grid,
   .diagnostic,
