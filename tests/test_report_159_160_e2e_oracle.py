@@ -124,8 +124,6 @@ class _ReportFilterRows(HTMLParser):
             self.filters_hidden = "hidden" in values
         if tag == "tr" and "data-filter-row" in values:
             self._row = values
-        if tag == "td" and self._row is not None and "data-undecided" in values:
-            self._row["_undecided"] = values["data-undecided"]
 
     def handle_data(self, data: str) -> None:
         if self._row is not None:
@@ -802,7 +800,7 @@ def test_real_html_keeps_mixed_fail_and_unknown_evidence_available_without_javas
     assert parser.filters_hidden  # without JS, controls stay hidden but evidence rows are readable
     assert result["declared_rules"] == "FAIL"
     assert mixed["data-status"] == "FAIL"
-    assert mixed.get("_undecided") == "1"
-    assert clean["data-status"] == "PASS" and clean.get("_undecided") == "0"
+    assert mixed.get("data-undecided") == "1"
+    assert clean["data-status"] == "PASS" and clean.get("data-undecided") == "0"
     assert 'value="FAIL+UNKNOWN"' in page and 'value="UNKNOWN"' in page
     assert all("hidden" not in row for row in parser.rows)
