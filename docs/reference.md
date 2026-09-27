@@ -117,8 +117,11 @@ rows do not redefine the existing overall verdict or count a multi-rule UNKNOWN 
 `report --baseline known-violations.json` optionally adds a read-only comparison. The path
 resolves inside `--root`; no baseline is discovered automatically or rewritten. Fingerprint
 counts identify known, new, reduced and resolved debt without inventing identity for repeated
-occurrences. Resolved counts require the current rule, complete evaluation evidence and zero
-undecided positions. Removing a rule is not evidence that its old violations were fixed.
+occurrences. Resolved counts require complete evaluation of the old subjects under the current
+rule and zero undecided positions. Removing a rule or narrowing its scope cannot resolve debt
+that is no longer checked. Cycle contraction also requires coverage of the old cycle's members.
+Resolved means absent under current rules, not necessarily repaired code: baselines contain no
+historical rule definitions. Use `validate --against` to check contract widening.
 The baseline and report filters do not change canonical `architecture.json` bytes or gate
 semantics. The diagram remains first; the rule and finding tables support search and filters.
 Without JavaScript, the tables remain readable and inactive filter controls are hidden.

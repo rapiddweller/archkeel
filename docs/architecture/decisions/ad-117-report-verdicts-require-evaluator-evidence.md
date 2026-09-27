@@ -8,10 +8,15 @@ means UNKNOWN, not PASS. Permissions remain declarations. A failed rule retains 
 positions; filtering UNKNOWN includes that mixed result without hiding its failure.
 
 An explicit, read-only baseline reuses the existing fingerprints, occurrence counts and cycle
-contraction logic. It never changes the observation or overall verdict. Resolution requires a
-current rule with complete evaluation evidence and no undecided positions. A removed rule, an
-incomplete scan or partial type evidence cannot prove old debt resolved. Repeated occurrences
-share a group count; the report does not claim which individual line was already known.
+contraction logic. It never changes the observation or overall verdict. Resolution requires
+complete evaluation of the old subjects under the current rule, with no undecided positions.
+Narrowing a rule or scan cannot resolve debt outside that scope. Cycle contraction also needs
+coverage of the old cycle's members. A package's own receipt does not cover omitted descendants.
+Repeated occurrences share a group count; no individual line is labelled as already known.
+
+Resolved means absent under currently evaluated rules, not proof that code was repaired.
+Baselines do not store historical rule definitions. Use `validate --against` to check contract
+widening; the report does not introduce a second history system.
 
 Keep the diagram primary. Reuse native tables, details and filters; no second report framework.
 Focused CLI views remain focused. Without JavaScript, all static evidence stays readable.
