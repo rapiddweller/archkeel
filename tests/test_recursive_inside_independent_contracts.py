@@ -24,17 +24,21 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
+    TARGET_GRAPH_MARKER,
     _inside_contract_tree,
     inside_diagnostics,
     run_validate,
 )
+from archkeel.cli import main
 from archkeel.ir.codec import (
     amendment_bytes,
     canonical_report_bytes,
     contract_digest,
     declaration_paths,
+    decode_canonical_model,
     load_inside_contract_tree,
     parse_contract,
+    parse_observation,
 )
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
@@ -240,6 +244,65 @@ def test_deepest_forbidden_dependency_reaches_the_report(tmp_path: Path) -> None
     assert len(findings) == 1
     assert findings[0].data.get("source_module") == "sample.layer.source.api"
     assert findings[0].data.get("target_module") == "sample.layer.target.api"
+
+
+@pytest.mark.parametrize(
+    ("deep_rules", "source_import", "expected_exit", "expected_verdict"),
+    [
+        ([], "", 0, "PASS"),
+        ([_forbidden_edge()], "from sample.layer.target.api import VALUE\n", 2, "UNKNOWN"),
+    ],
+    ids=["clean-deep-scope", "deepest-boundary-violation"],
+)
+def test_validate_cli_keeps_the_deepest_scope_decided(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    deep_rules: list[dict[str, object]],
+    source_import: str,
+    expected_exit: int,
+    expected_verdict: str,
+) -> None:
+    """The public gate must carry a leaf rule through two declared inside mounts."""
+    _write_three_levels(tmp_path, deep_rules=deep_rules, source_import=source_import)
+    if source_import:
+        deep_contract_path = tmp_path / "contracts/two.json"
+        deep_contract = json.loads(deep_contract_path.read_text())
+        source = next(item for item in deep_contract["components"] if item["label"] == "source")
+        source["requires"] = [{"component": "target", "rationale": "The probe crosses here."}]
+        deep_contract_path.write_text(json.dumps(deep_contract))
+    (tmp_path / "archkeel.toml").write_text(
+        '[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+    )
+    (tmp_path / "docs/architecture/sample.md").write_text(
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
+        f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
+    )
+    _commit_tree(tmp_path)
+
+    assert main(["validate", "--root", str(tmp_path), "--json"]) == expected_exit
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["declared_rules"] == expected_verdict
+    if expected_verdict == "PASS":
+        assert result["observation_complete"] == "PASS"
+    else:
+        assert result["observation_complete"] == "UNKNOWN"
+        assert [
+            (item["code"], item["subject"], item["pointer"])
+            for item in result["diagnostics"]
+            if item["code"] == "rule.violated"
+        ] == [("rule.violated", "app:app:DEEP-NO-EDGE", "/components/0/inside")]
+
+        output = tmp_path / "deep-report.json"
+        assert main(["report", "--root", str(tmp_path), "--output", str(output), "--json"]) == 0
+        report = json.loads(capsys.readouterr().out)
+        assert report["declared_rules"] == "FAIL"
+        observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+        assert [
+            item.rule_ids[0]
+            for item in observation.records("violations") or ()
+            if item.rule_ids and item.rule_ids[0] == "app:app:DEEP-NO-EDGE"
+        ] == ["app:app:DEEP-NO-EDGE"]
 
 
 def test_deep_inside_level_owns_its_modules_and_crossing(tmp_path: Path) -> None:

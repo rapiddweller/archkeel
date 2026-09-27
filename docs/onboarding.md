@@ -1,9 +1,9 @@
 # Onboarding a repository with Archkeel
 
 `architecture-contract.json` is the target architecture: where the system should be, not a
-description of where the code already is. `archkeel report` measures the code's distance
-from that target as violations. The architect owns the target and chooses how deep to
-review it now; the agent supports with best practice, evidence from the repository, and the
+description of where the code already is. `archkeel report` measures declared constraints,
+not the quality of the whole architecture. The architect owns the target and review scope;
+the agent reviews that scope recursively, supported by evidence from the repository and the
 architect's quality goals for this codebase — which components must scale, stay easy to
 change, or are performance-critical. The agent reads those goals from ADRs and architecture
 documents first, and asks the architect only when a goal is unknown and would change a
@@ -55,10 +55,14 @@ flowchart TD
 Install the Archkeel skill for yourself, then onboard this repository:
 
 1. Run `uvx archkeel skill install claude` (or `codex`, matching yourself).
-2. Run `uvx archkeel init --json`. It drafts components and `public` interfaces and decides
+2. Inspect existing onboarding files and nested contracts first. Preserve them and continue
+   from their decisions; do not force-overwrite them. For a new setup, run
+   `uvx archkeel init --json`. It drafts components and `public` interfaces and decides
    no dependency rule; its ordered component pairs and import-site counts are evidence for the
    target, not decisions. Every drafted rule carries `decided_by: "agent"` as a placeholder.
 3. Read this repository's ADRs and architecture documents before proposing anything.
+   Review physical packages recursively within the agreed scope, including deep uncontracted
+   folders. More than seven direct children triggers review, not an automatic split.
    Propose the overall picture — components, layers, and the allowed directions between them
    — with `path:line` evidence for each claim, and ask me to confirm the whole picture once,
    not component by component. Review each drafted `public` list with me too. Anything you
@@ -90,13 +94,28 @@ Install the Archkeel skill for yourself, then onboard this repository:
    in your summary to me and list it for me to confirm.
 9. Once the interview ends, run `uvx archkeel report` and show me the diff of the three
    generated files before committing anything. A remaining `rule.violated` is follow-up code
-   work, not a reason to hold the commit.
+   work, not a reason to hold the commit. Record reviewed and deferred subtrees, justified
+   exceptions and tool limits; green top-level rules do not complete a structural assessment.
 ```
 
 AD-15 makes onboarding a decision interview: `init` proposes components and interfaces, never a
 dependency rule; the code proposes, the architect decides. AD-16 adds auto mode alongside it,
 and `decided_by` on every rule so a later interview can find exactly the decisions the agent
 made without the architect.
+
+## Review the physical structure
+
+Review maintained source packages down to their leaves, even without an `inside` contract.
+Count direct modules and subpackages, excluding `__init__.py` from the count but not the review.
+More than seven is a prompt to inspect cohesion, not a correctness limit: keep nine cohesive
+children when splitting adds complexity; challenge four unrelated responsibilities too.
+Trace entry points, shared types and data flow before proposing meaningful groups. Avoid
+miscellaneous buckets, single-child wrappers and diagram-only grouping.
+
+Use `inside` contracts for deliberate governance boundaries, not every directory. Record
+review coverage and unresolved choices in the response and, when in scope, the architecture
+document. Mark deferred subtrees explicitly. A read-only assessment does not authorize
+`init`, contract edits or file moves; an uncertain boundary needs the architect's decision.
 
 ## What gets written
 

@@ -6,6 +6,7 @@
 import json
 import shutil
 import subprocess
+import sys
 from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import get_args, get_type_hints
@@ -31,6 +32,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.architecture_demo import CATALOG, markdown
+from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_check import build_and_run_check
 from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
 from fixtures.demo_catalog_widening import build_and_run_against
@@ -58,6 +60,245 @@ _CLASS_B_TESTED_ONLY = {
 def test_variant_ids_are_unique() -> None:
     ids = [variant.id for variant in CATALOG]
     assert len(ids) == len(set(ids))
+
+
+def test_recursive_wide_package_root_executes(tmp_path: Path) -> None:
+    variant = next(item for item in CATALOG if item.id == "class-a-recursive-wide-package")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from shop.store.backend.tasks import run; assert len(run()) == 8",
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_recursive_wide_package_contains_an_isolated_observed_module(tmp_path: Path) -> None:
+    variant = next(item for item in CATALOG if item.id == "class-a-recursive-wide-package")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    result, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert result.exit_code == 0
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    isolated = "shop.store.backend.tasks.isolated"
+    assert isolated in {
+        item.data.get("qualified_name") for item in observation.records("modules") or ()
+    }
+    assert not any(
+        item.data.get("source") == isolated or item.data.get("target") == isolated
+        for item in observation.records("dependency_edges") or ()
+        if item.data.get("level") == "module"
+    )
+
+
+def test_demo_replay_writes_cli_json_and_html_without_overwrite(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "nested" / "architecture.json"
+    assert demo_main(["--replay", "class-a-recursive-wide-package", "--output", str(output)]) == 0
+    validation, result = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    html = output.with_name("architecture.report.html")
+    assert validation["command"] == "validate"
+    assert validation["exit_code"] == 0
+    assert result["command"] == "report"
+    assert result["artifact"] == str(output)
+    assert json.loads(output.read_text())["source"]["source_digest"]
+    assert "<html" in html.read_text().lower()
+
+    output.write_text("preserve me")
+    assert demo_main(["--replay", "class-a-recursive-wide-package", "--output", str(output)]) == 2
+    capsys.readouterr()
+    assert output.read_text() == "preserve me"
+    protocol = tmp_path / "protocol.json"
+    assert demo_main(["--replay", "protocol-ordered", "--output", str(protocol)]) == 2
+    capsys.readouterr()
+    assert not protocol.exists()
+    unsupported_against = tmp_path / "unsupported-against.json"
+    assert (
+        demo_main(["--replay", "against-widened-unamended", "--output", str(unsupported_against)])
+        == 2
+    )
+    capsys.readouterr()
+    assert not unsupported_against.exists()
+
+    evidence = tmp_path / "evidence.json"
+    assert (
+        demo_main(["--replay", "validation-observation-incomplete", "--output", str(evidence)]) == 2
+    )
+    capsys.readouterr()
+    assert not evidence.exists()
+    assert not evidence.with_name("evidence.report.html").exists()
+
+    unknown = tmp_path / "unknown.json"
+    assert demo_main(["--replay", "not-a-catalog-row", "--output", str(unknown)]) == 2
+    capsys.readouterr()
+    assert not unknown.exists()
+    assert not unknown.with_name("unknown.report.html").exists()
+
+    html_collision = tmp_path / "html-collision.json"
+    html = html_collision.with_name("html-collision.report.html")
+    html.write_bytes(b"keep this HTML")
+    assert (
+        demo_main(["--replay", "class-a-recursive-wide-package", "--output", str(html_collision)])
+        == 2
+    )
+    capsys.readouterr()
+    assert not html_collision.exists()
+    assert html.read_bytes() == b"keep this HTML"
+
+
+def test_demo_replay_runs_deepest_change_through_validate_against(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "deepest.json"
+    assert (
+        demo_main(
+            ["--replay", "against-recursive-deepest-contract-change", "--output", str(output)]
+        )
+        == 1
+    )
+    validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    assert validation["command"] == "validate"
+    assert validation["failures"] == [
+        "rule store:backend:tasks:DEEP-REQUIRES-COMPLETE (complete_requires) removed"
+    ]
+    assert report["command"] == "report"
+    assert output.with_name("deepest.report.html").is_file()
+    architecture = json.loads(output.read_text())
+    assert len(architecture["contract"]["digest"]) == 64
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "validation_exit"),
+    [
+        ("validation-graph-drift-write-graph", 2),
+        ("validation-baseline-refused", 1),
+    ],
+)
+def test_demo_replay_preserves_validate_failure_before_report(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    variant_id: str,
+    validation_exit: int,
+) -> None:
+    output = tmp_path / f"{variant_id}.json"
+
+    assert demo_main(["--replay", variant_id, "--output", str(output)]) == validation_exit
+    results = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    assert [item["command"] for item in results] == ["validate", "report"]
+    assert results[0]["exit_code"] == validation_exit
+    if variant_id == "validation-graph-drift-write-graph":
+        assert {item["code"] for item in results[0]["diagnostics"]} == {"graph.drift"}
+    else:
+        assert any("--write-baseline refused" in item for item in results[0]["failures"])
+    assert results[1]["command"] == "report"
+    assert results[1]["baseline_new"] is None
+    assert results[1]["baseline_resolved"] is None
+    assert output.is_file() and output.stat().st_size > 0
+    assert output.with_name(f"{variant_id}.report.html").stat().st_size > 0
+
+
+def test_demo_replay_handles_incomplete_report_without_empty_reservations(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "missing-child.json"
+    html = output.with_name("missing-child.report.html")
+
+    assert demo_main(["--replay", "validation-contract-invalid", "--output", str(output)]) == 2
+    results = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    assert [item["command"] for item in results] == ["validate", "report"]
+    assert [item["exit_code"] for item in results] == [2, 2]
+    assert results[-1]["observation_complete"] == "UNKNOWN"
+    if output.exists():
+        assert output.stat().st_size > 0
+        parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    if html.exists():
+        assert html.stat().st_size > 0
+        assert "UNKNOWN" in html.read_text()
+    assert output.exists() == html.exists()
+
+
+def test_demo_replay_uses_catalog_custom_config(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "tests.json"
+
+    assert demo_main(["--replay", "test-scope-clean", "--output", str(output)]) == 0
+    results = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    assert results[-1]["command"] == "report"
+    assert results[0]["command"] == "validate"
+    assert results[0]["scan_roots"] == ["tests"]
+    assert results[-1]["scan_roots"] == ["tests"]
+
+
+def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    variant = next(item for item in CATALOG if item.id == "class-a-recursive-wide-package")
+    combined_root = tmp_path / "combined"
+    combined_root.mkdir()
+    root = _prepare_repo(combined_root, dict(variant.files), variant.fixture)
+    output = tmp_path / "combined-report" / "architecture.json"
+
+    assert main(["report", "--root", str(root), "--output", str(output), "--json"]) == 0
+    capsys.readouterr()
+    observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    modules = {
+        str(record.data.get("qualified_name")): record
+        for record in observation.records("modules") or ()
+    }
+    expected = {
+        "shop.app.maintenance",
+        "shop.app.orders",
+        "shop.cli.main",
+        "shop.model.entities",
+        "shop.render.text",
+        "shop.store",
+        "shop.store.backend",
+        "shop.store.backend.files",
+        "shop.store.backend.paths",
+        "shop.store.backend.tasks",
+        "shop.store.backend.tasks.alpha",
+        "shop.store.backend.tasks.bravo",
+        "shop.store.backend.tasks.charlie",
+        "shop.store.backend.tasks.delta",
+        "shop.store.backend.tasks.echo",
+        "shop.store.backend.tasks.foxtrot",
+        "shop.store.backend.tasks.isolated",
+        "shop.store.backend.tasks.source",
+        "shop.store.backend.tasks.target",
+        "shop.store.codec",
+        "shop.store.repository",
+        "shop.store.sqlite",
+    }
+    assert set(modules) == expected
+    isolated = modules["shop.store.backend.tasks.isolated"].data
+    assert (isolated.get("fan_in"), isolated.get("fan_out")) == (0, 0)
+    package_root = modules["shop.store.backend.tasks"].data
+    assert package_root.get("file") == "shop/store/backend/tasks/__init__.py"
+    assert package_root.get("fan_out", 0) > 0
+
+    html = output.with_name("architecture.report.html").read_text()
+    begin = html.index('id="flow-data"')
+    begin = html.index(">", begin) + 1
+    end = html.index("</script>", begin)
+    flow = json.loads(html[begin:end])
+    store = next(item for item in flow["components"] if item["label"] == "store")
+    backend = next(item for item in store["inside"]["components"] if item["label"] == "backend")
+    tasks = next(item for item in backend["inside"]["components"] if item["label"] == "tasks")
+    assert set(flow["modules"]) == expected
+    assert "shop.store.backend.tasks.isolated" in tasks["inside"]["unassigned"]
+    assert "shop.store.backend.tasks" in tasks["inside"]["unassigned"]
 
 
 def test_class_a_covers_every_rule_kind() -> None:
