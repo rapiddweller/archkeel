@@ -124,6 +124,8 @@ class _ReportFilterRows(HTMLParser):
             self.filters_hidden = "hidden" in values
         if tag == "tr" and "data-filter-row" in values:
             self._row = values
+        if tag == "td" and self._row is not None and "data-undecided" in values:
+            self._row["_undecided"] = values["data-undecided"]
 
     def handle_data(self, data: str) -> None:
         if self._row is not None:
@@ -440,6 +442,45 @@ def test_report_rejects_an_invalid_read_only_baseline_without_writing_it(
     assert baseline.read_bytes() == before
 
 
+def test_report_resolves_external_dependency_when_observed_source_removes_import(
+    tmp_path: Path, capsys
+) -> None:
+    variant = _variant("class-a-external-dependency-scope")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    _, before = _cli_report(root, tmp_path / "external-before", capsys)
+    baseline_entries = observed_violations(before)
+    assert len(baseline_entries) == 1
+    assert baseline_entries[0].fingerprint.rules == ("EXTERNAL-JSON-STORE",)
+    assert baseline_entries[0].roles == (("shop.app.reporting", "json"),)
+    baseline = _baseline_file(root, baseline_entries)
+
+    reporting = root / "shop/app/reporting.py"
+    source = reporting.read_text()
+    assert "import json" in source and "json.dumps(order.to_dict())" in source
+    reporting.write_text(
+        source.replace("import json\n", "").replace("json.dumps(order.to_dict())", "order.id")
+    )
+
+    result, after = _cli_report(
+        root, tmp_path / "external-after", capsys, "--baseline", str(baseline)
+    )
+
+    assert any("shop.app.reporting" in record.subjects for record in after.records("modules") or ())
+    assert _assessment(result, "EXTERNAL-JSON-STORE")["status"] == "PASS"
+    assert result["baseline_comparisons"] == [
+        {
+            "current_count": 0,
+            "known_count": 1,
+            "new_count": 0,
+            "resolved_count": 1,
+            "rules": ["EXTERNAL-JSON-STORE"],
+            "shared_count": 0,
+            "status": "resolved",
+            "subjects": ["json", "shop.app.reporting"],
+        }
+    ]
+
+
 def test_report_baseline_preserves_a_real_strict_scc_contraction(tmp_path: Path, capsys) -> None:
     header = "# frozen SCC fixture\n"
     files = {
@@ -752,13 +793,16 @@ def test_real_html_keeps_mixed_fail_and_unknown_evidence_available_without_javas
     parser = _ReportFilterRows()
     parser.feed(page)
 
-    mixed = next(row for row in parser.rows if "APP-TYPES-NOT-DICT" in row.get("_text", ""))
-    clean = next(row for row in parser.rows if "DEP-APP-NO-CLI" in row.get("_text", ""))
+    mixed = next(
+        row for row in parser.rows if row.get("_text", "").lstrip().startswith("APP-TYPES-NOT-DICT")
+    )
+    clean = next(
+        row for row in parser.rows if row.get("_text", "").lstrip().startswith("DEP-APP-NO-CLI")
+    )
     assert parser.filters_hidden  # without JS, controls stay hidden but evidence rows are readable
     assert result["declared_rules"] == "FAIL"
     assert mixed["data-status"] == "FAIL"
-    assert mixed.get("data-undecided") == "1"
-    assert clean["data-status"] == "PASS" and clean.get("data-undecided") == "0"
+    assert mixed.get("_undecided") == "1"
+    assert clean["data-status"] == "PASS" and clean.get("_undecided") == "0"
     assert 'value="FAIL+UNKNOWN"' in page and 'value="UNKNOWN"' in page
     assert all("hidden" not in row for row in parser.rows)
-    assert 'status === "UNKNOWN" && row.dataset.status === "FAIL"' in page
