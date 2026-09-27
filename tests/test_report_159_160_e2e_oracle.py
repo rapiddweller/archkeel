@@ -87,6 +87,29 @@ def _fixture_facts(observation: Observation, rule_id: str) -> tuple[int, int, tu
     return len(_unknown_positions(observation, rule_id)), violations, declared.provenance
 
 
+def _assessment(result: dict[str, object], rule_id: str) -> dict[str, object]:
+    assessments = result["rule_assessments"]
+    assert isinstance(assessments, list)
+    matches = [item for item in assessments if item["id"] == rule_id]
+    assert len(matches) == 1
+    return matches[0]
+
+
+def _assert_assessment(
+    result: dict[str, object],
+    rule_id: str,
+    status: str,
+    unknowns: int,
+    violations: int,
+    provenance: tuple[str, ...],
+) -> None:
+    assessment = _assessment(result, rule_id)
+    assert assessment["status"] == status
+    assert assessment["undecided"] == unknowns
+    assert assessment["count"] == violations
+    assert tuple(assessment["provenance"]) == provenance
+
+
 def test_tour_freezes_pass_fail_and_permission_oracles_from_real_cli_report(
     tmp_path: Path, capsys
 ) -> None:
@@ -105,6 +128,16 @@ def test_tour_freezes_pass_fail_and_permission_oracles_from_real_cli_report(
     ) in _TOUR_RECEIPT_ORACLE.items():
         declared = _declared(observation, rule_id)
         assert _fixture_facts(observation, rule_id) == (unknowns, violations, provenance)
+        _assert_assessment(result, rule_id, expected_status, unknowns, violations, provenance)
+        if expected_status != "DECLARATION":
+            receipts = [
+                item
+                for item in observation.records("scope_observations") or ()
+                if item.kind == "rule_evaluation" and item.rule_ids == (rule_id,)
+            ]
+            assert receipts, f"missing evaluator receipt for {rule_id}"
+            assessment = _assessment(result, rule_id)
+            assert {item.data.get("scope") for item in receipts} == {assessment["scope"]}
         if expected_status == "DECLARATION":
             assert declared.kind == "allowed_dependency"
             assert declared.evidence_class.value == "DECLARED_RULE"
@@ -123,11 +156,11 @@ def test_fail_and_unknown_for_one_rule_are_from_the_same_real_evaluation_scope(
     orders_path = "shop/app/orders.py"
     files[orders_path] = files[orders_path].replace(
         "store_dir: object,\n    order_id",
-        "store_dir: object,\n    extra_path: Path,\n    order_id",
+        "store_dir: object,\n    extra_path: FutureOrder,\n    order_id",
     )
-    assert "extra_path: Path" in files[orders_path]
+    assert "extra_path: FutureOrder" in files[orders_path]
     root = _prepare_repo(tmp_path, files, tour.fixture)
-    _, observation = _cli_report(root, tmp_path, capsys)
+    result, observation = _cli_report(root, tmp_path, capsys)
 
     rule_id, expected_status, unknowns, violations, provenance = _MIXED_TYPES_ORACLE
     assert _fixture_facts(observation, rule_id) == (unknowns, violations, provenance)
@@ -138,6 +171,7 @@ def test_fail_and_unknown_for_one_rule_are_from_the_same_real_evaluation_scope(
     assert [record.kind for record in records].count("boundary_type_limit") == 1
     aggregate = next(record for record in records if record.kind == "boundary_type_limit")
     assert aggregate.data.get("undecided") == 1
+    _assert_assessment(result, rule_id, expected_status, unknowns, violations, provenance)
     assert expected_status == "FAIL"  # a known violation is not downgraded by partial evidence
 
 
@@ -151,6 +185,7 @@ def test_unknown_route_is_associated_with_its_rule_not_every_boundary_rule(
     rule_id, expected_status, unknowns, violations, provenance = _UNKNOWN_ROUTE_ORACLE
     assert _fixture_facts(observation, rule_id) == (unknowns, violations, provenance)
     assert result["declared_rules"] == "UNKNOWN"
+    _assert_assessment(result, rule_id, expected_status, unknowns, violations, provenance)
     route = next(
         record
         for record in observation.records("unknowns") or ()
@@ -165,10 +200,11 @@ def test_type_checking_edge_is_a_real_violation_not_a_runtime_only_guess(
 ) -> None:
     variant = _variant("class-a-forbidden-dependency-include-type-checking")
     root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
-    _, observation = _cli_report(root, tmp_path, capsys)
+    result, observation = _cli_report(root, tmp_path, capsys)
 
     rule_id, expected_status, unknowns, violations, provenance = _TYPE_CHECKING_ORACLE
     assert _fixture_facts(observation, rule_id) == (unknowns, violations, provenance)
+    _assert_assessment(result, rule_id, expected_status, unknowns, violations, provenance)
     assert expected_status == "FAIL"
 
 
@@ -177,7 +213,7 @@ def test_planned_only_entry_is_frozen_as_target_work_not_a_passing_public_api(
 ) -> None:
     variant = _variant("validation-interface-planned-built")
     root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
-    _, observation = _cli_report(root, tmp_path, capsys)
+    result, observation = _cli_report(root, tmp_path, capsys)
 
     contract = json.loads((root / "architecture-contract.json").read_bytes())
     app = next(item for item in contract["components"] if item["label"] == "app")
@@ -191,7 +227,9 @@ def test_planned_only_entry_is_frozen_as_target_work_not_a_passing_public_api(
         "shop.app.maintenance" in record.subjects
         for record in observation.records("violations") or ()
     )
-    # The UI/status oracle will assert this planned entry is not rendered as PASS.
+    assert not any(
+        "shop.app.maintenance" in str(assessment) for assessment in result["rule_assessments"]
+    )
 
 
 def test_report_baseline_is_explicit_read_only_and_never_turns_a_failure_into_pass(
@@ -210,7 +248,21 @@ def test_report_baseline_is_explicit_read_only_and_never_turns_a_failure_into_pa
     assert based_result["rule_assessments"] == unbased_result["rule_assessments"]
     assert baseline.read_bytes() == before
     assert unbased_observation == based_observation
-    assert based_result["baseline_comparisons"] == []
+    assert (tmp_path / "unbased" / "architecture.json").read_bytes() == (
+        tmp_path / "based" / "architecture.json"
+    ).read_bytes()
+    assert based_result["baseline_comparisons"] == [
+        {
+            "current_count": 1,
+            "known_count": 1,
+            "new_count": 0,
+            "resolved_count": 0,
+            "rules": [GETATTR_RULE],
+            "shared_count": 1,
+            "status": "known",
+            "subjects": ["shop.model.probe.read"],
+        }
+    ]
 
 
 def test_report_without_baseline_does_not_auto_discover_a_default_file(
@@ -249,7 +301,16 @@ def test_report_baseline_groups_growth_after_line_movement_by_fingerprint_count(
     ]
     assert result["declared_rules"] == "FAIL"
     assert result["baseline_comparisons"] == [
-        f"new violation: {GETATTR_RULE} | shop.model.probe.read (2 observed, 1 in the baseline)"
+        {
+            "current_count": 2,
+            "known_count": 1,
+            "new_count": 1,
+            "resolved_count": 0,
+            "rules": [GETATTR_RULE],
+            "shared_count": 1,
+            "status": "new",
+            "subjects": ["shop.model.probe.read"],
+        },
     ]
 
 
@@ -264,7 +325,7 @@ def test_report_does_not_claim_baseline_findings_resolved_from_incomplete_observ
     result, _ = _cli_report(root, tmp_path, capsys, "--baseline", str(baseline), expected_exit=2)
 
     assert result["observation_complete"] == "UNKNOWN"
-    assert result["baseline_comparisons"] == []
+    assert result["baseline_comparisons"] is None
 
 
 def test_report_rejects_an_invalid_read_only_baseline_without_writing_it(
@@ -316,9 +377,24 @@ def test_report_baseline_preserves_a_real_strict_scc_contraction(tmp_path: Path,
     )
     assert result["declared_rules"] == "FAIL"
     assert result["baseline_comparisons"] == [
-        "resolved violation: MODEL-MODULES-ACYCLIC | shop.model.alpha shop.model.beta "
-        "shop.model.gamma (0 observed, 1 in the baseline); rewrite the baseline with "
-        "--write-baseline",
-        "contracted violation: MODEL-MODULES-ACYCLIC | shop.model.alpha shop.model.beta "
-        "(1 observed, 0 in the baseline) inside a baselined cycle",
+        {
+            "current_count": 1,
+            "known_count": 0,
+            "new_count": 0,
+            "resolved_count": 0,
+            "rules": ["MODEL-MODULES-ACYCLIC"],
+            "shared_count": 0,
+            "status": "contracted",
+            "subjects": ["shop.model.alpha", "shop.model.beta"],
+        },
+        {
+            "current_count": 0,
+            "known_count": 1,
+            "new_count": 0,
+            "resolved_count": 1,
+            "rules": ["MODEL-MODULES-ACYCLIC"],
+            "shared_count": 0,
+            "status": "resolved",
+            "subjects": ["shop.model.alpha", "shop.model.beta", "shop.model.gamma"],
+        },
     ]

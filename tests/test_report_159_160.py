@@ -31,7 +31,7 @@ from archkeel.ir.codec import (
     decode_canonical_model,
     parse_observation,
 )
-from archkeel.ir.model import EvidenceClass, ReportFilter
+from archkeel.ir.model import RULE_KINDS, EvidenceClass, ReportFilter
 from archkeel.render.html import render_architecture_html
 
 
@@ -168,7 +168,7 @@ def test_report_lists_every_declared_rule_and_its_provenance(tmp_path: Path) -> 
     rules = [
         item
         for item in observation.records("declarations") or ()
-        if item.evidence_class.value == "DECLARED_RULE"
+        if item.evidence_class.value == "DECLARED_RULE" and item.kind in RULE_KINDS
     ]
 
     assert "Declared rules" in page
