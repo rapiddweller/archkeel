@@ -358,7 +358,6 @@
     const rank = computeRanks();
     const byRank = groupBy(level().components, (c) => rank.get(c.label));
     const ranks = [...byRank.keys()].sort((a, b) => a - b);
-    const next = {};
     let row = 0;
     ranks.forEach((r) => {
       const members = byRank.get(r).map((c) => c.label).sort();
@@ -367,13 +366,12 @@
         const total = chunk.length * CARD.w + (chunk.length - 1) * GAP;
         chunk.forEach((label, index) => {
           if (!positions[label]) {
-            next[label] = { x: index * (CARD.w + GAP) - total / 2, y: row * ROW_STEP };
+            positions[label] = { x: index * (CARD.w + GAP) - total / 2, y: row * ROW_STEP };
           }
         });
         row += 1;
       }
     });
-    positions = { ...next, ...positions };
     return row;
   }
 
@@ -1248,8 +1246,14 @@
       scrollY = (diagramOrigin.y - nextY) * transform.k;
       diagramOrigin.y = nextY;
     }
-    const viewWidth = bounds.x + bounds.width + padding - diagramOrigin.x;
-    const viewHeight = bounds.y + bounds.height + padding - diagramOrigin.y;
+    const viewWidth = Math.max(
+      bounds.x + bounds.width + padding - diagramOrigin.x,
+      (canvas.clientWidth + canvas.scrollLeft + scrollX) / transform.k,
+    );
+    const viewHeight = Math.max(
+      bounds.y + bounds.height + padding - diagramOrigin.y,
+      (canvas.clientHeight + canvas.scrollTop + scrollY) / transform.k,
+    );
     svg.setAttribute("viewBox", `${diagramOrigin.x} ${diagramOrigin.y} ${viewWidth} ${viewHeight}`);
     svg.style.width = `${Math.ceil(viewWidth * transform.k)}px`;
     svg.style.height = `${Math.ceil(viewHeight * transform.k)}px`;
@@ -1344,7 +1348,7 @@
     if (opened.inside) items.push({ label: opened.inside, state: {
       component: opened.component,
       inside: opened.inside,
-      ...(opened.physicalInsideCard ? { physicalInsideCard: true } : {}),
+      ...(opened.physicalInsideCard && !(opened.insidePath || []).length ? { physicalInsideCard: true } : {}),
       path: [],
     } });
     (opened.insidePath || []).forEach((name, index) => items.push({
