@@ -533,7 +533,7 @@ def test_nested_declared_requirements_stay_bound_to_each_parent_level(tmp_path: 
     assert [item["component"] for item in two_api["requires"]] == ["target-deep"]
 
 
-def test_focused_diagram_keeps_violations_outside_its_top_connections() -> None:
+def test_focused_diagram_keeps_all_neighbors_and_excludes_unrelated_edges() -> None:
     node = _node()
     source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
     script = r"""
@@ -545,16 +545,31 @@ const end = text.indexOf("  function level(", begin);
 assert(begin >= 0 && end > begin);
 const focusLevel = new Function("weight", text.slice(begin, end) + ";return focusLevel")(
   edge => edge.kind === "symbol_use" ? 1 : edge.import_sites);
-const names = ["focus", ...Array.from({length: 7}, (_, index) => `used${index}`),
+const incoming = Array.from({length: 6}, (_, index) => `incoming${index}`);
+const outgoing = Array.from({length: 6}, (_, index) => `outgoing${index}`);
+const names = ["focus", ...incoming, ...outgoing, "outsideSource", "outsideTarget",
   "brokenSource", "brokenTarget"];
 const view = {components: names.map(label => ({label})), edges: [
-  ...names.slice(1, 8).map((target, index) =>
+  ...incoming.map((source, index) =>
+    ({source, target: "focus", import_sites: 10 - index, state: "conforms"})),
+  ...outgoing.map((target, index) =>
     ({source: "focus", target, import_sites: 10 - index, state: "conforms"})),
+  {source: "outsideSource", target: "outsideTarget", import_sites: 1, state: "conforms"},
   {source: "brokenSource", target: "brokenTarget", import_sites: 1, state: "violation"},
 ]};
 const shown = focusLevel(view, "focus");
-assert.equal(shown.edges.length, 6);
-assert(shown.edges.some(edge => edge.state === "violation"));
+const direct = shown.edges.filter(edge => edge.source === "focus" || edge.target === "focus");
+const key = edge => `${edge.source}>${edge.target}`;
+assert.equal(shown.edges.length, 13);
+assert.equal(direct.length, 12);
+assert.deepEqual(new Set(direct.map(key)), new Set([
+  ...incoming.map(source => `${source}>focus`),
+  ...outgoing.map(target => `focus>${target}`),
+]));
+assert(!shown.edges.some(edge => edge.source.startsWith("outside") || edge.target.startsWith("outside")));
+assert(shown.edges.some(edge => edge.source === "brokenSource" && edge.target === "brokenTarget"));
+assert.equal(shown.components.length, 15);
+assert(!shown.components.some(card => card.label.startsWith("outside")));
 assert(shown.components.some(card => card.label === "brokenSource"));
 assert(shown.components.some(card => card.label === "brokenTarget"));
 assert.equal(focusLevel(view, "missing"), view);
