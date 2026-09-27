@@ -505,6 +505,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "artifact",
         "baseline_new",
         "baseline_resolved",
+        "baseline_comparisons",
+        "baseline_path",
         "claims",
         "command",
         "coverage",
@@ -528,6 +530,7 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "provenance",
         "python_version",
         "report_filter",
+        "rule_assessments",
         # AD-105: null unless validate compared a revision with --against.
         "renames",
         "scan_roots",
@@ -543,6 +546,9 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         payload["unresolved_call_changes"],
         payload["unresolved_call_note"],
     ) == (None, None, None)
+    assert payload["baseline_comparisons"] is None
+    assert payload["baseline_path"] is None
+    assert payload["rule_assessments"] == []
     claims = payload["claims"]
     assert isinstance(claims, dict)
     assert claims["unreferenced_symbols"] is not None
