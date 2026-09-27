@@ -251,8 +251,14 @@ def test_demo_replay_rejects_a_corrupt_explicit_baseline_for_report(
 
     assert validation["command"] == "validate" and validation["exit_code"] == 2
     assert report["command"] == "report" and report["exit_code"] == 2
-    assert any(item["code"] == "baseline.invalid" for item in report["diagnostics"])
+    assert any(
+        "baseline architecture-baseline.json" in item["unknown_claim"]
+        and "invalid JSON" in item["unknown_claim"]
+        for item in report["diagnostics"]
+    )
     assert report["baseline_comparisons"] is None
+    assert not output.exists()
+    assert not output.with_name("corrupt-baseline.report.html").exists()
 
 
 def test_demo_replay_handles_incomplete_report_without_empty_reservations(

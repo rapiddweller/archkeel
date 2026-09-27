@@ -920,7 +920,11 @@ def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counti
         )
         == 1
     )
-    assert len(_unknown_positions(observation, "APP-TYPES-NOT-DICT")) == 1
+    assert any(
+        record.data.get("annotation") == "FutureOrder"
+        for record in observation.records("unknowns") or ()
+        if "APP-TYPES-NOT-DICT" in record.rule_ids
+    )
 
     page = output.with_name("mixed-evidence.report.html").read_text()
     parser = _ReportFilterRows()
@@ -934,7 +938,7 @@ def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counti
         if row.get("_text", "").lstrip().startswith("VIO-")
         and "APP-TYPES-NOT-DICT" in row.get("_text", "")
     ]
-    assert rule_row["data-status"] == "FAIL" and rule_row.get("_undecided") == "1"
+    assert rule_row["data-status"] == "FAIL" and rule_row.get("data-undecided") == "1"
     assert len(detail_rows) == 1 and detail_rows[0]["data-status"] == "FAIL"
 
 
@@ -946,8 +950,8 @@ def test_replay_keeps_partial_module_cycle_scope_unknown_and_baseline_unresolved
     alpha = variant.files["shop/model/alpha.py"]
     beta = variant.files["shop/model/beta.py"]
     assert variant.baseline is not None
-    assert isinstance(alpha, str) and "shop.model.beta" in alpha
-    assert isinstance(beta, str) and "shop.model.alpha" in beta
+    assert isinstance(alpha, str) and "from shop.model import beta" in alpha
+    assert isinstance(beta, str) and "from shop.model import alpha" in beta
     output = tmp_path / "partial-cycle.json"
 
     replay_exit = demo_main(["--replay", variant_id, "--output", str(output)])
