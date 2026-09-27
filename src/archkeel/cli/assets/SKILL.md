@@ -7,8 +7,8 @@ description: Use when setting up or changing architecture rules, or checking arc
 
 Archkeel is a deterministic architecture checker. It observes Python imports, evaluates a
 declared contract of components and rules against that observation, and distinguishes
-PASS, FAIL and UNKNOWN. Rules are declared once in `architecture-contract.json`; nothing is
-enforced by convention alone.
+PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested
+contracts; nothing is enforced by convention alone.
 
 ## Onboarding (first time in this repository): a target, not a description
 
@@ -213,7 +213,7 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
   verdict or an exit code; bring a nonzero count to the architect as reading work, and never
   delete code because a claim named it.
 
-## A second level: the inside of a component
+## Nested contracts: the inside of a component
 
 A component may name a contract of its own, which becomes a second level of the same
 architecture (AD-20, AD-34). Adding one is the architect's decision; inspecting the physical
