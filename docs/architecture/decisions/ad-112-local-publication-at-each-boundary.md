@@ -1,5 +1,8 @@
 # AD-112 Public means public at that boundary
 
+The lifecycle limit below was lifted by [AD-115](ad-115-nested-api-lifecycle-uses-local-evidence.md)
+for nested contracts with a local `interface_boundary` rule.
+
 Requiring a parent's `public` list to equal all child lists forced internal sibling APIs
 onto the outward API. Remove that equality, not the boundary checks (#170).
 

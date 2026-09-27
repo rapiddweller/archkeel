@@ -1,3 +1,92 @@
+# Archkeel 0.8.0 — Explore the structure. Inspect the evidence.
+
+0.8.0 checks recursive architecture contracts and makes their evidence easier to review.
+The report separates checked rules, violations, undecided evidence and permission declarations.
+A clean finding list alone is not proof that a rule ran.
+
+## Highlights
+
+- **Nested contracts are evaluated, not assumed.** An `inside` contract runs the same rule
+  evaluators as the root, over the same scan. Explicit `inside` references form a recursive tree
+  for validation, `check`, comparison and the report (AD-110, AD-111).
+- **Child APIs are local.** An internal public entry does not publish itself outside its parent.
+  With a local `interface_boundary` rule, lifecycle checks use sibling imports and proven facade
+  publication. Invalid local `requires` targets and duplicate labels are refused; uncertain
+  symbol evidence remains visible
+  (AD-112–AD-115).
+- **A package rename is one change.** `validate --against` recognises a proven prefix rename,
+  compares the old contract and baseline under the new names and lists it under `renames`. A
+  real widening next to a rename still fails; copies, leftovers and missing history fall back to
+  the normal comparison (AD-105).
+- **A new contract can pass the widening gate.** A contract the compared revision lacks is one
+  `contract introduced` widening, amended like any other, instead of exit 2. The amendment binds
+  its path, so it cannot be replayed for a moved contract (AD-104).
+- **Baseline and amendment paths follow `--root`.** With a second code base in `mobile/`,
+  `--root mobile --baseline architecture-baseline.json` reads mobile's file, not the one at the
+  repository root (AD-103).
+- **Baseline entries match in any subject order.** A namespace renamed by text replace no longer
+  reads as one new and one resolved violation. A refused `--write-baseline` says why and names
+  `--accept-new` (AD-106).
+- **An empty `__init__.py` is evidence.** A module whose first line is empty cites its file, so
+  `root_layout`, `complete_assignment` and `module.placement` report FAIL instead of turning the
+  run UNKNOWN (AD-107).
+- **The report shows every module.** Components open into physical package groups and every
+  observed module, including isolated modules and package initializers. UML, structure and review
+  views share one observation. Diagrams start at readable 100% zoom; focus, thresholds and Fit
+  are explicit, with shown/total counts, keyboard navigation and static no-JS evidence (AD-116).
+- **Rule results need proof.** Each rule shows its status, scope, rationale and evidence.
+  Permissions are DECLARATION, not PASS. UNKNOWN remains filterable beside a confirmed FAIL.
+  An UNKNOWN rule prevents a green headline even if the aggregate remains PASS; JSON and exit
+  semantics are unchanged (AD-117).
+- **Known debt stays visible.** `report --baseline <file>` compares fingerprint counts read-only.
+  Known rows retain FAIL; new failures are red. Missing scope cannot make debt look resolved,
+  and repeated occurrences never get invented old/new line identities. Resolution is relative
+  to current rules; `validate --against` checks contract widening (AD-117).
+- **The skill reviews structure recursively.** More than seven direct children prompts a
+  cohesion review, not an automatic split or gate failure. Existing contracts are preserved;
+  deferred subtrees remain explicit. This guides an agent; it cannot guarantee its judgment
+  (AD-118).
+- **Runnable positive and negative demos.** `make demo-architecture` replays the existing catalog.
+  Deep, wide, isolated, invalid and mixed FAIL/UNKNOWN cases have tests. CI adds real Chromium
+  navigation/filter checks and synthetic screenshots/traces through `make report-browser`.
+- **Sharper evidence.** Proven enum members count as references to their class (AD-108);
+  `boundary_types` follows a literal `__all__` export from an ordinary module (AD-109); an
+  unread binding is no longer presented as safe to remove.
+
+## Compatibility
+
+- The Python analyzer profile moves from `0.51.0` to `0.57.0`, independently of the package
+  version `0.8.0`. Earlier observations are not comparable.
+- `validate --baseline` and `--amendment` resolve a relative path against `--root`; an absolute
+  path is used as given. A path outside the root is `baseline.invalid` or `amendment.invalid`,
+  exit 2. With `--root .` every path inside the root names the same file as before.
+- A baseline with two entries that differ only in subject order is `baseline.invalid`, exit 2.
+- Amendments written for root-only comparisons of a contract with `inside` children must be
+  regenerated and reviewed. A non-empty `declarations` block in an `inside` contract is refused.
+  Unsupported rules or missing nested contracts remain incomplete and block baseline/graph writes.
+- Cycle-completeness receipts need recursively covered Python roots; module cycles require the
+  full namespace. Dart and explicit `source_paths` retain cycle findings but cannot prove this
+  completeness: per-rule UNKNOWN remains unless a violation proves FAIL.
+- Result JSON gains `renames`, `rule_assessments`, `baseline_path` and `baseline_comparisons`.
+  Unproduced results are `null`; an evaluated collection with no entries is `[]`.
+  Old observations without evaluator receipts cannot prove per-rule PASS.
+- Contract schema stays `2.1.0`, baseline schema `1.3.0`, observation schema `1.3.0`. The
+  observation schema accepts line 0 only for evidence that cites a whole file.
+
+## Install
+
+```bash
+uvx archkeel --help
+pip install --upgrade archkeel
+```
+
+## Self-observation
+
+Archkeel parses 72 of 72 source files with 100% AST coverage. It resolves 6,397 of 7,991 calls,
+partially resolves 1,032 and leaves 562 unresolved: 80.05% call-resolution coverage. The self-check
+reports 0 violations, holds its own modules acyclic and pins six coupling budgets;
+`declared_rules` stays `UNKNOWN` because 41 positions remain undecided.
+
 # Archkeel 0.7.0 — Dart layers and targets you can hold
 
 0.7.0 adds a Dart profile and turns four report-only observations into contract targets. What
