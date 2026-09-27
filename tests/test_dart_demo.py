@@ -29,6 +29,7 @@ def test_the_story_runs_clean_then_measured_then_unknown_then_refused(printed: l
     assert printed == [
         "clean: every rule decided every import",
         "  dart-clean               PASS",
+        "  dart-nested-interface-show PASS",
         "measured violations",
         "  dart-forbidden-dart-io   FAIL  rules: DEP-DOMAIN-NO-DART-IO",
         "  dart-complete-requires   FAIL  rules: REQUIRES-COMPLETE",
@@ -36,9 +37,13 @@ def test_the_story_runs_clean_then_measured_then_unknown_then_refused(printed: l
         "  dart-complete-assignment FAIL  rules: ASSIGNMENT-COMPLETE, ROOT-LAYOUT",
         "  dart-external-scope      FAIL  rules: EXTERNAL-HTTP-DATA",
         "  dart-interface-show      FAIL  rules: INTERFACE-BOUNDARY",
+        "  dart-nested-interface-mixed FAIL  rules: domain:core:INTERFACE  "
+        "unknown: interface_symbol_limit",
         f"  dart-tour                FAIL  rules: {_TOUR_RULES}  unknown: interface_symbol_limit",
         "not measurable -> UNKNOWN, counted, never PASS",
         "  dart-interface-unknown   UNKNOWN  unknown: interface_symbol_limit",
+        "  dart-nested-interface-unknown UNKNOWN  unknown: interface_symbol_limit",
+        "  dart-nested-forbidden-symbol-unknown UNKNOWN  unknown: dependency_symbol_limit",
         "unsupported or unreadable -> refused with exit 2",
         "  dart-unsupported-rule    exit 2 rule_unsupported_by_profile",
         "  dart-unsupported-budget  exit 2 rule_unsupported_by_profile",

@@ -10,6 +10,7 @@ replays the same rows as that story.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fixtures.demo_catalog_support import Variant, contract_measurement_budgets, contract_with_rule
@@ -52,6 +53,56 @@ _TYPING_BUDGET_BASELINE = """{
   "violations": []
 }
 """
+
+
+def _nested_symbol_files(*, forbidden: bool = False) -> dict[str, str]:
+    root = json.loads((DART_FIXTURE_DIR / "architecture-contract.json").read_text())
+    domain = next(item for item in root["components"] if item["label"] == "domain")
+    domain["inside"] = "contracts/domain.json"
+    middle = {
+        "schema_version": root["schema_version"],
+        "components": [{**domain, "label": "core", "inside": "contracts/domain-core.json"}],
+        "rules": [],
+    }
+    components = [
+        {
+            "id": f"COMP-{name.upper()}",
+            "label": name,
+            "role": "component",
+            "packages": [f"shop.domain.{name}"],
+            "public": [f"shop.domain.{name}:{symbol}"],
+            "responsibilities": [],
+            "forbidden_responsibilities": [],
+            "provenance": ["docs/architecture/shop.md"],
+        }
+        for name, symbol in (("repository", "OrderRepository"), ("entities", "Order"))
+    ]
+    rule = {
+        "id": "NO-DRAFT" if forbidden else "INTERFACE",
+        "kind": "forbidden_dependency" if forbidden else "interface_boundary",
+        "include_type_checking": True,
+        "rationale": "The repository uses only the public entity API.",
+        "provenance": ["docs/architecture/shop.md"],
+        "decided_by": "architect",
+    }
+    if forbidden:
+        rule.update(
+            source="shop.domain.repository",
+            target="shop.domain.entities",
+            target_symbol="OrderDraft",
+        )
+    deep = {"schema_version": root["schema_version"], "components": components, "rules": [rule]}
+    return {
+        path: json.dumps(contract, indent=2) + "\n"
+        for path, contract in (
+            ("architecture-contract.json", root),
+            ("contracts/domain.json", middle),
+            ("contracts/domain-core.json", deep),
+        )
+    }
+
+
+_NESTED_SYMBOL_FILES = _nested_symbol_files()
 
 VARIANTS: tuple[Variant, ...] = (
     Variant(
@@ -172,6 +223,66 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         expected_unknowns=(("interface_symbol_limit", "shop.presentation.order_tile"),),
+        fixture=DART_FIXTURE_DIR,
+        expected_declared_rules="UNKNOWN",
+    ),
+    Variant(
+        id="dart-nested-interface-unknown",
+        section="class_a",
+        item="dart:interface_boundary:nested_unknown",
+        summary="Two inside levels down, repository imports entities without show. The scan "
+        "is complete, but the symbol boundary remains UNKNOWN with its import evidence.",
+        files=_NESTED_SYMBOL_FILES,
+        expected_violations=(),
+        expected_codes=(),
+        expected_unknowns=(("interface_symbol_limit", "shop.domain.repository"),),
+        fixture=DART_FIXTURE_DIR,
+        expected_declared_rules="UNKNOWN",
+    ),
+    Variant(
+        id="dart-nested-interface-show",
+        section="class_a",
+        item="dart:interface_boundary:nested_show",
+        summary="The same deep boundary decides PASS when the import explicitly names Order.",
+        files={
+            **_NESTED_SYMBOL_FILES,
+            _REPOSITORY: (DART_FIXTURE_DIR / _REPOSITORY)
+            .read_text()
+            .replace("import 'entities.dart';", "import 'entities.dart' show Order;"),
+        },
+        expected_violations=(),
+        expected_codes=(),
+        fixture=DART_FIXTURE_DIR,
+        expected_declared_rules="PASS",
+    ),
+    Variant(
+        id="dart-nested-interface-mixed",
+        section="class_a",
+        item="dart:interface_boundary:nested_mixed",
+        summary="A known non-public OrderDraft import remains a violation beside the "
+        "undecided import at the same deep boundary. FAIL does not erase UNKNOWN evidence.",
+        files={
+            **_NESTED_SYMBOL_FILES,
+            _REPOSITORY: _with_directives(
+                _REPOSITORY, "import 'entities.dart';", "import 'entities.dart' show OrderDraft;"
+            ),
+        },
+        expected_violations=("domain:core:INTERFACE",),
+        expected_codes=("rule.violated",),
+        expected_unknowns=(("interface_symbol_limit", "shop.domain.repository"),),
+        fixture=DART_FIXTURE_DIR,
+        expected_declared_rules="FAIL",
+    ),
+    Variant(
+        id="dart-nested-forbidden-symbol-unknown",
+        section="class_a",
+        item="dart:forbidden_dependency:nested_unknown",
+        summary="The no-show import cannot decide whether the forbidden OrderDraft name is "
+        "used. The nested dependency-symbol limit remains UNKNOWN, not PASS.",
+        files=_nested_symbol_files(forbidden=True),
+        expected_violations=(),
+        expected_codes=(),
+        expected_unknowns=(("dependency_symbol_limit", "shop.domain.repository"),),
         fixture=DART_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
     ),

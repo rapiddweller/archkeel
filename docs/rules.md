@@ -28,6 +28,10 @@ a library is a module and every directive edge is a FACT (AD-98); `interface_bou
 `boundary_types`, `forbidden_construct`, `context_roots` and a budget on an unmeasured scalar exit 2
 with `rule_unsupported_by_profile` (AD-97).
 
+The same symbol limits apply inside recursively mounted contracts (AD-114). Their counts cover
+only the valid source scope and retain mounted rule IDs and import evidence. A complete scan
+may still have an UNKNOWN rule; known violations remain visible beside undecided imports.
+
 ## Class A: deterministic rules
 
 `complete_requires` is the compact closed-world invariant Archkeel uses itself (AD-32): each
@@ -130,8 +134,10 @@ different component covers nothing. A component pair absent from the list is dec
 absence forbids, the way `complete_assignment` makes an unassigned module a violation rather than a
 question (AD-32). `TYPE_CHECKING` imports count unless `include_type_checking` is false. Without the
 rule nothing changes, so a compatibility contract that never adopts it keeps deciding pairs one
-by one. A `requires` entry naming a component that does not exist covers nothing and remains a
-blind spot. A
+by one. Each `requires.component` must name a component in that same contract, even without
+this rule or any observed import. Unknown targets are invalid input with a pointer to the
+entry; ancestors and other mounts do not supply missing labels. Component labels must be
+unique within each contract, but may repeat across different levels or mounts (AD-113). A
 `render` component that imports `model` without requiring it is an example violation. The same
 rule kind is evaluated a second time against a component's declared inside, over the imports the
 outer scan already collected, so a crossing between two sub-components that no `requires` entry
@@ -153,6 +159,20 @@ An `inside` can name another contract recursively (AD-111). Paths are relative t
 two parents, cycles, escaping paths and colliding scoped ids are rejected. No directory gets a
 contract implicitly. Nonempty `declarations` fields inside are unsupported and refused; component
 `public` entries and rule provenance are separate supported fields.
+
+`public` applies at its own contract level (AD-112). A child's API is available to local
+siblings, not automatically to callers outside its parent. The parent explicitly publishes
+its outward entries or proven facade reexports; the lists need not be equal or subsets.
+A parent facade may sit outside all child packages. Namespace, provenance and `public`/`planned`
+ownership and underscore checks also apply inside, with mount-qualified diagnostic pointers.
+Ancestor restrictions still apply. `inside.public_mismatch` is no longer emitted.
+With a local `interface_boundary`, an unscanned public module is `interface.missing`.
+Nested unused-public and planned-promotion checks use scoped evidence (AD-115): cross-sibling
+imports and explicit child or ancestor facades physically within the current parent. A
+re-exported function counts at its publisher, not its definition's location. Unrelated facades
+and unpublished parent imports do not count. A built, unused planned entry stays target work;
+a reached one requires promotion without granting access. Unknown import names are not proof
+of non-use. Root baseline exceptions do not transfer to children with matching labels.
 
 `external_dependency_scope` fields are `dependency` (a top-level import name), `allowed_sources`
 and `exact_sources`, at least one of the two non-empty. It matches import records whose target is
@@ -282,8 +302,7 @@ diagnostic. A built entry remains target work until a cross-component import or 
 signature reaches it; then `interface.planned_built` asks you to move it to `public` and drop it
 from `planned` (AD-79). `planned` entries are held to the same ownership,
 underscore and namespace checks as `public` ones, but never reach the analyzer: `planned` is not
-projected into the observation, so it earns no `agent_decisions` count and takes no part in an
-AD-20 inside's public-surface match.
+projected into the observation, so it earns no `agent_decisions` count and grants no public access.
 
 `sibling_isolation` has the field `members`, at least two dotted prefixes, and the optional
 `include_type_checking` (default `true`). Peers reach shared modules and are reached from outside,
@@ -653,15 +672,16 @@ claim removes that ambiguity without turning it into a verdict.
 - **Determinism:** both quantities come from one observation and one derivation, so the claim and
   the size table can never disagree; it never becomes a verdict or an exit code.
 - **Blind spots:** the claim measures what a component holds, not how tangled it is — a component
-  of many independent modules is named alongside one that is genuinely knotted. It says nothing
-  about what a second level would find, because that needs a second scan at a narrower scope,
-  which one observation cannot supply (AD-10); an inside a component has already declared is a
-  different matter, recorded, judged and drawn from this same observation (AD-34). Missing either signal reports UNKNOWN, because a
+  of many independent modules is named alongside one that is genuinely knotted. Physical
+  navigation exposes the observed modules, but does not invent rules for undeclared boundaries.
+  Explicit nested contracts are recorded, judged and drawn from the same observation (AD-34).
+  Missing either signal reports UNKNOWN, because a
   comparison against zero component edges would name every component.
-- **Example:** on Archkeel itself the top level holds 7 components and 9 edges, and the claim names
+- **Historical example:** on Archkeel itself the top level held 7 components and 9 edges, and the claim named
   `analyzer` (22 modules, 50 inner edges), `check` (13 and 24) and `ir` (18 and 32), while `cli`,
-  `render` and `host` stay below on both. Opening a level for one of them is `archkeel init
-  --source <path> --namespace <package>`, which drafts that inside as a contract of its own (AD-20).
+  `render` and `host` stayed below on both. Review the physical subtree before introducing an
+  `inside` contract. Do not rerun root `init --source` to create it: that command targets the
+  standard onboarding files. Follow the [recursive review guidance](onboarding.md#review-the-physical-structure).
 
 `cross-component type fan-in` is the fifth claim (issue #9, AD-59). Its signals are the `symbols`
 and `imports` sections: `imports` for which function or method a cross-component call reaches,

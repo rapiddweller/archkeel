@@ -43,8 +43,8 @@ finding ids stay stable. Existing root-only amendments for inside trees must be 
 reviewed explicitly; no legacy fallback silently blesses newly included policy. Schema 2.1.0 stays.
 
 Nonempty inside `declarations` fields are unsupported and fail closed. Components, their `public`
-entries, and rules are supported. Child-local publication is a separate decision (#170), not
-part of recursive loading. A report drills through mounted levels and retains their findings;
+entries, and rules are supported. Child-local publication is defined separately in
+[AD-112](ad-112-local-publication-at-each-boundary.md). A report drills through mounted levels and retains their findings;
 its physical folder view does not claim rule coverage.
 
 Evidence: recursive inside contract, independent contract, boundary and flow-navigation tests.

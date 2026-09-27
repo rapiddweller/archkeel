@@ -149,6 +149,15 @@ class ContractVersionError(ValueError):
         super().__init__(f"contract.schema_version {actual!r} is not {CONTRACT_SCHEMA_VERSION}")
 
 
+class ContractInputError(ValueError):
+    """A contract declaration fails a semantic check and has a source location."""
+
+    def __init__(self, pointer: str, subject: str, message: str) -> None:
+        self.pointer = pointer
+        self.subject = subject
+        super().__init__(message)
+
+
 def _object(raw: object, label: str) -> dict[str, RawJson]:
     if not isinstance(raw, dict) or not all(isinstance(k, str) for k in raw):
         raise ValueError(f"{label} must be an object")
@@ -772,6 +781,22 @@ def parse_contract(raw: object) -> ArchitectureContract:
     )
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
+    seen_labels: set[str] = set()
+    for component_index, component in enumerate(components):
+        if component.label in seen_labels:
+            raise ContractInputError(
+                f"/components/{component_index}/label",
+                component.label,
+                f"component label {component.label!r} is not unique in this contract",
+            )
+        seen_labels.add(component.label)
+        for requires_index, entry in enumerate(component.requires or ()):
+            if entry.component not in labels:
+                raise ContractInputError(
+                    f"/components/{component_index}/requires/{requires_index}/component",
+                    entry.component,
+                    f"{entry.component!r} is not a component label in this contract",
+                )
     for index, rule in enumerate(rules):
         if isinstance(rule, NoComponentCyclesRule) and rule.components is not None:
             unknown = sorted(set(rule.components) - labels)
@@ -1828,6 +1853,7 @@ class InsideContractIssue:
     pointer: str
     path: str
     reason: str
+    input_error: ContractInputError | None = None
 
 
 @dataclass(frozen=True)
@@ -1989,6 +2015,11 @@ def _read_inside_mount(
         if identity in active or identity in seen:
             raise ValueError("reference cycle" if identity in active else "duplicate mount")
         contract = parse_contract(decode_json(payload))
+    except ContractInputError as error:
+        issues.append(
+            InsideContractIssue(parent, parent_id, location, reference, str(error), error)
+        )
+        return None
     except (OSError, ContractVersionError, ValueError) as error:
         issues.append(InsideContractIssue(parent, parent_id, location, reference, str(error)))
         return None
@@ -2162,7 +2193,16 @@ def declaration_paths(
         read_contract,
     )
     if tree.issues:
-        issue = tree.issues[0]
+        issue = next(
+            (candidate for candidate in tree.issues if candidate.input_error is not None),
+            tree.issues[0],
+        )
+        if issue.input_error is not None:
+            raise ContractInputError(
+                f"{issue.pointer}{issue.input_error.pointer}",
+                issue.input_error.subject,
+                str(issue.input_error),
+            )
         raise ValueError(f"inside {issue.path!r}: {issue.reason}")
     return tree.paths
 

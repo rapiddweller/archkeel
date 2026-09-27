@@ -148,6 +148,12 @@ often explains an earlier one; the index below keeps that order.
 | AD-109 | [`boundary_types` follows literal exports from ordinary modules](decisions/ad-109-boundary-types-follows-literal-all-in-ordinary-modules.md) |
 | AD-110 | [Inside rules use the shared evaluator](decisions/ad-110-inside-rules-use-the-shared-evaluator.md) |
 | AD-111 | [Explicit inside contracts form one revision-bound tree](decisions/ad-111-recursive-inside-contract-tree.md) |
+| AD-112 | [Public means public at that boundary](decisions/ad-112-local-publication-at-each-boundary.md) |
+| AD-113 | [Requires names a component at its own level](decisions/ad-113-requires-targets-belong-to-their-contract-level.md) |
+| AD-114 | [Symbol uncertainty survives nested contracts](decisions/ad-114-symbol-uncertainty-survives-nested-contracts.md) |
+| AD-115 | [Nested API lifecycle uses local evidence](decisions/ad-115-nested-api-lifecycle-uses-local-evidence.md) |
+| AD-116 | [Diagram filtering is an explicit choice](decisions/ad-116-diagram-filtering-is-an-explicit-choice.md) |
+| AD-118 | [Structure review is not contract conformance](decisions/ad-118-structure-review-is-not-contract-conformance.md) |
 
 ## Allowed dependencies
 

@@ -6,25 +6,31 @@ description: Use when setting up or changing architecture rules, or checking arc
 # Archkeel
 
 Archkeel is a deterministic architecture checker. It observes Python imports, evaluates a
-declared contract of components and rules against that observation, and reports PASS/FAIL
-per rule. Rules are declared once in `architecture-contract.json`; nothing is enforced by
-convention alone.
+declared contract of components and rules against that observation, and distinguishes
+PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested
+contracts; nothing is enforced by convention alone.
 
 ## Onboarding (first time in this repository): a target, not a description
 
 `architecture-contract.json` is the target architecture — where the system should be, not
-where the code already is. `archkeel report` measures the code's distance from that target
-as violations. The architect owns the target and chooses how deep to review it today; you
-support them with best practice, evidence from the repository, and the architect's quality
-goals for this codebase (which components must scale, stay easy to change, or are
-performance-critical). Read those goals from ADRs and architecture documents first; ask the
-architect only when a goal is unknown and would change your recommendation. Every
-recommendation and every rationale you write cites the goal it rests on. There is no
-contract field for a quality goal: it lives in the rationale, in your own words, next to the
-rule it justifies.
+where the code already is. `archkeel report` measures declared constraints, not the quality
+of the whole architecture. The architect owns the target and review scope; within that scope,
+inspect the physical structure at every depth, not just the top level. Support them with evidence
+from the repository and the architect's quality goals for this codebase (which components
+must scale, stay easy to change, or are performance-critical). Read those goals from ADRs
+and architecture documents first; ask the architect only when a goal is unknown and would
+change your recommendation. Every
+recommendation and every rationale cites the goal it rests on. There is no contract field
+for a quality goal: record it next to the rule it justifies, following the chosen decision
+mode below.
 
-Run `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once,
-first. It detects the Python package (the only top-level one, or the one `pyproject.toml`'s
+For requested first-time onboarding, inspect existing files, then run
+`archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once.
+A read-only assessment uses existing contracts, reports and source; it does not authorize
+initialization, contract edits, file moves or commits.
+Preserve existing contracts and their `inside` references. If onboarding files already exist,
+continue from them; do not use `--force` without explicit approval to replace those files.
+`init` detects the Python package (the only top-level one, or the one `pyproject.toml`'s
 `[project] name` names when a test package sits beside it; otherwise it exits 2 and asks for
 `--source` and `--namespace`), requires an existing Git repository with at least one
 commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
@@ -43,6 +49,35 @@ subtree). Follow the ownership example in the target-first guide. Run `archkeel 
 adding it; a misplaced matching class is a `rule.violated`.
 
 Then pick one of two modes. The architect chooses; do not choose for them.
+
+### Physical structure review (both modes)
+
+After `init`, and during architecture assessments, inspect every maintained source package
+in scope recursively down to leaf packages, whether or not it has an `inside` contract.
+The generated inventory and a green contract are not evidence that this structure is good.
+
+- Count direct source modules and immediate subpackages at each level; exclude `__init__.py`
+  from this count, not from ownership, behavior or dependency review. Record excluded generated
+  or vendored trees.
+  More than seven direct children triggers a review, not an automatic split or a failing
+  rule. Five to seven understandable groups is a review heuristic, not a cognitive law.
+- Challenge mixed responsibilities, unclear names, oversized leaf modules, excessive
+  nesting, cycles and cross-package coupling even below that threshold. Trace entry points
+  and data flow before choosing boundaries; check who owns shared types and public interfaces.
+- Propose physical packages around cohesive responsibilities, not arbitrary groups of seven
+  or diagram-only clusters. Compare the current and target tree and allowed dependency
+  directions. Keep a cohesive larger package when splitting only adds navigation or coupling;
+  do not hide the excess in `misc`, `utils`, single-child wrappers or re-export barrels.
+- For uncertain boundaries, give the architect a recommended option, alternatives, evidence,
+  trade-offs and system-wide impact. Follow the chosen decision mode; reviewing structure
+  does not authorize moving files or changing behavior.
+- Record review coverage and unresolved decisions in the response; when the task includes an
+  architecture-document update, keep the durable record there: reviewed subtree, finding or
+  keep-rationale, target change, and enforcement gap. Mark unreviewed subtrees explicitly;
+  never present a partial review as a complete assessment.
+  Add `inside` contracts at meaningful independently governed boundaries, not at every folder.
+  Encode approved constraints with supported rules. Deeper review remains necessary when
+  the installed version cannot enforce nested contracts; do not invent unsupported rules.
 
 ### Interview mode: the architect decides, you ask
 
@@ -100,18 +135,20 @@ reopened.
 
 ### Ending onboarding, either mode
 
-The interview (or the auto-mode pass) ends when `complete_requires` closes the dependency set
-and `validate --json` reports none of `decision.open`, `rationale.placeholder` or
+Before ending, record the physical structure review and any deferred subtrees or decisions;
+a closed dependency contract alone does not complete the architecture assessment.
+The dependency interview (or auto-mode pass) ends when `complete_requires` closes the
+dependency set and `validate --json` reports none of `decision.open`, `rationale.placeholder` or
 `rationale.repeated` — not when the command exits 0. A `rule.violated` diagnostic is the
 architecture's own finding, not an onboarding step: the code still uses an edge the target
 omits. Show it to the architect with `archkeel report`. They resolve it by changing the code or
 changing the target; the agent never does that itself and never loops `validate --json` waiting
 for exit 0.
 
-Once it ends, run `archkeel report` and commit the three generated files (`archkeel.toml`,
-`architecture-contract.json`, `docs/architecture/architecture.md`). A remaining
-`rule.violated` is follow-up code work, tracked separately from onboarding, not a reason to
-hold the commit.
+Once it ends, run `archkeel report`. Include the generated files (`archkeel.toml`,
+`architecture-contract.json`, `docs/architecture/architecture.md`) when they are part of the
+requested change. A remaining `rule.violated` is follow-up code work, tracked separately from
+onboarding.
 
 Where that follow-up is long — a contract that states the target architecture the code has
 yet to reach — freeze the known violations instead of weakening the contract:
@@ -151,6 +188,8 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
 
 ## Daily loop
 
+- Revisit the physical structure review for changed packages and their parent boundaries;
+  recheck related findings rather than repeating a whole-repository review for every edit.
 - Run `archkeel report --json` before submitting any change. A rule violation does not
   change the exit code; read the `declared_rules` verdict. Exit 2 means the evidence is
   incomplete; fix the diagnostic before trusting any verdict.
@@ -176,31 +215,39 @@ https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
   verdict or an exit code; bring a nonzero count to the architect as reading work, and never
   delete code because a claim named it.
 
-## A second level: the inside of a component
+## Nested contracts: the inside of a component
 
 A component may name a contract of its own, which becomes a second level of the same
-architecture (AD-20, AD-34). Opening one is the architect's decision, never yours. The
+architecture (AD-20, AD-34). Adding one is the architect's decision; inspecting the physical
+subtree is already part of the recursive review above and does not depend on that decision. The
 `component larger than its level` claim is evidence that a component holds more than the whole
 top level does; it is a reason to ask, not permission to split.
 
 Once the architect decides:
 
-1. Draft the scope with `archkeel init --source <component path> --namespace <component
-   package>`. Read the draft as an inventory, not as a proposal: it writes one component per
-   module, so on Archkeel's own `check` it drafted 12 sub-components and 132 open decisions
-   where the three layers the architect settled on need 6. The drafted table and `init
-   --json`'s `draft_sizes` also carry each drafted component's modules and inner edges, so a
-   large or well-connected child is visible before you group anything, not only after.
-   Consolidate it into a few layers with the architect before deciding a single pair.
+1. Inventory the source tree and the existing `archkeel report --json` structure measurements.
+   Review every relevant child before grouping; a report does not cover detail it does not
+   expose. Do not rerun `init --source` at the repository root for this scope: `init` writes the
+   standard root onboarding files and requires `--force` if they already exist. On Archkeel's
+   own `check`, a per-module draft produced 12 sub-components and 132 open decisions where the
+   three layers the architect settled on need 6. Consolidate into a few layers with the architect
+   before deciding a single pair.
 2. Point the outer component at the resulting contract with
    `"inside": "<repository-relative path>"`.
 3. Decide the inside the way you decide the top level: a `requires` list per sub-component and
    one `complete_requires` rule, so absence forbids there too (AD-32).
 
-`validate` then holds the two levels to each other, and you read its diagnostics by `code`:
+`validate` holds the declared levels to each other; read its diagnostics by `code`:
 
-- `inside.public_mismatch` — the component's `public` above and the public surface of the
-  inside must be the same list. Declare it once and repeat it in both contracts.
+- Each level's `public` list serves that boundary. Child APIs stay local unless the parent
+  explicitly publishes them or a proven facade reexport. Do not copy every child API upward.
+- `reference.public_owner`, `reference.public_underscore` and `reference.namespace` also apply
+  inside. Correct the declaration at its mounted pointer; do not broaden ownership to silence it.
+- With an inner `interface_boundary`, `interface.missing` names an unscanned public module.
+  `interface.unused` means no scoped sibling import or proven facade publication reaches it.
+  A built, unused planned entry stays target work; reaching it requires promotion through
+  `interface.planned_built`, not automatic permission. Publisher evidence belongs to the exact
+  parent scope, including proven re-export chains. Unknown import names are not proof of non-use.
 - `inside.forbidden_import` — the inside grants an edge the level above forbids the component,
   by a rule or by absence under `requires`. Remove the grant, or change the decision above.
 - `contract.invalid` at `/components/<n>/inside` — the file is missing, outside the repository,
@@ -211,17 +258,19 @@ outer scan already collected, so a crossing between two sub-components that no `
 covers is a violation like any other, and the flow view opens that component into its
 sub-components before its modules. Such a finding names the rule as `<component>:<rule id>`,
 for example `store:STORE-REQUIRES-COMPLETE`: the id you will find in the inside contract is the
-part after the colon, and the part before it is the component that names that contract. Fix it
-in the inside contract, never by adding a rule above.
+part after the colon, and the part before it is the component that names that contract. Resolve
+it according to the target decision: update the inside `requires` only for an architect-approved
+crossing; otherwise change the code. Do not add a rule above to hide an inside crossing.
 
-Three limits hold today: the inside has no `archkeel.toml`, so it cannot be validated as a
-level of its own; of its rules only `complete_requires` is evaluated, and an
-`external_dependency_scope` declared inside is not compared with the level above; and only one
-level down is recorded, so an inside declared within an inside is not read.
+Explicit `inside` references are followed recursively and use the shared rule evaluators.
+Mounting a contract does not create a standalone `archkeel.toml` for it. Nonempty inside
+`declarations` fields remain unsupported and are refused. An inner `external_dependency_scope`
+declaration is not compared with ancestor declarations; ancestor rules still evaluate their
+own source scope. A physical folder alone is not a declared contract.
 
 ## Rule catalog (summary)
 
-Class A rules are deterministic PASS/FAIL, evaluated from one observation:
+Class A rules are evaluated from one observation; unavailable evidence can leave them UNKNOWN:
 `complete_requires`, `forbidden_dependency`, `forbidden_construct`,
 `external_dependency_scope`, `complete_assignment`, `no_component_cycles`. A
 `no_component_cycles` rule with `level: "module"` and an optional `components` list judges import

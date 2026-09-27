@@ -52,10 +52,7 @@ def _barrel_contract() -> str:
 def _barrel_inside_contract() -> str:
     contract = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
     repository = next(item for item in contract["components"] if item["label"] == "repository")
-    repository["public"] = [
-        "shop.store.repository:OrderRepository",
-        "shop.store:OrderRepository",
-    ]
+    repository["public"] = ["shop.store.repository:OrderRepository"]
     return json.dumps(contract, indent=2) + "\n"
 
 

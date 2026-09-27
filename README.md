@@ -31,7 +31,8 @@ It catches two failure modes that finding-only diffs miss:
 <code>DEP-STORE-NO-MONEY</code>. In the open HTML report, <strong>Violations only</strong> collapses
 secondary detail and leaves the verdict, failures, unknowns and evidence available; Component
 flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
-Both change the view, never the verdict or evidence. This capture focuses on <code>app</code>;
+Both change the view, never the verdict or evidence. This capture uses <strong>Fit overview</strong>
+and focuses on <code>app</code>;
 <strong>All components and groups</strong> restores the unassigned module omitted by that focus.</sub>
 
 Modules without a unique declared owner remain reachable through a navigation-only
@@ -86,7 +87,8 @@ to one public surface, and the flow view opens the component into them.
   <img src="docs/assets/archkeel-shop-components.png" alt="Clean shop sample: five components and the json library, seven connections, all twelve modules, with the heaviest connections listed beside the graph" width="980">
 </p>
 
-<sub>The five components and their scoped <code>json</code> dependency. Every edge carries its
+<sub>Fit overview shows the five components and their scoped <code>json</code> dependency.
+The interactive diagram starts at 100% zoom; scroll to explore it. Every edge carries its
 import sites; teal means the contract allows it.
 <code>store</code> shows 7 modules against a level of 5 components — that is the claim.</sub>
 
@@ -94,7 +96,7 @@ import sites; teal means the contract allows it.
   <img src="docs/assets/archkeel-shop-store-inside.png" alt="The store component opened into its declared inside: api, repository, codec and backend, plus shop.store, the module no sub-component owns" width="980">
 </p>
 
-<sub>The same view after opening <code>store</code>: the level its own contract declares —
+<sub>Fit overview after opening <code>store</code>: the level its own contract declares —
 <code>api</code>, <code>repository</code>, <code>codec</code>, <code>backend</code> — with their
 three crossings at 3, 2 and 2 import sites, and <code>shop.store</code>, the module no
 sub-component owns, carried rather than dropped.</sub>
@@ -202,12 +204,17 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Nested flow stays inspectable.** Physical folders lead to every observed module, including
   import-only package initializers. Explicit `inside` contracts can nest; their rules and
-  findings remain attached to that level. Folders alone are not contracts. An inside connection
+  findings remain attached to that level. Child APIs stay local unless the parent explicitly
+  publishes them; internal and outward APIs need not match (AD-112). Folders alone are not
+  contracts. An inside connection
   is green only when all its displayed
   imports were checked, with no relevant UNKNOWN or edge violation (AD-110). No finding alone
   is not a conformance claim. Structure and Review remain
   keyboard-operable, and the diagram can restore its complete current scope with “All components
   and groups”; visible and total counts disclose focus and threshold filtering.
+- **Readable before filtering.** The diagram starts at 100% zoom with all groups and edges.
+  Scroll to explore; use Fit for an overview. Focus keeps every direct neighbor, and Arrange
+  preserves your filters and zoom (AD-116).
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
   claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
   level, 25 cross-component type fan-ins, 0 unread-binding candidates and 0 repetitions — in
@@ -245,6 +252,12 @@ terminal view as SVG.
 on the two-level shop: what `init` drafts, what `validate` refuses, what the architect decides,
 and what the gate says when an agent crosses a boundary inside the level.
 
+Replay a report-capable catalog row to a new JSON report and HTML sidecar:
+
+```bash
+make demo-architecture VARIANT=class-a-recursive-wide-package OUTPUT=demo-output/architecture.json
+```
+
 ```bash
 make demo-onboarding
 archkeel validate --root fixtures/F-architecture   # exit 0, both levels
@@ -281,6 +294,9 @@ conflicts and gaps, or auto mode, where the agent decides. Every rule records `d
 reviewed yet. The prompt is in
 [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
 rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+The skill reviews physical packages recursively, including uncontracted interiors. More than
+seven children prompts a cohesion review, not an automatic split; green rules do not certify
+the whole design. It records deferred areas and preserves existing contracts during assessment.
 Use `root_layout` when a package root must expose an exact set of immediate packages or modules;
 the root module and missing future children are ignored, while an unexpected child is a normal
 baselineable violation.

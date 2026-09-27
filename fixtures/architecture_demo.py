@@ -15,10 +15,16 @@ Regenerate `docs/architecture-demo.md` from the repository root with:
 
 from __future__ import annotations
 
+import argparse
+import shutil
+import subprocess
 import sys
+import tempfile
 import textwrap
 from pathlib import Path
 
+from archkeel.cli import html_path
+from archkeel.cli import main as archkeel_main
 from archkeel.cli.config import CONFIG_PATH
 from fixtures.demo_catalog_check import VARIANTS as _CHECK_PROTOCOL_VARIANTS
 from fixtures.demo_catalog_check_regressions import VARIANTS as _CHECK_REGRESSION_VARIANTS
@@ -30,7 +36,7 @@ from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
-from fixtures.demo_catalog_support import FIXTURE_DIR, Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
 from fixtures.demo_catalog_test_scope import VARIANTS as _TEST_SCOPE_VARIANTS
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
 from fixtures.demo_catalog_validation import VARIANTS as _VALIDATION_VARIANTS
@@ -65,6 +71,17 @@ _SHOWCASE_NOTE = (
     "The `showcase` row below (`tour`) is the default demo view: it applies many overlays "
     "at once so one run shows many violations together; every other row isolates one item."
 )
+_REPLAY_NOTE = (
+    "Replay a report-capable row with `python -m fixtures.architecture_demo --replay <variant> "
+    "--output <new-path>`; it emits a `validate` result, then writes the ordinary report JSON and "
+    "HTML sidecar. Report generation is always attempted; the command exit is the higher of "
+    "validation and report exits. Report artifacts remain available when validation fails. "
+    "Baseline flags are used only when "
+    "the row declares one; only `deepest_inside_changed` replays its `--against` history. "
+    "Check-protocol and tested-only rows are excluded. "
+    "The destination files must not exist. `make demo-architecture VARIANT=<variant> "
+    "OUTPUT=<new-path>` delegates to the same command."
+)
 _DART_NOTE = (
     "Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style package "
     'scanned with `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them '
@@ -96,6 +113,8 @@ def markdown() -> str:
         "",
         *textwrap.wrap(_SHOWCASE_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
+        *textwrap.wrap(_REPLAY_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
+        "",
         *textwrap.wrap(_DART_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
         "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
@@ -117,13 +136,97 @@ def markdown() -> str:
 
 
 def main(argv: list[str]) -> int:
-    if argv != ["--markdown"]:
-        print("usage: python -m fixtures.architecture_demo --markdown", file=sys.stderr)
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--markdown", action="store_true")
+    mode.add_argument("--replay", metavar="VARIANT", help="Replay one catalog variant.")
+    parser.add_argument(
+        "--output", type=Path, help="New report JSON path; HTML is written beside it."
+    )
+    args = parser.parse_args(argv)
+    if args.markdown:
+        if args.output is not None:
+            parser.error("--output is only valid with --replay")
+        text = markdown()
+        (Path(__file__).resolve().parent.parent / "docs/architecture-demo.md").write_text(text)
+        print(text)
+        return 0
+    if args.output is None:
+        parser.error("--replay requires --output")
+    try:
+        return replay(args.replay, args.output)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(f"architecture demo replay failed: {error}", file=sys.stderr)
         return 2
-    text = markdown()
-    (Path(__file__).resolve().parent.parent / "docs/architecture-demo.md").write_text(text)
-    print(text)
-    return 0
+
+
+def replay(variant_id: str, output: Path) -> int:
+    """Replay one sample overlay with the ordinary report command into new files."""
+    variant = next((item for item in CATALOG if item.id == variant_id), None)
+    if variant is None:
+        raise ValueError(f"unknown catalog variant: {variant_id}")
+    if variant.evidence is not None:
+        raise ValueError(f"{variant_id} cites evidence and has no runnable fixture")
+    if variant.check is not None:
+        raise ValueError(f"{variant_id} is a check-protocol row, not a report-capable variant")
+    if variant.against is not None and (
+        variant.against.scenario != "deepest_inside_changed" or variant.against.root != "."
+    ):
+        raise ValueError(f"{variant_id} uses an unsupported --against scenario")
+
+    output = output.resolve()
+    report_html = html_path(output, "report")
+    if output == report_html:
+        raise ValueError("JSON and HTML output paths collide")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    reserved: list[Path] = []
+    try:
+        for path in (output, report_html):
+            with path.open("xb"):
+                reserved.append(path)
+        with tempfile.TemporaryDirectory(prefix="archkeel-demo-") as temporary:
+            root = Path(temporary) / variant.fixture.name
+            shutil.copytree(variant.fixture, root)
+            if variant.against is not None:
+                apply_overlay(root, variant.against.base_files)
+            for command in (
+                ("init", "-q", "-b", "main"),
+                ("config", "user.email", "demo@example.invalid"),
+                ("config", "user.name", "Demo"),
+                ("add", "-A"),
+                ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant_id),
+            ):
+                subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
+            apply_overlay(root, variant.files)
+            validate = ["validate", "--root", str(root), "--config", variant.config]
+            if variant.baseline is not None:
+                validate.extend(("--baseline", variant.baseline))
+            if variant.write_baseline:
+                validate.append("--write-baseline")
+            if variant.against is not None:
+                validate.extend(("--against", "main"))
+            validate_exit_code = archkeel_main([*validate, "--json"])
+            report_exit_code = archkeel_main(
+                [
+                    "report",
+                    "--root",
+                    str(root),
+                    "--config",
+                    variant.config,
+                    "--output",
+                    str(output),
+                    "--json",
+                ]
+            )
+            for path in reserved:
+                if path.is_file() and path.stat().st_size == 0:
+                    path.unlink()
+            return max(validate_exit_code, report_exit_code)
+    except Exception:
+        for path in reserved:
+            if path.is_file() and path.stat().st_size == 0:
+                path.unlink()
+        raise
 
 
 if __name__ == "__main__":

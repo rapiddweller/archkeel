@@ -141,7 +141,8 @@ unless the check has already classified them as a failure.
 
 - One observation feeds three views at the same breadcrumb level: focused UML diagram to explain
   interfaces, physical structure map to find modules, and a connection-first review queue.
-  The diagram keeps all violated edges visible outside its five heaviest direct connections.
+  The diagram starts with every group and connection at the current level. Selecting a focus
+  keeps every direct neighbor and all violated edges, not an arbitrary number of neighbors.
   Review shows every violated or undecided connection before the busiest conforming ones;
   the matrix is optional and shows up to twelve high-traffic entries. Focus can be reset to
   “All components and groups”; each view reports shown and total entries for its current scope.
@@ -163,8 +164,10 @@ unless the check has already classified them as a failure.
 - An observed import governed by `external_dependency_scope` draws a `«library»` card and
   a dashed `«use»` dependency. One card represents each external dependency even when multiple
   scope rules name it; all rule details and violating rule ids stay inspectable.
-- More than twelve inside connections defaults to a labelled heavy-edge view. Violations stay
-  visible regardless of threshold, and the slider can restore every edge.
+- Start at 100% zoom and threshold zero. A bounded native scroll area keeps labels readable;
+  opening a large level must not silently shrink it. Zoom and Fit are explicit controls.
+  A chosen threshold hides only non-violating edges, with shown/total counts beside it.
+  Arrange resets card positions, not focus, threshold or zoom. Resize preserves the chosen zoom.
 - Import edges carry their observed import-site counts. Module call/reference edges are marked
   as symbol-use relationships, not import sites. A conforming edge is solid teal; a violated edge
   is dashed red with a chip naming the rule id.
