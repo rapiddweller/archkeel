@@ -7,25 +7,28 @@ description: Use when setting up or changing architecture rules, or checking arc
 
 Archkeel is a deterministic architecture checker. It observes Python imports, evaluates a
 declared contract of components and rules against that observation, and distinguishes
-PASS, FAIL and UNKNOWN. Rules are declared once in `architecture-contract.json`; nothing is enforced by
-convention alone.
+PASS, FAIL and UNKNOWN. Rules are declared once in `architecture-contract.json`; nothing is
+enforced by convention alone.
 
 ## Onboarding (first time in this repository): a target, not a description
 
 `architecture-contract.json` is the target architecture — where the system should be, not
 where the code already is. `archkeel report` measures declared constraints, not the quality
-of the whole architecture. The architect owns the target and review scope; within that scope, inspect
-the physical structure at every depth, not just the top level. Support them with evidence
+of the whole architecture. The architect owns the target and review scope; within that scope,
+inspect the physical structure at every depth, not just the top level. Support them with evidence
 from the repository and the architect's quality goals for this codebase (which components
 must scale, stay easy to change, or are performance-critical). Read those goals from ADRs
-and architecture documents first; ask the
-architect only when a goal is unknown and would change your recommendation. Every
+and architecture documents first; ask the architect only when a goal is unknown and would
+change your recommendation. Every
 recommendation and every rationale you write cites the goal it rests on. There is no
 contract field for a quality goal: it lives in the rationale, in your own words, next to the
 rule it justifies.
 
-Run `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once,
-first. It detects the Python package (the only top-level one, or the one `pyproject.toml`'s
+For requested first-time onboarding, inspect existing files, then run
+`archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once.
+A read-only assessment uses existing contracts, reports and source; it does not authorize
+initialization, contract edits, file moves or commits.
+`init` detects the Python package (the only top-level one, or the one `pyproject.toml`'s
 `[project] name` names when a test package sits beside it; otherwise it exits 2 and asks for
 `--source` and `--namespace`), requires an existing Git repository with at least one
 commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
@@ -263,7 +266,7 @@ own source scope. A physical folder alone is not a declared contract.
 
 ## Rule catalog (summary)
 
-Class A rules are deterministic PASS/FAIL, evaluated from one observation:
+Class A rules are evaluated from one observation; unavailable evidence can leave them UNKNOWN:
 `complete_requires`, `forbidden_dependency`, `forbidden_construct`,
 `external_dependency_scope`, `complete_assignment`, `no_component_cycles`. A
 `no_component_cycles` rule with `level: "module"` and an optional `components` list judges import
