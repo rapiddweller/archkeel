@@ -309,6 +309,8 @@
 
   const edgeKey = (e) => `${e.source}>${e.target}`;
   let positions = {};
+  let diagramOrigin = null;
+  let sizedPositions = positions;
   const linkedComponent = new URLSearchParams(window.location.hash.slice(1)).get("component");
   let opened = componentByLabel.has(linkedComponent) ? { component: linkedComponent, path: [] } : null;
   let selected = null;
@@ -446,6 +448,29 @@
     );
   }
 
+  function activeFilterSummary() {
+    const active = [];
+    if (focusLabel) active.push(`Focus: ${focusLabel}`);
+    if (Number(thresholdInput.value) > 0) {
+      const unit = opened?.module ? "symbol-use edges" : "import sites";
+      active.push(`edges with at least ${thresholdInput.value} ${unit}`);
+    }
+    if (violationsOnly.checked) active.push("violating edges only");
+    return active.length ? `Active filters: ${active.join("; ")}` : "No diagram filters active";
+  }
+
+  function normalizeThreshold(maximum) {
+    thresholdInput.max = String(maximum || 1);
+    if (Number(thresholdInput.value) > maximum) thresholdInput.value = String(maximum);
+    thresholdInput.disabled = violationsOnly.checked;
+  }
+
+  function updateEdgeCount(shown, total) {
+    thresholdValue.textContent =
+      `Edges shown / at this level: ${shown}/${total} · ` +
+      `show ≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import sites"}`;
+  }
+
   function related(edge) {
     if (!selected) return true;
     if (selected.type === "node") return edge.source === selected.label || edge.target === selected.label;
@@ -507,6 +532,8 @@
   function render() {
     updateNavigation();
     const scope = fullLevel();
+    const maximum = level().edges.reduce((acc, edge) => Math.max(acc, weight(edge)), 0);
+    normalizeThreshold(maximum);
     if (focusLabel && !scope.components.some((card) => card.label === focusLabel)) focusLabel = null;
     focusInput.innerHTML = `<option value="">All components and groups</option>` + scope.components.map((card) =>
       `<option value="${esc(card.label)}">${esc(card.display || card.label)}</option>`).join("");
@@ -515,16 +542,7 @@
     root.dataset.view = viewMode;
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     alternative.hidden = viewMode === "diagram";
-    const activeFilters = [];
-    if (focusLabel) activeFilters.push(`Focus: ${focusLabel}`);
-    if (Number(thresholdInput.value) > 0) {
-      const unit = opened?.module ? "symbol-use edges" : "import sites";
-      activeFilters.push(`edges with at least ${thresholdInput.value} ${unit}`);
-    }
-    if (violationsOnly.checked) activeFilters.push("violating edges only");
-    filterStatus.textContent = activeFilters.length
-      ? `Active filters: ${activeFilters.join("; ")}`
-      : "No diagram filters active";
+    filterStatus.textContent = activeFilterSummary();
     if (viewMode !== "diagram") {
       renderAlternative();
       return;
@@ -541,19 +559,14 @@
         ? `${opened.module || opened.component} holds nothing to show.`
         : "This observation declares no components.";
       emptyLayer.appendChild(text);
+      updateEdgeCount(visibleEdges().length, fullLevel().edges.length);
       sizeDiagram();
       renderInspector([]);
       return;
     }
     layout();
-    const max = level().edges.reduce((acc, e) => Math.max(acc, weight(e)), 1);
-    thresholdInput.max = String(max);
-    if (Number(thresholdInput.value) > max) thresholdInput.value = String(max);
-    thresholdInput.disabled = violationsOnly.checked;
     const visible = visibleEdges();
-    thresholdValue.textContent =
-      `Edges shown / at this level: ${visible.length}/${fullLevel().edges.length} · ` +
-      `show ≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import sites"}`;
+    updateEdgeCount(visible.length, fullLevel().edges.length);
     const outs = groupBy(visible, (e) => e.source);
     const ins = groupBy(visible, (e) => e.target);
     const byX = (key) => (a, b) => positions[a[key]].x - positions[b[key]].x;
@@ -1216,12 +1229,32 @@
   function sizeDiagram() {
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height) return;
+    if (positions !== sizedPositions) {
+      diagramOrigin = null;
+      sizedPositions = positions;
+    }
     const padding = 32;
-    const width = bounds.width + padding * 2;
-    const height = bounds.height + padding * 2;
-    svg.setAttribute("viewBox", `${bounds.x - padding} ${bounds.y - padding} ${width} ${height}`);
-    svg.style.width = `${Math.ceil(width * transform.k)}px`;
-    svg.style.height = `${Math.ceil(height * transform.k)}px`;
+    const nextX = bounds.x - padding;
+    const nextY = bounds.y - padding;
+    if (!diagramOrigin) diagramOrigin = { x: nextX, y: nextY };
+    let scrollX = 0;
+    let scrollY = 0;
+    // Keep the SVG origin fixed during drag; grow left/up with native-scroll compensation.
+    if (dragState && nextX < diagramOrigin.x) {
+      scrollX = (diagramOrigin.x - nextX) * transform.k;
+      diagramOrigin.x = nextX;
+    }
+    if (dragState && nextY < diagramOrigin.y) {
+      scrollY = (diagramOrigin.y - nextY) * transform.k;
+      diagramOrigin.y = nextY;
+    }
+    const viewWidth = bounds.x + bounds.width + padding - diagramOrigin.x;
+    const viewHeight = bounds.y + bounds.height + padding - diagramOrigin.y;
+    svg.setAttribute("viewBox", `${diagramOrigin.x} ${diagramOrigin.y} ${viewWidth} ${viewHeight}`);
+    svg.style.width = `${Math.ceil(viewWidth * transform.k)}px`;
+    svg.style.height = `${Math.ceil(viewHeight * transform.k)}px`;
+    if (scrollX) canvas.scrollLeft += scrollX;
+    if (scrollY) canvas.scrollTop += scrollY;
     zoomValue.textContent = `${Math.round(transform.k * 100)}%`;
   }
 
@@ -1233,6 +1266,7 @@
       canvas.clientWidth / (bounds.width + 64),
       canvas.clientHeight / (bounds.height + 64),
     );
+    diagramOrigin = null;
     sizeDiagram();
     canvas.scrollLeft = 0;
     canvas.scrollTop = 0;
@@ -1307,7 +1341,12 @@
     const items = [{ label: "Components", state: null }];
     if (!opened) return items;
     items.push({ label: opened.component, state: { component: opened.component, path: [] } });
-    if (opened.inside) items.push({ label: opened.inside, state: { component: opened.component, inside: opened.inside, path: [] } });
+    if (opened.inside) items.push({ label: opened.inside, state: {
+      component: opened.component,
+      inside: opened.inside,
+      ...(opened.physicalInsideCard ? { physicalInsideCard: true } : {}),
+      path: [],
+    } });
     (opened.insidePath || []).forEach((name, index) => items.push({
       label: name,
       state: {
