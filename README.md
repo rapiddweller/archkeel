@@ -180,7 +180,7 @@ and mechanically checkable.
 ## Review surface
 
 <p>
-  <img src="docs/assets/archkeel-report-preview.png" alt="Archkeel report with Violations only checked, showing the shop tour's negative findings and source evidence" width="1100">
+  <img src="docs/assets/archkeel-report-preview.png" alt="Shop tour report: a completed scan, failed rules and a violated dependency diagram" width="1100">
 </p>
 
 The HTML report is designed for a reviewer making a merge decision:

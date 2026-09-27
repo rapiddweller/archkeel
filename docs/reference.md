@@ -115,8 +115,8 @@ remain UNKNOWN; a rule with violations stays FAIL while retaining its undecided 
 rows do not redefine the existing overall verdict or count a multi-rule UNKNOWN twice globally.
 The aggregate can therefore pass while a per-rule assessment remains UNKNOWN. The report's
 headline then reads NOT CHECKED and states the aggregate PASS explicitly; JSON and exit codes
-are unchanged. Cycle-scope
-completeness currently requires recursive Python scans; module-cycle proof needs the whole
+are unchanged. Cycle-scope completeness currently requires recursive Python scans;
+module-cycle proof needs the whole
 namespace. Smaller scans, explicit `source_paths`, and Dart cannot prove that completeness,
 but observed violations still produce FAIL.
 

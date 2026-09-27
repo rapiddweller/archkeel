@@ -22,7 +22,7 @@ contraction logic. It never changes the observation or overall verdict. Resoluti
 complete evaluation of the old subjects under the current rule, with no undecided positions.
 Narrowing a rule or scan cannot resolve debt outside that scope. Cycle contraction also needs
 coverage of the old cycle's members. A package's own receipt does not cover omitted descendants.
-Repeated occurrences share a group count; no individual line is labelled as already known.
+Repeated occurrences share a group count; a mixed fingerprint assigns no old/new line identity.
 Only a fully shared fingerprint gets muted rows with KNOWN and FAIL markers. Mixed groups
 retain known/new counts without assigning old debt to a particular occurrence.
 
