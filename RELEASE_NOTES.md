@@ -67,8 +67,9 @@ A clean finding list alone is not proof that a rule ran.
 - Cycle-completeness receipts need recursively covered Python roots; module cycles require the
   full namespace. Dart and explicit `source_paths` retain cycle findings but cannot prove this
   completeness: per-rule UNKNOWN remains unless a violation proves FAIL.
-- Result JSON gains `renames`, `rule_assessments`, `baseline_path` and `baseline_comparisons`,
-  each `null` when unused. Old observations without evaluator receipts cannot prove per-rule PASS.
+- Result JSON gains `renames`, `rule_assessments`, `baseline_path` and `baseline_comparisons`.
+  Unproduced results are `null`; an evaluated collection with no entries is `[]`.
+  Old observations without evaluator receipts cannot prove per-rule PASS.
 - Contract schema stays `2.1.0`, baseline schema `1.3.0`, observation schema `1.3.0`. The
   observation schema accepts line 0 only for evidence that cites a whole file.
 

@@ -3,6 +3,8 @@
 Amended by [AD-110](ad-110-inside-rules-use-the-shared-evaluator.md): green now requires
 evaluated import-site evidence, not the declaration alone. Missing contracts remain UNKNOWN.
 The counts below describe the original observation.
+The one-level limit below was removed by [AD-111](ad-111-recursive-inside-contract-tree.md);
+explicit nested contracts are now loaded, checked and drawn recursively.
 
 The observation carries a declared inside as a record kind of its own: one record per sub-component
 with its packages, its `requires` and the `parent_id` of the component holding it, and the inside
