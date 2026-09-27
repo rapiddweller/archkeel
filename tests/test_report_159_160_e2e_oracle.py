@@ -159,6 +159,20 @@ def _cycle_baseline_fixture(tmp_path: Path, capsys) -> tuple[Path, Path]:
     return root, baseline
 
 
+def _minimal_contract(root: Path, rules: list[dict[str, object]], labels: set[str]) -> None:
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_bytes())
+    contract = {
+        "schema_version": contract["schema_version"],
+        "components": [item for item in contract["components"] if item["label"] in labels],
+        "rules": rules,
+    }
+    for component in contract["components"]:
+        for key in ("capability_id", "inside", "requires", "public"):
+            component.pop(key, None)
+    path.write_text(json.dumps(contract))
+
+
 def test_tour_freezes_pass_fail_and_permission_oracles_from_real_cli_report(
     tmp_path: Path, capsys
 ) -> None:
@@ -544,6 +558,158 @@ def test_narrow_rule_scope_does_not_resolve_unchanged_cycle_or_hide_new_debt(
         for item in comparisons
     )
     assert result["declared_rules"] == "FAIL"
+
+
+def test_narrow_root_forbidden_construct_rule_does_not_resolve_unchanged_module(
+    tmp_path: Path, capsys
+) -> None:
+    root = _repo(tmp_path, "narrow-root-construct", {"shop/model/probe.py": PROBE})
+    baseline = _baseline_file(root, observed_violations(_observe(root)))
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_bytes())
+    rule = next(item for item in contract["rules"] if item["id"] == GETATTR_RULE)
+    rule["source"] = "shop.app"
+    contract_path.write_text(json.dumps(contract) + "\n")
+
+    result, observation = _cli_report(
+        root, tmp_path / "narrow-root-report", capsys, "--baseline", baseline.name
+    )
+
+    assert "getattr" in (root / "shop/model/probe.py").read_text()
+    assert any(
+        item.data.get("qualified_name") == "shop.model.probe"
+        for item in observation.records("modules") or ()
+    )
+    assert not any(
+        item["rules"] == [GETATTR_RULE]
+        and item["subjects"] == ["shop.model.probe.read"]
+        and item["resolved_count"] > 0
+        for item in result["baseline_comparisons"]
+    )
+
+
+def test_narrow_nested_construct_rule_does_not_resolve_unchanged_module(
+    tmp_path: Path, capsys
+) -> None:
+    root = _repo(tmp_path, "narrow-nested-construct", {"shop/store/probe.py": PROBE})
+    nested_path = root / "shop/store/architecture-contract.json"
+    nested = json.loads(nested_path.read_bytes())
+    root_rule = next(
+        item
+        for item in json.loads((root / "architecture-contract.json").read_bytes())["rules"]
+        if item["id"] == GETATTR_RULE
+    )
+    nested_rule = dict(root_rule, id="STORE-NO-DYNAMIC", source="shop.store")
+    nested["rules"].append(nested_rule)
+    nested_path.write_text(json.dumps(nested) + "\n")
+    baseline = _baseline_file(root, observed_violations(_observe(root)))
+    nested_rule["source"] = "shop.store.codec"
+    nested_path.write_text(json.dumps(nested) + "\n")
+
+    result, observation = _cli_report(
+        root, tmp_path / "narrow-nested-report", capsys, "--baseline", baseline.name
+    )
+
+    rule_id = "store:STORE-NO-DYNAMIC"
+    assert "getattr" in (root / "shop/store/probe.py").read_text()
+    assert any(
+        item.data.get("qualified_name") == "shop.store.probe"
+        for item in observation.records("modules") or ()
+    )
+    assert not any(
+        item["rules"] == [rule_id]
+        and item["subjects"] == ["shop.store.probe.read"]
+        and item["resolved_count"] > 0
+        for item in result["baseline_comparisons"]
+    )
+
+
+def test_complete_partial_scc_scan_does_not_resolve_or_contract_omitted_member(
+    tmp_path: Path, capsys
+) -> None:
+    files = {
+        "shop/model/alpha.py": "from shop.model.beta import VALUE\nVALUE = 1\n",
+        "shop/model/beta.py": (
+            "from shop.model.alpha import VALUE\nfrom shop.cli.gamma import VALUE\nVALUE = 1\n"
+        ),
+        "shop/cli/gamma.py": "from shop.model.alpha import VALUE\nVALUE = 1\n",
+    }
+    root = _repo(tmp_path, "partial-cycle-scan", files)
+    cycle_rule = module_cycle_rule(components=["model", "cli"])
+    _minimal_contract(root, [cycle_rule], {"model", "cli"})
+    _, baseline_observation = _cli_report(root, tmp_path / "full-cycle", capsys)
+    (known,) = [
+        item
+        for item in observed_violations(baseline_observation)
+        if "MODEL-MODULES-ACYCLIC" in item.fingerprint.rules
+    ]
+    assert known.fingerprint.subjects == (
+        "shop.cli.gamma",
+        "shop.model.alpha",
+        "shop.model.beta",
+    )
+    baseline = _baseline_file(root, (known,))
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots = ["shop/model"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+
+    result, observation = _cli_report(
+        root,
+        tmp_path / "partial-cycle-report",
+        capsys,
+        "--baseline",
+        baseline.name,
+    )
+
+    assert result["observation_complete"] == "PASS"
+    assert _assessment(result, "MODEL-MODULES-ACYCLIC")["status"] == "FAIL"
+    assert any(
+        record.subjects == ("shop.model.alpha", "shop.model.beta")
+        for record in observation.records("violations") or ()
+    )
+    assert not any(
+        item["rules"] == ["MODEL-MODULES-ACYCLIC"]
+        and item["subjects"]
+        in (
+            ["shop.cli.gamma", "shop.model.alpha", "shop.model.beta"],
+            ["shop.model.alpha", "shop.model.beta"],
+        )
+        and (item["resolved_count"] > 0 or item["status"] == "contracted")
+        for item in result["baseline_comparisons"]
+    )
+
+
+def test_package_receipt_does_not_resolve_omitted_descendant_module(tmp_path: Path, capsys) -> None:
+    root = _repo(
+        tmp_path,
+        "package-receipt",
+        {
+            "shop/model/package/__init__.py": "def launch() -> int:\n    return 1\n",
+            "shop/model/package/tasks.py": PROBE,
+        },
+    )
+    baseline = _baseline_file(root, observed_violations(_observe(root)))
+    (root / "shop/model/package/tasks.py").unlink()
+
+    result, observation = _cli_report(
+        root, tmp_path / "package-receipt-report", capsys, "--baseline", baseline.name
+    )
+
+    modules = observation.records("modules") or ()
+    assert any(item.data.get("qualified_name") == "shop.model.package" for item in modules)
+    assert not any(
+        item.data.get("qualified_name") == "shop.model.package.tasks" for item in modules
+    )
+    assert any(
+        item.data.get("qualified_name") == "shop.model.package.launch"
+        for item in observation.records("symbols") or ()
+    )
+    assert _assessment(result, GETATTR_RULE)["status"] == "UNKNOWN"
+    assert not any(
+        item["subjects"] == ["shop.model.package.tasks.read"] and item["resolved_count"] > 0
+        for item in result["baseline_comparisons"]
+    )
 
 
 def test_deleted_function_can_resolve_while_its_module_remains_observed(
