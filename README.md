@@ -255,7 +255,7 @@ and what the gate says when an agent crosses a boundary inside the level.
 Replay a report-capable catalog row to a new JSON report and HTML sidecar:
 
 ```bash
-make demo-architecture VARIANT=class-a-recursive-wide-package OUTPUT=/tmp/architecture.json
+make demo-architecture VARIANT=class-a-recursive-wide-package OUTPUT=demo-output/architecture.json
 ```
 
 ```bash
