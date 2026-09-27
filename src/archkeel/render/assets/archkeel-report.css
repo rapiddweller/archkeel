@@ -810,7 +810,7 @@ code {
 }
 .flow-inspector .bars .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px minmax(40px, 72px);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--ck-space-2);
   align-items: center;
   min-width: 0;
@@ -1090,7 +1090,7 @@ code {
     flex-direction: column;
   }
   .flow-inspector .bars .row {
-    grid-template-columns: minmax(0, 1fr) 28px 48px;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px;
   }
 }
