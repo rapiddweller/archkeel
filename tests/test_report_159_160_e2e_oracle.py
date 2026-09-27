@@ -28,6 +28,7 @@ from archkeel.ir.baseline import KnownViolation, observed_violations
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation, Record
 from fixtures.architecture_demo import CATALOG
+from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_dependencies import module_cycle_rule
 from fixtures.demo_catalog_support import Variant, contract_with_rule
 
@@ -885,6 +886,96 @@ def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
     assert not result["open_decisions"]
     page = (tmp_path / "unknown-cycle-report" / "architecture.report.html").read_text()
     assert "The scan completed. Overall verdict: PASS. Rules still UNKNOWN: 1." in page
+
+
+def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counting(
+    tmp_path: Path, capsys
+) -> None:
+    variant_id = "class-a-boundary-types-mixed-evidence"
+    _variant(variant_id)
+    output = tmp_path / "mixed-evidence.json"
+
+    replay_exit = demo_main(["--replay", variant_id, "--output", str(output)])
+    validation, result = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+
+    assert validation["command"] == "validate"
+    assert result["command"] == "report" and result["exit_code"] == 0
+    assert replay_exit == max(validation["exit_code"], result["exit_code"])
+    assessment = _assessment(result, "APP-TYPES-NOT-DICT")
+    assert (assessment["status"], assessment["count"], assessment["undecided"]) == (
+        "FAIL",
+        1,
+        1,
+    )
+    assert result["measurements"]["scalars"]["violations"] == 1
+
+    observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    assert (
+        len(
+            [
+                record
+                for record in observation.records("violations") or ()
+                if "APP-TYPES-NOT-DICT" in record.rule_ids
+            ]
+        )
+        == 1
+    )
+    assert len(_unknown_positions(observation, "APP-TYPES-NOT-DICT")) == 1
+
+    page = output.with_name("mixed-evidence.report.html").read_text()
+    parser = _ReportFilterRows()
+    parser.feed(page)
+    rule_row = next(
+        row for row in parser.rows if row.get("_text", "").lstrip().startswith("APP-TYPES-NOT-DICT")
+    )
+    detail_rows = [
+        row
+        for row in parser.rows
+        if row.get("_text", "").lstrip().startswith("VIO-")
+        and "APP-TYPES-NOT-DICT" in row.get("_text", "")
+    ]
+    assert rule_row["data-status"] == "FAIL" and rule_row.get("_undecided") == "1"
+    assert len(detail_rows) == 1 and detail_rows[0]["data-status"] == "FAIL"
+
+
+def test_replay_keeps_partial_module_cycle_scope_unknown_and_baseline_unresolved(
+    tmp_path: Path, capsys
+) -> None:
+    variant_id = "report-partial-module-cycle-scan"
+    variant = _variant(variant_id)
+    alpha = variant.files["shop/model/alpha.py"]
+    beta = variant.files["shop/model/beta.py"]
+    assert variant.baseline is not None
+    assert isinstance(alpha, str) and "shop.model.beta" in alpha
+    assert isinstance(beta, str) and "shop.model.alpha" in beta
+    output = tmp_path / "partial-cycle.json"
+
+    replay_exit = demo_main(["--replay", variant_id, "--output", str(output)])
+    validation, result = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+
+    assert validation["command"] == "validate"
+    assert result["command"] == "report"
+    assert replay_exit == max(validation["exit_code"], result["exit_code"])
+    assert result["scan_roots"] == ["shop/store"]
+    assert result["open_decisions"] == []
+    cycle = _assessment(result, "MODEL-MODULES-ACYCLIC")
+    assert cycle["status"] == "UNKNOWN" and cycle["evaluation_proven"] is False
+    comparisons = result["baseline_comparisons"]
+    assert isinstance(comparisons, list)
+    old_cycle = next(
+        item
+        for item in comparisons
+        if item["rules"] == ["MODEL-MODULES-ACYCLIC"]
+        and item["subjects"] == ["shop.model.alpha", "shop.model.beta"]
+    )
+    assert old_cycle["status"] == "unknown" and old_cycle["resolved_count"] == 0
+    assert output.is_file() and output.stat().st_size > 0
+    observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    assert not any(
+        record.data.get("qualified_name") in {"shop.model.alpha", "shop.model.beta"}
+        for record in observation.records("modules") or ()
+    )
+    assert output.with_name("partial-cycle.report.html").is_file()
 
 
 def test_deleted_function_can_resolve_while_its_module_remains_observed(
