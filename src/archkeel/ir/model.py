@@ -1132,6 +1132,7 @@ class RuleAssessment:
     id: str
     kind: str
     status: RuleAssessmentStatus
+    evaluation_proven: bool
     count: int
     undecided: int
     decided_by: str

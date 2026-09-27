@@ -89,6 +89,10 @@ a {
   border-radius: var(--ck-radius);
   background: var(--ck-surface);
 }
+
+.report-filters[hidden] {
+  display: none;
+}
 .report-filters label {
   display: grid;
   gap: var(--ck-space-1);

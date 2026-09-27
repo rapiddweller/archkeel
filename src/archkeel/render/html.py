@@ -175,21 +175,12 @@ def _violations(
             '<section class="report-section"><h2>Declared-rule violations</h2>'
             "<p>None.</p></section>"
         )
-    comparisons = {(item.rules, item.subjects): item for item in baseline or ()}
+    comparisons = tuple(baseline or ())
     grouped: dict[tuple[str, ...], list[Record]] = {}
     for item in items:
         grouped.setdefault(tuple(sorted(item.rule_ids)), []).append(item)
     rows = "".join(
-        f'<tr class="rule-group" data-group-header><th colspan="6">Rules: '
-        f"{_text(', '.join(rule_ids))} · {len(grouped[rule_ids])} findings</th></tr>"
-        + "".join(
-            _violation_row(
-                item,
-                observation,
-                comparisons.get((rule_ids, tuple(sorted(item.subjects)))),
-            )
-            for item in grouped[rule_ids]
-        )
+        _violation_group(rule_ids, grouped[rule_ids], observation, comparisons)
         for rule_ids in sorted(grouped)
     )
     script = _asset("violations.js").decode("utf-8")
@@ -219,7 +210,6 @@ def _violations(
 def _violation_row(
     item: Record,
     observation: Observation,
-    comparison: BaselineViolationComparison | None,
 ) -> str:
     evidence = {entry.id: entry for entry in observation.evidence}
     location = ""
@@ -227,15 +217,6 @@ def _violation_row(
         source = evidence.get(item.evidence_ids[0])
         if source is not None:
             location = f"{source.file}:{source.line}" if source.line else source.file
-    baseline = ""
-    if comparison is not None and comparison.shared_count:
-        baseline = (
-            f'<span class="known-badge" aria-label="Known violation; still a failure">'
-            f"KNOWN · {comparison.shared_count} of {comparison.current_count} current"
-            "</span>"
-        )
-        if comparison.new_count:
-            baseline += ' <span class="muted">extra occurrence identity unknown</span>'
     owners = component_owners(observation)
     components = sorted(
         {owner for subject in item.subjects if (owner := owner_of(subject, owners)) is not None}
@@ -249,8 +230,34 @@ def _violation_row(
         f"<td><code>{_text(', '.join(item.rule_ids))}</code></td>"
         f"<td>{_text(item.title)}</td>"
         f"<td><code>{_text(' · '.join(item.subjects))}</code></td>"
-        f"<td><code>{_text(location)}</code>{' ' if baseline else ''}{baseline}</td></tr>"
+        f"<td><code>{_text(location)}</code></td></tr>"
     )
+
+
+def _violation_group(
+    rule_ids: tuple[str, ...],
+    items: list[Record],
+    observation: Observation,
+    comparisons: tuple[BaselineViolationComparison, ...],
+) -> str:
+    subjects = {tuple(sorted(item.subjects)) for item in items}
+    known = " ".join(
+        f'<span class="known-badge" aria-label="Known violation; still a failure">'
+        f"KNOWN · {item.shared_count} of {item.current_count} current for "
+        f"{_text(' · '.join(item.subjects))}</span>"
+        + (
+            ' <span class="muted">extra occurrence identity unknown</span>'
+            if item.new_count
+            else ""
+        )
+        for item in comparisons
+        if item.rules == rule_ids and item.subjects in subjects and item.shared_count
+    )
+    heading = (
+        f'<tr class="rule-group" data-group-header><th colspan="6">Rules: '
+        f"{_text(', '.join(rule_ids))} · {len(items)} findings {known}</th></tr>"
+    )
+    return heading + "".join(_violation_row(item, observation) for item in items)
 
 
 def _rule_assessments(items: tuple[RuleAssessment, ...] | None) -> str:
@@ -281,7 +288,8 @@ def _rule_assessment_row(item: RuleAssessment) -> str:
         f'data-search="{_text(item.id + " " + item.kind + " " + details)}">'
         f"<td><code>{_text(item.id)}</code></td><td>{_text(item.kind)}</td>"
         f'<td><strong data-status="{state}">{_text(item.status)}</strong></td>'
-        f'<td class="numeric">{item.count} violations · {item.undecided} undecided</td>'
+        f'<td class="numeric" data-undecided="{item.undecided}">'
+        f"{item.count} violations · {item.undecided} undecided</td>"
         f"<td><details><summary>Scope, decision and evidence</summary>"
         f"<dl><dt>Decider</dt><dd>{_text(item.decided_by)}</dd>"
         f"<dt>Rationale</dt><dd>{_text(item.rationale or '—')}</dd>"
@@ -1090,7 +1098,9 @@ def _report_filters(
       <label for="report-component">Component</label><select id="report-component" name="component">
       <option value="">All components</option>{options(components)}</select>
       <label for="report-status">Status</label><select id="report-status" name="status">
-      <option value="">All statuses</option>{options(("PASS", "FAIL", "UNKNOWN", "DECLARATION"))}
+      <option value="">All statuses</option>{
+        options(("PASS", "FAIL", "FAIL+UNKNOWN", "UNKNOWN", "DECLARATION"))
+    }
       </select>
       <button type="reset">Reset filters</button>
       <output data-filter-count aria-live="polite">{count} rows</output>
@@ -1173,7 +1183,14 @@ def render_html(
         if observation is not None and not calls_html
         else ""
     )
-    rule_html = _rule_assessments(result.rule_assessments)
+    rule_html = (
+        _rule_assessments(result.rule_assessments)
+        if not (
+            result.report_filter is not None
+            and (result.report_filter.only_violations or result.report_filter.only_calls)
+        )
+        else ""
+    )
     filters_html = (
         _report_filters(
             observation,
@@ -1254,10 +1271,10 @@ def render_html(
       <h3>Failures</h3><ul class="failure-list">{failures}</ul>
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
+    {flow_html}
     {filters_html}{violations_html}{rule_html}
     <script>{_asset("report-filters.js").decode("utf-8")}</script>
     {baseline_html}{calls_html}
-    {flow_html}
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
     <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>
     {unknowns_html}

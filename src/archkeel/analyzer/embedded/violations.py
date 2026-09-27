@@ -440,7 +440,13 @@ def _cycle_rules(
 
 
 def _component_cycle_violations(
-    imports: Sequence[RawRecord], contract: ArchitectureContract
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    *,
+    assessment_facts: list[RawRecord] | None = None,
+    scope: str = "root",
+    unsupported_rules: frozenset[str] = frozenset(),
 ) -> list[RawRecord]:
     rules = _cycle_rules(contract, None)
     if not rules:
@@ -453,6 +459,15 @@ def _component_cycle_violations(
             edge_imports[(source.label, target.label)].append(item)
     labels = [component.label for component in contract.components]
     violations: list[RawRecord] = []
+    for rule in rules:
+        selected = [
+            module
+            for module in modules
+            if (component := contract.component_for(module["data"]["qualified_name"])) is not None
+            and (rule.components is None or component.label in rule.components)
+        ]
+        if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
+            assessment_facts.append(_rule_evaluation_receipt(rule, scope, selected))
     for members in strongly_connected_components(labels, edge_imports):
         if len(members) < 2:
             continue
@@ -489,6 +504,11 @@ def _module_cycle_violations(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     source_modules: frozenset[str] | None = None,
+    *,
+    modules: Sequence[RawRecord],
+    assessment_facts: list[RawRecord] | None = None,
+    assessment_scope: str = "root",
+    unsupported_rules: frozenset[str] = frozenset(),
 ) -> list[RawRecord]:
     """One violation per module SCC the report measures, when it touches the rule's scope.
 
@@ -509,6 +529,15 @@ def _module_cycle_violations(
                 for package in component.packages
             ]
         )
+        selected = [
+            module
+            for module in modules
+            if (name := module["data"]["qualified_name"])
+            and (source_modules is None or name in source_modules)
+            and (scope is None or any(in_scope(name, package) for package in scope))
+        ]
+        if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
+            assessment_facts.append(_rule_evaluation_receipt(rule, assessment_scope, selected))
         for cycle in module_cycles:
             members: list[str] = cycle["data"]["members"]
             if source_modules is not None and not any(
@@ -2517,17 +2546,12 @@ def _boundary_types_violations(
     uncertain_reexport_origins: UncertainReexportOrigins,
     source_modules: frozenset[str] | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
+    *,
+    assessment_facts: list[RawRecord] | None = None,
+    assessment_scope: str = "root",
+    unsupported_rules: frozenset[str] = frozenset(),
 ) -> tuple[list[RawRecord], list[RawRecord]]:
-    """AD-58, amended by AD-63: a component's declared facade function takes and returns no
-    bare `dict`/`object`, and no named type outside a builtin, an enum, a Pydantic model, or a
-    type some component -- whichever one actually owns it -- already declares public.
-
-    Only a function `component.public` itself covers is inspected: an internal helper below
-    `source` that the contract never promised as facade is not a claim about the boundary, so
-    it is not this rule's business (issue #44). `allowed_sources`/`exact_sources` still exempt
-    a module the way `forbidden_construct` does (AD-49), for a component such as `ir` whose
-    facade legitimately narrows an untyped boundary with a bare `object`.
-    """
+    """Evaluate boundary rules only for facade positions the contract explicitly promises."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
     if not rules:
         return [], []
@@ -2542,6 +2566,7 @@ def _boundary_types_violations(
     violations: list[RawRecord] = []
     allowance_facts: list[RawRecord] = []
     for rule in rules:
+        evaluated: dict[str, RawRecord] = {}
         for item in symbols:
             found = _facade_positions(
                 item, rule, contract, exports_by_module, imports, uncertain_reexport_origins
@@ -2564,6 +2589,7 @@ def _boundary_types_violations(
                         classes_by_location,
                     )
                 )
+                evaluated[item["id"]] = item
                 records = _boundary_type_violation_records(
                     rule,
                     item,
@@ -2579,8 +2605,32 @@ def _boundary_types_violations(
                         violations.append(record)
                     else:
                         allowance_facts.append(fact)
+        _record_boundary_evaluation(
+            rule, evaluated, assessment_facts, assessment_scope, unsupported_rules
+        )
     return sorted(violations, key=lambda item: item["id"]), sorted(
         allowance_facts, key=lambda item: item["id"]
+    )
+
+
+def _record_boundary_evaluation(
+    rule: BoundaryTypesRule,
+    evaluated: dict[str, RawRecord],
+    assessment_facts: list[RawRecord] | None,
+    scope: str,
+    unsupported_rules: frozenset[str],
+) -> None:
+    if not evaluated or assessment_facts is None or rule.kind in unsupported_rules:
+        return
+    subjects = sorted(
+        {
+            subject
+            for item in evaluated.values()
+            for subject in (item["data"]["module"], item["data"]["qualified_name"])
+        }
+    )
+    assessment_facts.append(
+        _rule_evaluation_receipt(rule, scope, tuple(evaluated.values()), subjects=subjects)
     )
 
 
@@ -3238,6 +3288,133 @@ def requires_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _cycle_rule_violations(
+    imports: Sequence[RawRecord],
+    module_cycles: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    source_modules: frozenset[str] | None,
+    modules: Sequence[RawRecord],
+    assessment_facts: list[RawRecord] | None,
+    scope: str,
+    unsupported_rules: frozenset[str],
+) -> list[RawRecord]:
+    return [
+        *_component_cycle_violations(
+            imports,
+            contract,
+            modules,
+            assessment_facts=assessment_facts,
+            scope=scope,
+            unsupported_rules=unsupported_rules,
+        ),
+        *_module_cycle_violations(
+            module_cycles,
+            imports,
+            contract,
+            source_modules,
+            modules=modules,
+            assessment_facts=assessment_facts,
+            assessment_scope=scope,
+            unsupported_rules=unsupported_rules,
+        ),
+    ]
+
+
+def _boundary_rule_results(
+    imports: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    components: tuple[tuple[str, tuple[str, ...]], ...],
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins,
+    source_modules: frozenset[str] | None,
+    ancestor_contracts: Sequence[ArchitectureContract],
+    profile: Profile,
+    assessment_facts: list[RawRecord] | None,
+    scope: str,
+) -> tuple[
+    list[tuple[ForbiddenDependencyRule, RawRecord]],
+    frozenset[str],
+    list[RawRecord],
+    list[RawRecord],
+]:
+    matches = list(
+        _forbidden_dependency_matches(imports, contract.rules, components, source_modules)
+    )
+    violations, allowances = _boundary_types_violations(
+        symbols,
+        imports,
+        contract,
+        exports_by_module,
+        uncertain_reexport_origins,
+        source_modules,
+        ancestor_contracts,
+        assessment_facts=assessment_facts,
+        assessment_scope=scope,
+        unsupported_rules=profile.unsupported_rules,
+    )
+    return matches, frozenset(item["id"] for _, item in matches), violations, allowances
+
+
+def _collect_rule_violations(
+    *,
+    imports: Sequence[RawRecord],
+    typing_signals: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    blank_modules: frozenset[str],
+    module_cycles: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    profile: Profile,
+    source_modules: frozenset[str] | None,
+    module_facts: Sequence[RawRecord],
+    package_facts: Sequence[RawRecord],
+    forbidden_matches: Sequence[tuple[ForbiddenDependencyRule, RawRecord]],
+    forbidden_rejected_ids: frozenset[str],
+    boundary_violations: Sequence[RawRecord],
+    assessment_facts: list[RawRecord] | None,
+    assessment_parent: str | None,
+) -> list[RawRecord]:
+    checked = assessment_facts if assessment_facts is not None else []
+    result = [
+        *_dependency_violations(iter(forbidden_matches)),
+        *_construct_violations([*typing_signals, *constructs], contract.rules, source_modules),
+        *_external_dependency_violations(imports, contract.rules, source_modules),
+        *_external_completeness_violations(
+            imports, modules, contract.rules, profile.standard_library, source_modules
+        ),
+        *requires_violations(
+            imports,
+            contract,
+            assessment_facts=checked if assessment_facts is not None else None,
+            assessment_parent=assessment_parent,
+            source_modules=source_modules,
+        ),
+        *_assignment_violations(module_facts, contract, blank_modules),
+        *_root_layout_violations(package_facts, module_facts, contract.rules),
+        *_module_placement_violations(module_facts, contract),
+        *_cycle_rule_violations(
+            imports,
+            module_cycles,
+            contract,
+            source_modules,
+            module_facts,
+            assessment_facts,
+            assessment_parent or "root",
+            profile.unsupported_rules,
+        ),
+        *_interface_violations(
+            imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
+        ),
+        *_sibling_violations(imports, contract.rules, source_modules),
+        *_symbol_placement_violations(symbols, contract.rules, source_modules),
+        *boundary_violations,
+    ]
+    return sorted(result, key=lambda item: item["id"])
+
+
 def rule_violations(
     *,
     imports: Sequence[RawRecord],
@@ -3271,48 +3448,40 @@ def rule_violations(
         if source_modules is None
         or any(in_scope(item["data"]["qualified_name"], root) for root in source_roots)
     ]
-    forbidden_matches = list(
-        _forbidden_dependency_matches(imports, contract.rules, components, source_modules)
+    forbidden_matches, forbidden_rejected_ids, boundary_violations, allowance_facts = (
+        _boundary_rule_results(
+            imports,
+            symbols,
+            contract,
+            components,
+            exports_by_module,
+            uncertain_reexport_origins or {},
+            source_modules,
+            ancestor_contracts,
+            profile,
+            assessment_facts,
+            assessment_parent or "root",
+        )
     )
-    forbidden_rejected_ids = frozenset(item["id"] for _, item in forbidden_matches)
-    boundary_violations, allowance_facts = _boundary_types_violations(
-        symbols,
-        imports,
-        contract,
-        exports_by_module,
-        uncertain_reexport_origins or {},
-        source_modules,
-        ancestor_contracts,
-    )
-    checked = assessment_facts if assessment_facts is not None else []
-    result = sorted(
-        [
-            *_dependency_violations(iter(forbidden_matches)),
-            *_construct_violations([*typing_signals, *constructs], contract.rules, source_modules),
-            *_external_dependency_violations(imports, contract.rules, source_modules),
-            *_external_completeness_violations(
-                imports, modules, contract.rules, profile.standard_library, source_modules
-            ),
-            *requires_violations(
-                imports,
-                contract,
-                assessment_facts=checked if assessment_facts is not None else None,
-                assessment_parent=assessment_parent,
-                source_modules=source_modules,
-            ),
-            *_assignment_violations(module_facts, contract, blank_modules),
-            *_root_layout_violations(package_facts, module_facts, contract.rules),
-            *_module_placement_violations(module_facts, contract),
-            *_component_cycle_violations(imports, contract),
-            *_module_cycle_violations(module_cycles, imports, contract, source_modules),
-            *_interface_violations(
-                imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
-            ),
-            *_sibling_violations(imports, contract.rules, source_modules),
-            *_symbol_placement_violations(symbols, contract.rules, source_modules),
-            *boundary_violations,
-        ],
-        key=lambda item: item["id"],
+    result = _collect_rule_violations(
+        imports=imports,
+        typing_signals=typing_signals,
+        constructs=constructs,
+        modules=modules,
+        symbols=symbols,
+        blank_modules=blank_modules,
+        module_cycles=module_cycles,
+        contract=contract,
+        exports_by_module=exports_by_module,
+        profile=profile,
+        source_modules=source_modules,
+        module_facts=module_facts,
+        package_facts=package_facts,
+        forbidden_matches=forbidden_matches,
+        forbidden_rejected_ids=forbidden_rejected_ids,
+        boundary_violations=boundary_violations,
+        assessment_facts=assessment_facts,
+        assessment_parent=assessment_parent,
     )
     if assessment_facts is not None:
         assessment_facts.extend(
@@ -3325,6 +3494,37 @@ def rule_violations(
             )
         )
     return result, allowance_facts
+
+
+def _rule_evaluation_receipt(
+    rule: ArchitectureRule,
+    scope: str,
+    evaluated: Sequence[RawRecord],
+    *,
+    subjects: Sequence[str] | None = None,
+) -> RawRecord:
+    names = tuple(
+        sorted(
+            {
+                name
+                for item in evaluated
+                for name in (item["data"].get("qualified_name"), item["data"].get("module"))
+                if isinstance(name, str)
+            }
+        )
+    )
+    return classified(
+        item_id=stable_id("RULE-EVALUATION", scope, rule.id),
+        evidence_class=EvidenceClass.FACT,
+        area="rules",
+        kind="rule_evaluation",
+        title=f"{rule.id} evaluator completed",
+        subjects=list(subjects if subjects is not None else names),
+        rule_ids=[rule.id],
+        fact_ids=[item["id"] for item in evaluated],
+        evidence_ids=sorted({evidence for item in evaluated for evidence in item["evidence_ids"]}),
+        data={"scope": scope},
+    )
 
 
 def rule_evaluation_receipts(
@@ -3341,62 +3541,65 @@ def rule_evaluation_receipts(
     report from missing findings. Declaration-only permissions and profile-unsupported rules
     have no evaluation receipt.
     """
-    observed_modules = {
-        item["data"]["qualified_name"]
+    observed = tuple(
+        item
         for item in modules
         if source_modules is None or item["data"]["qualified_name"] in source_modules
-    }
-
-    def has_observed_scope(rule: ArchitectureRule) -> bool:
-        selectors: tuple[str, ...]
-        if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule | CompleteRequiresRule):
-            return bool(observed_modules)
-        if isinstance(rule, AllowedDependencyRule):
-            return False
-        if isinstance(rule, ForbiddenDependencyRule):
-            selectors = (rule.source,)
-        elif isinstance(rule, ExternalDependencyScopeRule):
-            selectors = (*rule.allowed_sources, *rule.exact_sources)
-            if not selectors:
-                return bool(observed_modules)
-            return any(
-                in_scope(module, selector) for module in observed_modules for selector in selectors
-            )
+    )
+    receipts: list[RawRecord] = []
+    for rule in contract.rules:
+        if rule.kind in profile.unsupported_rules or isinstance(
+            rule, AllowedDependencyRule | BoundaryTypesRule | NoComponentCyclesRule
+        ):
+            continue
+        if isinstance(rule, ExternalDependencyScopeRule):
+            # allowed_sources is an exception list, not the rule's observed scope.
+            selected = observed
+        elif isinstance(rule, CompleteRequiresRule | InterfaceBoundaryRule):
+            owners = {
+                component.label
+                for item in observed
+                if (component := contract.component_for(item["data"]["qualified_name"])) is not None
+            }
+            selected = observed if len(owners) > 1 else ()
+        elif isinstance(rule, ForbiddenDependencyRule):
+            selected = _modules_for_rule_source(rule.source, observed, contract)
         elif isinstance(rule, SiblingIsolationRule):
-            return bool(rule.members) and all(
-                any(in_scope(module, selector) for module in observed_modules)
-                for selector in rule.members
+            selected = tuple(
+                item
+                for item in observed
+                if any(in_scope(item["data"]["qualified_name"], member) for member in rule.members)
             )
         elif isinstance(rule, RootLayoutRule):
-            selectors = (rule.root,)
+            selected = tuple(
+                item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
+            )
         elif isinstance(
             rule,
             ForbiddenConstructRule
             | CompleteAssignmentRule
             | CompleteExternalScopeRule
-            | SymbolPlacementRule
-            | BoundaryTypesRule,
+            | SymbolPlacementRule,
         ):
-            selectors = (rule.source,)
+            selected = _modules_for_rule_source(rule.source, observed, contract)
         else:
             assert_never(rule)
-        return bool(selectors) and all(
-            any(in_scope(module, selector) for module in observed_modules) for selector in selectors
-        )
+        if selected:
+            receipts.append(_rule_evaluation_receipt(rule, scope, selected))
+    return receipts
 
-    return [
-        classified(
-            item_id=stable_id("RULE-EVALUATION", scope, rule.id),
-            evidence_class=EvidenceClass.FACT,
-            area="rules",
-            kind="rule_evaluation",
-            title=f"{rule.id} evaluator completed",
-            subjects=[scope],
-            rule_ids=[rule.id],
-            data={"scope": scope},
-        )
-        for rule in contract.rules
-        if rule.kind not in profile.unsupported_rules
-        and rule.kind != "allowed_dependency"
-        and has_observed_scope(rule)
-    ]
+
+def _modules_for_rule_source(
+    source: str, observed: Sequence[RawRecord], contract: ArchitectureContract
+) -> tuple[RawRecord, ...]:
+    owners = package_owners(
+        tuple((component.label, component.packages) for component in contract.components)
+    )
+    component = owners.get(source)
+    packages_by_label = {item.label: item.packages for item in contract.components}
+    selectors = packages_by_label[component] if component is not None else (source,)
+    return tuple(
+        item
+        for item in observed
+        if any(in_scope(item["data"]["qualified_name"], selector) for selector in selectors)
+    )
