@@ -110,7 +110,7 @@ def _inside_results(
     uncertain_reexport_origins: dict[str, frozenset[str]],
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate nested Dart rules with the imports and topology collected in its one pass."""
-    return evaluate_inside_rule_results(
+    results = evaluate_inside_rule_results(
         inside_contracts,
         imports=sources.imports,
         typing_signals=[],
@@ -127,6 +127,7 @@ def _inside_results(
         stable_bindings_by_module={},
         evidence={item["id"]: item for item in sources.evidence},
     )
+    return results[:5]
 
 
 def _unknowns(

@@ -23,6 +23,7 @@ from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     ContractInputError,
     ContractVersionError,
+    InsideContractMount,
     InsideContractTree,
     absent_contract_digest,
     amendment_bytes,
@@ -72,6 +73,7 @@ from archkeel.ir.model import (
     RunResult,
     UnresolvedCallChange,
     contract_relative_path,
+    facade_covers,
     in_scope,
     module_references,
     text_value,
@@ -401,6 +403,24 @@ def _facade_types(observation: Observation) -> tuple[str, ...]:
     )
 
 
+def _scoped_facade_types(
+    observation: Observation, scope_id: str, source_modules: frozenset[str]
+) -> tuple[str, ...]:
+    """Read positive facade type facts recorded for this exact source scope."""
+    types: set[str] = set()
+    for record in observation.records("symbols") or ():
+        by_mount = record.data.get("facade_types_by_mount")
+        if not isinstance(by_mount, RecordData):
+            continue
+        scoped_types = by_mount.get(scope_id)
+        if not isinstance(scoped_types, RecordData):
+            continue
+        for module, values in scoped_types.entries:
+            if module in source_modules and isinstance(values, tuple):
+                types.update(value for value in values if isinstance(value, str))
+    return tuple(sorted(types))
+
+
 def _entry_used(entry: str, records: list[RecordData], facade_types: tuple[str, ...]) -> bool:
     """Match one public entry's usage the way `_interface_allows` walks reexport_chain.
 
@@ -427,8 +447,24 @@ def _entry_used(entry: str, records: list[RecordData], facade_types: tuple[str, 
     return False
 
 
+def _parent_reexport_proven(record: RecordData) -> bool:
+    """Accept uncertain constant routes only when this publisher binding is unique."""
+    chain = record.get("reexport_chain")
+    origin = record.get("origin_definition")
+    return record.get("reexport") is True or (
+        record.get("source_binding_unique") is True
+        and isinstance(origin, str)
+        and isinstance(chain, tuple)
+        and origin in chain
+    )
+
+
 def _imports_by_target(
-    contract: ArchitectureContract, observation: Observation
+    contract: ArchitectureContract,
+    observation: Observation,
+    source_modules: frozenset[str] | None = None,
+    published_parent_components: dict[str, tuple[ContractComponent, ...]] | None = None,
+    exports_by_module: dict[str, frozenset[str]] | None = None,
 ) -> dict[str, list[RecordData]]:
     imports_by_target: dict[str, list[RecordData]] = {}
     for record in observation.records("imports") or ():
@@ -436,12 +472,68 @@ def _imports_by_target(
         target_module = record.data.get("target_module")
         if not isinstance(source_module, str) or not isinstance(target_module, str):
             continue
+        if source_modules is not None and source_module not in source_modules:
+            continue
         source = contract.component_for(source_module)
         target = contract.component_for(target_module)
-        if source is None or target is None or source == target:
-            continue
-        imports_by_target.setdefault(target.label, []).append(record.data)
+        if source is None:
+            parent_components = (published_parent_components or {}).get(source_module, ())
+            binding = record.data.get("binding")
+            if (
+                source_modules is None
+                or not isinstance(binding, str)
+                or not any(
+                    facade_covers(source_module, binding, component, exports_by_module or {})
+                    for component in parent_components
+                )
+                or not _parent_reexport_proven(record.data)
+            ):
+                continue
+        if target is None:
+            if source is not None and source_modules is None:
+                continue
+            chain = record.data.get("reexport_chain")
+            targets: dict[str, ContractComponent] = {}
+            if isinstance(chain, tuple):
+                for name in chain:
+                    if not isinstance(name, str):
+                        continue
+                    chained_target = contract.component_for(name.rpartition(".")[0])
+                    if chained_target is not None:
+                        targets[chained_target.label] = chained_target
+            target_components = tuple(targets.values())
+        else:
+            target_components = (target,)
+        for target_component in target_components:
+            if source is not None and source == target_component:
+                continue
+            imports_by_target.setdefault(target_component.label, []).append(record.data)
     return imports_by_target
+
+
+def _published_parent_components(
+    mount: InsideContractMount,
+    mounts_by_parent: dict[str, InsideContractMount],
+    source_modules: frozenset[str],
+) -> dict[str, tuple[ContractComponent, ...]]:
+    """Return declared ancestor components physically present in this parent scope."""
+    components: dict[str, set[ContractComponent]] = {}
+    contracts = [mount.parent_contract]
+    owner_id = mount.owner_id
+    while owner_id:
+        owner = mounts_by_parent.get(owner_id)
+        if owner is None:
+            break
+        contracts.append(owner.parent_contract)
+        owner_id = owner.owner_id
+    for contract in contracts:
+        for component in contract.components:
+            for entry in component.public or ():
+                module = entry.partition(":")[0]
+                if module not in source_modules or contract.component_for(module) != component:
+                    continue
+                components.setdefault(module, set()).add(component)
+    return {module: tuple(values) for module, values in components.items()}
 
 
 def _public_entry_diagnostics(
@@ -451,6 +543,7 @@ def _public_entry_diagnostics(
     modules: frozenset[str],
     facade_types: tuple[str, ...],
     resolved_public_entries: frozenset[tuple[str, str]],
+    pointer_root: str = "/components",
 ) -> list[Diagnostic]:
     """Split an unused `public` entry by whether its module was ever scanned (AD-56).
 
@@ -466,7 +559,7 @@ def _public_entry_diagnostics(
     for item, entry in enumerate(component.public or ()):
         if _entry_used(entry, records, facade_types):
             continue
-        missing = _missing_public_entry(f"/components/{index}/public/{item}", entry, modules)
+        missing = _missing_public_entry(f"{pointer_root}/{index}/public/{item}", entry, modules)
         if missing is not None:
             diagnostics.append(missing)
         elif (component.label, entry) in resolved_public_entries:
@@ -475,7 +568,7 @@ def _public_entry_diagnostics(
             diagnostics.append(
                 _diagnostic(
                     "interface.unused",
-                    f"/components/{index}/public/{item}",
+                    f"{pointer_root}/{index}/public/{item}",
                     entry,
                     "No cross-component import and no declared facade signature "
                     "reaches this public entry.",
@@ -503,6 +596,7 @@ def _planned_entry_diagnostics(
     records: list[RecordData],
     modules: frozenset[str],
     facade_types: tuple[str, ...],
+    pointer_root: str = "/components",
 ) -> list[Diagnostic]:
     """Flag a built `planned` entry once code actually reaches it (AD-56, #79).
 
@@ -512,7 +606,7 @@ def _planned_entry_diagnostics(
     return [
         _diagnostic(
             "interface.planned_built",
-            f"/components/{index}/planned/{item}",
+            f"{pointer_root}/{index}/planned/{item}",
             entry,
             "The planned entry's module has been scanned; it is no longer planned.",
             "Move the entry to public and drop it from planned.",
@@ -1492,6 +1586,89 @@ def _inside_source_domain_diagnostics(
     ]
 
 
+def _inside_interface_lifecycle_diagnostics(
+    mount: InsideContractMount,
+    scoped: ArchitectureContract,
+    source_modules: frozenset[str],
+    observation: Observation,
+    mounts_by_parent: dict[str, InsideContractMount],
+) -> list[Diagnostic]:
+    """Check public and planned entries against this mount's physical evidence."""
+    imports_by_target = _imports_by_target(
+        scoped,
+        observation,
+        source_modules,
+        _published_parent_components(mount, mounts_by_parent, source_modules),
+        _literal_exports(observation),
+    )
+    facade_types = _scoped_facade_types(observation, mount.parent_id, source_modules)
+    diagnostics = []
+    for component_index, component in enumerate(scoped.components):
+        records = imports_by_target.get(component.label, [])
+        pointer_root = f"{mount.pointer}/components"
+        if component.public is None and records:
+            diagnostics.append(
+                _diagnostic(
+                    "interface.undeclared",
+                    f"{pointer_root}/{component_index}",
+                    component.label,
+                    "The component receives cross-component imports but declares "
+                    "no public interface.",
+                    "Declare the used modules or names in public.",
+                )
+            )
+        if component.public is not None:
+            diagnostics.extend(
+                _public_entry_diagnostics(
+                    component_index,
+                    component,
+                    records,
+                    source_modules,
+                    facade_types,
+                    frozenset(),
+                    pointer_root,
+                )
+            )
+        diagnostics.extend(
+            _planned_entry_diagnostics(
+                component_index,
+                component,
+                records,
+                source_modules,
+                facade_types,
+                pointer_root,
+            )
+        )
+    return diagnostics
+
+
+def _inside_parent_policy_diagnostics(mount: InsideContractMount) -> list[Diagnostic]:
+    """Reject inside grants that contradict the parent component's rules."""
+    parent = mount.parent
+    denied = _forbidden_targets(mount.parent_contract, parent.packages)
+    required = frozenset(entry.component for entry in parent.requires or ())
+    diagnostics = []
+    for rule in mount.contract.rules:
+        if not isinstance(rule, AllowedDependencyRule):
+            continue
+        blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
+        absent = _denied_by_absence(mount.parent_contract, parent.label, required, rule.target)
+        if absent is not None:
+            blocked.append(absent)
+        if blocked:
+            diagnostics.append(
+                _diagnostic(
+                    "inside.forbidden_import",
+                    mount.pointer,
+                    f"{mount.parent_id} -> {rule.target}",
+                    f"The inside allows {rule.target}, which {', '.join(sorted(blocked))} "
+                    f"forbids {mount.parent_id} at the level above.",
+                    "Remove the grant inside, or decide the pair differently above.",
+                )
+            )
+    return diagnostics
+
+
 def inside_diagnostics(
     root: Path,
     contract: ArchitectureContract,
@@ -1509,6 +1686,8 @@ def inside_diagnostics(
     if loaded is None:
         return ()
     scanned_modules = _scanned_modules(observation) if observation is not None else frozenset()
+    available_by_owner = {"": scanned_modules}
+    mounts_by_parent = {mount.parent_id: mount for mount in loaded.mounts}
     for issue in loaded.issues:
         if issue.input_error is not None:
             error = issue.input_error
@@ -1535,41 +1714,39 @@ def inside_diagnostics(
         inner = mount.contract
         parent = mount.parent
         pointer = mount.pointer
+        available = available_by_owner.get(mount.owner_id, frozenset())
+        source_modules = frozenset(
+            module
+            for module in available
+            if any(in_scope(module, package) for package in parent.packages)
+        )
+        available_by_owner[mount.parent_id] = source_modules
+        scoped = replace(
+            inner,
+            components=tuple(
+                replace(
+                    component,
+                    packages=tuple(
+                        package
+                        for package in component.packages
+                        if any(in_scope(package, root) for root in parent.packages)
+                    ),
+                )
+                for component in inner.components
+            ),
+        )
         for diagnostic in reference_diagnostics(root, config, inner):
             diagnostics.append(replace(diagnostic, pointer=f"{pointer}{diagnostic.pointer or ''}"))
         diagnostics.extend(_inside_source_domain_diagnostics(pointer, parent, inner))
         if observation is not None and any(
             isinstance(rule, InterfaceBoundaryRule) for rule in inner.rules
         ):
-            for component_index, component in enumerate(inner.components):
-                for entry_index, entry in enumerate(component.public or ()):
-                    missing = _missing_public_entry(
-                        f"{pointer}/components/{component_index}/public/{entry_index}",
-                        entry,
-                        scanned_modules,
-                    )
-                    if missing is not None:
-                        diagnostics.append(missing)
-        denied = _forbidden_targets(mount.parent_contract, parent.packages)
-        required = frozenset(entry.component for entry in parent.requires or ())
-        for rule in inner.rules:
-            if not isinstance(rule, AllowedDependencyRule):
-                continue
-            blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
-            absent = _denied_by_absence(mount.parent_contract, parent.label, required, rule.target)
-            if absent is not None:
-                blocked.append(absent)
-            if blocked:
-                diagnostics.append(
-                    _diagnostic(
-                        "inside.forbidden_import",
-                        pointer,
-                        f"{mount.parent_id} -> {rule.target}",
-                        f"The inside allows {rule.target}, which {', '.join(sorted(blocked))} "
-                        f"forbids {mount.parent_id} at the level above.",
-                        "Remove the grant inside, or decide the pair differently above.",
-                    )
+            diagnostics.extend(
+                _inside_interface_lifecycle_diagnostics(
+                    mount, scoped, source_modules, observation, mounts_by_parent
                 )
+            )
+        diagnostics.extend(_inside_parent_policy_diagnostics(mount))
     return _sorted(diagnostics)
 
 

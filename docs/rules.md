@@ -167,9 +167,12 @@ A parent facade may sit outside all child packages. Namespace, provenance and `p
 ownership and underscore checks also apply inside, with mount-qualified diagnostic pointers.
 Ancestor restrictions still apply. `inside.public_mismatch` is no longer emitted.
 With a local `interface_boundary`, an unscanned public module is `interface.missing`.
-Nested unused-public and planned-promotion diagnostics are not yet evaluated: they need scoped
-usage evidence, including parent facades. Local private imports are still checked. Do not infer
-that every listed inner API is used from a passing contract.
+Nested unused-public and planned-promotion checks use scoped evidence (AD-115): cross-sibling
+imports and explicit child or ancestor facades physically within the current parent. A
+re-exported function counts at its publisher, not its definition's location. Unrelated facades
+and unpublished parent imports do not count. A built, unused planned entry stays target work;
+a reached one requires promotion without granting access. Unknown import names are not proof
+of non-use. Root baseline exceptions do not transfer to children with matching labels.
 
 `external_dependency_scope` fields are `dependency` (a top-level import name), `allowed_sources`
 and `exact_sources`, at least one of the two non-empty. It matches import records whose target is

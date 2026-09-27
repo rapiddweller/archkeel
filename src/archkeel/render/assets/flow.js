@@ -12,7 +12,6 @@
   const PER_ROW = 6;
   const ROW_STEP = CARD.h + ROW_GAP;
   const LANE_GAP = 11;
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // The one place an EdgeState maps to a human label. Edge and chip elements already take their
   // color and dash pattern from the CSS class `edge ${state}` / `chip ${state}` (see
@@ -26,6 +25,7 @@
   ];
 
   const svg = root.querySelector(".flow-graph");
+  const canvas = root.querySelector(".flow-canvas");
   const viewport = root.querySelector(".flow-viewport");
   const edgeLayer = viewport.querySelector(".flow-edges");
   const chipLayer = viewport.querySelector(".flow-chips");
@@ -38,7 +38,14 @@
   const thresholdValue = root.querySelector(".flow-threshold-value");
   const violationFocus = root.querySelector(".flow-violation-focus");
   const violationsOnly = root.querySelector(".flow-violations-only");
-  const fitButton = root.querySelector(".flow-fit");
+  const fitButton = root.querySelector(".flow-arrange");
+  const overviewButton = root.querySelector(".flow-fit-overview");
+  const zoomOutButton = root.querySelector(".flow-zoom-out");
+  const zoom100Button = root.querySelector(".flow-zoom-100");
+  const zoomInButton = root.querySelector(".flow-zoom-in");
+  const zoomValue = root.querySelector(".flow-zoom-value");
+  const resetFiltersButton = root.querySelector(".flow-reset-filters");
+  const filterStatus = root.querySelector(".flow-filter-status");
   const focusInput = root.querySelector(".flow-focus");
   const backButton = root.querySelector(".flow-back");
   const breadcrumb = root.querySelector(".flow-breadcrumb");
@@ -121,6 +128,9 @@
     let card = (inside?.components || []).find((item) => item.label === opened.inside);
     if (!card) return null;
     if (!(opened.insidePath || []).length) {
+      // A physical path below an inside card belongs to its module tree, even when the card
+      // also declares a same-named inside level.
+      if ((opened.path || []).length) return { card, declared: false };
       if (card.inside) return { inside: card.inside, card, declared: true };
       return opened.physicalInsideCard ? { card, declared: false } : null;
     }
@@ -133,6 +143,7 @@
         ? { card, declared: false }
         : null;
     }
+    if ((opened.path || []).length) return { card, declared: false };
     return card.inside ? { inside: card.inside, card, declared: true } : null;
   }
 
@@ -151,8 +162,8 @@
     const byWeight = (a, b) => weight(b) - weight(a) ||
       a.source.localeCompare(b.source) || a.target.localeCompare(b.target);
     const direct = [
-      ...view.edges.filter((edge) => edge.target === label).sort(byWeight).slice(0, 5),
-      ...view.edges.filter((edge) => edge.source === label).sort(byWeight).slice(0, 5),
+      ...view.edges.filter((edge) => edge.target === label).sort(byWeight),
+      ...view.edges.filter((edge) => edge.source === label).sort(byWeight),
     ];
     const edges = [...new Set([...direct, ...view.edges.filter((edge) => edge.state === "violation")])];
     const names = new Set([label, ...edges.flatMap((edge) => [edge.source, edge.target])]);
@@ -162,16 +173,6 @@
   function level() {
     const view = fullLevel();
     return viewMode === "diagram" ? focusLevel(view, focusLabel) : view;
-  }
-
-  function defaultFocus(view) {
-    const scores = new Map(view.components.map((card) => [card.label, 0]));
-    view.edges.forEach((edge) => {
-      scores.set(edge.source, (scores.get(edge.source) || 0) + weight(edge));
-      scores.set(edge.target, (scores.get(edge.target) || 0) + weight(edge));
-    });
-    return [...view.components].filter((card) => !card.library).sort((a, b) =>
-      (scores.get(b.label) || 0) - (scores.get(a.label) || 0) || a.label.localeCompare(b.label))[0]?.label || null;
   }
 
   function insideLevel(inside) {
@@ -303,22 +304,19 @@
       return;
     }
     selected = { type: "node", label };
-    if (viewMode === "diagram") {
-      focusLabel = label;
-      positions = {};
-      defaultThreshold();
-    }
     render();
   }
 
   const edgeKey = (e) => `${e.source}>${e.target}`;
   let positions = {};
+  let diagramOrigin = null;
+  let sizedPositions = positions;
   const linkedComponent = new URLSearchParams(window.location.hash.slice(1)).get("component");
   let opened = componentByLabel.has(linkedComponent) ? { component: linkedComponent, path: [] } : null;
   let selected = null;
   let viewMode = "diagram";
   let focusLabel = null;
-  let transform = { x: 0, y: 0, k: 1 };
+  let transform = { k: 1 };
 
   function computeRanks() {
     const view = level();
@@ -360,7 +358,6 @@
     const rank = computeRanks();
     const byRank = groupBy(level().components, (c) => rank.get(c.label));
     const ranks = [...byRank.keys()].sort((a, b) => a - b);
-    const next = {};
     let row = 0;
     ranks.forEach((r) => {
       const members = byRank.get(r).map((c) => c.label).sort();
@@ -369,13 +366,12 @@
         const total = chunk.length * CARD.w + (chunk.length - 1) * GAP;
         chunk.forEach((label, index) => {
           if (!positions[label]) {
-            next[label] = { x: index * (CARD.w + GAP) - total / 2, y: row * ROW_STEP };
+            positions[label] = { x: index * (CARD.w + GAP) - total / 2, y: row * ROW_STEP };
           }
         });
         row += 1;
       }
     });
-    positions = { ...next, ...positions };
     return row;
   }
 
@@ -450,6 +446,29 @@
     );
   }
 
+  function activeFilterSummary() {
+    const active = [];
+    if (focusLabel) active.push(`Focus: ${focusLabel}`);
+    if (Number(thresholdInput.value) > 0) {
+      const unit = opened?.module ? "symbol-use edges" : "import sites";
+      active.push(`edges with at least ${thresholdInput.value} ${unit}`);
+    }
+    if (violationsOnly.checked) active.push("violating edges only");
+    return active.length ? `Active filters: ${active.join("; ")}` : "No diagram filters active";
+  }
+
+  function normalizeThreshold(maximum) {
+    thresholdInput.max = String(maximum || 1);
+    if (Number(thresholdInput.value) > maximum) thresholdInput.value = String(maximum);
+    thresholdInput.disabled = violationsOnly.checked;
+  }
+
+  function updateEdgeCount(shown, total) {
+    thresholdValue.textContent =
+      `Edges shown / at this level: ${shown}/${total} · ` +
+      `show ≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import sites"}`;
+  }
+
   function related(edge) {
     if (!selected) return true;
     if (selected.type === "node") return edge.source === selected.label || edge.target === selected.label;
@@ -511,7 +530,9 @@
   function render() {
     updateNavigation();
     const scope = fullLevel();
-    if (focusLabel && !scope.components.some((card) => card.label === focusLabel)) focusLabel = defaultFocus(scope);
+    const maximum = level().edges.reduce((acc, edge) => Math.max(acc, weight(edge)), 0);
+    normalizeThreshold(maximum);
+    if (focusLabel && !scope.components.some((card) => card.label === focusLabel)) focusLabel = null;
     focusInput.innerHTML = `<option value="">All components and groups</option>` + scope.components.map((card) =>
       `<option value="${esc(card.label)}">${esc(card.display || card.label)}</option>`).join("");
     focusInput.value = focusLabel || "";
@@ -519,6 +540,7 @@
     root.dataset.view = viewMode;
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     alternative.hidden = viewMode === "diagram";
+    filterStatus.textContent = activeFilterSummary();
     if (viewMode !== "diagram") {
       renderAlternative();
       return;
@@ -535,19 +557,14 @@
         ? `${opened.module || opened.component} holds nothing to show.`
         : "This observation declares no components.";
       emptyLayer.appendChild(text);
+      updateEdgeCount(visibleEdges().length, fullLevel().edges.length);
+      sizeDiagram();
       renderInspector([]);
       return;
     }
-    const rows = layout();
-    // The panel used to be a fixed height that shrank large graphs to a third of its area (and
-    // their text with it). Sizing it to the laid-out content keeps fit()'s scale close to 1.
-    svg.style.height = `${Math.max(420, Math.min(860, rows * ROW_STEP + 170))}px`;
-    const max = level().edges.reduce((acc, e) => Math.max(acc, weight(e)), 1);
-    thresholdInput.max = String(max);
-    if (Number(thresholdInput.value) > max) thresholdInput.value = String(max);
-    thresholdInput.disabled = violationsOnly.checked;
+    layout();
     const visible = visibleEdges();
-    thresholdValue.textContent = `≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import sites"} · ${visible.length}/${fullLevel().edges.length} shown at this level`;
+    updateEdgeCount(visible.length, fullLevel().edges.length);
     const outs = groupBy(visible, (e) => e.source);
     const ins = groupBy(visible, (e) => e.target);
     const byX = (key) => (a, b) => positions[a[key]].x - positions[b[key]].x;
@@ -809,6 +826,7 @@
 
     restoreFocus(focused);
     renderInspector(visible);
+    sizeDiagram();
   }
 
   function splitMap(items, x, y, width, height) {
@@ -1201,39 +1219,72 @@
     hint.className = "flow-legend-hint";
     hint.textContent =
       "Arrow and pulse run from the importer to the imported. " +
-      "Click a card or a line, click a card again to open it, drag cards, scroll to zoom.";
+      "Click a card or a line, click a card again to open it, and drag cards. " +
+      "Scroll the diagram; use the zoom controls to change its scale.";
     legend.appendChild(hint);
   }
 
-  function fit(animate) {
-    if (viewMode !== "diagram") return;
+  function sizeDiagram() {
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height) return;
-    const box = svg.getBoundingClientRect();
-    const scale = Math.min(1.4, 0.9 * Math.min(box.width / bounds.width, box.height / bounds.height));
-    transform = {
-      k: scale,
-      x: box.width / 2 - scale * (bounds.x + bounds.width / 2),
-      y: box.height / 2 - scale * (bounds.y + bounds.height / 2),
-    };
-    applyTransform(animate && !reducedMotion);
+    if (positions !== sizedPositions) {
+      diagramOrigin = null;
+      canvas.scrollLeft = 0;
+      canvas.scrollTop = 0;
+      sizedPositions = positions;
+    }
+    const padding = 32;
+    const nextX = bounds.x - padding;
+    const nextY = bounds.y - padding;
+    if (!diagramOrigin) diagramOrigin = { x: nextX, y: nextY };
+    let scrollX = 0;
+    let scrollY = 0;
+    // Keep the SVG origin fixed during drag; grow left/up with native-scroll compensation.
+    if (dragState && nextX < diagramOrigin.x) {
+      scrollX = (diagramOrigin.x - nextX) * transform.k;
+      diagramOrigin.x = nextX;
+    }
+    if (dragState && nextY < diagramOrigin.y) {
+      scrollY = (diagramOrigin.y - nextY) * transform.k;
+      diagramOrigin.y = nextY;
+    }
+    const viewWidth = Math.max(
+      bounds.x + bounds.width + padding - diagramOrigin.x,
+      (canvas.clientWidth + canvas.scrollLeft + scrollX) / transform.k,
+    );
+    const viewHeight = Math.max(
+      bounds.y + bounds.height + padding - diagramOrigin.y,
+      (canvas.clientHeight + canvas.scrollTop + scrollY) / transform.k,
+    );
+    svg.setAttribute("viewBox", `${diagramOrigin.x} ${diagramOrigin.y} ${viewWidth} ${viewHeight}`);
+    svg.style.width = `${Math.ceil(viewWidth * transform.k)}px`;
+    svg.style.height = `${Math.ceil(viewHeight * transform.k)}px`;
+    if (scrollX) canvas.scrollLeft += scrollX;
+    if (scrollY) canvas.scrollTop += scrollY;
+    zoomValue.textContent = `${Math.round(transform.k * 100)}%`;
   }
 
-  function applyTransform(animate) {
-    viewport.style.transition = animate ? "transform 250ms ease-out" : "none";
-    viewport.setAttribute("transform", `translate(${transform.x},${transform.y}) scale(${transform.k})`);
+  function fit() {
+    const bounds = viewport.getBBox();
+    if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
+    transform.k = Math.min(
+      1.4,
+      canvas.clientWidth / (bounds.width + 64),
+      canvas.clientHeight / (bounds.height + 64),
+    );
+    diagramOrigin = null;
+    sizeDiagram();
+    canvas.scrollLeft = 0;
+    canvas.scrollTop = 0;
   }
 
-  // Both live at IIFE scope, and both are driven from svg's own listeners (not the node's or
-  // viewport's): render() rebuilds every card and edge, which would drop a listener attached
-  // to one of them mid-drag.
-  let panState = null;
+  function zoomBy(factor) {
+    transform.k = Math.min(2.4, Math.max(0.1, transform.k * factor));
+    sizeDiagram();
+  }
+
+  // render() rebuilds every card, so drag state lives at IIFE scope rather than on a node.
   let dragState = null;
-  svg.addEventListener("pointerdown", (event) => {
-    if (event.target !== svg) return;
-    panState = { x: event.clientX, y: event.clientY, start: { ...transform } };
-    capturePointer(svg, event);
-  });
   svg.addEventListener("pointermove", (event) => {
     if (dragState) {
       const screenX = event.clientX - dragState.x;
@@ -1248,13 +1299,6 @@
       render();
       return;
     }
-    if (!panState) return;
-    transform = {
-      ...panState.start,
-      x: panState.start.x + (event.clientX - panState.x),
-      y: panState.start.y + (event.clientY - panState.y),
-    };
-    applyTransform(false);
   });
   // A press that barely moved is a tap, not a drag. A mouse sits still, a finger never does:
   // three pixels rejected every touch as a drag, which left the lower levels unreachable on a
@@ -1265,36 +1309,15 @@
     // source for one fact, and pointer capture can hand the release a different shape.
     const slack = dragState ? (TAP_SLACK[dragState.pointerType] ?? TAP_SLACK.touch) : 0;
     const tapped = dragState && dragState.moved <= slack ? dragState.label : null;
-    panState = null;
     dragState = null;
     if (tapped !== null) selectCard(tapped);
   };
   // A cancelled pointer is the browser taking the gesture away, never a tap: only forget it.
   const cancelPointer = () => {
-    panState = null;
     dragState = null;
   };
   svg.addEventListener("pointerup", endPointer);
   svg.addEventListener("pointercancel", cancelPointer);
-  svg.addEventListener(
-    "wheel",
-    (event) => {
-      event.preventDefault();
-      const rect = svg.getBoundingClientRect();
-      const cx = event.clientX - rect.left;
-      const cy = event.clientY - rect.top;
-      const factor = Math.exp(-event.deltaY * 0.001);
-      const k = Math.min(2.4, Math.max(0.3, transform.k * factor));
-      const ratio = k / transform.k;
-      transform = {
-        k,
-        x: cx - ratio * (cx - transform.x),
-        y: cy - ratio * (cy - transform.y),
-      };
-      applyTransform(false);
-    },
-    { passive: false },
-  );
   // Clearing belongs to the background alone. A tap on a card is handled in endPointer, and
   // the browser then sends the click along anyway; since the card no longer carries a click
   // handler to stop it, that click reached this one and wiped the selection the tap had just
@@ -1324,7 +1347,12 @@
     const items = [{ label: "Components", state: null }];
     if (!opened) return items;
     items.push({ label: opened.component, state: { component: opened.component, path: [] } });
-    if (opened.inside) items.push({ label: opened.inside, state: { component: opened.component, inside: opened.inside, path: [] } });
+    if (opened.inside) items.push({ label: opened.inside, state: {
+      component: opened.component,
+      inside: opened.inside,
+      ...(opened.physicalInsideCard && !(opened.insidePath || []).length ? { physicalInsideCard: true } : {}),
+      path: [],
+    } });
     (opened.insidePath || []).forEach((name, index) => items.push({
       label: name,
       state: {
@@ -1354,21 +1382,10 @@
         opened = item.state;
         selected = null;
         positions = {};
-        focusLabel = defaultFocus(fullLevel());
-        defaultThreshold();
         render();
-        fit(false);
       });
       breadcrumb.appendChild(button);
     });
-  }
-
-  function defaultThreshold() {
-    const counts = level().edges.filter((edge) => edge.state !== "violation")
-      .map((edge) => weight(edge)).sort((a, b) => b - a);
-    const maximum = counts[0] || 1;
-    thresholdInput.max = String(maximum);
-    thresholdInput.value = String(opened && counts.length > 12 ? counts[11] : 0);
   }
 
   function enter(label) {
@@ -1412,24 +1429,29 @@
     }
     selected = null;
     positions = {};
-    focusLabel = defaultFocus(fullLevel());
-    defaultThreshold();
     render();
-    fit(false);
   }
 
   // One step back per press: a module returns to what held it, a sub-component to its
   // component, a component to the overview.
   function leave() {
     if (!opened) return;
+    const departed = opened;
     const history = crumbs();
     opened = history[history.length - 2].state;
     selected = null;
     positions = {};
-    focusLabel = defaultFocus(fullLevel());
-    defaultThreshold();
     render();
-    fit(false);
+    if (viewMode !== "diagram") return;
+    const parentLabel = (departed.path || []).at(-1) ??
+      (departed.insidePath || []).at(-1) ?? departed.inside ?? departed.component;
+    const parentCard = departed.module
+      ? fullLevel().components.find((card) => card.opensModule === departed.module)
+      : fullLevel().components.find((card) => card.label === parentLabel);
+    const target = parentCard && nodeLayer.querySelector(
+      `[data-label="${CSS.escape(parentCard.label)}"]`,
+    );
+    (target || canvas).focus();
   }
 
   backButton.addEventListener("click", leave);
@@ -1437,21 +1459,13 @@
   root.querySelector(".flow-views").hidden = false;
   viewButtons.forEach((button) => button.addEventListener("click", () => {
     viewMode = button.dataset.flowView;
-    if (viewMode === "diagram" && selected) {
-      focusLabel = selected.type === "node" ? selected.label : selected.key.split(">")[0];
-      positions = {};
-      defaultThreshold();
-    }
     render();
-    fit(false);
   }));
   focusInput.addEventListener("change", () => {
     focusLabel = focusInput.value || null;
     selected = null;
     positions = {};
-    defaultThreshold();
     render();
-    fit(false);
   });
   alternative.addEventListener("click", (event) => {
     const cardButton = event.target.closest("[data-flow-card]");
@@ -1481,7 +1495,6 @@
   thresholdInput.addEventListener("input", () => {
     positions = {};
     render();
-    fit(false);
   });
   violationsOnly.addEventListener("change", () => {
     if (violationsOnly.checked && selected && selected.type === "edge") {
@@ -1490,21 +1503,29 @@
     }
     positions = {};
     render();
-    fit(false);
   });
-  // Fit used to move the camera only, which left a hand-dragged card where it was and offered
-  // no way back to the computed arrangement.
+  // Arrange recomputes card positions and leaves filters and zoom alone.
   fitButton.addEventListener("click", () => {
     positions = {};
     render();
-    fit(true);
+  });
+  overviewButton.addEventListener("click", fit);
+  zoomOutButton.addEventListener("click", () => zoomBy(1 / 1.2));
+  zoom100Button.addEventListener("click", () => {
+    transform.k = 1;
+    sizeDiagram();
+  });
+  zoomInButton.addEventListener("click", () => zoomBy(1.2));
+  resetFiltersButton.addEventListener("click", () => {
+    focusLabel = null;
+    thresholdInput.value = "0";
+    violationsOnly.checked = false;
+    positions = {};
+    render();
   });
   violationFocus.hidden = false;
 
   renderLegend();
-  focusLabel = defaultFocus(fullLevel());
-  defaultThreshold();
   render();
-  fit(false);
-  window.addEventListener("resize", () => fit(false));
+  window.addEventListener("resize", sizeDiagram);
 })();
