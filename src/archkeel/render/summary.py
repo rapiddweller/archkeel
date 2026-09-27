@@ -82,7 +82,10 @@ def report_leaves_rules_undecided(result: RunResult) -> bool:
     return (
         result.command in {"report", "validate"}
         and result.exit_code == 0
-        and result.declared_rules == "UNKNOWN"
+        and (
+            result.declared_rules == "UNKNOWN"
+            or any(item.status == "UNKNOWN" for item in result.rule_assessments or ())
+        )
     )
 
 
@@ -257,10 +260,14 @@ def report_summary(result: RunResult) -> Summary:
             "Run archkeel validate for the worklist."
         )
     elif report_leaves_rules_undecided(result):
-        sentence = (
-            "The requested deterministic checks completed, but declared rules could not be "
-            "evaluated completely."
-        )
+        if result.declared_rules == "PASS":
+            unknown = sum(item.status == "UNKNOWN" for item in result.rule_assessments or ())
+            sentence = f"The scan completed. Overall verdict: PASS. Rules still UNKNOWN: {unknown}."
+        else:
+            sentence = (
+                "The requested deterministic checks completed, but declared rules could not be "
+                "evaluated completely."
+            )
     rules_reason = {
         "PASS": "No declared-rule violation was found.",
         "FAIL": "At least one declared rule was violated.",

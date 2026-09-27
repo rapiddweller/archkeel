@@ -42,13 +42,12 @@ outline, recolor, or place the mark inside another badge.
 
 ### Verdict colors
 
-Verdict colors are functional data colors, not brand decoration. Keep them
-inside verdict chips, a 3–4 px border, or a chart series. They should occupy
-less than 10% of a page.
+Verdict colors are functional data colors, not brand decoration. Use them for
+status labels, evidence rows and graph relationships, not ordinary prose.
 
 | Verdict | Hex | Symbol | Meaning |
 | --- | --- | --- | --- |
-| `PASS` | `#C5F82A` | `✓` | The claim was checked and holds |
+| `PASS` | `#5EEAD4` | `✓` | The claim was checked and holds |
 | `FAIL` | `#FF6B6B` | `×` | The claim was checked and rejected |
 | `NOT CHECKED` | `#F4C95D` | `?` | A required verdict is `UNKNOWN`; evidence or rule evaluation is incomplete |
 | `INFO` | `#5EEAD4` | `i` | Context that does not change the verdict |
@@ -56,6 +55,11 @@ less than 10% of a page.
 Never communicate a verdict through color alone. Always render the symbol,
 verdict word, and one-sentence reason. `NOT CHECKED` must never inherit pass
 styling.
+
+Rule tables use teal for checked PASS, red for FAIL, amber for UNKNOWN, and gray
+for DECLARATION. A permission is not a passed check. New violation rows are red;
+fully baselined fingerprints are gray with a KNOWN badge and a red FAIL marker.
+Mixed known/new occurrences keep their group counts without inventing line identity.
 
 ## State mapping
 
@@ -86,8 +90,9 @@ red only when the contract classifies the change as a regression or failure.
 ## Report hierarchy
 
 1. Logo, repository, candidate SHA, accepted SHA when available, and source digest.
-2. Decision banner: pass, reject, or not checked. It follows the verdicts, not the exit code
-   alone, and is not a score.
+2. Decision banner: pass, reject, or not checked. It follows verdicts and per-rule evidence,
+   not the exit code alone, and is not a score. UNKNOWN rule results prevent a green banner
+   even when the aggregate verdict remains PASS; that difference is stated explicitly.
 3. The report verdict cards, always in contract order. Architecture reports show three;
    check reports add `git_predicate` and `host_order` for five total verdicts.
 4. Evidence that caused a failure or uncertainty.
@@ -198,10 +203,19 @@ make demo-screenshots OUTPUT="$(mktemp -d)"
 ```
 
 The command reproduces demo cases A, B, and C, then captures each check report
-at 1440 × 1000 and case A at 375 × 2400. Firefox is the reference browser because
-headless Chrome has produced incomplete captures on the current macOS compositor.
-The target is intentionally excluded from `make check` because it requires a local
-browser. Use a new output directory for each run.
+at 1440 × 1000 and case A at 375 × 2400. This older capture target requires Firefox
+and remains outside `make check`.
+
+For interactive report acceptance, use the same pinned Playwright/Chromium lane as CI:
+
+```bash
+make browser-install
+make report-browser OUTPUT=test-artifacts/report-browser
+```
+
+It replays synthetic catalog fixtures, exercises navigation and filters, and saves
+screenshots and traces. Use a new output directory for each run. These checks are
+separate from the Python gate; static HTML assertions alone do not prove browser behavior.
 
 ## Accessibility and print
 

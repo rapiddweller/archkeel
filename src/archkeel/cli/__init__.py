@@ -130,6 +130,11 @@ def build_parser() -> _Parser:
         "Default: test-artifacts/architecture/architecture.json.",
     )
     report.add_argument(
+        "--baseline",
+        type=Path,
+        help="Compare findings with this read-only validation baseline, relative to --root.",
+    )
+    report.add_argument(
         "--only",
         choices=["violations", "calls"],
         help="violations: show only the declared-rule violations table, hiding component flow, "
@@ -385,6 +390,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     only_calls=args.only == "calls",
                     rule=args.rule,
                     component=args.component,
+                    baseline=args.baseline,
                 )
                 result = replace(result, scan_roots=config.roots)
                 if architecture is not None:

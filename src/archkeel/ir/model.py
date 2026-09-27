@@ -1138,6 +1138,41 @@ class ReportFilter:
     only_calls: bool = False
 
 
+RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
+
+
+@dataclass(frozen=True, slots=True)
+class RuleAssessment:
+    """One rule's evaluator-backed state for the current observation."""
+
+    id: str
+    kind: str
+    status: RuleAssessmentStatus
+    evaluation_proven: bool
+    count: int
+    undecided: int
+    decided_by: str
+    rationale: str
+    provenance: tuple[str, ...]
+    reason: str
+    scope: str
+    components: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class BaselineViolationComparison:
+    """Fingerprint-level counts preserve ambiguity between repeated findings."""
+
+    rules: tuple[str, ...]
+    subjects: tuple[str, ...]
+    known_count: int
+    shared_count: int
+    current_count: int
+    new_count: int
+    resolved_count: int
+    status: Literal["known", "new", "reduced", "resolved", "contracted", "unknown"]
+
+
 CallStatus: TypeAlias = Literal["unresolved", "partially_resolved"]
 
 
@@ -1224,6 +1259,9 @@ class RunResult:
     unresolved_call_note: str | None = None
     # AD-100: `report --only calls`, every unresolved and partially resolved call it selects.
     filtered_calls: tuple[CallRow, ...] | None = None
+    rule_assessments: tuple[RuleAssessment, ...] | None = None
+    baseline_path: str | None = None
+    baseline_comparisons: tuple[BaselineViolationComparison, ...] | None = None
     # AD-99: every declared facade and pair budget `validate` measured; None when none exists.
     interface_budgets: tuple[InterfaceBudgetResult, ...] | None = None
     # AD-101: the scan.roots a report, validate or check run read. A verdict covers these and

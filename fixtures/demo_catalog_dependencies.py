@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 
+from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
+from archkeel.ir.codec import baseline_bytes
 from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
     FIXTURE_DIR,
@@ -231,6 +233,83 @@ _MODULE_CYCLE = Variant(
     },
     expected_violations=("MODEL-MODULES-ACYCLIC",),
     expected_codes=("rule.violated",),
+)
+_MODULE_CYCLE_BASELINE = baseline_bytes(
+    (
+        KnownViolation(
+            ViolationFingerprint(
+                ("MODEL-MODULES-ACYCLIC",), ("shop.model.alpha", "shop.model.beta")
+            ),
+            1,
+        ),
+    )
+).decode()
+
+
+def _partial_module_cycle_contract() -> str:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    contract["components"] = [
+        {
+            key: value
+            for key, value in component.items()
+            if key not in {"capability_id", "inside", "namespace", "planned", "public", "requires"}
+        }
+        for component in contract["components"]
+        if component["label"] in {"model", "store"}
+    ]
+    contract.pop("declarations", None)
+    model = next(item for item in contract["components"] if item["label"] == "model")
+    store = next(item for item in contract["components"] if item["label"] == "store")
+    model["requires"] = []
+    store["requires"] = [
+        {"component": "model", "rationale": "Persistence stores the domain's own entities."}
+    ]
+    contract["rules"] = [
+        module_cycle_rule(components=["model"]),
+        {
+            "id": "REQUIRES-COMPLETE",
+            "kind": "complete_requires",
+            "rationale": "Every cross-component import is declared by its source.",
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        },
+    ]
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_PARTIAL_MODULE_CYCLE_ARCHITECTURE = (
+    (FIXTURE_DIR / "docs/architecture/shop.md")
+    .read_text()
+    .replace(
+        "    app --> model\n    app --> store\n    cli --> app\n    cli --> render\n"
+        "    render --> model\n    store --> model",
+        "    store --> model",
+    )
+)
+
+
+_PARTIAL_MODULE_CYCLE_SCAN = Variant(
+    id="report-partial-module-cycle-scan",
+    section="showcase",
+    item="report:partial_cycle_scan",
+    summary="A model-cycle baseline is compared with a scan rooted only at shop/store. The "
+    "aggregate report verdict is PASS; the selected module-cycle assessment and baseline "
+    "comparison are UNKNOWN because model was not scanned. complete_requires is also UNKNOWN "
+    "because a store-only scan cannot assess every component owner. Validation retains its "
+    "reference.package_unscanned diagnostic for shop.model.",
+    files={
+        **MODEL_MODULE_CYCLE,
+        "docs/architecture/shop.md": _PARTIAL_MODULE_CYCLE_ARCHITECTURE,
+        "architecture-contract.json": _partial_module_cycle_contract(),
+        "archkeel.toml": (FIXTURE_DIR / "archkeel.toml")
+        .read_text()
+        .replace('roots = ["shop"]', 'roots = ["shop/store"]'),
+        "known-violations.json": _MODULE_CYCLE_BASELINE,
+    },
+    expected_violations=(),
+    expected_codes=("reference.package_unscanned",),
+    baseline="known-violations.json",
+    expected_declared_rules="PASS",
 )
 _PACKAGE_CYCLE_ROLLUP_ONLY = Variant(
     id="class-a-package-cycle-rollup-only",
@@ -1033,6 +1112,7 @@ VARIANTS: tuple[Variant, ...] = (
     _NO_COMPONENT_CYCLES,
     _MODULE_CYCLE_HIDDEN,
     _MODULE_CYCLE,
+    _PARTIAL_MODULE_CYCLE_SCAN,
     _PACKAGE_CYCLE_ROLLUP_ONLY,
     _PACKAGE_CYCLE_BACKED,
     _DECISION_OPEN,
