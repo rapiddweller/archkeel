@@ -169,6 +169,8 @@ demo-dart`.
 | validation | against.invalid | validation-against-invalid | tested only | - | - | tests/test_widening.py |
 | validation | amendment.invalid | validation-amendment-invalid | tested only | - | - | tests/test_widening.py |
 | validation | inside.local_public | validation-inside-local-public | validate/report run | - | - | shop/store/architecture-contract.json |
+| validation | inside.direct_publication | validation-inside-direct-publication | validate/report run | - | - | architecture-contract.json, shop/app/readiness.py, shop/store/architecture-contract.json, shop/store/status-contract.json, shop/store/status.py |
+| validation | inside.direct_publication_private_parent | validation-inside-direct-publication-private-parent | validate/report run | INTERFACE-BOUNDARY | interface.unused, rule.violated | architecture-contract.json, shop/app/readiness.py, shop/store/architecture-contract.json, shop/store/status-contract.json, shop/store/status.py |
 | validation | interface.missing | validation-inside-public-module-missing | validate/report run | - | interface.missing | shop/store/architecture-contract.json |
 | validation | inside.public_mismatch | validation-inside-public-mismatch-retired | tested only | - | - | tests/test_inside_rule_parity.py |
 | validation | inside.forbidden_import | validation-inside-forbidden-import | validate/report run | - | inside.forbidden_import | shop/store/architecture-contract.json |

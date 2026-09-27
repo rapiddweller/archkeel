@@ -50,6 +50,42 @@ _Verdict: TypeAlias = _Literal["violation", "allowed", "undecided"]
 UncertainReexportOrigins: TypeAlias = dict[str, frozenset[str]]
 FacadeEntry: TypeAlias = tuple[str, str, str, bool]
 DeclaredFacade: TypeAlias = tuple[str, str, list[tuple[str, str]], str, tuple[FacadeEntry, ...]]
+ReexportIndex: TypeAlias = tuple[
+    dict[str, tuple[RawRecord, ...]],
+    dict[str, tuple[RawRecord, ...]],
+    frozenset[tuple[str, str]],
+]
+
+
+def _reexport_index(imports: Sequence[RawRecord]) -> ReexportIndex:
+    by_origin: dict[str, list[RawRecord]] = defaultdict(list)
+    by_alias: dict[str, list[RawRecord]] = defaultdict(list)
+    reexport_origins: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for item in imports:
+        data = item["data"]
+        origin = data.get("origin_definition")
+        alias = f"{data['source_module']}.{data['binding']}"
+        alias_records: list[RawRecord] = by_alias[alias]
+        alias_records.append(item)
+        if data.get("reexport"):
+            for chain_alias in data.get("reexport_chain", ()):
+                chain_records: list[RawRecord] = by_alias[chain_alias]
+                chain_records.append(item)
+            if isinstance(origin, str):
+                origin_records: list[RawRecord] = by_origin[origin]
+                origin_records.append(item)
+                binding_origins: set[str] = reexport_origins[
+                    (data["source_module"], data["binding"])
+                ]
+                binding_origins.add(origin)
+    ambiguous = frozenset(
+        binding for binding, origins in reexport_origins.items() if len(origins) > 1
+    )
+    return (
+        {key: tuple(value) for key, value in by_origin.items()},
+        {key: tuple(value) for key, value in by_alias.items()},
+        ambiguous,
+    )
 
 
 def _forbidden_dependency_verdicts(
@@ -861,6 +897,7 @@ def _boundary_type_subject_modules(
     decided subject for this one rule kind, and `rule_subject_failures` has to see that instead
     of reading an empty result as a clean pass.
     """
+    reexports = _reexport_index(imports)
     function_subjects = frozenset(
         module
         for item in symbols
@@ -872,6 +909,7 @@ def _boundary_type_subject_modules(
                 exports_by_module,
                 imports,
                 uncertain_reexport_origins,
+                reexports,
             )
         )
         is not None
@@ -2268,6 +2306,7 @@ def _declared_facade_positions(
     exports_by_module: dict[str, frozenset[str]],
     imports: Sequence[RawRecord] = (),
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    reexports: ReexportIndex | None = None,
 ) -> DeclaredFacade | None:
     """The (module, qualified name, annotated positions) of one declared facade function, or
     None when the record is not a module-level function its own `component.public` covers -- a
@@ -2291,6 +2330,7 @@ def _declared_facade_positions(
         exports_by_module,
         imports,
         uncertain_reexport_origins or {},
+        reexports,
     )
     facade_entries.extend(reexport_entries)
     if not facade_entries:
@@ -2319,20 +2359,19 @@ def _reexport_facade_entries(
     exports_by_module: dict[str, frozenset[str]],
     imports: Sequence[RawRecord],
     uncertain_reexport_origins: UncertainReexportOrigins,
+    reexports: ReexportIndex | None = None,
 ) -> list[FacadeEntry]:
     """Match re-export facts while keeping uncertain bindings scoped to one entry."""
-    reexport_origins: dict[tuple[str, str], set[str]] = {}
-    for imported in imports:
-        imported_data = imported["data"]
-        imported_origin = imported_data.get("origin_definition")
-        if imported_data.get("reexport") and isinstance(imported_origin, str):
-            binding_key = (imported_data["source_module"], imported_data["binding"])
-            reexport_origins.setdefault(binding_key, set()).add(imported_origin)
-    ambiguous_bindings = {
-        binding for binding, origins in reexport_origins.items() if len(origins) > 1
+    indexed = reexports or _reexport_index(imports)
+    by_origin, by_alias, ambiguous_bindings = indexed
+    candidates: dict[str, RawRecord] = {
+        imported["id"]: imported for imported in by_origin.get(origin, ())
     }
+    for alias, origins in uncertain_reexport_origins.items():
+        if origin in origins:
+            candidates.update({item["id"]: item for item in by_alias.get(alias, ())})
     facade_entries: list[FacadeEntry] = []
-    for imported in imports:
+    for imported in candidates.values():
         imported_data = imported["data"]
         binding_key = (imported_data.get("source_module"), imported_data.get("binding"))
         binding_name = f"{imported_data['source_module']}.{imported_data['binding']}"
@@ -2353,11 +2392,9 @@ def _reexport_facade_entries(
         entry_uncertain = (
             own_uncertainty or binding_key in ambiguous_bindings or inherited_uncertainty
         )
-        for owner in contract.components:
-            if contract.component_for(facade_module) == owner and facade_covers(
-                facade_module, binding, owner, exports_by_module
-            ):
-                facade_entries.append((facade_module, binding, resolution_module, entry_uncertain))
+        owner = contract.component_for(facade_module)
+        if owner is not None and facade_covers(facade_module, binding, owner, exports_by_module):
+            facade_entries.append((facade_module, binding, resolution_module, entry_uncertain))
     return facade_entries
 
 
@@ -2368,6 +2405,7 @@ def _facade_positions(
     exports_by_module: dict[str, frozenset[str]],
     imports: Sequence[RawRecord] = (),
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    reexports: ReexportIndex | None = None,
 ) -> (
     tuple[
         str,
@@ -2382,7 +2420,7 @@ def _facade_positions(
     """The declared facade positions `rule` must check, or None when the function is out of
     scope or exempted (AD-49)."""
     found = _declared_facade_positions(
-        item, contract, exports_by_module, imports, uncertain_reexport_origins
+        item, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
     )
     if found is None:
         return None
@@ -2445,6 +2483,7 @@ def facade_signature_types(
         uncertain_reexport_origins or {},
         ancestor_contracts,
     )
+    reexports = _reexport_index(imports)
     if source_modules is not None:
         if scope_id is None:
             raise ValueError("nested facade evidence requires a mount identity")
@@ -2459,11 +2498,12 @@ def facade_signature_types(
             ancestor_contracts,
             imports_by_binding,
             classes_by_location,
+            reexports,
         )
     recorded: list[RawRecord] = []
     for item in symbols:
         found = _declared_facade_positions(
-            item, contract, exports_by_module, imports, uncertain_reexport_origins
+            item, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
         )
         has_proven_facade = found is not None and any(not entry[3] for entry in found[4])
         names = (
@@ -2495,6 +2535,7 @@ def _scoped_facade_signature_types(
     ancestor_contracts: Sequence[ArchitectureContract],
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    reexports: ReexportIndex,
 ) -> list[RawRecord]:
     """Attach nested facade type evidence to its mount and physical publisher module."""
     owners = (contract, *ancestor_contracts)
@@ -2514,7 +2555,7 @@ def _scoped_facade_signature_types(
         scoped_types = by_mount.get(scope_id, {})
         for owner in owners:
             found = _declared_facade_positions(
-                item, owner, exports_by_module, imports, uncertain_reexport_origins
+                item, owner, exports_by_module, imports, uncertain_reexport_origins, reexports
             )
             if found is None:
                 continue
@@ -2650,13 +2691,20 @@ def _boundary_types_violations(
         uncertain_reexport_origins,
         ancestor_contracts,
     )
+    reexports = _reexport_index(imports)
     violations: list[RawRecord] = []
     allowance_facts: list[RawRecord] = []
     for rule in rules:
         evaluated: dict[str, RawRecord] = {}
         for item in symbols:
             found = _facade_positions(
-                item, rule, contract, exports_by_module, imports, uncertain_reexport_origins
+                item,
+                rule,
+                contract,
+                exports_by_module,
+                imports,
+                uncertain_reexport_origins,
+                reexports,
             )
             if found is None:
                 continue
@@ -3077,10 +3125,11 @@ def _boundary_rule_positions(
     undecidable_positions: list[dict[str, object]] = []
     positions_out: list[RawRecord] = []
     occurrences: dict[tuple[str, str], int] = {}
+    reexports = _reexport_index(imports)
     seen = 0
     for item in ordered_symbols:
         found = _facade_positions(
-            item, rule, contract, exports_by_module, imports, uncertain_reexport_origins
+            item, rule, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
         )
         if found is None:
             continue
@@ -3109,7 +3158,7 @@ def _boundary_rule_positions(
         )
         selected = _selected_facade(module, qualified_name, resolution_module)
         declared = _declared_facade_positions(
-            item, contract, exports_by_module, imports, uncertain_reexport_origins
+            item, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
         )
         if declared is None:
             continue

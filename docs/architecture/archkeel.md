@@ -155,6 +155,8 @@ often explains an earlier one; the index below keeps that order.
 | AD-116 | [Diagram filtering is an explicit choice](decisions/ad-116-diagram-filtering-is-an-explicit-choice.md) |
 | AD-117 | [Report verdicts require evaluator evidence](decisions/ad-117-report-verdicts-require-evaluator-evidence.md) |
 | AD-118 | [Structure review is not contract conformance](decisions/ad-118-structure-review-is-not-contract-conformance.md) |
+| AD-119 | [Index re-exports once per boundary pass](decisions/ad-119-index-reexports-once-per-boundary-pass.md) |
+| AD-120 | [Direct publication crosses only declared ancestors](decisions/ad-120-direct-publication-crosses-only-declared-ancestors.md) |
 
 ## Allowed dependencies
 

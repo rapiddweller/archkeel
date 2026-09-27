@@ -7,6 +7,8 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| An observed direct child API consumer counts as local use only through all crossed public ancestor boundaries (AD-120, #193) | `src/archkeel/check/validation.py`; `tests/test_inside_direct_parent_publication.py` |
+| Recursive facade checks reuse a local re-export index per boundary pass without changing ownership or UNKNOWN semantics (AD-119, #192) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_recursive_boundary_index_work.py` |
 | `report`, `check`, three independent verdicts and exit codes 0/1/2 | `bff87f4`; `tests/test_cli.py`; `tests/test_check_diagnostics.py` |
 | Regression checks compare raw counts and ratios with integer cross-multiplication | Fixture A; `tests/test_ratchets.py`; `make demo` |
 | Precommitment order M → B → E → H from host records | Fixture B; `tests/test_ordering.py`; `make demo` |

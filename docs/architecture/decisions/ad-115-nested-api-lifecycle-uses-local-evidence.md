@@ -8,6 +8,10 @@ facade physically inside the current parent. A function may be defined elsewhere
 re-exported by that facade. An unrelated facade, arbitrary parent import or publication
 outside the parent cannot make a local entry used.
 
+AD-120 also accepts a real outside consumer of a directly published child API,
+but only through every ancestor boundary it crosses. The same module may serve
+as the parent facade and child API without a re-export wrapper.
+
 The analyzer records scoped publisher/type evidence on existing symbol facts, using the
 existing facade resolver. Validation consumes those facts and mounts the existing diagnostic
 pointers. No per-level rescan, second resolver or root-baseline exemption for matching labels.

@@ -56,6 +56,54 @@ _CLI_ALLOWS_MODEL = contract_rule_replaced(
 )
 
 
+def _direct_child_publication(*, published: bool) -> dict[str, str]:
+    root = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    store = next(item for item in root["components"] if item["label"] == "store")
+    entry = "shop.store.status:ready"
+    if published:
+        store["public"].append(entry)
+    inside = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    inside["components"].append(
+        {
+            "id": "COMP-STORE-STATUS",
+            "label": "status",
+            "role": "component",
+            "packages": ["shop.store.status"],
+            "public": [entry],
+            "responsibilities": ["Expose readiness directly to the application."],
+            "forbidden_responsibilities": ["Writing order data."],
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    leaf = dict(inside["components"][-1])
+    leaf["id"] = "COMP-STORE-STATUS-API"
+    leaf["label"] = "api"
+    inside["components"][-1]["inside"] = "shop/store/status-contract.json"
+    return {
+        "architecture-contract.json": json.dumps(root),
+        "shop/store/architecture-contract.json": json.dumps(inside),
+        "shop/store/status-contract.json": json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [leaf],
+                "rules": [
+                    {
+                        "id": "STATUS-INTERFACE",
+                        "kind": "interface_boundary",
+                        "rationale": "The leaf has a caller only through its declared ancestors.",
+                        "provenance": ["docs/architecture/shop.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        ),
+        "shop/store/status.py": HEADER + "def ready() -> bool:\n    return True\n",
+        "shop/app/readiness.py": HEADER
+        + "from shop.store.status import ready\n\ndef is_ready() -> bool:\n    return ready()\n",
+    }
+
+
 def _target_block_with_subgraph(page: str) -> str:
     """`page` with only its target graph's `cli` edges grouped in a `subgraph` (AD-57).
 
@@ -795,6 +843,26 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         },
         expected_violations=(),
         expected_codes=(),
+    ),
+    Variant(
+        id="validation-inside-direct-publication",
+        section="validation",
+        item="inside.direct_publication",
+        summary="The application calls the store's child API directly. Both boundaries publish "
+        "the same entry, so the child needs no wrapper or artificial sibling caller.",
+        files=_direct_child_publication(published=True),
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="validation-inside-direct-publication-private-parent",
+        section="validation",
+        item="inside.direct_publication_private_parent",
+        summary="The same caller crosses a private outer boundary. The import remains a "
+        "violation and cannot prove publication of the child API.",
+        files=_direct_child_publication(published=False),
+        expected_violations=("INTERFACE-BOUNDARY",),
+        expected_codes=("interface.unused", "rule.violated"),
     ),
     Variant(
         id="validation-inside-public-module-missing",

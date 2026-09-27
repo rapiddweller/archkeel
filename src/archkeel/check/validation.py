@@ -459,6 +459,38 @@ def _parent_reexport_proven(record: RecordData) -> bool:
     )
 
 
+def _facade_covers_import(
+    module: str,
+    symbol: str | None,
+    component: ContractComponent,
+    exports_by_module: dict[str, frozenset[str]],
+) -> bool:
+    """Match the concrete module or symbol imported through a declared facade."""
+    if symbol is None:
+        return component.public is not None and module in component.public
+    return facade_covers(module, symbol, component, exports_by_module)
+
+
+def _clip_contract(
+    contract: ArchitectureContract, packages: tuple[str, ...]
+) -> ArchitectureContract:
+    """Keep component ownership inside its declared parent packages."""
+    return replace(
+        contract,
+        components=tuple(
+            replace(
+                component,
+                packages=tuple(
+                    package
+                    for package in component.packages
+                    if any(in_scope(package, root) for root in packages)
+                ),
+            )
+            for component in contract.components
+        ),
+    )
+
+
 def _imports_by_target(
     contract: ArchitectureContract,
     observation: Observation,
@@ -1586,20 +1618,110 @@ def _inside_source_domain_diagnostics(
     ]
 
 
+def _import_published_through_ancestors(
+    source_module: str,
+    target_module: str,
+    symbol: str | None,
+    mount: InsideContractMount,
+    mounts_by_parent: dict[str, InsideContractMount],
+    available_by_owner: dict[str, frozenset[str]],
+    exports_by_module: dict[str, frozenset[str]],
+) -> bool:
+    """Require publication at every boundary crossed by an outside import."""
+    ancestor = mount
+    while True:
+        local_modules = available_by_owner.get(ancestor.parent_id, frozenset())
+        if source_module in local_modules:
+            local_contract = _clip_contract(ancestor.contract, ancestor.parent.packages)
+            return (
+                local_contract.component_for(source_module) is not None
+                and local_contract.component_for(target_module) is not None
+            )
+        parent_mount = mounts_by_parent.get(ancestor.owner_id) if ancestor.owner_id else None
+        parent_contract = (
+            _clip_contract(ancestor.parent_contract, parent_mount.parent.packages)
+            if parent_mount is not None
+            else ancestor.parent_contract
+        )
+        parent_modules = available_by_owner.get(ancestor.owner_id, frozenset())
+        if (
+            target_module not in parent_modules
+            or parent_contract.component_for(target_module) != ancestor.parent
+            or not _facade_covers_import(target_module, symbol, ancestor.parent, exports_by_module)
+        ):
+            return False
+        if not ancestor.owner_id:
+            return source_module in available_by_owner.get("", frozenset()) and (
+                ancestor.parent_contract.component_for(source_module) is not None
+            )
+        if parent_mount is None:
+            return False
+        ancestor = parent_mount
+
+
+def _inside_imports_by_target(
+    mount: InsideContractMount,
+    scoped: ArchitectureContract,
+    source_modules: frozenset[str],
+    observation: Observation,
+    mounts_by_parent: dict[str, InsideContractMount],
+    available_by_owner: dict[str, frozenset[str]],
+) -> dict[str, list[RecordData]]:
+    """Collect local and ancestor-published uses of this mount's interfaces."""
+    exports_by_module = _literal_exports(observation)
+    imports_by_target: dict[str, list[RecordData]] = _imports_by_target(
+        scoped,
+        observation,
+        source_modules,
+        _published_parent_components(mount, mounts_by_parent, source_modules),
+        exports_by_module,
+    )
+    for record in observation.records("imports") or ():
+        source_module = record.data.get("source_module")
+        target_module = record.data.get("target_module")
+        symbol = record.data.get("symbol")
+        if (
+            not isinstance(source_module, str)
+            or source_module in source_modules
+            or not isinstance(target_module, str)
+            or target_module not in source_modules
+            or (symbol is not None and not isinstance(symbol, str))
+        ):
+            continue
+        target = scoped.component_for(target_module)
+        if target is None:
+            continue
+        public_import = _facade_covers_import(target_module, symbol, target, exports_by_module)
+        planned_import = any(
+            _entry_used(entry, [record.data], ()) for entry in target.planned or ()
+        )
+        if not public_import and not planned_import:
+            continue
+        if _import_published_through_ancestors(
+            source_module,
+            target_module,
+            symbol,
+            mount,
+            mounts_by_parent,
+            available_by_owner,
+            exports_by_module,
+        ):
+            target_records: list[RecordData] = imports_by_target.setdefault(target.label, [])
+            target_records.append(record.data)
+    return imports_by_target
+
+
 def _inside_interface_lifecycle_diagnostics(
     mount: InsideContractMount,
     scoped: ArchitectureContract,
     source_modules: frozenset[str],
     observation: Observation,
     mounts_by_parent: dict[str, InsideContractMount],
+    available_by_owner: dict[str, frozenset[str]],
 ) -> list[Diagnostic]:
     """Check public and planned entries against this mount's physical evidence."""
-    imports_by_target = _imports_by_target(
-        scoped,
-        observation,
-        source_modules,
-        _published_parent_components(mount, mounts_by_parent, source_modules),
-        _literal_exports(observation),
+    imports_by_target = _inside_imports_by_target(
+        mount, scoped, source_modules, observation, mounts_by_parent, available_by_owner
     )
     facade_types = _scoped_facade_types(observation, mount.parent_id, source_modules)
     diagnostics = []
@@ -1721,20 +1843,7 @@ def inside_diagnostics(
             if any(in_scope(module, package) for package in parent.packages)
         )
         available_by_owner[mount.parent_id] = source_modules
-        scoped = replace(
-            inner,
-            components=tuple(
-                replace(
-                    component,
-                    packages=tuple(
-                        package
-                        for package in component.packages
-                        if any(in_scope(package, root) for root in parent.packages)
-                    ),
-                )
-                for component in inner.components
-            ),
-        )
+        scoped = _clip_contract(inner, parent.packages)
         for diagnostic in reference_diagnostics(root, config, inner):
             diagnostics.append(replace(diagnostic, pointer=f"{pointer}{diagnostic.pointer or ''}"))
         diagnostics.extend(_inside_source_domain_diagnostics(pointer, parent, inner))
@@ -1743,7 +1852,12 @@ def inside_diagnostics(
         ):
             diagnostics.extend(
                 _inside_interface_lifecycle_diagnostics(
-                    mount, scoped, source_modules, observation, mounts_by_parent
+                    mount,
+                    scoped,
+                    source_modules,
+                    observation,
+                    mounts_by_parent,
+                    available_by_owner,
                 )
             )
         diagnostics.extend(_inside_parent_policy_diagnostics(mount))

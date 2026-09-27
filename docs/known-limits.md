@@ -4,6 +4,21 @@ Archkeel decides from one static observation of Python source. This page lists w
 observation cannot see or only sees partly, with the measured size where one exists. A limit here
 is a reason for review, not a failed check.
 
+## Analyzer deadline
+
+The bundled analyzer has a 60-second deadline. Exceeding it returns exit 2 and
+UNKNOWN with no complete observation; an older HTML file is not a fresh result.
+Recursive facade checks reuse re-export indexes per boundary pass (AD-119, #192).
+This removes repeated import scans per function, not the deadline or all scaling limits.
+
+## Empty-crossing rule receipts
+
+An `interface_boundary` or `complete_requires` scope with one observed owner may
+lack an evaluator receipt. Its report row then correctly stays UNKNOWN, but the
+aggregate `declared_rules` can still say PASS (#194). Do not treat that aggregate
+as proof that every rule completed. The paired direct-publication demos reproduce
+this gap; no renderer override or accepted-debt change hides it.
+
 ## Calls are partly resolved
 
 The import graph covers the static imports in the scanned source; dynamic imports remain a
