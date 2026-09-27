@@ -2383,6 +2383,10 @@ def facade_signature_types(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    *,
+    source_modules: frozenset[str] | None = None,
+    scope_id: str | None = None,
+    ancestor_contracts: Sequence[ArchitectureContract] = (),
 ) -> list[RawRecord]:
     """Record on every declared facade function the types its signature exposes (AD-65).
 
@@ -2408,7 +2412,23 @@ def facade_signature_types(
         contract,
         exports_by_module,
         uncertain_reexport_origins or {},
+        ancestor_contracts,
     )
+    if source_modules is not None:
+        if scope_id is None:
+            raise ValueError("nested facade evidence requires a mount identity")
+        return _scoped_facade_signature_types(
+            symbols,
+            imports,
+            contract,
+            exports_by_module,
+            uncertain_reexport_origins or {},
+            source_modules,
+            scope_id,
+            ancestor_contracts,
+            imports_by_binding,
+            classes_by_location,
+        )
     recorded: list[RawRecord] = []
     for item in symbols:
         found = _declared_facade_positions(
@@ -2429,6 +2449,71 @@ def facade_signature_types(
         )
         recorded.append(
             {**item, "data": {**item["data"], "facade_types": names}} if names else item
+        )
+    return recorded
+
+
+def _scoped_facade_signature_types(
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins,
+    source_modules: frozenset[str],
+    scope_id: str,
+    ancestor_contracts: Sequence[ArchitectureContract],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> list[RawRecord]:
+    """Attach nested facade type evidence to its mount and physical publisher module."""
+    owners = (contract, *ancestor_contracts)
+    recorded: list[RawRecord] = []
+    for item in symbols:
+        by_mount: dict[str, dict[str, list[str]]] = {}
+        raw_types = item["data"].get("facade_types_by_mount")
+        if isinstance(raw_types, dict):
+            for mount_id, publisher_types in raw_types.items():
+                if not isinstance(mount_id, str) or not isinstance(publisher_types, dict):
+                    continue
+                by_mount[mount_id] = {
+                    module: [value for value in values if isinstance(value, str)]
+                    for module, values in publisher_types.items()
+                    if isinstance(module, str) and isinstance(values, list)
+                }
+        scoped_types = by_mount.get(scope_id, {})
+        for owner in owners:
+            found = _declared_facade_positions(
+                item, owner, exports_by_module, imports, uncertain_reexport_origins
+            )
+            if found is None:
+                continue
+            publishers = [
+                entry for entry in found[4] if not entry[3] and entry[0] in source_modules
+            ]
+            if not publishers:
+                continue
+            names = _resolved_position_types(
+                found[3],
+                found[2],
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+            if not names:
+                continue
+            for entry in publishers:
+                scoped_types[entry[0]] = sorted(set(scoped_types.get(entry[0], ())) | set(names))
+        if scoped_types:
+            by_mount[scope_id] = scoped_types
+        if not by_mount:
+            recorded.append(item)
+            continue
+        recorded.append(
+            {
+                **item,
+                "data": {**item["data"], "facade_types_by_mount": by_mount},
+            }
         )
     return recorded
 

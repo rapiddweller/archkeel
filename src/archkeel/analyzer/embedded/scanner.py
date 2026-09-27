@@ -17,6 +17,7 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
+    InterfaceBoundaryRule,
     in_scope,
     stable_id,
 )
@@ -226,7 +227,14 @@ def _inside_rule_results(
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
-) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
+) -> tuple[
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+]:
     """Evaluate nested rules with the root scan's facts, limited to each parent's modules."""
     violations: list[RawRecord] = []
     unknowns: list[RawRecord] = []
@@ -271,6 +279,17 @@ def _inside_rule_results(
             evidence=evidence,
             assessments=assessments,
         )
+        if any(isinstance(rule, InterfaceBoundaryRule) for rule in scoped.rules):
+            symbols = facade_signature_types(
+                symbols,
+                imports,
+                scoped,
+                exports_by_module,
+                uncertain_reexport_origins,
+                source_modules=source_modules,
+                scope_id=mount.parent_id,
+                ancestor_contracts=owner_levels,
+            )
         violations.extend(results[0])
         unknowns.extend(results[1])
         failures.extend(results[2])
@@ -281,6 +300,7 @@ def _inside_rule_results(
         sorted(failures, key=lambda item: item["id"]),
         sorted(assessments, key=lambda item: item["id"]),
         sorted(allowances, key=lambda item: item["id"]),
+        list(symbols),
     )
 
 
@@ -555,6 +575,7 @@ def scan_repository(
         inside_failures,
         inside_assessments,
         inside_allowances,
+        symbols,
     ) = _inside_rule_results(
         inside_contracts,
         root_contract=contract,

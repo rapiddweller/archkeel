@@ -547,3 +547,151 @@ def test_local_public_module_validation(tmp_path: Path, case: str) -> None:
         assert any(item.code == "rule.violated" for item in result.diagnostics), result
     else:
         assert result.exit_code == 0, result.diagnostics
+
+
+@pytest.mark.parametrize(
+    ("publisher_inside", "expected_unused"),
+    [(True, False), (False, True)],
+    ids=["inside-publisher-external-definition", "outside-publisher-does-not-count"],
+)
+def test_nested_facade_type_usage_follows_publisher_scope(
+    tmp_path: Path, publisher_inside: bool, expected_unused: bool
+) -> None:
+    internal_public = ["sample.core.api:run"] if publisher_inside else []
+    external_public = [] if publisher_inside else ["sample.foreign.api:run"]
+    api_module = "sample.core.api" if publisher_inside else "sample.foreign.api"
+    components = [
+        _component("core", packages=["sample.core"], public=[]) | {"inside": "core.json"},
+        _component("foreign", packages=["sample.foreign"], public=external_public),
+    ]
+    files = {
+        "sample/core/types.py": "class Payload:\n    pass\n",
+        "sample/shared_impl.py": (
+            "from sample.core.types import Payload\n\ndef run() -> Payload:\n    return Payload()\n"
+        ),
+        f"{api_module.replace('.', '/')}.py": (
+            "from sample.shared_impl import run\n__all__ = ['run']\n"
+        ),
+    }
+    _write_project(
+        tmp_path,
+        components=components,
+        rules=[],
+        insides={
+            "core.json": _inside(
+                [
+                    _child("api", "sample.core.api", public=internal_public),
+                    _child("types", "sample.core.types", public=["sample.core.types:Payload"]),
+                ],
+                [_rule("LOCAL-INTERFACE", "interface_boundary")],
+            )
+        },
+        files=files,
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    contract = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        contract,
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observation=result.observation,
+    )
+
+    assert (
+        any(
+            item.code == "interface.unused" and item.subject == "sample.core.types:Payload"
+            for item in diagnostics
+        )
+        is expected_unused
+    )
+
+
+def test_parent_facade_type_does_not_leak_into_a_deeper_mount(tmp_path: Path) -> None:
+    _write_project(
+        tmp_path,
+        components=[
+            _component("core", packages=["sample.core"], public=["sample.core:run"])
+            | {"inside": "core.json"}
+        ],
+        rules=[_rule("ROOT-INTERFACE", "interface_boundary")],
+        insides={
+            "core.json": _inside(
+                [
+                    _child("middle", "sample.core.middle") | {"inside": "middle.json"},
+                ],
+                [_rule("MIDDLE-INTERFACE", "interface_boundary")],
+            ),
+            "middle.json": _inside(
+                [
+                    _child(
+                        "types",
+                        "sample.core.middle.types",
+                        public=["sample.core.middle.types:Payload"],
+                    ),
+                ],
+                [_rule("DEEP-INTERFACE", "interface_boundary")],
+            ),
+        },
+        files={
+            "sample/core/__init__.py": ("from sample.core.impl import run\n__all__ = ['run']\n"),
+            "sample/core/impl.py": (
+                "from sample.core.middle.types import Payload\n\n"
+                "def run() -> Payload:\n    return Payload()\n"
+            ),
+            "sample/core/middle/types.py": "class Payload:\n    pass\n",
+        },
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    contract = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        contract,
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observation=result.observation,
+    )
+
+    assert [
+        (item.code, item.subject) for item in diagnostics if item.code == "interface.unused"
+    ] == [("interface.unused", "sample.core.middle.types:Payload")]
+
+
+def test_unpublished_parent_reexport_does_not_use_a_local_public_entry(tmp_path: Path) -> None:
+    _write_project(
+        tmp_path,
+        components=[
+            _component("core", packages=["sample.core"], public=[]) | {"inside": "core.json"}
+        ],
+        rules=[],
+        insides={
+            "core.json": _inside(
+                [
+                    _child("api", "sample.core.api"),
+                    _child("types", "sample.core.types", public=["sample.core.types:Payload"]),
+                ],
+                [_rule("LOCAL-INTERFACE", "interface_boundary")],
+            )
+        },
+        files={
+            "sample/core/__init__.py": (
+                "from sample.core.types import Payload\n__all__ = ['Payload']\n"
+            ),
+            "sample/core/types.py": "class Payload:\n    pass\n",
+        },
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        parse_contract(json.loads((tmp_path / "contract.json").read_bytes())),
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observation=result.observation,
+    )
+
+    assert [
+        (item.code, item.subject) for item in diagnostics if item.code == "interface.unused"
+    ] == [("interface.unused", "sample.core.types:Payload")]
