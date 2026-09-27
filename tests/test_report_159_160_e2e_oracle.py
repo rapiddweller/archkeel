@@ -785,11 +785,71 @@ def test_package_receipt_does_not_resolve_omitted_descendant_module(tmp_path: Pa
         item.data.get("qualified_name") == "shop.model.package.launch"
         for item in observation.records("symbols") or ()
     )
-    assert _assessment(result, GETATTR_RULE)["status"] == "UNKNOWN"
-    assert not any(
-        item["subjects"] == ["shop.model.package.tasks.read"] and item["resolved_count"] > 0
-        for item in result["baseline_comparisons"]
+    # Current package scope is proved clean; that is not proof the old descendant is gone.
+    assert _assessment(result, GETATTR_RULE)["status"] == "PASS"
+    assert result["baseline_comparisons"] == [
+        {
+            "current_count": 0,
+            "known_count": 1,
+            "new_count": 0,
+            "resolved_count": 0,
+            "rules": [GETATTR_RULE],
+            "shared_count": 0,
+            "status": "unknown",
+            "subjects": ["shop.model.package.tasks.read"],
+        }
+    ]
+
+
+def test_executable_package_init_does_not_prove_omitted_namespace_cycle_absent(
+    tmp_path: Path, capsys
+) -> None:
+    files = {
+        "shop/model/alpha.py": "from shop.cli.beta import VALUE\nVALUE = 1\n",
+        "shop/cli/beta.py": "from shop.model.alpha import VALUE\nVALUE = 1\n",
+        "shop/store/__init__.py": "VALUE = 1\n",
+    }
+    root = _repo(tmp_path, "package-init-narrow-scan", files)
+    _minimal_contract(
+        root,
+        [module_cycle_rule(components=["model", "cli", "store"])],
+        {"model", "cli", "store"},
     )
+    _, full_observation = _cli_report(root, tmp_path / "package-init-full", capsys)
+    (known,) = observed_violations(full_observation)
+    assert known.fingerprint.subjects == ("shop.cli.beta", "shop.model.alpha")
+    baseline = _baseline_file(root, (known,))
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots = ["shop/store"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+
+    result, observation = _cli_report(
+        root,
+        tmp_path / "package-init-narrow",
+        capsys,
+        "--baseline",
+        str(baseline),
+    )
+
+    assert any(
+        record.data.get("qualified_name") == "shop.store"
+        for record in observation.records("modules") or ()
+    )
+    # The report proves the explicitly scanned store package clean, not the old shop-wide SCC.
+    assert _assessment(result, "MODEL-MODULES-ACYCLIC")["status"] == "PASS"
+    assert result["baseline_comparisons"] == [
+        {
+            "current_count": 0,
+            "known_count": 1,
+            "new_count": 0,
+            "resolved_count": 0,
+            "rules": ["MODEL-MODULES-ACYCLIC"],
+            "shared_count": 0,
+            "status": "unknown",
+            "subjects": ["shop.cli.beta", "shop.model.alpha"],
+        }
+    ]
 
 
 def test_deleted_function_can_resolve_while_its_module_remains_observed(
