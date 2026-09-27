@@ -162,8 +162,11 @@ def _rule_results(
     module_cycles: Sequence[RawRecord],
     facade_exports: dict[str, frozenset[str]],
     uncertain_reexport_origins: dict[str, frozenset[str]],
+    roots: tuple[str, ...],
+    namespace: str,
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate root and nested declarations against one shared Dart scan."""
+    assessments: list[RawRecord] = []
     violations, _ = rule_violations(
         imports=sources.imports,
         typing_signals=[],
@@ -177,6 +180,10 @@ def _rule_results(
         exports_by_module=facade_exports,
         profile=DART,
         uncertain_reexport_origins=uncertain_reexport_origins,
+        assessment_facts=assessments,
+        assessment_parent="root",
+        cycle_scan_roots=roots if not sources.failures else (),
+        cycle_namespace=namespace,
     )
     inside = _inside_results(
         inside_contracts,
@@ -191,7 +198,7 @@ def _rule_results(
         sorted([*violations, *inside[0]], key=lambda item: item["id"]),
         inside[1],
         inside[2],
-        inside[3],
+        [*assessments, *inside[3]],
         inside[4],
     )
 
@@ -224,6 +231,8 @@ def scan_dart_repository(
             module_cycles,
             facade_exports,
             uncertain_reexport_origins,
+            roots if not sources.failures else (),
+            namespace,
         )
     )
     rule_failures.extend(inside_failures)

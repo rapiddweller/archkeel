@@ -6,13 +6,13 @@ is a reason for review, not a failed check.
 
 ## Calls are partly resolved
 
-The import graph is complete; the call graph is not. Call records feed the `calls_unresolved`
+The import graph covers the static imports in the scanned source; dynamic imports remain a
+limit below. The call graph is incomplete. Call records feed the `calls_unresolved`
 and `unresolved_ratio` regression checks, never a rule.
 
-| Repository | Unresolved | Partially resolved | Analyzed |
-|---|---:|---:|---:|
-| Archkeel (`fixtures/D-self`) | 428 (8.7%) | 535 | 4,908 |
-| Internal 13-component service (`docs/evidence/internal-service/`) | 998 (23.1%) | 380 | 4,318 |
+Current self measurements live in [`fixtures/D-self/result.json`](../fixtures/D-self/result.json).
+The historical internal 13-component service fixture (`docs/evidence/internal-service/`)
+recorded 998 unresolved (23.1%) and 380 partially resolved calls out of 4,318 analyzed.
 
 The resolver follows indexed names, import aliases, builtins and simple attribute chains. Since
 AD-37 it also follows a receiver whose type a literal or an annotation makes statically obvious,
@@ -89,8 +89,8 @@ Historical measurement for AD-67, with the rule widened to the whole `archkeel` 
 | Undecidable: a nested or otherwise unentered subscript | 9 |
 | Undecidable: a bare name nothing resolves | 1 |
 
-A dotted name, a forward-reference string and an unannotated position are all decidable kinds of
-undecidable; Archkeel's own facades happen to contain none. What a builtin is comes from
+A dotted name, a forward-reference string and an unannotated position were identifiable reasons
+for uncertainty in that measurement, not proven types. What a builtin is comes from
 `dir(builtins)` on the analyzer's own interpreter, so it is that Python build's answer, not a list
 kept by hand.
 
@@ -140,10 +140,11 @@ modules without `__all__`, so its contract pins pair budgets only.
   fields are refused rather than silently ignored. Keep API, compatibility, measurement and
   interface-budget declarations at the root until they have scoped evaluators (AD-111).
 - Child `public` entries govern local sibling boundaries, not their parent's outward API
-  (AD-112). Publication does not prove cohesion or a well-designed interface. Inner
-  unused-public and planned-promotion diagnostics are not evaluated; their usage evidence needs
-  to distinguish siblings, parent facades and unrelated scopes (#182). Local private imports and,
-  under `interface_boundary`, unscanned public modules are checked. Inner
+  (AD-112). Publication does not prove cohesion or a well-designed interface. With a local
+  `interface_boundary`, unused-public and planned-promotion diagnostics use sibling imports
+  and proven facade publication within the parent (AD-115). Unrelated scopes do not prove use;
+  unknown import names do not prove non-use. Local private imports and unscanned public modules
+  are checked. Inner
   `external_dependency_scope` declarations are not compared against ancestor declarations;
   ancestor rules still evaluate their own source scope.
 - `package_dependency` records name packages by their first two dotted segments. Component

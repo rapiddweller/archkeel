@@ -92,6 +92,27 @@ _BOUNDARY_TYPES = Variant(
     expected_codes=("rule.violated",),
 )
 
+_BOUNDARY_TYPES_MIXED_EVIDENCE = Variant(
+    id="class-a-boundary-types-mixed-evidence",
+    section="class_a",
+    item="boundary_types:mixed_fail_unknown",
+    summary="shop.app.reports.snapshot has a known bare-dict violation and an unresolved "
+    "FutureOrder parameter. The same rule assessment stays FAIL with one UNKNOWN position.",
+    files={
+        "shop/app/reports.py": _BROAD_PARAM_MODULE.replace(
+            "def snapshot(context: dict) -> str:",
+            "def snapshot(context: dict, future: FutureOrder) -> str:",
+        ),
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
+        "architecture-contract.json": contract_component_field_appended(
+            "app", "public", "shop.app.reports:snapshot"
+        ),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+
 _UNDECLARED_TYPE_MODULE = HEADER + (
     '"""A stray function naming a type shop.app never declared, for the boundary-types '
     'demo."""\n\n'
@@ -442,6 +463,7 @@ _BOUNDARY_TYPES_MODEL_FIELD = Variant(
 VARIANTS: tuple[Variant, ...] = (
     _SYMBOL_PLACEMENT,
     _BOUNDARY_TYPES,
+    _BOUNDARY_TYPES_MIXED_EVIDENCE,
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,
     _BOUNDARY_TYPES_REEXPORT,

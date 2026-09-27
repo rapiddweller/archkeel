@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import fields as dataclass_fields
+from dataclasses import replace
 from pathlib import Path
 from typing import get_args, get_type_hints
 
@@ -31,6 +32,7 @@ from archkeel.ir.model import (
     RuleVerdict,
 )
 from archkeel.ir.trace import trace_valid_violations
+from fixtures import architecture_demo
 from fixtures.architecture_demo import CATALOG, markdown
 from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_check import build_and_run_check
@@ -199,11 +201,64 @@ def test_demo_replay_preserves_validate_failure_before_report(
         assert {item["code"] for item in results[0]["diagnostics"]} == {"graph.drift"}
     else:
         assert any("--write-baseline refused" in item for item in results[0]["failures"])
+        assert results[1]["baseline_comparisons"] == [
+            {
+                "current_count": 0,
+                "known_count": 1,
+                "new_count": 0,
+                "resolved_count": 0,
+                "rules": ["DEP-STORE-NO-MONEY"],
+                "shared_count": 0,
+                "status": "unknown",
+                "subjects": ["shop.model.entities.Money", "shop.store.legacy"],
+            },
+            {
+                "current_count": 1,
+                "known_count": 0,
+                "new_count": 1,
+                "resolved_count": 0,
+                "rules": ["DEP-STORE-NO-MONEY"],
+                "shared_count": 0,
+                "status": "new",
+                "subjects": ["shop.model.entities.Money", "shop.store.repository"],
+            },
+        ]
     assert results[1]["command"] == "report"
-    assert results[1]["baseline_new"] is None
-    assert results[1]["baseline_resolved"] is None
+    if variant_id == "validation-graph-drift-write-graph":
+        assert results[1]["baseline_new"] is None
+        assert results[1]["baseline_resolved"] is None
     assert output.is_file() and output.stat().st_size > 0
     assert output.with_name(f"{variant_id}.report.html").stat().st_size > 0
+
+
+def test_demo_replay_rejects_a_corrupt_explicit_baseline_for_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    variant = next(item for item in CATALOG if item.id == "validation-baseline-refused")
+    assert variant.baseline is not None
+    files = dict(variant.files)
+    files[variant.baseline] = "{invalid JSON\n"
+    corrupted = replace(variant, files=files)
+    monkeypatch.setattr(
+        architecture_demo,
+        "CATALOG",
+        tuple(corrupted if item.id == variant.id else item for item in CATALOG),
+    )
+    output = tmp_path / "corrupt-baseline.json"
+
+    assert demo_main(["--replay", variant.id, "--output", str(output)]) == 2
+    validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+
+    assert validation["command"] == "validate" and validation["exit_code"] == 2
+    assert report["command"] == "report" and report["exit_code"] == 2
+    assert any(
+        "baseline architecture-baseline.json" in item["unknown_claim"]
+        and "invalid JSON" in item["unknown_claim"]
+        for item in report["diagnostics"]
+    )
+    assert report["baseline_comparisons"] is None
+    assert not output.exists()
+    assert not output.with_name("corrupt-baseline.report.html").exists()
 
 
 def test_demo_replay_handles_incomplete_report_without_empty_reservations(

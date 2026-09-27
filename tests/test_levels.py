@@ -38,8 +38,9 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> Non
         ("entry", "foundation", 29),
         # validate now reads the existing ratchet profile for selected measurement budgets;
         # check and validate also import unresolved_call_changes, report call_rows, and report and
-        # check ask calls_measured whether the profile measures calls at all (AD-100, AD-97).
-        ("entry", "policy", 12),
+        # check ask calls_measured whether the profile measures calls at all; report also imports
+        # unknown_positions_by_rule for per-rule UNKNOWN counts (AD-100, AD-97, AD-117).
+        ("entry", "policy", 13),
         ("policy", "foundation", 2),
     ]
 

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots build smoke release-check
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots browser-install report-browser build smoke release-check
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -15,7 +15,7 @@ test:
 	$(UV) run --locked python -m pytest -q
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
-	tools/onboarding_svg.py \
+	tools/onboarding_svg.py tools/report_browser.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
@@ -64,6 +64,14 @@ demo-screenshots:
 	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
 	@$(UV) run --locked python tools/terminal_svg.py "$(OUTPUT)"
 	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
+
+PLAYWRIGHT_VERSION ?= 1.62.0
+
+browser-install:
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m playwright install --with-deps chromium
+
+report-browser:
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.
 build:

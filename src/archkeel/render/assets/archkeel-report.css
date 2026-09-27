@@ -10,7 +10,7 @@
   --ck-text: #e8e8e2;
   --ck-muted: #8a8a84;
   /* Functional status colors. Never use these as decoration. */
-  --ck-pass: #c5f82a;
+  --ck-pass: #5eead4;
   --ck-fail: #ff6b6b;
   --ck-unknown: #f4c95d;
   --ck-info: #5eead4;
@@ -77,6 +77,61 @@ a {
   min-width: 0;
   margin: 0 auto;
   padding: 48px 0 80px;
+}
+.report-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  align-items: end;
+  gap: var(--ck-space-3);
+  margin: var(--ck-space-5) 0;
+  padding: var(--ck-space-4);
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+}
+
+.report-filters[hidden] {
+  display: none;
+}
+.report-filters label {
+  display: grid;
+  gap: var(--ck-space-1);
+  color: var(--ck-muted);
+}
+.report-filters input,
+.report-filters select,
+.report-filters button {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--ck-border);
+  border-radius: 6px;
+  background: var(--ck-surface-raised);
+  color: var(--ck-text);
+  font: inherit;
+}
+.report-filters output {
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+}
+.report-filters button {
+  cursor: pointer;
+}
+.known-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--ck-muted);
+  border-radius: 999px;
+  color: var(--ck-muted);
+  font-size: 11px;
+}
+.new-badge {
+  display: inline-block;
+  color: var(--ck-fail);
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+}
+.muted {
+  color: var(--ck-muted);
 }
 .report-heading {
   display: grid;
@@ -228,6 +283,37 @@ h3 {
 [data-status="unknown"],
 [data-status="n/a"] {
   color: var(--ck-unknown);
+}
+[data-status="info"] {
+  color: var(--ck-info);
+}
+.report-section tr.violation-row[data-status="FAIL"] td,
+.report-section tr.violation-row[data-status="FAIL"] td code,
+.report-section tr[data-status="FAIL"]:not(.violation-row) td:first-child code {
+  color: var(--ck-fail);
+}
+.report-section tr[data-status="UNKNOWN"]:not(.violation-row) td:first-child code {
+  color: var(--ck-unknown);
+}
+.report-section tr[data-status="PASS"]:not(.violation-row) td:first-child code {
+  color: var(--ck-pass);
+}
+.report-section tr[data-status="DECLARATION"] td:first-child code,
+.report-section tr[data-status="DECLARATION"] td [data-status="info"] {
+  color: var(--ck-muted);
+}
+.report-section tr.violation-row[data-status="FAIL"][data-baseline="known"] td,
+.report-section tr.violation-row[data-status="FAIL"][data-baseline="known"] td code {
+  color: var(--ck-muted);
+}
+.report-section tr.violation-row[data-status="FAIL"][data-baseline="known"]
+  .violation-status {
+  color: var(--ck-fail);
+}
+.violation-status {
+  font-family: var(--ck-font-mono);
+  font-size: 11px;
+  font-weight: 700;
 }
 .regression-table [data-status="pass"] {
   color: var(--ck-muted);
@@ -724,7 +810,7 @@ code {
 }
 .flow-inspector .bars .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px minmax(40px, 72px);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--ck-space-2);
   align-items: center;
   min-width: 0;
@@ -736,6 +822,11 @@ code {
 .flow-inspector .bars .row:hover,
 .flow-inspector .bars .row:focus-visible {
   color: var(--ck-teal);
+}
+.flow-inspector .bars .row .edge-state {
+  color: var(--ck-text);
+  font-weight: 700;
+  text-transform: uppercase;
 }
 .flow-inspector .bars .name {
   overflow: hidden;
@@ -758,7 +849,19 @@ code {
   display: block;
   height: 3px;
   border-radius: 2px;
+  background: var(--ck-muted);
+}
+.flow-inspector .bars .row[data-state="conforms"] .track b {
   background: var(--ck-teal);
+}
+.flow-inspector .bars .row[data-state="violation"] .track b {
+  background: var(--ck-fail);
+}
+.flow-inspector .bars .row[data-state="undecided"] .track b {
+  background: var(--ck-unknown);
+}
+.flow-inspector .bars .row[data-state="observed"] .track b {
+  background: var(--ck-muted);
 }
 .flow-legend {
   display: flex;
@@ -987,7 +1090,7 @@ code {
     flex-direction: column;
   }
   .flow-inspector .bars .row {
-    grid-template-columns: minmax(0, 1fr) 28px 48px;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px;
   }
 }

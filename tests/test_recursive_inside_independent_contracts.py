@@ -246,6 +246,26 @@ def test_deepest_forbidden_dependency_reaches_the_report(tmp_path: Path) -> None
     assert findings[0].data.get("target_module") == "sample.layer.target.api"
 
 
+def test_deepest_forbidden_dependency_has_a_same_rule_clean_positive_control(
+    tmp_path: Path,
+) -> None:
+    _write_three_levels(tmp_path, deep_rules=[_forbidden_edge()])
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    rule_id = "app:app:DEEP-NO-EDGE"
+    assert not any(
+        rule_id in item.rule_ids for item in result.observation.records("violations") or ()
+    )
+    receipt = next(
+        item
+        for item in result.observation.records("scope_observations") or ()
+        if item.kind == "rule_evaluation" and item.rule_ids == (rule_id,)
+    )
+    assert receipt.data.get("scope") == "app"
+
+
 @pytest.mark.parametrize(
     ("deep_rules", "source_import", "expected_exit", "expected_verdict"),
     [

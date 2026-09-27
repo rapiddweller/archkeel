@@ -12,10 +12,12 @@ run shows many violations together; every other row isolates one item.
 Replay a report-capable row with `python -m fixtures.architecture_demo --replay <variant> --output
 <new-path>`; it emits a `validate` result, then writes the ordinary report JSON and HTML sidecar.
 Report generation is always attempted; the command exit is the higher of validation and report
-exits. Report artifacts remain available when validation fails. Baseline flags are used only when
-the row declares one; only `deepest_inside_changed` replays its `--against` history. Check-protocol
-and tested-only rows are excluded. The destination files must not exist. `make demo-architecture
-VARIANT=<variant> OUTPUT=<new-path>` delegates to the same command.
+exits. A failed validation does not suppress a report whose own inputs are valid; an invalid
+explicit baseline also rejects the report. Baseline flags are used only when the row declares one,
+and a declared baseline is passed to both commands; only `deepest_inside_changed` replays its
+`--against` history. Check-protocol and tested-only rows are excluded. The destination files must
+not exist. `make demo-architecture VARIANT=<variant> OUTPUT=<new-path>` delegates to the same
+command.
 
 Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style package scanned with
 `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them as one story with `make
@@ -77,6 +79,7 @@ demo-dart`.
 | class_a | no_component_cycles | class-a-no-component-cycles | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
 | class_a | no_component_cycles:module_hidden | class-a-no-component-cycles-module-hidden | validate/report run | - | - | shop/model/alpha.py, shop/model/beta.py |
 | class_a | no_component_cycles:module | class-a-no-component-cycles-module | validate/report run | MODEL-MODULES-ACYCLIC | rule.violated | architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
+| showcase | report:partial_cycle_scan | report-partial-module-cycle-scan | validate/report run | - | reference.package_unscanned | architecture-contract.json, archkeel.toml, docs/architecture/shop.md, known-violations.json, shop/model/alpha.py, shop/model/beta.py |
 | class_a | no_component_cycles:package_rollup_only | class-a-package-cycle-rollup-only | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
 | class_a | no_component_cycles:package_backed | class-a-package-cycle-backed | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/entities.py |
 | class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |
@@ -106,6 +109,7 @@ demo-dart`.
 | class_a | external_dependency_scope:test-suite-imports-product | test-scope-unit-imports-product | validate/report --config archkeel-tests.toml run | TESTS-EXTERNAL-SHOP | rule.violated | tests/unit/test_entities.py |
 | class_a | symbol_placement:exact_sources | class-a-symbol-placement | validate/report run | MODEL-TYPES-IN-ENTITIES | rule.violated | shop/model/promotions.py |
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:mixed_fail_unknown | class-a-boundary-types-mixed-evidence | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |
 | class_a | boundary_types:collection_element | class-a-boundary-types-in-collection | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/batches.py, shop/cli/main.py |
 | class_a | boundary_types:reexport | class-a-boundary-types-reexport | validate/report run | RENDER-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/cli/main.py, shop/render/__init__.py, shop/render/text.py |

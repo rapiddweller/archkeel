@@ -2,8 +2,9 @@
 
 Automatic fit and hidden neighbor limits made large reports look incomplete (#171).
 
-Start every level at 100% zoom, with all groups and threshold zero. Use a bounded native
-scroll area, not automatic fit. Fit is an explicit overview; 100% restores readable labels.
+Start the report at 100% zoom, with all groups and threshold zero. Preserve the user's
+zoom and threshold while navigating. Use a bounded native scroll area, not automatic fit.
+Fit is an explicit overview; 100% restores readable labels.
 Focus includes every direct neighbor and all violated edges. Counters disclose filtering.
 
 Arrange resets positions without changing filters or zoom. Navigation resets obsolete

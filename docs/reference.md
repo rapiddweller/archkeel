@@ -107,6 +107,31 @@ The A/B/C fixtures use real local Git repositories and simulated host records an
 
 ## Results
 
+`report` adds `rule_assessments`: one row per declared rule with status, violation and
+undecided counts, evaluation evidence, rationale, decision owner and provenance. PASS needs
+a completed evaluator receipt for the observed scope. Missing receipts or undecided positions
+remain UNKNOWN; a rule with violations stays FAIL while retaining its undecided count.
+`allowed_dependency` is a permission, labelled DECLARATION rather than PASS. These per-rule
+rows do not redefine the existing overall verdict or count a multi-rule UNKNOWN twice globally.
+The aggregate can therefore pass while a per-rule assessment remains UNKNOWN. The report's
+headline then reads NOT CHECKED and states the aggregate PASS explicitly; JSON and exit codes
+are unchanged. Cycle-scope completeness currently requires recursive Python scans;
+module-cycle proof needs the whole
+namespace. Smaller scans, explicit `source_paths`, and Dart cannot prove that completeness,
+but observed violations still produce FAIL.
+
+`report --baseline known-violations.json` optionally adds a read-only comparison. The path
+resolves inside `--root`; no baseline is discovered automatically or rewritten. Fingerprint
+counts identify known, new, reduced and resolved debt without inventing identity for repeated
+occurrences. Resolved counts require complete evaluation of the old subjects under the current
+rule and zero undecided positions. Removing a rule or narrowing its scope cannot resolve debt
+that is no longer checked. Cycle contraction also requires coverage of the old cycle's members.
+Resolved means absent under current rules, not necessarily repaired code: baselines contain no
+historical rule definitions. Use `validate --against` to check contract widening.
+The baseline and report filters do not change canonical `architecture.json` bytes or gate
+semantics. The diagram remains first; the rule and finding tables support search and filters.
+Without JavaScript, the tables remain readable and inactive filter controls are hidden.
+
 JSON results separate `observation_complete`, `declared_rules` and
 `expectation_fulfilled`. `report` uses `n/a` for expectations. Exit codes: 0 for
 complete report/successful check, 1 for a rejected check or a `validate --baseline` run whose
