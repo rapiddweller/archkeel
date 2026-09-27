@@ -705,11 +705,13 @@ _FLOW_GUIDE = """
         red breaks a rule, amber needs a decision, and grey shows imports inside a component.
         A <code>«library»</code> box and dashed teal arrow show observed use of a scoped
         external dependency; a forbidden use is red.
-        The diagram focuses one box and its direct connections at a time; all violations
-        at that level remain visible. Choose another focus from the menu. Select a box twice
-        for level 3: physical package folders and modules inside it.
+        All components and connections appear by default. Focus narrows the diagram to one box
+        and its direct connections; all violations at that level remain visible. Select a box
+        twice for level 3: physical package folders and modules inside it.
         Folders are not declared architectural boundaries. Open a module for level 4 symbols.
-        Use the breadcrumb to go back. Hover or select a connection for its evidence. Level 1,
+        Scroll the diagram horizontally or vertically; use Zoom Out, 100%, Zoom In, and Fit
+        Overview to control its scale. Arrange resets the card layout. Use the breadcrumb to go
+        back. Hover or select a connection for its evidence. Level 1,
         interfaces between repositories, is unavailable because this observation contains
         no cross-repository interface contract. The import evidence below works without
         JavaScript.</p>
@@ -775,6 +777,10 @@ def _flow_section(observation: Observation) -> str:
           <label class="flow-diagram-control" for="flow-focus">Focus
             <select id="flow-focus" class="flow-focus"></select>
           </label>
+          <button type="button" class="flow-fit flow-reset-filters">Reset Filters</button>
+          <output class="flow-filter-status" role="status" aria-live="polite">
+            No diagram filters active
+          </output>
           <label class="flow-violation-focus" for="flow-violations-only" hidden>
             <input id="flow-violations-only" class="flow-violations-only" type="checkbox"
                    aria-controls="flow-graph">
@@ -787,11 +793,21 @@ def _flow_section(observation: Observation) -> str:
                  type="range" min="0" value="0">
           <button type="button" class="flow-back" hidden>Back to components</button>
           <nav class="flow-breadcrumb" aria-label="Diagram breadcrumb"></nav>
-          <button type="button" class="flow-fit flow-diagram-control"
-            title="Lay the cards out again and fit them into view">Arrange</button>
+          <div class="flow-zoom-controls flow-diagram-control" role="group"
+               aria-label="Diagram zoom">
+            <button type="button" class="flow-fit flow-zoom-out" aria-label="Zoom Out">−</button>
+            <button type="button" class="flow-fit flow-zoom-100"
+                    aria-label="Set Zoom to 100%">100%</button>
+            <output class="flow-zoom-value" aria-live="polite">100%</output>
+            <button type="button" class="flow-fit flow-zoom-in" aria-label="Zoom In">+</button>
+            <button type="button" class="flow-fit flow-fit-overview">Fit Overview</button>
+          </div>
+          <button type="button" class="flow-fit flow-arrange"
+                  title="Lay the cards out again">Arrange</button>
         </div>
         <div class="flow-layout">
-          <div class="flow-canvas">
+          <div class="flow-canvas" tabindex="0" role="region"
+               aria-label="Scrollable component flow diagram">
             {_FLOW_SVG}
           </div>
           <div class="flow-alternative" hidden></div>

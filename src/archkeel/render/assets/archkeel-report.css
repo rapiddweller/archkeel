@@ -487,6 +487,22 @@ code {
 .flow-fit:hover {
   border-color: var(--ck-teal);
 }
+.flow-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.flow-zoom-value {
+  min-width: 42px;
+  color: var(--ck-text);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.flow-filter-status {
+  color: var(--ck-text);
+  font-family: var(--ck-font-sans);
+  font-size: 12px;
+}
 .flow-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -495,6 +511,18 @@ code {
 .flow-canvas,
 .flow-alternative {
   min-width: 0;
+}
+.flow-canvas {
+  height: 560px;
+  max-height: 70vh;
+  overflow: auto;
+  border: 1px solid var(--ck-border);
+  background: var(--ck-surface);
+  overscroll-behavior: contain;
+}
+.flow-canvas:focus-visible {
+  outline: 2px solid var(--ck-lime);
+  outline-offset: 2px;
 }
 .flow-map {
   position: relative;
@@ -630,15 +658,14 @@ code {
   box-shadow: inset 0 0 0 2px var(--ck-lime);
 }
 .flow-graph {
+  display: block;
   width: 100%;
-  /* JS sets an inline height sized to the laid-out content (see flow.js panelHeight); this is
-     only the pre-render fallback. */
   height: 560px;
   border: 1px solid var(--ck-border);
   border-radius: var(--ck-radius);
   background: var(--ck-surface);
-  cursor: grab;
-  touch-action: none;
+  cursor: default;
+  touch-action: pan-x pan-y;
 }
 .flow-inspector {
   overflow-y: auto;
