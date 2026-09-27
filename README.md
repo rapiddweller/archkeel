@@ -206,6 +206,7 @@ archkeel report --baseline known-violations.json # read-only fingerprint compari
   Search and filter rules and findings without changing the observation (AD-117).
 - **Known debt stays debt.** An explicit baseline adds fingerprint counts, not exemptions.
   Missing rules or undecided evidence cannot make old findings appear resolved.
+  Resolution is relative to current rules; `validate --against` checks contract widening.
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Nested flow stays inspectable.** Physical folders lead to every observed module, including
