@@ -823,6 +823,11 @@ code {
 .flow-inspector .bars .row:focus-visible {
   color: var(--ck-teal);
 }
+.flow-inspector .bars .row .edge-state {
+  color: var(--ck-text);
+  font-weight: 700;
+  text-transform: uppercase;
+}
 .flow-inspector .bars .name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -844,7 +849,19 @@ code {
   display: block;
   height: 3px;
   border-radius: 2px;
+  background: var(--ck-muted);
+}
+.flow-inspector .bars .row[data-state="conforms"] .track b {
   background: var(--ck-teal);
+}
+.flow-inspector .bars .row[data-state="violation"] .track b {
+  background: var(--ck-fail);
+}
+.flow-inspector .bars .row[data-state="undecided"] .track b {
+  background: var(--ck-unknown);
+}
+.flow-inspector .bars .row[data-state="observed"] .track b {
+  background: var(--ck-muted);
 }
 .flow-legend {
   display: flex;

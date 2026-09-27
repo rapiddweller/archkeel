@@ -1001,7 +1001,7 @@
     const rows = top
       .map(
         (e) =>
-          `<div class="row" data-key="${esc(edgeKey(e))}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}: ${esc(edgeCountLabel(e))}" title="${esc(e.source)} → ${esc(e.target)}${e.sites?.length ? ` · ${esc(e.sites.join(", "))}` : ""}"><span class="name">${esc(relativeEdgeLabel(e))}</span><em>${e.kind === "symbol_use" ? "•" : weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
+          `<div class="row" data-key="${esc(edgeKey(e))}" data-state="${esc(e.state)}" tabindex="0" role="button" aria-label="Select ${esc(e.source)} to ${esc(e.target)}: ${esc(edgeCountLabel(e))}, ${esc(e.state)}" title="${esc(e.source)} → ${esc(e.target)}${e.sites?.length ? ` · ${esc(e.sites.join(", "))}` : ""}"><span class="name"><span class="edge-state">${esc(e.state)}</span> ${esc(relativeEdgeLabel(e))}</span><em>${e.kind === "symbol_use" ? "•" : weight(e)}</em><span class="track"><b style="width:${(100 * weight(e)) / max}%"></b></span></div>`,
       )
       .join("");
     const heading = violationsOnly.checked ? "Violating connections" : "Heaviest connections";
