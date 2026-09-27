@@ -180,7 +180,7 @@ def _violations(
     for item in items:
         grouped.setdefault(tuple(sorted(item.rule_ids)), []).append(item)
     rows = "".join(
-        f'<tr class="rule-group"><th colspan="6">Rules: '
+        f'<tr class="rule-group" data-group-header><th colspan="6">Rules: '
         f"{_text(', '.join(rule_ids))} · {len(grouped[rule_ids])} findings</th></tr>"
         + "".join(
             _violation_row(
@@ -228,13 +228,13 @@ def _violation_row(
         if source is not None:
             location = f"{source.file}:{source.line}" if source.line else source.file
     baseline = ""
-    if comparison is not None and comparison.known_count:
+    if comparison is not None and comparison.shared_count:
         baseline = (
             f'<span class="known-badge" aria-label="Known violation; still a failure">'
-            f"KNOWN · {comparison.known_count} of {comparison.current_count} current"
+            f"KNOWN · {comparison.shared_count} of {comparison.current_count} current"
             "</span>"
         )
-        if comparison.new_count and comparison.current_count > comparison.known_count:
+        if comparison.new_count:
             baseline += ' <span class="muted">extra occurrence identity unknown</span>'
     owners = component_owners(observation)
     components = sorted(
@@ -249,7 +249,7 @@ def _violation_row(
         f"<td><code>{_text(', '.join(item.rule_ids))}</code></td>"
         f"<td>{_text(item.title)}</td>"
         f"<td><code>{_text(' · '.join(item.subjects))}</code></td>"
-        f"<td><code>{_text(location)}</code> {baseline}</td></tr>"
+        f"<td><code>{_text(location)}</code>{' ' if baseline else ''}{baseline}</td></tr>"
     )
 
 
@@ -262,28 +262,33 @@ def _rule_assessments(items: tuple[RuleAssessment, ...] | None) -> str:
       <h2 id="rule-assessments-heading">Declared rules · {len(items)}</h2>
       <p>PASS appears only with an evaluator receipt. Permission rules are declarations, not
       conformance checks. FAIL may also carry undecided evidence.</p>
-      <div class="table-wrap"><table><thead><tr><th>Rule ID</th><th>Kind</th><th>Status</th>
-      <th>Violations</th><th>Undecided</th><th>Components</th><th>Decider</th><th>Rationale</th>
-      <th>Provenance</th><th>Scope / reason</th></tr></thead><tbody>{rows}</tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Rule</th><th>Kind</th><th>Status</th>
+      <th>Violations / undecided</th><th>Details</th></tr></thead>
+      <tbody>{rows}</tbody></table></div>
     </section>"""
 
 
 def _rule_assessment_row(item: RuleAssessment) -> str:
     state = "info" if item.status == "DECLARATION" else badge(item.status).state
-    search = " ".join(
-        (item.id, item.kind, item.scope, item.rationale, *item.provenance, *item.components)
+    provenance = ", ".join(item.provenance) or "—"
+    components = ", ".join(item.components) or "—"
+    details = " ".join(
+        (item.decided_by, item.rationale, provenance, item.scope, components, item.reason)
     )
     return (
         f'<tr data-filter-row data-kind="{_text(item.kind)}" data-status="{_text(item.status)}" '
         f'data-component="{_text(" ".join(item.components))}" '
-        f'data-search="{_text(search)}">'
+        f'data-search="{_text(item.id + " " + item.kind + " " + details)}">'
         f"<td><code>{_text(item.id)}</code></td><td>{_text(item.kind)}</td>"
         f'<td><strong data-status="{state}">{_text(item.status)}</strong></td>'
-        f'<td class="numeric">{item.count}</td><td>{item.undecided}</td>'
-        f"<td>{_text(', '.join(item.components) or '—')}</td>"
-        f"<td>{_text(item.decided_by)}</td><td>{_text(item.rationale)}</td>"
-        f"<td><code>{_text(', '.join(item.provenance))}</code></td>"
-        f"<td>{_text(item.scope)} · {_text(item.reason)}</td></tr>"
+        f'<td class="numeric">{item.count} violations · {item.undecided} undecided</td>'
+        f"<td><details><summary>Scope, decision and evidence</summary>"
+        f"<dl><dt>Decider</dt><dd>{_text(item.decided_by)}</dd>"
+        f"<dt>Rationale</dt><dd>{_text(item.rationale or '—')}</dd>"
+        f"<dt>Provenance</dt><dd><code>{_text(provenance)}</code></dd>"
+        f"<dt>Scope</dt><dd>{_text(item.scope)}</dd>"
+        f"<dt>Components</dt><dd>{_text(components)}</dd>"
+        f"<dt>Assessment</dt><dd>{_text(item.reason)}</dd></dl></details></td></tr>"
     )
 
 
@@ -1075,10 +1080,9 @@ def _report_filters(
             f'<option value="{_text(value)}">{_text(value)}</option>' for value in values
         )
 
-    script = _asset("report-filters.js").decode("utf-8")
     count = len(violations) + len(assessments or ())
     return f"""
-    <form class="report-filters" data-report-filters aria-label="Filter report evidence">
+    <form class="report-filters" data-report-filters aria-label="Filter report evidence" hidden>
       <label for="report-search">Search rules and violations</label>
       <input id="report-search" type="search" name="search" autocomplete="off">
       <label for="report-kind">Kind</label><select id="report-kind" name="kind">
@@ -1090,7 +1094,7 @@ def _report_filters(
       </select>
       <button type="reset">Reset filters</button>
       <output data-filter-count aria-live="polite">{count} rows</output>
-    </form><script>{script}</script>"""
+    </form>"""
 
 
 def _baseline_comparison(
@@ -1250,7 +1254,9 @@ def render_html(
       <h3>Failures</h3><ul class="failure-list">{failures}</ul>
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
-    {filters_html}{violations_html}{rule_html}{baseline_html}{calls_html}
+    {filters_html}{violations_html}{rule_html}
+    <script>{_asset("report-filters.js").decode("utf-8")}</script>
+    {baseline_html}{calls_html}
     {flow_html}
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
     <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>

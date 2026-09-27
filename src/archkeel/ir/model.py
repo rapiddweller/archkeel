@@ -1120,9 +1120,6 @@ class ReportFilter:
     component: str | None = None
     # AD-100: list the unresolved and partially resolved calls instead of the violations.
     only_calls: bool = False
-    search: str | None = None
-    kind: str | None = None
-    status: str | None = None
 
 
 RuleAssessmentStatus: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN", "DECLARATION"]
@@ -1152,6 +1149,7 @@ class BaselineViolationComparison:
     rules: tuple[str, ...]
     subjects: tuple[str, ...]
     known_count: int
+    shared_count: int
     current_count: int
     new_count: int
     resolved_count: int

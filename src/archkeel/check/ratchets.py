@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Regression checks over the typed decoded-IR measurements of each analyzer profile."""
 
+from collections import Counter
 from typing import Final
 
 from archkeel.ir.interfaces import component_owners, owner_of
@@ -188,13 +189,14 @@ def _undecided(record: Record) -> int:
     return 1
 
 
-def unknown_positions(observation: Observation) -> int:
-    """AD-92: count what the scan left undecided, except the kinds that never count."""
+def _unknown_position_counts(observation: Observation) -> tuple[int, dict[str, int]]:
+    """Count undecided evidence once globally and per rule with the same record semantics."""
     # A coverage failure already makes the scan incomplete (exit 2); counting it adds nothing.
     failed = {record.id for record in observation.coverage.failures}
     records = _records(observation, "unknowns")
     position_records = tuple(item for item in records if item.kind == "boundary_type_position")
     matched_positions: set[str] = set()
+    totals: Counter[str] = Counter()
     total = 0
     for record in records:
         if record.id in failed or record.kind in _STANDING_DISCLAIMERS:
@@ -205,13 +207,24 @@ def unknown_positions(observation: Observation) -> int:
             count, matched = _boundary_type_undecided(
                 record, position_records, observation.analyzer.version
             )
-            total += count
             matched_positions.update(matched)
         else:
-            total += _undecided(record)
+            count = _undecided(record)
+        total += count
+        totals.update({rule_id: count for rule_id in record.rule_ids})
     if matched_positions != {item.id for item in position_records}:
         raise RatchetError("boundary_type_position has no matching aggregate")
-    return total
+    return total, dict(totals)
+
+
+def unknown_positions_by_rule(observation: Observation) -> dict[str, int]:
+    """Count undecided evidence per declared rule for the report projection."""
+    return _unknown_position_counts(observation)[1]
+
+
+def unknown_positions(observation: Observation) -> int:
+    """AD-92: count what the scan left undecided, except the kinds that never count."""
+    return _unknown_position_counts(observation)[0]
 
 
 def _measured(

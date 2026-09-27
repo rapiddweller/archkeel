@@ -40,7 +40,7 @@ from archkeel.ir.rule_assessment import rule_assessments
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
-from .ratchets import call_rows, calls_measured
+from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .snapshot import resolve_commit
 
@@ -139,6 +139,15 @@ def run_report(
             diagnostics=result.diagnostics,
             coverage=result.coverage,
             python_version=model.python_version if model is not None else None,
+            rule_assessments=(
+                rule_assessments(
+                    model,
+                    undecided_by_rule=unknown_positions_by_rule(model),
+                    complete=False,
+                )
+                if model is not None
+                else None
+            ),
         )
     else:
         try:
@@ -161,6 +170,10 @@ def run_report(
             )
         else:
             counted = violation_counts(model)
+            assessments = rule_assessments(
+                model, undecided_by_rule=unknown_positions_by_rule(model)
+            )
+            uncertain_rules = {item.id for item in assessments if item.status == "UNKNOWN"}
             comparisons: tuple[BaselineViolationComparison, ...] | None = None
             baseline_name: str | None = None
             if baseline is not None:
@@ -186,12 +199,20 @@ def run_report(
                     BaselineViolationComparison(
                         fingerprint.rules,
                         fingerprint.subjects,
+                        before,
                         min(before, after),
                         after,
                         0 if fingerprint in contracted else max(after - before, 0),
-                        max(before - after, 0),
                         (
-                            "contracted"
+                            0
+                            if any(rule_id in uncertain_rules for rule_id in fingerprint.rules)
+                            else max(before - after, 0)
+                        ),
+                        (
+                            "unknown"
+                            if after < before
+                            and any(rule_id in uncertain_rules for rule_id in fingerprint.rules)
+                            else "contracted"
                             if fingerprint in contracted
                             else "new"
                             if after > before
@@ -228,7 +249,7 @@ def run_report(
                 report_filter=report_filter,
                 filtered_violations=filtered_violations,
                 filtered_calls=filtered_calls,
-                rule_assessments=rule_assessments(model),
+                rule_assessments=assessments,
                 baseline_path=baseline_name,
                 baseline_comparisons=comparisons,
             )

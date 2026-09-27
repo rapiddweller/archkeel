@@ -3357,6 +3357,8 @@ def rule_evaluation_receipts(
             selectors = (rule.source,)
         elif isinstance(rule, ExternalDependencyScopeRule):
             selectors = (*rule.allowed_sources, *rule.exact_sources)
+            if not selectors:
+                return bool(observed_modules)
             return any(
                 in_scope(module, selector) for module in observed_modules for selector in selectors
             )

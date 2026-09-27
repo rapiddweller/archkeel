@@ -3,6 +3,7 @@
   if (!form) return;
   const rows = [...document.querySelectorAll("[data-filter-row]")];
   const count = form.querySelector("[data-filter-count]");
+  const headers = [...document.querySelectorAll("[data-group-header]")];
   const apply = () => {
     const search = form.elements.namedItem("search").value.trim().toLowerCase();
     const kind = form.elements.namedItem("kind").value;
@@ -17,9 +18,20 @@
       row.hidden = !matches;
       visible += Number(matches);
     }
+    for (const header of headers) {
+      let child = header.nextElementSibling;
+      let hasVisibleChild = false;
+      while (child && !child.matches("[data-group-header]")) {
+        hasVisibleChild ||= !child.hidden;
+        child = child.nextElementSibling;
+      }
+      header.hidden = !hasVisibleChild;
+    }
     count.textContent = `${visible} of ${rows.length} rows`;
   };
   form.addEventListener("input", apply);
   form.addEventListener("change", apply);
   form.addEventListener("reset", () => requestAnimationFrame(apply));
+  form.hidden = false;
+  apply();
 })();

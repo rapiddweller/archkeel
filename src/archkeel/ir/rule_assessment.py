@@ -4,39 +4,33 @@
 """Project evaluator receipts and findings into one row per declared rule."""
 
 from collections import Counter
+from collections.abc import Mapping
 
-from .model import EvidenceClass, Observation, RuleAssessment, RuleAssessmentStatus, in_scope
+from .model import (
+    RULE_KINDS,
+    EvidenceClass,
+    Observation,
+    RuleAssessment,
+    RuleAssessmentStatus,
+    in_scope,
+)
 
 
-def rule_assessments(observation: Observation) -> tuple[RuleAssessment, ...]:
+def rule_assessments(
+    observation: Observation,
+    *,
+    undecided_by_rule: Mapping[str, int],
+    complete: bool = True,
+) -> tuple[RuleAssessment, ...]:
     records = {record.id: record for section in observation.sections for record in section.records}
     declarations = [
         record
         for record in records.values()
-        if record.evidence_class == EvidenceClass.DECLARED_RULE
-        and record.kind
-        in {
-            "forbidden_dependency",
-            "allowed_dependency",
-            "forbidden_construct",
-            "external_dependency_scope",
-            "complete_assignment",
-            "root_layout",
-            "complete_external_scope",
-            "complete_requires",
-            "no_component_cycles",
-            "interface_boundary",
-            "sibling_isolation",
-            "symbol_placement",
-            "boundary_types",
-        }
+        if record.evidence_class == EvidenceClass.DECLARED_RULE and record.kind in RULE_KINDS
     ]
     violations: Counter[str] = Counter(
         rule_id for record in observation.records("violations") or () for rule_id in record.rule_ids
     )
-    unknown_records = [
-        record for record in observation.records("unknowns") or () if record.rule_ids
-    ]
     components = [
         record
         for record in records.values()
@@ -50,12 +44,7 @@ def rule_assessments(observation: Observation) -> tuple[RuleAssessment, ...]:
     rows: list[RuleAssessment] = []
     for declaration in declarations:
         identifier = declaration.id
-        rule_unknowns = [item for item in unknown_records if identifier in item.rule_ids]
-        # A boundary limit summarizes the undecidable positions also listed individually.
-        limit = next((item for item in rule_unknowns if item.kind == "boundary_type_limit"), None)
-        undecided = limit.data.get("undecidable", 0) if limit is not None else len(rule_unknowns)
-        if not isinstance(undecided, int):
-            undecided = len(rule_unknowns)
+        undecided = undecided_by_rule.get(identifier, 0)
         violation_count = violations[identifier]
         declared_only = declaration.kind == "allowed_dependency"
         if declared_only:
@@ -64,10 +53,13 @@ def rule_assessments(observation: Observation) -> tuple[RuleAssessment, ...]:
         elif violation_count:
             status = "FAIL"
             reason = "The evaluator recorded one or more violations."
+        elif not complete:
+            status = "UNKNOWN"
+            reason = "The observation is incomplete; a complete evaluator scope is not proven."
         elif identifier not in receipts:
             status = "UNKNOWN"
             reason = "No complete evaluator receipt exists for this rule and scope."
-        elif rule_unknowns:
+        elif undecided:
             status = "UNKNOWN"
             reason = "The evaluator left one or more positions undecided."
         else:
