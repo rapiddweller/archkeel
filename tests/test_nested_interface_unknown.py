@@ -80,6 +80,20 @@ def _observe(root: Path):
     )
 
 
+def _assert_unknown_links_to_undecided_import(observation, unknown) -> None:
+    undecided = [
+        item
+        for item in observation.records("imports") or ()
+        if item.data.get("source_module") in unknown.subjects
+        and item.data.get("symbols_known") is False
+    ]
+    assert len(undecided) == 1
+    assert set(unknown.fact_ids) == {item.id for item in undecided}
+    assert set(unknown.evidence_ids) == {
+        evidence_id for item in undecided for evidence_id in item.evidence_ids
+    }
+
+
 def test_deep_no_show_symbol_boundary_is_unknown_not_incomplete(tmp_path: Path) -> None:
     root = _nested_package(
         tmp_path,
@@ -103,6 +117,7 @@ def test_deep_no_show_symbol_boundary_is_unknown_not_incomplete(tmp_path: Path) 
     assert len(unknowns) == 1
     assert unknowns[0].rule_ids == ("app:app:INTERFACE",)
     assert unknowns[0].subjects == ("sample.layer.source.root.nested.deep",)
+    _assert_unknown_links_to_undecided_import(observed.observation, unknowns[0])
 
 
 def test_deep_show_of_declared_symbol_is_decidable(tmp_path: Path) -> None:
@@ -163,6 +178,7 @@ def test_known_symbol_violation_survives_alongside_deep_unknown(tmp_path: Path) 
         and record.subjects == ("sample.layer.source.root.nested.deep",)
     ]
     assert unknown.rule_ids == ("app:app:INTERFACE",)
+    _assert_unknown_links_to_undecided_import(observed.observation, unknown)
 
 
 def test_deep_no_show_forbidden_symbol_limit_is_unknown(tmp_path: Path) -> None:
@@ -201,6 +217,7 @@ def test_deep_no_show_forbidden_symbol_limit_is_unknown(tmp_path: Path) -> None:
     assert len(unknowns) == 1
     assert unknowns[0].rule_ids == ("app:app:NO-SECRET",)
     assert unknowns[0].subjects == ("sample.layer.source.root.nested.deep",)
+    _assert_unknown_links_to_undecided_import(observed.observation, unknowns[0])
 
 
 def test_known_forbidden_symbol_violation_survives_alongside_deep_unknown(
@@ -248,3 +265,49 @@ def test_known_forbidden_symbol_violation_survives_alongside_deep_unknown(
         and record.subjects == ("sample.layer.source.root.nested.deep",)
     ]
     assert unknown.rule_ids == ("app:app:NO-SECRET",)
+    _assert_unknown_links_to_undecided_import(observed.observation, unknown)
+
+
+def test_foreign_child_claim_does_not_inflate_deep_symbol_limit(tmp_path: Path) -> None:
+    root = _nested_package(
+        tmp_path,
+        ["sample.layer.target.api:Api"],
+        {"root/nested/deep.dart": "import 'package:sample/layer/target/api.dart';\n"},
+    )
+    deep_path = root / "contracts/two.json"
+    deep_contract = json.loads(deep_path.read_text())
+    deep_contract["components"][0]["packages"].append("sample.foreign")
+    deep_path.write_text(json.dumps(deep_contract))
+    foreign_import = root / "lib/foreign/outside.dart"
+    foreign_import.parent.mkdir(parents=True)
+    foreign_import.write_text("import 'package:sample/layer/target/api.dart';\n")
+
+    observed = _observe(root)
+
+    assert observed.observation is not None, observed.diagnostics
+    unknowns = observed.observation.records("unknowns") or ()
+    assert any(
+        item.kind == "inside_source_domain_incomplete" and "sample.foreign" in item.subjects
+        for item in unknowns
+    )
+    foreign_imports = [
+        item
+        for item in observed.observation.records("imports") or ()
+        if item.data.get("source_module") == "sample.foreign.outside"
+    ]
+    (foreign_import,) = foreign_imports
+    assert foreign_import.data.get("symbols_known") is False
+    limits = [item for item in unknowns if item.kind == "interface_symbol_limit"]
+    (limit,) = limits
+    assert limit.rule_ids == ("app:app:INTERFACE",)
+    assert limit.subjects == ("sample.layer.source.root.nested.deep",)
+    assert (
+        limit.data.get("positions"),
+        limit.data.get("decided"),
+        limit.data.get("undecided"),
+    ) == (
+        1,
+        0,
+        1,
+    )
+    _assert_unknown_links_to_undecided_import(observed.observation, limit)
