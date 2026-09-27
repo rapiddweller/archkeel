@@ -490,7 +490,7 @@ def _imports_by_target(
             ):
                 continue
         if target is None:
-            if source is not None:
+            if source is not None and source_modules is None:
                 continue
             chain = record.data.get("reexport_chain")
             targets: dict[str, ContractComponent] = {}
