@@ -566,7 +566,8 @@ assert.deepEqual(new Set(direct.map(key)), new Set([
   ...incoming.map(source => `${source}>focus`),
   ...outgoing.map(target => `focus>${target}`),
 ]));
-assert(!shown.edges.some(edge => edge.source.startsWith("outside") || edge.target.startsWith("outside")));
+assert(!shown.edges.some(
+  edge => edge.source.startsWith("outside") || edge.target.startsWith("outside")));
 assert(shown.edges.some(edge => edge.source === "brokenSource" && edge.target === "brokenTarget"));
 assert.equal(shown.components.length, 15);
 assert(!shown.components.some(card => card.label.startsWith("outside")));
