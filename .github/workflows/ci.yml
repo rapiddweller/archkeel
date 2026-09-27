@@ -39,6 +39,22 @@ jobs:
       - name: Run the locked project gate
         run: make gate
 
+      - name: Install Chromium for report acceptance
+        run: make browser-install
+
+      - name: Run report browser acceptance
+        run: make report-browser
+
+      # Only synthetic fixtures/F-architecture reports, never a consumer repository.
+      - name: Upload synthetic report browser evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: report-browser-evidence
+          path: test-artifacts/report-browser/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Observe Archkeel
         run: >-
           uv run --locked archkeel report --root . --json
