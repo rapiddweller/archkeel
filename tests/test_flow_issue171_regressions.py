@@ -88,7 +88,8 @@ const sizing = new Function("viewport", "svg", "canvas", "zoomValue", "transform
   `let positions = {}; let sizedPositions = positions; let diagramOrigin = null; ` +
   `let dragState = null; let viewMode = "diagram"; let focusLabel = null; ` +
   `${rankSource} ${layoutSource} ${sizeSource}` +
-  "; return {layout, sizeDiagram, positions, startDrag() { dragState = {}; }, " +
+  "; return {layout, sizeDiagram, get positions() { return positions; }, " +
+  "newPositions() { positions = {}; dragState = null; }, startDrag() { dragState = {}; }, " +
   "origin() { return diagramOrigin; }}")(
     viewport, svg, canvas, zoomValue, {k: 1},
     () => ({components, edges}), () => edges, (items, key) => {
@@ -131,6 +132,23 @@ sizing.sizeDiagram();
 assert.equal(sizing.origin().y, -432);
 assert.equal(canvas.scrollTop, 400);
 assert.equal(sizing.positions.card.y - sizing.origin().y - canvas.scrollTop, -368);
+
+// Navigating from a scrolled large level to fresh small-level positions resets native scroll.
+sizing.positions.card.x = 1000;
+sizing.positions.card.y = 1000;
+sizing.layout();
+box = {...sizing.positions.card, width: 200, height: 100};
+sizing.sizeDiagram();
+canvas.scrollLeft = 400;
+canvas.scrollTop = 500;
+sizing.newPositions();
+sizing.layout();
+box = {...sizing.positions.card, width: 200, height: 100};
+sizing.sizeDiagram();
+assert.equal(canvas.scrollLeft, 0);
+assert.equal(canvas.scrollTop, 0);
+assert.equal(sizing.positions.card.x - sizing.origin().x, 32);
+assert.equal(sizing.positions.card.y - sizing.origin().y, 32);
 
 // Filter text follows the clamped threshold, and empty levels show 0/0.
 const input = {value: "9", max: "9", disabled: false};

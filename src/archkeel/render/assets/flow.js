@@ -1229,6 +1229,8 @@
     if (!bounds.width || !bounds.height) return;
     if (positions !== sizedPositions) {
       diagramOrigin = null;
+      canvas.scrollLeft = 0;
+      canvas.scrollTop = 0;
       sizedPositions = positions;
     }
     const padding = 32;
