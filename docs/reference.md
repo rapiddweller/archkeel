@@ -113,6 +113,10 @@ a completed evaluator receipt for the observed scope. Missing receipts or undeci
 remain UNKNOWN; a rule with violations stays FAIL while retaining its undecided count.
 `allowed_dependency` is a permission, labelled DECLARATION rather than PASS. These per-rule
 rows do not redefine the existing overall verdict or count a multi-rule UNKNOWN twice globally.
+The aggregate can therefore pass while a per-rule assessment remains UNKNOWN. Cycle-scope
+completeness currently requires recursive Python scans; module-cycle proof needs the whole
+namespace. Smaller scans, explicit `source_paths`, and Dart cannot prove that completeness,
+but observed violations still produce FAIL.
 
 `report --baseline known-violations.json` optionally adds a read-only comparison. The path
 resolves inside `--root`; no baseline is discovered automatically or rewritten. Fingerprint

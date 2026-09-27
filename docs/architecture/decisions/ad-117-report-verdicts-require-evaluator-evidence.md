@@ -10,6 +10,11 @@ positions; filtering UNKNOWN includes that mixed result without hiding its failu
 Analyzer profile `0.57.0` identifies the new evaluation facts. Observation and contract schemas
 stay unchanged; older observations without receipts cannot prove per-rule PASS.
 
+Cycle-scope completeness currently needs recursively covered Python roots. Module-cycle
+receipts require the full namespace, even when a smaller component scan may be closed.
+Dart and explicit `source_paths` scans retain observed cycle findings but cannot prove this
+completeness. Their per-rule result stays UNKNOWN unless a violation proves FAIL.
+
 An explicit, read-only baseline reuses the existing fingerprints, occurrence counts and cycle
 contraction logic. It never changes the observation or overall verdict. Resolution requires
 complete evaluation of the old subjects under the current rule, with no undecided positions.
