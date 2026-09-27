@@ -11,8 +11,8 @@ A clean finding list alone is not proof that a rule ran.
   for validation, `check`, comparison and the report (AD-110, AD-111).
 - **Child APIs are local.** An internal public entry does not publish itself outside its parent.
   With a local `interface_boundary` rule, lifecycle checks use sibling imports and proven facade
-  publication. Invalid local
-  `requires` targets and duplicate labels are refused; uncertain symbol evidence remains visible
+  publication. Invalid local `requires` targets and duplicate labels are refused; uncertain
+  symbol evidence remains visible
   (AD-112–AD-115).
 - **A package rename is one change.** `validate --against` recognises a proven prefix rename,
   compares the old contract and baseline under the new names and lists it under `renames`. A
