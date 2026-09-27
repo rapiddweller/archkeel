@@ -740,6 +740,7 @@ def symbol_limits(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
+    source_modules: frozenset[str] | None = None,
 ) -> list[RawRecord]:
     """UNKNOWN records for the symbol rules an import without named symbols leaves open (AD-97).
 
@@ -748,12 +749,14 @@ def symbol_limits(
     turns it into the UNKNOWN verdict instead of a PASS nobody earned.
     """
     components = tuple((component.label, component.packages) for component in contract.components)
-    forbidden = list(_forbidden_dependency_verdicts(imports, contract.rules, components))
+    forbidden = list(
+        _forbidden_dependency_verdicts(imports, contract.rules, components, source_modules)
+    )
     rejected = frozenset(item["id"] for _, item, verdict in forbidden if verdict == "violation")
     interface = [
         (rule, item, verdict)
         for rule, item, _, _, verdict in _interface_verdicts(
-            imports, contract, exports_by_module, rejected
+            imports, contract, exports_by_module, rejected, source_modules
         )
     ]
     return sorted(

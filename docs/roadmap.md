@@ -32,6 +32,7 @@ only when its row names repository evidence.
 | Inside contracts use shared rule evaluators; green inner edges require checked import sites, not declarations alone (AD-110, #168) | `tests/test_inside_rule_parity.py`; `tests/test_inside_rule_coverage.py`; `tests/test_inside_rule_evidence_regressions.py`; `tests/test_architecture_demo.py` |
 | Child APIs stay local; parent publication remains explicit. Mounted reference checks reject invalid public/planned entries (AD-112, #170) | `tests/test_inside_publication.py`; `tests/test_inside_rule_parity.py`; `docs/architecture-demo.md` |
 | Unknown `requires` targets and duplicate labels are invalid within their declaring contract, including historical inputs; invalid input cannot write baseline or graph artifacts (AD-113, #179) | `tests/test_requires_target_references.py`; `docs/architecture-demo.md` |
+| Nested symbol-dependent rules retain undecided import evidence within their valid source scope (AD-114, #184) | `tests/test_nested_interface_unknown.py`; Dart nested variants in `docs/architecture-demo.md` |
 | Terminals get a Rich summary with real `--help`; pipes and `--json` keep JSON | `376a3ab`; `tests/test_cli.py`; `tests/test_terminal.py` |
 | `init` drafts a closed contract that reproduces Archkeel's own component rules | `fe5214a`; `tests/test_onboarding.py`; `docs/onboarding.md` |
 | `skill install claude\|codex` writes one packaged agent instruction source | `99f5743`; `tests/test_skill.py` |

@@ -49,6 +49,7 @@ from .violations import (
     profile_failures,
     rule_subject_failures,
     rule_violations,
+    symbol_limits,
 )
 
 # AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
@@ -426,6 +427,7 @@ def _evaluate_inside_contract(
         source_modules,
         ancestor_contracts,
     )
+    unknowns.extend(symbol_limits(imports, scoped, exports_by_module, source_modules))
     return violations, unknowns, failures, allowance_facts
 
 
