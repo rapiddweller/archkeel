@@ -80,7 +80,7 @@ a {
 }
 .report-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(120px, 1fr)) auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   align-items: end;
   gap: var(--ck-space-3);
   margin: var(--ck-space-5) 0;
@@ -292,13 +292,9 @@ h3 {
 .report-section tr[data-status="FAIL"]:not(.violation-row) td:first-child code {
   color: var(--ck-fail);
 }
-.report-section tr.violation-row[data-status="UNKNOWN"] td,
-.report-section tr.violation-row[data-status="UNKNOWN"] td code,
 .report-section tr[data-status="UNKNOWN"]:not(.violation-row) td:first-child code {
   color: var(--ck-unknown);
 }
-.report-section tr.violation-row[data-status="PASS"] td,
-.report-section tr.violation-row[data-status="PASS"] td code,
 .report-section tr[data-status="PASS"]:not(.violation-row) td:first-child code {
   color: var(--ck-pass);
 }
@@ -1067,9 +1063,6 @@ code {
     width: auto;
     margin-right: 20px;
     margin-left: 20px;
-  }
-  .report-filters {
-    grid-template-columns: minmax(0, 1fr);
   }
   .verdict-grid,
   .diagnostic,
