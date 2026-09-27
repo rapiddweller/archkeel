@@ -261,6 +261,17 @@ def report_summary(result: RunResult) -> Summary:
             "The requested deterministic checks completed, but declared rules could not be "
             "evaluated completely."
         )
+    elif (
+        result.command == "report"
+        and result.declared_rules == "PASS"
+        and result.rule_assessments
+        and any(item.status == "UNKNOWN" for item in result.rule_assessments)
+    ):
+        unknown = sum(item.status == "UNKNOWN" for item in result.rule_assessments)
+        sentence = (
+            f"All requested deterministic checks completed. Aggregate declared rules: PASS; "
+            f"{unknown} per-rule assessment(s) are UNKNOWN."
+        )
     rules_reason = {
         "PASS": "No declared-rule violation was found.",
         "FAIL": "At least one declared rule was violated.",

@@ -414,7 +414,9 @@ def cycle_scope_receipt_covers(
                 and set(fingerprint.subjects) <= set(graph)
             ):
                 return True
-        elif set(fingerprint.subjects) <= _evaluated_module_names(receipt, observation):
+        elif set(fingerprint.subjects) & set(receipt.subjects) and set(
+            fingerprint.subjects
+        ) <= _evaluated_module_names(receipt, observation):
             return True
     return False
 

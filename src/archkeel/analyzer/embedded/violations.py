@@ -3675,7 +3675,13 @@ def _cycle_scan_coverage(
             module_parts = name.split(".")
             extra_modules = len(module_parts) - len(package_parts)
             path = _relative_path(file).parent
-            for _ in range(max(extra_modules - 1, 0)):
+            # An __init__.py is the package directory itself, not a module file one level below it.
+            extra_parent_steps = (
+                extra_modules
+                if PurePosixPath(file).name == "__init__.py"
+                else max(extra_modules - 1, 0)
+            )
+            for _ in range(extra_parent_steps):
                 path = path.parent
             return path
         return None
