@@ -771,3 +771,67 @@ def test_rebound_parent_import_does_not_publish_the_original_constant(
     assert [
         (item.code, item.subject) for item in diagnostics if item.code == "interface.unused"
     ] == [("interface.unused", "sample.core.types:VALUE")]
+
+
+@pytest.mark.parametrize(
+    ("public", "publisher", "used"),
+    [
+        ("sample.core:VALUE", "from sample.core.types import VALUE\n", True),
+        ("sample.core", "from sample.core.types import VALUE\n", True),
+        (
+            "sample.core",
+            "from sample.core.types import VALUE\n__all__ = ['VALUE']\n",
+            True,
+        ),
+        (
+            "sample.core",
+            "from sample.core.types import VALUE\n__all__ = ['other']\nother = 2\n",
+            False,
+        ),
+        (
+            "sample.core",
+            "from sample.core.types import VALUE as _value\n__all__ = ['other']\nother = 2\n",
+            False,
+        ),
+    ],
+    ids=[
+        "explicit-name-without-all",
+        "module-without-all",
+        "module-includes-all",
+        "module-excludes-name",
+        "module-private-alias",
+    ],
+)
+def test_parent_publication_uses_facade_export_semantics(
+    tmp_path: Path, public: str, publisher: str, used: bool
+) -> None:
+    _write_project(
+        tmp_path,
+        components=[
+            _component("core", packages=["sample.core"], public=[public]) | {"inside": "core.json"}
+        ],
+        rules=[],
+        insides={
+            "core.json": _inside(
+                [
+                    _child("types", "sample.core.types", public=["sample.core.types:VALUE"]),
+                ],
+                [_rule("LOCAL-INTERFACE", "interface_boundary")],
+            )
+        },
+        files={
+            "sample/core/__init__.py": publisher,
+            "sample/core/types.py": "VALUE = 1\n",
+        },
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        parse_contract(json.loads((tmp_path / "contract.json").read_bytes())),
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observation=result.observation,
+    )
+    unused = [item for item in diagnostics if item.code == "interface.unused"]
+    assert (unused == []) is used

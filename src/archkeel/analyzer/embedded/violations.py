@@ -32,6 +32,7 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
+    facade_covers,
     in_scope,
     package_owners,
     stable_id,
@@ -561,27 +562,6 @@ def exports_by_module(modules: Sequence[RawRecord]) -> dict[str, frozenset[str]]
     }
 
 
-def _facade_covers(
-    module: str,
-    name: str,
-    component: ContractComponent,
-    exports_by_module: dict[str, frozenset[str]],
-) -> bool:
-    """True when `component.public` declares `module:name`, directly or through `module`'s
-    `__all__` (AD-9): the one answer both `interface_boundary` (does a cross-component import
-    reach its target) and `boundary_types` (does an annotation name a type its own component
-    already declares) need, given the module and name already stopped at rather than a chain to
-    walk -- a chain, when one exists, is the caller's own job.
-    """
-    public = component.public
-    if public is None or name.startswith("_"):
-        return False
-    if f"{module}:{name}" in public:
-        return True
-    exports = exports_by_module.get(module)
-    return module in public and (not exports or name in exports)
-
-
 def _interface_allows(
     data: RecordData, target: ContractComponent, exports_by_module: dict[str, frozenset[str]]
 ) -> bool:
@@ -595,7 +575,7 @@ def _interface_allows(
         return False
     for entry in data["reexport_chain"]:
         module, _, name = entry.rpartition(".")
-        if _facade_covers(module, name, target, exports_by_module):
+        if facade_covers(module, name, target, exports_by_module):
             return True
     return False
 
@@ -1566,7 +1546,7 @@ def _index_owner_facade_type_states(
         data = item["data"]
         module, binding = data["source_module"], data["binding"]
         owner = contract.component_for(module)
-        if owner is None or not _facade_covers(module, binding, owner, exports_by_module):
+        if owner is None or not facade_covers(module, binding, owner, exports_by_module):
             continue
         qualified_binding = f"{module}.{binding}"
         for origin in uncertain_reexport_origins.get(qualified_binding, frozenset()):
@@ -1944,9 +1924,7 @@ def _owned_type_verdict(
     owner_facade_proof = imports_by_binding.owner_facade_type_states.get(
         (origin_component.id, origin_module, origin_name)
     )
-    directly_public = _facade_covers(
-        origin_module, origin_name, origin_component, exports_by_module
-    )
+    directly_public = facade_covers(origin_module, origin_name, origin_component, exports_by_module)
     if not directly_public and (
         owner_facade_proof is False
         or (owner_facade_proof is True and not isinstance(origin_symbol, dict))
@@ -2250,7 +2228,7 @@ def _declared_facade_positions(
     module, name = data["module"], data["name"]
     facade_entries: list[tuple[str, str, str, bool]] = []
     component = contract.component_for(module)
-    if component is not None and _facade_covers(module, name, component, exports_by_module):
+    if component is not None and facade_covers(module, name, component, exports_by_module):
         facade_entries.append((module, name, module, False))
 
     origin = data["qualified_name"]
@@ -2323,7 +2301,7 @@ def _reexport_facade_entries(
             own_uncertainty or binding_key in ambiguous_bindings or inherited_uncertainty
         )
         for owner in contract.components:
-            if contract.component_for(facade_module) == owner and _facade_covers(
+            if contract.component_for(facade_module) == owner and facade_covers(
                 facade_module, binding, owner, exports_by_module
             ):
                 facade_entries.append((facade_module, binding, resolution_module, entry_uncertain))
@@ -2868,7 +2846,7 @@ def _unresolved_public_alias_routes(
         ):
             continue
         owner = contract.component_for(module)
-        if owner is None or not _facade_covers(module, binding, owner, exports_by_module):
+        if owner is None or not facade_covers(module, binding, owner, exports_by_module):
             continue
         route = (f"{module}.{binding}", *data.get("reexport_chain", ()))
         unresolved = tuple(

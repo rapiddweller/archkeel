@@ -73,6 +73,7 @@ from archkeel.ir.model import (
     RunResult,
     UnresolvedCallChange,
     contract_relative_path,
+    facade_covers,
     in_scope,
     module_references,
     text_value,
@@ -462,7 +463,8 @@ def _imports_by_target(
     contract: ArchitectureContract,
     observation: Observation,
     source_modules: frozenset[str] | None = None,
-    published_parent_entries: dict[str, tuple[str, ...]] | None = None,
+    published_parent_components: dict[str, tuple[ContractComponent, ...]] | None = None,
+    exports_by_module: dict[str, frozenset[str]] | None = None,
 ) -> dict[str, list[RecordData]]:
     imports_by_target: dict[str, list[RecordData]] = {}
     for record in observation.records("imports") or ():
@@ -477,13 +479,16 @@ def _imports_by_target(
         if target is None:
             continue
         if source is None:
-            if source_modules is None:
-                continue
-            parent_entries = (published_parent_entries or {}).get(source_module, ())
+            parent_components = (published_parent_components or {}).get(source_module, ())
             binding = record.data.get("binding")
-            publisher = (f"{source_module}.{binding}",) if isinstance(binding, str) else ()
-            if not _parent_reexport_proven(record.data) or not any(
-                _entry_reached_by(entry, publisher) for entry in parent_entries
+            if (
+                source_modules is None
+                or not isinstance(binding, str)
+                or not any(
+                    facade_covers(source_module, binding, component, exports_by_module or {})
+                    for component in parent_components
+                )
+                or not _parent_reexport_proven(record.data)
             ):
                 continue
         if source is not None and source == target:
@@ -492,13 +497,13 @@ def _imports_by_target(
     return imports_by_target
 
 
-def _published_parent_entries(
+def _published_parent_components(
     mount: InsideContractMount,
     mounts_by_parent: dict[str, InsideContractMount],
     source_modules: frozenset[str],
-) -> dict[str, tuple[str, ...]]:
-    """Return declared ancestor facade entries physically present in this parent scope."""
-    entries: dict[str, set[str]] = {}
+) -> dict[str, tuple[ContractComponent, ...]]:
+    """Return declared ancestor components physically present in this parent scope."""
+    components: dict[str, set[ContractComponent]] = {}
     contracts = [mount.parent_contract]
     owner_id = mount.owner_id
     while owner_id:
@@ -513,8 +518,8 @@ def _published_parent_entries(
                 module = entry.partition(":")[0]
                 if module not in source_modules or contract.component_for(module) != component:
                     continue
-                entries.setdefault(module, set()).add(entry)
-    return {module: tuple(sorted(values)) for module, values in entries.items()}
+                components.setdefault(module, set()).add(component)
+    return {module: tuple(values) for module, values in components.items()}
 
 
 def _public_entry_diagnostics(
@@ -1579,7 +1584,8 @@ def _inside_interface_lifecycle_diagnostics(
         scoped,
         observation,
         source_modules,
-        _published_parent_entries(mount, mounts_by_parent, source_modules),
+        _published_parent_components(mount, mounts_by_parent, source_modules),
+        _literal_exports(observation),
     )
     facade_types = _scoped_facade_types(observation, mount.parent_id, source_modules)
     diagnostics = []
