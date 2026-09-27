@@ -777,7 +777,7 @@ def _flow_section(observation: Observation) -> str:
           <label class="flow-diagram-control" for="flow-focus">Focus
             <select id="flow-focus" class="flow-focus"></select>
           </label>
-          <button type="button" class="flow-fit flow-reset-filters">Reset Filters</button>
+          <button type="button" class="flow-fit flow-reset-filters">Reset filters</button>
           <output class="flow-filter-status" role="status" aria-live="polite">
             No diagram filters active
           </output>
@@ -786,21 +786,23 @@ def _flow_section(observation: Observation) -> str:
                    aria-controls="flow-graph">
             Violating edges only
           </label>
-          <label class="flow-diagram-control" for="flow-threshold-input">Hide edges below
-            <output id="flow-threshold-value" class="flow-threshold-value">≥ 0 import sites</output>
-          </label>
+          <label class="flow-diagram-control"
+                 for="flow-threshold-input">Minimum import sites</label>
           <input id="flow-threshold-input" class="flow-threshold flow-diagram-control"
-                 type="range" min="0" value="0">
+                 type="range" min="0" value="0" aria-describedby="flow-threshold-value">
+          <output id="flow-threshold-value" class="flow-threshold-value flow-diagram-control">
+            ≥ 0 import sites
+          </output>
           <button type="button" class="flow-back" hidden>Back to components</button>
           <nav class="flow-breadcrumb" aria-label="Diagram breadcrumb"></nav>
           <div class="flow-zoom-controls flow-diagram-control" role="group"
                aria-label="Diagram zoom">
-            <button type="button" class="flow-fit flow-zoom-out" aria-label="Zoom Out">−</button>
+            <button type="button" class="flow-fit flow-zoom-out" aria-label="Zoom out">−</button>
             <button type="button" class="flow-fit flow-zoom-100"
-                    aria-label="Set Zoom to 100%">100%</button>
+                    aria-label="Set zoom to 100%">100%</button>
             <output class="flow-zoom-value" aria-live="polite">100%</output>
-            <button type="button" class="flow-fit flow-zoom-in" aria-label="Zoom In">+</button>
-            <button type="button" class="flow-fit flow-fit-overview">Fit Overview</button>
+            <button type="button" class="flow-fit flow-zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" class="flow-fit flow-fit-overview">Fit overview</button>
           </div>
           <button type="button" class="flow-fit flow-arrange"
                   title="Lay the cards out again">Arrange</button>

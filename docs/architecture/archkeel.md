@@ -151,6 +151,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-112 | [Public means public at that boundary](decisions/ad-112-local-publication-at-each-boundary.md) |
 | AD-113 | [Requires names a component at its own level](decisions/ad-113-requires-targets-belong-to-their-contract-level.md) |
 | AD-114 | [Symbol uncertainty survives nested contracts](decisions/ad-114-symbol-uncertainty-survives-nested-contracts.md) |
+| AD-116 | [Diagram filtering is an explicit choice](decisions/ad-116-diagram-filtering-is-an-explicit-choice.md) |
 
 ## Allowed dependencies
 
