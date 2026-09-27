@@ -21,11 +21,18 @@ from test_baseline import (
     _observe,
     _repo,
 )
+from test_recursive_inside_independent_contracts import (
+    COMPONENT_GRAPH_MARKER,
+    TARGET_GRAPH_MARKER,
+    _commit_tree,
+    _forbidden_edge,
+    _write_three_levels,
+)
 from test_report_filter import _tour_root
 
 from archkeel.cli import main
 from archkeel.ir.baseline import KnownViolation, observed_violations
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation, Record
 from fixtures.architecture_demo import CATALOG
 from fixtures.architecture_demo import main as demo_main
@@ -116,25 +123,41 @@ class _ReportFilterRows(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.filters_hidden = False
+        self._in_report_filters = False
         self.rows: list[dict[str, object]] = []
         self._row: dict[str, object] | None = None
+        self._labels: list[tuple[str | None, bool]] = []
+        self.filter_fields: list[tuple[str | None, bool]] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
         if tag == "form" and "data-report-filters" in values:
             self.filters_hidden = "hidden" in values
+            self._in_report_filters = True
+        if tag == "label" and self._in_report_filters:
+            self._labels.append((values.get("for"), False))
+        if tag in {"input", "select"} and self._labels:
+            label_for, _ = self._labels[-1]
+            if label_for == values.get("id"):
+                self._labels[-1] = (label_for, True)
         if tag == "tr" and "data-filter-row" in values:
             self._row = values
-
-    def handle_data(self, data: str) -> None:
-        if self._row is not None:
-            current = self._row.get("_text", "")
-            self._row["_text"] = f"{current}{data}"
+        if tag == "strong" and self._row is not None and "data-status" in values:
+            self._row["badge-status"] = values["data-status"]
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "tr" and self._row is not None:
             self.rows.append(self._row)
             self._row = None
+        if tag == "form" and self._in_report_filters:
+            self._in_report_filters = False
+        if tag == "label" and self._labels:
+            self.filter_fields.append(self._labels.pop())
+
+    def handle_data(self, data: str) -> None:
+        if self._row is not None:
+            current = self._row.get("_text", "")
+            self._row["_text"] = f"{current}{data}"
 
 
 def _cycle_baseline_fixture(tmp_path: Path, capsys) -> tuple[Path, Path]:
@@ -870,7 +893,7 @@ def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
         'contract = "architecture-contract.json"\n'
     )
 
-    result, _ = _cli_report(
+    result, observation = _cli_report(
         root,
         tmp_path / "unknown-cycle-report",
         capsys,
@@ -880,12 +903,18 @@ def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
 
     assert result["exit_code"] == 0
     assert result["declared_rules"] == "PASS"
+    assert (tmp_path / "unknown-cycle-report" / "architecture.json").read_bytes() == (
+        canonical_report_bytes(observation)
+    )
     assert [item["id"] for item in result["rule_assessments"] if item["status"] == "UNKNOWN"] == [
         "MODEL-MODULES-ACYCLIC"
     ]
     assert not result["open_decisions"]
     page = (tmp_path / "unknown-cycle-report" / "architecture.report.html").read_text()
     assert "The scan completed. Overall verdict: PASS. Rules still UNKNOWN: 1." in page
+    banner = page.split('<section class="decision-banner"', 1)[1].split("</section>", 1)[0]
+    assert 'data-decision="unknown"' in banner
+    assert 'aria-label="Decision: UNKNOWN"' in banner
 
 
 def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counting(
@@ -1030,8 +1059,89 @@ def test_real_html_keeps_mixed_fail_and_unknown_evidence_available_without_javas
     )
     assert parser.filters_hidden  # without JS, controls stay hidden but evidence rows are readable
     assert result["declared_rules"] == "FAIL"
+    banner = page.split('<section class="decision-banner"', 1)[1].split("</section>", 1)[0]
+    assert 'data-decision="fail"' in banner
+    assert 'aria-label="Decision: FAIL"' in banner
     assert mixed["data-status"] == "FAIL"
     assert mixed.get("data-undecided") == "1"
     assert clean["data-status"] == "PASS" and clean.get("data-undecided") == "0"
     assert 'value="FAIL+UNKNOWN"' in page and 'value="UNKNOWN"' in page
     assert all("hidden" not in row for row in parser.rows)
+
+
+def test_real_html_marks_failure_explicitly_and_permission_as_neutral(
+    tmp_path: Path, capsys
+) -> None:
+    tour = _variant("tour")
+    root = _prepare_repo(tmp_path, dict(tour.files), tour.fixture)
+    _cli_report(root, tmp_path, capsys)
+    page = (tmp_path / "architecture.report.html").read_text()
+    parser = _ReportFilterRows()
+    parser.feed(page)
+
+    failure = next(
+        row for row in parser.rows if row.get("_text", "").lstrip().startswith("APP-TYPES-NOT-DICT")
+    )
+    permission = next(row for row in parser.rows if row.get("data-kind") == "allowed_dependency")
+    css = (Path(__file__).parents[1] / "src/archkeel/render/assets/archkeel-report.css").read_text()
+
+    assert "FAIL" in failure["_text"] and failure.get("badge-status") == "fail"
+    assert "DECLARATION" in permission["_text"] and permission.get("badge-status") == "info"
+    assert '[data-status="fail"] {\n  color: var(--ck-fail);' in css
+    assert '[data-status="info"] {\n  color: var(--ck-muted);' in css
+
+
+def test_real_html_keeps_each_mobile_filter_label_with_its_control(tmp_path: Path, capsys) -> None:
+    tour = _variant("tour")
+    root = _prepare_repo(tmp_path, dict(tour.files), tour.fixture)
+    _cli_report(root, tmp_path, capsys)
+    parser = _ReportFilterRows()
+    parser.feed((tmp_path / "architecture.report.html").read_text())
+
+    assert len(parser.filter_fields) == 4
+    assert all(control_owned_by_label for _label, control_owned_by_label in parser.filter_fields)
+
+
+def test_real_report_scopes_root_intermediate_and_leaf_assessments_to_receipts(
+    tmp_path: Path, capsys
+) -> None:
+    _write_three_levels(
+        tmp_path,
+        deep_rules=[_forbidden_edge()],
+        source_import="from sample.layer.target.api import VALUE\n",
+    )
+    deep_contract_path = tmp_path / "contracts/two.json"
+    deep_contract = json.loads(deep_contract_path.read_text())
+    source = next(item for item in deep_contract["components"] if item["label"] == "source")
+    source["requires"] = [{"component": "target", "rationale": "The probe crosses here."}]
+    deep_contract_path.write_text(json.dumps(deep_contract))
+    (tmp_path / "archkeel.toml").write_text(
+        '[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+    )
+    (tmp_path / "docs/architecture/sample.md").write_text(
+        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
+        f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
+    )
+    _commit_tree(tmp_path)
+
+    result, observation = _cli_report(tmp_path, tmp_path, capsys)
+    assessments = {item["id"]: item for item in result["rule_assessments"]}
+    receipts = {
+        rule_id: record
+        for record in observation.records("scope_observations") or ()
+        if record.kind == "rule_evaluation"
+        for rule_id in record.rule_ids
+    }
+
+    assert assessments["REQUIRES-COMPLETE"]["status"] == "UNKNOWN"
+    assert assessments["app:REQUIRES-COMPLETE"]["status"] == "UNKNOWN"
+    assert "REQUIRES-COMPLETE" not in receipts
+    assert "app:REQUIRES-COMPLETE" not in receipts
+
+    assert assessments["app:app:REQUIRES-COMPLETE"]["status"] == "PASS"
+    assert assessments["app:app:REQUIRES-COMPLETE"]["evaluation_proven"] is True
+    assert receipts["app:app:REQUIRES-COMPLETE"].data.get("scope") == "app"
+
+    assert assessments["app:app:DEEP-NO-EDGE"]["status"] == "FAIL"
+    assert assessments["app:app:DEEP-NO-EDGE"]["evaluation_proven"] is True
+    assert receipts["app:app:DEEP-NO-EDGE"].data.get("scope") == "app"

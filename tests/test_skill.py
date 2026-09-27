@@ -73,6 +73,20 @@ def test_codex_install_is_idempotent(tmp_path: Path) -> None:
     assert agents.read_bytes() == first
 
 
+def test_codex_install_preserves_physical_review_threshold_guidance(tmp_path: Path) -> None:
+    body = ASSET.read_text(encoding="utf-8").split("---", 2)[2].lstrip("\n").rstrip("\n")
+    path = install_skill(tmp_path, "codex")
+    installed = path.read_text(encoding="utf-8")
+    installed_body = installed.split("<!-- archkeel:start -->\n", 1)[1].split(
+        "\n<!-- archkeel:end -->", 1
+    )[0]
+
+    assert "More than seven direct children triggers a review" in body
+    assert "Five to seven understandable groups is a review heuristic" in body
+    assert "do not hide the excess in `misc`, `utils`, single-child wrappers" in body
+    assert installed_body == body
+
+
 def test_codex_raises_on_unmatched_start_marker(tmp_path: Path) -> None:
     agents = tmp_path / "AGENTS.md"
     agents.write_text("<!-- archkeel:start -->\nbroken\n", encoding="utf-8")
