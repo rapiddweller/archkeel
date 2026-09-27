@@ -288,6 +288,9 @@ conflicts and gaps, or auto mode, where the agent decides. Every rule records `d
 reviewed yet. The prompt is in
 [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
 rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+The skill reviews physical packages recursively, including uncontracted interiors. More than
+seven children prompts a cohesion review, not an automatic split; green rules do not certify
+the whole design. It records deferred areas and preserves existing contracts during assessment.
 Use `root_layout` when a package root must expose an exact set of immediate packages or modules;
 the root module and missing future children are ignored, while an unexpected child is a normal
 baselineable violation.
