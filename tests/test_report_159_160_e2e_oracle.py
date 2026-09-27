@@ -840,6 +840,10 @@ def test_executable_package_init_does_not_prove_omitted_namespace_cycle_absent(
     cycle_assessment = _assessment(result, "MODEL-MODULES-ACYCLIC")
     assert cycle_assessment["status"] == "UNKNOWN"
     assert cycle_assessment["evaluation_proven"] is False
+    assert result["exit_code"] == 0 and result["declared_rules"] == "PASS"
+    assert [item["id"] for item in result["rule_assessments"] if item["status"] == "UNKNOWN"] == [
+        "MODEL-MODULES-ACYCLIC"
+    ]
     assert result["baseline_comparisons"] == [
         {
             "current_count": 0,
@@ -852,6 +856,35 @@ def test_executable_package_init_does_not_prove_omitted_namespace_cycle_absent(
             "subjects": ["shop.cli.beta", "shop.model.alpha"],
         }
     ]
+
+
+def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
+    tmp_path: Path, capsys
+) -> None:
+    root = _repo(tmp_path, "unknown-cycle-summary", {})
+    _minimal_contract(root, [module_cycle_rule(components=["model"])], {"model"})
+    baseline = _baseline_file(root, observed_violations(_observe(root)))
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots = ["shop/model"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+
+    result, _ = _cli_report(
+        root,
+        tmp_path / "unknown-cycle-report",
+        capsys,
+        "--baseline",
+        str(baseline),
+    )
+
+    assert result["exit_code"] == 0
+    assert result["declared_rules"] == "PASS"
+    assert [item["id"] for item in result["rule_assessments"] if item["status"] == "UNKNOWN"] == [
+        "MODEL-MODULES-ACYCLIC"
+    ]
+    assert not result["open_decisions"]
+    page = (tmp_path / "unknown-cycle-report" / "architecture.report.html").read_text()
+    assert "Aggregate declared rules: PASS; 1 per-rule assessment(s) are UNKNOWN." in page
 
 
 def test_deleted_function_can_resolve_while_its_module_remains_observed(
