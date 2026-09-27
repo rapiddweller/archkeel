@@ -74,7 +74,9 @@ _SHOWCASE_NOTE = (
 _REPLAY_NOTE = (
     "Replay a report-capable row with `python -m fixtures.architecture_demo --replay <variant> "
     "--output <new-path>`; it emits a `validate` result, then writes the ordinary report JSON and "
-    "HTML sidecar. Validation does not gate report generation. Baseline flags are used only when "
+    "HTML sidecar. Report generation is always attempted; the command exit is the higher of "
+    "validation and report exits. Report artifacts remain available when validation fails. "
+    "Baseline flags are used only when "
     "the row declares one; only `deepest_inside_changed` replays its `--against` history. "
     "Check-protocol and tested-only rows are excluded. "
     "The destination files must not exist. `make demo-architecture VARIANT=<variant> "
@@ -203,7 +205,7 @@ def replay(variant_id: str, output: Path) -> int:
                 validate.append("--write-baseline")
             if variant.against is not None:
                 validate.extend(("--against", "main"))
-            archkeel_main([*validate, "--json"])
+            validate_exit_code = archkeel_main([*validate, "--json"])
             report_exit_code = archkeel_main(
                 [
                     "report",
@@ -219,7 +221,7 @@ def replay(variant_id: str, output: Path) -> int:
             for path in reserved:
                 if path.is_file() and path.stat().st_size == 0:
                     path.unlink()
-            return report_exit_code
+            return max(validate_exit_code, report_exit_code)
     except Exception:
         for path in reserved:
             if path.is_file() and path.stat().st_size == 0:

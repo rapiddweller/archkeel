@@ -11,10 +11,11 @@ run shows many violations together; every other row isolates one item.
 
 Replay a report-capable row with `python -m fixtures.architecture_demo --replay <variant> --output
 <new-path>`; it emits a `validate` result, then writes the ordinary report JSON and HTML sidecar.
-Validation does not gate report generation. Baseline flags are used only when the row declares one;
-only `deepest_inside_changed` replays its `--against` history. Check-protocol and tested-only rows
-are excluded. The destination files must not exist. `make demo-architecture VARIANT=<variant>
-OUTPUT=<new-path>` delegates to the same command.
+Report generation is always attempted; the command exit is the higher of validation and report
+exits. Report artifacts remain available when validation fails. Baseline flags are used only when
+the row declares one; only `deepest_inside_changed` replays its `--against` history. Check-protocol
+and tested-only rows are excluded. The destination files must not exist. `make demo-architecture
+VARIANT=<variant> OUTPUT=<new-path>` delegates to the same command.
 
 Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style package scanned with
 `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them as one story with `make
