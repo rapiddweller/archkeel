@@ -617,6 +617,48 @@ _RECURSIVE_INSIDE_VIOLATION = Variant(
     expected_declared_rules="FAIL",
 )
 
+
+def _recursive_interface_variant(state: str, used: bool) -> Variant:
+    contract = json.loads(_recursive_inside_rule_contract(require_target=True))
+    contract["components"][1][state] = ["shop.store.backend.tasks.target:run_target"]
+    contract["rules"].append(
+        {
+            "id": "DEEP-INTERFACE",
+            "kind": "interface_boundary",
+            "rationale": "Local APIs must have a local consumer or an explicit outward facade.",
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    violations = ("store:backend:tasks:DEEP-INTERFACE",) if state == "planned" and used else ()
+    codes = (
+        ("interface.planned_built", "rule.violated")
+        if violations
+        else ("interface.unused",)
+        if state == "public" and not used
+        else ()
+    )
+    files = {
+        **_RECURSIVE_INSIDE_FILES,
+        "shop/store/backend/tasks/architecture-contract.json": json.dumps(contract, indent=2)
+        + "\n",
+    }
+    if not used:
+        files["shop/store/backend/tasks/source.py"] = HEADER + "VALUE = 'no consumer yet'\n"
+    usage = "used" if used else "unused"
+    return Variant(
+        id=f"validation-recursive-interface-{state}-{usage}",
+        section="validation",
+        item=f"interface.lifecycle:recursive_{state}_{usage}",
+        summary=f"Three declared levels down, the target is {state} and {usage}. "
+        "Public needs use; planned stays target work until reached, then requires promotion.",
+        files=files,
+        expected_violations=violations,
+        expected_codes=codes,
+        expected_declared_rules="FAIL" if violations else "PASS",
+    )
+
+
 # Public so demo_catalog_showcase can reuse this family's file content instead of duplicating it.
 ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE = HEADER + (
     '"""Reporting use case that reaches for an undeclared package."""\n\n'
@@ -738,6 +780,11 @@ VARIANTS: tuple[Variant, ...] = (
     _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION,
     _RECURSIVE_INSIDE_CLEAN,
     _RECURSIVE_INSIDE_VIOLATION,
+    *(
+        _recursive_interface_variant(state, used)
+        for state in ("public", "planned")
+        for used in (False, True)
+    ),
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,
