@@ -264,14 +264,10 @@ def report_summary(result: RunResult) -> Summary:
     elif (
         result.command == "report"
         and result.declared_rules == "PASS"
-        and result.rule_assessments
-        and any(item.status == "UNKNOWN" for item in result.rule_assessments)
+        and any(item.status == "UNKNOWN" for item in result.rule_assessments or ())
     ):
-        unknown = sum(item.status == "UNKNOWN" for item in result.rule_assessments)
-        sentence = (
-            f"All requested deterministic checks completed. Aggregate declared rules: PASS; "
-            f"{unknown} per-rule assessment(s) are UNKNOWN."
-        )
+        unknown = sum(item.status == "UNKNOWN" for item in result.rule_assessments or ())
+        sentence = f"The scan completed. Overall verdict: PASS. Rules still UNKNOWN: {unknown}."
     rules_reason = {
         "PASS": "No declared-rule violation was found.",
         "FAIL": "At least one declared rule was violated.",

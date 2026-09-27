@@ -465,32 +465,27 @@ def _component_cycle_violations(
     labels = [component.label for component in contract.components]
     violations: list[RawRecord] = []
     for rule in rules:
-        selected = [
-            module
-            for module in modules
-            if (component := contract.component_for(module["data"]["qualified_name"])) is not None
-            and (rule.components is None or component.label in rule.components)
-        ]
-        if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
-            selected_components = tuple(
-                sorted(
-                    {
-                        component.label
-                        for module in selected
-                        if (component := contract.component_for(module["data"]["qualified_name"]))
-                        is not None
-                    }
-                )
+        selected = tuple(
+            sorted(
+                {
+                    component.label
+                    for module in modules
+                    if (component := contract.component_for(module["data"]["qualified_name"]))
+                    is not None
+                    and (rule.components is None or component.label in rule.components)
+                }
             )
+        )
+        if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
             assessment_facts.append(
                 _rule_evaluation_receipt(
                     rule,
                     scope,
                     modules,
-                    subjects=selected_components,
+                    subjects=selected,
                     data={
                         "cycle_scope_complete": cycle_scope_complete,
-                        "cycle_scope_components": selected_components,
+                        "cycle_scope_components": selected,
                         "cycle_graph_components": cycle_graph_components,
                     },
                 )
@@ -538,13 +533,7 @@ def _module_cycle_violations(
     unsupported_rules: frozenset[str] = frozenset(),
     cycle_namespace_complete: bool = False,
 ) -> list[RawRecord]:
-    """One violation per module SCC the report measures, when it touches the rule's scope.
-
-    AD-98: the rule judges the `module_scc` records themselves, so its verdict and the
-    report's cycle measurement are one graph. Every import between two members closes a
-    cycle, because inside an SCC each edge's target reaches its source again; those imports
-    are the violation's facts and their source lines its evidence.
-    """
+    """Report measured module SCCs that touch the rule's scope (AD-98)."""
     violations: list[RawRecord] = []
     for rule in _cycle_rules(contract, "module"):
         scope = (
@@ -557,20 +546,20 @@ def _module_cycle_violations(
                 for package in component.packages
             ]
         )
-        selected = [
-            module
+        selected = tuple(
+            name
             for module in modules
             if (name := module["data"]["qualified_name"])
             and (source_modules is None or name in source_modules)
             and (scope is None or any(in_scope(name, package) for package in scope))
-        ]
+        )
         if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
             assessment_facts.append(
                 _rule_evaluation_receipt(
                     rule,
                     assessment_scope,
                     modules,
-                    subjects=tuple(item["data"]["qualified_name"] for item in selected),
+                    subjects=selected,
                     data={"cycle_scope_complete": cycle_namespace_complete},
                 )
             )
@@ -3484,7 +3473,6 @@ def _collect_rule_violations(
     cycle_graph_components: tuple[str, ...],
     cycle_namespace_complete: bool,
 ) -> list[RawRecord]:
-    checked = assessment_facts if assessment_facts is not None else []
     result = [
         *_dependency_violations(iter(forbidden_matches)),
         *_construct_violations([*typing_signals, *constructs], contract.rules, source_modules),
@@ -3495,7 +3483,7 @@ def _collect_rule_violations(
         *requires_violations(
             imports,
             contract,
-            assessment_facts=checked if assessment_facts is not None else None,
+            assessment_facts=assessment_facts,
             assessment_parent=assessment_parent,
             source_modules=source_modules,
         ),
@@ -3522,6 +3510,16 @@ def _collect_rule_violations(
         *_symbol_placement_violations(symbols, contract.rules, source_modules),
         *boundary_violations,
     ]
+    if assessment_facts is not None:
+        assessment_facts.extend(
+            rule_evaluation_receipts(
+                contract,
+                profile=profile,
+                scope=assessment_parent or "root",
+                modules=modules,
+                source_modules=source_modules,
+            )
+        )
     return sorted(result, key=lambda item: item["id"])
 
 
@@ -3603,16 +3601,6 @@ def rule_violations(
         cycle_graph_components=cycle_graph_components,
         cycle_namespace_complete=cycle_namespace_complete,
     )
-    if assessment_facts is not None:
-        assessment_facts.extend(
-            rule_evaluation_receipts(
-                contract,
-                profile=profile,
-                scope=assessment_parent or "root",
-                modules=modules,
-                source_modules=source_modules,
-            )
-        )
     return result, allowance_facts
 
 

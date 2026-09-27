@@ -289,9 +289,7 @@ def _inside_rule_results(
     mounts_by_parent = {mount.parent_id: mount for mount in inside_contracts}
     for mount in inside_contracts:
         available = available_by_owner.get(mount.owner_id, frozenset())
-        owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner) or (
-            (mount.parent_contract,) if not mount.owner_id else ()
-        )
+        owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner)
         parent, scoped, source_modules, scope_failures = _inside_mount_scope(
             mount, owner_levels, modules, available
         )
@@ -385,6 +383,8 @@ def _inside_owner_levels(
         if contract := contract_by_owner.get(owner_id):
             levels.append(contract)
         if not owner_id:
+            if not mount.owner_id and not levels:
+                levels.append(mount.parent_contract)
             break
         owner = mounts_by_parent.get(owner_id)
         if owner is None:
