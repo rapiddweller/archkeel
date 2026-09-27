@@ -669,15 +669,16 @@ claim removes that ambiguity without turning it into a verdict.
 - **Determinism:** both quantities come from one observation and one derivation, so the claim and
   the size table can never disagree; it never becomes a verdict or an exit code.
 - **Blind spots:** the claim measures what a component holds, not how tangled it is — a component
-  of many independent modules is named alongside one that is genuinely knotted. It says nothing
-  about what a second level would find, because that needs a second scan at a narrower scope,
-  which one observation cannot supply (AD-10); an inside a component has already declared is a
-  different matter, recorded, judged and drawn from this same observation (AD-34). Missing either signal reports UNKNOWN, because a
+  of many independent modules is named alongside one that is genuinely knotted. Physical
+  navigation exposes the observed modules, but does not invent rules for undeclared boundaries.
+  Explicit nested contracts are recorded, judged and drawn from the same observation (AD-34).
+  Missing either signal reports UNKNOWN, because a
   comparison against zero component edges would name every component.
-- **Example:** on Archkeel itself the top level holds 7 components and 9 edges, and the claim names
+- **Historical example:** on Archkeel itself the top level held 7 components and 9 edges, and the claim named
   `analyzer` (22 modules, 50 inner edges), `check` (13 and 24) and `ir` (18 and 32), while `cli`,
-  `render` and `host` stay below on both. Opening a level for one of them is `archkeel init
-  --source <path> --namespace <package>`, which drafts that inside as a contract of its own (AD-20).
+  `render` and `host` stayed below on both. Review the physical subtree before introducing an
+  `inside` contract. Do not rerun root `init --source` to create it: that command targets the
+  standard onboarding files. Follow the [recursive review guidance](onboarding.md#review-the-physical-structure).
 
 `cross-component type fan-in` is the fifth claim (issue #9, AD-59). Its signals are the `symbols`
 and `imports` sections: `imports` for which function or method a cross-component call reaches,
