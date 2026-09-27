@@ -32,6 +32,7 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
+    facade_covers,
     in_scope,
     package_owners,
     stable_id,
@@ -561,27 +562,6 @@ def exports_by_module(modules: Sequence[RawRecord]) -> dict[str, frozenset[str]]
     }
 
 
-def _facade_covers(
-    module: str,
-    name: str,
-    component: ContractComponent,
-    exports_by_module: dict[str, frozenset[str]],
-) -> bool:
-    """True when `component.public` declares `module:name`, directly or through `module`'s
-    `__all__` (AD-9): the one answer both `interface_boundary` (does a cross-component import
-    reach its target) and `boundary_types` (does an annotation name a type its own component
-    already declares) need, given the module and name already stopped at rather than a chain to
-    walk -- a chain, when one exists, is the caller's own job.
-    """
-    public = component.public
-    if public is None or name.startswith("_"):
-        return False
-    if f"{module}:{name}" in public:
-        return True
-    exports = exports_by_module.get(module)
-    return module in public and (not exports or name in exports)
-
-
 def _interface_allows(
     data: RecordData, target: ContractComponent, exports_by_module: dict[str, frozenset[str]]
 ) -> bool:
@@ -595,7 +575,7 @@ def _interface_allows(
         return False
     for entry in data["reexport_chain"]:
         module, _, name = entry.rpartition(".")
-        if _facade_covers(module, name, target, exports_by_module):
+        if facade_covers(module, name, target, exports_by_module):
             return True
     return False
 
@@ -1566,7 +1546,7 @@ def _index_owner_facade_type_states(
         data = item["data"]
         module, binding = data["source_module"], data["binding"]
         owner = contract.component_for(module)
-        if owner is None or not _facade_covers(module, binding, owner, exports_by_module):
+        if owner is None or not facade_covers(module, binding, owner, exports_by_module):
             continue
         qualified_binding = f"{module}.{binding}"
         for origin in uncertain_reexport_origins.get(qualified_binding, frozenset()):
@@ -1944,9 +1924,7 @@ def _owned_type_verdict(
     owner_facade_proof = imports_by_binding.owner_facade_type_states.get(
         (origin_component.id, origin_module, origin_name)
     )
-    directly_public = _facade_covers(
-        origin_module, origin_name, origin_component, exports_by_module
-    )
+    directly_public = facade_covers(origin_module, origin_name, origin_component, exports_by_module)
     if not directly_public and (
         owner_facade_proof is False
         or (owner_facade_proof is True and not isinstance(origin_symbol, dict))
@@ -2250,7 +2228,7 @@ def _declared_facade_positions(
     module, name = data["module"], data["name"]
     facade_entries: list[tuple[str, str, str, bool]] = []
     component = contract.component_for(module)
-    if component is not None and _facade_covers(module, name, component, exports_by_module):
+    if component is not None and facade_covers(module, name, component, exports_by_module):
         facade_entries.append((module, name, module, False))
 
     origin = data["qualified_name"]
@@ -2323,7 +2301,7 @@ def _reexport_facade_entries(
             own_uncertainty or binding_key in ambiguous_bindings or inherited_uncertainty
         )
         for owner in contract.components:
-            if contract.component_for(facade_module) == owner and _facade_covers(
+            if contract.component_for(facade_module) == owner and facade_covers(
                 facade_module, binding, owner, exports_by_module
             ):
                 facade_entries.append((facade_module, binding, resolution_module, entry_uncertain))
@@ -2383,6 +2361,10 @@ def facade_signature_types(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+    *,
+    source_modules: frozenset[str] | None = None,
+    scope_id: str | None = None,
+    ancestor_contracts: Sequence[ArchitectureContract] = (),
 ) -> list[RawRecord]:
     """Record on every declared facade function the types its signature exposes (AD-65).
 
@@ -2408,7 +2390,23 @@ def facade_signature_types(
         contract,
         exports_by_module,
         uncertain_reexport_origins or {},
+        ancestor_contracts,
     )
+    if source_modules is not None:
+        if scope_id is None:
+            raise ValueError("nested facade evidence requires a mount identity")
+        return _scoped_facade_signature_types(
+            symbols,
+            imports,
+            contract,
+            exports_by_module,
+            uncertain_reexport_origins or {},
+            source_modules,
+            scope_id,
+            ancestor_contracts,
+            imports_by_binding,
+            classes_by_location,
+        )
     recorded: list[RawRecord] = []
     for item in symbols:
         found = _declared_facade_positions(
@@ -2429,6 +2427,71 @@ def facade_signature_types(
         )
         recorded.append(
             {**item, "data": {**item["data"], "facade_types": names}} if names else item
+        )
+    return recorded
+
+
+def _scoped_facade_signature_types(
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: UncertainReexportOrigins,
+    source_modules: frozenset[str],
+    scope_id: str,
+    ancestor_contracts: Sequence[ArchitectureContract],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> list[RawRecord]:
+    """Attach nested facade type evidence to its mount and physical publisher module."""
+    owners = (contract, *ancestor_contracts)
+    recorded: list[RawRecord] = []
+    for item in symbols:
+        by_mount: dict[str, dict[str, list[str]]] = {}
+        raw_types = item["data"].get("facade_types_by_mount")
+        if isinstance(raw_types, dict):
+            for mount_id, publisher_types in raw_types.items():
+                if not isinstance(mount_id, str) or not isinstance(publisher_types, dict):
+                    continue
+                by_mount[mount_id] = {
+                    module: [value for value in values if isinstance(value, str)]
+                    for module, values in publisher_types.items()
+                    if isinstance(module, str) and isinstance(values, list)
+                }
+        scoped_types = by_mount.get(scope_id, {})
+        for owner in owners:
+            found = _declared_facade_positions(
+                item, owner, exports_by_module, imports, uncertain_reexport_origins
+            )
+            if found is None:
+                continue
+            publishers = [
+                entry for entry in found[4] if not entry[3] and entry[0] in source_modules
+            ]
+            if not publishers:
+                continue
+            names = _resolved_position_types(
+                found[3],
+                found[2],
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+            if not names:
+                continue
+            for entry in publishers:
+                scoped_types[entry[0]] = sorted(set(scoped_types.get(entry[0], ())) | set(names))
+        if scoped_types:
+            by_mount[scope_id] = scoped_types
+        if not by_mount:
+            recorded.append(item)
+            continue
+        recorded.append(
+            {
+                **item,
+                "data": {**item["data"], "facade_types_by_mount": by_mount},
+            }
         )
     return recorded
 
@@ -2783,7 +2846,7 @@ def _unresolved_public_alias_routes(
         ):
             continue
         owner = contract.component_for(module)
-        if owner is None or not _facade_covers(module, binding, owner, exports_by_module):
+        if owner is None or not facade_covers(module, binding, owner, exports_by_module):
             continue
         route = (f"{module}.{binding}", *data.get("reexport_chain", ()))
         unresolved = tuple(

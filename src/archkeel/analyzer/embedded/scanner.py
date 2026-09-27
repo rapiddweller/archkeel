@@ -17,6 +17,7 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
+    InterfaceBoundaryRule,
     in_scope,
     stable_id,
 )
@@ -51,6 +52,15 @@ from .violations import (
     rule_violations,
     symbol_limits,
 )
+
+InsideRuleResults: TypeAlias = tuple[
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+    list[RawRecord],
+]
 
 # AD-2: coverage mixes counts with RawRecord failures, which RawJson cannot hold.
 CoveragePayload: TypeAlias = dict[str, Any]
@@ -208,6 +218,44 @@ def api_surface_limits(
     return limits
 
 
+def _inside_mount_scope(
+    mount: InsideContractMount,
+    owner_levels: Sequence[ArchitectureContract],
+    modules: Sequence[RawRecord],
+    available: frozenset[str],
+) -> tuple[ContractComponent, ArchitectureContract, frozenset[str], list[RawRecord]]:
+    owner_contract = owner_levels[0] if owner_levels else None
+    parent = _inside_parent_component(mount, owner_contract)
+    return (
+        parent,
+        *_inside_source_domain(parent, mount.contract, modules, mount.parent_id, available),
+    )
+
+
+def _mount_facade_signature_types(
+    symbols: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    mount: InsideContractMount,
+    scoped: ArchitectureContract,
+    source_modules: frozenset[str],
+    exports_by_module: dict[str, frozenset[str]],
+    uncertain_reexport_origins: dict[str, frozenset[str]],
+    owner_levels: Sequence[ArchitectureContract],
+) -> list[RawRecord]:
+    if not any(isinstance(rule, InterfaceBoundaryRule) for rule in scoped.rules):
+        return list(symbols)
+    return facade_signature_types(
+        symbols,
+        imports,
+        scoped,
+        exports_by_module,
+        uncertain_reexport_origins,
+        source_modules=source_modules,
+        scope_id=mount.parent_id,
+        ancestor_contracts=owner_levels,
+    )
+
+
 def _inside_rule_results(
     inside_contracts: Sequence[InsideContractMount],
     *,
@@ -226,7 +274,7 @@ def _inside_rule_results(
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
-) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
+) -> InsideRuleResults:
     """Evaluate nested rules with the root scan's facts, limited to each parent's modules."""
     violations: list[RawRecord] = []
     unknowns: list[RawRecord] = []
@@ -239,13 +287,11 @@ def _inside_rule_results(
     mounts_by_parent = {mount.parent_id: mount for mount in inside_contracts}
     for mount in inside_contracts:
         available = available_by_owner.get(mount.owner_id, frozenset())
-        owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner)
-        if not owner_levels and not mount.owner_id:
-            owner_levels = (mount.parent_contract,)
-        owner_contract = owner_levels[0] if owner_levels else None
-        parent = _inside_parent_component(mount, owner_contract)
-        scoped, source_modules, scope_failures = _inside_source_domain(
-            parent, mount.contract, modules, mount.parent_id, available
+        owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner) or (
+            (mount.parent_contract,) if not mount.owner_id else ()
+        )
+        parent, scoped, source_modules, scope_failures = _inside_mount_scope(
+            mount, owner_levels, modules, available
         )
         available_by_owner[mount.parent_id] = source_modules
         contract_by_owner[mount.parent_id] = scoped
@@ -271,16 +317,41 @@ def _inside_rule_results(
             evidence=evidence,
             assessments=assessments,
         )
+        symbols = _mount_facade_signature_types(
+            symbols,
+            imports,
+            mount,
+            scoped,
+            source_modules,
+            exports_by_module,
+            uncertain_reexport_origins,
+            owner_levels,
+        )
         violations.extend(results[0])
         unknowns.extend(results[1])
         failures.extend(results[2])
         allowances.extend(results[3])
+    return _sort_inside_rule_results(
+        violations, unknowns, failures, assessments, allowances, symbols
+    )
+
+
+def _sort_inside_rule_results(
+    violations: list[RawRecord],
+    unknowns: list[RawRecord],
+    failures: list[RawRecord],
+    assessments: list[RawRecord],
+    allowances: list[RawRecord],
+    symbols: Sequence[RawRecord],
+) -> InsideRuleResults:
+    """Keep nested result ordering stable across mounts."""
     return (
         sorted(violations, key=lambda item: item["id"]),
         sorted(unknowns, key=lambda item: item["id"]),
         sorted(failures, key=lambda item: item["id"]),
         sorted(assessments, key=lambda item: item["id"]),
         sorted(allowances, key=lambda item: item["id"]),
+        list(symbols),
     )
 
 
@@ -555,6 +626,7 @@ def scan_repository(
         inside_failures,
         inside_assessments,
         inside_allowances,
+        symbols,
     ) = _inside_rule_results(
         inside_contracts,
         root_contract=contract,

@@ -33,8 +33,8 @@ from test_dart_directives import (
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import render_result, run_report
-from archkeel.check.validation import run_validate
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.check.validation import inside_diagnostics, run_validate
+from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 from archkeel.ir.model import Observation, Record
 
 _UNMEASURED = (
@@ -74,6 +74,63 @@ def _ib_package(tmp_path: Path, public: list[str], files: dict[str, str]) -> Pat
         ],
         rules=[rule("RULE", "interface_boundary")],
     )
+
+
+@pytest.mark.parametrize(
+    ("directive", "used"),
+    [
+        ("import 'types.dart' show Payload;\n", False),
+        ("export 'types.dart' show Payload;\n", True),
+    ],
+    ids=["import-is-not-publication", "export-is-publication"],
+)
+def test_dart_nested_publication_does_not_invent_python_binding_evidence(
+    tmp_path: Path, directive: str, used: bool
+) -> None:
+    root = dart_package(
+        tmp_path / "pkg",
+        {
+            "lib/core/facade.dart": directive,
+            "lib/core/types.dart": "class Payload {}\n",
+        },
+        components=[
+            component("core", public=["app.core.facade:Payload"], inside="core.json"),
+        ],
+        rules=[],
+    )
+    (root / "core.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    component(
+                        "types",
+                        packages=["app.core.types"],
+                        public=["app.core.types:Payload"],
+                    )
+                ],
+                "rules": [rule("LOCAL", "interface_boundary")],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = observe_dart(root)
+    assert result.observation is not None, result.diagnostics
+    parent_import = next(
+        record
+        for record in result.observation.records("imports") or ()
+        if record.data.get("source_module") == "app.core.facade"
+    )
+    assert "source_binding_unique" not in dict(parent_import.data.entries)
+    diagnostics = inside_diagnostics(
+        root,
+        parse_contract(json.loads((root / "contract.json").read_bytes())),
+        dart_config(),
+        observation=result.observation,
+    )
+    unused = [item for item in diagnostics if item.code == "interface.unused"]
+    assert (unused == []) is used
 
 
 # ---------------------------------------------------------------------------------------------

@@ -20,6 +20,7 @@ from archkeel.check.report import observe_repository
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
+    _imports_by_target,
     _resolved_public_entries,
     graph_diagnostics,
     inside_diagnostics,
@@ -393,6 +394,75 @@ def _cross_import(target_module: str, **data: object) -> dict[str, object]:
         kind="import",
         data={"source_module": "sample.cli", "target_module": target_module, **data},
     )
+
+
+def test_nested_sibling_import_uses_public_entry_through_unassigned_bridge() -> None:
+    """A nested consumer reaches a sibling's public name through an unassigned re-export."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("worker", packages=["sample.core.worker"]),
+                _component(
+                    "types",
+                    packages=["sample.core.types"],
+                    public=["sample.core.types:Payload"],
+                ),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    raw = _model(
+        git_head="a" * 40,
+        imports=[
+            _cross_import(
+                "sample.core.bridge",
+                binding="Payload",
+                reexport_chain=["sample.core.bridge.Payload", "sample.core.types.Payload"],
+                source_binding_unique=True,
+            )
+        ],
+    )
+    raw["imports"][0]["data"]["source_module"] = "sample.core.worker"
+    observation = parse_observation(raw)
+
+    imports = _imports_by_target(contract, observation, frozenset({"sample.core.worker"}))
+
+    assert len(imports["types"]) == 1
+
+
+def test_nested_same_component_reexport_does_not_count_as_public_use() -> None:
+    """A chain back into its own component is not a consumer of that component's public name."""
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component(
+                    "types",
+                    packages=["sample.core.types"],
+                    public=["sample.core.types:Payload"],
+                )
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    raw = _model(
+        git_head="a" * 40,
+        imports=[
+            _cross_import(
+                "sample.core.bridge",
+                binding="Payload",
+                reexport_chain=["sample.core.bridge.Payload", "sample.core.types.Payload"],
+                source_binding_unique=True,
+            )
+        ],
+    )
+    raw["imports"][0]["data"]["source_module"] = "sample.core.types"
+    observation = parse_observation(raw)
+
+    imports = _imports_by_target(contract, observation, frozenset({"sample.core.types"}))
+
+    assert imports == {}
 
 
 def _module(qualified_name: str, all_exports: list[str] | None = None) -> dict[str, object]:
@@ -1113,6 +1183,34 @@ def test_public_entry_used_through_a_reexport_chain_has_no_diagnostic() -> None:
             ],
         )
     )
+    assert interface_diagnostics(contract, observation) == ()
+
+
+def test_root_public_entry_keeps_constant_reexport_chain_semantics() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api:VALUE"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            imports=[
+                _cross_import(
+                    "sample.core.api",
+                    symbol="VALUE",
+                    reexport=False,
+                    reexport_chain=["sample.core.api.VALUE"],
+                )
+            ],
+        )
+    )
+
     assert interface_diagnostics(contract, observation) == ()
 
 
