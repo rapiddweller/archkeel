@@ -443,6 +443,9 @@ def test_interactive_flow_controls_start_hidden_without_javascript(tmp_path: Pat
     assert '<div class="flow-toolbar" hidden>' in page
     assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
     assert "Observed module tree" in page
+    assert 'for="flow-threshold-input">Minimum import sites</label>' in page
+    assert 'aria-describedby="flow-threshold-value"' in page
+    assert 'role="region"\n               aria-label="Scrollable component flow diagram"' in page
 
 
 def test_required_interface_projection_keeps_narrowing_and_decider() -> None:
