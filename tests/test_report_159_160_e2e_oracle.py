@@ -9,6 +9,7 @@ particular, status is not inferred from the absence of a violation in these help
 """
 
 import json
+from html.parser import HTMLParser
 from pathlib import Path
 
 from test_architecture_demo import _prepare_repo
@@ -108,6 +109,54 @@ def _assert_assessment(
     assert assessment["undecided"] == unknowns
     assert assessment["count"] == violations
     assert tuple(assessment["provenance"]) == provenance
+
+
+class _ReportFilterRows(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.filters_hidden = False
+        self.rows: list[dict[str, object]] = []
+        self._row: dict[str, object] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "form" and "data-report-filters" in values:
+            self.filters_hidden = "hidden" in values
+        if tag == "tr" and "data-filter-row" in values:
+            self._row = values
+
+    def handle_data(self, data: str) -> None:
+        if self._row is not None:
+            current = self._row.get("_text", "")
+            self._row["_text"] = f"{current}{data}"
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "tr" and self._row is not None:
+            self.rows.append(self._row)
+            self._row = None
+
+
+def _cycle_baseline_fixture(tmp_path: Path, capsys) -> tuple[Path, Path]:
+    variant = _variant("class-a-no-component-cycles-module")
+    files = dict(variant.files)
+    contract = json.loads(files["architecture-contract.json"])
+    rule = next(item for item in contract["rules"] if item["id"] == "MODEL-MODULES-ACYCLIC")
+    rule["components"] = ["model", "store"]
+    files["architecture-contract.json"] = json.dumps(contract, indent=2) + "\n"
+    files.update(
+        {
+            "shop/store/cycle_left.py": (
+                "from shop.store import cycle_right\nVALUE = cycle_right.VALUE\n"
+            ),
+            "shop/store/cycle_right.py": (
+                "from shop.store import cycle_left\nVALUE = cycle_left.VALUE\n"
+            ),
+        }
+    )
+    root = _prepare_repo(tmp_path, files, variant.fixture)
+    _, observation = _cli_report(root, tmp_path / "baseline-report", capsys)
+    baseline = _baseline_file(root, observed_violations(observation))
+    return root, baseline
 
 
 def test_tour_freezes_pass_fail_and_permission_oracles_from_real_cli_report(
@@ -430,3 +479,120 @@ def test_report_baseline_preserves_a_real_strict_scc_contraction(tmp_path: Path,
             "subjects": ["shop.model.alpha", "shop.model.beta", "shop.model.gamma"],
         },
     ]
+
+
+def test_narrow_scan_does_not_resolve_omitted_cycle_or_hide_new_cycle_debt(
+    tmp_path: Path, capsys
+) -> None:
+    root, baseline = _cycle_baseline_fixture(tmp_path, capsys)
+    (root / "shop/model/gamma.py").write_text("from shop.model import delta\nVALUE = delta.VALUE\n")
+    (root / "shop/model/delta.py").write_text("from shop.model import gamma\nVALUE = gamma.VALUE\n")
+    (root / "narrow.toml").write_text(
+        '[scan]\nroots = ["shop/model"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+
+    result, observation = _cli_report(
+        root,
+        tmp_path / "narrow-scan",
+        capsys,
+        "--config",
+        "narrow.toml",
+        "--baseline",
+        baseline.name,
+        expected_exit=2,
+    )
+
+    comparisons = result["baseline_comparisons"]
+    assert comparisons is None  # the narrower scan cannot prove any old scope is resolved
+    assert _assessment(result, "MODEL-MODULES-ACYCLIC")["status"] == "FAIL"
+    assert any(
+        record.subjects == ("shop.model.delta", "shop.model.gamma")
+        and record.rule_ids == ("MODEL-MODULES-ACYCLIC",)
+        for record in observation.records("violations") or ()
+    )
+
+
+def test_narrow_rule_scope_does_not_resolve_unchanged_cycle_or_hide_new_debt(
+    tmp_path: Path, capsys
+) -> None:
+    root, baseline = _cycle_baseline_fixture(tmp_path, capsys)
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_bytes())
+    rule = next(item for item in contract["rules"] if item["id"] == "MODEL-MODULES-ACYCLIC")
+    rule["components"] = ["model"]
+    contract_path.write_text(json.dumps(contract, indent=2) + "\n")
+    (root / "shop/model/gamma.py").write_text("from shop.model import delta\nVALUE = delta.VALUE\n")
+    (root / "shop/model/delta.py").write_text("from shop.model import gamma\nVALUE = gamma.VALUE\n")
+
+    result, _ = _cli_report(
+        root,
+        tmp_path / "narrow-rule",
+        capsys,
+        "--baseline",
+        baseline.name,
+    )
+
+    comparisons = result["baseline_comparisons"]
+    assert isinstance(comparisons, list)
+    assert not any(
+        "shop.store." in " ".join(item["subjects"]) and item["resolved_count"] > 0
+        for item in comparisons
+    )
+    assert any(
+        item["status"] == "new" and item["subjects"] == ["shop.model.delta", "shop.model.gamma"]
+        for item in comparisons
+    )
+    assert result["declared_rules"] == "FAIL"
+
+
+def test_deleted_function_can_resolve_while_its_module_remains_observed(
+    tmp_path: Path, capsys
+) -> None:
+    root = _repo(tmp_path, "deleted-function", {"shop/model/probe.py": PROBE})
+    baseline = _baseline_file(root, observed_violations(_observe(root)))
+    (root / "shop/model/probe.py").write_text("def healthy() -> int:\n    return 1\n")
+
+    result, observation = _cli_report(
+        root, tmp_path / "deleted-function-report", capsys, "--baseline", baseline.name
+    )
+
+    assert any(
+        item.data.get("qualified_name") == "shop.model.probe"
+        for item in observation.records("modules") or ()
+    )
+    assert not any(
+        GETATTR_RULE in item.rule_ids for item in observation.records("violations") or ()
+    )
+    assert any(
+        item["rules"] == [GETATTR_RULE] and item["resolved_count"] == 1
+        for item in result["baseline_comparisons"]
+    )
+
+
+def test_real_html_keeps_mixed_fail_and_unknown_evidence_available_without_javascript(
+    tmp_path: Path, capsys
+) -> None:
+    tour = _variant("tour")
+    files = dict(tour.files)
+    orders_path = "shop/app/orders.py"
+    files[orders_path] = files[orders_path].replace(
+        "store_dir: object,\n    order_id",
+        "store_dir: object,\n    extra_path: FutureOrder,\n    order_id",
+    )
+    root = _prepare_repo(tmp_path, files, tour.fixture)
+    result, _ = _cli_report(root, tmp_path / "html-report", capsys)
+    page = (tmp_path / "html-report" / "architecture.report.html").read_text()
+    parser = _ReportFilterRows()
+    parser.feed(page)
+
+    mixed = next(row for row in parser.rows if "APP-TYPES-NOT-DICT" in row.get("_text", ""))
+    clean = next(row for row in parser.rows if "DEP-APP-NO-CLI" in row.get("_text", ""))
+    assert parser.filters_hidden  # without JS, controls stay hidden but evidence rows are readable
+    assert result["declared_rules"] == "FAIL"
+    assert mixed["data-status"] == "FAIL"
+    assert mixed.get("data-undecided") == "1"
+    assert clean["data-status"] == "PASS" and clean.get("data-undecided") == "0"
+    assert 'value="FAIL+UNKNOWN"' in page and 'value="UNKNOWN"' in page
+    assert all("hidden" not in row for row in parser.rows)
+    assert 'status === "UNKNOWN" && row.dataset.status === "FAIL"' in page
