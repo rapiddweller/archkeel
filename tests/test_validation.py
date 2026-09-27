@@ -1116,6 +1116,34 @@ def test_public_entry_used_through_a_reexport_chain_has_no_diagnostic() -> None:
     assert interface_diagnostics(contract, observation) == ()
 
 
+def test_root_public_entry_keeps_constant_reexport_chain_semantics() -> None:
+    contract = parse_contract(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                _component("core", public=["sample.core.api:VALUE"]),
+                _component("cli"),
+            ],
+            "rules": [_INTERFACE_RULE],
+        }
+    )
+    observation = parse_observation(
+        _model(
+            git_head="a" * 40,
+            imports=[
+                _cross_import(
+                    "sample.core.api",
+                    symbol="VALUE",
+                    reexport=False,
+                    reexport_chain=["sample.core.api.VALUE"],
+                )
+            ],
+        )
+    )
+
+    assert interface_diagnostics(contract, observation) == ()
+
+
 @pytest.mark.parametrize(
     ("public", "pointers"),
     [("sample.core.impl", []), ("sample.core:impl", ["/components/0/public/0"])],

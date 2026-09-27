@@ -446,6 +446,18 @@ def _entry_used(entry: str, records: list[RecordData], facade_types: tuple[str, 
     return False
 
 
+def _parent_reexport_proven(record: RecordData) -> bool:
+    """Accept uncertain constant routes only when this publisher binding is unique."""
+    chain = record.get("reexport_chain")
+    origin = record.get("origin_definition")
+    return record.get("reexport") is True or (
+        record.get("source_binding_unique") is True
+        and isinstance(origin, str)
+        and isinstance(chain, tuple)
+        and origin in chain
+    )
+
+
 def _imports_by_target(
     contract: ArchitectureContract,
     observation: Observation,
@@ -470,7 +482,7 @@ def _imports_by_target(
             parent_entries = (published_parent_entries or {}).get(source_module, ())
             binding = record.data.get("binding")
             publisher = (f"{source_module}.{binding}",) if isinstance(binding, str) else ()
-            if record.data.get("reexport") is not True or not any(
+            if not _parent_reexport_proven(record.data) or not any(
                 _entry_reached_by(entry, publisher) for entry in parent_entries
             ):
                 continue
@@ -1555,6 +1567,88 @@ def _inside_source_domain_diagnostics(
     ]
 
 
+def _inside_interface_lifecycle_diagnostics(
+    mount: InsideContractMount,
+    scoped: ArchitectureContract,
+    source_modules: frozenset[str],
+    observation: Observation,
+    mounts_by_parent: dict[str, InsideContractMount],
+) -> list[Diagnostic]:
+    """Check public and planned entries against this mount's physical evidence."""
+    imports_by_target = _imports_by_target(
+        scoped,
+        observation,
+        source_modules,
+        _published_parent_entries(mount, mounts_by_parent, source_modules),
+    )
+    facade_types = _scoped_facade_types(observation, mount.parent_id, source_modules)
+    diagnostics = []
+    for component_index, component in enumerate(scoped.components):
+        records = imports_by_target.get(component.label, [])
+        pointer_root = f"{mount.pointer}/components"
+        if component.public is None and records:
+            diagnostics.append(
+                _diagnostic(
+                    "interface.undeclared",
+                    f"{pointer_root}/{component_index}",
+                    component.label,
+                    "The component receives cross-component imports but declares "
+                    "no public interface.",
+                    "Declare the used modules or names in public.",
+                )
+            )
+        if component.public is not None:
+            diagnostics.extend(
+                _public_entry_diagnostics(
+                    component_index,
+                    component,
+                    records,
+                    source_modules,
+                    facade_types,
+                    frozenset(),
+                    pointer_root,
+                )
+            )
+        diagnostics.extend(
+            _planned_entry_diagnostics(
+                component_index,
+                component,
+                records,
+                source_modules,
+                facade_types,
+                pointer_root,
+            )
+        )
+    return diagnostics
+
+
+def _inside_parent_policy_diagnostics(mount: InsideContractMount) -> list[Diagnostic]:
+    """Reject inside grants that contradict the parent component's rules."""
+    parent = mount.parent
+    denied = _forbidden_targets(mount.parent_contract, parent.packages)
+    required = frozenset(entry.component for entry in parent.requires or ())
+    diagnostics = []
+    for rule in mount.contract.rules:
+        if not isinstance(rule, AllowedDependencyRule):
+            continue
+        blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
+        absent = _denied_by_absence(mount.parent_contract, parent.label, required, rule.target)
+        if absent is not None:
+            blocked.append(absent)
+        if blocked:
+            diagnostics.append(
+                _diagnostic(
+                    "inside.forbidden_import",
+                    mount.pointer,
+                    f"{mount.parent_id} -> {rule.target}",
+                    f"The inside allows {rule.target}, which {', '.join(sorted(blocked))} "
+                    f"forbids {mount.parent_id} at the level above.",
+                    "Remove the grant inside, or decide the pair differently above.",
+                )
+            )
+    return diagnostics
+
+
 def inside_diagnostics(
     root: Path,
     contract: ArchitectureContract,
@@ -1627,69 +1721,12 @@ def inside_diagnostics(
         if observation is not None and any(
             isinstance(rule, InterfaceBoundaryRule) for rule in inner.rules
         ):
-            imports_by_target = _imports_by_target(
-                scoped,
-                observation,
-                source_modules,
-                _published_parent_entries(mount, mounts_by_parent, source_modules),
+            diagnostics.extend(
+                _inside_interface_lifecycle_diagnostics(
+                    mount, scoped, source_modules, observation, mounts_by_parent
+                )
             )
-            facade_types = _scoped_facade_types(observation, mount.parent_id, source_modules)
-            for component_index, component in enumerate(scoped.components):
-                records = imports_by_target.get(component.label, [])
-                pointer_root = f"{pointer}/components"
-                if component.public is None and records:
-                    diagnostics.append(
-                        _diagnostic(
-                            "interface.undeclared",
-                            f"{pointer_root}/{component_index}",
-                            component.label,
-                            "The component receives cross-component imports but declares "
-                            "no public interface.",
-                            "Declare the used modules or names in public.",
-                        )
-                    )
-                if component.public is not None:
-                    diagnostics.extend(
-                        _public_entry_diagnostics(
-                            component_index,
-                            component,
-                            records,
-                            source_modules,
-                            facade_types,
-                            frozenset(),
-                            pointer_root,
-                        )
-                    )
-                diagnostics.extend(
-                    _planned_entry_diagnostics(
-                        component_index,
-                        component,
-                        records,
-                        source_modules,
-                        facade_types,
-                        pointer_root,
-                    )
-                )
-        denied = _forbidden_targets(mount.parent_contract, parent.packages)
-        required = frozenset(entry.component for entry in parent.requires or ())
-        for rule in inner.rules:
-            if not isinstance(rule, AllowedDependencyRule):
-                continue
-            blocked = [rule_id for rule_id, value in denied if in_scope(rule.target, value)]
-            absent = _denied_by_absence(mount.parent_contract, parent.label, required, rule.target)
-            if absent is not None:
-                blocked.append(absent)
-            if blocked:
-                diagnostics.append(
-                    _diagnostic(
-                        "inside.forbidden_import",
-                        pointer,
-                        f"{mount.parent_id} -> {rule.target}",
-                        f"The inside allows {rule.target}, which {', '.join(sorted(blocked))} "
-                        f"forbids {mount.parent_id} at the level above.",
-                        "Remove the grant inside, or decide the pair differently above.",
-                    )
-                )
+        diagnostics.extend(_inside_parent_policy_diagnostics(mount))
     return _sorted(diagnostics)
 
 

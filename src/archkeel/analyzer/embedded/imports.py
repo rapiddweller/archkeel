@@ -419,6 +419,7 @@ def _record_import_origins(
         source_binding_unique = data["source_module"] not in unique_bindings or (
             data["binding"] in unique_bindings[data["source_module"]]
         )
+        data["source_binding_unique"] = source_binding_unique
         symbol: str = data["symbol"]
         current = f"{data['target_module']}.{symbol}"
         chain = [current]
@@ -447,7 +448,7 @@ def _record_import_origins(
 
 
 def strip_internal_reexport_facts(imports: Sequence[RawRecord]) -> None:
-    """Keep proof bookkeeping out of serialized IR import records."""
+    """Keep reexport-route bookkeeping private, while retaining publisher uniqueness."""
     for item in imports:
         data = item["data"]
         if "ordinary_module" in data:

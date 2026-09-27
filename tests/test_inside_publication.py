@@ -17,7 +17,12 @@ from test_recursive_inside_independent_contracts import (
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, inside_diagnostics, run_validate
-from archkeel.ir.codec import parse_contract
+from archkeel.ir.codec import (
+    canonical_report_bytes,
+    decode_canonical_model,
+    parse_contract,
+    parse_observation,
+)
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.trace import trace_valid_violations
 
@@ -659,7 +664,17 @@ def test_parent_facade_type_does_not_leak_into_a_deeper_mount(tmp_path: Path) ->
     ] == [("interface.unused", "sample.core.middle.types:Payload")]
 
 
-def test_unpublished_parent_reexport_does_not_use_a_local_public_entry(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "publisher",
+    [
+        "from sample.core.types import Payload\n__all__ = ['Payload']\n",
+        "from sample.core.types import Payload\n",
+    ],
+    ids=["declared-but-unpublished", "unowned-without-all"],
+)
+def test_unpublished_parent_import_does_not_use_a_local_public_entry(
+    tmp_path: Path, publisher: str
+) -> None:
     _write_project(
         tmp_path,
         components=[
@@ -676,9 +691,7 @@ def test_unpublished_parent_reexport_does_not_use_a_local_public_entry(tmp_path:
             )
         },
         files={
-            "sample/core/__init__.py": (
-                "from sample.core.types import Payload\n__all__ = ['Payload']\n"
-            ),
+            "sample/core/__init__.py": publisher,
             "sample/core/types.py": "class Payload:\n    pass\n",
         },
     )
@@ -695,3 +708,66 @@ def test_unpublished_parent_reexport_does_not_use_a_local_public_entry(tmp_path:
     assert [
         (item.code, item.subject) for item in diagnostics if item.code == "interface.unused"
     ] == [("interface.unused", "sample.core.types:Payload")]
+
+
+@pytest.mark.parametrize(
+    "rebind",
+    ["VALUE = 'replacement'\n", "if True:\n    VALUE = 'replacement'\n"],
+    ids=["direct-rebind", "conditional-rebind"],
+)
+def test_rebound_parent_import_does_not_publish_the_original_constant(
+    tmp_path: Path, rebind: str
+) -> None:
+    _write_project(
+        tmp_path,
+        components=[
+            _component("core", packages=["sample.core"], public=["sample.core:VALUE"])
+            | {"inside": "core.json"}
+        ],
+        rules=[],
+        insides={
+            "core.json": _inside(
+                [
+                    _child("types", "sample.core.types", public=["sample.core.types:VALUE"]),
+                ],
+                [_rule("LOCAL-INTERFACE", "interface_boundary")],
+            )
+        },
+        files={
+            "sample/core/__init__.py": (
+                "from sample.core.types import VALUE\n" + rebind + "__all__ = ['VALUE']\n"
+            ),
+            "sample/core/types.py": "VALUE = 1\n",
+        },
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    parent_import = next(
+        record
+        for record in result.observation.records("imports") or ()
+        if record.data.get("source_module") == "sample.core"
+        and record.data.get("binding") == "VALUE"
+    )
+    assert parent_import.data.get("source_binding_unique") is False
+    decoded = decode_canonical_model(json.loads(canonical_report_bytes(result.observation)))
+    round_tripped = parse_observation(decoded)
+    assert (
+        next(
+            record
+            for record in round_tripped.records("imports") or ()
+            if record.data.get("source_module") == "sample.core"
+            and record.data.get("binding") == "VALUE"
+        ).data.get("source_binding_unique")
+        is False
+    )
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        parse_contract(json.loads((tmp_path / "contract.json").read_bytes())),
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observation=result.observation,
+    )
+
+    assert [
+        (item.code, item.subject) for item in diagnostics if item.code == "interface.unused"
+    ] == [("interface.unused", "sample.core.types:VALUE")]
