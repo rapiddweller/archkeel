@@ -153,6 +153,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-114 | [Symbol uncertainty survives nested contracts](decisions/ad-114-symbol-uncertainty-survives-nested-contracts.md) |
 | AD-115 | [Nested API lifecycle uses local evidence](decisions/ad-115-nested-api-lifecycle-uses-local-evidence.md) |
 | AD-116 | [Diagram filtering is an explicit choice](decisions/ad-116-diagram-filtering-is-an-explicit-choice.md) |
+| AD-118 | [Structure review is not contract conformance](decisions/ad-118-structure-review-is-not-contract-conformance.md) |
 
 ## Allowed dependencies
 

@@ -237,15 +237,17 @@ Once the architect decides:
 3. Decide the inside the way you decide the top level: a `requires` list per sub-component and
    one `complete_requires` rule, so absence forbids there too (AD-32).
 
-`validate` then holds the two levels to each other, and you read its diagnostics by `code`:
+`validate` holds the declared levels to each other; read its diagnostics by `code`:
 
 - Each level's `public` list serves that boundary. Child APIs stay local unless the parent
   explicitly publishes them or a proven facade reexport. Do not copy every child API upward.
 - `reference.public_owner`, `reference.public_underscore` and `reference.namespace` also apply
   inside. Correct the declaration at its mounted pointer; do not broaden ownership to silence it.
 - With an inner `interface_boundary`, `interface.missing` names an unscanned public module.
-  Inner unused-public and planned-promotion diagnostics are not yet evaluated; review usage
-  explicitly, including parent facades. A green contract does not prove every local API is used.
+  `interface.unused` means no scoped sibling import or proven facade publication reaches it.
+  A built, unused planned entry stays target work; reaching it requires promotion through
+  `interface.planned_built`, not automatic permission. Publisher evidence belongs to the exact
+  parent scope, including proven re-export chains. Unknown import names are not proof of non-use.
 - `inside.forbidden_import` — the inside grants an edge the level above forbids the component,
   by a rule or by absence under `requires`. Remove the grant, or change the decision above.
 - `contract.invalid` at `/components/<n>/inside` — the file is missing, outside the repository,
