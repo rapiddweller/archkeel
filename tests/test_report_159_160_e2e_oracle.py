@@ -884,7 +884,7 @@ def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
     ]
     assert not result["open_decisions"]
     page = (tmp_path / "unknown-cycle-report" / "architecture.report.html").read_text()
-    assert "Aggregate declared rules: PASS; 1 per-rule assessment(s) are UNKNOWN." in page
+    assert "The scan completed. Overall verdict: PASS. Rules still UNKNOWN: 1." in page
 
 
 def test_deleted_function_can_resolve_while_its_module_remains_observed(
