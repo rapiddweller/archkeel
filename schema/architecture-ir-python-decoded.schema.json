@@ -450,6 +450,10 @@
                   "declared_in_all": {
                     "type": "boolean"
                   },
+                  "source_binding_unique": {
+                    "type": "boolean",
+                    "description": "True when this publisher binding has one module-scope binder; false means a competing binder prevents unique publication evidence."
+                  },
                   "symbols_known": {
                     "type": "boolean",
                     "description": "False when the import names no symbol, so which names cross is unknown (a Dart import without show, AD-97)."

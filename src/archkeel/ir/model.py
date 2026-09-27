@@ -184,6 +184,22 @@ class ContractComponent:
     namespace: str | None = None
 
 
+def facade_covers(
+    module: str,
+    name: str,
+    component: ContractComponent,
+    exports_by_module: dict[str, frozenset[str]],
+) -> bool:
+    """Answer facade coverage from the component contract and observed module exports."""
+    public = component.public
+    if public is None or name.startswith("_"):
+        return False
+    if f"{module}:{name}" in public:
+        return True
+    exports = exports_by_module.get(module)
+    return module in public and (not exports or name in exports)
+
+
 @dataclass(frozen=True, slots=True)
 class RequiredComponent:
     """One component its owner may import, carrying the architect's reason for the edge (AD-32).
