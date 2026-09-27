@@ -13,3 +13,9 @@ name remains decidable. Scan completeness is a separate result.
 
 No new resolver, schema or language capability. Python imports already name their bindings.
 The independent nested tests and the Dart catalog's nested variants exercise the correction.
+
+The architect's evidence-backed budget authorization covers one added unresolved call:
+`validate --against 0400d3d` identifies `unknowns.extend` in the shared evaluator. The call
+budget moves 530 → 531 for that added source operation, not better detection or new rule
+uncertainty. The resolver is unchanged; self-validation still has 41 UNKNOWN positions,
+0 violations and 0 cycle edges. No violation exemption is added.
