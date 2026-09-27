@@ -315,6 +315,7 @@ def main() -> int:
             _return_to_root(wide)
             assert wide.evaluate("document.documentElement.scrollWidth <= innerWidth")
             wide.screenshot(path=str(output / "wide-375x2400.png"), full_page=True)
+            assert not wide_errors, f"mobile wide JavaScript errors: {wide_errors}"
             for width in (1440, 375):
                 name = f"mixed-{width}"
                 mixed, mixed_errors = _visit(browser, reports["mixed"], name, output)
