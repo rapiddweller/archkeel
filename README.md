@@ -252,7 +252,7 @@ terminal view as SVG.
 on the two-level shop: what `init` drafts, what `validate` refuses, what the architect decides,
 and what the gate says when an agent crosses a boundary inside the level.
 
-Replay any runnable catalog row to a new JSON report and HTML sidecar:
+Replay a report-capable catalog row to a new JSON report and HTML sidecar:
 
 ```bash
 make demo-architecture VARIANT=class-a-recursive-wide-package OUTPUT=/tmp/architecture.json

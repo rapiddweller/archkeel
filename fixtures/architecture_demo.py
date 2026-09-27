@@ -73,8 +73,9 @@ _SHOWCASE_NOTE = (
 )
 _REPLAY_NOTE = (
     "Replay a report-capable row with `python -m fixtures.architecture_demo --replay <variant> "
-    "--output <new-path>`; it writes the ordinary report JSON and HTML sidecar. Baseline variants "
-    "also run `validate`; only `deepest_inside_changed` replays its `--against` history. "
+    "--output <new-path>`; it emits a `validate` result, then writes the ordinary report JSON and "
+    "HTML sidecar. Validation does not gate report generation. Baseline flags are used only when "
+    "the row declares one; only `deepest_inside_changed` replays its `--against` history. "
     "Check-protocol and tested-only rows are excluded. "
     "The destination files must not exist. `make demo-architecture VARIANT=<variant> "
     "OUTPUT=<new-path>` delegates to the same command."
@@ -195,16 +196,15 @@ def replay(variant_id: str, output: Path) -> int:
             ):
                 subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
             apply_overlay(root, variant.files)
-            if variant.baseline is not None or variant.against is not None:
-                validate = ["validate", "--root", str(root), "--config", variant.config]
-                if variant.baseline is not None:
-                    validate.extend(("--baseline", variant.baseline))
-                if variant.write_baseline:
-                    validate.append("--write-baseline")
-                if variant.against is not None:
-                    validate.extend(("--against", "main"))
-                archkeel_main([*validate, "--json"])
-            return archkeel_main(
+            validate = ["validate", "--root", str(root), "--config", variant.config]
+            if variant.baseline is not None:
+                validate.extend(("--baseline", variant.baseline))
+            if variant.write_baseline:
+                validate.append("--write-baseline")
+            if variant.against is not None:
+                validate.extend(("--against", "main"))
+            archkeel_main([*validate, "--json"])
+            report_exit_code = archkeel_main(
                 [
                     "report",
                     "--root",
@@ -216,9 +216,14 @@ def replay(variant_id: str, output: Path) -> int:
                     "--json",
                 ]
             )
+            for path in reserved:
+                if path.is_file() and path.stat().st_size == 0:
+                    path.unlink()
+            return report_exit_code
     except Exception:
         for path in reserved:
-            path.unlink(missing_ok=True)
+            if path.is_file() and path.stat().st_size == 0:
+                path.unlink()
         raise
 
 

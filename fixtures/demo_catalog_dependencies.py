@@ -674,6 +674,9 @@ _WIDE_TASK_PACKAGE = HEADER + (
 _WIDE_TASK_FILES: dict[str, str] = {
     "shop/store/backend/tasks/architecture-contract.json": _WIDE_TASKS_CONTRACT,
     "shop/store/backend/tasks/__init__.py": _WIDE_TASK_PACKAGE,
+    "shop/store/backend/tasks/isolated.py": (
+        HEADER + '"""Observed leaf with no module imports or importers."""\n\nVALUE = "isolated"\n'
+    ),
     **{
         f"shop/store/backend/tasks/{name}.py": (
             HEADER

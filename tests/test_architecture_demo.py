@@ -78,13 +78,35 @@ def test_recursive_wide_package_root_executes(tmp_path: Path) -> None:
     )
 
 
+def test_recursive_wide_package_contains_an_isolated_observed_module(tmp_path: Path) -> None:
+    variant = next(item for item in CATALOG if item.id == "class-a-recursive-wide-package")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    result, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert result.exit_code == 0
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    isolated = "shop.store.backend.tasks.isolated"
+    assert isolated in {
+        item.data.get("qualified_name") for item in observation.records("modules") or ()
+    }
+    assert not any(
+        item.data.get("source") == isolated or item.data.get("target") == isolated
+        for item in observation.records("dependency_edges") or ()
+        if item.data.get("level") == "module"
+    )
+
+
 def test_demo_replay_writes_cli_json_and_html_without_overwrite(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     output = tmp_path / "nested" / "architecture.json"
     assert demo_main(["--replay", "class-a-recursive-wide-package", "--output", str(output)]) == 0
-    result = json.loads(capsys.readouterr().out)
+    validation, result = (json.loads(line) for line in capsys.readouterr().out.splitlines())
     html = output.with_name("architecture.report.html")
+    assert validation["command"] == "validate"
+    assert validation["exit_code"] == 0
     assert result["command"] == "report"
     assert result["artifact"] == str(output)
     assert json.loads(output.read_text())["source"]["source_digest"]
