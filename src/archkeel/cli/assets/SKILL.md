@@ -20,14 +20,16 @@ from the repository and the architect's quality goals for this codebase (which c
 must scale, stay easy to change, or are performance-critical). Read those goals from ADRs
 and architecture documents first; ask the architect only when a goal is unknown and would
 change your recommendation. Every
-recommendation and every rationale you write cites the goal it rests on. There is no
-contract field for a quality goal: it lives in the rationale, in your own words, next to the
-rule it justifies.
+recommendation and every rationale cites the goal it rests on. There is no contract field
+for a quality goal: record it next to the rule it justifies, following the chosen decision
+mode below.
 
 For requested first-time onboarding, inspect existing files, then run
 `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once.
 A read-only assessment uses existing contracts, reports and source; it does not authorize
 initialization, contract edits, file moves or commits.
+Preserve existing contracts and their `inside` references. If onboarding files already exist,
+continue from them; do not use `--force` without explicit approval to replace those files.
 `init` detects the Python package (the only top-level one, or the one `pyproject.toml`'s
 `[project] name` names when a test package sits beside it; otherwise it exits 2 and asks for
 `--source` and `--namespace`), requires an existing Git repository with at least one
@@ -69,10 +71,10 @@ The generated inventory and a green contract are not evidence that this structur
 - For uncertain boundaries, give the architect a recommended option, alternatives, evidence,
   trade-offs and system-wide impact. Follow the chosen decision mode; reviewing structure
   does not authorize moving files or changing behavior.
-- When the task includes an architecture-document update, record review coverage and unresolved
-  decisions there: reviewed subtree, finding or keep-rationale, target change, and enforcement
-  gap. Mark unreviewed subtrees explicitly; never present a partial review as a complete
-  assessment.
+- Record review coverage and unresolved decisions in the response; when the task includes an
+  architecture-document update, keep the durable record there: reviewed subtree, finding or
+  keep-rationale, target change, and enforcement gap. Mark unreviewed subtrees explicitly;
+  never present a partial review as a complete assessment.
   Add `inside` contracts at meaningful independently governed boundaries, not at every folder.
   Encode approved constraints with supported rules. Deeper review remains necessary when
   the installed version cannot enforce nested contracts; do not invent unsupported rules.
