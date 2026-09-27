@@ -534,6 +534,47 @@ def test_report_baseline_preserves_a_real_strict_scc_contraction(tmp_path: Path,
     ]
 
 
+def test_model_scoped_cycle_rule_resolves_full_cross_component_scc_removal(
+    tmp_path: Path, capsys
+) -> None:
+    files = {
+        "shop/model/alpha.py": "from shop.cli.beta import VALUE\nVALUE = VALUE\n",
+        "shop/cli/beta.py": "from shop.model.alpha import VALUE\nVALUE = 1\n",
+    }
+    root = _repo(tmp_path, "cross-component-cycle", files)
+    _minimal_contract(root, [module_cycle_rule(components=["model"])], {"model", "cli"})
+    _, before = _cli_report(root, tmp_path / "cross-component-before", capsys)
+    (known,) = observed_violations(before)
+    assert known.fingerprint.subjects == ("shop.cli.beta", "shop.model.alpha")
+    baseline = _baseline_file(root, (known,))
+
+    (root / "shop/cli/beta.py").write_text("VALUE = 1\n")
+    result, after = _cli_report(
+        root,
+        tmp_path / "cross-component-after",
+        capsys,
+        "--baseline",
+        str(baseline),
+    )
+
+    assert result["observation_complete"] == "PASS"
+    assert _assessment(result, "MODEL-MODULES-ACYCLIC")["status"] == "PASS"
+    assert any("shop.model.alpha" in record.subjects for record in after.records("modules") or ())
+    assert any("shop.cli.beta" in record.subjects for record in after.records("modules") or ())
+    assert result["baseline_comparisons"] == [
+        {
+            "current_count": 0,
+            "known_count": 1,
+            "new_count": 0,
+            "resolved_count": 1,
+            "rules": ["MODEL-MODULES-ACYCLIC"],
+            "shared_count": 0,
+            "status": "resolved",
+            "subjects": ["shop.cli.beta", "shop.model.alpha"],
+        }
+    ]
+
+
 def test_narrow_scan_does_not_resolve_omitted_cycle_or_hide_new_cycle_debt(
     tmp_path: Path, capsys
 ) -> None:
