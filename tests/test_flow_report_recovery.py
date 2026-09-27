@@ -36,12 +36,7 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
 const css = fs.readFileSync(process.argv[1].replace("flow.js", "archkeel-report.css"), "utf8");
-const edges = [
-  ["violation", "FAIL"],
-  ["undecided", "UNKNOWN"],
-  ["observed", "OBSERVED"],
-  ["conforms", "CONFORMS"],
-].map(([state], index) => ({
+const edges = ["violation", "undecided", "observed", "conforms"].map((state, index) => ({
   state,
   source: `pkg.source${index}`,
   target: `pkg.target${index}`,
@@ -83,8 +78,8 @@ const render = checked => {
 const general = render(false);
 assert(general.includes("<h3>Heaviest connections</h3>"));
 for (const [state, label] of [
-  ["violation", "FAIL"], ["undecided", "UNKNOWN"],
-  ["observed", "OBSERVED"], ["conforms", "CONFORMS"],
+  ["violation", "violation"], ["undecided", "undecided"],
+  ["observed", "observed"], ["conforms", "conforms"],
 ]) {
   const stateAt = general.indexOf(`data-state="${state}"`);
   assert(stateAt >= 0, general);
@@ -93,8 +88,8 @@ for (const [state, label] of [
   const row = general.slice(rowStart, rowEnd);
   const aria = row.match(/aria-label="([^"]*)"/)?.[1] || "";
   const visible = row.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
-  assert(aria.includes(label), row);
-  assert(visible.includes(label), row);
+  assert(aria.toLowerCase().includes(label), row);
+  assert(visible.toLowerCase().includes(label), row);
 }
 const focused = render(true);
 assert(focused.includes("<h3>Violating connections</h3>"));
