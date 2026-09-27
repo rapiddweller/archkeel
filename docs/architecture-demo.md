@@ -79,7 +79,7 @@ demo-dart`.
 | class_a | no_component_cycles | class-a-no-component-cycles | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
 | class_a | no_component_cycles:module_hidden | class-a-no-component-cycles-module-hidden | validate/report run | - | - | shop/model/alpha.py, shop/model/beta.py |
 | class_a | no_component_cycles:module | class-a-no-component-cycles-module | validate/report run | MODEL-MODULES-ACYCLIC | rule.violated | architecture-contract.json, shop/model/alpha.py, shop/model/beta.py |
-| showcase | report:partial_cycle_scan | report-partial-module-cycle-scan | validate/report run | - | - | architecture-contract.json, archkeel.toml, known-violations.json, shop/model/alpha.py, shop/model/beta.py |
+| showcase | report:partial_cycle_scan | report-partial-module-cycle-scan | validate/report run | - | reference.package_unscanned | architecture-contract.json, archkeel.toml, docs/architecture/shop.md, known-violations.json, shop/model/alpha.py, shop/model/beta.py |
 | class_a | no_component_cycles:package_rollup_only | class-a-package-cycle-rollup-only | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/uses_render.py |
 | class_a | no_component_cycles:package_backed | class-a-package-cycle-backed | validate/report run | COMPONENT-NO-CYCLES | rule.violated | architecture-contract.json, docs/architecture/shop.md, shop/model/entities.py |
 | class_a | decision:open | class-a-decision-open | validate/report run | - | decision.open | architecture-contract.json |

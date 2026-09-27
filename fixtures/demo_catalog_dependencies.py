@@ -277,6 +277,17 @@ def _partial_module_cycle_contract() -> str:
     return json.dumps(contract, indent=2) + "\n"
 
 
+_PARTIAL_MODULE_CYCLE_ARCHITECTURE = (
+    (FIXTURE_DIR / "docs/architecture/shop.md")
+    .read_text()
+    .replace(
+        "    app --> model\n    app --> store\n    cli --> app\n    cli --> render\n"
+        "    render --> model\n    store --> model",
+        "    store --> model",
+    )
+)
+
+
 _PARTIAL_MODULE_CYCLE_SCAN = Variant(
     id="report-partial-module-cycle-scan",
     section="showcase",
@@ -284,9 +295,11 @@ _PARTIAL_MODULE_CYCLE_SCAN = Variant(
     summary="A model-cycle baseline is compared with a scan rooted only at shop/store. The "
     "aggregate report verdict is PASS; the selected module-cycle assessment and baseline "
     "comparison are UNKNOWN because model was not scanned. complete_requires is also UNKNOWN "
-    "because a store-only scan cannot assess every component owner.",
+    "because a store-only scan cannot assess every component owner. Validation retains its "
+    "reference.package_unscanned diagnostic for shop.model.",
     files={
         **MODEL_MODULE_CYCLE,
+        "docs/architecture/shop.md": _PARTIAL_MODULE_CYCLE_ARCHITECTURE,
         "architecture-contract.json": _partial_module_cycle_contract(),
         "archkeel.toml": (FIXTURE_DIR / "archkeel.toml")
         .read_text()
@@ -294,7 +307,7 @@ _PARTIAL_MODULE_CYCLE_SCAN = Variant(
         "known-violations.json": _MODULE_CYCLE_BASELINE,
     },
     expected_violations=(),
-    expected_codes=(),
+    expected_codes=("reference.package_unscanned",),
     baseline="known-violations.json",
     expected_declared_rules="PASS",
 )
