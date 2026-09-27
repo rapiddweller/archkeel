@@ -18,6 +18,7 @@ from fixtures.demo_catalog_support import (
     CLEAN_SHOP_MD,
     FIXTURE_DIR,
     HEADER,
+    AgainstExpectation,
     Variant,
     contract_rule_field,
     contract_rule_replaced,
@@ -617,6 +618,237 @@ _RECURSIVE_INSIDE_VIOLATION = Variant(
     expected_declared_rules="FAIL",
 )
 
+_WIDE_TASK_NAMES = ("source", "target", "alpha", "bravo", "charlie", "delta", "echo", "foxtrot")
+_WIDE_TASKS_CONTRACT = (
+    json.dumps(
+        {
+            "schema_version": "2.1.0",
+            "components": [
+                {
+                    "id": f"COMP-{name.upper()}",
+                    "label": name,
+                    "role": "component",
+                    "packages": [f"shop.store.backend.tasks.{name}"],
+                    "responsibilities": [],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/shop.md"],
+                    "requires": (
+                        [{"component": "target", "rationale": "The task delegates this operation."}]
+                        if name == "source"
+                        else []
+                    ),
+                    "public": [f"shop.store.backend.tasks.{name}:run"],
+                }
+                for name in _WIDE_TASK_NAMES
+            ],
+            "rules": [
+                {
+                    "id": "DEEP-REQUIRES-COMPLETE",
+                    "kind": "complete_requires",
+                    "rationale": "Task-layer edges must be declared.",
+                    "provenance": ["docs/architecture/shop.md"],
+                    "decided_by": "architect",
+                }
+            ],
+        },
+        indent=2,
+    )
+    + "\n"
+)
+_WIDE_TASK_PACKAGE = HEADER + (
+    '"""Executable package root composing isolated task modules."""\n\n'
+    "from shop.store.backend.tasks.alpha import run as _alpha\n"
+    "from shop.store.backend.tasks.bravo import run as _bravo\n"
+    "from shop.store.backend.tasks.charlie import run as _charlie\n"
+    "from shop.store.backend.tasks.delta import run as _delta\n"
+    "from shop.store.backend.tasks.echo import run as _echo\n"
+    "from shop.store.backend.tasks.foxtrot import run as _foxtrot\n"
+    "from shop.store.backend.tasks.source import run as _source\n"
+    "from shop.store.backend.tasks.target import run as _target\n\n\n"
+    "def run() -> tuple[str, ...]:\n"
+    "    return (\n"
+    "        _source(), _target(), _alpha(), _bravo(),\n"
+    "        _charlie(), _delta(), _echo(), _foxtrot()\n"
+    "    )\n"
+)
+_WIDE_TASK_FILES: dict[str, str] = {
+    "shop/store/backend/tasks/architecture-contract.json": _WIDE_TASKS_CONTRACT,
+    "shop/store/backend/tasks/__init__.py": _WIDE_TASK_PACKAGE,
+    "shop/store/backend/tasks/isolated.py": (
+        HEADER + '"""Observed leaf with no module imports or importers."""\n\nVALUE = "isolated"\n'
+    ),
+    **{
+        f"shop/store/backend/tasks/{name}.py": (
+            HEADER
+            + f'"""Isolated {name} task."""\n\n'
+            + (
+                "from shop.store.backend.tasks.target import run_target\n\n"
+                if name == "source"
+                else ""
+            )
+            + (
+                "\n\ndef run() -> str:\n    return run_target()\n"
+                if name == "source"
+                else (
+                    '\n\ndef run_target() -> str:\n    return "done"\n'
+                    "\n\ndef run() -> str:\n    return run_target()\n"
+                    if name == "target"
+                    else '\n\ndef run() -> str:\n    return "done"\n'
+                )
+            )
+        )
+        for name in _WIDE_TASK_NAMES
+    },
+}
+_RECURSIVE_WIDE_PACKAGE = Variant(
+    id="class-a-recursive-wide-package",
+    section="showcase",
+    item="recursive_inside:wide_package",
+    summary="Three nested contracts partition eight task modules below one executable package "
+    "root; the report carries the package root and each isolated module through all levels.",
+    files={**_RECURSIVE_INSIDE_FILES, **_WIDE_TASK_FILES},
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="PASS",
+)
+_RECURSIVE_DEEP_INTERFACE = Variant(
+    id="class-a-recursive-deep-interface",
+    section="class_a",
+    item="interface_boundary:recursive_deep",
+    summary="A task imported three nested contracts down remains planned until its caller uses it.",
+    files={
+        **_WIDE_TASK_FILES,
+        "shop/store/architecture-contract.json": _recursive_inside_parent_contract(),
+        "shop/store/backend/architecture-contract.json": _RECURSIVE_INSIDE_FILES[
+            "shop/store/backend/architecture-contract.json"
+        ],
+        "shop/store/backend/tasks/architecture-contract.json": json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        "id": "COMP-SOURCE",
+                        "label": "source",
+                        "role": "component",
+                        "packages": ["shop.store.backend.tasks.source"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["docs/architecture/shop.md"],
+                        "requires": [{"component": "target", "rationale": "The task calls it."}],
+                        "public": [],
+                    },
+                    {
+                        "id": "COMP-TARGET",
+                        "label": "target",
+                        "role": "component",
+                        "packages": ["shop.store.backend.tasks.target"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["docs/architecture/shop.md"],
+                        "public": [],
+                        "planned": ["shop.store.backend.tasks.target:run_target"],
+                    },
+                ],
+                "rules": [
+                    {
+                        "id": "DEEP-INTERFACE",
+                        "kind": "interface_boundary",
+                        "rationale": "Used symbols must be part of the declared interface.",
+                        "provenance": ["docs/architecture/shop.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+    },
+    expected_violations=("store:backend:tasks:DEEP-INTERFACE",),
+    expected_codes=("interface.planned_built", "rule.violated"),
+    expected_declared_rules="FAIL",
+)
+
+
+def _deep_child_failure(name: str, child: str | None, summary: str) -> Variant:
+    files = dict(_RECURSIVE_INSIDE_FILES)
+    if child is None:
+        files.update(
+            {
+                path: content
+                for path, content in _WIDE_TASK_FILES.items()
+                if path != "shop/store/backend/tasks/architecture-contract.json"
+            }
+        )
+    else:
+        files.update(_WIDE_TASK_FILES)
+    if child is not None:
+        contract = json.loads(child)
+        if name == "cycle":
+            contract["components"][0]["inside"] = "shop/store/backend/architecture-contract.json"
+        else:
+            contract["declarations"] = {
+                "measurement_budgets": [
+                    {"name": "cycle_edges", "provenance": ["docs/architecture/shop.md"]}
+                ]
+            }
+        files["shop/store/backend/tasks/architecture-contract.json"] = (
+            json.dumps(contract, indent=2) + "\n"
+        )
+    return Variant(
+        id=f"validation-recursive-child-{name}",
+        section="validation",
+        item=f"inside.child_contract:{name}",
+        summary=summary,
+        files=files,
+        expected_violations=(),
+        expected_codes=("contract.invalid",),
+        expected_kinds=("parse_error",),
+        expected_declared_rules="UNKNOWN",
+    )
+
+
+_RECURSIVE_CHILD_MISSING = _deep_child_failure(
+    "missing", None, "A missing contract at the deepest inside level remains UNKNOWN."
+)
+_RECURSIVE_CHILD_CYCLE = _deep_child_failure(
+    "cycle",
+    _WIDE_TASKS_CONTRACT,
+    "A deepest inside reference back to an ancestor contract remains UNKNOWN as a cycle.",
+)
+_RECURSIVE_CHILD_UNSUPPORTED = _deep_child_failure(
+    "unsupported",
+    _WIDE_TASKS_CONTRACT,
+    "A deepest child contract with unsupported declarations remains UNKNOWN.",
+)
+
+_WIDE_TASKS_RULE_REMOVED = (
+    json.dumps({**json.loads(_WIDE_TASKS_CONTRACT), "rules": []}, indent=2) + "\n"
+)
+_RECURSIVE_DEEPEST_CHANGE = Variant(
+    id="against-recursive-deepest-contract-change",
+    section="validation",
+    item="against:deepest_inside_changed",
+    summary="Removing a rule only from the deepest child contract changes the recursive digest "
+    "and `validate --against` reports the widening.",
+    files={
+        **_RECURSIVE_INSIDE_FILES,
+        **_WIDE_TASK_FILES,
+        "shop/store/backend/tasks/architecture-contract.json": _WIDE_TASKS_RULE_REMOVED,
+    },
+    expected_violations=(),
+    expected_codes=(),
+    against=AgainstExpectation(
+        "deepest_inside_changed",
+        1,
+        ("rule store:backend:tasks:DEEP-REQUIRES-COMPLETE (complete_requires) removed",),
+        base_files={
+            **_RECURSIVE_INSIDE_FILES,
+            **_WIDE_TASK_FILES,
+            "shop/store/backend/tasks/architecture-contract.json": _WIDE_TASKS_CONTRACT,
+        },
+    ),
+)
+
 
 def _recursive_interface_variant(state: str, used: bool) -> Variant:
     contract = json.loads(_recursive_inside_rule_contract(require_target=True))
@@ -780,6 +1012,12 @@ VARIANTS: tuple[Variant, ...] = (
     _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION,
     _RECURSIVE_INSIDE_CLEAN,
     _RECURSIVE_INSIDE_VIOLATION,
+    _RECURSIVE_WIDE_PACKAGE,
+    _RECURSIVE_DEEP_INTERFACE,
+    _RECURSIVE_CHILD_MISSING,
+    _RECURSIVE_CHILD_CYCLE,
+    _RECURSIVE_CHILD_UNSUPPORTED,
+    _RECURSIVE_DEEPEST_CHANGE,
     *(
         _recursive_interface_variant(state, used)
         for state in ("public", "planned")
