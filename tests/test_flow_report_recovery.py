@@ -29,6 +29,92 @@ def _run_flow_js(script: str) -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_heaviest_connections_preserve_edge_state_and_accessible_status() -> None:
+    _run_flow_js(
+        r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const css = fs.readFileSync(process.argv[1].replace("flow.js", "archkeel-report.css"), "utf8");
+const edges = [
+  ["violation", "FAIL"],
+  ["undecided", "UNKNOWN"],
+  ["observed", "OBSERVED"],
+  ["conforms", "CONFORMS"],
+].map(([state], index) => ({
+  state,
+  source: `pkg.source${index}`,
+  target: `pkg.target${index}`,
+  import_sites: 4 - index,
+  kind: "import",
+}));
+const weight = edge => edge.import_sites;
+const topStart = text.indexOf("  function topHeaviestEdges(");
+const topEnd = text.indexOf("  function relativeEdgeLabel(", topStart);
+assert(topStart >= 0 && topEnd > topStart);
+const render = checked => {
+  const violationsOnly = {checked};
+  const level = () => ({edges});
+  const visibleEdges = () => edges.filter(edge => edge.state === "violation");
+  const topHeaviestEdges = new Function(
+    "violationsOnly", "level", "visibleEdges", "weight",
+    text.slice(topStart, topEnd) + ";return topHeaviestEdges",
+  )(violationsOnly, level, visibleEdges, weight);
+  const blockStart = text.indexOf("  function heaviestBlock(");
+  const blockEnd = text.indexOf("  function emptyViolationBlock(", blockStart);
+  assert(blockStart >= 0 && blockEnd > blockStart);
+  const heaviestBlock = new Function(
+    "violationsOnly", "topHeaviestEdges", "weight", "edgeKey", "esc",
+    "relativeEdgeLabel", "edgeCountLabel", "emptyViolationBlock",
+    text.slice(blockStart, blockEnd) + ";return heaviestBlock",
+  )(
+    violationsOnly,
+    topHeaviestEdges,
+    weight,
+    edge => `${edge.source}>${edge.target}`,
+    String,
+    edge => `${edge.source} → ${edge.target}`,
+    edge => `${edge.import_sites} import sites`,
+    () => "empty",
+  );
+  return heaviestBlock();
+};
+
+const general = render(false);
+assert(general.includes("<h3>Heaviest connections</h3>"));
+for (const [state, label] of [
+  ["violation", "FAIL"], ["undecided", "UNKNOWN"],
+  ["observed", "OBSERVED"], ["conforms", "CONFORMS"],
+]) {
+  const stateAt = general.indexOf(`data-state="${state}"`);
+  assert(stateAt >= 0, general);
+  const rowStart = general.lastIndexOf('<div class="row', stateAt);
+  const rowEnd = general.indexOf("</div>", stateAt) + 6;
+  const row = general.slice(rowStart, rowEnd);
+  const aria = row.match(/aria-label="([^"]*)"/)?.[1] || "";
+  const visible = row.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+  assert(aria.includes(label), row);
+  assert(visible.includes(label), row);
+}
+const focused = render(true);
+assert(focused.includes("<h3>Violating connections</h3>"));
+assert(focused.includes('data-state="violation"'));
+assert(!focused.includes('data-state="undecided"'));
+
+for (const [state, color] of [
+  ["violation", "--ck-fail"], ["undecided", "--ck-unknown"],
+  ["observed", "--ck-muted"], ["conforms", "--ck-teal"],
+]) {
+  const selector = `.flow-inspector .bars .row[data-state="${state}"] .track b`;
+  assert(css.includes(selector), css);
+  const ruleStart = css.indexOf(selector);
+  const ruleEnd = css.indexOf("}", ruleStart);
+  assert(css.slice(ruleStart, ruleEnd).includes(`var(${color})`), css.slice(ruleStart, ruleEnd));
+}
+""",
+    )
+
+
 def test_import_only_package_initializer_stays_openable() -> None:
     _run_flow_js(
         r"""

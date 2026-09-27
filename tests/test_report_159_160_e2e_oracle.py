@@ -138,7 +138,7 @@ class _ReportFilterRows(HTMLParser):
             self._labels.append((values.get("for"), False))
         if tag in {"input", "select"} and self._labels:
             label_for, _ = self._labels[-1]
-            if label_for == values.get("id"):
+            if label_for is None or label_for == values.get("id"):
                 self._labels[-1] = (label_for, True)
         if tag == "tr" and "data-filter-row" in values:
             self._row = values
@@ -914,7 +914,7 @@ def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
     assert "The scan completed. Overall verdict: PASS. Rules still UNKNOWN: 1." in page
     banner = page.split('<section class="decision-banner"', 1)[1].split("</section>", 1)[0]
     assert 'data-decision="unknown"' in banner
-    assert 'aria-label="Decision: UNKNOWN"' in banner
+    assert 'aria-label="Decision: NOT CHECKED"' in banner
 
 
 def test_replay_reports_mixed_boundary_failure_and_unknown_without_double_counting(
