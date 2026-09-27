@@ -6,6 +6,8 @@ The analyzer records each supported evaluator's actual scope and selected facts.
 projects those receipts, violations and shared UNKNOWN counts into typed rule rows. No receipt
 means UNKNOWN, not PASS. Permissions remain declarations. A failed rule retains its undecided
 positions; filtering UNKNOWN includes that mixed result without hiding its failure.
+An UNKNOWN rule prevents a green report headline even when the aggregate remains PASS.
+The summary states that difference; canonical verdicts and exit codes do not change.
 
 Analyzer profile `0.57.0` identifies the new evaluation facts. Observation and contract schemas
 stay unchanged; older observations without receipts cannot prove per-rule PASS.
@@ -21,6 +23,8 @@ complete evaluation of the old subjects under the current rule, with no undecide
 Narrowing a rule or scan cannot resolve debt outside that scope. Cycle contraction also needs
 coverage of the old cycle's members. A package's own receipt does not cover omitted descendants.
 Repeated occurrences share a group count; no individual line is labelled as already known.
+Only a fully shared fingerprint gets muted rows with KNOWN and FAIL markers. Mixed groups
+retain known/new counts without assigning old debt to a particular occurrence.
 
 Resolved means absent under currently evaluated rules, not proof that code was repaired.
 Baselines do not store historical rule definitions. Use `validate --against` to check contract

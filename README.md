@@ -198,13 +198,16 @@ archkeel report --baseline known-violations.json # read-only fingerprint compari
 - **No blended score.** Scan completeness, contract compliance, expectation matching, Git order
   and publication order remain separate verdicts.
 - **Unknown stays visible.** Missing or invalid evidence includes the affected subject,
-  unknown claim, and remedy.
+  unknown claim, and remedy. An UNKNOWN rule prevents a green headline, even if the
+  aggregate verdict remains PASS; the report states that difference explicitly.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
 - **Rules say what was checked.** Each rule has its own result, reason, owner and source.
   PASS requires evaluator evidence; a permission is a declaration, not a passed check.
   Search and filter rules and findings without changing the observation (AD-117).
 - **Known debt stays debt.** An explicit baseline adds fingerprint counts, not exemptions.
+  Known findings keep a FAIL marker; new findings are red. Mixed occurrence counts do
+  not pretend to identify which source line is old.
   Missing rules or undecided evidence cannot make old findings appear resolved.
   Resolution is relative to current rules; `validate --against` checks contract widening.
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
@@ -223,9 +226,8 @@ archkeel report --baseline known-violations.json # read-only fingerprint compari
   Scroll to explore; use Fit for an overview. Focus keeps every direct neighbor, and Arrange
   preserves your filters and zoom (AD-116).
 - **Claims are named, never gated on.** `report` and `validate` print what the five review
-  claims found — on Archkeel itself 2 unreferenced symbols, 3 components larger than their
-  level, 25 cross-component type fan-ins, 0 unread-binding candidates and 0 repetitions — in
-  the terminal and under `claims` in `--json`, while the HTML report lists the candidates.
+  claims found in the terminal and under `claims` in `--json`, while the HTML report lists
+  the candidates. Current self counts live in `fixtures/D-self/result.json`.
   Unread bindings are lexical candidates; the claim does not assess whether an interface requires
   them. Statically proven `Enum.MEMBER` uses in field annotations and defaults reference their
   enum class (AD-108). None of these claims reaches an exit code.
@@ -239,6 +241,13 @@ archkeel report --baseline known-violations.json # read-only fingerprint compari
   one facade's names or one component pair's imported names. `validate` names every counted name
   over it, a baseline freezes today's names so a new one fails, and a count it cannot complete is
   UNKNOWN, never PASS (AD-99).
+
+<p>
+  <img src="docs/assets/archkeel-rule-evidence.png" alt="UNKNOWN filter keeps a failed boundary-type rule visible with one violation, one undecided position and its scope, rationale and evidence" width="1100">
+</p>
+
+<sub>A rule can fail and still contain undecided evidence. The UNKNOWN filter keeps that
+mixed result visible without relabelling its confirmed violation as uncertainty.</sub>
 
 ## Try the demo
 
@@ -509,6 +518,17 @@ make gate
 This runs the locked release checks (Ruff, strict mypy, pytest, builds and smoke tests) and then
 `archkeel validate --root . --baseline architecture-baseline.json --json`. CI uses this same
 Make entry point. `make check` remains the faster source, type and test loop.
+
+CI also runs the interactive report checks with pinned Playwright and Chromium:
+
+```bash
+make browser-install
+make report-browser OUTPUT=test-artifacts/report-browser
+```
+
+The browser lane uses only synthetic demo fixtures and checks deep/wide navigation,
+filters, status labels, narrow screens and the no-JavaScript fallback. Screenshots and
+traces are written under the chosen output directory; use a new directory for each run.
 
 A change to Python code under `src/` or to an architecture contract moves the saved
 self-observation that check compares against; regenerate it with `make self-observation`. The
