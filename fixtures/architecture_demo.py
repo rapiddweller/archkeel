@@ -77,7 +77,8 @@ _REPLAY_NOTE = (
     "HTML sidecar. Report generation is always attempted; the command exit is the higher of "
     "validation and report exits. Report artifacts remain available when validation fails. "
     "Baseline flags are used only when "
-    "the row declares one; only `deepest_inside_changed` replays its `--against` history. "
+    "the row declares one, and a declared baseline is passed to both commands; only "
+    "`deepest_inside_changed` replays its `--against` history. "
     "Check-protocol and tested-only rows are excluded. "
     "The destination files must not exist. `make demo-architecture VARIANT=<variant> "
     "OUTPUT=<new-path>` delegates to the same command."
@@ -206,18 +207,18 @@ def replay(variant_id: str, output: Path) -> int:
             if variant.against is not None:
                 validate.extend(("--against", "main"))
             validate_exit_code = archkeel_main([*validate, "--json"])
-            report_exit_code = archkeel_main(
-                [
-                    "report",
-                    "--root",
-                    str(root),
-                    "--config",
-                    variant.config,
-                    "--output",
-                    str(output),
-                    "--json",
-                ]
-            )
+            report = [
+                "report",
+                "--root",
+                str(root),
+                "--config",
+                variant.config,
+                "--output",
+                str(output),
+            ]
+            if variant.baseline is not None:
+                report.extend(("--baseline", variant.baseline))
+            report_exit_code = archkeel_main([*report, "--json"])
             for path in reserved:
                 if path.is_file() and path.stat().st_size == 0:
                     path.unlink()
