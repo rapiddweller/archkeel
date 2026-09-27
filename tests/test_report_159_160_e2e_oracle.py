@@ -836,8 +836,10 @@ def test_executable_package_init_does_not_prove_omitted_namespace_cycle_absent(
         record.data.get("qualified_name") == "shop.store"
         for record in observation.records("modules") or ()
     )
-    # The report proves the explicitly scanned store package clean, not the old shop-wide SCC.
-    assert _assessment(result, "MODEL-MODULES-ACYCLIC")["status"] == "PASS"
+    # The rule selects model and cli too; the store initializer cannot prove those scopes.
+    cycle_assessment = _assessment(result, "MODEL-MODULES-ACYCLIC")
+    assert cycle_assessment["status"] == "UNKNOWN"
+    assert cycle_assessment["evaluation_proven"] is False
     assert result["baseline_comparisons"] == [
         {
             "current_count": 0,
