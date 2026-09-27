@@ -4,10 +4,10 @@
 """Build typed report results and canonical observation bytes."""
 
 import subprocess
-from collections import Counter
+from collections import Counter as _Counter
 from dataclasses import replace
 from pathlib import Path
-from typing import Literal
+from typing import Literal as _Literal
 
 from archkeel.ir.baseline import (
     ViolationFingerprint,
@@ -24,8 +24,11 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.decisions import (
     agent_decisions,
+    baseline_fingerprint_covered,
+    cycle_scope_receipt_covers,
     open_decisions,
     review_claims,
+    rule_assessments,
     violation_counts,
 )
 from archkeel.ir.model import (
@@ -39,7 +42,6 @@ from archkeel.ir.model import (
     RuleAssessment,
     RunResult,
 )
-from archkeel.ir.rule_assessment import rule_assessments
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
@@ -61,28 +63,54 @@ def _baseline_report(
         known = parse_validation_baseline(decode_json(baseline_file.read_bytes()))
     except (OSError, ValueError) as error:
         raise ValueError(f"cannot read baseline {baseline}: {error}") from error
-    known_counts: Counter[ViolationFingerprint] = Counter(
+    known_counts: _Counter[ViolationFingerprint] = _Counter(
         {item.fingerprint: item.count for item in known.violations}
     )
+    known_roles = {item.fingerprint: item.roles for item in known.violations}
     current = observed_violations(model)
-    current_counts: Counter[ViolationFingerprint] = Counter(
+    current_counts: _Counter[ViolationFingerprint] = _Counter(
         {item.fingerprint: item.count for item in current}
     )
     cycle_rules = frozenset(
         record.id
         for record in model.records("declarations") or ()
-        if record.evidence_class.value == "DECLARED_RULE" and record.kind == "no_component_cycles"
+        if record.kind == "no_component_cycles"
+        and any(
+            cycle_scope_receipt_covers(item.fingerprint, record.id, model)
+            for item in (*known.violations, *current)
+            if record.id in item.fingerprint.rules
+        )
     )
-    contracted = cycle_contractions(known.violations, current, cycle_rules=cycle_rules)
-    comparisons = _baseline_comparisons(known_counts, current_counts, contracted, current_rules)
+    scoped_cycles = tuple(
+        item
+        for item in (*known.violations, *current)
+        if item.fingerprint.rules
+        and all(
+            rule in cycle_rules and cycle_scope_receipt_covers(item.fingerprint, rule, model)
+            for rule in item.fingerprint.rules
+        )
+    )
+    known_cycles = tuple(item for item in scoped_cycles if item in known.violations)
+    current_cycles = tuple(item for item in scoped_cycles if item in current)
+    contracted = cycle_contractions(known_cycles, current_cycles, cycle_rules=cycle_rules)
+    comparisons = _baseline_comparisons(
+        known_counts,
+        current_counts,
+        known_roles,
+        contracted,
+        current_rules,
+        model,
+    )
     return str(baseline_file.relative_to(root.resolve())), comparisons
 
 
 def _baseline_comparisons(
-    known_counts: Counter[ViolationFingerprint],
-    current_counts: Counter[ViolationFingerprint],
+    known_counts: _Counter[ViolationFingerprint],
+    current_counts: _Counter[ViolationFingerprint],
+    known_roles: dict[ViolationFingerprint, tuple[tuple[str, str], ...]],
     contracted: frozenset[ViolationFingerprint],
     current_rules: dict[str, RuleAssessment],
+    model: Observation,
 ) -> tuple[BaselineViolationComparison, ...]:
     return tuple(
         BaselineViolationComparison(
@@ -92,8 +120,20 @@ def _baseline_comparisons(
             min(before, after),
             after,
             0 if fingerprint in contracted else max(after - before, 0),
-            max(before - after, 0) if _resolved_is_proven(fingerprint.rules, current_rules) else 0,
-            _baseline_status(fingerprint, before, after, contracted, current_rules),
+            max(before - after, 0)
+            if baseline_fingerprint_covered(
+                fingerprint, known_roles.get(fingerprint, ()), model, current_rules
+            )
+            else 0,
+            _baseline_status(
+                fingerprint,
+                before,
+                after,
+                contracted,
+                known_roles.get(fingerprint, ()),
+                model,
+                current_rules,
+            ),
         )
         for fingerprint in sorted(
             known_counts.keys() | current_counts.keys(),
@@ -105,26 +145,18 @@ def _baseline_comparisons(
     )
 
 
-def _resolved_is_proven(
-    rule_ids: tuple[str, ...], current_rules: dict[str, RuleAssessment]
-) -> bool:
-    return all(
-        (assessment := current_rules.get(rule_id)) is not None
-        and assessment.evaluation_proven
-        and assessment.status in {"PASS", "FAIL"}
-        and assessment.undecided == 0
-        for rule_id in rule_ids
-    )
-
-
 def _baseline_status(
     fingerprint: ViolationFingerprint,
     before: int,
     after: int,
     contracted: frozenset[ViolationFingerprint],
+    roles: tuple[tuple[str, str], ...],
+    model: Observation,
     current_rules: dict[str, RuleAssessment],
-) -> Literal["known", "new", "reduced", "resolved", "contracted", "unknown"]:
-    if after < before and not _resolved_is_proven(fingerprint.rules, current_rules):
+) -> _Literal["known", "new", "reduced", "resolved", "contracted", "unknown"]:
+    if after < before and not baseline_fingerprint_covered(
+        fingerprint, roles, model, current_rules
+    ):
         return "unknown"
     if fingerprint in contracted:
         return "contracted"

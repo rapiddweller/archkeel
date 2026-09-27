@@ -267,8 +267,8 @@ def _rule_assessments(items: tuple[RuleAssessment, ...] | None) -> str:
     return f"""
     <section class="report-section" aria-labelledby="rule-assessments-heading">
       <h2 id="rule-assessments-heading">Declared rules · {len(items)}</h2>
-      <p>PASS appears only with an evaluator receipt. Permission rules are declarations, not
-      conformance checks. FAIL may also carry undecided evidence.</p>
+      <p>PASS requires evidence that this rule was checked. Permissions define allowed paths;
+      they are not checks. FAIL may also include undecided evidence.</p>
       <div class="table-wrap"><table><thead><tr><th>Rule</th><th>Kind</th><th>Status</th>
       <th>Violations / undecided</th><th>Details</th></tr></thead>
       <tbody>{rows}</tbody></table></div>
@@ -284,11 +284,12 @@ def _rule_assessment_row(item: RuleAssessment) -> str:
     )
     return (
         f'<tr data-filter-row data-kind="{_text(item.kind)}" data-status="{_text(item.status)}" '
+        f'data-undecided="{item.undecided}" '
         f'data-component="{_text(" ".join(item.components))}" '
         f'data-search="{_text(item.id + " " + item.kind + " " + details)}">'
         f"<td><code>{_text(item.id)}</code></td><td>{_text(item.kind)}</td>"
         f'<td><strong data-status="{state}">{_text(item.status)}</strong></td>'
-        f'<td class="numeric" data-undecided="{item.undecided}">'
+        '<td class="numeric">'
         f"{item.count} violations · {item.undecided} undecided</td>"
         f"<td><details><summary>Scope, decision and evidence</summary>"
         f"<dl><dt>Decider</dt><dd>{_text(item.decided_by)}</dd>"
@@ -1129,8 +1130,9 @@ def _baseline_comparison(
     return f"""
     <section class="report-section"><h2>Read-only baseline comparison</h2>
       <p>Baseline: <code>{_text(path)}</code>. Counts are grouped by fingerprint; repeated
-      occurrences have no invented line identity. Resolved counts require this complete
-      observation.</p>
+      occurrences have no invented line identity. Resolved means absent under the currently
+      evaluated rules, not proof the code was fixed: the baseline stores no prior rule definitions.
+      Use <code>validate --against</code> to check contract changes.</p>
       <div class="table-wrap"><table><thead><tr><th>Rule</th><th>Subjects</th>
       <th>Known before</th><th>Current</th><th>Status</th><th>Drift</th></tr></thead>
       <tbody>{rows}</tbody></table></div>

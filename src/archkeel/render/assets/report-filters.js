@@ -11,9 +11,10 @@
     const status = form.elements.namedItem("status").value;
     let visible = 0;
     for (const row of rows) {
+      const failWithUnknown = row.dataset.status === "FAIL"
+        && Number(row.dataset.undecided) > 0;
       const statusMatches = !status || row.dataset.status === status
-        || (status === "FAIL+UNKNOWN" && row.dataset.status === "FAIL"
-          && Number(row.dataset.undecided) > 0);
+        || ((status === "FAIL+UNKNOWN" || status === "UNKNOWN") && failWithUnknown);
       const matches = (!search || row.dataset.search.toLowerCase().includes(search))
         && (!kind || row.dataset.kind === kind)
         && (!component || row.dataset.component.split(" ").includes(component))

@@ -10,7 +10,9 @@ import builtins
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Final, Literal, NamedTuple, TypeAlias, assert_never
+from pathlib import PurePosixPath
+from typing import Final, NamedTuple, TypeAlias, assert_never
+from typing import Literal as _Literal
 
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -44,7 +46,7 @@ from .records import RawEvidence, RawRecord, RecordData, classified
 
 # AD-97: an import either decides a symbol rule or, when the scan cannot see which names it
 # uses (a Dart import without `show`), leaves it undecided -- never a pass, never a violation.
-_Verdict: TypeAlias = Literal["violation", "allowed", "undecided"]
+_Verdict: TypeAlias = _Literal["violation", "allowed", "undecided"]
 UncertainReexportOrigins: TypeAlias = dict[str, frozenset[str]]
 FacadeEntry: TypeAlias = tuple[str, str, str, bool]
 DeclaredFacade: TypeAlias = tuple[str, str, list[tuple[str, str]], str, tuple[FacadeEntry, ...]]
@@ -431,7 +433,7 @@ def _module_placement_violations(
 
 
 def _cycle_rules(
-    contract: ArchitectureContract, level: Literal["module"] | None
+    contract: ArchitectureContract, level: _Literal["module"] | None
 ) -> list[NoComponentCyclesRule]:
     return [
         rule
@@ -448,6 +450,8 @@ def _component_cycle_violations(
     assessment_facts: list[RawRecord] | None = None,
     scope: str = "root",
     unsupported_rules: frozenset[str] = frozenset(),
+    cycle_scope_complete: bool = False,
+    cycle_graph_components: tuple[str, ...] = (),
 ) -> list[RawRecord]:
     rules = _cycle_rules(contract, None)
     if not rules:
@@ -468,7 +472,29 @@ def _component_cycle_violations(
             and (rule.components is None or component.label in rule.components)
         ]
         if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
-            assessment_facts.append(_rule_evaluation_receipt(rule, scope, selected))
+            selected_components = tuple(
+                sorted(
+                    {
+                        component.label
+                        for module in selected
+                        if (component := contract.component_for(module["data"]["qualified_name"]))
+                        is not None
+                    }
+                )
+            )
+            assessment_facts.append(
+                _rule_evaluation_receipt(
+                    rule,
+                    scope,
+                    modules,
+                    subjects=selected_components,
+                    data={
+                        "cycle_scope_complete": cycle_scope_complete,
+                        "cycle_scope_components": selected_components,
+                        "cycle_graph_components": cycle_graph_components,
+                    },
+                )
+            )
     for members in strongly_connected_components(labels, edge_imports):
         if len(members) < 2:
             continue
@@ -510,6 +536,7 @@ def _module_cycle_violations(
     assessment_facts: list[RawRecord] | None = None,
     assessment_scope: str = "root",
     unsupported_rules: frozenset[str] = frozenset(),
+    cycle_namespace_complete: bool = False,
 ) -> list[RawRecord]:
     """One violation per module SCC the report measures, when it touches the rule's scope.
 
@@ -538,7 +565,15 @@ def _module_cycle_violations(
             and (scope is None or any(in_scope(name, package) for package in scope))
         ]
         if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
-            assessment_facts.append(_rule_evaluation_receipt(rule, assessment_scope, selected))
+            assessment_facts.append(
+                _rule_evaluation_receipt(
+                    rule,
+                    assessment_scope,
+                    modules,
+                    subjects=tuple(item["data"]["qualified_name"] for item in selected),
+                    data={"cycle_scope_complete": cycle_namespace_complete},
+                )
+            )
         for cycle in module_cycles:
             members: list[str] = cycle["data"]["members"]
             if source_modules is not None and not any(
@@ -3360,6 +3395,9 @@ def _cycle_rule_violations(
     assessment_facts: list[RawRecord] | None,
     scope: str,
     unsupported_rules: frozenset[str],
+    cycle_scope_complete: bool,
+    cycle_graph_components: tuple[str, ...],
+    cycle_namespace_complete: bool,
 ) -> list[RawRecord]:
     return [
         *_component_cycle_violations(
@@ -3369,6 +3407,8 @@ def _cycle_rule_violations(
             assessment_facts=assessment_facts,
             scope=scope,
             unsupported_rules=unsupported_rules,
+            cycle_scope_complete=cycle_scope_complete,
+            cycle_graph_components=cycle_graph_components,
         ),
         *_module_cycle_violations(
             module_cycles,
@@ -3379,6 +3419,7 @@ def _cycle_rule_violations(
             assessment_facts=assessment_facts,
             assessment_scope=scope,
             unsupported_rules=unsupported_rules,
+            cycle_namespace_complete=cycle_namespace_complete,
         ),
     ]
 
@@ -3439,6 +3480,9 @@ def _collect_rule_violations(
     boundary_violations: Sequence[RawRecord],
     assessment_facts: list[RawRecord] | None,
     assessment_parent: str | None,
+    cycle_scope_complete: bool,
+    cycle_graph_components: tuple[str, ...],
+    cycle_namespace_complete: bool,
 ) -> list[RawRecord]:
     checked = assessment_facts if assessment_facts is not None else []
     result = [
@@ -3467,6 +3511,9 @@ def _collect_rule_violations(
             assessment_facts,
             assessment_parent or "root",
             profile.unsupported_rules,
+            cycle_scope_complete,
+            cycle_graph_components,
+            cycle_namespace_complete,
         ),
         *_interface_violations(
             imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
@@ -3497,6 +3544,8 @@ def rule_violations(
     assessment_facts: list[RawRecord] | None = None,
     assessment_parent: str | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
+    cycle_scan_roots: tuple[str, ...] = (),
+    cycle_namespace: str | None = None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
     components = tuple((component.label, component.packages) for component in contract.components)
@@ -3526,6 +3575,9 @@ def rule_violations(
             assessment_parent or "root",
         )
     )
+    cycle_namespace_complete, cycle_graph_components = _cycle_scan_coverage(
+        contract, modules, profile, cycle_scan_roots, cycle_namespace
+    )
     result = _collect_rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -3545,6 +3597,11 @@ def rule_violations(
         boundary_violations=boundary_violations,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
+        cycle_scope_complete=(
+            len(cycle_graph_components) == len(contract.components) and bool(contract.components)
+        ),
+        cycle_graph_components=cycle_graph_components,
+        cycle_namespace_complete=cycle_namespace_complete,
     )
     if assessment_facts is not None:
         assessment_facts.extend(
@@ -3565,6 +3622,7 @@ def _rule_evaluation_receipt(
     evaluated: Sequence[RawRecord],
     *,
     subjects: Sequence[str] | None = None,
+    data: dict[str, object] | None = None,
 ) -> RawRecord:
     names = tuple(
         sorted(
@@ -3586,8 +3644,67 @@ def _rule_evaluation_receipt(
         rule_ids=[rule.id],
         fact_ids=[item["id"] for item in evaluated],
         evidence_ids=sorted({evidence for item in evaluated for evidence in item["evidence_ids"]}),
-        data={"scope": scope},
+        data={"scope": scope, **(data or {})},
     )
+
+
+def _cycle_scan_coverage(
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    roots: tuple[str, ...],
+    namespace: str | None,
+) -> tuple[bool, tuple[str, ...]]:
+    """Prove cycle domains are recursively inside configured scan roots."""
+    if not roots or namespace is None or profile.source_suffix != ".py":
+        return False, ()
+
+    scan_roots = tuple(_relative_path(root) for root in roots)
+
+    def package_path(package: str) -> PurePosixPath | None:
+        package_parts = package.split(".")
+        for record in modules:
+            name = record["data"].get("qualified_name")
+            file = record["data"].get("file")
+            if (
+                not isinstance(name, str)
+                or not isinstance(file, str)
+                or not in_scope(name, package)
+            ):
+                continue
+            module_parts = name.split(".")
+            extra_modules = len(module_parts) - len(package_parts)
+            path = _relative_path(file).parent
+            for _ in range(max(extra_modules - 1, 0)):
+                path = path.parent
+            return path
+        return None
+
+    def covered(package: str) -> bool:
+        path = package_path(package)
+        return path is not None and any(_contains(root, path) for root in scan_roots)
+
+    components = tuple(
+        sorted(
+            component.label
+            for component in contract.components
+            if component.packages and all(covered(package) for package in component.packages)
+        )
+    )
+    namespace_path = package_path(namespace)
+    namespace_complete = namespace_path is not None and any(
+        _contains(root, namespace_path) for root in scan_roots
+    )
+    return namespace_complete, components
+
+
+def _relative_path(value: str) -> PurePosixPath:
+    path = PurePosixPath(value)
+    return PurePosixPath(*(part for part in path.parts if part not in {".", ""}))
+
+
+def _contains(root: PurePosixPath, path: PurePosixPath) -> bool:
+    return not root.is_absolute() and path.is_relative_to(root)
 
 
 def rule_evaluation_receipts(

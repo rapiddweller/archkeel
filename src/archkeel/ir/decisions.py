@@ -9,9 +9,12 @@ validation and a report rendered later from `architecture.json` bytes share one 
 
 from __future__ import annotations
 
-from collections import Counter
-from typing import Final
+from collections import Counter as _Counter
+from collections.abc import Mapping as _Mapping
+from pathlib import PurePosixPath as _PurePosixPath
+from typing import Final as _Final
 
+from .baseline import ViolationFingerprint as _ViolationFingerprint
 from .baseline import violation_rows
 from .bindings import unread_bindings
 from .duplication import repeated_logic
@@ -27,7 +30,10 @@ from .model import (
     Record,
     RecordData,
     ReviewClaims,
+    RuleAssessment,
+    RuleAssessmentStatus,
     ViolationCounts,
+    in_scope,
     package_owners,
 )
 from .references import unreferenced_symbols
@@ -41,9 +47,9 @@ _COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_resp
 
 # The provenance every drafted dependency option cites; init writes this file alongside
 # the contract, so the path already exists by the time an architect copies an option in.
-DOCUMENT_PATH: Final = "docs/architecture/architecture.md"
+DOCUMENT_PATH: _Final = "docs/architecture/architecture.md"
 
-_PLACEHOLDER_RATIONALE: Final = "TODO: the architect's reason for this decision."
+_PLACEHOLDER_RATIONALE: _Final = "TODO: the architect's reason for this decision."
 
 
 def _decides_this_level(record: Record) -> bool:
@@ -80,9 +86,9 @@ def _decided_component_pairs(
 
 def _component_import_sites(
     observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
-) -> Counter[tuple[str, str]]:
+) -> _Counter[tuple[str, str]]:
     """Import-site counts per component pair, from the analyzer's own module-level edges."""
-    sites: Counter[tuple[str, str]] = Counter()
+    sites: _Counter[tuple[str, str]] = _Counter()
     for record in observation.records("dependency_edges") or ():
         if record.kind != "module_dependency":
             continue
@@ -256,8 +262,8 @@ def violation_counts(observation: Observation) -> ViolationCounts:
     fallback: `embedded.violations` sets exactly one rule id on every violation it produces,
     and `ir.codec.parse_record` (AD-54) rejects a VIOLATION record read back with none.
     """
-    rules: Counter[str] = Counter()
-    pairs: Counter[tuple[str, str]] = Counter()
+    rules: _Counter[str] = _Counter()
+    pairs: _Counter[tuple[str, str]] = _Counter()
     for row in violation_rows(observation):
         rules[row.fingerprint.rules[0]] += 1
         if (
@@ -278,6 +284,204 @@ def violation_counts(observation: Observation) -> ViolationCounts:
             )
         ),
     )
+
+
+def _rule_status(
+    *, declared_only: bool, violations: int, complete: bool, receipt: bool, undecided: int
+) -> tuple[RuleAssessmentStatus, str]:
+    if declared_only:
+        return "DECLARATION", "Permission declaration; it does not evaluate conformance."
+    if violations:
+        return "FAIL", "The evaluator recorded one or more violations."
+    if not complete:
+        return "UNKNOWN", "The observation is incomplete; a complete evaluator scope is not proven."
+    if not receipt:
+        return "UNKNOWN", "No complete evaluator receipt exists for this rule and scope."
+    if undecided:
+        return "UNKNOWN", "The evaluator left one or more positions undecided."
+    return "PASS", "The evaluator completed this rule's observed scope without violations."
+
+
+def rule_assessments(
+    observation: Observation,
+    *,
+    undecided_by_rule: _Mapping[str, int],
+    complete: bool = True,
+) -> tuple[RuleAssessment, ...]:
+    """Project evaluator receipts and findings into one row per declared rule."""
+    records = {record.id: record for section in observation.sections for record in section.records}
+    declarations = [
+        record
+        for record in records.values()
+        if record.evidence_class.value == "DECLARED_RULE" and record.kind in RULE_KINDS
+    ]
+    violations: _Counter[str] = _Counter(
+        rule_id for record in observation.records("violations") or () for rule_id in record.rule_ids
+    )
+    components = [record for record in records.values() if record.kind in _COMPONENT_KINDS]
+    receipts = {
+        record.rule_ids[0]: record
+        for record in observation.records("scope_observations") or ()
+        if record.kind == "rule_evaluation" and record.rule_ids
+    }
+    rows: list[RuleAssessment] = []
+    for declaration in declarations:
+        identifier = declaration.id
+        undecided = undecided_by_rule.get(identifier, 0)
+        violation_count = violations[identifier]
+        receipt = receipts.get(identifier)
+        receipt_complete = receipt is not None
+        if declaration.kind == "no_component_cycles":
+            receipt_complete = (
+                receipt is not None and receipt.data.get("cycle_scope_complete") is True
+            )
+        evaluation_proven = complete and receipt_complete
+        declared_only = declaration.kind == "allowed_dependency"
+        status, reason = _rule_status(
+            declared_only=declared_only,
+            violations=violation_count,
+            complete=complete,
+            receipt=receipt_complete,
+            undecided=undecided,
+        )
+        parent_id = declaration.data.get("parent_id")
+        scope = str(parent_id) if isinstance(parent_id, str) else "root"
+        parent = records.get(scope)
+        if parent is not None:
+            scope = parent.title
+        rule_components = {
+            component.title
+            for component in components
+            if component.id == parent_id
+            or any(
+                in_scope(subject, package)
+                for subject in declaration.subjects
+                for package in component.subjects
+            )
+        }
+        decided_by = declaration.data.get("decided_by", "UNKNOWN")
+        rationale = declaration.data.get("rationale", "")
+        rows.append(
+            RuleAssessment(
+                identifier,
+                declaration.kind,
+                status,
+                evaluation_proven,
+                violation_count,
+                undecided,
+                decided_by if isinstance(decided_by, str) else "UNKNOWN",
+                rationale if isinstance(rationale, str) else "",
+                declaration.provenance,
+                reason,
+                scope,
+                tuple(sorted(rule_components)),
+            )
+        )
+    return tuple(sorted(rows, key=lambda item: (item.scope, item.id)))
+
+
+def cycle_scope_receipt_covers(
+    fingerprint: _ViolationFingerprint, rule_id: str, observation: Observation
+) -> bool:
+    """Whether the selected cycle rule covered an SCC inside its evaluated graph."""
+    rule = next(
+        (
+            record
+            for record in observation.records("declarations") or ()
+            if record.id == rule_id and record.kind == "no_component_cycles"
+        ),
+        None,
+    )
+    if rule is None:
+        return False
+    component_cycle = rule.data.get("level") is None
+    for receipt in observation.records("scope_observations") or ():
+        if (
+            receipt.kind != "rule_evaluation"
+            or rule_id not in receipt.rule_ids
+            or receipt.data.get("cycle_scope_complete") is not True
+        ):
+            continue
+        if component_cycle:
+            selected = receipt.data.get("cycle_scope_components")
+            graph = receipt.data.get("cycle_graph_components")
+            if (
+                isinstance(selected, (list, tuple))
+                and all(isinstance(item, str) for item in selected)
+                and isinstance(graph, (list, tuple))
+                and all(isinstance(item, str) for item in graph)
+                and set(fingerprint.subjects) & set(selected)
+                and set(fingerprint.subjects) <= set(graph)
+            ):
+                return True
+        elif set(fingerprint.subjects) <= _evaluated_module_names(receipt, observation):
+            return True
+    return False
+
+
+def _evaluated_module_names(receipt: Record, observation: Observation) -> set[str]:
+    fact_ids = set(receipt.fact_ids)
+    return {
+        module
+        for record in observation.records("modules") or ()
+        if record.id in fact_ids and isinstance((module := record.data.get("qualified_name")), str)
+    }
+
+
+def baseline_fingerprint_covered(
+    fingerprint: _ViolationFingerprint,
+    roles: tuple[tuple[str, str], ...],
+    observation: Observation,
+    assessments: _Mapping[str, RuleAssessment],
+) -> bool:
+    """Require current evaluator evidence for every prior subject being resolved."""
+    receipts = {
+        rule_id: tuple(
+            record
+            for record in observation.records("scope_observations") or ()
+            if record.kind == "rule_evaluation" and rule_id in record.rule_ids
+        )
+        for rule_id in fingerprint.rules
+    }
+    if not all(
+        (assessment := assessments.get(rule_id)) is not None
+        and assessment.evaluation_proven
+        and assessment.status in {"PASS", "FAIL"}
+        and assessment.undecided == 0
+        and receipts[rule_id]
+        for rule_id in fingerprint.rules
+    ):
+        return False
+    modules = {
+        module: record
+        for record in observation.records("modules") or ()
+        if isinstance((module := record.data.get("qualified_name")), str)
+    }
+    subjects = {source for source, _ in roles} if roles else set(fingerprint.subjects)
+    cycles = {
+        record.id: record
+        for record in observation.records("declarations") or ()
+        if record.kind == "no_component_cycles"
+    }
+    for rule_id in fingerprint.rules:
+        if rule_id not in cycles:
+            for subject in subjects:
+                if not any(
+                    subject in receipt.subjects
+                    or any(
+                        subject.startswith(f"{module}.")
+                        and module in receipt.subjects
+                        and _PurePosixPath(str(modules[module].data.get("file", ""))).name
+                        != "__init__.py"
+                        for module in modules
+                        if module in receipt.subjects
+                    )
+                    for receipt in receipts[rule_id]
+                ):
+                    return False
+        elif not cycle_scope_receipt_covers(fingerprint, rule_id, observation):
+            return False
+    return True
 
 
 def dependency_rule_ids(source: str, target: str) -> tuple[str, str]:

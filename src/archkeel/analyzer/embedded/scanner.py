@@ -274,6 +274,8 @@ def _inside_rule_results(
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
+    cycle_scan_roots: tuple[str, ...] = (),
+    cycle_namespace: str = "",
 ) -> InsideRuleResults:
     """Evaluate nested rules with the root scan's facts, limited to each parent's modules."""
     violations: list[RawRecord] = []
@@ -316,6 +318,8 @@ def _inside_rule_results(
             stable_bindings_by_module=stable_bindings_by_module,
             evidence=evidence,
             assessments=assessments,
+            cycle_scan_roots=cycle_scan_roots,
+            cycle_namespace=cycle_namespace,
         )
         symbols = _mount_facade_signature_types(
             symbols,
@@ -451,6 +455,8 @@ def _evaluate_inside_contract(
     stable_bindings_by_module: dict[str, frozenset[str]],
     evidence: dict[str, RawEvidence],
     assessments: list[RawRecord],
+    cycle_scan_roots: tuple[str, ...],
+    cycle_namespace: str,
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Run shared evaluators for one clipped contract over one already-collected scan."""
     failures = rule_subject_failures(
@@ -485,6 +491,8 @@ def _evaluate_inside_contract(
         assessment_facts=assessments,
         assessment_parent=parent.label,
         ancestor_contracts=ancestor_contracts,
+        cycle_scan_roots=cycle_scan_roots,
+        cycle_namespace=cycle_namespace,
     )
     unknowns = boundary_type_limits(
         symbols,
@@ -621,6 +629,8 @@ def scan_repository(
         uncertain_reexport_origins=uncertain_reexport_origins,
         assessment_facts=scope_observations,
         assessment_parent="root",
+        cycle_scan_roots=roots if source_paths is None and not failures else (),
+        cycle_namespace=namespace,
     )
     (
         inside_violations,
@@ -646,6 +656,8 @@ def scan_repository(
         scanned_modules=module_names,
         stable_bindings_by_module=stable_bindings_by_module,
         evidence=evidence,
+        cycle_scan_roots=roots if source_paths is None and not failures else (),
+        cycle_namespace=namespace,
     )
     violations = sorted([*violations, *inside_violations], key=lambda item: item["id"])
     rule_failures = sorted([*rule_failures, *inside_failures], key=lambda item: item["id"])
