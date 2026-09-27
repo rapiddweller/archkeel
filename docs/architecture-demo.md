@@ -220,6 +220,10 @@ demo-dart`.
 | class_a | dart:external_dependency_scope | dart-external-scope | validate/report run | EXTERNAL-HTTP-DATA | rule.violated | G-dart: lib/presentation/order_tile.dart |
 | class_a | dart:interface_boundary:show | dart-interface-show | validate/report run | INTERFACE-BOUNDARY | rule.violated | G-dart: lib/presentation/order_tile.dart |
 | class_a | dart:interface_boundary:unknown | dart-interface-unknown | validate/report run | - | - | G-dart: lib/presentation/order_tile.dart |
+| class_a | dart:interface_boundary:nested_unknown | dart-nested-interface-unknown | validate/report run | - | - | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json |
+| class_a | dart:interface_boundary:nested_show | dart-nested-interface-show | validate/report run | - | - | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json, lib/domain/repository.dart |
+| class_a | dart:interface_boundary:nested_mixed | dart-nested-interface-mixed | validate/report run | domain:core:INTERFACE | rule.violated | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json, lib/domain/repository.dart |
+| class_a | dart:forbidden_dependency:nested_unknown | dart-nested-forbidden-symbol-unknown | validate/report run | - | - | G-dart: architecture-contract.json, contracts/domain-core.json, contracts/domain.json |
 | validation | dart:rule_unsupported_by_profile:rule | dart-unsupported-rule | validate/report run | - | - | G-dart: architecture-contract.json |
 | validation | dart:rule_unsupported_by_profile:measurement_budget | dart-unsupported-budget | validate/report run | - | - | G-dart: architecture-baseline.json, architecture-contract.json |
 | validation | dart:parse_error | dart-unreadable-header | validate/report run | - | - | G-dart: lib/presentation/order_badge.dart |

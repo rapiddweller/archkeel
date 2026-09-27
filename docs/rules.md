@@ -28,6 +28,10 @@ a library is a module and every directive edge is a FACT (AD-98); `interface_bou
 `boundary_types`, `forbidden_construct`, `context_roots` and a budget on an unmeasured scalar exit 2
 with `rule_unsupported_by_profile` (AD-97).
 
+The same symbol limits apply inside recursively mounted contracts (AD-114). Their counts cover
+only the valid source scope and retain mounted rule IDs and import evidence. A complete scan
+may still have an UNKNOWN rule; known violations remain visible beside undecided imports.
+
 ## Class A: deterministic rules
 
 `complete_requires` is the compact closed-world invariant Archkeel uses itself (AD-32): each
