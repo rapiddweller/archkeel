@@ -28,11 +28,13 @@ from archkeel.ir.interfaces import (
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import (
+    BaselineViolationComparison,
     CallRow,
     Diagnostic,
     Observation,
     Record,
     RecordData,
+    RuleAssessment,
     RunResult,
     in_scope,
 )
@@ -162,14 +164,34 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
     </section>"""
 
 
-def _violations(items: tuple[Record, ...], observation: Observation) -> str:
+def _violations(
+    items: tuple[Record, ...],
+    observation: Observation,
+    baseline: tuple[BaselineViolationComparison, ...] | None = None,
+) -> str:
     """Render a local violations-only view without changing the CLI-selected records."""
     if not items:
         return (
             '<section class="report-section"><h2>Declared-rule violations</h2>'
             "<p>None.</p></section>"
         )
-    rows = "".join(_record_row(item, observation) for item in items)
+    comparisons = {(item.rules, item.subjects): item for item in baseline or ()}
+    grouped: dict[tuple[str, ...], list[Record]] = {}
+    for item in items:
+        grouped.setdefault(tuple(sorted(item.rule_ids)), []).append(item)
+    rows = "".join(
+        f'<tr class="rule-group"><th colspan="6">Rules: '
+        f"{_text(', '.join(rule_ids))} · {len(grouped[rule_ids])} findings</th></tr>"
+        + "".join(
+            _violation_row(
+                item,
+                observation,
+                comparisons.get((rule_ids, tuple(sorted(item.subjects)))),
+            )
+            for item in grouped[rule_ids]
+        )
+        for rule_ids in sorted(grouped)
+    )
     script = _asset("violations.js").decode("utf-8")
     return f"""
     <section class="report-section" aria-labelledby="violations-heading">
@@ -185,12 +207,84 @@ def _violations(items: tuple[Record, ...], observation: Observation) -> str:
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Fingerprint</th><th>Finding</th><th>Subjects</th><th>Evidence</th></tr></thead>
+          <thead><tr><th>ID</th><th>Kind</th><th>Rule</th><th>Finding</th><th>Subjects</th>
+          <th>Evidence / baseline</th></tr></thead>
           <tbody>{rows}</tbody>
         </table>
       </div>
       <script>{script}</script>
     </section>"""
+
+
+def _violation_row(
+    item: Record,
+    observation: Observation,
+    comparison: BaselineViolationComparison | None,
+) -> str:
+    evidence = {entry.id: entry for entry in observation.evidence}
+    location = ""
+    if item.evidence_ids:
+        source = evidence.get(item.evidence_ids[0])
+        if source is not None:
+            location = f"{source.file}:{source.line}" if source.line else source.file
+    baseline = ""
+    if comparison is not None and comparison.known_count:
+        baseline = (
+            f'<span class="known-badge" aria-label="Known violation; still a failure">'
+            f"KNOWN · {comparison.known_count} of {comparison.current_count} current"
+            "</span>"
+        )
+        if comparison.new_count and comparison.current_count > comparison.known_count:
+            baseline += ' <span class="muted">extra occurrence identity unknown</span>'
+    owners = component_owners(observation)
+    components = sorted(
+        {owner for subject in item.subjects if (owner := owner_of(subject, owners)) is not None}
+    )
+    return (
+        f'<tr data-filter-row data-kind="{_text(item.kind)}" data-status="FAIL" '
+        f'data-component="{_text(" ".join(components))}" '
+        f'data-search="{_text(" ".join((item.id, item.title, *item.rule_ids, *item.subjects)))}">'
+        f"<td><code>{_text(item.id)}</code></td>"
+        f"<td>{_text(item.kind)}</td>"
+        f"<td><code>{_text(', '.join(item.rule_ids))}</code></td>"
+        f"<td>{_text(item.title)}</td>"
+        f"<td><code>{_text(' · '.join(item.subjects))}</code></td>"
+        f"<td><code>{_text(location)}</code> {baseline}</td></tr>"
+    )
+
+
+def _rule_assessments(items: tuple[RuleAssessment, ...] | None) -> str:
+    if items is None:
+        return ""
+    rows = "".join(_rule_assessment_row(item) for item in items)
+    return f"""
+    <section class="report-section" aria-labelledby="rule-assessments-heading">
+      <h2 id="rule-assessments-heading">Declared rules · {len(items)}</h2>
+      <p>PASS appears only with an evaluator receipt. Permission rules are declarations, not
+      conformance checks. FAIL may also carry undecided evidence.</p>
+      <div class="table-wrap"><table><thead><tr><th>Rule ID</th><th>Kind</th><th>Status</th>
+      <th>Violations</th><th>Undecided</th><th>Components</th><th>Decider</th><th>Rationale</th>
+      <th>Provenance</th><th>Scope / reason</th></tr></thead><tbody>{rows}</tbody></table></div>
+    </section>"""
+
+
+def _rule_assessment_row(item: RuleAssessment) -> str:
+    state = "info" if item.status == "DECLARATION" else badge(item.status).state
+    search = " ".join(
+        (item.id, item.kind, item.scope, item.rationale, *item.provenance, *item.components)
+    )
+    return (
+        f'<tr data-filter-row data-kind="{_text(item.kind)}" data-status="{_text(item.status)}" '
+        f'data-component="{_text(" ".join(item.components))}" '
+        f'data-search="{_text(search)}">'
+        f"<td><code>{_text(item.id)}</code></td><td>{_text(item.kind)}</td>"
+        f'<td><strong data-status="{state}">{_text(item.status)}</strong></td>'
+        f'<td class="numeric">{item.count}</td><td>{item.undecided}</td>'
+        f"<td>{_text(', '.join(item.components) or '—')}</td>"
+        f"<td>{_text(item.decided_by)}</td><td>{_text(item.rationale)}</td>"
+        f"<td><code>{_text(', '.join(item.provenance))}</code></td>"
+        f"<td>{_text(item.scope)} · {_text(item.reason)}</td></tr>"
+    )
 
 
 def _calls(rows: tuple[CallRow, ...]) -> str:
@@ -968,6 +1062,67 @@ def _metadata(result: RunResult, observation: Observation | None) -> str:
     return f'<div class="table-wrap"><table><tbody>{rows}</tbody></table></div>'
 
 
+def _report_filters(
+    observation: Observation,
+    violations: tuple[Record, ...],
+    assessments: tuple[RuleAssessment, ...] | None,
+) -> str:
+    kinds = sorted({item.kind for item in violations} | {item.kind for item in assessments or ()})
+    components = sorted({label for label, _ in component_owners(observation)})
+
+    def options(values: tuple[str, ...] | list[str]) -> str:
+        return "".join(
+            f'<option value="{_text(value)}">{_text(value)}</option>' for value in values
+        )
+
+    script = _asset("report-filters.js").decode("utf-8")
+    count = len(violations) + len(assessments or ())
+    return f"""
+    <form class="report-filters" data-report-filters aria-label="Filter report evidence">
+      <label for="report-search">Search rules and violations</label>
+      <input id="report-search" type="search" name="search" autocomplete="off">
+      <label for="report-kind">Kind</label><select id="report-kind" name="kind">
+      <option value="">All kinds</option>{options(kinds)}</select>
+      <label for="report-component">Component</label><select id="report-component" name="component">
+      <option value="">All components</option>{options(components)}</select>
+      <label for="report-status">Status</label><select id="report-status" name="status">
+      <option value="">All statuses</option>{options(("PASS", "FAIL", "UNKNOWN", "DECLARATION"))}
+      </select>
+      <button type="reset">Reset filters</button>
+      <output data-filter-count aria-live="polite">{count} rows</output>
+    </form><script>{script}</script>"""
+
+
+def _baseline_comparison(
+    path: str | None,
+    comparisons: tuple[BaselineViolationComparison, ...] | None,
+) -> str:
+    if path is None or comparisons is None:
+        return ""
+    rows = (
+        "".join(
+            "<tr>"
+            f"<td><code>{_text(' '.join(item.rules))}</code></td>"
+            f"<td><code>{_text(' · '.join(item.subjects))}</code></td>"
+            f'<td class="numeric">{item.known_count}</td>'
+            f'<td class="numeric">{item.current_count}</td>'
+            f"<td>{_text(item.status.upper())}</td>"
+            f"<td>{item.new_count} new · {item.resolved_count} resolved</td></tr>"
+            for item in comparisons
+        )
+        or '<tr><td colspan="6">No violation fingerprints.</td></tr>'
+    )
+    return f"""
+    <section class="report-section"><h2>Read-only baseline comparison</h2>
+      <p>Baseline: <code>{_text(path)}</code>. Counts are grouped by fingerprint; repeated
+      occurrences have no invented line identity. Resolved counts require this complete
+      observation.</p>
+      <div class="table-wrap"><table><thead><tr><th>Rule</th><th>Subjects</th>
+      <th>Known before</th><th>Current</th><th>Status</th><th>Drift</th></tr></thead>
+      <tbody>{rows}</tbody></table></div>
+    </section>"""
+
+
 def render_html(
     result: RunResult,
     observation: Observation | None,
@@ -1010,10 +1165,21 @@ def render_html(
     # AD-100: --only calls shows its call table in place of the violations table.
     calls_html = _calls(result.filtered_calls) if result.filtered_calls is not None else ""
     violations_html = (
-        _violations(violations or (), observation)
+        _violations(violations or (), observation, result.baseline_comparisons)
         if observation is not None and not calls_html
         else ""
     )
+    rule_html = _rule_assessments(result.rule_assessments)
+    filters_html = (
+        _report_filters(
+            observation,
+            violations or (),
+            result.rule_assessments,
+        )
+        if observation is not None and not calls_html
+        else ""
+    )
+    baseline_html = _baseline_comparison(result.baseline_path, result.baseline_comparisons)
     # AD-60: --only violations hides everything below but the violations table, so a large
     # repository's page stays a small review surface instead of every section at once; --only
     # calls hides the same sections (AD-100). `focused` is either one.
@@ -1084,7 +1250,7 @@ def render_html(
       <h3>Failures</h3><ul class="failure-list">{failures}</ul>
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
-    {violations_html}{calls_html}
+    {filters_html}{violations_html}{rule_html}{baseline_html}{calls_html}
     {flow_html}
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
     <div id="interface-profile-detail" data-secondary-detail>{interface_profile_html}</div>

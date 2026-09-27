@@ -3285,7 +3285,7 @@ def rule_violations(
         ancestor_contracts,
     )
     checked = assessment_facts if assessment_facts is not None else []
-    return sorted(
+    result = sorted(
         [
             *_dependency_violations(iter(forbidden_matches)),
             *_construct_violations([*typing_signals, *constructs], contract.rules, source_modules),
@@ -3313,4 +3313,88 @@ def rule_violations(
             *boundary_violations,
         ],
         key=lambda item: item["id"],
-    ), allowance_facts
+    )
+    if assessment_facts is not None:
+        assessment_facts.extend(
+            rule_evaluation_receipts(
+                contract,
+                profile=profile,
+                scope=assessment_parent or "root",
+                modules=modules,
+                source_modules=source_modules,
+            )
+        )
+    return result, allowance_facts
+
+
+def rule_evaluation_receipts(
+    contract: ArchitectureContract,
+    *,
+    profile: Profile,
+    scope: str,
+    modules: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    """Record the supported rule evaluators that just ran for one observation scope.
+
+    This is deliberately emitted by the analyzer beside `rule_violations`, not inferred by a
+    report from missing findings. Declaration-only permissions and profile-unsupported rules
+    have no evaluation receipt.
+    """
+    observed_modules = {
+        item["data"]["qualified_name"]
+        for item in modules
+        if source_modules is None or item["data"]["qualified_name"] in source_modules
+    }
+
+    def has_observed_scope(rule: ArchitectureRule) -> bool:
+        selectors: tuple[str, ...]
+        if isinstance(rule, NoComponentCyclesRule | InterfaceBoundaryRule | CompleteRequiresRule):
+            return bool(observed_modules)
+        if isinstance(rule, AllowedDependencyRule):
+            return False
+        if isinstance(rule, ForbiddenDependencyRule):
+            selectors = (rule.source,)
+        elif isinstance(rule, ExternalDependencyScopeRule):
+            selectors = (*rule.allowed_sources, *rule.exact_sources)
+            return any(
+                in_scope(module, selector) for module in observed_modules for selector in selectors
+            )
+        elif isinstance(rule, SiblingIsolationRule):
+            return bool(rule.members) and all(
+                any(in_scope(module, selector) for module in observed_modules)
+                for selector in rule.members
+            )
+        elif isinstance(rule, RootLayoutRule):
+            selectors = (rule.root,)
+        elif isinstance(
+            rule,
+            ForbiddenConstructRule
+            | CompleteAssignmentRule
+            | CompleteExternalScopeRule
+            | SymbolPlacementRule
+            | BoundaryTypesRule,
+        ):
+            selectors = (rule.source,)
+        else:
+            assert_never(rule)
+        return bool(selectors) and all(
+            any(in_scope(module, selector) for module in observed_modules) for selector in selectors
+        )
+
+    return [
+        classified(
+            item_id=stable_id("RULE-EVALUATION", scope, rule.id),
+            evidence_class=EvidenceClass.FACT,
+            area="rules",
+            kind="rule_evaluation",
+            title=f"{rule.id} evaluator completed",
+            subjects=[scope],
+            rule_ids=[rule.id],
+            data={"scope": scope},
+        )
+        for rule in contract.rules
+        if rule.kind not in profile.unsupported_rules
+        and rule.kind != "allowed_dependency"
+        and has_observed_scope(rule)
+    ]

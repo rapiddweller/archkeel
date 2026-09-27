@@ -163,6 +163,7 @@ def _rule_results(
     uncertain_reexport_origins: dict[str, frozenset[str]],
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate root and nested declarations against one shared Dart scan."""
+    assessments: list[RawRecord] = []
     violations, _ = rule_violations(
         imports=sources.imports,
         typing_signals=[],
@@ -176,6 +177,8 @@ def _rule_results(
         exports_by_module=facade_exports,
         profile=DART,
         uncertain_reexport_origins=uncertain_reexport_origins,
+        assessment_facts=assessments,
+        assessment_parent="root",
     )
     inside = _inside_results(
         inside_contracts,
@@ -190,7 +193,7 @@ def _rule_results(
         sorted([*violations, *inside[0]], key=lambda item: item["id"]),
         inside[1],
         inside[2],
-        inside[3],
+        [*assessments, *inside[3]],
         inside[4],
     )
 

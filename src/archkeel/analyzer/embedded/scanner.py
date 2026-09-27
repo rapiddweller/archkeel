@@ -548,6 +548,8 @@ def scan_repository(
         exports_by_module=facade_exports,
         profile=PYTHON,
         uncertain_reexport_origins=uncertain_reexport_origins,
+        assessment_facts=scope_observations,
+        assessment_parent="root",
     )
     (
         inside_violations,

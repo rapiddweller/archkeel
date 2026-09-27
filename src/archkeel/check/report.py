@@ -4,11 +4,22 @@
 """Build typed report results and canonical observation bytes."""
 
 import subprocess
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
-from archkeel.ir.baseline import require_declared_filter, select_violations
-from archkeel.ir.codec import canonical_report_bytes, result_bytes
+from archkeel.ir.baseline import (
+    cycle_contractions,
+    observed_violations,
+    require_declared_filter,
+    select_violations,
+)
+from archkeel.ir.codec import (
+    canonical_report_bytes,
+    decode_json,
+    parse_validation_baseline,
+    result_bytes,
+)
 from archkeel.ir.decisions import (
     agent_decisions,
     open_decisions,
@@ -16,6 +27,7 @@ from archkeel.ir.decisions import (
     violation_counts,
 )
 from archkeel.ir.model import (
+    BaselineViolationComparison,
     CallRow,
     Diagnostic,
     DiagnosticError,
@@ -24,6 +36,7 @@ from archkeel.ir.model import (
     ReportFilter,
     RunResult,
 )
+from archkeel.ir.rule_assessment import rule_assessments
 
 from .git import git_bytes
 from .ports import Analyzer, ScanConfig
@@ -98,6 +111,7 @@ def run_report(
     rule: str | None = None,
     component: str | None = None,
     only_calls: bool = False,
+    baseline: Path | None = None,
 ) -> tuple[RunResult, bytes | None]:
     """Observe, evaluate and, when a filter argument narrows it, select what the report shows.
 
@@ -147,6 +161,56 @@ def run_report(
             )
         else:
             counted = violation_counts(model)
+            comparisons: tuple[BaselineViolationComparison, ...] | None = None
+            baseline_name: str | None = None
+            if baseline is not None:
+                baseline_file = baseline if baseline.is_absolute() else root / baseline
+                baseline_file = baseline_file.resolve()
+                try:
+                    baseline_file.relative_to(root.resolve())
+                    known = parse_validation_baseline(decode_json(baseline_file.read_bytes()))
+                except (OSError, ValueError) as error:
+                    raise ValueError(f"cannot read baseline {baseline}: {error}") from error
+                known_counts = Counter({item.fingerprint: item.count for item in known.violations})
+                current = observed_violations(model)
+                current_counts = Counter({item.fingerprint: item.count for item in current})
+                cycle_rules = frozenset(
+                    record.id
+                    for section in model.sections
+                    for record in section.records
+                    if record.evidence_class.value == "DECLARED_RULE"
+                    and record.kind == "no_component_cycles"
+                )
+                contracted = cycle_contractions(known.violations, current, cycle_rules=cycle_rules)
+                comparisons = tuple(
+                    BaselineViolationComparison(
+                        fingerprint.rules,
+                        fingerprint.subjects,
+                        min(before, after),
+                        after,
+                        0 if fingerprint in contracted else max(after - before, 0),
+                        max(before - after, 0),
+                        (
+                            "contracted"
+                            if fingerprint in contracted
+                            else "new"
+                            if after > before
+                            else "resolved"
+                            if after == 0 and before > 0
+                            else "reduced"
+                            if after < before
+                            else "known"
+                        ),
+                    )
+                    for fingerprint in sorted(
+                        known_counts.keys() | current_counts.keys(),
+                        key=lambda item: (item.rules, item.subjects),
+                    )
+                    for before, after in (
+                        (known_counts.get(fingerprint, 0), current_counts.get(fingerprint, 0)),
+                    )
+                )
+                baseline_name = str(baseline_file.relative_to(root.resolve()))
             command_result = RunResult(
                 "report",
                 0,
@@ -164,5 +228,8 @@ def run_report(
                 report_filter=report_filter,
                 filtered_violations=filtered_violations,
                 filtered_calls=filtered_calls,
+                rule_assessments=rule_assessments(model),
+                baseline_path=baseline_name,
+                baseline_comparisons=comparisons,
             )
     return command_result, architecture
