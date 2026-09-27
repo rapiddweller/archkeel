@@ -835,3 +835,74 @@ def test_parent_publication_uses_facade_export_semantics(
     )
     unused = [item for item in diagnostics if item.code == "interface.unused"]
     assert (unused == []) is used
+
+
+@pytest.mark.parametrize(
+    ("case", "used"),
+    [
+        ("published", True),
+        ("unpublished", False),
+        ("rebound", False),
+        ("outside", False),
+        ("ambiguous", False),
+    ],
+)
+def test_parent_reexport_chain_reaches_only_unique_local_targets(
+    tmp_path: Path, case: str, used: bool
+) -> None:
+    parent_public = [] if case in {"unpublished", "outside"} else ["sample.core:Payload"]
+    parent_source = "from sample.core.bridge import Payload\n__all__ = ['Payload']\n"
+    if case == "rebound":
+        parent_source = (
+            "from sample.core.bridge import Payload\nPayload = 2\n__all__ = ['Payload']\n"
+        )
+    child_components = [_child("types", "sample.core.types", public=["sample.core.types:Payload"])]
+    if case == "ambiguous":
+        child_components.append(
+            _child("duplicate", "sample.core.types", public=["sample.core.types:Payload"])
+        )
+    components = [
+        _component("core", packages=["sample.core"], public=parent_public) | {"inside": "core.json"}
+    ]
+    files = {
+        "sample/core/__init__.py": parent_source,
+        "sample/core/bridge.py": "from sample.core.types import Payload\n__all__ = ['Payload']\n",
+        "sample/core/types.py": "class Payload: pass\n",
+    }
+    if case == "outside":
+        components.append(
+            _component("facade", packages=["sample.facade"], public=["sample.facade:Payload"])
+        )
+        files["sample/core/__init__.py"] = ""
+        files["sample/facade.py"] = parent_source
+
+    _write_project(
+        tmp_path,
+        components=components,
+        rules=[],
+        insides={"core.json": _inside(child_components, [_rule("LOCAL", "interface_boundary")])},
+        files=files,
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    if case == "published":
+        parent_import = next(
+            record
+            for record in result.observation.records("imports") or ()
+            if record.data.get("source_module") == "sample.core"
+        )
+        assert parent_import.data.get("target_module") == "sample.core.bridge"
+        assert "sample.core.types.Payload" in parent_import.data.get("reexport_chain", ())
+    diagnostics = inside_diagnostics(
+        tmp_path,
+        parse_contract(json.loads((tmp_path / "contract.json").read_bytes())),
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observation=result.observation,
+    )
+    unused = [
+        item
+        for item in diagnostics
+        if item.code == "interface.unused" and item.subject == "sample.core.types:Payload"
+    ]
+    assert (unused == []) is used

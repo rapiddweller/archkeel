@@ -476,8 +476,6 @@ def _imports_by_target(
             continue
         source = contract.component_for(source_module)
         target = contract.component_for(target_module)
-        if target is None:
-            continue
         if source is None:
             parent_components = (published_parent_components or {}).get(source_module, ())
             binding = record.data.get("binding")
@@ -491,9 +489,25 @@ def _imports_by_target(
                 or not _parent_reexport_proven(record.data)
             ):
                 continue
-        if source is not None and source == target:
-            continue
-        imports_by_target.setdefault(target.label, []).append(record.data)
+        if target is None:
+            if source is not None:
+                continue
+            chain = record.data.get("reexport_chain")
+            targets: dict[str, ContractComponent] = {}
+            if isinstance(chain, tuple):
+                for name in chain:
+                    if not isinstance(name, str):
+                        continue
+                    chained_target = contract.component_for(name.rpartition(".")[0])
+                    if chained_target is not None:
+                        targets[chained_target.label] = chained_target
+            target_components = tuple(targets.values())
+        else:
+            target_components = (target,)
+        for target_component in target_components:
+            if source is not None and source == target_component:
+                continue
+            imports_by_target.setdefault(target_component.label, []).append(record.data)
     return imports_by_target
 
 
