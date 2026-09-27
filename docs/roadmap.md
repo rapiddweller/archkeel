@@ -35,6 +35,7 @@ only when its row names repository evidence.
 | Nested symbol-dependent rules retain undecided import evidence within their valid source scope (AD-114, #184) | `tests/test_nested_interface_unknown.py`; Dart nested variants in `docs/architecture-demo.md` |
 | Nested public/planned lifecycle checks use scoped sibling and publisher evidence, not unrelated global facades (AD-115, #182) | `tests/test_nested_interface_lifecycle.py`; recursive lifecycle variants in `docs/architecture-demo.md` |
 | Diagrams start at readable 100% zoom with every group and edge; focus retains all neighbors, and filtering remains explicit (AD-116, #171) | `tests/test_flow_groups.py`; `tests/test_flow_issue171_regressions.py`; `docs/report-visual-system.md` |
+| Per-rule results require evaluator receipts; optional report baselines compare fingerprint counts without hiding debt or inventing resolution (AD-117, #159, #160) | `tests/test_report_159_160.py`; `tests/test_report_159_160_e2e_oracle.py`; `docs/reference.md` |
 | Terminals get a Rich summary with real `--help`; pipes and `--json` keep JSON | `376a3ab`; `tests/test_cli.py`; `tests/test_terminal.py` |
 | `init` drafts a closed contract that reproduces Archkeel's own component rules | `fe5214a`; `tests/test_onboarding.py`; `docs/onboarding.md` |
 | `skill install claude\|codex` writes one packaged agent instruction source | `99f5743`; `tests/test_skill.py` |

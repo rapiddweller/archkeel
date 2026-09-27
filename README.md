@@ -190,6 +190,7 @@ archkeel report --only violations
 archkeel report --only violations --rule DEP-STORE-NO-MONEY
 archkeel report --only violations --component store
 archkeel report --only calls --component store   # unresolved and partial calls (AD-100)
+archkeel report --baseline known-violations.json # read-only fingerprint comparison
 ```
 
 - **Decision first.** `PASS`, `REJECT`, or `NOT CHECKED` and one sentence explaining it are
@@ -200,6 +201,11 @@ archkeel report --only calls --component store   # unresolved and partial calls 
   unknown claim, and remedy.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
+- **Rules say what was checked.** Each rule has its own result, reason, owner and source.
+  PASS requires evaluator evidence; a permission is a declaration, not a passed check.
+  Search and filter rules and findings without changing the observation (AD-117).
+- **Known debt stays debt.** An explicit baseline adds fingerprint counts, not exemptions.
+  Missing rules or undecided evidence cannot make old findings appear resolved.
 - **Violations can take focus.** `Violations only` works in the already-open report: it hides
   secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
 - **Nested flow stays inspectable.** Physical folders lead to every observed module, including

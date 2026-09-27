@@ -107,6 +107,22 @@ The A/B/C fixtures use real local Git repositories and simulated host records an
 
 ## Results
 
+`report` adds `rule_assessments`: one row per declared rule with status, violation and
+undecided counts, evaluation evidence, rationale, decision owner and provenance. PASS needs
+a completed evaluator receipt for the observed scope. Missing receipts or undecided positions
+remain UNKNOWN; a rule with violations stays FAIL while retaining its undecided count.
+`allowed_dependency` is a permission, labelled DECLARATION rather than PASS. These per-rule
+rows do not redefine the existing overall verdict or count a multi-rule UNKNOWN twice globally.
+
+`report --baseline known-violations.json` optionally adds a read-only comparison. The path
+resolves inside `--root`; no baseline is discovered automatically or rewritten. Fingerprint
+counts identify known, new, reduced and resolved debt without inventing identity for repeated
+occurrences. Resolved counts require the current rule, complete evaluation evidence and zero
+undecided positions. Removing a rule is not evidence that its old violations were fixed.
+The baseline and report filters do not change canonical `architecture.json` bytes or gate
+semantics. The diagram remains first; the rule and finding tables support search and filters.
+Without JavaScript, the tables remain readable and inactive filter controls are hidden.
+
 JSON results separate `observation_complete`, `declared_rules` and
 `expectation_fulfilled`. `report` uses `n/a` for expectations. Exit codes: 0 for
 complete report/successful check, 1 for a rejected check or a `validate --baseline` run whose
