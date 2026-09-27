@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart loop-figure demo-screenshots build smoke release-check
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots build smoke release-check
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -41,6 +41,11 @@ demo-onboarding:
 
 demo-dart:
 	@$(UV) run --locked python -m fixtures.reproduce_dart
+
+demo-architecture:
+	@test -n "$(VARIANT)" || { echo "VARIANT is required"; exit 2; }
+	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
+	@$(UV) run --locked python -m fixtures.architecture_demo --replay "$(VARIANT)" --output "$(OUTPUT)"
 
 # The figure is derived from the run above, so a test compares it with a fresh render.
 loop-figure:

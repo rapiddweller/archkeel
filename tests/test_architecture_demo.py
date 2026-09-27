@@ -6,6 +6,7 @@
 import json
 import shutil
 import subprocess
+import sys
 from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import get_args, get_type_hints
@@ -31,6 +32,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.architecture_demo import CATALOG, markdown
+from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_check import build_and_run_check
 from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
 from fixtures.demo_catalog_widening import build_and_run_against
@@ -58,6 +60,72 @@ _CLASS_B_TESTED_ONLY = {
 def test_variant_ids_are_unique() -> None:
     ids = [variant.id for variant in CATALOG]
     assert len(ids) == len(set(ids))
+
+
+def test_recursive_wide_package_root_executes(tmp_path: Path) -> None:
+    variant = next(item for item in CATALOG if item.id == "class-a-recursive-wide-package")
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from shop.store.backend.tasks import run; assert len(run()) == 8",
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_demo_replay_writes_cli_json_and_html_without_overwrite(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "nested" / "architecture.json"
+    assert demo_main(["--replay", "class-a-recursive-wide-package", "--output", str(output)]) == 0
+    result = json.loads(capsys.readouterr().out)
+    html = output.with_name("architecture.report.html")
+    assert result["command"] == "report"
+    assert result["artifact"] == str(output)
+    assert json.loads(output.read_text())["source"]["source_digest"]
+    assert "<html" in html.read_text().lower()
+
+    output.write_text("preserve me")
+    assert demo_main(["--replay", "class-a-recursive-wide-package", "--output", str(output)]) == 2
+    capsys.readouterr()
+    assert output.read_text() == "preserve me"
+    protocol = tmp_path / "protocol.json"
+    assert demo_main(["--replay", "protocol-ordered", "--output", str(protocol)]) == 2
+    capsys.readouterr()
+    assert not protocol.exists()
+    unsupported_against = tmp_path / "unsupported-against.json"
+    assert (
+        demo_main(["--replay", "against-widened-unamended", "--output", str(unsupported_against)])
+        == 2
+    )
+    capsys.readouterr()
+    assert not unsupported_against.exists()
+
+
+def test_demo_replay_runs_deepest_change_through_validate_against(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "deepest.json"
+    assert (
+        demo_main(
+            ["--replay", "against-recursive-deepest-contract-change", "--output", str(output)]
+        )
+        == 0
+    )
+    validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    assert validation["command"] == "validate"
+    assert validation["failures"] == [
+        "rule store:backend:tasks:DEEP-REQUIRES-COMPLETE (complete_requires) removed"
+    ]
+    assert report["command"] == "report"
+    assert output.with_name("deepest.report.html").is_file()
+    architecture = json.loads(output.read_text())
+    assert len(architecture["contract"]["digest"]) == 64
 
 
 def test_class_a_covers_every_rule_kind() -> None:
