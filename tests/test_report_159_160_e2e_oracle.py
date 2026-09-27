@@ -175,6 +175,38 @@ def test_fail_and_unknown_for_one_rule_are_from_the_same_real_evaluation_scope(
     assert expected_status == "FAIL"  # a known violation is not downgraded by partial evidence
 
 
+def test_partial_evidence_blocks_resolved_baseline_count_for_same_failed_rule(
+    tmp_path: Path, capsys
+) -> None:
+    tour = _variant("tour")
+    files = dict(tour.files)
+    orders_path = "shop/app/orders.py"
+    files[orders_path] = files[orders_path].replace(
+        "store_dir: object,\n    order_id",
+        "store_dir: object,\n    extra_path: FutureOrder,\n    order_id",
+    )
+    root = _prepare_repo(tmp_path, files, tour.fixture)
+    _, before = _cli_report(root, tmp_path / "before", capsys)
+    current = observed_violations(before)
+    (finding,) = [item for item in current if "APP-TYPES-NOT-DICT" in item.fingerprint.rules]
+    baseline = _baseline_file(root, (KnownViolation(finding.fingerprint, 2, finding.roles),))
+
+    result, observation = _cli_report(
+        root, tmp_path / "with-baseline", capsys, "--baseline", str(baseline)
+    )
+
+    _assert_assessment(result, *_MIXED_TYPES_ORACLE)
+    assert _fixture_facts(observation, "APP-TYPES-NOT-DICT") == (1, 1, _PROVENANCE)
+    comparisons = result["baseline_comparisons"]
+    assert isinstance(comparisons, list)
+    resolved_claims = [
+        comparison
+        for comparison in comparisons
+        if comparison["rules"] == ["APP-TYPES-NOT-DICT"] and comparison["resolved_count"] > 0
+    ]
+    assert not resolved_claims, f"partial evidence lost: {resolved_claims}"
+
+
 def test_unknown_route_is_associated_with_its_rule_not_every_boundary_rule(
     tmp_path: Path, capsys
 ) -> None:
