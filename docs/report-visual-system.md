@@ -144,13 +144,18 @@ unless the check has already classified them as a failure.
 
 ### Component flow
 
-- One observation feeds three views at the same breadcrumb level: focused UML diagram to explain
+- The observed flow has three views at the same breadcrumb level: focused UML diagram to explain
   interfaces, physical structure map to find modules, and a connection-first review queue.
   The diagram starts with every group and connection at the current level. Selecting a focus
   keeps every direct neighbor and all violated edges, not an arbitrary number of neighbors.
   Review shows every violated or undecided connection before the busiest conforming ones;
   the matrix is optional and shows up to twelve high-traffic entries. Focus can be reset to
   “All components and groups”; each view reports shown and total entries for its current scope.
+- The separate Actual, Target, and Diff views navigate independently. Actual lists every observed
+  module, including unassigned ones. Target draws only declared components, package scopes,
+  allowed layout children, and requirements; its edges are declarations, not import evidence or
+  conformance claims. Diff lists violations, unknown evidence, unmapped observed modules, and
+  declared targets absent from the observation. A missing target stays visible in Target and Diff.
 - Never infer a symbol kind from a missing definition. A whole-module import is `module`, a star
   import is `star import`, and an unresolved named import is `unknown`, not `constant`.
 - Long lists of imported names and facade measurements use native disclosure controls. The
@@ -213,8 +218,9 @@ make browser-install
 make report-browser OUTPUT=test-artifacts/report-browser
 ```
 
-It replays synthetic catalog fixtures, exercises navigation and filters, and saves
-screenshots and traces. Use a new output directory for each run. These checks are
+It replays synthetic catalog fixtures, exercises nested navigation, Actual/Target/Diff at desktop
+and mobile width, and report filters, then saves screenshots and traces. Use a new output
+directory for each run. These checks are
 separate from the Python gate; static HTML assertions alone do not prove browser behavior.
 
 ## Accessibility and print

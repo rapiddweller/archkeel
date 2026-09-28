@@ -377,6 +377,16 @@ The command writes the canonical `architecture.json` and a self-contained
 `architecture.report.html` beside it. A terminal shows the decision and verdicts; pipes and
 `--json` receive the JSON result.
 
+The HTML report separates Actual (the complete observed module tree), Target (an interactive
+diagram of declared components, package scopes, layout-allowed children, and requirements), and
+Diff (violations, unresolved evidence, unmapped modules, and absent declared targets). The
+Actual and Diff views are lists. Target edges describe declarations, not observed imports or
+proof that a declared child exists. `--output X.json` writes the JSON report and `X.report.html`.
+
+<p>
+  <img src="docs/assets/archkeel-target-store.png" alt="Target view for the Shop demo: declared store component, its inner components and requirements, and the selected responsibility" width="1180">
+</p>
+
 Check a candidate against its published expectation:
 
 ```bash

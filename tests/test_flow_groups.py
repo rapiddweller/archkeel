@@ -8,10 +8,12 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 from test_analyzer import _component, _inside_component, _observe
 
+from archkeel.ir.model import EvidenceClass, Record, RecordData, Section
 from archkeel.render.flow import build_flow
 from archkeel.render.html import _flow_payload
 
@@ -88,6 +90,230 @@ const [orphan] = inside({components: [], edges: [], unassigned: ["pkg"]}).compon
 assert.deepEqual(orphan.modules, ["pkg"]);
 assert.equal(orphan.openable, true);
 assert.equal(orphan.opensModule, "pkg");
+"""
+    result = subprocess.run(
+        [node, "-e", script, str(source)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_actual_target_diff_keep_observation_and_contract_separate(tmp_path: Path) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component("app", packages=["sample.app", "sample.missing"])
+            | {"inside": "inside.json"},
+            _component("core", packages=["sample.core"]),
+        ],
+        "rules": [
+            {
+                "id": "ROOT-LAYOUT",
+                "kind": "root_layout",
+                "root": "sample",
+                "allowed_children": ["sample.app", "sample.core", "sample.future"],
+                "rationale": "Keep the declared package layout.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "REQUIRES",
+                "kind": "complete_requires",
+                "rationale": "Declare every component dependency.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "APP-LAYOUT",
+                "kind": "root_layout",
+                "root": "sample.app",
+                "allowed_children": ["sample.app.api", "sample.app.future"],
+                "rationale": "Keep nested package layout explicit.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+        ],
+    }
+    inner = {
+        "schema_version": "2.1.0",
+        "components": [
+            _inside_component("api", ["future"]) | {"packages": ["sample.app.api"]},
+            _inside_component("future", []) | {"packages": ["sample.app.future"]},
+        ],
+        "rules": [],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "inside.json").write_text(json.dumps(inner))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("def unowned():\n    return 1\n")
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/api.py").write_text("import sample.core.store\n")
+    (tmp_path / "sample/app/extra.py").write_text("VALUE = 1\n")
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    (tmp_path / "sample/core/store.py").write_text("VALUE = 1\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    unknown = Record(
+        id="UNKNOWN-TEST",
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="boundaries",
+        kind="boundary_type_limit",
+        title="Unresolved facade position",
+        subjects=("sample.app.api",),
+        evidence_ids=(),
+        rule_ids=("API-1",),
+        fact_ids=(),
+        provenance=(),
+        data=RecordData((("reason", "position could not be decided"),)),
+    )
+    sections = tuple(
+        replace(section, records=(*section.records, unknown))
+        if section.name == "unknowns"
+        else section
+        for section in result.observation.sections
+    )
+    if not any(section.name == "unknowns" for section in result.observation.sections):
+        sections = (*sections, Section("unknowns", (unknown,)))
+    observation = replace(result.observation, sections=sections)
+    flow = build_flow(observation)
+    payload = _flow_payload(observation, flow)
+    explorers = payload["explorers"]
+    assert isinstance(explorers, dict)
+
+    def flatten(nodes: list[dict[str, object]]) -> list[dict[str, object]]:
+        return [node for item in nodes for node in [item, *flatten(item["children"])]]
+
+    actual = flatten(explorers["actual"])
+    assert {node["id"] for node in actual if node["kind"] == "module"} >= {
+        "sample",
+        "sample.app",
+        "sample.app.api",
+        "sample.app.extra",
+        "sample.core.store",
+    }
+
+    target = flatten(explorers["target"])
+    assert {node["label"] for node in target if node["kind"] == "component"} >= {
+        "app",
+        "core",
+        "api",
+        "future",
+    }
+    assert "sample.future" in {node["label"] for node in target if node["kind"] == "physical_child"}
+    app_layouts = [
+        node for node in target if node["kind"] == "root_layout" and node["label"] == "sample.app"
+    ]
+    assert len(app_layouts) == 1
+    assert {node["label"] for node in app_layouts[0]["children"]} == {
+        "sample.app.api",
+        "sample.app.future",
+    }
+    sample_layout = next(
+        node for node in target if node["kind"] == "root_layout" and node["label"] == "sample"
+    )
+    app_physical = next(node for node in sample_layout["children"] if node["label"] == "sample.app")
+    assert app_layouts[0] in app_physical["children"]
+    assert all("state" not in node and "import_sites" not in node for node in target)
+    assert any(node["label"] == "requires future" and node["kind"] == "requires" for node in target)
+
+    diff = {node["id"]: node for node in explorers["diff"]}
+    unmapped = diff["diff:unmapped"]["children"]
+    assert {node["label"] for node in unmapped} == {"sample", "sample.app.extra"}
+    absent = diff["diff:absent"]["children"]
+    assert {node["label"] for node in absent} >= {"future", "sample.future"}
+    assert any(
+        node["label"] == "sample.missing" and node["kind"] == "package_scope" for node in absent
+    )
+    assert any(
+        detail["value"] == "sample.app.future" for node in absent for detail in node["details"]
+    )
+    violations = diff["diff:violations"]["children"]
+    assert any(
+        "Violating edge" in {detail["label"] for detail in item["details"]} for item in violations
+    )
+    assert any(
+        node["label"] == "Unresolved facade position" and node["kind"] == "unknown"
+        for node in diff["diff:unknowns"]["children"]
+    )
+    assert "UNKNOWN-TEST" not in {node["id"] for node in violations}
+    assert any(node["label"] == "sample" for node in unmapped)
+    diagrams = explorers["target_diagrams"]
+    root_graph = diagrams["root"]
+    reached = {node["id"] for node in root_graph["nodes"]}
+    pending = list(reached)
+    while pending:
+        graph = diagrams["nested"].get(pending.pop())
+        for node in graph["nodes"] if graph else ():
+            if node["id"] not in reached:
+                reached.add(node["id"])
+                pending.append(node["id"])
+    requirement_ids = {node["id"] for node in target if node["kind"] == "requires"}
+    declarations = {
+        edge["declaration"]
+        for graph in (diagrams["root"], *diagrams["nested"].values())
+        for edge in graph["edges"]
+        if "declaration" in edge
+    }
+    assert {node["id"] for node in target} - requirement_ids <= reached
+    assert requirement_ids <= declarations
+
+
+def test_target_diagram_keeps_declared_package_scopes_without_layout(tmp_path: Path) -> None:
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("app", packages=["sample.app", "sample.future"])
+                    | {"requires": [{"component": "core", "rationale": "Declared dependency."}]},
+                    _component("core"),
+                ],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/app.py").write_text("VALUE = 1\n")
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    flow = build_flow(result.observation)
+    payload = _flow_payload(result.observation, flow)
+    diagrams = payload["explorers"]["target_diagrams"]
+    graph = diagrams["root"]
+    assert any(
+        edge["kind"] == "requires"
+        and edge["source"] == "COMP-APP"
+        and edge["target"] == "COMP-CORE"
+        for edge in graph["edges"]
+    )
+    nodes = {node["label"]: node for node in diagrams["nested"]["COMP-APP"]["nodes"]}
+    assert {"sample.app", "sample.future"} <= set(nodes)
+    assert all(nodes[name]["kind"] == "package_scope" for name in ("sample.app", "sample.future"))
+    assert any(edge["kind"] == "requires" for edge in graph["edges"])
+
+
+def test_projection_keyboard_focus_has_a_stable_selector() -> None:
+    node = _node()
+    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
+    script = r"""
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const text = fs.readFileSync(process.argv[1], "utf8");
+const begin = text.indexOf("  function captureAlternativeFocus()");
+const end = text.indexOf("  function restoreAlternativeFocus", begin);
+assert(begin >= 0 && end > begin);
+const capture = new Function("alternative", "document",
+  text.slice(begin, end) + ";return captureAlternativeFocus;");
+for (const [dataset, expected] of [
+  [{projectionId: "module-a"}, {attribute: "data-projection-id", value: "module-a"}],
+  [{projectionCrumb: "1"}, {attribute: "data-projection-crumb", value: "1"}],
+  [{projectionRoot: ""}, {attribute: "data-projection-root", value: ""}],
+]) {
+  const button = {dataset, closest() { return this; }};
+  const alternative = {contains(item) { return item === button; }};
+  assert.deepEqual(capture(alternative, {activeElement: button})(), expected);
+}
 """
     result = subprocess.run(
         [node, "-e", script, str(source)], capture_output=True, text=True, check=False

@@ -20,7 +20,7 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
 assert(text.indexOf("normalizeThreshold(maximum);") <
-  text.indexOf("filterStatus.textContent = activeFilterSummary();"));
+  text.indexOf("filterStatus.textContent = activeFilterSummary(viewMode);"));
 const part = (start, end) => {
   const begin = text.indexOf(start);
   const finish = text.indexOf(end, begin);
@@ -154,13 +154,13 @@ assert.equal(sizing.positions.card.y - sizing.origin().y, 32);
 const input = {value: "9", max: "9", disabled: false};
 const count = {textContent: ""};
 const summaries = new Function("focusLabel", "opened", "thresholdInput", "violationsOnly",
-  "thresholdValue", `${part("  function activeFilterSummary()", "  function related(")}` +
+  "thresholdValue", `${part("  function activeFilterSummary(mode)", "  function related(")}` +
   "; return {activeFilterSummary, normalizeThreshold, updateEdgeCount};")(
     null, null, input, {checked: false}, count,
   );
 summaries.normalizeThreshold(1);
 assert.equal(input.value, "1");
-assert.match(summaries.activeFilterSummary(), /at least 1 import sites/);
+assert.match(summaries.activeFilterSummary("diagram"), /at least 1 import sites/);
 summaries.updateEdgeCount(0, 0);
 assert.match(count.textContent, /0\/0/);
 assert(text.includes("updateEdgeCount(visibleEdges().length, fullLevel().edges.length);"));
