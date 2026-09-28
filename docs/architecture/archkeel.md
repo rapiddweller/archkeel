@@ -157,6 +157,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-118 | [Structure review is not contract conformance](decisions/ad-118-structure-review-is-not-contract-conformance.md) |
 | AD-119 | [Index re-exports once per boundary pass](decisions/ad-119-index-reexports-once-per-boundary-pass.md) |
 | AD-120 | [Direct publication crosses only declared ancestors](decisions/ad-120-direct-publication-crosses-only-declared-ancestors.md) |
+| AD-121 | [Boundary methods are scoped to exported classes](decisions/ad-121-boundary-methods-are-scoped-to-exported-classes.md) |
 
 ## Allowed dependencies
 

@@ -174,6 +174,7 @@ def _symbol_data(
         data.update(
             {
                 "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
+                "base_roots": _class_bases(module, node),
                 "frozen_object": _class_is_frozen(node, module),
                 "symbol_category": "class",
                 "fields": _class_field_annotations(node),
@@ -182,10 +183,42 @@ def _symbol_data(
     else:
         data.update(_function_signature(node))
         data["symbol_category"] = "method" if parent else "function"
+        decorator_targets = [
+            _resolve_static_name(
+                module, decorator.func if isinstance(decorator, ast.Call) else decorator
+            )
+            for decorator in node.decorator_list
+        ]
+        data["overload_signature"] = any(
+            target in {"overload", "typing.overload", "typing_extensions.overload"}
+            for target in decorator_targets
+        )
+        if parent:
+            method_kind = "instance"
+            for resolved in decorator_targets:
+                if resolved in {"staticmethod", "builtins.staticmethod"}:
+                    method_kind = "static"
+                elif resolved in {"classmethod", "builtins.classmethod"}:
+                    method_kind = "class"
+            data["method_kind"] = method_kind
         shape, shape_nodes = _shape(node)
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
     return data
+
+
+def _class_bases(module: ParsedModule, node: ast.ClassDef) -> list[str]:
+    return sorted(
+        filter(
+            None,
+            (
+                _resolve_static_name(
+                    module, base.value if isinstance(base, ast.Subscript) else base
+                )
+                for base in node.bases
+            ),
+        )
+    )
 
 
 def _resolve_class_kinds(
@@ -464,4 +497,19 @@ def collect_symbols(
         item["data"]["qualified_name"]: item for item in symbols if "qualified_name" in item["data"]
     }
     _resolve_class_kinds(classes, owners, symbol_by_name)
+    symbols = _mark_overloaded_symbols(symbols)
     return sorted(symbols, key=lambda item: item["id"]), nodes, owners
+
+
+def _mark_overloaded_symbols(symbols: list[RawRecord]) -> list[RawRecord]:
+    overloaded = {
+        (data["module"], data["parent"], data["name"])
+        for item in symbols
+        if (data := item["data"]).get("overload_signature") is True
+    }
+    return [
+        {**item, "data": {**item["data"], "overloaded": True}}
+        if (item["data"]["module"], item["data"]["parent"], item["data"]["name"]) in overloaded
+        else item
+        for item in symbols
+    ]
