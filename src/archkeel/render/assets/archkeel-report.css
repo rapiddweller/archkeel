@@ -464,6 +464,7 @@ code {
 /* AD-10 component flow view. */
 .flow-views {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--ck-space-2);
   margin-bottom: var(--ck-space-4);
   border-bottom: 1px solid var(--ck-border);
@@ -486,10 +487,17 @@ code {
   border-bottom-color: var(--ck-lime);
   color: var(--ck-text);
 }
-.flow[data-view]:not([data-view="diagram"]) .flow-canvas,
-.flow[data-view]:not([data-view="diagram"]) .flow-legend,
-.flow[data-view]:not([data-view="diagram"]) .flow-diagram-control,
-.flow[data-view]:not([data-view="diagram"]) .flow-violation-focus {
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-canvas,
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-legend,
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-diagram-control,
+.flow[data-view]:not([data-view="diagram"]):not([data-view="target"]) .flow-violation-focus {
+  display: none;
+}
+.flow[data-view="target"] .flow-diagram-filter {
+  display: none;
+}
+.flow[data-view="actual"] .flow-navigation-control,
+.flow[data-view="diff"] .flow-navigation-control {
   display: none;
 }
 .flow-how-to-read {
@@ -515,6 +523,30 @@ code {
 .flow-breadcrumb button:disabled {
   color: var(--ck-text);
   cursor: default;
+}
+.flow-breadcrumb[hidden],
+.flow-inspector[hidden] {
+  display: none;
+}
+.flow-projection-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: var(--ck-space-3);
+}
+.flow-projection-breadcrumb button {
+  border: 0;
+  background: none;
+  color: var(--ck-teal);
+  cursor: pointer;
+  font: inherit;
+}
+.flow-projection-breadcrumb button:last-child {
+  color: var(--ck-text);
+}
+.flow-projection-details {
+  margin: var(--ck-space-3) 0;
 }
 .flow-inspector .module-tree {
   list-style: none;
@@ -956,6 +988,54 @@ code {
   stroke-linecap: round;
   opacity: 0.85;
 }
+.edge.target-edge .line {
+  stroke: var(--ck-muted);
+  stroke-width: 1.4;
+  opacity: 0.34;
+  marker-end: none;
+}
+.edge.target-edge.requires .line {
+  stroke: var(--ck-muted);
+  stroke-width: 1.8;
+  opacity: 0.72;
+  marker-end: url(#flow-arrow-observed);
+}
+.edge.target-edge.selected .line,
+.edge.target-edge.requires.selected .line {
+  stroke: var(--ck-teal);
+  stroke-width: 2.4;
+  opacity: 1;
+}
+.edge.target-edge.owns_package .line {
+  stroke: var(--ck-teal);
+  stroke-dasharray: 4 3;
+}
+.edge.target-edge.allowed_child .line {
+  stroke-dasharray: 1 4;
+}
+.edge.target-edge.contains .line {
+  stroke: var(--ck-border);
+  stroke-dasharray: 2 4;
+}
+.target-legend-swatch {
+  display: inline-block;
+  width: 28px;
+  border-top: 2px solid var(--ck-muted);
+}
+.target-legend-swatch.requires {
+  border-color: var(--ck-text);
+}
+.target-legend-swatch.owns_package {
+  border-color: var(--ck-teal);
+  border-top-style: dashed;
+}
+.target-legend-swatch.allowed_child {
+  border-top-style: dotted;
+}
+.target-legend-swatch.contains {
+  border-color: var(--ck-border);
+  border-top-style: dashed;
+}
 .edge.conforms .line {
   stroke: var(--ck-teal);
 }
@@ -1027,6 +1107,9 @@ code {
   stroke: transparent;
   stroke-width: 16px;
   cursor: pointer;
+}
+.edge.target-edge .target-hit {
+  stroke-width: 8px;
 }
 .edge.dim .line,
 .edge.dim .pulse {

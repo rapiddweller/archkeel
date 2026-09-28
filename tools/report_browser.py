@@ -120,9 +120,122 @@ def _check_wide_navigation(page: Page) -> None:
             page.locator(".flow-back").click()
 
 
+def _check_projection_navigation(page: Page) -> None:
+    actual = page.locator('[data-flow-view="actual"]')
+    actual.focus()
+    page.keyboard.press("Enter")
+    assert actual.get_attribute("aria-pressed") == "true"
+    for identifier, title in (
+        ("shop", "shop"),
+        ("shop.store", "store"),
+        ("shop.store.backend", "backend"),
+        ("shop.store.backend.tasks", "tasks"),
+    ):
+        page.locator(f'.flow-alternative [data-projection-id="{identifier}"]').focus()
+        page.keyboard.press("Enter")
+        assert page.locator(".flow-projection h2").text_content() == title
+        assert page.evaluate("document.activeElement.tagName") != "BODY"
+    page.locator('.flow-alternative [data-projection-id="shop.store.backend.tasks.alpha"]').focus()
+    page.keyboard.press("Enter")
+    assert page.get_by_role("heading", name="alpha", exact=True).is_visible()
+    assert page.evaluate("document.activeElement.tagName") != "BODY"
+    page.locator('.flow-projection-breadcrumb [data-projection-crumb="1"]').click()
+    assert page.locator(".flow-projection h2").text_content() == "store"
+    page.locator("[data-projection-root]").click()
+    assert page.locator(".flow-projection h2").text_content() == "Observed modules"
+    for mode, title in (("Diff", "Differences"), ("Actual", "Observed modules")):
+        button = page.locator(f'[data-flow-view="{mode.lower()}"]')
+        button.click()
+        assert button.get_attribute("aria-pressed") == "true"
+        assert page.locator(".flow-projection h2").text_content() == title
+        assert page.locator(".flow-canvas").is_hidden()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+
+
+def _check_target_navigation(page: Page, output: Path, width: int) -> None:
+    target = page.locator('[data-flow-view="target"]')
+    target.click()
+    canvas = page.locator(".flow-canvas")
+    assert canvas.is_visible()
+    assert page.locator(".flow-diagram-filter").first.is_hidden()
+    root_graph = _flow(page)["explorers"]["target_diagrams"]["root"]
+    assert page.locator(".flow-nodes .node").count() == len(root_graph["nodes"])
+    if width == 375:
+        assert canvas.evaluate("element => element.scrollWidth <= element.clientWidth + 1")
+    root_labels = set(
+        page.locator(".flow-nodes .node").evaluate_all(
+            "nodes => nodes.map(node => node.getAttribute('data-label'))"
+        )
+    )
+    assert {"store", "shop"} <= root_labels
+    page.locator("#flow").screenshot(path=str(output / f"target-root-{width}.png"))
+
+    for label in ("store", "backend", "tasks", "source"):
+        node = page.locator(f'.flow-nodes .node[data-label="{label}"]').first
+        assert node.is_visible(), f"Target node {label!r} is not reachable"
+        node.click()
+        if label == "store":
+            if width == 1440:
+                page.get_by_role("button", name="Fit overview").click()
+                page.locator(".flow-layout").screenshot(path=str(output / "target-store-1440.png"))
+                page.get_by_role("button", name="Set zoom to 100%").click()
+            requirement = page.locator(".flow-edges .target-edge.requires").first
+            line = requirement.locator(".line")
+            line.evaluate("element => element.scrollIntoView({block: 'center', inline: 'center'})")
+            path_state = line.evaluate(
+                """element => ({
+                  length: element.getTotalLength(),
+                  stroke: getComputedStyle(element).stroke,
+                  display: getComputedStyle(element).display,
+                  visibility: getComputedStyle(element).visibility,
+                })"""
+            )
+            assert path_state["length"] > 0, path_state
+            assert path_state["stroke"] != "none" and path_state["display"] != "none", path_state
+            assert path_state["visibility"] == "visible", path_state
+            point = requirement.evaluate(
+                """group => {
+                  const path = group.querySelector('.line');
+                  const length = path.getTotalLength();
+                  const matrix = path.getScreenCTM();
+                  for (let fraction = 0.15; fraction <= 0.85; fraction += 0.05) {
+                    const local = path.getPointAtLength(length * fraction);
+                    const screen = new DOMPoint(local.x, local.y).matrixTransform(matrix);
+                    const hit = document.elementFromPoint(screen.x, screen.y);
+                    if (hit?.closest('[data-target-edge]') === group) {
+                      return {x: screen.x, y: screen.y};
+                    }
+                  }
+                  return null;
+                }"""
+            )
+            assert point is not None, "No unambiguous visible point on the requirement edge"
+            page.mouse.click(point["x"], point["y"])
+            assert page.locator(".flow-inspector").get_by_text("Rationale").is_visible()
+            requirement.focus()
+            page.keyboard.press("Enter")
+            assert page.locator(".flow-inspector").get_by_text("Rationale").is_visible()
+    assert page.locator(".flow-inspector").is_visible()
+    assert page.locator(".flow-edges .target-edge").count() > 0
+    line = page.locator(".flow-edges .target-edge .line").first
+    assert line.evaluate("element => getComputedStyle(element).stroke") != "none"
+    assert (
+        float(line.evaluate("element => getComputedStyle(element).strokeWidth.replace('px', '')"))
+        < 3
+    )
+    package_scope = page.locator('.flow-nodes .node[data-label="shop.store.backend.tasks.source"]')
+    assert package_scope.is_visible()
+    page.locator("#flow").screenshot(path=str(output / f"target-sources-{width}.png"))
+    page.keyboard.press("Escape")
+    assert page.locator(".flow-breadcrumb button").count() >= 4
+    page.locator(".flow-breadcrumb button").first.click()
+    assert page.locator(".flow-nodes .node[data-label='store']").is_visible()
+
+
 def _check_diagram_controls(page: Page) -> None:
-    _return_to_root(page)
     page.get_by_role("button", name="Diagram").click()
+    assert page.locator(".flow-inspector").is_visible()
+    _return_to_root(page)
     focus = page.locator("#flow-focus")
     focus.select_option(label="store")
     assert "Focus: store" in page.locator(".flow-filter-status").text_content()
@@ -279,6 +392,9 @@ def _check_no_javascript(browser: Browser, report: Path, output: Path) -> None:
     page = browser.new_page(viewport={"width": 1440, "height": 1000}, java_script_enabled=False)
     try:
         page.goto(report.as_uri(), wait_until="load")
+        assert not page.locator(".flow-views").is_visible()
+        assert page.locator(".flow-alternative").is_hidden()
+        assert page.get_by_text("Observed module tree", exact=False).is_visible()
         assert not page.locator("[data-report-filters]").is_visible()
         assert page.locator('[data-filter-row][data-search*="APP-TYPES-NOT-DICT"]').count() > 0
         assert page.locator(
@@ -307,9 +423,16 @@ def main() -> int:
         wide, wide_errors = _visit(browser, reports["wide"], "wide", output)
         try:
             _check_wide_navigation(wide)
+            _check_projection_navigation(wide)
+            _check_target_navigation(wide, output, 1440)
             _check_diagram_controls(wide)
             assert not wide_errors, f"wide JavaScript errors: {wide_errors}"
-            wide.set_viewport_size({"width": 375, "height": 2400})
+            wide.set_viewport_size({"width": 375, "height": 844})
+            _check_target_navigation(wide, output, 375)
+            _check_projection_navigation(wide)
+            wide.locator(".flow-projection").screenshot(path=str(output / "actual-375.png"))
+            wide.locator('[data-flow-view="diff"]').click()
+            wide.locator(".flow-projection").screenshot(path=str(output / "diff-375.png"))
             _check_wide_navigation(wide)
             _check_diagram_controls(wide)
             _return_to_root(wide)
@@ -345,6 +468,14 @@ def main() -> int:
             try:
                 assert unknown.locator('[data-filter-row][data-status="UNKNOWN"]').count()
                 _check_unknown_color(unknown)
+                unknown.locator('[data-flow-view="diff"]').click()
+                unknown.locator('[data-projection-id="diff:unknowns"]').click()
+                rows = unknown.locator(".flow-projection [data-projection-id]")
+                assert rows.count() > 0, "UNKNOWN records are missing from Diff navigation"
+                rows.first.click()
+                assert unknown.locator(
+                    '.flow-projection [aria-label="Selected entry"]'
+                ).is_visible()
                 assert not unknown_errors, f"unknown JavaScript errors: {unknown_errors}"
             finally:
                 _finish(unknown, "unknown", output)

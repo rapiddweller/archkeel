@@ -5,6 +5,7 @@
   const root = document.getElementById("flow");
   const dataNode = document.getElementById("flow-data");
   if (!root || !dataNode) return;
+  const flowHeading = document.getElementById("flow-heading");
   const DATA = JSON.parse(dataNode.textContent);
   const CARD = { w: 200, h: 92 };
   const GAP = 34;
@@ -317,6 +318,19 @@
   let viewMode = "diagram";
   let focusLabel = null;
   let transform = { k: 1 };
+  let projectionPath = [];
+  let projectionSelection = null;
+  let targetPath = [];
+  let targetSelection = null;
+
+  function targetNode(id, nodes = DATA.explorers?.target || []) {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      const child = targetNode(id, node.children || []);
+      if (child) return child;
+    }
+    return null;
+  }
 
   function computeRanks() {
     const view = level();
@@ -446,7 +460,8 @@
     );
   }
 
-  function activeFilterSummary() {
+  function activeFilterSummary(mode) {
+    if (["actual", "target", "diff"].includes(mode)) return "";
     const active = [];
     if (focusLabel) active.push(`Focus: ${focusLabel}`);
     if (Number(thresholdInput.value) > 0) {
@@ -503,13 +518,21 @@
   }
 
   function captureAlternativeFocus() {
-    const button = document.activeElement.closest("[data-flow-card], [data-flow-edge], [data-key]");
+    const button = document.activeElement.closest(
+      "[data-flow-card], [data-flow-edge], [data-key], [data-projection-id], [data-projection-crumb], [data-projection-root]",
+    );
     if (!button || !alternative.contains(button)) return null;
     return button.dataset.flowCard !== undefined
       ? { attribute: "data-flow-card", value: button.dataset.flowCard }
       : button.dataset.flowEdge !== undefined
         ? { attribute: "data-flow-edge", value: button.dataset.flowEdge }
-        : { attribute: "data-key", value: button.dataset.key };
+        : button.dataset.key !== undefined
+          ? { attribute: "data-key", value: button.dataset.key }
+          : button.dataset.projectionId !== undefined
+            ? { attribute: "data-projection-id", value: button.dataset.projectionId }
+            : button.dataset.projectionCrumb !== undefined
+              ? { attribute: "data-projection-crumb", value: button.dataset.projectionCrumb }
+              : { attribute: "data-projection-root", value: "" };
   }
 
   function restoreAlternativeFocus(focused) {
@@ -527,6 +550,182 @@
     }
   }
 
+  function renderTargetInspector() {
+    const node = targetSelection ? targetNode(targetSelection) : targetNode(targetPath.at(-1));
+    if (!node) {
+      inspector.innerHTML = "<p>Select a declared component or package for its contract details.</p>";
+      return;
+    }
+    inspector.innerHTML = `<div class="kicker">Declared ${esc(node.kind)}</div>
+      <h2>${esc(node.label)}</h2>
+      ${(node.details || []).length
+        ? `<dl class="kv">${node.details.map((item) =>
+          `<dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd>`).join("")}</dl>`
+        : "<p>No additional details recorded.</p>"}`;
+  }
+
+  function renderTargetDiagram() {
+    const focusedNode = document.activeElement.closest("[data-target-node]")?.dataset.targetNode;
+    const focusedEdge = document.activeElement.closest("[data-target-edge]")?.dataset.targetEdge;
+    const current = targetNode(targetPath.at(-1));
+    const graph = current
+      ? DATA.explorers.target_diagrams.nested[current.id]
+      : DATA.explorers.target_diagrams.root;
+    const graphNodes = graph?.nodes || [];
+    const owner = graph?.owner ? graphNodes.find((node) => node.id === graph.owner) : null;
+    const children = graphNodes.filter((node) => !owner || node.id !== owner.id);
+    const columns = Math.max(
+      1,
+      Math.min(4, Math.floor((canvas.clientWidth - 64 + GAP) / (CARD.w + GAP))),
+    );
+    positions = {};
+    if (owner) positions[owner.id] = { x: 0, y: 0 };
+    const rows = owner ? children : graphNodes;
+    rows.forEach((node, index) => {
+      const row = Math.floor(index / columns);
+      const column = index % columns;
+      const rowCount = Math.min(columns, rows.length - row * columns);
+      positions[node.id] = {
+        x: (column - (rowCount - 1) / 2) * (CARD.w + GAP),
+        y: (row + (owner ? 1 : 0)) * ROW_STEP,
+      };
+    });
+    emptyLayer.textContent = "";
+    edgeLayer.textContent = "";
+    chipLayer.textContent = "";
+    nodeLayer.textContent = "";
+
+    const edges = graph?.edges || [];
+    const lanes = groupBy(edges, laneKey);
+    lanes.forEach((bucket) => bucket.sort((a, b) =>
+      positions[a.source].x - positions[b.source].x || positions[a.target].x - positions[b.target].x));
+    // Draw requirements last: their direct component links remain pointer-accessible
+    // where they cross the lower-contrast containment/ownership context edges.
+    const targetEdgePriority = { allowed_child: 0, contains: 1, owns_package: 2, requires: 3 };
+    [...edges].sort((a, b) => targetEdgePriority[a.kind] - targetEdgePriority[b.kind]).forEach((edge) => {
+      const path = routeFor(edge, 0, 0, 1, 1, laneOffsetFor(edge, lanes)).d;
+      const declaration = edge.declaration || `${edge.source}>${edge.target}`;
+      const group = el("g", {
+        class: `edge target-edge ${edge.kind}${targetSelection === declaration ? " selected" : ""}`,
+        tabindex: "0",
+        role: "button",
+        "aria-label": `${edge.kind}: ${edge.label}`,
+        "aria-pressed": String(targetSelection === declaration),
+        "data-target-edge": declaration,
+      });
+      const line = el("path", { class: "line", d: path, "stroke-width": "2" });
+      const title = el("title");
+      title.textContent = `${edge.kind}: ${edge.label}`;
+      line.appendChild(title);
+      group.appendChild(line);
+      group.appendChild(el("path", {
+        class: "hit target-hit", d: path, "aria-hidden": "true", "pointer-events": "stroke",
+      }));
+      const inspect = () => {
+        targetSelection = edge.declaration || null;
+        render();
+      };
+      group.addEventListener("click", inspect);
+      group.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          inspect();
+        }
+      });
+      edgeLayer.appendChild(group);
+    });
+
+    graphNodes.forEach((node) => {
+      const position = positions[node.id];
+      const type = node.kind === "component" ? "component"
+        : node.kind === "requires" ? "requires"
+          : node.kind === "root_layout" ? "layout"
+            : node.kind === "physical_child" ? "physical" : "package";
+      const group = el("g", {
+        class: `node target-node ${type}${targetSelection === node.id ? " selected" : ""}`,
+        transform: `translate(${position.x},${position.y})`,
+        tabindex: "0",
+        role: "button",
+        "aria-label": `${type}: ${node.label}`,
+        "data-label": node.label,
+        "data-target-node": node.id,
+      });
+      group.appendChild(el("rect", {
+        class: "card target-card", width: String(CARD.w), height: String(CARD.h), rx: "8",
+      }));
+      const kind = el("text", { class: "stereotype target-kind", x: "16", y: "19" });
+      kind.textContent = type === "component" ? "COMPONENT"
+        : type === "requires" ? "REQUIRES"
+          : type === "layout" ? "ROOT LAYOUT"
+            : type === "physical" ? "ALLOWED CHILD" : "PACKAGE SCOPE";
+      group.appendChild(kind);
+      const label = el("text", { class: "label target-label", x: "16", y: "47" });
+      label.textContent = node.label.length > 26 ? `${node.label.slice(0, 23)}…` : node.label;
+      group.appendChild(label);
+      const targetRecord = targetNode(node.id);
+      const count = el("text", { class: "meta target-meta", x: "16", y: "72" });
+      const children = targetRecord?.children || [];
+      const components = children.filter((child) => child.kind === "component").length;
+      const allowed = children.filter((child) => child.kind === "physical_child").length;
+      count.textContent = components
+        ? `${components} component${components === 1 ? "" : "s"} · Open`
+        : allowed
+          ? `${allowed} allowed child${allowed === 1 ? "" : "ren"} · Open`
+          : children.length ? "Details · Open" : "Declared leaf";
+      group.appendChild(count);
+      const title = el("title");
+      title.textContent = `${type}: ${node.label}`;
+      group.appendChild(title);
+      const open = () => {
+        if (graph?.owner === node.id) {
+          targetSelection = node.id;
+        } else if ((targetRecord?.children || []).length) {
+          targetPath.push(node.id);
+          targetSelection = null;
+        } else {
+          targetSelection = node.id;
+        }
+        render();
+      };
+      group.addEventListener("click", open);
+      group.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+      nodeLayer.appendChild(group);
+    });
+
+    legend.textContent = "";
+    for (const [kind, label] of [
+      ["allowed_child", "Layout allows child"],
+      ["owns_package", "Component owns package scope"],
+      ["contains", "Declared containment"],
+      ["requires", "Declared requirement"],
+    ]) {
+      const item = document.createElement("span");
+      item.className = "flow-legend-item";
+      item.appendChild(el("span", { class: `target-legend-swatch ${kind}` }));
+      const text = document.createElement("span");
+      text.textContent = label;
+      item.appendChild(text);
+      legend.appendChild(item);
+    }
+    const scopeHint = document.createElement("span");
+    scopeHint.className = "flow-legend-hint";
+    scopeHint.textContent = `${graphNodes.length} declared items in this scope · scroll to see all`;
+    legend.appendChild(scopeHint);
+    inspector.hidden = false;
+    renderTargetInspector();
+    sizedPositions = {};
+    sizeDiagram();
+    const focusTarget = focusedEdge
+      ? edgeLayer.querySelector(`[data-target-edge="${CSS.escape(focusedEdge)}"]`)
+      : nodeLayer.querySelector(`[data-target-node="${CSS.escape(focusedNode || "")}"]`);
+    if (focusTarget) focusTarget.focus();
+  }
+
   function render() {
     updateNavigation();
     const scope = fullLevel();
@@ -538,9 +737,17 @@
     focusInput.value = focusLabel || "";
     focusInput.disabled = !scope.components.length;
     root.dataset.view = viewMode;
+    flowHeading.textContent = viewMode === "target"
+      ? "Target architecture"
+      : ["actual", "diff"].includes(viewMode) ? "Architecture view" : "Component flow";
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
-    alternative.hidden = viewMode === "diagram";
-    filterStatus.textContent = activeFilterSummary();
+    alternative.hidden = viewMode === "diagram" || viewMode === "target";
+    if (viewMode === "diagram" || viewMode === "target") inspector.hidden = false;
+    filterStatus.textContent = activeFilterSummary(viewMode);
+    if (viewMode === "target") {
+      renderTargetDiagram();
+      return;
+    }
     if (viewMode !== "diagram") {
       renderAlternative();
       return;
@@ -937,10 +1144,63 @@
       <details><summary>Open an entry</summary><div class="flow-item-list">${nodeButtons}</div></details>`;
   }
 
+  function renderExplorer() {
+    const roots = DATA.explorers?.[viewMode] || [];
+    const path = [];
+    let entries = roots;
+    for (const id of projectionPath) {
+      const node = entries.find((item) => item.id === id);
+      if (!node) {
+        projectionPath = [];
+        projectionSelection = null;
+        entries = roots;
+        path.length = 0;
+        break;
+      }
+      path.push(node);
+      entries = node.children || [];
+    }
+    const current = path.at(-1);
+    const title = current?.label || ({ actual: "Observed modules", target: "Declared target", diff: "Differences" })[viewMode];
+    const details = (node) => (node.details || []).map((item) =>
+      `<dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd>`).join("");
+    const crumbs = path.map((node, index) =>
+      `<button type="button" data-projection-crumb="${index}">${esc(node.label)}</button>`).join('<span aria-hidden="true"> / </span>');
+    const rows = entries.map((node) => {
+      const children = node.children || [];
+      return `<button type="button" data-projection-id="${esc(node.id)}"
+        aria-pressed="${projectionSelection === node.id}">
+        <span><code>${esc(node.label)}</code></span>
+        <small>${esc(node.kind)}${children.length ? ` · ${children.length} entries` : ""}</small></button>`;
+    }).join("");
+    const selected = entries.find((node) => node.id === projectionSelection);
+    const currentDetails = current && details(current)
+      ? `<dl class="kv flow-projection-details">${details(current)}</dl>` : "";
+    const selectedDetails = selected && details(selected)
+      ? `<section aria-label="Selected entry"><h3>${esc(selected.label)}</h3>
+        <dl class="kv flow-projection-details">${details(selected)}</dl></section>` : "";
+    alternative.innerHTML = `<div class="flow-projection">
+      <nav class="flow-projection-breadcrumb" aria-label="${esc(viewMode)} path">
+        <button type="button" data-projection-root>${esc(({ actual: "Actual", target: "Target", diff: "Diff" })[viewMode])}</button>
+        ${crumbs ? `<span aria-hidden="true"> / </span>${crumbs}` : ""}
+      </nav>
+      <h2>${esc(title)}</h2>
+      ${currentDetails}
+      ${rows ? `<div class="flow-item-list">${rows}</div>` : "<p>No entries at this level.</p>"}
+      ${selectedDetails}</div>`;
+  }
+
   function renderAlternative() {
     const focused = captureAlternativeFocus() || pendingAlternativeFocus;
     pendingAlternativeFocus = null;
     const view = level();
+    if (["actual", "target", "diff"].includes(viewMode)) {
+      renderExplorer();
+      inspector.hidden = true;
+      restoreAlternativeFocus(focused);
+      return;
+    }
+    inspector.hidden = false;
     if (viewMode === "structure") renderStructure(view);
     else renderReview(view);
     renderInspector(view.edges);
@@ -1369,7 +1629,34 @@
   }
 
   function updateNavigation() {
-    backButton.hidden = !opened;
+    if (viewMode === "target") {
+      backButton.hidden = !targetPath.length;
+      backButton.textContent = `Back to ${targetPath.length > 1 ? targetNode(targetPath.at(-2))?.label : "Target"}`;
+      breadcrumb.hidden = false;
+      breadcrumb.textContent = "";
+      const entries = [{ label: "Target", depth: 0 }, ...targetPath.map((id, index) => ({
+        label: targetNode(id)?.label || id,
+        depth: index + 1,
+      }))];
+      entries.forEach((item, index) => {
+        if (index) breadcrumb.append(" / ");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = item.label;
+        button.disabled = index === entries.length - 1;
+        button.addEventListener("click", () => {
+          targetPath = targetPath.slice(0, item.depth);
+          targetSelection = null;
+          positions = {};
+          render();
+        });
+        breadcrumb.appendChild(button);
+      });
+      return;
+    }
+    const explorer = ["actual", "diff"].includes(viewMode);
+    backButton.hidden = !opened || explorer;
+    breadcrumb.hidden = explorer;
     if (opened) backButton.textContent = backLabel();
     breadcrumb.textContent = "";
     crumbs().forEach((item, index, all) => {
@@ -1454,11 +1741,25 @@
     (target || canvas).focus();
   }
 
-  backButton.addEventListener("click", leave);
+  backButton.addEventListener("click", () => {
+    if (viewMode === "target" && targetPath.length) {
+      targetPath.pop();
+      targetSelection = null;
+      positions = {};
+      render();
+    } else {
+      leave();
+    }
+  });
   toolbar.hidden = false;
   root.querySelector(".flow-views").hidden = false;
   viewButtons.forEach((button) => button.addEventListener("click", () => {
     viewMode = button.dataset.flowView;
+    projectionPath = [];
+    projectionSelection = null;
+    targetPath = [];
+    targetSelection = null;
+    positions = {};
     render();
   }));
   focusInput.addEventListener("change", () => {
@@ -1468,6 +1769,35 @@
     render();
   });
   alternative.addEventListener("click", (event) => {
+    const projectionButton = event.target.closest("[data-projection-id]");
+    if (projectionButton) {
+      const id = projectionButton.dataset.projectionId;
+      const entries = projectionPath.reduce((items, parent) =>
+        (items.find((item) => item.id === parent)?.children || []), DATA.explorers[viewMode]);
+      const node = entries.find((item) => item.id === id);
+      if (!node) return;
+      if ((node.children || []).length) {
+        projectionPath.push(id);
+        projectionSelection = null;
+      } else {
+        projectionSelection = id;
+      }
+      render();
+      return;
+    }
+    const crumb = event.target.closest("[data-projection-crumb]");
+    if (crumb) {
+      projectionPath = projectionPath.slice(0, Number(crumb.dataset.projectionCrumb) + 1);
+      projectionSelection = null;
+      render();
+      return;
+    }
+    if (event.target.closest("[data-projection-root]")) {
+      projectionPath = [];
+      projectionSelection = null;
+      render();
+      return;
+    }
     const cardButton = event.target.closest("[data-flow-card]");
     if (cardButton) {
       pendingAlternativeFocus = { attribute: "data-flow-card", value: cardButton.dataset.flowCard };
@@ -1489,7 +1819,20 @@
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") leave();
+    if (event.key === "Escape") {
+      if (viewMode === "target" && targetPath.length) {
+        targetPath.pop();
+        targetSelection = null;
+        positions = {};
+        render();
+      } else if (["actual", "diff"].includes(viewMode) && projectionPath.length) {
+        projectionPath.pop();
+        projectionSelection = null;
+        render();
+      } else if (!["actual", "target", "diff"].includes(viewMode)) {
+        leave();
+      }
+    }
   });
 
   thresholdInput.addEventListener("input", () => {
@@ -1527,5 +1870,8 @@
 
   renderLegend();
   render();
-  window.addEventListener("resize", sizeDiagram);
+  window.addEventListener("resize", () => {
+    if (viewMode === "target") renderTargetDiagram();
+    else sizeDiagram();
+  });
 })();

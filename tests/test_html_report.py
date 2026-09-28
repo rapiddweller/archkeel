@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import json
 from dataclasses import replace
+from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -38,6 +39,21 @@ from fixtures.demo_catalog_support import contract_rule_field, contract_without_
 FAILED_CHECK = RunResult(
     "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
 )
+
+
+class _StartTags(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.tags: list[tuple[str, dict[str, str | None]]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.tags.append((tag, dict(attrs)))
+
+
+def _start_tags(page: str, tag: str) -> list[dict[str, str | None]]:
+    parser = _StartTags()
+    parser.feed(page)
+    return [attrs for name, attrs in parser.tags if name == tag]
 
 
 def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
@@ -310,8 +326,17 @@ def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_pa
 
     assert 'id="flow"' in page
     assert 'id="flow-data"' in page
-    assert 'class="flow-violation-focus" for="flow-violations-only" hidden' in page
-    assert 'class="flow-violations-only"' in page
+    focus_label = next(
+        attrs for attrs in _start_tags(page, "label") if attrs.get("for") == "flow-violations-only"
+    )
+    assert {"flow-violation-focus", "flow-diagram-filter"} <= set(
+        (focus_label.get("class") or "").split()
+    )
+    assert "hidden" in focus_label
+    violation_control = next(
+        attrs for attrs in _start_tags(page, "input") if attrs.get("id") == "flow-violations-only"
+    )
+    assert "flow-violations-only" in (violation_control.get("class") or "").split()
     data_start = page.index('id="flow-data"')
     payload = json.loads(
         page[page.index(">", data_start) + 1 : page.index("</script>", data_start)]
@@ -415,7 +440,14 @@ def test_flow_report_keeps_interface_decisions_and_import_sites(tmp_path: Path) 
     payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
 
     assert "How to read this report" in page
-    assert 'class="flow-breadcrumb"' in page
+    breadcrumb = next(
+        attrs
+        for attrs in _start_tags(page, "nav")
+        if attrs.get("aria-label") == "Diagram breadcrumb"
+    )
+    assert {"flow-breadcrumb", "flow-navigation-control"} <= set(
+        (breadcrumb.get("class") or "").split()
+    )
     assert "Observed module tree" in page
     assert any(component["requires"] for component in payload["components"])
     requirement = next(

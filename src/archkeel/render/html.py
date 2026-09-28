@@ -769,6 +769,551 @@ def _collision_free_library_labels(
     return None
 
 
+def _add_actual_module(tree: dict[str, dict[str, object]], name: str, file: str) -> None:
+    parts = name.split(".")
+    siblings = tree
+    path: list[str] = []
+    for part in parts:
+        path.append(part)
+        qualified = ".".join(path)
+        if qualified not in siblings:
+            siblings[qualified] = {
+                "id": qualified,
+                "label": part,
+                "children": {},
+                "file": None,
+            }
+        node = siblings[qualified]
+        children = node["children"]
+        if not isinstance(children, dict):
+            raise TypeError("actual module tree children must be a mapping")
+        siblings = children
+    node["file"] = file
+
+
+def _finish_actual_node(node: dict[str, object]) -> dict[str, object]:
+    children = node["children"]
+    if not isinstance(children, dict):
+        raise TypeError("actual module tree children must be a mapping")
+    file = node["file"]
+    return {
+        "id": node["id"],
+        "label": node["label"],
+        "kind": "module" if isinstance(file, str) else "group",
+        "details": [{"label": "File", "value": file}] if isinstance(file, str) else [],
+        "children": [_finish_actual_node(children[key]) for key in children],
+    }
+
+
+def _scoped_layout_records(
+    layouts_by_parent: dict[str | None, list[Record]],
+    nested_layout_ids: set[str],
+    parent: str | None,
+) -> list[Record]:
+    return [
+        record for record in layouts_by_parent.get(parent, ()) if record.id not in nested_layout_ids
+    ]
+
+
+def _target_layout_node(
+    record: Record, layouts_by_root: dict[str, list[Record]]
+) -> dict[str, object]:
+    root = record.data.get("root")
+    allowed = record.data.get("allowed_children")
+    root_name = root if isinstance(root, str) else record.title
+    children = (
+        [name for name in allowed if isinstance(name, str)] if isinstance(allowed, tuple) else []
+    )
+    return {
+        "id": f"layout:{record.id}",
+        "label": root_name,
+        "kind": "root_layout",
+        "details": [{"label": "Allowed children", "value": ", ".join(children)}],
+        "children": [
+            {
+                "id": f"physical:{name}",
+                "label": name,
+                "kind": "physical_child",
+                "details": [{"label": "Allowed by", "value": root_name}],
+                "children": [
+                    _target_layout_node(child_layout, layouts_by_root)
+                    for child_layout in layouts_by_root.get(name, ())
+                ],
+            }
+            for name in children
+        ],
+    }
+
+
+def _target_component_details(record: Record, packages: list[str]) -> list[dict[str, object]]:
+    details: list[dict[str, object]] = [{"label": "Packages", "value": ", ".join(packages)}]
+    responsibilities = record.data.get("responsibilities")
+    if isinstance(responsibilities, tuple):
+        details.extend(
+            {"label": "Responsibility", "value": sentence}
+            for sentence in responsibilities
+            if isinstance(sentence, str)
+        )
+    return details
+
+
+def _target_component_node(
+    record: Record,
+    component_keys: dict[str, str],
+    children_by_parent: dict[str, list[Record]],
+    layouts_by_parent: dict[str | None, list[Record]],
+    nested_layout_ids: set[str],
+    layouts_by_root: dict[str, list[Record]],
+) -> dict[str, object]:
+    packages = list(record.subjects)
+    details = _target_component_details(record, packages)
+    key = component_keys[record.id]
+    nested = [
+        _target_component_node(
+            child,
+            component_keys,
+            children_by_parent,
+            layouts_by_parent,
+            nested_layout_ids,
+            layouts_by_root,
+        )
+        for child in children_by_parent.get(key, ())
+    ]
+    nested.extend(
+        _target_layout_node(layout, layouts_by_root)
+        for layout in _scoped_layout_records(layouts_by_parent, nested_layout_ids, key)
+    )
+    nested.extend(
+        {
+            "id": f"package:{record.id}:{package}",
+            "label": package,
+            "kind": "package_scope",
+            "details": [
+                {"label": "Owner", "value": record.title},
+                {"label": "Package scope", "value": package},
+            ],
+            "children": [],
+        }
+        for package in packages
+    )
+    nested.extend(
+        {
+            "id": f"requires:{record.id}:{entry['component']}",
+            "label": f"requires {entry['component']}",
+            "kind": "requires",
+            "details": [
+                {"label": "Rationale", "value": entry.get("rationale") or "Declared dependency"},
+                *(
+                    [{"label": "Decided by", "value": entry["decided_by"]}]
+                    if isinstance(entry.get("decided_by"), str)
+                    else []
+                ),
+            ],
+            "children": [],
+        }
+        for entry in _flow_requires(record)
+        if isinstance(entry.get("component"), str)
+    )
+    return {
+        "id": record.id,
+        "label": record.title,
+        "kind": "component",
+        "details": details,
+        "children": nested,
+    }
+
+
+def _explorer_group(
+    identifier: str, label: str, kind: str, children: list[dict[str, object]]
+) -> dict[str, object]:
+    return {"id": identifier, "label": label, "kind": kind, "details": [], "children": children}
+
+
+def _target_roots(
+    declarations: tuple[Record, ...],
+) -> tuple[list[dict[str, object]], dict[str, Record], list[Record]]:
+    components = {
+        record.id: record
+        for record in declarations
+        if record.kind in {"component_responsibility", "inside_component_responsibility"}
+    }
+    component_keys = {
+        record.id: (
+            f"{record.data.get('parent_id')}:{record.title}"
+            if isinstance(record.data.get("parent_id"), str)
+            else record.title
+        )
+        for record in components.values()
+    }
+    children_by_parent: dict[str, list[Record]] = {}
+    layouts_by_parent: dict[str | None, list[Record]] = {}
+    for record in components.values():
+        parent = record.data.get("parent_id")
+        if isinstance(parent, str):
+            children_by_parent[parent] = [*children_by_parent.get(parent, ()), record]
+    layout_records = [record for record in declarations if record.kind == "root_layout"]
+    for record in layout_records:
+        parent = record.data.get("parent_id")
+        parent_key = parent if isinstance(parent, str) else None
+        layouts_by_parent[parent_key] = [*layouts_by_parent.get(parent_key, ()), record]
+    layouts_by_root = {
+        root: [record for record in layout_records if record.data.get("root") == root]
+        for root in {record.data.get("root") for record in layout_records}
+        if isinstance(root, str)
+    }
+    nested_layout_ids = {
+        child.id
+        for parent in layout_records
+        if isinstance(allowed := parent.data.get("allowed_children"), tuple)
+        for root in allowed
+        if isinstance(root, str)
+        for child in layouts_by_root.get(root, ())
+        if child.id != parent.id
+    }
+
+    target_roots = [
+        _target_component_node(
+            record,
+            component_keys,
+            children_by_parent,
+            layouts_by_parent,
+            nested_layout_ids,
+            layouts_by_root,
+        )
+        for record in components.values()
+        if record.kind == "component_responsibility" and record.data.get("parent_id") is None
+    ]
+    target_roots.extend(
+        _target_layout_node(record, layouts_by_root)
+        for record in _scoped_layout_records(layouts_by_parent, nested_layout_ids, None)
+    )
+
+    return target_roots, components, layout_records
+
+
+def _absent_targets(
+    observation: Observation,
+    modules: dict[str, str],
+    components: dict[str, Record],
+    layouts: list[Record],
+) -> list[dict[str, object]]:
+    observed_paths = set(modules) | {
+        name
+        for record in observation.records("packages") or ()
+        if (name := record.data.get("qualified_name")) and isinstance(name, str)
+    }
+    absent_targets: list[dict[str, object]] = []
+    for record in components.values():
+        missing_packages = [
+            package
+            for package in record.subjects
+            if not any(in_scope(name, package) for name in observed_paths)
+        ]
+        for package in missing_packages:
+            absent_targets.append(
+                {
+                    "id": f"absent:{record.id}:{package}",
+                    "label": package,
+                    "kind": "package_scope",
+                    "details": [{"label": "Component", "value": record.title}],
+                    "children": [],
+                }
+            )
+        if missing_packages and len(missing_packages) == len(record.subjects):
+            absent_targets.append(
+                {
+                    "id": f"absent:{record.id}",
+                    "label": record.title,
+                    "kind": "component",
+                    "details": [{"label": "Packages", "value": ", ".join(record.subjects)}],
+                    "children": [],
+                }
+            )
+    for record in layouts:
+        allowed = record.data.get("allowed_children")
+        if not isinstance(allowed, tuple):
+            continue
+        for child in allowed:
+            if not isinstance(child, str) or any(in_scope(name, child) for name in observed_paths):
+                continue
+            absent_targets.append(
+                {
+                    "id": f"absent:{record.id}:{child}",
+                    "label": child,
+                    "kind": "physical_child",
+                    "details": [{"label": "Expected below", "value": str(record.data.get("root"))}],
+                    "children": [],
+                }
+            )
+
+    return absent_targets
+
+
+def _unmapped_targets(
+    observation: Observation, flow: FlowData, modules: dict[str, str], components: dict[str, Record]
+) -> set[str]:
+    owned_package_paths = {package for record in components.values() for package in record.subjects}
+    initializer_targets = {
+        name
+        for name, file in modules.items()
+        if name in owned_package_paths and file[-11:] == "__init__.py"
+    }
+    unmapped = set(flow.unassigned_modules) - initializer_targets
+    for level in inside_levels(observation):
+        unmapped |= set(level.unassigned) - initializer_targets
+    return unmapped
+
+
+def _target_projection(
+    observation: Observation,
+    flow: FlowData,
+    modules: dict[str, str],
+    declarations: tuple[Record, ...],
+) -> tuple[list[dict[str, object]], list[dict[str, object]], set[str]]:
+    target_roots, components, layouts = _target_roots(declarations)
+    return (
+        target_roots,
+        _absent_targets(observation, modules, components, layouts),
+        _unmapped_targets(observation, flow, modules, components),
+    )
+
+
+def _graph_node(node: dict[str, object]) -> dict[str, object]:
+    return {key: node[key] for key in ("id", "label", "kind", "details")}
+
+
+def _target_children(node: dict[str, object]) -> list[dict[str, object]]:
+    children = node["children"]
+    return children if isinstance(children, list) else []
+
+
+def _target_tree(nodes: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [node for item in nodes for node in [item, *_target_tree(_target_children(item))]]
+
+
+def _target_nested_graph(node: dict[str, object]) -> dict[str, object] | None:
+    children = _target_children(node)
+    if not children:
+        return None
+    nodes = [_graph_node(node)]
+    edges = []
+    for child in children:
+        if child["kind"] == "requires":
+            continue
+        nodes.append(_graph_node(child))
+        kind = (
+            "owns_package"
+            if child["kind"] == "package_scope"
+            else "allowed_child"
+            if node["kind"] == "root_layout" and child["kind"] == "physical_child"
+            else "contains"
+        )
+        edges.append(
+            {
+                "source": node["id"],
+                "target": child["id"],
+                "kind": kind,
+                "label": child["label"],
+                "details": child["details"],
+                "declaration": child["id"],
+            }
+        )
+    for child in children:
+        if child["kind"] != "component":
+            continue
+        edges.extend(_nested_requires_edges(child, children, nodes))
+    edges.extend(_nested_requires_edges(node, children, nodes))
+    return {"owner": node["id"], "nodes": nodes, "edges": edges}
+
+
+def _nested_requires_edges(
+    owner: dict[str, object], siblings: list[dict[str, object]], nodes: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    edges = []
+    for requirement in _target_children(owner):
+        if requirement["kind"] != "requires":
+            continue
+        label = requirement["label"]
+        if not isinstance(label, str):
+            continue
+        target_name = label[9:]
+        target = next((item for item in siblings if item["label"] == target_name), requirement)
+        if not any(item["id"] == target["id"] for item in nodes):
+            nodes.append(_graph_node(target))
+        edges.append(
+            {
+                "source": owner["id"],
+                "target": target["id"],
+                "kind": "requires",
+                "label": label,
+                "details": requirement["details"],
+                "declaration": requirement["id"],
+            }
+        )
+    return edges
+
+
+def _root_requires_edges(
+    components: list[dict[str, object]], nodes: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    edges = []
+    for component in components:
+        for requirement in _target_children(component):
+            if requirement["kind"] != "requires":
+                continue
+            requirement_label = requirement["label"]
+            if not isinstance(requirement_label, str):
+                continue
+            target_label = requirement_label[9:]
+            target = next((node for node in components if node["label"] == target_label), None)
+            if target is None:
+                target = requirement
+                nodes.append(_graph_node(target))
+            edges.append(
+                {
+                    "source": component["id"],
+                    "target": target["id"],
+                    "kind": "requires",
+                    "label": requirement["label"],
+                    "details": requirement["details"],
+                    "declaration": requirement["id"],
+                }
+            )
+    return edges
+
+
+def _root_target_graph(target_roots: list[dict[str, object]]) -> dict[str, object]:
+    components = [node for node in target_roots if node["kind"] == "component"]
+    layout_roots = [node for node in target_roots if node["kind"] == "root_layout"]
+    root_nodes = [_graph_node(node) for node in (*components, *layout_roots)]
+    root_edges: list[dict[str, object]] = []
+    root_edges.extend(_root_requires_edges(components, root_nodes))
+    return {"owner": None, "nodes": root_nodes, "edges": root_edges}
+
+
+def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]:
+    nested = {
+        str(node["id"]): graph
+        for node in _target_tree(target_roots)
+        if (graph := _target_nested_graph(node)) is not None
+    }
+    return {"root": _root_target_graph(target_roots), "nested": nested}
+
+
+def _explorer_violation_rows(observation: Observation) -> list[dict[str, object]]:
+    violation_rows: list[dict[str, object]] = [
+        {
+            "id": record.id,
+            "label": record.title,
+            "kind": "violation",
+            "details": [
+                {"label": "Rule", "value": ", ".join(record.rule_ids)},
+                *(
+                    [{"label": "Violating edge", "value": f"{source} → {target}"}]
+                    if isinstance(
+                        source := record.data.get("source_component")
+                        or record.data.get("source_module"),
+                        str,
+                    )
+                    and isinstance(
+                        target := record.data.get("target_component")
+                        or record.data.get("target_module"),
+                        str,
+                    )
+                    else []
+                ),
+                {"label": "Subjects", "value": ", ".join(record.subjects)},
+            ],
+            "children": [],
+        }
+        for record in observation.records("violations") or ()
+    ]
+    return violation_rows
+
+
+def _explorer_unknown_rows(observation: Observation) -> list[dict[str, object]]:
+    return [
+        {
+            "id": record.id,
+            "label": record.title,
+            "kind": "unknown",
+            "details": [
+                {"label": "Kind", "value": record.kind},
+                {"label": "Rules", "value": ", ".join(record.rule_ids)},
+                {"label": "Subjects", "value": ", ".join(record.subjects)},
+            ],
+            "children": [],
+        }
+        for record in observation.records("unknowns") or ()
+    ]
+
+
+def _explorer_diff(
+    observation: Observation,
+    modules: dict[str, str],
+    absent_targets: list[dict[str, object]],
+    unmapped: set[str],
+) -> list[dict[str, object]]:
+    return [
+        _explorer_group(
+            "diff:violations",
+            "Violations",
+            "category",
+            sorted(_explorer_violation_rows(observation), key=lambda item: str(item["label"])),
+        ),
+        _explorer_group(
+            "diff:unknowns",
+            "Unknown / unresolved evidence",
+            "category",
+            sorted(_explorer_unknown_rows(observation), key=lambda item: str(item["label"])),
+        ),
+        _explorer_group(
+            "diff:unmapped",
+            "Unmapped observed modules",
+            "category",
+            [
+                {
+                    "id": f"unmapped:{name}",
+                    "label": name,
+                    "kind": "module",
+                    "details": [{"label": "File", "value": modules.get(name, "Unknown file")}],
+                    "children": [],
+                }
+                for name in sorted(unmapped)
+            ],
+        ),
+        _explorer_group(
+            "diff:absent",
+            "Absent declared targets",
+            "category",
+            sorted(absent_targets, key=lambda item: str(item["label"])),
+        ),
+    ]
+
+
+def _explorer_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
+    modules = {
+        name: file
+        for record in observation.records("modules") or ()
+        if (name := record.data.get("qualified_name"))
+        and isinstance(name, str)
+        and (file := record.data.get("file"))
+        and isinstance(file, str)
+    }
+    actual_tree: dict[str, dict[str, object]] = {}
+    for name, file in sorted(modules.items()):
+        _add_actual_module(actual_tree, name, file)
+    target, absent, unmapped = _target_projection(
+        observation, flow, modules, observation.records("declarations") or ()
+    )
+    return {
+        "actual": [_finish_actual_node(actual_tree[key]) for key in actual_tree],
+        "target": target,
+        "target_diagrams": _target_diagrams(target),
+        "diff": _explorer_diff(observation, modules, absent, unmapped),
+    }
+
+
 def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]:
     names_by_pair = {
         (edge.source, edge.target): edge.names for edge in interface_edges(observation)
@@ -815,6 +1360,7 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
         "edges": [_flow_edge_payload(edge, sites, requires, names_by_pair) for edge in flow.edges]
         + library_edges,
         "modules": _flow_modules_payload(flow),
+        "explorers": _explorer_payload(observation, flow),
     }
 
 
@@ -837,8 +1383,11 @@ _FLOW_GUIDE = """
         Overview to control its scale. Arrange resets the card layout. Use the breadcrumb to go
         back. Hover or select a connection for its evidence. Level 1,
         interfaces between repositories, is unavailable because this observation contains
-        no cross-repository interface contract. The import evidence below works without
-        JavaScript.</p>
+        no cross-repository interface contract. Actual lists every observed module. Target
+        contains declared components, requirements and root-layout children only. Diff lists
+        recorded violations, unmapped modules and declared targets not found in the observation.
+        These three views navigate independently and do not infer contract state from imports.
+        The import evidence below works without JavaScript.</p>
       </details>
 """
 
@@ -896,29 +1445,40 @@ def _flow_section(observation: Observation) -> str:
           <button type="button" data-flow-view="diagram" aria-pressed="true">Diagram</button>
           <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
           <button type="button" data-flow-view="review" aria-pressed="false">Review</button>
+          <button type="button" data-flow-view="actual" aria-pressed="false">Actual</button>
+          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
+          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
         </nav>
         <div class="flow-toolbar" hidden>
-          <label class="flow-diagram-control" for="flow-focus">Focus
+          <label class="flow-diagram-control flow-diagram-filter" for="flow-focus">Focus
             <select id="flow-focus" class="flow-focus"></select>
           </label>
-          <button type="button" class="flow-fit flow-reset-filters">Reset filters</button>
-          <output class="flow-filter-status" role="status" aria-live="polite">
+          <button type="button"
+                  class="flow-fit flow-reset-filters flow-diagram-control flow-diagram-filter">
+            Reset filters</button>
+          <output class="flow-filter-status flow-diagram-control flow-diagram-filter"
+                  role="status" aria-live="polite">
             No diagram filters active
           </output>
-          <label class="flow-violation-focus" for="flow-violations-only" hidden>
+          <label class="flow-violation-focus flow-diagram-control flow-diagram-filter"
+                 for="flow-violations-only" hidden>
             <input id="flow-violations-only" class="flow-violations-only" type="checkbox"
                    aria-controls="flow-graph">
             Violating edges only
           </label>
-          <label class="flow-diagram-control"
+          <label class="flow-diagram-control flow-diagram-filter"
                  for="flow-threshold-input">Minimum import sites</label>
-          <input id="flow-threshold-input" class="flow-threshold flow-diagram-control"
+          <input id="flow-threshold-input"
+                 class="flow-threshold flow-diagram-control flow-diagram-filter"
                  type="range" min="0" value="0" aria-describedby="flow-threshold-value">
-          <output id="flow-threshold-value" class="flow-threshold-value flow-diagram-control">
+          <output id="flow-threshold-value"
+                  class="flow-threshold-value flow-diagram-control flow-diagram-filter">
             ≥ 0 import sites
           </output>
-          <button type="button" class="flow-back" hidden>Back to components</button>
-          <nav class="flow-breadcrumb" aria-label="Diagram breadcrumb"></nav>
+          <button type="button" class="flow-back flow-navigation-control" hidden>
+            Back to components</button>
+          <nav class="flow-breadcrumb flow-navigation-control"
+               aria-label="Diagram breadcrumb"></nav>
           <div class="flow-zoom-controls flow-diagram-control" role="group"
                aria-label="Diagram zoom">
             <button type="button" class="flow-fit flow-zoom-out" aria-label="Zoom out">−</button>
@@ -928,7 +1488,7 @@ def _flow_section(observation: Observation) -> str:
             <button type="button" class="flow-fit flow-zoom-in" aria-label="Zoom in">+</button>
             <button type="button" class="flow-fit flow-fit-overview">Fit overview</button>
           </div>
-          <button type="button" class="flow-fit flow-arrange"
+          <button type="button" class="flow-fit flow-arrange flow-diagram-control"
                   title="Lay the cards out again">Arrange</button>
         </div>
         <div class="flow-layout">
