@@ -6,10 +6,13 @@ is a reason for review, not a failed check.
 
 ## Analyzer deadline
 
-The bundled analyzer has a 60-second deadline. Exceeding it returns exit 2 and
+The bundled analyzer has a 300-second deadline. Exceeding it returns exit 2 and
 UNKNOWN with no complete observation; an older HTML file is not a fresh result.
+On 2026-09-28, the direct bundled bridge completed a 487-file DATAMIMIC CE scan in
+87.82 seconds (#200). The 1,129-file EE checkout has not been timed, so 300 seconds
+is bounded headroom, not a completion guarantee.
 Recursive facade checks reuse re-export indexes per boundary pass (AD-119, #192).
-This removes repeated import scans per function, not the deadline or all scaling limits.
+This removes repeated import scans per function, not all scaling limits.
 
 ## Empty-crossing rule receipts
 

@@ -85,6 +85,18 @@ def _observe(source: Path):
     )
 
 
+def test_observe_allows_the_full_analyzer_timeout_without_waiting(tmp_path: Path) -> None:
+    raw = _model(git_head="a" * 40)
+    response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 0}), "")
+    with patch("archkeel.analyzer.subprocess.run", return_value=response) as analyzer:
+        result = _observe(tmp_path)
+
+    assert analyzer.call_args.kwargs["timeout"] == 300
+    assert result.exit_code == 0
+    assert result.observation is not None
+    assert result.coverage is result.observation.coverage
+
+
 @pytest.mark.parametrize("exit_code", [2, True])
 def test_analyzer_failure_cannot_become_complete(tmp_path: Path, exit_code: object) -> None:
     response = subprocess.CompletedProcess(
@@ -1003,7 +1015,7 @@ def test_execution_failure_has_structured_diagnostic(tmp_path: Path, cause: str)
     if cause == "missing_tool":
         error: Exception = OSError("missing Python executable")
     elif cause == "timeout":
-        error = subprocess.TimeoutExpired("analyzer", 60)
+        error = subprocess.TimeoutExpired("analyzer", 300)
     else:
         error = ValueError("unused")
     if cause in {"missing_tool", "timeout"}:
@@ -1019,6 +1031,10 @@ def test_execution_failure_has_structured_diagnostic(tmp_path: Path, cause: str)
     assert result.observation is None
     assert result.coverage is None
     assert result.diagnostics[0].kind == cause
+    if cause == "timeout":
+        assert result.diagnostics[0].unknown_claim == (
+            "The analyzer did not complete within 300 seconds."
+        )
     assert all(isinstance(item, Diagnostic) for item in result.diagnostics)
 
 

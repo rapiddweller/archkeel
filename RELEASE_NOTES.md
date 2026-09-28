@@ -1,5 +1,7 @@
 # Unreleased
 
+- The bundled analyzer now has a bounded 300-second deadline. A complete 487-file CE scan
+  exceeded the former 60-second limit; genuine timeouts still return UNKNOWN.
 - Optional `declarations.modules` records exact Python-file targets and one-sentence
   responsibilities. The Target report groups them by folder; Diff distinguishes absent targets
   from observed-only modules. Present and absent cases are replayable demos. Existing contracts

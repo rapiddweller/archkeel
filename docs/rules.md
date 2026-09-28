@@ -157,8 +157,9 @@ An `inside` can name another contract recursively (AD-111). Paths are relative t
 `--root`, not to the referring file. Each level owns its own component labels and rule ids:
 `store:backend:NO-EVAL` names a rule inside `store`'s `backend`. Reusing a contract file under
 two parents, cycles, escaping paths and colliding scoped ids are rejected. No directory gets a
-contract implicitly. Nonempty `declarations` fields inside are unsupported and refused; component
-`public` entries and rule provenance are separate supported fields.
+contract implicitly. Inside contracts may declare exact `modules`; other nonempty
+`declarations` fields are unsupported and refused. Component `public` entries and rule
+provenance are separate supported fields.
 
 `public` applies at its own contract level (AD-112). A child's API is available to local
 siblings, not automatically to callers outside its parent. The parent explicitly publishes

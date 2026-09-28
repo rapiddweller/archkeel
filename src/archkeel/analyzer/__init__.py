@@ -40,6 +40,8 @@ from archkeel.ir.profiles import PROFILES, Language
 from .embedded.contract import ContractError, load_contract
 from .runtime import runtime_diagnostic
 
+_ANALYZER_TIMEOUT_SECONDS: Final = 300
+
 
 def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> ObservationResult:
     return ObservationResult(None, None, (Diagnostic(kind, subject, claim, remedy),))
@@ -236,7 +238,7 @@ def observe(
             input=_canonical_json_bytes(request).decode(),
             text=True,
             capture_output=True,
-            timeout=60,
+            timeout=_ANALYZER_TIMEOUT_SECONDS,
             env={
                 **os.environ,
                 "PYTHONDONTWRITEBYTECODE": "1",
@@ -275,7 +277,7 @@ def observe(
         return _failure(
             "timeout",
             "bundled Python analyzer",
-            "The analyzer did not complete within 60 seconds.",
+            f"The analyzer did not complete within {_ANALYZER_TIMEOUT_SECONDS} seconds.",
             "Resolve the analyzer timeout and retry.",
         )
     except OSError as error:
