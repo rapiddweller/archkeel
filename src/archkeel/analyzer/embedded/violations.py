@@ -1323,20 +1323,23 @@ def _typing_wrapper_inner(
     classes_by_location: BindingIndex,
     wrapper: str,
 ) -> str | tuple[str, ...] | None:
-    """Return T for a statically bound typing wrapper such as Annotated[T, metadata]."""
+    """Return the type argument for a statically bound typing wrapper."""
     try:
         expression = ast.parse(annotation, mode="eval").body
     except SyntaxError:
         return None
     if not isinstance(expression, ast.Subscript):
         return None
+    expected_modules = (
+        ("typing", "typing_extensions") if wrapper in ("Required", "NotRequired") else ("typing",)
+    )
     head = expression.value
     if isinstance(head, ast.Name):
         key = (module, head.id)
         if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
             return None
         imported = imports_by_binding.get(key)
-        if not isinstance(imported, dict) or imported["target_module"] != "typing":
+        if not isinstance(imported, dict) or imported["target_module"] not in expected_modules:
             return None
         if imported["symbol"] != wrapper:
             return None
@@ -1344,8 +1347,12 @@ def _typing_wrapper_inner(
         key = (module, head.value.id)
         if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
             return None
-        if head.attr != wrapper or not _typing_module_binding(
-            module, head.value.id, imports_by_binding
+        imported = imports_by_binding.get(key)
+        if (
+            head.attr != wrapper
+            or not isinstance(imported, dict)
+            or imported["target_module"] not in expected_modules
+            or imported["symbol"] is not None
         ):
             return None
     else:
@@ -1355,6 +1362,12 @@ def _typing_wrapper_inner(
         if isinstance(expression.slice, ast.Tuple)
         else [expression.slice]
     )
+    if (
+        wrapper in ("Required", "NotRequired")
+        and not isinstance(expression.slice, ast.Tuple)
+        and len(parameters) == 1
+    ):
+        return ast.unparse(parameters[0])
     if wrapper == "Annotated" and len(parameters) >= 2:
         return ast.unparse(parameters[0])
     if wrapper == "Literal" and parameters:
@@ -1671,42 +1684,45 @@ def _typing_wrapper_verdict(
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position | None:
-    annotated = _typing_wrapper_inner(
-        annotation, module, imports_by_binding, classes_by_location, "Annotated"
-    )
-    if isinstance(annotated, str):
-        return _boundary_type_verdict(
-            annotated,
-            module,
-            contract,
-            exports_by_module,
-            imports_by_binding,
-            classes_by_location,
-            enter_collections=enter_collections,
-            visited=visited,
-            enter_fields=enter_fields,
-            _aliases_seen=aliases_seen,
+    for wrapper in ("Required", "NotRequired", "Annotated", "Literal"):
+        inner = _typing_wrapper_inner(
+            annotation, module, imports_by_binding, classes_by_location, wrapper
         )
-    literal = _typing_wrapper_inner(
-        annotation, module, imports_by_binding, classes_by_location, "Literal"
-    )
-    if not isinstance(literal, tuple):
-        return None
-    decided = [
-        (
-            name,
-            _enum_member_verdict(
-                name,
-                module,
-                contract,
-                exports_by_module,
-                imports_by_binding,
-                classes_by_location,
-                visited=visited,
-                aliases_seen=aliases_seen,
-            )
-            or _boundary_type_verdict(
-                name,
+        if wrapper == "Literal":
+            if isinstance(inner, tuple):
+                decided = [
+                    (
+                        name,
+                        _enum_member_verdict(
+                            name,
+                            module,
+                            contract,
+                            exports_by_module,
+                            imports_by_binding,
+                            classes_by_location,
+                            visited=visited,
+                            aliases_seen=aliases_seen,
+                        )
+                        or _boundary_type_verdict(
+                            name,
+                            module,
+                            contract,
+                            exports_by_module,
+                            imports_by_binding,
+                            classes_by_location,
+                            enter_collections=enter_collections,
+                            visited=visited,
+                            enter_fields=enter_fields,
+                            _aliases_seen=aliases_seen,
+                            _require_static_constant=True,
+                        ),
+                    )
+                    for name in inner
+                ]
+                return _combine_position_verdicts(decided)
+        elif isinstance(inner, str):
+            return _boundary_type_verdict(
+                inner,
                 module,
                 contract,
                 exports_by_module,
@@ -1716,12 +1732,8 @@ def _typing_wrapper_verdict(
                 visited=visited,
                 enter_fields=enter_fields,
                 _aliases_seen=aliases_seen,
-                _require_static_constant=True,
-            ),
-        )
-        for name in literal
-    ]
-    return _combine_position_verdicts(decided)
+            )
+    return None
 
 
 def _boundary_type_verdict(

@@ -158,6 +158,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-119 | [Index re-exports once per boundary pass](decisions/ad-119-index-reexports-once-per-boundary-pass.md) |
 | AD-120 | [Direct publication crosses only declared ancestors](decisions/ad-120-direct-publication-crosses-only-declared-ancestors.md) |
 | AD-121 | [Boundary methods are scoped to exported classes](decisions/ad-121-boundary-methods-are-scoped-to-exported-classes.md) |
+| AD-122 | [Required field wrappers keep their inner boundary type](decisions/ad-122-required-fields-keep-their-inner-boundary-type.md) |
 
 ## Allowed dependencies
 

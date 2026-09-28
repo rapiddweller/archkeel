@@ -361,8 +361,10 @@ type ends only its current traversal path. Findings retain the signature-rooted 
 distinct bad union members are separate findings, not duplicate reports of one position.
 Supported collections include `list`, `tuple`, `set`, `frozenset`, `Sequence`, `Iterable`,
 `Iterator`, `Collection`, `AbstractSet` and their `typing` spellings. A collection is only as
-decided as its members; `dict[...]` remains a broad container under this rule. Unsupported
-annotation shapes, unresolved names, missing annotations and externally owned types remain
+decided as its members; `dict[...]` remains a broad container under this rule.
+`Required[T]` and `NotRequired[T]` expose `T` when their import from `typing` or
+`typing_extensions` is proven; lookalikes and malformed arguments remain UNKNOWN (AD-122).
+Unsupported annotation shapes, unresolved names, missing annotations and externally owned types remain
 undecidable. Each rule files one UNKNOWN `boundary_type_limit` record
 in `unknowns`, carrying the positions it saw, the positions it decided and a count of each
 undecidable kind, so a reader sees how much of the facade the rule actually decided instead of
