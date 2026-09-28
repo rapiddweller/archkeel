@@ -320,6 +320,11 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             page = browser.new_page()
             page.set_content(page_html, wait_until="load")
             page.get_by_role("button", name="Target").click()
+            assert (
+                page.locator(".flow-inspector")
+                .get_by_text("Retain archived orders.", exact=True)
+                .is_visible()
+            )
             responsibilities = page.locator(".flow-responsibilities")
             responsibilities.locator("summary").click()
             declared_count = sum(

@@ -602,8 +602,17 @@
 
   function renderTargetInspector() {
     const node = targetSelection ? targetNode(targetSelection) : targetNode(targetPath.at(-1));
+    const children = (node?.children || DATA.explorers?.target || [])
+      .filter((child) => ["component", "module_target"].includes(child.kind));
+    const overview = children.length
+      ? `<h3>Responsibilities at this level</h3><ul class="plain target-responsibility-overview">${children.map((child) => {
+        const sentence = child.details?.find((detail) => detail.label === "Responsibility")?.value
+          || "No responsibility declared.";
+        return `<li><strong>${esc(child.label)}</strong><span>${esc(sentence)}</span></li>`;
+      }).join("")}</ul>`
+      : "";
     if (!node) {
-      inspector.innerHTML = "<p>Select a declared component or package for its contract details.</p>";
+      inspector.innerHTML = `<p>Select a declared component or package for its contract details.</p>${overview}`;
       return;
     }
     const kind = node.kind === "module_target" ? "Declared module"
@@ -613,7 +622,7 @@
       ${(node.details || []).length
         ? `<dl class="kv">${node.details.map((item) =>
           `<dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd>`).join("")}</dl>`
-        : "<p>No additional details recorded.</p>"}`;
+        : "<p>No additional details recorded.</p>"}${overview}`;
   }
 
   function renderTargetDiagram() {

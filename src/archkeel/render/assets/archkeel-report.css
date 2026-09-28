@@ -896,6 +896,12 @@ code {
   padding-left: 0;
   list-style: none;
 }
+.flow-inspector .target-responsibility-overview li + li {
+  margin-top: var(--ck-space-2);
+}
+.flow-inspector .target-responsibility-overview strong {
+  display: block;
+}
 .flow-inspector .empty {
   color: var(--ck-muted);
 }
