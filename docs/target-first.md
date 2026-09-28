@@ -36,6 +36,24 @@ When a refactoring moves a module, declare the old path in `declarations.compat`
 and lifetime. A `migration` shim is visible remaining work while it protects callers; promote it
 to `permanent` only when that compatibility surface is intentional (AD-87).
 
+Use the deepest existing mounted contract's optional `declarations.modules` list to name exact
+Python files and their intended responsibilities. The explorer infers folders from these paths;
+missing files appear under `Diff` as absent targets. This inventory does not assign modules to
+components; keep semantic ownership in `components[].packages`.
+
+```json
+{
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/shop/orders/service.py",
+        "responsibility": "Apply order rules and persist accepted orders."
+      }
+    ]
+  }
+}
+```
+
 A facade or a coupling can carry a target the same way: `declarations.facade_budgets` sets
 `max_names` for the names a component's `public` modules export, and
 `declarations.coupling_budgets` for the facade names one component imports from another. The

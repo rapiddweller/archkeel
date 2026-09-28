@@ -96,6 +96,8 @@ demo-dart`.
 | class_a | interface_boundary:package attribute over submodule | class-a-interface-boundary-package-attribute-over-submodule | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/sqlite_probe.py, shop/store/__init__.py |
 | class_a | private_access:untyped parameter | class-a-private-attribute-untyped | validate/report run | - | - | shop/app/untyped_private.py |
 | class_a | private_access:top-level Any owner | class-a-private-attribute-any-owner | validate/report run | - | - | architecture-contract.json, shop/app/any_private.py |
+| clean | declarations.modules:present | target-module-present | validate/report run | - | - | architecture-contract.json |
+| clean | declarations.modules:absent | target-module-absent | validate/report run | - | - | architecture-contract.json |
 | clean | root_layout:clean | class-a-root-layout-clean | validate/report run | - | - | clean sample |
 | clean | root_layout:nested-root | class-a-root-layout-nested-root | validate/report run | - | - | architecture-contract.json |
 | validation | root_layout:invalid-contract | validation-root-layout-invalid-child | validate/report run | - | contract.invalid | architecture-contract.json |
@@ -232,6 +234,7 @@ demo-dart`.
 | class_c | ContractDeclarations.paths | class-c-paths | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.spot_owners | class-c-spot-owners | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_c | ContractDeclarations.compat | class-c-compat | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
+| class_c | ContractDeclarations.modules | class-c-modules | tested only | - | - | fixtures/F-architecture/architecture-contract.json |
 | class_d | review_claims | class-d-review-claims | tested only | - | - | docs/rules.md |
 | class_d | unreferenced_symbols:enum-member-reference | class-d-enum-member-reference | tested only | - | - | tests/test_references.py |
 | class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |

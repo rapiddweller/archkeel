@@ -5,9 +5,45 @@
 
 from __future__ import annotations
 
-from fixtures.demo_catalog_support import HEADER, Variant, contract_rule_field, contract_with_rule
+import json
+
+from fixtures.demo_catalog_support import (
+    FIXTURE_DIR,
+    HEADER,
+    Variant,
+    contract_rule_field,
+    contract_with_rule,
+)
+
+
+def _module_target_contract(path: str) -> str:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    contract.setdefault("declarations", {})["modules"] = [
+        {"path": path, "responsibility": "Coordinate order workflows."}
+    ]
+    return json.dumps(contract)
+
 
 VARIANTS: tuple[Variant, ...] = (
+    Variant(
+        id="target-module-present",
+        section="clean",
+        item="declarations.modules:present",
+        summary="The Target report reaches the declared shop/app/orders.py file and its "
+        "responsibility.",
+        files={"architecture-contract.json": _module_target_contract("shop/app/orders.py")},
+        expected_violations=(),
+        expected_codes=(),
+    ),
+    Variant(
+        id="target-module-absent",
+        section="clean",
+        item="declarations.modules:absent",
+        summary="The Target report retains a missing file while Diff names it as absent.",
+        files={"architecture-contract.json": _module_target_contract("shop/app/missing.py")},
+        expected_violations=(),
+        expected_codes=(),
+    ),
     Variant(
         id="class-a-root-layout-clean",
         section="clean",

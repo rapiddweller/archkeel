@@ -46,6 +46,8 @@ def _make_reports(output: Path) -> dict[str, Path]:
         "mixed": ("class-a-boundary-types-mixed-evidence", 2),
         "unknown": ("class-a-boundary-types-ordinary-reexport-chain-unknown", 0),
         "known": ("validation-baseline-subject-order", 0),
+        "target-present": ("target-module-present", 0),
+        "target-absent": ("target-module-absent", 0),
     }
     reports = {}
     for name, (variant, expected_exit) in cases.items():
@@ -405,6 +407,38 @@ def _check_no_javascript(browser: Browser, report: Path, output: Path) -> None:
         page.close()
 
 
+def _check_module_target_reports(browser: Browser, reports: dict[str, Path], output: Path) -> None:
+    for name, file in (("target-present", "orders.py"), ("target-absent", "missing.py")):
+        page, errors = _visit(browser, reports[name], name, output)
+        try:
+            page.locator('[data-flow-view="target"]').click()
+            for label in ("Declared modules", "shop", "app"):
+                page.locator(f'.flow-nodes .node[data-label="{label}"]').click()
+            leaf = page.locator(f'.flow-nodes .node[data-label="{file}"]')
+            assert leaf.is_visible()
+            assert leaf.locator(".target-kind").text_content() == "MODULE"
+            leaf.click()
+            assert page.locator(".flow-inspector").get_by_text(f"shop/app/{file}").is_visible()
+            page.locator("#flow").screenshot(path=str(output / f"{name}-drilldown.png"))
+            page.locator('[data-flow-view="diff"]').click()
+            category = (
+                "Absent declared targets"
+                if name == "target-absent"
+                else "Observed modules without a declared target"
+            )
+            category_id = "absent" if name == "target-absent" else "observed-only-targets"
+            page.locator(f'.flow-alternative [data-projection-id="diff:{category_id}"]').click()
+            assert page.locator(".flow-projection h2").text_content() == category
+            if name == "target-absent":
+                assert (
+                    page.locator(".flow-projection").get_by_text("shop/app/missing.py").is_visible()
+                )
+            page.locator(".flow-projection").screenshot(path=str(output / f"{name}-diff.png"))
+            assert not errors, f"{name} JavaScript errors: {errors}"
+        finally:
+            _finish(page, name, output)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -485,6 +519,7 @@ def main() -> int:
                 assert not known_errors, f"known JavaScript errors: {known_errors}"
             finally:
                 _finish(known, "known", output)
+            _check_module_target_reports(browser, reports, output)
         finally:
             _finish(wide, "wide", output)
             browser.close()

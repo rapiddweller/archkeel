@@ -215,6 +215,12 @@ def _maximal_contract() -> dict[str, object]:
     declarations["coupling_budgets"] = [
         {"source": "app", "target": "model", "max_names": 3, "provenance": _PROVENANCE}
     ]
+    declarations["modules"] = [
+        {
+            "path": "shop/app/orders.py",
+            "responsibility": "Keep order orchestration in the app layer.",
+        }
+    ]
     return raw
 
 
@@ -358,6 +364,8 @@ _NAMES_NO_MODULE = frozenset(
                 "coupling_budgets/*/source",
                 "coupling_budgets/*/target",
                 "coupling_budgets/*/provenance/*",
+                "modules/*/path",
+                "modules/*/responsibility",
             )
         ),
     }
