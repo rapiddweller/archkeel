@@ -1028,6 +1028,10 @@ code {
   fill: var(--ck-muted);
   font: 12px var(--ck-font-mono);
 }
+.node .target-responsibility {
+  fill: var(--ck-text);
+  font: 12px var(--ck-font-sans);
+}
 .node .stereotype {
   fill: var(--ck-muted);
   font: 11px var(--ck-font-mono);

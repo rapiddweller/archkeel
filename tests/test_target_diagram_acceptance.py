@@ -196,8 +196,11 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
                 page.locator(
                     '.target-node[data-target-node="COMP-STORE"] .target-meta'
                 ).text_content()
-                == "4 components · Open"
+                == "Persist orders as JSON"
             )
+            assert page.locator(
+                '.target-node[data-target-node="COMP-STORE"] .target-responsibility'
+            ).all_text_contents() == ["Persist orders as JSON", "files."]
             assert page.locator(".flow-filter-status").text_content().strip() != (
                 "No diagram filters active"
             )

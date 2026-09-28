@@ -741,9 +741,31 @@
         : allowed
           ? `${allowed} allowed child${allowed === 1 ? "" : "ren"} · Open`
           : children.length ? "Details · Open" : "Declared leaf";
-      group.appendChild(count);
+      const responsibility = targetRecord?.details?.find((detail) =>
+        detail.label === "Responsibility")?.value;
+      if (["component", "module"].includes(type) && responsibility) {
+        const sentence = String(responsibility);
+        const breakAt = sentence.length > 24 ? sentence.lastIndexOf(" ", 24) : sentence.length;
+        const first = sentence.slice(0, breakAt > 0 ? breakAt : 24);
+        const rest = sentence.slice(first.length).trimStart();
+        const second = rest.length > 24 ? `${rest.slice(0, 23).trimEnd()}…` : rest;
+        count.setAttribute("class", "meta target-meta target-responsibility");
+        count.textContent = first;
+        group.appendChild(count);
+        if (second) {
+          const continuation = el("text", {
+            class: "meta target-responsibility", x: "16", y: "86",
+          });
+          continuation.textContent = second;
+          group.appendChild(continuation);
+        }
+      } else {
+        group.appendChild(count);
+      }
       const title = el("title");
-      title.textContent = `${type}: ${node.label}`;
+      title.textContent = responsibility
+        ? `${type}: ${node.label} — ${responsibility}`
+        : `${type}: ${node.label}`;
       group.appendChild(title);
       const open = () => {
         if (graph?.owner === node.id) {
