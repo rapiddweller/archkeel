@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| `boundary_types` checks the inner type of proven `Required[T]` and `NotRequired[T]`, leaving lookalikes and malformed forms UNKNOWN (AD-122) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_boundary_types_aliases.py`; CE finance report |
 | An observed direct child API consumer counts as local use only through all crossed public ancestor boundaries (AD-120, #193) | `src/archkeel/check/validation.py`; `tests/test_inside_direct_parent_publication.py` |
 | Recursive facade checks reuse a local re-export index per boundary pass without changing ownership or UNKNOWN semantics (AD-119, #192) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_recursive_boundary_index_work.py` |
 | `report`, `check`, three independent verdicts and exit codes 0/1/2 | `bff87f4`; `tests/test_cli.py`; `tests/test_check_diagnostics.py` |

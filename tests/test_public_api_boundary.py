@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from test_analyzer import _observe
 
 from archkeel.analyzer.embedded.records import classified
@@ -216,6 +217,28 @@ def test_public_api_is_silent_for_a_builtin_and_a_declared_collection_element(
         "    value: str\n\n\n"
         "def load(path: Path) -> tuple[Row, ...]:\n"
         "    return ()\n",
+    )
+
+    assert _public_api_diagnostics(tmp_path) == ()
+
+
+@pytest.mark.parametrize(
+    ("name", "source"),
+    [
+        (
+            "JsonObject",
+            "from typing import TypeAlias\n\nJsonObject: TypeAlias = dict[str, object]\n",
+        ),
+        ("MAX_SIZE", "MAX_SIZE = 10\n"),
+    ],
+)
+def test_public_api_accepts_non_callable_symbols_without_function_diagnostics(
+    tmp_path: Path, name: str, source: str
+) -> None:
+    _prepare(
+        tmp_path,
+        [f"sample.facade:{name}"],
+        source,
     )
 
     assert _public_api_diagnostics(tmp_path) == ()

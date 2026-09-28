@@ -1181,6 +1181,7 @@ _BUILTIN_NAMES: Final = frozenset(dir(builtins))
 # from "this name is bound twice".
 _UNDECIDABLE_KINDS: Final = (
     "missing_annotation",
+    "inherited_surface",
     "forward_reference",
     "dotted_name",
     "generic",
@@ -1322,20 +1323,23 @@ def _typing_wrapper_inner(
     classes_by_location: BindingIndex,
     wrapper: str,
 ) -> str | tuple[str, ...] | None:
-    """Return T for a statically bound typing wrapper such as Annotated[T, metadata]."""
+    """Return the type argument for a statically bound typing wrapper."""
     try:
         expression = ast.parse(annotation, mode="eval").body
     except SyntaxError:
         return None
     if not isinstance(expression, ast.Subscript):
         return None
+    expected_modules = (
+        ("typing", "typing_extensions") if wrapper in ("Required", "NotRequired") else ("typing",)
+    )
     head = expression.value
     if isinstance(head, ast.Name):
         key = (module, head.id)
         if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
             return None
         imported = imports_by_binding.get(key)
-        if not isinstance(imported, dict) or imported["target_module"] != "typing":
+        if not isinstance(imported, dict) or imported["target_module"] not in expected_modules:
             return None
         if imported["symbol"] != wrapper:
             return None
@@ -1343,8 +1347,12 @@ def _typing_wrapper_inner(
         key = (module, head.value.id)
         if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
             return None
-        if head.attr != wrapper or not _typing_module_binding(
-            module, head.value.id, imports_by_binding
+        imported = imports_by_binding.get(key)
+        if (
+            head.attr != wrapper
+            or not isinstance(imported, dict)
+            or imported["target_module"] not in expected_modules
+            or imported["symbol"] is not None
         ):
             return None
     else:
@@ -1354,6 +1362,12 @@ def _typing_wrapper_inner(
         if isinstance(expression.slice, ast.Tuple)
         else [expression.slice]
     )
+    if (
+        wrapper in ("Required", "NotRequired")
+        and not isinstance(expression.slice, ast.Tuple)
+        and len(parameters) == 1
+    ):
+        return ast.unparse(parameters[0])
     if wrapper == "Annotated" and len(parameters) >= 2:
         return ast.unparse(parameters[0])
     if wrapper == "Literal" and parameters:
@@ -1670,42 +1684,45 @@ def _typing_wrapper_verdict(
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position | None:
-    annotated = _typing_wrapper_inner(
-        annotation, module, imports_by_binding, classes_by_location, "Annotated"
-    )
-    if isinstance(annotated, str):
-        return _boundary_type_verdict(
-            annotated,
-            module,
-            contract,
-            exports_by_module,
-            imports_by_binding,
-            classes_by_location,
-            enter_collections=enter_collections,
-            visited=visited,
-            enter_fields=enter_fields,
-            _aliases_seen=aliases_seen,
+    for wrapper in ("Required", "NotRequired", "Annotated", "Literal"):
+        inner = _typing_wrapper_inner(
+            annotation, module, imports_by_binding, classes_by_location, wrapper
         )
-    literal = _typing_wrapper_inner(
-        annotation, module, imports_by_binding, classes_by_location, "Literal"
-    )
-    if not isinstance(literal, tuple):
-        return None
-    decided = [
-        (
-            name,
-            _enum_member_verdict(
-                name,
-                module,
-                contract,
-                exports_by_module,
-                imports_by_binding,
-                classes_by_location,
-                visited=visited,
-                aliases_seen=aliases_seen,
-            )
-            or _boundary_type_verdict(
-                name,
+        if wrapper == "Literal":
+            if isinstance(inner, tuple):
+                decided = [
+                    (
+                        name,
+                        _enum_member_verdict(
+                            name,
+                            module,
+                            contract,
+                            exports_by_module,
+                            imports_by_binding,
+                            classes_by_location,
+                            visited=visited,
+                            aliases_seen=aliases_seen,
+                        )
+                        or _boundary_type_verdict(
+                            name,
+                            module,
+                            contract,
+                            exports_by_module,
+                            imports_by_binding,
+                            classes_by_location,
+                            enter_collections=enter_collections,
+                            visited=visited,
+                            enter_fields=enter_fields,
+                            _aliases_seen=aliases_seen,
+                            _require_static_constant=True,
+                        ),
+                    )
+                    for name in inner
+                ]
+                return _combine_position_verdicts(decided)
+        elif isinstance(inner, str):
+            return _boundary_type_verdict(
+                inner,
                 module,
                 contract,
                 exports_by_module,
@@ -1715,12 +1732,8 @@ def _typing_wrapper_verdict(
                 visited=visited,
                 enter_fields=enter_fields,
                 _aliases_seen=aliases_seen,
-                _require_static_constant=True,
-            ),
-        )
-        for name in literal
-    ]
-    return _combine_position_verdicts(decided)
+            )
+    return None
 
 
 def _boundary_type_verdict(
@@ -2308,13 +2321,24 @@ def _declared_facade_positions(
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     reexports: ReexportIndex | None = None,
 ) -> DeclaredFacade | None:
-    """The (module, qualified name, annotated positions) of one declared facade function, or
-    None when the record is not a module-level function its own `component.public` covers -- a
-    naming convention used to guess at that last one (AD-63). No rule is consulted: whether a
-    function is part of a component's declared facade is a fact about the contract and the
-    scan, which `boundary_types` narrows to its own `source` and AD-65 reads unnarrowed.
+    """The (module, qualified name, annotated positions) for one declared facade callable.
+
+    Methods count only when their declaring class is proven exported. A facade class with bases
+    gets one UNKNOWN position for non-marker bases because this scan does not resolve Python
+    MROs. No rule is consulted: facade membership is a fact about the contract and scan.
     """
     data = item["data"]
+    if item["kind"] == "class" and data.get("symbol_category") == "class":
+        return _declared_facade_inherited_positions(
+            data, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+        )
+    if data.get("overloaded") is True and data.get("overload_signature") is not True:
+        return None
+    method = item["kind"] == "method" and data.get("symbol_category") == "method"
+    if method:
+        return _declared_facade_method_positions(
+            data, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+        )
     if item["kind"] != "function" or data.get("symbol_category") != "function":
         return None
     module, name = data["module"], data["name"]
@@ -2350,6 +2374,119 @@ def _declared_facade_positions(
         positions,
         resolution_module,
         tuple(facade_entries),
+    )
+
+
+def _declared_facade_inherited_positions(
+    data: RecordData,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports: Sequence[RawRecord],
+    uncertain_reexport_origins: UncertainReexportOrigins | None,
+    reexports: ReexportIndex | None,
+) -> DeclaredFacade | None:
+    framework_bases = {
+        "object",
+        "builtins.object",
+        "abc.ABC",
+        "enum.Enum",
+        "enum.IntEnum",
+        "enum.StrEnum",
+        "pydantic.BaseModel",
+        "typing.Generic",
+        "typing.Protocol",
+        "typing_extensions.Protocol",
+    }
+    base_roots = data["base_roots"] if "base_roots" in data else data["bases"]
+    if not any(base not in framework_bases for base in base_roots):
+        return None
+    module, name = data["module"], data["name"]
+    entries: list[FacadeEntry] = []
+    owner = contract.component_for(module)
+    if owner is not None and facade_covers(module, name, owner, exports_by_module):
+        entries.append((module, name, module, False))
+    entries.extend(
+        _reexport_facade_entries(
+            data["qualified_name"],
+            contract,
+            exports_by_module,
+            imports,
+            uncertain_reexport_origins or {},
+            reexports,
+        )
+    )
+    if not entries:
+        return None
+    entries = sorted(set(entries))
+    facade_module, facade_name, _, _ = entries[0]
+    return (
+        facade_module,
+        f"{facade_module}.{facade_name}.__inherited_methods__",
+        [("inherited methods", "")],
+        module,
+        tuple(
+            (entry_module, f"{entry_name}.__inherited_methods__", resolution, uncertain)
+            for entry_module, entry_name, resolution, uncertain in entries
+        ),
+    )
+
+
+def _declared_facade_method_positions(
+    data: RecordData,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports: Sequence[RawRecord],
+    uncertain_reexport_origins: UncertainReexportOrigins | None,
+    reexports: ReexportIndex | None,
+) -> DeclaredFacade | None:
+    name = data["name"]
+    if name.startswith("_") and not (name.startswith("__") and name.endswith("__")):
+        return None
+    parent = data["parent"]
+    if not isinstance(parent, str):
+        return None
+    module = data["module"]
+    class_name = parent[len(module) + 1 :]
+    entries: list[FacadeEntry] = []
+    owner = contract.component_for(module)
+    if owner is not None and facade_covers(module, class_name, owner, exports_by_module):
+        entries.append((module, class_name, module, False))
+    entries.extend(
+        _reexport_facade_entries(
+            parent,
+            contract,
+            exports_by_module,
+            imports,
+            uncertain_reexport_origins or {},
+            reexports,
+        )
+    )
+    entries = sorted(set(entries))
+    if not entries:
+        return None
+    parameters = data["parameters"]
+    receiver_parameter = data.get("receiver_parameter")
+    if (
+        data["method_kind"] != "static"
+        and isinstance(receiver_parameter, str)
+        and parameters
+        and parameters[0]["name"] == receiver_parameter
+    ):
+        parameters = parameters[1:]
+    positions = [(parameter["name"], parameter["annotation"] or "") for parameter in parameters]
+    if name != "__init__":
+        positions.append(("return", data["returns"] or ""))
+    method_entries = [
+        (facade_module, f"{facade_name}.{name}", resolution, uncertain)
+        for facade_module, facade_name, resolution, uncertain in entries
+    ]
+    facade_module, facade_name, _, _ = method_entries[0]
+    return (
+        facade_module,
+        f"{facade_module}.{facade_name}",
+        positions,
+        module,
+        tuple(method_entries),
     )
 
 
@@ -3187,7 +3324,9 @@ def _undecidable_declared_positions(
     details: list[dict[str, object]] = []
     for position, annotation in positions:
         verdict = (
-            _Position(undecidable="ambiguous_facade")
+            _Position(undecidable="inherited_surface")
+            if position == "inherited methods"
+            else _Position(undecidable="ambiguous_facade")
             if ambiguous_facade
             else _boundary_type_verdict(
                 annotation,
@@ -3258,6 +3397,8 @@ def _public_api_annotations(symbol: RawRecord) -> list[str]:
     data = symbol["data"]
     if symbol["kind"] == "class":
         return [field["annotation"] for field in data["fields"] if field["annotation"]]
+    if symbol["kind"] != "function":
+        return []
     annotations = [
         parameter["annotation"] for parameter in data["parameters"] if parameter["annotation"]
     ]

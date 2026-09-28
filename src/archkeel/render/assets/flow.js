@@ -52,6 +52,10 @@
   const breadcrumb = root.querySelector(".flow-breadcrumb");
   const viewButtons = root.querySelectorAll("[data-flow-view]");
   const alternative = root.querySelector(".flow-alternative");
+  const responsibilities = root.querySelector(".flow-responsibilities");
+  const responsibilitySearch = root.querySelector(".flow-responsibility-search");
+  const responsibilityList = root.querySelector(".flow-responsibility-list");
+  const responsibilityCount = root.querySelector(".flow-responsibility-count");
   let pendingAlternativeFocus = null;
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
@@ -332,6 +336,52 @@
     return null;
   }
 
+  const responsibilityRows = [];
+  function collectResponsibilities(nodes, ancestors = []) {
+    for (const node of nodes) {
+      if (["component", "module_target"].includes(node.kind)) {
+        for (const detail of node.details || []) {
+          if (detail.label !== "Responsibility") continue;
+          responsibilityRows.push({
+            id: node.id,
+            ancestors: ancestors.map((parent) => parent.id),
+            kind: node.kind === "component" ? "Component" : "Module",
+            name: node.label,
+            path: node.kind === "module_target"
+              ? String(node.details.find((item) => item.label === "File")?.value || node.label)
+              : [...ancestors.map((parent) => parent.label), node.label].join(" / "),
+            sentence: String(detail.value),
+          });
+        }
+      }
+      collectResponsibilities(node.children || [], [...ancestors, node]);
+    }
+  }
+  collectResponsibilities(DATA.explorers?.target || []);
+
+  function filterResponsibilities() {
+    const query = responsibilitySearch.value.trim().toLocaleLowerCase();
+    let shown = 0;
+    responsibilityList.querySelectorAll("button").forEach((button) => {
+      const row = responsibilityRows[Number(button.dataset.responsibilityIndex)];
+      button.hidden = !`${row.kind} ${row.path} ${row.sentence}`.toLocaleLowerCase().includes(query);
+      if (!button.hidden) shown += 1;
+    });
+    responsibilityCount.textContent = `${shown} of ${responsibilityRows.length} shown`;
+  }
+
+  function renderResponsibilities() {
+    if (responsibilityList.childElementCount) return;
+    responsibilities.querySelector(".flow-responsibility-total").textContent =
+      `(${responsibilityRows.length})`;
+    responsibilityList.innerHTML = responsibilityRows.map((row, index) =>
+      `<button type="button" data-responsibility-index="${index}">` +
+      `<span><small>${esc(row.kind)}</small><strong>${esc(row.name)}</strong>` +
+      `<code>${esc(row.path)}</code></span>` +
+      `<span>${esc(row.sentence)}</span></button>`).join("");
+    filterResponsibilities();
+  }
+
   function computeRanks() {
     const view = level();
     const rank = new Map(view.components.map((c) => [c.label, 0]));
@@ -552,8 +602,17 @@
 
   function renderTargetInspector() {
     const node = targetSelection ? targetNode(targetSelection) : targetNode(targetPath.at(-1));
+    const children = (node?.children || DATA.explorers?.target || [])
+      .filter((child) => ["component", "module_target"].includes(child.kind));
+    const overview = children.length
+      ? `<h3>Responsibilities at this level</h3><ul class="plain target-responsibility-overview">${children.map((child) => {
+        const sentence = child.details?.find((detail) => detail.label === "Responsibility")?.value
+          || "No responsibility declared.";
+        return `<li><strong>${esc(child.label)}</strong><span>${esc(sentence)}</span></li>`;
+      }).join("")}</ul>`
+      : "";
     if (!node) {
-      inspector.innerHTML = "<p>Select a declared component or package for its contract details.</p>";
+      inspector.innerHTML = `<p>Select a declared component or package for its contract details.</p>${overview}`;
       return;
     }
     const kind = node.kind === "module_target" ? "Declared module"
@@ -563,7 +622,7 @@
       ${(node.details || []).length
         ? `<dl class="kv">${node.details.map((item) =>
           `<dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd>`).join("")}</dl>`
-        : "<p>No additional details recorded.</p>"}`;
+        : "<p>No additional details recorded.</p>"}${overview}`;
   }
 
   function renderTargetDiagram() {
@@ -603,7 +662,9 @@
       positions[a.source].x - positions[b.source].x || positions[a.target].x - positions[b.target].x));
     // Draw requirements last: their direct component links remain pointer-accessible
     // where they cross the lower-contrast containment/ownership context edges.
-    const targetEdgePriority = { allowed_child: 0, contains: 1, owns_package: 2, requires: 3 };
+    const targetEdgePriority = {
+      navigation_grouping: 0, allowed_child: 1, contains: 2, owns_package: 3, requires: 4,
+    };
     [...edges].sort((a, b) => targetEdgePriority[a.kind] - targetEdgePriority[b.kind]).forEach((edge) => {
       const path = routeFor(edge, 0, 0, 1, 1, laneOffsetFor(edge, lanes)).d;
       const declaration = edge.declaration || `${edge.source}>${edge.target}`;
@@ -680,9 +741,31 @@
         : allowed
           ? `${allowed} allowed child${allowed === 1 ? "" : "ren"} · Open`
           : children.length ? "Details · Open" : "Declared leaf";
-      group.appendChild(count);
+      const responsibility = targetRecord?.details?.find((detail) =>
+        detail.label === "Responsibility")?.value;
+      if (["component", "module"].includes(type) && responsibility) {
+        const sentence = String(responsibility);
+        const breakAt = sentence.length > 24 ? sentence.lastIndexOf(" ", 24) : sentence.length;
+        const first = sentence.slice(0, breakAt > 0 ? breakAt : 24);
+        const rest = sentence.slice(first.length).trimStart();
+        const second = rest.length > 24 ? `${rest.slice(0, 23).trimEnd()}…` : rest;
+        count.setAttribute("class", "meta target-meta target-responsibility");
+        count.textContent = first;
+        group.appendChild(count);
+        if (second) {
+          const continuation = el("text", {
+            class: "meta target-responsibility", x: "16", y: "86",
+          });
+          continuation.textContent = second;
+          group.appendChild(continuation);
+        }
+      } else {
+        group.appendChild(count);
+      }
       const title = el("title");
-      title.textContent = `${type}: ${node.label}`;
+      title.textContent = responsibility
+        ? `${type}: ${node.label} — ${responsibility}`
+        : `${type}: ${node.label}`;
       group.appendChild(title);
       const open = () => {
         if (graph?.owner === node.id) {
@@ -707,6 +790,7 @@
 
     legend.textContent = "";
     for (const [kind, label] of [
+      ["navigation_grouping", "Navigation grouping by package scope"],
       ["allowed_child", "Layout allows child"],
       ["owns_package", "Component owns package scope"],
       ["contains", "Declared containment"],
@@ -750,9 +834,11 @@
       : ["actual", "diff"].includes(viewMode) ? "Architecture view" : "Component flow";
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     alternative.hidden = viewMode === "diagram" || viewMode === "target";
+    responsibilities.hidden = viewMode !== "target";
     if (viewMode === "diagram" || viewMode === "target") inspector.hidden = false;
     filterStatus.textContent = activeFilterSummary(viewMode);
     if (viewMode === "target") {
+      renderResponsibilities();
       renderTargetDiagram();
       return;
     }
@@ -1773,6 +1859,17 @@
     positions = {};
     render();
   }));
+  responsibilitySearch.addEventListener("input", filterResponsibilities);
+  responsibilityList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-responsibility-index]");
+    if (!button) return;
+    const row = responsibilityRows[Number(button.dataset.responsibilityIndex)];
+    targetPath = [...row.ancestors];
+    targetSelection = row.id;
+    positions = {};
+    render();
+    canvas.scrollIntoView({ block: "nearest" });
+  });
   focusInput.addEventListener("change", () => {
     focusLabel = focusInput.value || null;
     selected = null;

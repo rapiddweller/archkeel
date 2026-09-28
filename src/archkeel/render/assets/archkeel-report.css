@@ -626,6 +626,78 @@ code {
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: var(--ck-space-4);
 }
+.flow-responsibilities {
+  margin-top: var(--ck-space-4);
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+  padding: var(--ck-space-4);
+}
+.flow-responsibilities[hidden],
+.flow-responsibility-list button[hidden] {
+  display: none;
+}
+.flow-responsibilities summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.flow-responsibilities label,
+.flow-responsibility-count {
+  display: block;
+  margin-top: var(--ck-space-3);
+  color: var(--ck-muted);
+}
+.flow-responsibility-search {
+  width: 100%;
+  margin-top: var(--ck-space-2);
+  padding: 9px 11px;
+  border: 1px solid var(--ck-border);
+  border-radius: 6px;
+  background: var(--ck-black);
+  color: var(--ck-text);
+  font: inherit;
+}
+.flow-responsibility-list {
+  display: grid;
+  max-height: 420px;
+  margin-top: var(--ck-space-3);
+  overflow: auto;
+  border-top: 1px solid var(--ck-border);
+}
+.flow-responsibility-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--ck-space-4);
+  width: 100%;
+  padding: 11px 0;
+  border: 0;
+  border-bottom: 1px solid var(--ck-border);
+  background: transparent;
+  color: var(--ck-text);
+  text-align: left;
+  cursor: pointer;
+}
+.flow-responsibility-list button:hover {
+  background: var(--ck-surface-raised);
+}
+.flow-responsibility-list small {
+  display: block;
+  color: var(--ck-muted);
+}
+.flow-responsibility-list strong,
+.flow-responsibility-list code {
+  display: block;
+}
+.flow-responsibility-list code {
+  margin-top: var(--ck-space-1);
+  color: var(--ck-muted);
+  font-size: 11px;
+}
+.flow-responsibility-list strong,
+.flow-responsibility-list button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .flow-canvas,
 .flow-alternative {
   min-width: 0;
@@ -824,6 +896,12 @@ code {
   padding-left: 0;
   list-style: none;
 }
+.flow-inspector .target-responsibility-overview li + li {
+  margin-top: var(--ck-space-2);
+}
+.flow-inspector .target-responsibility-overview strong {
+  display: block;
+}
 .flow-inspector .empty {
   color: var(--ck-muted);
 }
@@ -950,6 +1028,10 @@ code {
   fill: var(--ck-muted);
   font: 12px var(--ck-font-mono);
 }
+.node .target-responsibility {
+  fill: var(--ck-text);
+  font: 12px var(--ck-font-sans);
+}
 .node .stereotype {
   fill: var(--ck-muted);
   font: 11px var(--ck-font-mono);
@@ -1023,6 +1105,10 @@ code {
   stroke: var(--ck-border);
   stroke-dasharray: 2 4;
 }
+.edge.target-edge.navigation_grouping .line {
+  stroke: var(--ck-muted);
+  stroke-dasharray: 5 3;
+}
 .target-legend-swatch {
   display: inline-block;
   width: 28px;
@@ -1041,6 +1127,10 @@ code {
 .target-legend-swatch.contains {
   border-color: var(--ck-border);
   border-top-style: dashed;
+}
+.target-legend-swatch.navigation_grouping {
+  border-color: var(--ck-muted);
+  border-top-style: dotted;
 }
 .edge.conforms .line {
   stroke: var(--ck-teal);
@@ -1177,6 +1267,10 @@ code {
   }
   .flow-item-list button {
     flex-direction: column;
+  }
+  .flow-responsibility-list button {
+    grid-template-columns: 1fr;
+    gap: var(--ck-space-2);
   }
   .flow-inspector .bars .row {
     grid-template-columns: minmax(0, 1fr) auto;

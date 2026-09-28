@@ -1,0 +1,7 @@
+{
+  "after_digest": "e8f19e8a08501f540fa4291e7cec272353cd0eb32108414162a9ca7c91c9950a",
+  "before_digest": "e8f19e8a08501f540fa4291e7cec272353cd0eb32108414162a9ca7c91c9950a",
+  "decided_by": "Codex reviewer",
+  "rationale": "Accept two measured unresolved calls introduced by conservative lexical binding checks: str.split on an import name and a nested local helper call. No rule violation or UNKNOWN position changed.",
+  "schema_version": "1.0.0"
+}

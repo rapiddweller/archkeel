@@ -317,9 +317,11 @@ Use `root_layout` when a package root must expose an exact set of immediate pack
 the root module and missing future children are ignored, while an unexpected child is a normal
 baselineable violation.
 Optionally declare exact Python files and one-sentence responsibilities in
-`declarations.modules` at the deepest existing contract. The Target view groups every declared
-file by folder; Diff shows declared files that are absent and observed files without a target.
-This inventory does not assign component ownership.
+`declarations.modules` at the deepest existing contract. The Target view groups each declared
+Python file under the deepest uniquely matching component within its declaring scope, using
+configured roots and namespace. This is navigation, not ownership; ambiguous or unsupported paths
+remain unresolved. Target cards preview the responsibility; select one for the full sentence.
+Diff shows declared files that are absent and observed files without a target.
 
 ![Target view drilled into a declared Python module and its responsibility](docs/assets/archkeel-module-target.png)
 

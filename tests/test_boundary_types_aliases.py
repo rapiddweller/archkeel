@@ -72,6 +72,60 @@ def test_annotated_reads_only_its_type_argument() -> None:
     )
 
 
+def test_required_wrappers_resolve_only_proven_typing_imports() -> None:
+    imports = {
+        ("sample", "Required"): {
+            "target_module": "typing_extensions",
+            "symbol": "Required",
+        },
+        ("sample", "te"): {
+            "target_module": "typing_extensions",
+            "symbol": None,
+        },
+        ("sample", "NotRequired"): {
+            "target_module": "typing",
+            "symbol": "NotRequired",
+        },
+        ("sample", "NR"): {
+            "target_module": "typing_extensions",
+            "symbol": "NotRequired",
+        },
+    }
+    for annotation in (
+        "Required[int]",
+        "NotRequired[int]",
+        "te.Required[int]",
+        "te.NotRequired[int]",
+        "NR[int]",
+    ):
+        verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, {})
+        assert verdict.violation is None and verdict.undecidable is None
+
+    broad = _boundary_type_verdict("Required[dict]", "sample", None, {}, imports, {})
+    assert broad.violation == "instead of a typed model"
+    any_type = _boundary_type_verdict("Required[Any]", "sample", None, {}, imports, {})
+    assert any_type.violation is None and any_type.undecidable is not None
+    unresolved = _boundary_type_verdict("Required[Missing]", "sample", None, {}, imports, {})
+    assert unresolved.violation is None and unresolved.undecidable is not None
+    malformed = _boundary_type_verdict("Required[int, str]", "sample", None, {}, imports, {})
+    assert malformed.violation is None and malformed.undecidable is not None
+    for annotation in ("Required[int,]", "NotRequired[(int,)]"):
+        tuple_slice = _boundary_type_verdict(annotation, "sample", None, {}, imports, {})
+        assert tuple_slice.violation is None and tuple_slice.undecidable is not None
+
+
+def test_required_lookalike_local_name_is_not_trusted() -> None:
+    imports = {
+        ("sample", "Required"): {
+            "target_module": "typing_extensions",
+            "symbol": "Required",
+        }
+    }
+    local = {("sample", "Required"): {"record_kind": "static_constant"}}
+    verdict = _boundary_type_verdict("Required[int]", "sample", None, {}, imports, local)
+    assert verdict.violation is None and verdict.undecidable is not None
+
+
 def test_literal_accepts_a_statically_recorded_constant() -> None:
     imports = {("sample", "Literal"): {"target_module": "typing", "symbol": "Literal"}}
     constants = {

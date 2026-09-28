@@ -321,15 +321,63 @@ def _declaration_records(
     scan: ScanResult,
     inside_records: list[RawRecord],
     contract_path: str,
+    module_scope: tuple[tuple[str, ...], str],
 ) -> list[RawRecord]:
     """`project_declarations` needs `scan`'s own `symbols`/`imports`/`modules` to resolve
     `declared_public_api`'s `types` (AD-70); kept out of `analyze_snapshot`'s own body only to
     keep that call a single line there.
     """
-    return [
+    records = [
         *project_declarations(contract, scan.symbols, scan.imports, scan.modules, contract_path),
         *inside_records,
     ]
+    roots, namespace = module_scope
+    for record in records:
+        data = record["data"]
+        if record["kind"] != "module_target" or "path" not in data:
+            continue
+        path = data["path"]
+        if not isinstance(path, str):
+            continue
+        qualified_name = _declared_module_name(path, roots, namespace)
+        if qualified_name is not None:
+            record["data"] = {**record["data"], "qualified_name": qualified_name}
+    return records
+
+
+def _declared_module_name(path: str, roots: tuple[str, ...], namespace: str) -> str | None:
+    target = Path(path).parts
+    namespace_parts = tuple(namespace.split("."))
+    anchors: list[tuple[str, ...]] = []
+    for root in roots:
+        root_parts = Path(root).parts
+        if target[: len(root_parts)] != root_parts:
+            continue
+        relative_file = target[len(root_parts) :]
+        if not relative_file:
+            continue
+        target_filename = relative_file[-1]
+        if target_filename[-3:] != ".py":
+            continue
+        relative = (*relative_file[:-1], target_filename[:-3])
+        if root_parts[-len(namespace_parts) :] == namespace_parts:
+            anchor = len(root_parts) - len(namespace_parts)
+            parts = (*namespace_parts, *relative)
+        elif relative[: len(namespace_parts)] == namespace_parts:
+            anchor = len(root_parts)
+            parts = relative
+        else:
+            continue
+        if any(
+            target[index : index + len(namespace_parts)] == namespace_parts
+            for index in range(anchor)
+        ):
+            continue
+        if parts and parts[-1] == "__init__":
+            parts = parts[:-1]
+        if parts:
+            anchors.append(parts)
+    return ".".join(anchors[0]) if len(anchors) == 1 else None
 
 
 def _add_git_failure(scan: ScanResult, git_head: str, dirty: bool | str) -> None:
@@ -403,7 +451,7 @@ def analyze_snapshot(
     namespace: str = "src",
     language: Language = "python",
 ) -> tuple[dict[str, Any], int]:
-    """Analyze explicit source bytes and metadata without consulting Git."""
+    """Analyze explicit source bytes; keep the model open for the canonical codec boundary."""
     source_root = source_root.resolve()
     declarations_root, contract_file = _contract_source(source_root, contract_root, contract_path)
     contract_reference = contract_file.relative_to(declarations_root).as_posix()
@@ -424,7 +472,8 @@ def analyze_snapshot(
     _record_inside_failures(scan, inside_failures)
     if git_head == "unknown" or dirty == "unknown":
         _add_git_failure(scan, git_head, dirty)
-    # AD-2: mypy cannot assign TypedDict records to RawJson, so the canonical model stays open.
+    scope = roots, namespace
+    declarations = _declaration_records(contract, scan, inside_records, contract_reference, scope)
     model: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {
@@ -445,7 +494,7 @@ def analyze_snapshot(
         },
         "coverage": scan.coverage,
         "metrics": _metrics(scan, contract),
-        "declarations": _declaration_records(contract, scan, inside_records, contract_reference),
+        "declarations": declarations,
         "scope_observations": scan.scope_observations,
         "packages": scan.packages,
         "modules": scan.modules,

@@ -261,7 +261,11 @@ def _requires_entries(component: ContractComponent) -> list[RecordData]:
 
 
 def _module_target_records(
-    scope: str, contract_path: str, targets: Sequence[ContractModuleTarget] | None
+    scope: str,
+    contract_path: str,
+    targets: Sequence[ContractModuleTarget] | None,
+    *,
+    parent_id: str | None = None,
 ) -> list[RawRecord]:
     if targets is None:
         return []
@@ -275,7 +279,10 @@ def _module_target_records(
                 title="Declared module inventory",
                 subjects=[],
                 provenance=[contract_path],
-                data={"inventory": True},
+                data={
+                    "inventory": True,
+                    **({"parent_id": parent_id} if parent_id is not None else {}),
+                },
             )
         ]
     return [
@@ -287,7 +294,11 @@ def _module_target_records(
             title=target.path,
             subjects=[target.path],
             provenance=[contract_path],
-            data={"path": target.path, "responsibility": target.responsibility},
+            data={
+                "path": target.path,
+                "responsibility": target.responsibility,
+                **({"parent_id": parent_id} if parent_id is not None else {}),
+            },
         )
         for target in targets
     ]
@@ -311,7 +322,9 @@ def project_inside_declarations(
         for record in map(_rule_declaration, contract.rules)
     ]
     declarations = contract.declarations or ContractDeclarations()
-    module_targets = _module_target_records(parent, contract_path, declarations.modules)
+    module_targets = _module_target_records(
+        parent, contract_path, declarations.modules, parent_id=parent
+    )
     components = [
         classified(
             item_id=component.id,

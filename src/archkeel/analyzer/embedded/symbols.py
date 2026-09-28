@@ -14,7 +14,14 @@ from types import EllipsisType
 from archkeel.ir.model import EvidenceClass, stable_id
 
 from .records import RawEvidence, RawRecord, RecordData, classified
-from .source import ParsedModule, add_evidence, annotation_text, decorator_names, location
+from .source import (
+    ParsedModule,
+    add_evidence,
+    annotation_text,
+    decorator_names,
+    location,
+    stable_direct_module_bindings,
+)
 
 
 def _resolve_static_name(module: ParsedModule, node: ast.AST) -> str:
@@ -24,6 +31,82 @@ def _resolve_static_name(module: ParsedModule, node: ast.AST) -> str:
     if binding is None:
         return text
     return ".".join([binding.target, *parts[1:]])
+
+
+def _binding_may_exist_before(statements: Sequence[ast.stmt], stop: ast.AST, name: str) -> bool:
+    for statement in statements:
+        if statement is stop:
+            return False
+        pending: list[ast.AST] = [statement]
+        while pending:
+            current = pending.pop()
+            if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef):
+                if current.name == name:
+                    return True
+                pending.extend(current.decorator_list)
+                pending.extend(current.args.defaults)
+                pending.extend(value for value in current.args.kw_defaults if value is not None)
+                pending.extend(
+                    argument.annotation
+                    for argument in [
+                        *current.args.posonlyargs,
+                        *current.args.args,
+                        *current.args.kwonlyargs,
+                    ]
+                    if argument.annotation is not None
+                )
+                if current.args.vararg and current.args.vararg.annotation:
+                    pending.append(current.args.vararg.annotation)
+                if current.args.kwarg and current.args.kwarg.annotation:
+                    pending.append(current.args.kwarg.annotation)
+                if current.returns:
+                    pending.append(current.returns)
+                continue
+            if isinstance(current, ast.ClassDef):
+                if current.name == name:
+                    return True
+                if any(
+                    isinstance(child, ast.Global) and name in child.names
+                    for child in ast.walk(current)
+                ):
+                    return True
+                pending.extend(current.decorator_list)
+                pending.extend(current.bases)
+                pending.extend(keyword.value for keyword in current.keywords)
+                continue
+            elif isinstance(current, ast.Lambda):
+                pending.extend(current.args.defaults)
+                pending.extend(value for value in current.args.kw_defaults if value is not None)
+                continue
+            if (
+                isinstance(current, ast.Name)
+                and current.id == name
+                and isinstance(current.ctx, ast.Store | ast.Del)
+            ):
+                return True
+            if isinstance(current, ast.Import) and any(
+                (alias.asname or alias.name.split(".")[0]) == name for alias in current.names
+            ):
+                return True
+            if isinstance(current, ast.ImportFrom) and any(
+                alias.name != "*" and (alias.asname or alias.name) == name
+                for alias in current.names
+            ):
+                return True
+            if isinstance(current, ast.ImportFrom) and any(
+                alias.name == "*" for alias in current.names
+            ):
+                return True
+            if isinstance(current, ast.ExceptHandler) and current.name == name:
+                return True
+            if isinstance(current, ast.MatchAs) and current.name == name:
+                return True
+            if isinstance(current, ast.MatchStar) and current.name == name:
+                return True
+            if isinstance(current, ast.MatchMapping) and current.rest == name:
+                return True
+            pending.extend(ast.iter_child_nodes(current))
+    return False
 
 
 def _is_static_type_alias_value(module: ParsedModule, node: ast.expr) -> bool:
@@ -72,9 +155,41 @@ def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordD
         )
     return {
         "parameters": parameters,
+        "receiver_parameter": positional[0].arg if positional else None,
         "returns": annotation_text(node.returns),
         "async": isinstance(node, ast.AsyncFunctionDef),
     }
+
+
+def _is_proven_overload(
+    module: ParsedModule,
+    decorator: ast.expr,
+    method: ast.FunctionDef | ast.AsyncFunctionDef,
+    parent: ast.ClassDef | None,
+) -> bool:
+    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+    if _resolve_static_name(module, target) not in {
+        "typing.overload",
+        "typing_extensions.overload",
+    }:
+        return False
+    root = (
+        target.id
+        if isinstance(target, ast.Name)
+        else (
+            target.value.id
+            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
+            else None
+        )
+    )
+    if (
+        root is None
+        or root not in module.aliases
+        or root not in stable_direct_module_bindings(module)
+        or not _binding_may_exist_before(module.tree.body, parent or method, root)
+    ):
+        return False
+    return parent is None or not _binding_may_exist_before(parent.body, method, root)
 
 
 def _class_field_annotations(node: ast.ClassDef) -> list[RecordData]:
@@ -159,6 +274,7 @@ def _symbol_data(
     node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
     qualname: str,
     parent: str | None,
+    parent_node: ast.ClassDef | None = None,
 ) -> RecordData:
     data: RecordData = {
         "qualified_name": qualname,
@@ -174,6 +290,7 @@ def _symbol_data(
         data.update(
             {
                 "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
+                "base_roots": _class_bases(module, node),
                 "frozen_object": _class_is_frozen(node, module),
                 "symbol_category": "class",
                 "fields": _class_field_annotations(node),
@@ -182,10 +299,67 @@ def _symbol_data(
     else:
         data.update(_function_signature(node))
         data["symbol_category"] = "method" if parent else "function"
+        decorator_targets = [
+            _resolve_static_name(
+                module, decorator.func if isinstance(decorator, ast.Call) else decorator
+            )
+            for decorator in node.decorator_list
+        ]
+        data["overload_signature"] = any(
+            _is_proven_overload(module, decorator, node, parent_node)
+            for decorator in node.decorator_list
+        )
+        if parent:
+            method_kind = "instance"
+            for resolved in decorator_targets:
+                if resolved in {"staticmethod", "builtins.staticmethod"}:
+                    method_kind = "static"
+                elif resolved in {"classmethod", "builtins.classmethod"}:
+                    method_kind = "class"
+            data["method_kind"] = method_kind
         shape, shape_nodes = _shape(node)
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
     return data
+
+
+def _class_bases(module: ParsedModule, node: ast.ClassDef) -> list[str]:
+    stable_bindings = stable_direct_module_bindings(module)
+
+    def base_root(base: ast.expr) -> str | None:
+        target = base.value if isinstance(base, ast.Subscript) else base
+        resolved = _resolve_static_name(module, target)
+        root = (
+            target.id
+            if isinstance(target, ast.Name)
+            else target.value.id
+            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
+            else None
+        )
+        if isinstance(target, ast.Name) and target.id == "object":
+            alias = module.aliases.get(target.id)
+            if not _binding_may_exist_before(module.tree.body, node, target.id):
+                return "object"
+            if (
+                alias is not None
+                and alias.target == "builtins.object"
+                and target.id in stable_bindings
+            ):
+                return "builtins.object"
+            return f"{module.module}.object"
+        if root in module.aliases and (
+            root not in stable_bindings
+            or not _binding_may_exist_before(module.tree.body, node, root)
+        ):
+            return f"{module.module}.{root}"
+        return resolved
+
+    return sorted(
+        filter(
+            None,
+            (base_root(base) for base in node.bases),
+        )
+    )
 
 
 def _resolve_class_kinds(
@@ -410,9 +584,10 @@ def collect_symbols(
         qualname: str,
         kind: str,
         parent: str | None = None,
+        parent_node: ast.ClassDef | None = None,
     ) -> None:
         evidence_id = add_evidence(evidence, module, node)
-        data = _symbol_data(module, node, qualname, parent)
+        data = _symbol_data(module, node, qualname, parent, parent_node)
         if isinstance(node, ast.ClassDef):
             classes[qualname] = node
         line, _, column = location(node)
@@ -448,6 +623,7 @@ def collect_symbols(
                     qualname=f"{qualname}.{child.name}",
                     kind="method",
                     parent=qualname,
+                    parent_node=node,
                 )
             elif isinstance(child, ast.ClassDef):
                 walk_class(module, child, parent=qualname)
@@ -464,4 +640,19 @@ def collect_symbols(
         item["data"]["qualified_name"]: item for item in symbols if "qualified_name" in item["data"]
     }
     _resolve_class_kinds(classes, owners, symbol_by_name)
+    symbols = _mark_overloaded_symbols(symbols)
     return sorted(symbols, key=lambda item: item["id"]), nodes, owners
+
+
+def _mark_overloaded_symbols(symbols: list[RawRecord]) -> list[RawRecord]:
+    overloaded = {
+        (data["module"], data["parent"], data["name"])
+        for item in symbols
+        if (data := item["data"]).get("overload_signature") is True
+    }
+    return [
+        {**item, "data": {**item["data"], "overloaded": True}}
+        if (item["data"]["module"], item["data"]["parent"], item["data"]["name"]) in overloaded
+        else item
+        for item in symbols
+    ]

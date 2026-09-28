@@ -70,6 +70,29 @@ def _flow(page: Page) -> dict[str, object]:
     return json.loads(page.locator("#flow-data").text_content() or "{}")
 
 
+def _target_component_route(
+    nodes: list[dict[str, object]], target_id: str, route: tuple[str, ...] = ()
+) -> tuple[str, ...] | None:
+    for node in nodes:
+        current = (*route, str(node["id"])) if node["kind"] == "component" else route
+        if node["id"] == target_id:
+            return route
+        children = node["children"]
+        if isinstance(children, list):
+            found = _target_component_route(children, target_id, current)
+            if found is not None:
+                return found
+    return None
+
+
+def _walk_target_nodes(node: dict[str, object]):
+    yield node
+    children = node["children"]
+    if isinstance(children, list):
+        for child in children:
+            yield from _walk_target_nodes(child)
+
+
 def _stat(page: Page, label: str) -> str:
     return page.locator(".flow-inspector .kv").evaluate(
         "(list, label) => { const terms = [...list.querySelectorAll('dt')]; "
@@ -412,13 +435,36 @@ def _check_module_target_reports(browser: Browser, reports: dict[str, Path], out
         page, errors = _visit(browser, reports[name], name, output)
         try:
             page.locator('[data-flow-view="target"]').click()
-            for label in ("Declared modules", "shop", "app"):
-                page.locator(f'.flow-nodes .node[data-label="{label}"]').click()
-            leaf = page.locator(f'.flow-nodes .node[data-label="{file}"]')
+            target = _flow(page)["explorers"]["target"]
+            module = next(
+                node
+                for root in target
+                for node in _walk_target_nodes(root)
+                if node["kind"] == "module_target"
+                and any(
+                    detail["label"] == "File" and detail["value"] == f"shop/app/{file}"
+                    for detail in node["details"]
+                )
+            )
+            route = _target_component_route(target, module["id"])
+            assert route is not None
+            for component_id in route:
+                page.locator(f'.flow-nodes .node[data-target-node="{component_id}"]').click()
+            leaf = page.locator(f'.flow-nodes .node[data-target-node="{module["id"]}"]')
             assert leaf.is_visible()
             assert leaf.locator(".target-kind").text_content() == "MODULE"
             leaf.click()
             assert page.locator(".flow-inspector").get_by_text(f"shop/app/{file}").is_visible()
+            assert (
+                page.locator(".flow-inspector")
+                .get_by_text("Coordinate order workflows.")
+                .is_visible()
+            )
+            assert (
+                page.locator(".flow-inspector")
+                .get_by_text("architecture-contract.json")
+                .is_visible()
+            )
             page.locator("#flow").screenshot(path=str(output / f"{name}-drilldown.png"))
             page.locator('[data-flow-view="diff"]').click()
             category = (
