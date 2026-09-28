@@ -3258,6 +3258,8 @@ def _public_api_annotations(symbol: RawRecord) -> list[str]:
     data = symbol["data"]
     if symbol["kind"] == "class":
         return [field["annotation"] for field in data["fields"] if field["annotation"]]
+    if symbol["kind"] != "function":
+        return []
     annotations = [
         parameter["annotation"] for parameter in data["parameters"] if parameter["annotation"]
     ]
