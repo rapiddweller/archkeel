@@ -556,7 +556,9 @@
       inspector.innerHTML = "<p>Select a declared component or package for its contract details.</p>";
       return;
     }
-    inspector.innerHTML = `<div class="kicker">Declared ${esc(node.kind)}</div>
+    const kind = node.kind === "module_target" ? "Declared module"
+      : node.kind === "folder" ? "Folder" : `Declared ${node.kind}`;
+    inspector.innerHTML = `<div class="kicker">${esc(kind)}</div>
       <h2>${esc(node.label)}</h2>
       ${(node.details || []).length
         ? `<dl class="kv">${node.details.map((item) =>
@@ -640,7 +642,10 @@
       const type = node.kind === "component" ? "component"
         : node.kind === "requires" ? "requires"
           : node.kind === "root_layout" ? "layout"
-            : node.kind === "physical_child" ? "physical" : "package";
+            : node.kind === "physical_child" ? "physical"
+              : node.kind === "module_target" ? "module"
+                : node.kind === "folder" ? "folder"
+                  : node.kind === "category" ? "group" : "package";
       const group = el("g", {
         class: `node target-node ${type}${targetSelection === node.id ? " selected" : ""}`,
         transform: `translate(${position.x},${position.y})`,
@@ -657,7 +662,10 @@
       kind.textContent = type === "component" ? "COMPONENT"
         : type === "requires" ? "REQUIRES"
           : type === "layout" ? "ROOT LAYOUT"
-            : type === "physical" ? "ALLOWED CHILD" : "PACKAGE SCOPE";
+            : type === "physical" ? "ALLOWED CHILD"
+              : type === "module" ? "MODULE"
+                : type === "folder" ? "FOLDER"
+                  : type === "group" ? "GROUP" : "PACKAGE SCOPE";
       group.appendChild(kind);
       const label = el("text", { class: "label target-label", x: "16", y: "47" });
       label.textContent = node.label.length > 26 ? `${node.label.slice(0, 23)}…` : node.label;
@@ -1168,10 +1176,13 @@
       `<button type="button" data-projection-crumb="${index}">${esc(node.label)}</button>`).join('<span aria-hidden="true"> / </span>');
     const rows = entries.map((node) => {
       const children = node.children || [];
+      const kind = node.kind === "module_target" ? "module"
+        : node.kind === "observed_only_module_target" ? "module without target"
+          : node.kind.replaceAll("_", " ");
       return `<button type="button" data-projection-id="${esc(node.id)}"
         aria-pressed="${projectionSelection === node.id}">
         <span><code>${esc(node.label)}</code></span>
-        <small>${esc(node.kind)}${children.length ? ` · ${children.length} entries` : ""}</small></button>`;
+        <small>${esc(kind)}${children.length ? ` · ${children.length} entries` : ""}</small></button>`;
     }).join("");
     const selected = entries.find((node) => node.id === projectionSelection);
     const currentDetails = current && details(current)

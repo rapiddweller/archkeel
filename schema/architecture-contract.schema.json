@@ -313,7 +313,25 @@
           "uniqueItems": true,
           "items": {"$ref": "#/$defs/couplingBudget"},
           "description": "At most max_names facade names the source component imports from the target component (AD-99). Raising or removing one is a widening."
+        },
+        "modules": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/moduleTarget"},
+          "description": "Exact Python files and their intended responsibilities in this contract level."
         }
+      }
+    },
+    "moduleTarget": {
+      "type": "object",
+      "required": ["path", "responsibility"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/)(?:[^/]+/)*[^/]+\\.py$"
+        },
+        "responsibility": {"type": "string", "pattern": "^.*\\S.*$", "not": {"pattern": "[\\r\\n]"}}
       }
     },
     "compatibilityShim": {

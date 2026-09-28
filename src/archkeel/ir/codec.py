@@ -61,6 +61,7 @@ from archkeel.ir.model import (
     ContractDeclarations,
     ContractInfo,
     ContractMeasurementBudget,
+    ContractModuleTarget,
     ContractOwner,
     ContractPath,
     ContractPathKind,
@@ -707,6 +708,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
                 "measurement_budgets",
                 "facade_budgets",
                 "coupling_budgets",
+                "modules",
             },
             "contract.declarations",
         )
@@ -779,6 +781,16 @@ def parse_contract(raw: object) -> ArchitectureContract:
         if "coupling_budgets" in declarations
         else None
     )
+    modules = (
+        tuple(
+            _parse_module_target(value, f"modules[{index}]")
+            for index, value in enumerate(records("modules"))
+        )
+        if "modules" in declarations
+        else None
+    )
+    if modules is not None and len({item.path for item in modules}) != len(modules):
+        raise ValueError("contract.declarations.modules repeats a path")
     rules = tuple(_parse_rule(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     labels = {component.label for component in components}
     seen_labels: set[str] = set()
@@ -842,6 +854,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
             budgets,
             facade_budgets,
             coupling_budgets,
+            modules,
         )
         if declarations_raw is not None
         else None,
@@ -904,6 +917,23 @@ def _parse_compat(raw: RawJson, label: str) -> CompatibilityShim:
     if not _is_compatibility_lifetime(lifetime):
         raise ValueError(f"{label}.lifetime must be permanent or migration")
     return CompatibilityShim(module, target, lifetime)
+
+
+def _parse_module_target(raw: RawJson, label: str) -> ContractModuleTarget:
+    item = _contract_fields(raw, {"path", "responsibility"}, set(), label)
+    path = _nonempty(item["path"], f"{label}.path")
+    relative = contract_relative_path(path)
+    if (
+        relative is None
+        or str(relative) != path
+        or re.match(r"^[A-Za-z]:", path) is not None
+        or relative.suffix != ".py"
+    ):
+        raise ValueError(f"{label}.path must be a repository-relative .py path")
+    responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
+    if "\n" in responsibility or "\r" in responsibility:
+        raise ValueError(f"{label}.responsibility must be one sentence on one line")
+    return ContractModuleTarget(path, responsibility)
 
 
 def _public_entry(value: str, label: str) -> str:
@@ -2114,6 +2144,41 @@ def _contract_record_ids(contract: ArchitectureContract) -> set[str]:
     }
 
 
+def _duplicate_module_target_issues(
+    root_path: str, root_contract: ArchitectureContract, mounts: Sequence[InsideContractMount]
+) -> list[InsideContractIssue]:
+    paths: dict[str, str] = {}
+    issues: list[InsideContractIssue] = []
+    contracts = [
+        (root_path, root_contract, None),
+        *((item.path, item.contract, item) for item in mounts),
+    ]
+    for path, contract, mount in contracts:
+        modules = (contract.declarations or ContractDeclarations()).modules or ()
+        for index, target in enumerate(modules):
+            previous = paths.get(target.path)
+            if previous is None:
+                paths[target.path] = path
+            elif mount is not None:
+                message = (
+                    f"duplicate module target path {target.path!r} in {path!r}; "
+                    f"already declared in {previous!r}"
+                )
+                issues.append(
+                    InsideContractIssue(
+                        mount.parent,
+                        mount.parent_id,
+                        mount.pointer,
+                        path,
+                        message,
+                        ContractInputError(
+                            f"/declarations/modules/{index}/path", target.path, message
+                        ),
+                    )
+                )
+    return issues
+
+
 def load_inside_contract_tree(
     root_path: str,
     root_contract: ArchitectureContract,
@@ -2146,6 +2211,7 @@ def load_inside_contract_tree(
         {},
         _contract_record_ids(root_contract),
     )
+    issues.extend(_duplicate_module_target_issues(root_path, root_contract, mounts))
     digests = [root_digest, *(item.digest for item in mounts)]
     digest = root_digest if not mounts else hashlib.sha256("".join(digests).encode()).hexdigest()
     canonical_digests = [

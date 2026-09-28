@@ -84,7 +84,7 @@ def _inside_levels(
         )
         failures.append(record)
     for mount in tree.mounts:
-        records.extend(project_inside_declarations(mount.parent_id, mount.contract))
+        records.extend(project_inside_declarations(mount.parent_id, mount.contract, mount.path))
     return records, tree.digest, list(tree.mounts), failures
 
 

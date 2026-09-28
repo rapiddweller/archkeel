@@ -991,11 +991,74 @@ def _target_roots(
     return target_roots, components, layout_records
 
 
+def _finish_module_target_nodes(
+    node: dict[str, object], prefix: tuple[str, ...] = ()
+) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    child_folders = node["folders"]
+    if not isinstance(child_folders, dict):
+        raise TypeError("module target folders must be a mapping")
+    for label, child in sorted(child_folders.items()):
+        if not isinstance(child, dict):
+            raise TypeError("module target node must be a mapping")
+        children = _finish_module_target_nodes(child, (*prefix, label))
+        result.append(
+            {
+                "id": f"module-folder:{'/'.join((*prefix, label))}",
+                "label": label,
+                "kind": "folder",
+                "details": [],
+                "children": children,
+            }
+        )
+    targets = node["targets"]
+    if isinstance(targets, list):
+        result.extend(targets)
+    return result
+
+
+def _target_module_nodes(records: list[Record]) -> list[dict[str, object]]:
+    root: dict[str, object] = {"folders": {}, "targets": []}
+    for record in records:
+        path = record.data.get("path")
+        if not isinstance(path, str):
+            continue
+        node = root
+        parts = re.split("/", path)
+        for part in parts[:-1]:
+            child_folders = node["folders"]
+            if not isinstance(child_folders, dict):
+                raise TypeError("module target folders must be a mapping")
+            child = child_folders.get(part)
+            if not isinstance(child, dict):
+                child = {"folders": {}, "targets": []}
+                child_folders[part] = child
+            node = child
+        targets = node["targets"]
+        if not isinstance(targets, list):
+            raise TypeError("module target leaves must be a list")
+        node["targets"] = [
+            *targets,
+            {
+                "id": record.id,
+                "label": parts[-1],
+                "kind": "module_target",
+                "details": [
+                    {"label": "File", "value": path},
+                    {"label": "Responsibility", "value": record.data.get("responsibility")},
+                ],
+                "children": [],
+            },
+        ]
+    return _finish_module_target_nodes(root)
+
+
 def _absent_targets(
     observation: Observation,
     modules: dict[str, str],
     components: dict[str, Record],
     layouts: list[Record],
+    module_targets: list[Record],
 ) -> list[dict[str, object]]:
     observed_paths = set(modules) | {
         name
@@ -1003,6 +1066,22 @@ def _absent_targets(
         if (name := record.data.get("qualified_name")) and isinstance(name, str)
     }
     absent_targets: list[dict[str, object]] = []
+    observed_files = set(modules.values())
+    for record in module_targets:
+        path = record.data.get("path")
+        if not isinstance(path, str) or path in observed_files:
+            continue
+        absent_targets.append(
+            {
+                "id": f"absent:{record.id}",
+                "label": path,
+                "kind": "module_target",
+                "details": [
+                    {"label": "Responsibility", "value": record.data.get("responsibility")}
+                ],
+                "children": [],
+            }
+        )
     for record in components.values():
         missing_packages = [
             package
@@ -1071,9 +1150,20 @@ def _target_projection(
     declarations: tuple[Record, ...],
 ) -> tuple[list[dict[str, object]], list[dict[str, object]], set[str]]:
     target_roots, components, layouts = _target_roots(declarations)
+    module_targets = [record for record in declarations if record.kind == "module_target"]
+    if module_targets:
+        target_roots = [
+            *target_roots,
+            _explorer_group(
+                "module-targets",
+                "Declared modules",
+                "category",
+                _target_module_nodes(module_targets),
+            ),
+        ]
     return (
         target_roots,
-        _absent_targets(observation, modules, components, layouts),
+        _absent_targets(observation, modules, components, layouts, module_targets),
         _unmapped_targets(observation, flow, modules, components),
     )
 
@@ -1184,8 +1274,7 @@ def _root_requires_edges(
 
 def _root_target_graph(target_roots: list[dict[str, object]]) -> dict[str, object]:
     components = [node for node in target_roots if node["kind"] == "component"]
-    layout_roots = [node for node in target_roots if node["kind"] == "root_layout"]
-    root_nodes = [_graph_node(node) for node in (*components, *layout_roots)]
+    root_nodes = [_graph_node(node) for node in target_roots]
     root_edges: list[dict[str, object]] = []
     root_edges.extend(_root_requires_edges(components, root_nodes))
     return {"owner": None, "nodes": root_nodes, "edges": root_edges}
@@ -1253,6 +1342,7 @@ def _explorer_diff(
     modules: dict[str, str],
     absent_targets: list[dict[str, object]],
     unmapped: set[str],
+    observed_only_targets: list[dict[str, object]],
 ) -> list[dict[str, object]]:
     return [
         _explorer_group(
@@ -1283,6 +1373,12 @@ def _explorer_diff(
             ],
         ),
         _explorer_group(
+            "diff:observed-only-targets",
+            "Observed modules without a declared target",
+            "category",
+            observed_only_targets,
+        ),
+        _explorer_group(
             "diff:absent",
             "Absent declared targets",
             "category",
@@ -1303,14 +1399,31 @@ def _explorer_payload(observation: Observation, flow: FlowData) -> dict[str, obj
     actual_tree: dict[str, dict[str, object]] = {}
     for name, file in sorted(modules.items()):
         _add_actual_module(actual_tree, name, file)
-    target, absent, unmapped = _target_projection(
-        observation, flow, modules, observation.records("declarations") or ()
-    )
+    declarations = observation.records("declarations") or ()
+    target, absent, unmapped = _target_projection(observation, flow, modules, declarations)
+    module_targets = [record for record in declarations if record.kind == "module_target"]
+    declared_files = {
+        path for record in module_targets if isinstance((path := record.data.get("path")), str)
+    }
+    observed_only_targets: list[dict[str, object]] = [
+        {
+            "id": f"observed-only-target:{name}",
+            "label": path,
+            "kind": "observed_only_module_target",
+            "details": [
+                {"label": "File", "value": path},
+                {"label": "Module", "value": name},
+            ],
+            "children": [],
+        }
+        for name, path in sorted(modules.items())
+        if module_targets and path not in declared_files
+    ]
     return {
         "actual": [_finish_actual_node(actual_tree[key]) for key in actual_tree],
         "target": target,
         "target_diagrams": _target_diagrams(target),
-        "diff": _explorer_diff(observation, modules, absent, unmapped),
+        "diff": _explorer_diff(observation, modules, absent, unmapped, observed_only_targets),
     }
 
 

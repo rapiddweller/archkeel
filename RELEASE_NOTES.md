@@ -1,3 +1,10 @@
+# Unreleased
+
+- Optional `declarations.modules` records exact Python-file targets and one-sentence
+  responsibilities. The Target report groups them by folder; Diff distinguishes absent targets
+  from observed-only modules. Present and absent cases are replayable demos. Existing contracts
+  retain their previous meaning.
+
 # Archkeel 0.8.0 — Explore the structure. Inspect the evidence.
 
 0.8.0 checks recursive architecture contracts and makes their evidence easier to review.

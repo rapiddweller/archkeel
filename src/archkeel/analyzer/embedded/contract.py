@@ -26,6 +26,7 @@ from archkeel.ir.model import (
     CompleteRequiresRule,
     ContractComponent,
     ContractDeclarations,
+    ContractModuleTarget,
     EvidenceClass,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
@@ -259,7 +260,42 @@ def _requires_entries(component: ContractComponent) -> list[RecordData]:
     return entries
 
 
-def project_inside_declarations(parent: str, contract: ArchitectureContract) -> list[RawRecord]:
+def _module_target_records(
+    scope: str, contract_path: str, targets: Sequence[ContractModuleTarget] | None
+) -> list[RawRecord]:
+    if targets is None:
+        return []
+    if not targets:
+        return [
+            classified(
+                item_id=stable_id("MODULE-TARGET-INVENTORY", scope),
+                evidence_class=EvidenceClass.DECLARED_RULE,
+                area="module_targets",
+                kind="module_target",
+                title="Declared module inventory",
+                subjects=[],
+                provenance=[contract_path],
+                data={"inventory": True},
+            )
+        ]
+    return [
+        classified(
+            item_id=stable_id("MODULE-TARGET", scope, target.path),
+            evidence_class=EvidenceClass.DECLARED_RULE,
+            area="module_targets",
+            kind="module_target",
+            title=target.path,
+            subjects=[target.path],
+            provenance=[contract_path],
+            data={"path": target.path, "responsibility": target.responsibility},
+        )
+        for target in targets
+    ]
+
+
+def project_inside_declarations(
+    parent: str, contract: ArchitectureContract, contract_path: str
+) -> list[RawRecord]:
     """Project one component's inside contract as declarations of a kind of its own (AD-34).
 
     The kind differs from `component_responsibility` because `component_owners` returns every
@@ -274,7 +310,9 @@ def project_inside_declarations(parent: str, contract: ArchitectureContract) -> 
         {**record, "data": {**record["data"], "parent_id": parent}}
         for record in map(_rule_declaration, contract.rules)
     ]
-    return rules + [
+    declarations = contract.declarations or ContractDeclarations()
+    module_targets = _module_target_records(parent, contract_path, declarations.modules)
+    components = [
         classified(
             item_id=component.id,
             evidence_class=EvidenceClass.DECLARED_RULE,
@@ -297,6 +335,7 @@ def project_inside_declarations(parent: str, contract: ArchitectureContract) -> 
         )
         for component in contract.components
     ]
+    return rules + module_targets + components
 
 
 def project_declarations(
@@ -317,6 +356,7 @@ def project_declarations(
         declarations.public_api, symbols, imports, modules, contract
     )
     items: list[RawRecord] = []
+    items.extend(_module_target_records(contract_path, contract_path, declarations.modules))
     for capability in declarations.capabilities:
         items.append(
             classified(

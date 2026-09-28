@@ -922,6 +922,12 @@ code {
   fill: var(--ck-surface);
   stroke: var(--ck-border);
 }
+.node.target-node.module .card {
+  stroke: var(--ck-teal);
+}
+.node.target-node.folder .card {
+  stroke-dasharray: 4 3;
+}
 .node.selected .card {
   stroke: var(--ck-teal);
 }

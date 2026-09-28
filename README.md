@@ -316,6 +316,13 @@ the whole design. It records deferred areas and preserves existing contracts dur
 Use `root_layout` when a package root must expose an exact set of immediate packages or modules;
 the root module and missing future children are ignored, while an unexpected child is a normal
 baselineable violation.
+Optionally declare exact Python files and one-sentence responsibilities in
+`declarations.modules` at the deepest existing contract. The Target view groups every declared
+file by folder; Diff shows declared files that are absent and observed files without a target.
+This inventory does not assign component ownership.
+
+![Target view drilled into a declared Python module and its responsibility](docs/assets/archkeel-module-target.png)
+
 When a later contract edit merges or renames components, `archkeel validate --write-graph`
 rewrites the edges of the page's marked component graph and leaves the rest of the page alone;
 a graph with a `subgraph`, a labeled edge or a style is left for you to edit by hand.

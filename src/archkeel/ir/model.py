@@ -257,6 +257,14 @@ class ContractPath:
 
 
 @dataclass(frozen=True, slots=True)
+class ContractModuleTarget:
+    """One exact Python file and its intended responsibility in the target architecture."""
+
+    path: str
+    responsibility: str
+
+
+@dataclass(frozen=True, slots=True)
 class ContractOwner:
     id: str
     label: str
@@ -616,6 +624,8 @@ class ContractDeclarations:
     # amendment digest bound to them, stay what they were before budgets existed.
     facade_budgets: tuple[FacadeBudget, ...] | None = None
     coupling_budgets: tuple[CouplingBudget, ...] | None = None
+    # Optional so contracts without module targets retain their canonical bytes and digest.
+    modules: tuple[ContractModuleTarget, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

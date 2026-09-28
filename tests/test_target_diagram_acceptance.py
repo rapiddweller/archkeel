@@ -27,7 +27,9 @@ def _walk(nodes: list[dict[str, Any]]):
         yield from _walk(node["children"])
 
 
-def _target_diagram_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
+def _target_diagram_page(
+    tmp_path: Path, *, include_module_target: bool = False
+) -> tuple[str, dict[str, Any]]:
     tour = next(item for item in CATALOG if item.id == "tour")
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     contract["components"].append(
@@ -49,6 +51,13 @@ def _target_diagram_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
             "rationale": "Archived orders stay behind the declared archive boundary.",
         }
     ]
+    if include_module_target:
+        contract.setdefault("declarations", {}).setdefault("modules", []).append(
+            {
+                "path": "shop/app/orders.py",
+                "responsibility": "Coordinate order workflows.",
+            }
+        )
     root_layout = next(rule for rule in contract["rules"] if rule["kind"] == "root_layout")
     root_layout["allowed_children"].append("shop.archive")
     root_layout["allowed_children"].append("shop.missing")
@@ -262,5 +271,40 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             page.locator('[data-projection-id="diff:unmapped"]').click()
             assert page.locator('[data-projection-id="unmapped:shop.orphan"]').is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        finally:
+            browser.close()
+
+
+def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path, include_module_target=True)
+    target_nodes = list(_walk(payload["explorers"]["target"]))
+    leaf = next(
+        node
+        for node in target_nodes
+        if any(
+            detail["label"] == "File" and detail["value"] == "shop/app/orders.py"
+            for detail in node["details"]
+        )
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            headless=True,
+            channel=os.environ.get("PLAYWRIGHT_CHANNEL"),
+        )
+        try:
+            page = browser.new_page()
+            page.set_content(page_html, wait_until="load")
+            page.get_by_role("button", name="Target").click()
+            page.locator('.flow-nodes .node[data-target-node="module-targets"]').click()
+            page.locator('.flow-nodes .node[data-target-node="module-folder:shop"]').click()
+            page.locator('.flow-nodes .node[data-target-node="module-folder:shop/app"]').click()
+            card = page.locator(f'.flow-nodes .node[data-target-node="{leaf["id"]}"]')
+            assert card.is_visible()
+            assert card.locator(".target-kind").text_content() == "MODULE"
+            card.click()
+            inspector = page.locator(".flow-inspector")
+            assert inspector.get_by_text("shop/app/orders.py", exact=True).is_visible()
+            assert inspector.get_by_text("Coordinate order workflows.", exact=True).is_visible()
         finally:
             browser.close()
