@@ -1095,6 +1095,10 @@ code {
   stroke: var(--ck-border);
   stroke-dasharray: 2 4;
 }
+.edge.target-edge.navigation_grouping .line {
+  stroke: var(--ck-muted);
+  stroke-dasharray: 5 3;
+}
 .target-legend-swatch {
   display: inline-block;
   width: 28px;
@@ -1113,6 +1117,10 @@ code {
 .target-legend-swatch.contains {
   border-color: var(--ck-border);
   border-top-style: dashed;
+}
+.target-legend-swatch.navigation_grouping {
+  border-color: var(--ck-muted);
+  border-top-style: dotted;
 }
 .edge.conforms .line {
   stroke: var(--ck-teal);

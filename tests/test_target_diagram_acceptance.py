@@ -27,6 +27,17 @@ def _walk(nodes: list[dict[str, Any]]):
         yield from _walk(node["children"])
 
 
+def _component_route(nodes: list[dict[str, Any]], target_id: str, route=()):
+    for node in nodes:
+        current = (*route, node["id"]) if node["kind"] == "component" else route
+        if node["id"] == target_id:
+            return route
+        found = _component_route(node["children"], target_id, current)
+        if found is not None:
+            return found
+    return None
+
+
 def _target_diagram_page(
     tmp_path: Path, *, include_module_target: bool = False
 ) -> tuple[str, dict[str, Any]]:
@@ -286,6 +297,19 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             for detail in node["details"]
         )
     )
+    route = _component_route(payload["explorers"]["target"], leaf["id"])
+    assert route
+    navigation_edge = next(
+        edge
+        for edge in payload["explorers"]["target_diagrams"]["nested"][route[-1]]["edges"]
+        if edge["target"] == leaf["id"]
+    )
+    assert navigation_edge["kind"] == "navigation_grouping"
+    assert any(
+        detail["label"] == "Navigation"
+        and detail["value"] == "Grouped by declared package scope shop.app."
+        for detail in leaf["details"]
+    )
     playwright_api = pytest.importorskip("playwright.sync_api")
     with playwright_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(
@@ -318,9 +342,8 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
                 .is_visible()
             )
             page.locator('.flow-views [data-flow-view="target"]').click()
-            page.locator('.flow-nodes .node[data-target-node="module-targets"]').click()
-            page.locator('.flow-nodes .node[data-target-node="module-folder:shop"]').click()
-            page.locator('.flow-nodes .node[data-target-node="module-folder:shop/app"]').click()
+            for component_id in route:
+                page.locator(f'.flow-nodes .node[data-target-node="{component_id}"]').click()
             card = page.locator(f'.flow-nodes .node[data-target-node="{leaf["id"]}"]')
             assert card.is_visible()
             assert card.locator(".target-kind").text_content() == "MODULE"

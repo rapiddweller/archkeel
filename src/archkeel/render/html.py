@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import posixpath
 import re
 from dataclasses import replace
 from importlib.resources import files
@@ -929,22 +930,20 @@ def _explorer_group(
     return {"id": identifier, "label": label, "kind": kind, "details": [], "children": children}
 
 
+def _component_scope_key(record: Record) -> str:
+    parent = record.data.get("parent_id")
+    return f"{parent}:{record.title}" if isinstance(parent, str) else record.title
+
+
 def _target_roots(
     declarations: tuple[Record, ...],
-) -> tuple[list[dict[str, object]], dict[str, Record], list[Record]]:
+) -> tuple[list[dict[str, object]], dict[str, Record], list[Record], dict[str, dict[str, object]]]:
     components = {
         record.id: record
         for record in declarations
         if record.kind in {"component_responsibility", "inside_component_responsibility"}
     }
-    component_keys = {
-        record.id: (
-            f"{record.data.get('parent_id')}:{record.title}"
-            if isinstance(record.data.get("parent_id"), str)
-            else record.title
-        )
-        for record in components.values()
-    }
+    component_keys = {record.id: _component_scope_key(record) for record in components.values()}
     children_by_parent: dict[str, list[Record]] = {}
     layouts_by_parent: dict[str | None, list[Record]] = {}
     for record in components.values():
@@ -988,69 +987,79 @@ def _target_roots(
         for record in _scoped_layout_records(layouts_by_parent, nested_layout_ids, None)
     )
 
-    return target_roots, components, layout_records
+    component_nodes: dict[str, dict[str, object]] = {}
+    pending = list(target_roots)
+    while pending:
+        node = pending.pop()
+        if node["kind"] == "component":
+            component_nodes[str(node["id"])] = node
+        children = node["children"]
+        if isinstance(children, list):
+            pending.extend(children)
+    components_by_scope = {
+        component_keys[record_id]: component_nodes[record_id]
+        for record_id in components
+        if record_id in component_nodes
+    }
+    return target_roots, components, layout_records, components_by_scope
 
 
-def _finish_module_target_nodes(
-    node: dict[str, object], prefix: tuple[str, ...] = ()
-) -> list[dict[str, object]]:
-    result: list[dict[str, object]] = []
-    child_folders = node["folders"]
-    if not isinstance(child_folders, dict):
-        raise TypeError("module target folders must be a mapping")
-    for label, child in sorted(child_folders.items()):
-        if not isinstance(child, dict):
-            raise TypeError("module target node must be a mapping")
-        children = _finish_module_target_nodes(child, (*prefix, label))
-        result.append(
+def _target_module_component(
+    qualified_name: str, siblings: list[dict[str, object]], components: dict[str, Record]
+) -> tuple[dict[str, object], str] | None:
+    current: dict[str, object] | None = None
+    navigation_scope: str | None = None
+    while True:
+        matches = []
+        for node in siblings:
+            if node["kind"] != "component":
+                continue
+            record = components.get(str(node["id"]))
+            scopes = (
+                [package for package in record.subjects if in_scope(qualified_name, package)]
+                if record is not None
+                else []
+            )
+            if scopes:
+                matches.append((node, max(scopes, key=lambda scope: scope.count("."))))
+        if len(matches) > 1:
+            return None
+        if not matches:
+            return (current, navigation_scope) if current is not None and navigation_scope else None
+        current, navigation_scope = matches[0]
+        children = current["children"]
+        siblings = children if isinstance(children, list) else []
+
+
+def _target_module_node(
+    record: Record, *, navigation_scope: str | None, declared_scope: str | None = None
+) -> dict[str, object] | None:
+    path = record.data.get("path")
+    if not isinstance(path, str):
+        return None
+    provenance = next((path for path in record.provenance if isinstance(path, str)), None)
+    details = [
+        {"label": "File", "value": path},
+        {"label": "Responsibility", "value": record.data.get("responsibility")},
+    ]
+    if provenance is not None:
+        details.append({"label": "Declared in", "value": provenance})
+    if declared_scope is not None:
+        details.append({"label": "Declared scope", "value": declared_scope})
+    if navigation_scope is not None:
+        details.append(
             {
-                "id": f"module-folder:{'/'.join((*prefix, label))}",
-                "label": label,
-                "kind": "folder",
-                "details": [],
-                "children": children,
+                "label": "Navigation",
+                "value": f"Grouped by declared package scope {navigation_scope}.",
             }
         )
-    targets = node["targets"]
-    if isinstance(targets, list):
-        result.extend(targets)
-    return result
-
-
-def _target_module_nodes(records: list[Record]) -> list[dict[str, object]]:
-    root: dict[str, object] = {"folders": {}, "targets": []}
-    for record in records:
-        path = record.data.get("path")
-        if not isinstance(path, str):
-            continue
-        node = root
-        parts = re.split("/", path)
-        for part in parts[:-1]:
-            child_folders = node["folders"]
-            if not isinstance(child_folders, dict):
-                raise TypeError("module target folders must be a mapping")
-            child = child_folders.get(part)
-            if not isinstance(child, dict):
-                child = {"folders": {}, "targets": []}
-                child_folders[part] = child
-            node = child
-        targets = node["targets"]
-        if not isinstance(targets, list):
-            raise TypeError("module target leaves must be a list")
-        node["targets"] = [
-            *targets,
-            {
-                "id": record.id,
-                "label": parts[-1],
-                "kind": "module_target",
-                "details": [
-                    {"label": "File", "value": path},
-                    {"label": "Responsibility", "value": record.data.get("responsibility")},
-                ],
-                "children": [],
-            },
-        ]
-    return _finish_module_target_nodes(root)
+    return {
+        "id": record.id,
+        "label": posixpath.basename(path),
+        "kind": "module_target",
+        "details": details,
+        "children": [],
+    }
 
 
 def _absent_targets(
@@ -1143,24 +1152,136 @@ def _unmapped_targets(
     return unmapped
 
 
+def _target_module_records(
+    declarations: tuple[Record, ...],
+) -> tuple[list[Record], list[Record]]:
+    inventory_records = [
+        record
+        for record in declarations
+        if record.kind == "module_target" and record.data.get("inventory") is True
+    ]
+    module_targets = [
+        record
+        for record in declarations
+        if record.kind == "module_target" and record.data.get("inventory") is not True
+    ]
+    return inventory_records, module_targets
+
+
+def _target_module_projection(
+    target_roots: list[dict[str, object]],
+    components: dict[str, Record],
+    components_by_scope: dict[str, dict[str, object]],
+    declarations: tuple[Record, ...],
+) -> tuple[list[dict[str, object]], list[Record]]:
+    inventory_records, module_targets = _target_module_records(declarations)
+    unresolved_by_scope: dict[str, tuple[dict[str, object], list[dict[str, object]]]] = {}
+    if module_targets:
+        unresolved: list[dict[str, object]] = []
+        for record in module_targets:
+            qualified_name = record.data.get("qualified_name")
+            parent_id = record.data.get("parent_id")
+            declaring_component = (
+                components_by_scope.get(parent_id) if isinstance(parent_id, str) else None
+            )
+            siblings = [declaring_component] if declaring_component is not None else target_roots
+            match = (
+                _target_module_component(qualified_name, siblings, components)
+                if isinstance(qualified_name, str)
+                else None
+            )
+            if isinstance(parent_id, str) and declaring_component is None:
+                match = None
+            component, navigation_scope = match if match is not None else (None, None)
+            node = _target_module_node(
+                record,
+                navigation_scope=navigation_scope,
+                declared_scope=(
+                    parent_id
+                    if isinstance(parent_id, str) and declaring_component is None
+                    else None
+                ),
+            )
+            if node is None:
+                continue
+            if component is None:
+                if isinstance(parent_id, str) and declaring_component is not None:
+                    if parent_id in unresolved_by_scope:
+                        scope_component, scope_nodes = unresolved_by_scope[parent_id]
+                        unresolved_by_scope[parent_id] = (scope_component, [*scope_nodes, node])
+                    else:
+                        unresolved_by_scope[parent_id] = (declaring_component, [node])
+                else:
+                    unresolved.append(node)
+            else:
+                children = component["children"]
+                if isinstance(children, list):
+                    component["children"] = [*children, node]
+        if unresolved:
+            target_roots = [
+                *target_roots,
+                _explorer_group(
+                    "module-targets",
+                    "Unresolved module targets",
+                    "category",
+                    unresolved,
+                ),
+            ]
+    target_roots = _target_inventory_projection(
+        target_roots, inventory_records, components_by_scope
+    )
+    for parent_id, (component, nodes) in unresolved_by_scope.items():
+        children = component["children"]
+        if isinstance(children, list):
+            component["children"] = [
+                *children,
+                _explorer_group(
+                    f"module-targets:{parent_id}",
+                    "Unresolved module targets",
+                    "category",
+                    nodes,
+                ),
+            ]
+    return target_roots, module_targets
+
+
+def _target_inventory_projection(
+    target_roots: list[dict[str, object]],
+    inventory_records: list[Record],
+    components_by_scope: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    for record in inventory_records:
+        parent_id = record.data.get("parent_id")
+        details = [{"label": "Status", "value": "Explicitly empty"}]
+        if isinstance(parent_id, str) and parent_id not in components_by_scope:
+            details.append({"label": "Declared scope", "value": parent_id})
+        node: dict[str, object] = {
+            "id": f"module-inventory:{record.id}",
+            "label": "Declared module inventory",
+            "kind": "category",
+            "details": details,
+            "children": [],
+        }
+        parent = components_by_scope.get(parent_id) if isinstance(parent_id, str) else None
+        if parent is None:
+            target_roots = [*target_roots, node]
+        else:
+            children = parent["children"]
+            if isinstance(children, list):
+                parent["children"] = [*children, node]
+    return target_roots
+
+
 def _target_projection(
     observation: Observation,
     flow: FlowData,
     modules: dict[str, str],
     declarations: tuple[Record, ...],
 ) -> tuple[list[dict[str, object]], list[dict[str, object]], set[str]]:
-    target_roots, components, layouts = _target_roots(declarations)
-    module_targets = [record for record in declarations if record.kind == "module_target"]
-    if module_targets:
-        target_roots = [
-            *target_roots,
-            _explorer_group(
-                "module-targets",
-                "Declared modules",
-                "category",
-                _target_module_nodes(module_targets),
-            ),
-        ]
+    target_roots, components, layouts, components_by_scope = _target_roots(declarations)
+    target_roots, module_targets = _target_module_projection(
+        target_roots, components, components_by_scope, declarations
+    )
     return (
         target_roots,
         _absent_targets(observation, modules, components, layouts, module_targets),
@@ -1194,6 +1315,8 @@ def _target_nested_graph(node: dict[str, object]) -> dict[str, object] | None:
         kind = (
             "owns_package"
             if child["kind"] == "package_scope"
+            else "navigation_grouping"
+            if node["kind"] == "component" and child["kind"] == "module_target"
             else "allowed_child"
             if node["kind"] == "root_layout" and child["kind"] == "physical_child"
             else "contains"

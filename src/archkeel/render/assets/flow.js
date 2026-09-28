@@ -653,7 +653,9 @@
       positions[a.source].x - positions[b.source].x || positions[a.target].x - positions[b.target].x));
     // Draw requirements last: their direct component links remain pointer-accessible
     // where they cross the lower-contrast containment/ownership context edges.
-    const targetEdgePriority = { allowed_child: 0, contains: 1, owns_package: 2, requires: 3 };
+    const targetEdgePriority = {
+      navigation_grouping: 0, allowed_child: 1, contains: 2, owns_package: 3, requires: 4,
+    };
     [...edges].sort((a, b) => targetEdgePriority[a.kind] - targetEdgePriority[b.kind]).forEach((edge) => {
       const path = routeFor(edge, 0, 0, 1, 1, laneOffsetFor(edge, lanes)).d;
       const declaration = edge.declaration || `${edge.source}>${edge.target}`;
@@ -757,6 +759,7 @@
 
     legend.textContent = "";
     for (const [kind, label] of [
+      ["navigation_grouping", "Navigation grouping by package scope"],
       ["allowed_child", "Layout allows child"],
       ["owns_package", "Component owns package scope"],
       ["contains", "Declared containment"],

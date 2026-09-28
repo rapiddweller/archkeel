@@ -37,9 +37,12 @@ and lifetime. A `migration` shim is visible remaining work while it protects cal
 to `permanent` only when that compatibility surface is intentional (AD-87).
 
 Use the deepest existing mounted contract's optional `declarations.modules` list to name exact
-Python files and their intended responsibilities. The explorer infers folders from these paths;
-missing files appear under `Diff` as absent targets. This inventory does not assign modules to
-components; keep semantic ownership in `components[].packages`.
+Python files and their intended responsibilities. Target navigation groups a file beneath the
+deepest uniquely matching declared component within its declaring scope, using only the configured
+roots and namespace to derive a Python module name. This is navigation, not module ownership, and
+does not depend on source presence or parse success. Ambiguous scopes or namespace anchors stay
+unresolved. Missing files also appear under `Diff` as absent targets. Keep semantic ownership in
+`components[].packages`.
 
 ```json
 {
