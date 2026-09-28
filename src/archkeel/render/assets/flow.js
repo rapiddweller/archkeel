@@ -1864,7 +1864,7 @@
     const button = event.target.closest("[data-responsibility-index]");
     if (!button) return;
     const row = responsibilityRows[Number(button.dataset.responsibilityIndex)];
-    targetPath = row.ancestors;
+    targetPath = [...row.ancestors];
     targetSelection = row.id;
     positions = {};
     render();

@@ -349,6 +349,10 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
                 .get_by_text("Coordinate order workflows.", exact=True)
                 .is_visible()
             )
+            path = page.locator(".flow-breadcrumb").text_content()
+            page.locator(".flow-back").click()
+            responsibilities.locator(".flow-responsibility-list button:visible").click()
+            assert page.locator(".flow-breadcrumb").text_content() == path
             page.locator('.flow-views [data-flow-view="target"]').click()
             for component_id in route:
                 page.locator(f'.flow-nodes .node[data-target-node="{component_id}"]').click()
