@@ -9,6 +9,12 @@ For a declared request or result class, the rule checks directly declared fields
 model, unresolved field or otherwise ambiguous position is UNKNOWN. The rule does not become a
 recursive type resolver.
 
+Public methods, including `__init__`, on a class proven through the same facade proof are also
+checked at their definitions; the receiver is omitted by method kind. A facade class with an
+unresolved custom base reports UNKNOWN because the scan does not resolve Python MROs. When overload
+signatures exist, they define the callable surface; the broad implementation signature is not
+counted separately. Public special methods such as `__call__` are included.
+
 Reason: the public contract owns the boundary; the implementation owns the definition. One
 direct field level catches the proven leak without inventing a second resolver.
 
