@@ -318,7 +318,9 @@ the root module and missing future children are ignored, while an unexpected chi
 baselineable violation.
 Optionally declare exact Python files and one-sentence responsibilities in
 `declarations.modules` at the deepest existing contract. The Target view groups every declared
-file by folder; Diff shows declared files that are absent and observed files without a target.
+file by folder and lists component and module responsibilities in a searchable index. Selecting
+an index entry opens it in the diagram. Diff shows declared files that are absent and observed
+files without a target.
 This inventory does not assign component ownership.
 
 ![Target view drilled into a declared Python module and its responsibility](docs/assets/archkeel-module-target.png)

@@ -52,6 +52,10 @@
   const breadcrumb = root.querySelector(".flow-breadcrumb");
   const viewButtons = root.querySelectorAll("[data-flow-view]");
   const alternative = root.querySelector(".flow-alternative");
+  const responsibilities = root.querySelector(".flow-responsibilities");
+  const responsibilitySearch = root.querySelector(".flow-responsibility-search");
+  const responsibilityList = root.querySelector(".flow-responsibility-list");
+  const responsibilityCount = root.querySelector(".flow-responsibility-count");
   let pendingAlternativeFocus = null;
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
@@ -330,6 +334,52 @@
       if (child) return child;
     }
     return null;
+  }
+
+  const responsibilityRows = [];
+  function collectResponsibilities(nodes, ancestors = []) {
+    for (const node of nodes) {
+      if (["component", "module_target"].includes(node.kind)) {
+        for (const detail of node.details || []) {
+          if (detail.label !== "Responsibility") continue;
+          responsibilityRows.push({
+            id: node.id,
+            ancestors: ancestors.map((parent) => parent.id),
+            kind: node.kind === "component" ? "Component" : "Module",
+            name: node.label,
+            path: node.kind === "module_target"
+              ? String(node.details.find((item) => item.label === "File")?.value || node.label)
+              : [...ancestors.map((parent) => parent.label), node.label].join(" / "),
+            sentence: String(detail.value),
+          });
+        }
+      }
+      collectResponsibilities(node.children || [], [...ancestors, node]);
+    }
+  }
+  collectResponsibilities(DATA.explorers?.target || []);
+
+  function filterResponsibilities() {
+    const query = responsibilitySearch.value.trim().toLocaleLowerCase();
+    let shown = 0;
+    responsibilityList.querySelectorAll("button").forEach((button) => {
+      const row = responsibilityRows[Number(button.dataset.responsibilityIndex)];
+      button.hidden = !`${row.kind} ${row.path} ${row.sentence}`.toLocaleLowerCase().includes(query);
+      if (!button.hidden) shown += 1;
+    });
+    responsibilityCount.textContent = `${shown} of ${responsibilityRows.length} shown`;
+  }
+
+  function renderResponsibilities() {
+    if (responsibilityList.childElementCount) return;
+    responsibilities.querySelector(".flow-responsibility-total").textContent =
+      `(${responsibilityRows.length})`;
+    responsibilityList.innerHTML = responsibilityRows.map((row, index) =>
+      `<button type="button" data-responsibility-index="${index}">` +
+      `<span><small>${esc(row.kind)}</small><strong>${esc(row.name)}</strong>` +
+      `<code>${esc(row.path)}</code></span>` +
+      `<span>${esc(row.sentence)}</span></button>`).join("");
+    filterResponsibilities();
   }
 
   function computeRanks() {
@@ -750,9 +800,11 @@
       : ["actual", "diff"].includes(viewMode) ? "Architecture view" : "Component flow";
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     alternative.hidden = viewMode === "diagram" || viewMode === "target";
+    responsibilities.hidden = viewMode !== "target";
     if (viewMode === "diagram" || viewMode === "target") inspector.hidden = false;
     filterStatus.textContent = activeFilterSummary(viewMode);
     if (viewMode === "target") {
+      renderResponsibilities();
       renderTargetDiagram();
       return;
     }
@@ -1773,6 +1825,17 @@
     positions = {};
     render();
   }));
+  responsibilitySearch.addEventListener("input", filterResponsibilities);
+  responsibilityList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-responsibility-index]");
+    if (!button) return;
+    const row = responsibilityRows[Number(button.dataset.responsibilityIndex)];
+    targetPath = row.ancestors;
+    targetSelection = row.id;
+    positions = {};
+    render();
+    canvas.scrollIntoView({ block: "nearest" });
+  });
   focusInput.addEventListener("change", () => {
     focusLabel = focusInput.value || null;
     selected = null;

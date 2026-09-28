@@ -296,6 +296,28 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             page = browser.new_page()
             page.set_content(page_html, wait_until="load")
             page.get_by_role("button", name="Target").click()
+            responsibilities = page.locator(".flow-responsibilities")
+            responsibilities.locator("summary").click()
+            declared_count = sum(
+                detail["label"] == "Responsibility"
+                for node in target_nodes
+                for detail in node["details"]
+            )
+            assert (
+                responsibilities.locator(".flow-responsibility-list button").count()
+                == declared_count
+            )
+            responsibilities.locator("input").fill("Coordinate order workflows")
+            assert responsibilities.locator(".flow-responsibility-count").text_content() == (
+                f"1 of {declared_count} shown"
+            )
+            responsibilities.locator(".flow-responsibility-list button:visible").click()
+            assert (
+                page.locator(".flow-inspector")
+                .get_by_text("Coordinate order workflows.", exact=True)
+                .is_visible()
+            )
+            page.locator('.flow-views [data-flow-view="target"]').click()
             page.locator('.flow-nodes .node[data-target-node="module-targets"]').click()
             page.locator('.flow-nodes .node[data-target-node="module-folder:shop"]').click()
             page.locator('.flow-nodes .node[data-target-node="module-folder:shop/app"]').click()

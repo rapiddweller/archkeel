@@ -1540,6 +1540,18 @@ _FLOW_SVG = """
   </g>
 </svg>"""
 
+_FLOW_RESPONSIBILITIES = """
+<details class="flow-responsibilities" hidden>
+  <summary>Declared responsibilities
+    <span class="flow-responsibility-total"></span>
+  </summary>
+  <label for="flow-responsibility-search">Find a component or module</label>
+  <input id="flow-responsibility-search" type="search"
+         class="flow-responsibility-search" autocomplete="off">
+  <output class="flow-responsibility-count" role="status" aria-live="polite"></output>
+  <div class="flow-responsibility-list"></div>
+</details>"""
+
 
 def _flow_section(observation: Observation) -> str:
     """Render the AD-10 component flow view: an SVG diagram plus its canonical JSON data."""
@@ -1612,6 +1624,7 @@ def _flow_section(observation: Observation) -> str:
           <div class="flow-alternative" hidden></div>
           <aside class="flow-inspector" aria-label="Selection details"></aside>
         </div>
+        {_FLOW_RESPONSIBILITIES}
         <div class="flow-legend" aria-label="Legend"></div>
       </div>
       <script id="flow-data" type="application/json">{payload}</script>
