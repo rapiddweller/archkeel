@@ -2387,6 +2387,7 @@ def _declared_facade_inherited_positions(
 ) -> DeclaredFacade | None:
     framework_bases = {
         "object",
+        "builtins.object",
         "abc.ABC",
         "enum.Enum",
         "enum.IntEnum",
@@ -2464,7 +2465,13 @@ def _declared_facade_method_positions(
     if not entries:
         return None
     parameters = data["parameters"]
-    if data["method_kind"] != "static" and parameters:
+    receiver_parameter = data.get("receiver_parameter")
+    if (
+        data["method_kind"] != "static"
+        and isinstance(receiver_parameter, str)
+        and parameters
+        and parameters[0]["name"] == receiver_parameter
+    ):
         parameters = parameters[1:]
     positions = [(parameter["name"], parameter["annotation"] or "") for parameter in parameters]
     if name != "__init__":
