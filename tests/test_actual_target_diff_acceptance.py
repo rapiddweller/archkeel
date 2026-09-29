@@ -179,6 +179,10 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             assert not responsibility.is_visible()
             page.get_by_role("button", name="Actual").click()
             page.locator('[data-projection-id="shop"]').click()
+            page.locator('[data-projection-id="shop.orphan"]').click()
+            assert responsibility.get_by_text("No matching target declaration.").is_visible()
+            page.locator("[data-projection-root]").click()
+            page.locator('[data-projection-id="shop"]').click()
             page.locator('[data-projection-id="shop.app"]').click()
             page.locator('[data-projection-id="shop.app.orders"]').click()
 

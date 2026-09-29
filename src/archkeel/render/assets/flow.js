@@ -433,10 +433,12 @@
           && inView(DATA.explorers?.[viewMode] || [], (node) =>
           node.details?.some((item) => item.label === "File" && item.value === selectedSubject.file))
       );
-    selectedResponsibility.hidden = !selectedSubject || matches.length === 0;
+    selectedResponsibility.hidden = !selectedSubject;
     if (!selectedSubject) {
       body.textContent = "Select a component or module to inspect its declared responsibility.";
-    } else if (matches.length !== 1) {
+    } else if (matches.length === 0) {
+      body.textContent = "No matching target declaration.";
+    } else if (matches.length > 1) {
       body.textContent = "No unique declaration match.";
     } else {
       const sentence = matches[0].details?.find((item) => item.label === "Responsibility")?.value;
