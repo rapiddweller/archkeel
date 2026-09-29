@@ -58,6 +58,8 @@ def test_stdlib_mapping_generics_are_broad_across_exact_import_forms(tmp_path: P
         ("from typing import Mapping as M\n", "M"),
         ("import typing\n", "typing.Mapping"),
         ("import collections.abc as cabc\n", "cabc.MutableMapping"),
+        ("import typing\n", "typing.Dict"),
+        ("from typing import Dict as D\n", "D"),
         ("from typing import Mapping, Optional\n", "Optional[Mapping]"),
         ("from collections.abc import Mapping\n", "Mapping | None"),
         ("from collections.abc import Mapping\n", "list[Mapping]"),
@@ -69,6 +71,8 @@ def test_stdlib_mapping_generics_are_broad_across_exact_import_forms(tmp_path: P
         "aliased",
         "typing-attribute",
         "abc-alias-attribute",
+        "typing-dict-attribute",
+        "aliased-dict",
         "optional",
         "or-none",
         "list-member",
@@ -137,7 +141,25 @@ def test_bare_stdlib_mapping_shadowed_by_a_local_binding_stays_unknown(
     assert unknown.data.get("annotation") == "Mapping"
 
 
-def test_bare_mapping_from_a_local_module_stays_unknown(tmp_path: Path) -> None:
+def test_bare_mapping_on_a_dotted_module_root_stays_unknown(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "import collections.abc\n\ndef run(value: collections.Mapping) -> str:\n    return ''\n"
+        ),
+        declared=("sample.app.impl:run",),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [unknown] = _type_unknowns(result)
+    assert unknown.data.get("reason") == "dotted_name"
+    assert unknown.data.get("annotation") == "collections.Mapping"
+
+
+def test_bare_mapping_from_a_local_module_is_judged_as_an_ordinary_type(tmp_path: Path) -> None:
     _write_app(
         tmp_path,
         implementation=(
@@ -150,11 +172,9 @@ def test_bare_mapping_from_a_local_module_stays_unknown(tmp_path: Path) -> None:
     result = _observe(tmp_path)
 
     assert result.observation is not None
-    assert not [
-        item
-        for item in trace_valid_violations(result.observation)
-        if "instead of a typed model" in item.title
-    ]
+    [violation] = trace_valid_violations(result.observation)
+    assert "does not declare" in violation.title
+    assert "instead of a typed model" not in violation.title
 
 
 def test_non_stdlib_mapping_generic_stays_unknown(tmp_path: Path) -> None:
