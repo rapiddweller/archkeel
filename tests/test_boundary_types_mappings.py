@@ -339,6 +339,75 @@ def test_empty_field_path_allows_only_the_top_level_mapping(tmp_path: Path) -> N
     assert fact.data.get("field_path") == ""
 
 
+def test_empty_field_path_allows_a_parameterized_mapping_inside_an_optional_union(
+    tmp_path: Path,
+) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "files",
+        "field_path": "",
+        "annotation": "Mapping[str, bytes] | None",
+    }
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from collections.abc import Mapping\n\n"
+            "def run(files: Mapping[str, bytes] | None = None) -> str:\n    return ''\n"
+        ),
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [fact] = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    assert fact.data.get("annotation") == "Mapping[str, bytes] | None"
+
+
+@pytest.mark.parametrize(
+    ("imports", "annotation"),
+    (
+        ("import typing\n", "typing.Mapping"),
+        ("from typing import Mapping as M\n", "M"),
+        ("import typing\n", "typing.Dict"),
+        ("from typing import Mapping, Optional\n", "Optional[Mapping]"),
+    ),
+    ids=("dotted", "aliased", "dotted-dict", "optional"),
+)
+def test_root_allowance_cannot_exempt_another_spelling_of_a_bare_broad_type(
+    tmp_path: Path, imports: str, annotation: str
+) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "value",
+        "field_path": "",
+        "annotation": annotation,
+    }
+    _write_app(
+        tmp_path,
+        implementation=f"{imports}\ndef run(value: {annotation}) -> str:\n    return ''\n",
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert "instead of a typed model" in violation.title
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+
+
 @pytest.mark.parametrize(
     "annotation",
     ("dict[str, MissingType]", "dict[str, str] | MissingType"),

@@ -3236,8 +3236,11 @@ def _boundary_type_allowance_fact(
             f"{allowance.position}.{allowance.field_path}" if allowance.field_path else None
         )
         annotation = data.get("nested_annotation") if allowance.field_path else data["annotation"]
+        # Only a parameterized mapping records its `nested_annotation`; a bare broad type, however
+        # spelled (`typing.Mapping`, an alias), records none and no root allowance may exempt it.
         root_unmatched = not allowance.field_path and (
             data["reason"] != _BROAD_BOUNDARY_REASON
+            or "nested_annotation" not in data
             or data.get("container_depth", 0) > 0
             or root_broad_count != 1
         )
