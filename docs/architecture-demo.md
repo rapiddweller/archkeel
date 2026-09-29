@@ -121,6 +121,9 @@ demo-dart`.
 | class_a | boundary_types:owned_public_type | class-a-boundary-types-owned-public-type | validate/report run | - | - | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
 | class_a | boundary_types:owned_public_broad_field | class-a-boundary-types-owned-public-broad-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/api.py, shop/app/payloads.py, shop/cli/main.py |
 | class_a | boundary_types:model_field | class-a-boundary-types-model-field | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/requests.py, shop/cli/main.py |
+| class_a | interface_boundary:inherited_generic_return | class-a-inherited-generic-return | validate/report run | - | - | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
+| class_a | interface_boundary:irrelevant_generic_argument | class-a-inherited-generic-unused | validate/report run | - | interface.unused | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
+| class_a | interface_boundary:ambiguous_inherited_generic | class-a-inherited-generic-ambiguous | validate/report run | - | interface.usage_unknown | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
 | validation | requires.target:local | validation-requires-local-target | validate/report run | - | - | architecture-contract.json |
 | validation | requires.target:undeclared | validation-requires-target-unknown | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | component.label:duplicate | validation-component-label-duplicate | validate/report run | - | contract.invalid | architecture-contract.json |

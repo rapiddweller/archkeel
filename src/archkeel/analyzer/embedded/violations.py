@@ -56,6 +56,21 @@ ReexportIndex: TypeAlias = tuple[
     frozenset[tuple[str, str]],
 ]
 
+_FRAMEWORK_BASES: Final = frozenset(
+    {
+        "object",
+        "builtins.object",
+        "abc.ABC",
+        "enum.Enum",
+        "enum.IntEnum",
+        "enum.StrEnum",
+        "pydantic.BaseModel",
+        "typing.Generic",
+        "typing.Protocol",
+        "typing_extensions.Protocol",
+    }
+)
+
 
 def _reexport_index(imports: Sequence[RawRecord]) -> ReexportIndex:
     by_origin: dict[str, list[RawRecord]] = defaultdict(list)
@@ -2385,20 +2400,8 @@ def _declared_facade_inherited_positions(
     uncertain_reexport_origins: UncertainReexportOrigins | None,
     reexports: ReexportIndex | None,
 ) -> DeclaredFacade | None:
-    framework_bases = {
-        "object",
-        "builtins.object",
-        "abc.ABC",
-        "enum.Enum",
-        "enum.IntEnum",
-        "enum.StrEnum",
-        "pydantic.BaseModel",
-        "typing.Generic",
-        "typing.Protocol",
-        "typing_extensions.Protocol",
-    }
     base_roots = data["base_roots"] if "base_roots" in data else data["bases"]
-    if not any(base not in framework_bases for base in base_roots):
+    if not any(base not in _FRAMEWORK_BASES for base in base_roots):
         return None
     module, name = data["module"], data["name"]
     entries: list[FacadeEntry] = []
@@ -2621,6 +2624,14 @@ def facade_signature_types(
         ancestor_contracts,
     )
     reexports = _reexport_index(imports)
+    classes_by_qualified_name = {
+        item["data"]["qualified_name"]: item for item in symbols if item["kind"] == "class"
+    }
+    methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
+    for item in symbols:
+        parent = item["data"]["parent"] if "parent" in item["data"] else None
+        if item["kind"] == "method" and isinstance(parent, str):
+            methods_by_parent[parent] = [*methods_by_parent[parent], item]
     if source_modules is not None:
         if scope_id is None:
             raise ValueError("nested facade evidence requires a mount identity")
@@ -2636,6 +2647,8 @@ def facade_signature_types(
             imports_by_binding,
             classes_by_location,
             reexports,
+            classes_by_qualified_name,
+            methods_by_parent,
         )
     recorded: list[RawRecord] = []
     for item in symbols:
@@ -2655,6 +2668,44 @@ def facade_signature_types(
             if has_proven_facade and found is not None
             else []
         )
+        if has_proven_facade and item["kind"] == "class":
+            inherited_types, _, _ = _inherited_generic_facade_types(
+                item,
+                classes_by_qualified_name,
+                methods_by_parent,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+            names = sorted(set(names) | set(inherited_types))
+            candidates = _inherited_generic_candidate_types(
+                item,
+                classes_by_qualified_name,
+                methods_by_parent,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+            if candidates and found is not None:
+                raw_candidates = (
+                    item["data"]["facade_type_candidates_by_publisher"]
+                    if "facade_type_candidates_by_publisher" in item["data"]
+                    else {}
+                )
+                by_publisher = dict(raw_candidates)
+                for publisher in found[4]:
+                    if publisher[3]:
+                        continue
+                    by_publisher[publisher[0]] = sorted(
+                        set(by_publisher[publisher[0]] if publisher[0] in by_publisher else ())
+                        | set(candidates)
+                    )
+                item = {
+                    **item,
+                    "data": {**item["data"], "facade_type_candidates_by_publisher": by_publisher},
+                }
         recorded.append(
             {**item, "data": {**item["data"], "facade_types": names}} if names else item
         )
@@ -2673,13 +2724,19 @@ def _scoped_facade_signature_types(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     reexports: ReexportIndex,
+    classes_by_qualified_name: dict[str, RawRecord],
+    methods_by_parent: dict[str, list[RawRecord]],
 ) -> list[RawRecord]:
     """Attach nested facade type evidence to its mount and physical publisher module."""
     owners = (contract, *ancestor_contracts)
     recorded: list[RawRecord] = []
     for item in symbols:
         by_mount: dict[str, dict[str, list[str]]] = {}
-        raw_types = item["data"].get("facade_types_by_mount")
+        raw_types = (
+            item["data"]["facade_types_by_mount"]
+            if "facade_types_by_mount" in item["data"]
+            else None
+        )
         if isinstance(raw_types, dict):
             for mount_id, publisher_types in raw_types.items():
                 if not isinstance(mount_id, str) or not isinstance(publisher_types, dict):
@@ -2709,6 +2766,49 @@ def _scoped_facade_signature_types(
                 imports_by_binding,
                 classes_by_location,
             )
+            if item["kind"] == "class":
+                inherited_types, _, _ = _inherited_generic_facade_types(
+                    item,
+                    classes_by_qualified_name,
+                    methods_by_parent,
+                    contract,
+                    exports_by_module,
+                    imports_by_binding,
+                    classes_by_location,
+                )
+                names = sorted(set(names) | set(inherited_types))
+                candidates = _inherited_generic_candidate_types(
+                    item,
+                    classes_by_qualified_name,
+                    methods_by_parent,
+                    contract,
+                    exports_by_module,
+                    imports_by_binding,
+                    classes_by_location,
+                )
+                if candidates:
+                    raw_candidates = (
+                        item["data"]["facade_type_candidates_by_mount"]
+                        if "facade_type_candidates_by_mount" in item["data"]
+                        else {}
+                    )
+                    all_candidates = dict(raw_candidates)
+                    raw_scoped = all_candidates[scope_id] if scope_id in all_candidates else {}
+                    scoped_candidates = dict(raw_scoped)
+                    for publisher in publishers:
+                        scoped_candidates[publisher[0]] = sorted(
+                            set(
+                                scoped_candidates[publisher[0]]
+                                if publisher[0] in scoped_candidates
+                                else ()
+                            )
+                            | set(candidates)
+                        )
+                    all_candidates[scope_id] = scoped_candidates
+                    item = {
+                        **item,
+                        "data": {**item["data"], "facade_type_candidates_by_mount": all_candidates},
+                    }
             if not names:
                 continue
             for entry in publishers:
@@ -2758,6 +2858,265 @@ def _resolved_position_types(
         ).resolved
     }
     return sorted(names)
+
+
+def _inherited_generic_facade_types(
+    item: RawRecord,
+    classes_by_qualified_name: dict[str, RawRecord],
+    methods_by_parent: dict[str, list[RawRecord]],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> tuple[list[str], list[tuple[str, str, str, str, _Position]], list[str]]:
+    """Resolve direct public methods from one proven generic base on a facade class.
+
+    This deliberately stops at one base and concrete bare class arguments. The existing
+    inherited-surface UNKNOWN remains the evidence for anything outside that proof.
+    """
+    data = item["data"]
+    if "class_body_control_flow" in data and data["class_body_control_flow"] is True:
+        return [], [], []
+    roots = data["base_roots"] if "base_roots" in data else ()
+    if not isinstance(roots, list) or any(not isinstance(root, str) for root in roots):
+        return [], [], []
+    non_framework_roots = [root for root in roots if root not in _FRAMEWORK_BASES]
+    specs = data["generic_bases"] if "generic_bases" in data else None
+    if len(non_framework_roots) != 1 or not isinstance(specs, list) or len(specs) != 1:
+        return [], [], []
+    spec = specs[0]
+    if not isinstance(spec, dict):
+        return [], [], []
+    base_name = spec["base"] if "base" in spec else None
+    arguments = spec["arguments"] if "arguments" in spec else None
+    bare_arguments = spec["arguments_are_names"] if "arguments_are_names" in spec else None
+    if (
+        not isinstance(base_name, str)
+        or not isinstance(arguments, list)
+        or not isinstance(bare_arguments, list)
+        or len(arguments) != len(bare_arguments)
+        or any(argument is not True for argument in bare_arguments)
+    ):
+        return [], [], []
+    resolved_base = _boundary_type_verdict(
+        base_name,
+        data["module"],
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+    )
+    if len(resolved_base.resolved) != 1 or resolved_base.undecidable is not None:
+        return [], [], []
+    base_module, base_class = resolved_base.resolved[0]
+    base_qualified_name = f"{base_module}.{base_class}"
+    base_symbol = classes_by_qualified_name.get(base_qualified_name)
+    if base_symbol is None:
+        return [], [], []
+    base_data = base_symbol["data"]
+    parameters = base_data["generic_parameters"] if "generic_parameters" in base_data else None
+    if (
+        not isinstance(parameters, list)
+        or not parameters
+        or len(parameters) != len(arguments)
+        or any(not isinstance(parameter, str) for parameter in parameters)
+        or any(not isinstance(argument, str) for argument in arguments)
+    ):
+        return [], [], []
+    base_members = base_data["class_members"] if "class_members" in base_data else ()
+    base_parameter_rebound = any(parameter in base_members for parameter in parameters)
+    base_binding_uncertain = base_parameter_rebound or (
+        "class_body_control_flow" in base_data and base_data["class_body_control_flow"] is True
+    )
+
+    substitutions: list[tuple[str, tuple[str, str]]] = []
+    for parameter, argument in zip(parameters, arguments, strict=True):
+        resolved_argument = _boundary_type_verdict(
+            argument,
+            data["module"],
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+        )
+        if len(resolved_argument.resolved) != 1 or resolved_argument.undecidable is not None:
+            return [], [], []
+        resolved_origin = resolved_argument.resolved[0]
+        argument_symbol = classes_by_location.get(resolved_origin)
+        if (
+            not isinstance(argument_symbol, dict)
+            or argument_symbol.get("symbol_category") != "class"
+        ):
+            return [], [], []
+        substitutions.append((parameter, resolved_origin))
+
+    substituted_imports = BindingIndex()
+    for key in imports_by_binding:
+        substituted_imports[key] = imports_by_binding[key]
+    substituted_imports.ownership_contracts = imports_by_binding.ownership_contracts
+    substituted_imports.owner_facade_type_states = dict(imports_by_binding.owner_facade_type_states)
+    substituted_classes = BindingIndex()
+    for key in classes_by_location:
+        substituted_classes[key] = classes_by_location[key]
+    for parameter, (origin_module, origin_name) in substitutions:
+        key = (base_module, parameter)
+        # The verified TypeVar binding is replaced for this one signature walk only.
+        if key in substituted_classes:
+            del substituted_classes[key]
+        dotted_origin = f"{origin_module}.{origin_name}"
+        substituted_imports[key] = {
+            "source_module": base_module,
+            "binding": parameter,
+            "target_module": origin_module,
+            "symbol": origin_name,
+            "origin_definition": dotted_origin,
+            "reexport_chain": [dotted_origin],
+        }
+
+    overrides = set(data.get("class_members", ())) | {
+        method["data"]["name"] for method in methods_by_parent.get(data["qualified_name"], ())
+    }
+    field_overrides = overrides | {
+        field["name"] for field in data.get("fields", ()) if isinstance(field.get("name"), str)
+    }
+    base_fields = base_data["fields"] if "fields" in base_data else ()
+    names: set[str] = set()
+    candidates: set[str] = set()
+    inherited_positions: list[tuple[str, str, str, str, _Position]] = []
+    for method in methods_by_parent.get(base_qualified_name, ()):
+        method_data = method["data"]
+        name = method_data["name"]
+        if (
+            name[:1] == "_"
+            or name in overrides
+            or (
+                method_data.get("overloaded") is True
+                and method_data.get("overload_signature") is not True
+            )
+        ):
+            continue
+        parameters = method_data["parameters"]
+        receiver = method_data.get("receiver_parameter")
+        if (
+            method_data["method_kind"] != "static"
+            and isinstance(receiver, str)
+            and parameters
+            and parameters[0]["name"] == receiver
+        ):
+            parameters = parameters[1:]
+        positions = [(parameter["name"], parameter["annotation"] or "") for parameter in parameters]
+        if name != "__init__":
+            positions.append(("return", method_data["returns"] or ""))
+        for position, annotation in positions:
+            verdict = _boundary_type_verdict(
+                annotation,
+                base_module,
+                contract,
+                exports_by_module,
+                substituted_imports,
+                substituted_classes,
+            )
+            if not base_binding_uncertain:
+                inherited_positions.append((name, method["id"], position, annotation, verdict))
+            for origin in verdict.resolved:
+                symbol = substituted_classes.get(origin)
+                if isinstance(symbol, dict) and (
+                    symbol.get("symbol_category") == "class"
+                    or symbol.get("record_kind") == "type_alias"
+                ):
+                    if not base_binding_uncertain:
+                        names.add(f"{origin[0]}.{origin[1]}")
+                    candidates.add(f"{origin[0]}.{origin[1]}")
+
+    candidate_annotations = [
+        field["annotation"]
+        for field in base_fields
+        if isinstance(field["name"], str)
+        and field["name"] not in field_overrides
+        and isinstance(field["annotation"], str)
+        and field["annotation"]
+    ]
+    if "__init__" not in overrides:
+        candidate_annotations += [
+            parameter["annotation"]
+            for method in methods_by_parent.get(base_qualified_name, ())
+            if method["data"]["name"] == "__init__"
+            for parameters in [method["data"]["parameters"]]
+            for receiver in [method["data"]["receiver_parameter"]]
+            for parameter in (
+                parameters[1:]
+                if isinstance(receiver, str) and parameters and parameters[0]["name"] == receiver
+                else parameters
+            )
+            if isinstance(parameter["annotation"], str) and parameter["annotation"]
+        ]
+    for annotation in candidate_annotations:
+        verdict = _boundary_type_verdict(
+            annotation,
+            base_module,
+            contract,
+            exports_by_module,
+            substituted_imports,
+            substituted_classes,
+        )
+        for origin in verdict.resolved:
+            symbol = substituted_classes.get(origin)
+            if isinstance(symbol, dict) and (
+                symbol.get("symbol_category") == "class"
+                or symbol.get("record_kind") == "type_alias"
+            ):
+                candidates.add(f"{origin[0]}.{origin[1]}")
+
+    return sorted(names), inherited_positions, sorted(candidates)
+
+
+def _inherited_generic_candidate_types(
+    item: RawRecord,
+    classes_by_qualified_name: dict[str, RawRecord],
+    methods_by_parent: dict[str, list[RawRecord]],
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> list[str]:
+    """Collect signature types from each independently resolvable ambiguous direct base."""
+    data = item["data"]
+    roots = data.get("base_roots", data.get("bases", ()))
+    specs = data.get("generic_bases")
+    if not isinstance(roots, list) or not isinstance(specs, list):
+        return []
+    candidates: set[str] = set()
+    for spec in specs:
+        if not isinstance(spec, dict) or not isinstance(spec.get("base"), str):
+            continue
+        base = spec["base"]
+        if base in _FRAMEWORK_BASES:
+            continue
+        candidate: RawRecord = {
+            **item,
+            "data": {
+                **data,
+                "base_roots": [base],
+                "generic_bases": [spec],
+                "class_body_control_flow": False,
+                "class_members": (
+                    []
+                    if data.get("class_body_control_flow") is True
+                    else data.get("class_members", ())
+                ),
+            },
+        }
+        _, _, signature_candidates = _inherited_generic_facade_types(
+            candidate,
+            classes_by_qualified_name,
+            methods_by_parent,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+        )
+        candidates.update(signature_candidates)
+    return sorted(candidates)
 
 
 def _boundary_type_allowance_fact(
@@ -2829,6 +3188,16 @@ def _boundary_types_violations(
         ancestor_contracts,
     )
     reexports = _reexport_index(imports)
+    classes_by_qualified_name = {
+        item["data"]["qualified_name"]: item
+        for item in symbols
+        if item["kind"] == "class" and isinstance(item["data"]["qualified_name"], str)
+    }
+    methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
+    for item in symbols:
+        parent = item["data"]["parent"]
+        if item["kind"] == "method" and isinstance(parent, str):
+            methods_by_parent[parent] = [*methods_by_parent[parent], item]
     violations: list[RawRecord] = []
     allowance_facts: list[RawRecord] = []
     for rule in rules:
@@ -2877,6 +3246,35 @@ def _boundary_types_violations(
                         violations.append(record)
                     else:
                         allowance_facts.append(fact)
+            if item["kind"] == "class":
+                _, inherited_positions, _ = _inherited_generic_facade_types(
+                    item,
+                    classes_by_qualified_name,
+                    methods_by_parent,
+                    contract,
+                    exports_by_module,
+                    imports_by_binding,
+                    classes_by_location,
+                )
+                for method_name, method_id, position, annotation, verdict in inherited_positions:
+                    facade_qualname = qualname[: -len(".__inherited_methods__")]
+                    inherited_qualname = f"{facade_qualname}.{method_name}"
+                    records = _boundary_type_violation_records(
+                        rule,
+                        item,
+                        facade_module,
+                        inherited_qualname,
+                        position,
+                        annotation,
+                        verdict,
+                        identity_suffix=method_id,
+                    )
+                    for record in records:
+                        fact = _boundary_type_allowance_fact(rule, facade_module, record)
+                        if fact is None:
+                            violations.append(record)
+                        else:
+                            allowance_facts.append(fact)
         _record_boundary_evaluation(
             rule, evaluated, assessment_facts, assessment_scope, unsupported_rules
         )
@@ -2914,6 +3312,8 @@ def _boundary_type_violation_records(
     position: str,
     annotation: str,
     verdict: _Position,
+    *,
+    identity_suffix: str = "",
 ) -> list[RawRecord]:
     if verdict.violation is None:
         return []
@@ -2927,10 +3327,16 @@ def _boundary_type_violation_records(
         path_data = ".".join((position, *path)) if path else None
         if path:
             identity_parts = (rule.id, item["id"], position, *path, nested_annotation or "", reason)
+            if identity_suffix:
+                identity_parts += (identity_suffix,)
         elif len(findings) > 1:
             identity_parts = (rule.id, item["id"], position, nested_annotation or "", reason)
+            if identity_suffix:
+                identity_parts += (identity_suffix,)
         else:
             identity_parts = (rule.id, item["id"], position)
+            if identity_suffix:
+                identity_parts += (identity_suffix,)
         nested_fields = " ".join(f"field {name}" for name in path)
         field_detail = f"{nested_fields} " if nested_fields else ""
         records.append(
@@ -3263,6 +3669,16 @@ def _boundary_rule_positions(
     positions_out: list[RawRecord] = []
     occurrences: dict[tuple[str, str], int] = {}
     reexports = _reexport_index(imports)
+    classes_by_qualified_name = {
+        item["data"]["qualified_name"]: item
+        for item in ordered_symbols
+        if item["kind"] == "class" and isinstance(item["data"]["qualified_name"], str)
+    }
+    methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
+    for item in ordered_symbols:
+        parent = item["data"]["parent"]
+        if item["kind"] == "method" and isinstance(parent, str):
+            methods_by_parent[parent] = [*methods_by_parent[parent], item]
     seen = 0
     for item in ordered_symbols:
         found = _facade_positions(
@@ -3293,6 +3709,33 @@ def _boundary_rule_positions(
         positions_out.extend(
             _boundary_type_position_record(rule, item, detail) for detail in details
         )
+        if item["kind"] == "class":
+            _, inherited_positions, _ = _inherited_generic_facade_types(
+                item,
+                classes_by_qualified_name,
+                methods_by_parent,
+                contract,
+                exports_by_module,
+                imports_by_binding,
+                classes_by_location,
+            )
+            seen += len(inherited_positions)
+            facade_qualname = qualified_name[: -len(".__inherited_methods__")]
+            for inherited_index, (method_name, _, position, annotation, verdict) in enumerate(
+                inherited_positions
+            ):
+                if verdict.undecidable is None:
+                    continue
+                detail: dict[str, object] = {
+                    "module": module,
+                    "qualified_name": f"{facade_qualname}.{method_name}",
+                    "position": position,
+                    "annotation": annotation,
+                    "reason": verdict.undecidable,
+                    "occurrence": occurrence * 1000 + inherited_index,
+                }
+                undecidable_positions.append(detail)
+                positions_out.append(_boundary_type_position_record(rule, item, detail))
         selected = _selected_facade(module, qualified_name, resolution_module)
         declared = _declared_facade_positions(
             item, contract, exports_by_module, imports, uncertain_reexport_origins, reexports

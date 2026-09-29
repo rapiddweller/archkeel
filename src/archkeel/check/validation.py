@@ -421,6 +421,31 @@ def _scoped_facade_types(
     return tuple(sorted(types))
 
 
+def _inherited_facade_candidates(
+    observation: Observation,
+    publishers: frozenset[str] | None = None,
+    scope_id: str | None = None,
+) -> tuple[str, ...]:
+    """Candidate types exposed by unresolved inherited overloads, scoped to publishers."""
+    candidates: set[str] = set()
+    key = "facade_type_candidates_by_publisher"
+    for record in observation.records("symbols") or ():
+        data = record.data
+        publisher_data = data.get(key)
+        if scope_id is not None:
+            by_mount = data.get("facade_type_candidates_by_mount")
+            scoped = by_mount.get(scope_id) if isinstance(by_mount, RecordData) else None
+            publisher_data = scoped if isinstance(scoped, RecordData) else None
+        if not isinstance(publisher_data, RecordData):
+            continue
+        for publisher, values in publisher_data.entries:
+            if publishers is not None and publisher not in publishers:
+                continue
+            if isinstance(values, tuple):
+                candidates.update(value for value in values if isinstance(value, str))
+    return tuple(sorted(candidates))
+
+
 def _entry_used(entry: str, records: list[RecordData], facade_types: tuple[str, ...]) -> bool:
     """Match one public entry's usage the way `_interface_allows` walks reexport_chain.
 
@@ -576,6 +601,7 @@ def _public_entry_diagnostics(
     facade_types: tuple[str, ...],
     resolved_public_entries: frozenset[tuple[str, str]],
     pointer_root: str = "/components",
+    facade_candidates: tuple[str, ...] = (),
 ) -> list[Diagnostic]:
     """Split an unused `public` entry by whether its module was ever scanned (AD-56).
 
@@ -590,6 +616,18 @@ def _public_entry_diagnostics(
     diagnostics = []
     for item, entry in enumerate(component.public or ()):
         if _entry_used(entry, records, facade_types):
+            continue
+        if _entry_reached_by(entry, facade_candidates):
+            diagnostics.append(
+                _diagnostic(
+                    "interface.usage_unknown",
+                    f"{pointer_root}/{index}/public/{item}",
+                    entry,
+                    "An ambiguous inherited facade signature may expose this public entry.",
+                    "Resolve inherited generic bases before classifying this entry as used "
+                    "or unused.",
+                )
+            )
             continue
         missing = _missing_public_entry(f"{pointer_root}/{index}/public/{item}", entry, modules)
         if missing is not None:
@@ -899,6 +937,14 @@ def interface_diagnostics(
     diagnostics = []
     for index, component in enumerate(contract.components):
         records = imports_by_target.get(component.label, [])
+        facade_publishers: set[str] = set()
+        for record in observation.records("symbols") or ():
+            module = record.data.get("module")
+            if isinstance(module, str) and any(
+                in_scope(module, package) for package in component.packages
+            ):
+                facade_publishers.add(module)
+        facade_candidates = _inherited_facade_candidates(observation, frozenset(facade_publishers))
         if component.public is None:
             if records:
                 diagnostics.append(
@@ -920,6 +966,7 @@ def interface_diagnostics(
                     modules,
                     facade_types,
                     resolved_public_entries,
+                    facade_candidates=facade_candidates,
                 )
             )
         diagnostics.extend(
@@ -1724,6 +1771,7 @@ def _inside_interface_lifecycle_diagnostics(
         mount, scoped, source_modules, observation, mounts_by_parent, available_by_owner
     )
     facade_types = _scoped_facade_types(observation, mount.parent_id, source_modules)
+    facade_candidates = _inherited_facade_candidates(observation, source_modules, mount.parent_id)
     diagnostics = []
     for component_index, component in enumerate(scoped.components):
         records = imports_by_target.get(component.label, [])
@@ -1749,6 +1797,7 @@ def _inside_interface_lifecycle_diagnostics(
                     facade_types,
                     frozenset(),
                     pointer_root,
+                    facade_candidates,
                 )
             )
         diagnostics.extend(

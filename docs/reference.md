@@ -54,9 +54,11 @@ that is not a call, such as a function put into a table, passed as an argument o
 property, with the symbols it resolves to (AD-26). Call metrics stay untouched, because coverage
 counts the `calls` section alone. A function record in the `symbols` section carries
 `facade_types` when the function is part of its component's declared `public` list and at least
-one of its parameter or return annotations resolves: the dotted `module.Name` origins that
-signature exposes, resolved once by `boundary_types` (AD-63) and read back by `validate`'s
-unused-entry check (AD-65). An observation written before a section existed no longer
+one of its parameter or return annotations resolves, and on a class for a proven direct inherited
+generic method signature (AD-121): the dotted `module.Name` origins that signature exposes,
+resolved by `boundary_types` (AD-63) and read back by `validate`'s unused-entry check (AD-65).
+Ambiguous inherited candidates are tracked separately and do not count as proven publication.
+An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 
 For `boundary_types`, an imported entry from an ordinary module is followed only when one

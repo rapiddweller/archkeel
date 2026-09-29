@@ -254,8 +254,9 @@ a declared name; underscore names never qualify. An entry is *reached* in one of
 notion of `public` covers both (AD-65): a cross-component import that resolves to it, or a
 declared facade signature of any component that names the type it declares, which exposes that
 type to every consumer of the signature without an import of its own. The second reading uses the
-`facade_types` the analyzer records on each declared facade function, resolved by
-`boundary_types`' own resolution below, so the rule that asks for such a type to be declared and
+`facade_types` the analyzer records on declared facade functions and classes with a proven
+inherited generic method surface (AD-121), resolved by `boundary_types`' own resolution below,
+so the rule that asks for such a type to be declared and
 the check that asks whether declaring it was worth it read one answer, not two. An import a `forbidden_dependency` rule already
 rejects is reported once, as that violation, and never also as `interface_boundary` (AD-18). A
 complete scan, fixed source bytes and analyzer digest make the result deterministic. An empty
@@ -352,10 +353,15 @@ the violation keeps the facade module and entry as its subject. For an ordinary 
 its unique import binding, whose terminal definition also has one unambiguous binding; an import
 alone does not prove it is a facade (AD-109). Multiple proven aliases to one exact origin do not
 duplicate a finding. Missing, ambiguous or unstable public alias routes remain UNKNOWN, even if
-another function in the facade can be checked.
+another function in the facade can be checked. For exported classes, direct inherited generic
+method signatures are checked only under AD-121's bounded proof; class-body rebinding, imports,
+deletion, or control flow preserve `inherited_surface` UNKNOWN.
 A named type may be public through its owner's proven facade export; it need not expose its
 implementation module. Without a proven public route, a matching uncertain export is UNKNOWN.
 An export by another owner does not grant publication. Public model fields are still checked.
+An inherited generic signature that is a possible but unproven use produces
+`interface.usage_unknown`, not `interface.unused`; it is not added to `facade_types`. A proven
+import or facade signature still wins over that candidate.
 Owned model fields, supported collections and unions are inspected recursively (AD-93). A repeated
 type ends only its current traversal path. Findings retain the signature-rooted field path;
 distinct bad union members are separate findings, not duplicate reports of one position.

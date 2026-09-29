@@ -60,10 +60,16 @@ leaves Git's listing unreadable; either way the field stays `null`, with a note.
 ## A facade type position is not always decidable
 
 `boundary_types` reads one annotation string per parameter and return of a declared facade
-function. It decides a builtin, a bare `dict`/`object`, a bare name its module's import bindings or
+function, plus direct public methods of a narrowly proven inherited generic base (AD-121). It
+decides a builtin, a bare `dict`/`object`, a bare name its module's import bindings or
 own class definitions resolve, and supported collections, unions and owned model fields
 recursively (AD-93). Supported collections include `list`, `tuple`, `set`, `frozenset`,
 `Sequence`, `Iterable`, `Iterator`, `Collection` and `AbstractSet`.
+Inherited proof covers one resolvable direct generic base with explicit `Generic[T]` parameters
+and bare class arguments; substitutions inside supported method annotations such as `list[T]` are
+followed. It does not prove inherited fields, constructors, or the full MRO. Class-local rebinding,
+imports, deletes, repeated bindings, or class-body control flow keep the effective inherited
+surface UNKNOWN rather than producing a definitive finding.
 An imported facade entry in an ordinary module is followed only when one unchanged literal
 `__all__` explicitly exports its unique import binding (AD-109); other export forms remain
 undecidable.
