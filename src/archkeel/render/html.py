@@ -1142,7 +1142,11 @@ def _absent_targets(
 
 
 def _unmapped_targets(
-    observation: Observation, flow: FlowData, modules: dict[str, str], components: dict[str, Record]
+    observation: Observation,
+    flow: FlowData,
+    modules: dict[str, str],
+    components: dict[str, Record],
+    module_targets: list[Record],
 ) -> set[str]:
     owned_package_paths = {package for record in components.values() for package in record.subjects}
     initializer_targets = {
@@ -1150,10 +1154,13 @@ def _unmapped_targets(
         for name, file in modules.items()
         if name in owned_package_paths and file[-11:] == "__init__.py"
     }
+    declared_files = {
+        path for record in module_targets if isinstance((path := record.data.get("path")), str)
+    }
     unmapped = set(flow.unassigned_modules) - initializer_targets
     for level in inside_levels(observation):
         unmapped |= set(level.unassigned) - initializer_targets
-    return unmapped
+    return {name for name in unmapped if modules.get(name) not in declared_files}
 
 
 def _target_module_records(
@@ -1289,7 +1296,7 @@ def _target_projection(
     return (
         target_roots,
         _absent_targets(observation, modules, components, layouts, module_targets),
-        _unmapped_targets(observation, flow, modules, components),
+        _unmapped_targets(observation, flow, modules, components, module_targets),
     )
 
 

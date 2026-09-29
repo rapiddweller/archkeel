@@ -387,6 +387,7 @@
 
   function selectSubject(node, view = viewMode) {
     if (!node) return;
+    selectedSubject = null;
     if (["actual", "diff"].includes(view)
         && ["module", "observed_only_module_target"].includes(node.kind)) {
       selectedSubject = { file: node.details?.find((item) => item.label === "File")?.value };
@@ -1841,6 +1842,7 @@
         button.addEventListener("click", () => {
           targetPath = targetPath.slice(0, item.depth);
           targetSelection = null;
+          selectedSubject = null;
           positions = {};
           render();
         });
@@ -1939,6 +1941,7 @@
     if (viewMode === "target" && targetPath.length) {
       targetPath.pop();
       targetSelection = null;
+      selectedSubject = null;
       positions = {};
       render();
     } else {
@@ -1996,12 +1999,14 @@
     if (crumb) {
       projectionPath = projectionPath.slice(0, Number(crumb.dataset.projectionCrumb) + 1);
       projectionSelection = null;
+      selectedSubject = null;
       render();
       return;
     }
     if (event.target.closest("[data-projection-root]")) {
       projectionPath = [];
       projectionSelection = null;
+      selectedSubject = null;
       render();
       return;
     }
@@ -2030,11 +2035,13 @@
       if (viewMode === "target" && targetPath.length) {
         targetPath.pop();
         targetSelection = null;
+        selectedSubject = null;
         positions = {};
         render();
       } else if (["actual", "diff"].includes(viewMode) && projectionPath.length) {
         projectionPath.pop();
         projectionSelection = null;
+        selectedSubject = null;
         render();
       } else if (!["actual", "target", "diff"].includes(viewMode)) {
         leave();

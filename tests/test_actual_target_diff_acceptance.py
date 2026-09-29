@@ -31,6 +31,7 @@ def _acceptance_page(
     *,
     module_declarations: list[dict[str, str]] | None = None,
     include_absent_component: bool = False,
+    extra_files: dict[str, str] | None = None,
 ) -> tuple[str, dict[str, Any], set[str]]:
     tour = next(item for item in CATALOG if item.id == "tour")
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
@@ -57,6 +58,7 @@ def _acceptance_page(
         **dict(tour.files),
         "architecture-contract.json": json.dumps(contract),
         "shop/orphan.py": "VALUE = 1\n",
+        **(extra_files or {}),
     }
     root = _prepare_repo(tmp_path, files)
     result, architecture = run_report(root, config=CONFIG, analyzer=observe)
@@ -108,6 +110,41 @@ def test_actual_target_diff_retains_absent_orphan_and_violating_evidence(tmp_pat
     assert violations, "tour fixture must retain its violating-import positive control"
     assert all(node["kind"] != "violation" for node in target)
     assert "Violations" in page and "Absent declared targets" in page
+
+
+def test_exact_module_target_covers_unassigned_module_without_hiding_orphans(
+    tmp_path: Path,
+) -> None:
+    _, payload, observed_modules = _acceptance_page(
+        tmp_path,
+        module_declarations=[
+            {"path": "shop/orphan.py", "responsibility": "Own the standalone module."},
+            {"path": "shop/namespace/__init__.py", "responsibility": "Mark the namespace."},
+        ],
+        extra_files={
+            "shop/namespace/__init__.py": "",
+            "shop/stray.py": "VALUE = 2\n",
+        },
+    )
+    actual = {
+        node["id"] for node in _walk(payload["explorers"]["actual"]) if node["kind"] == "module"
+    }
+    target_files = {
+        detail["value"]
+        for node in _walk(payload["explorers"]["target"])
+        if node["kind"] == "module_target"
+        for detail in node["details"]
+        if detail["label"] == "File"
+    }
+    diff = {node["id"] for node in _walk(payload["explorers"]["diff"])}
+
+    assert actual == observed_modules
+    assert {"shop.orphan", "shop.namespace", "shop.stray"} <= actual
+    assert {"shop/orphan.py", "shop/namespace/__init__.py"} <= target_files
+    assert "unmapped:shop.orphan" not in diff
+    assert "unmapped:shop.namespace" not in diff
+    assert "unmapped:shop.stray" in diff
+    assert "observed-only-target:shop.stray" in diff
 
 
 def test_absent_diff_module_keeps_exact_target_declaration_reference(tmp_path: Path) -> None:
@@ -223,6 +260,19 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             assert responsibility.get_by_text(
                 "Own the absent ghost package.", exact=True
             ).is_visible()
+            page.locator("[data-projection-root]").click()
+            assert not responsibility.is_visible()
+
+            page.get_by_role("button", name="Target").click()
+            app = next(
+                node
+                for node in _walk(payload["explorers"]["target"])
+                if node["kind"] == "component" and node["label"] == "app"
+            )
+            page.locator(f'[data-target-node="{app["id"]}"]').click()
+            assert responsibility.is_visible()
+            page.locator(".flow-back").click()
+            assert not responsibility.is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         finally:
             browser.close()

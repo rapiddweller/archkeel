@@ -154,8 +154,9 @@ unless the check has already classified them as a failure.
 - The separate Actual, Target, and Diff views navigate independently. Actual lists every observed
   module, including unassigned ones. Target draws only declared components, package scopes,
   allowed layout children, and requirements; its edges are declarations, not import evidence or
-  conformance claims. Diff lists violations, unknown evidence, unmapped observed modules, and
-  declared targets absent from the observation. A missing target stays visible in Target and Diff.
+  conformance claims. Diff lists violations, unknown evidence, observed modules with neither a
+  component owner nor an exact module target, and declared targets absent from the observation.
+  A missing target stays visible in Target and Diff.
   Target cards preview each declared component or module responsibility. The inspector shows the
   full sentence; a searchable list reaches every declaration. Selecting an item in Actual, Target,
   or Diff shows its target-declared responsibility when there is one exact match, or says when
