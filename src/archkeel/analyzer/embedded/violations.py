@@ -1627,6 +1627,12 @@ def boundary_type_indexes(
         )
         for data in (item["data"] for item in imports)
     )
+    uncertain_origins = uncertain_reexport_origins or {}
+    for item in imports:
+        data = item["data"]
+        key = (data["source_module"], data["binding"])
+        if key in imports_by_binding and f"{key[0]}.{key[1]}" in uncertain_origins:
+            imports_by_binding[key] = _AMBIGUOUS
     classes_by_location = _binding_index(
         (data["module"], data["name"], item["id"], data)
         for item in symbols
@@ -3583,6 +3589,19 @@ def _public_alias_route_has_unproven_hop(
             ):
                 return True
             category = definitions[0]["kind"]
+            if category == "type_alias":
+                definition_data = definitions[0]["data"]
+                if "alias" not in definition_data:
+                    return True
+                alias_expression_text: str = definition_data["alias"]
+                try:
+                    expression = ast.parse(alias_expression_text, mode="eval").body
+                except SyntaxError:
+                    return True
+                return not (
+                    (isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr))
+                    or isinstance(expression, ast.Subscript)
+                )
             return category not in {"function", "class", "static_constant"}
         if len(bindings) != 1:
             return True

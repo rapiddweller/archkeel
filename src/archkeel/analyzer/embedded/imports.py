@@ -18,6 +18,7 @@ from .source import (
     add_evidence,
     location,
     package_for,
+    stable_direct_module_bindings,
     unique_direct_module_bindings,
 )
 
@@ -340,14 +341,14 @@ def resolve_reexports(
     parsed: Sequence[ParsedModule] = (),
 ) -> dict[str, frozenset[str]]:
     """Follow re-export chains in place so each import records its origin definition."""
-    unique_bindings: dict[str, frozenset[str]] = {
-        module.module: unique_direct_module_bindings(module) for module in parsed
+    stable_bindings: dict[str, frozenset[str]] = {
+        module.module: stable_direct_module_bindings(module) for module in parsed
     }
     alias_targets: dict[str, set[str]] = {}
     uncertain_bindings: set[str] = set()
-    _collect_reexport_targets(imports, unique_bindings, alias_targets, uncertain_bindings)
+    _collect_reexport_targets(imports, stable_bindings, alias_targets, uncertain_bindings)
     reexports = _proven_reexports(imports, alias_targets, uncertain_bindings)
-    _record_import_origins(imports, exports_by_module, unique_bindings, reexports)
+    _record_import_origins(imports, exports_by_module, stable_bindings, reexports)
     return {
         binding: _terminal_reexport_origins(binding, alias_targets)
         for binding in uncertain_bindings
@@ -356,7 +357,7 @@ def resolve_reexports(
 
 def _collect_reexport_targets(
     imports: Sequence[RawRecord],
-    unique_bindings: dict[str, frozenset[str]],
+    stable_bindings: dict[str, frozenset[str]],
     alias_targets: dict[str, set[str]],
     uncertain_bindings: set[str],
 ) -> None:
@@ -370,11 +371,11 @@ def _collect_reexport_targets(
         if binding in alias_targets:
             targets |= alias_targets[binding]
         alias_targets[binding] = targets
-        source_unique = data["source_module"] not in unique_bindings or (
-            data["binding"] in unique_bindings[data["source_module"]]
+        source_unique = data["source_module"] not in stable_bindings or (
+            data["binding"] in stable_bindings[data["source_module"]]
         )
-        target_unique = data["target_module"] not in unique_bindings or (
-            data["symbol"] in unique_bindings[data["target_module"]]
+        target_unique = data["target_module"] not in stable_bindings or (
+            data["symbol"] in stable_bindings[data["target_module"]]
         )
         if data.get("reexport_candidate") is True or not source_unique or not target_unique:
             uncertain_bindings.add(binding)
@@ -405,7 +406,7 @@ def _proven_reexports(
 def _record_import_origins(
     imports: Sequence[RawRecord],
     exports_by_module: dict[str, set[str]],
-    unique_bindings: dict[str, frozenset[str]],
+    stable_bindings: dict[str, frozenset[str]],
     reexports: dict[str, str],
 ) -> None:
     for item in imports:
@@ -416,10 +417,10 @@ def _record_import_origins(
             data["symbol_visibility"] = None
             data["declared_in_all"] = False
             continue
-        source_binding_unique = data["source_module"] not in unique_bindings or (
-            data["binding"] in unique_bindings[data["source_module"]]
+        source_binding_unique = data["source_module"] not in stable_bindings or (
+            data["binding"] in stable_bindings[data["source_module"]]
         )
-        if data["source_module"] in unique_bindings:
+        if data["source_module"] in stable_bindings:
             data["source_binding_unique"] = source_binding_unique
         symbol: str = data["symbol"]
         current = f"{data['target_module']}.{symbol}"
@@ -434,7 +435,7 @@ def _record_import_origins(
         data["origin_definition"] = origin_definition
         origin_module, _, origin_name = origin_definition.rpartition(".")
         data["origin_binding_unique"] = (
-            origin_module not in unique_bindings or origin_name in unique_bindings[origin_module]
+            origin_module not in stable_bindings or origin_name in stable_bindings[origin_module]
         )
         if data["reexport"] and (
             not source_binding_unique

@@ -4,8 +4,11 @@
   exceeded the former 60-second limit; genuine timeouts still return UNKNOWN.
 - Optional `declarations.modules` records exact Python-file targets and one-sentence
   responsibilities. The Target report groups them by folder; Diff distinguishes absent targets
-  from observed-only modules. Present and absent cases are replayable demos. Existing contracts
-  retain their previous meaning.
+  from observed-only modules. Exact declared files are not mislabeled unmapped, and Back clears
+  the old responsibility selection. Present and absent cases are replayable demos. Existing
+  contracts retain their previous meaning.
+- `boundary_types` follows a stable union type alias through package facades. A rebound or
+  dynamic alias stays UNKNOWN; an uncertain route cannot produce a false type violation.
 
 # Archkeel 0.8.0 — Explore the structure. Inspect the evidence.
 
