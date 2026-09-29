@@ -512,7 +512,7 @@ def test_nested_unresolved_target_stays_in_its_declaring_scope(tmp_path: Path) -
     assert payload is not None
     app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
     unresolved = next(
-        node for node in app["children"] if node["label"] == "Unresolved module targets"
+        node for node in app["children"] if node["label"] == "Modules outside components"
     )
     leaf = unresolved["children"][0]
     assert _declared_file(leaf) == "elsewhere/api.py"
@@ -552,7 +552,7 @@ def test_ambiguous_nested_siblings_keep_target_unresolved_at_parent_scope(tmp_pa
     assert payload is not None
     app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
     unresolved = next(
-        node for node in app["children"] if node["label"] == "Unresolved module targets"
+        node for node in app["children"] if node["label"] == "Modules outside components"
     )
     assert [_declared_file(node) for node in unresolved["children"]] == ["sample/core/api.py"]
 
@@ -593,7 +593,7 @@ def test_ambiguous_or_unmatched_target_uses_unresolved_group(tmp_path: Path, pat
     assert payload is not None
     target = payload["explorers"]["target"]
     unresolved = next(node for node in target if node["id"] == "module-targets")
-    assert unresolved["label"] == "Unresolved module targets"
+    assert unresolved["label"] == "Modules outside components"
     assert [_declared_file(node) for node in _walk(unresolved["children"])] == [path]
     assert sum(_declared_file(node) == path for node in _walk(target)) == 1
 

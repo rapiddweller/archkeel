@@ -202,7 +202,7 @@ def _check_target_navigation(page: Page, output: Path, width: int) -> None:
         if label == "store":
             if width == 1440:
                 page.get_by_role("button", name="Fit overview").click()
-                page.locator(".flow-layout").screenshot(path=str(output / "target-store-1440.png"))
+                page.locator("#flow").screenshot(path=str(output / "target-store-1440.png"))
                 page.get_by_role("button", name="Set zoom to 100%").click()
             requirement = page.locator(".flow-edges .target-edge.requires").first
             line = requirement.locator(".line")

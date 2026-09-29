@@ -1265,6 +1265,20 @@ code {
   .flow-layout {
     grid-template-columns: 1fr;
   }
+  .flow-selected-responsibility[data-selected="true"] {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin-bottom: var(--ck-space-3);
+    padding: var(--ck-space-2) var(--ck-space-3);
+    border: 1px solid var(--ck-border);
+    border-radius: var(--ck-radius);
+    background: var(--ck-surface);
+  }
+  .flow-selected-responsibility h3,
+  .flow-selected-responsibility p {
+    margin: 0;
+  }
   .flow-item-list button {
     flex-direction: column;
   }

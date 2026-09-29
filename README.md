@@ -319,8 +319,9 @@ baselineable violation.
 Optionally declare exact Python files and one-sentence responsibilities in
 `declarations.modules` at the deepest existing contract. The Target view groups each declared
 Python file under the deepest uniquely matching component within its declaring scope, using
-configured roots and namespace. This is navigation, not ownership; ambiguous or unsupported paths
-remain unresolved. Target cards preview the responsibility; select one for the full sentence.
+configured roots and namespace. This is navigation, not ownership; files without a unique
+component match remain visible under “Modules outside components”. Target cards preview the
+responsibility; select one for the full sentence.
 Diff shows declared files that are absent and observed files without a target.
 
 ![Target view drilled into a declared Python module and its responsibility](docs/assets/archkeel-module-target.png)
@@ -389,8 +390,10 @@ The command writes the canonical `architecture.json` and a self-contained
 The HTML report separates Actual (the complete observed module tree), Target (an interactive
 diagram of declared components, package scopes, layout-allowed children, and requirements), and
 Diff (violations, unresolved evidence, unmapped modules, and absent declared targets). The
-Actual and Diff views are lists. Target edges describe declarations, not observed imports or
-proof that a declared child exists. `--output X.json` writes the JSON report and `X.report.html`.
+Actual and Diff views are lists. Selecting an item in any of the three views shows its declared
+target responsibility when an exact match exists; this does not describe observed behavior.
+Target edges describe declarations, not observed imports or proof that a declared child exists.
+`--output X.json` writes the JSON report and `X.report.html`.
 
 <p>
   <img src="docs/assets/archkeel-target-store.png" alt="Target view for the Shop demo: declared store component, its inner components and requirements, and the selected responsibility" width="1180">
