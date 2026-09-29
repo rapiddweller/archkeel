@@ -402,9 +402,9 @@ analyzer digest make the result deterministic. Adding a `snapshot(context: dict)
 declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
 example violation, and so is `summarize_all(extras: list[Extra]) -> Money`, where wrapping the
 undeclared `Extra` in a list is no longer a way out of the same finding (AD-67).
-Proven standard-library `Mapping[K, V]` and `MutableMapping[K, V]` are also broad
-map findings: changing `dict` to an abstract mapping does not declare a record
-shape (AD-123). Their member types are still checked. Unproven or malformed
+Proven standard-library `Mapping[K, V]` and `MutableMapping[K, V]`, and a bare `Mapping` or
+`MutableMapping`, are also broad map findings: changing `dict` to an abstract mapping does not
+declare a record shape (AD-123). Their member types are still checked. Unproven or malformed
 mapping annotations remain UNKNOWN, not a clean pass.
 An undecidable mapping member retains UNKNOWN alongside the known broad-map violation.
 Mixed union or DTO findings likewise retain both known violations and UNKNOWNs.
