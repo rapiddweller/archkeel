@@ -411,8 +411,9 @@ Mixed union or DTO findings likewise retain both known violations and UNKNOWNs.
 
 `allowed_positions` may exempt one finding by exact `qualified_name`, `position`,
 `field_path` and `annotation`. An empty `field_path` selects the parameter or return itself;
-otherwise it names a nested field relative to that position. `annotation` matches the offending
-leaf type, including a union member, while the outer signature stays in the violation record.
+its `annotation` must match the complete signature annotation. A nonempty `field_path`
+names a nested field relative to that position and matches the offending leaf type.
+Neither selector hides an unresolved union or mapping member.
 A mismatch leaves the violation intact, and a
 bare `dict` cannot match an allowance for `dict[str, JsonValue]`. Applied entries produce a
 `FACT` in `typing_signals` linked to the rule and function evidence; an unused entry emits no

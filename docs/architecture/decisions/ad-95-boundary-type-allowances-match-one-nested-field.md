@@ -8,8 +8,8 @@ that nested finding and emits a `FACT` in `typing_signals` with the rule and fun
 An unmatched allowance changes nothing and emits no fact.
 
 AD-123 later permits `field_path: ""` for an exact top-level parameter or
-return finding. It matches the offending leaf annotation, so a union's other
-violations and UNKNOWN member evidence remain visible.
+return finding. It matches the complete signature annotation, not a collection
+or union member. Other violations and UNKNOWN member evidence remain visible.
 
 The contract parser rejects malformed and duplicate entries. Adding an allowance widens the
 contract and `--against` requires an amendment; removing one narrows it. A bare `dict` remains a

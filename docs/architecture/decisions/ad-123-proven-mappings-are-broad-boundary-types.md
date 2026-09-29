@@ -11,7 +11,8 @@ Malformed arity, shadowed names, and imports the analyzer cannot prove remain
 UNKNOWN. A known violation and an undecidable member can coexist; an exact
 allowance removes only the violation, never the UNKNOWN. `allowed_positions`
 uses an empty `field_path` for a direct signature position and a named path for
-a nested field. Neither exempts sibling or member-type findings.
+a nested field. The direct selector matches the complete outer annotation;
+neither selector exempts sibling or member-type findings.
 
 Archkeel itself keeps three reviewed open maps: `FilesToWrite` accepts arbitrary
 paths and `run_check`/`Host` accept arbitrary environment names. Its own contract

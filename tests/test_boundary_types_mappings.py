@@ -211,6 +211,58 @@ def test_empty_field_path_allows_only_the_top_level_mapping(tmp_path: Path) -> N
     assert fact.data.get("field_path") == ""
 
 
+@pytest.mark.parametrize(
+    "annotation",
+    ("dict[str, MissingType]", "dict[str, str] | MissingType"),
+    ids=("unknown-dict-value", "unknown-union-member"),
+)
+def test_root_dict_allowance_keeps_unknown_members(tmp_path: Path, annotation: str) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "return",
+        "field_path": "",
+        "annotation": annotation,
+    }
+    _write_app(
+        tmp_path,
+        implementation=f"def run() -> {annotation}:\n    return {{}}\n",
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert any(item.data.get("reason") == "unresolved_name" for item in _type_unknowns(result))
+
+
+def test_root_dict_allowance_does_not_exempt_nested_collection(tmp_path: Path) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "return",
+        "field_path": "",
+        "annotation": "dict[str, str]",
+    }
+    _write_app(
+        tmp_path,
+        implementation="def run() -> list[dict[str, str]]:\n    return []\n",
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("annotation") == "list[dict[str, str]]"
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+
+
 def test_exact_mapping_allowance_does_not_hide_private_value_type(tmp_path: Path) -> None:
     allowance = {
         "qualified_name": "sample.app.impl.run",

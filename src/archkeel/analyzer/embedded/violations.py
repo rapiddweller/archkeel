@@ -1172,13 +1172,8 @@ _BROAD_BOUNDARY_TYPES: Final = ("dict", "Dict", "object")
 
 
 def _is_broad_boundary_type(annotation: str) -> bool:
-    """A bare `dict`/`Dict`/`object`, or a `dict[...]`/`Dict[...]` generic (AD-58).
-
-    Restricted to what the annotation string alone decides: a generic other than `dict`, a
-    dotted name, a forward-reference string and a missing annotation all stay silent rather
-    than guess. A bare named type is decided separately, by `resolve_named_type` (AD-63).
-    """
-    return annotation in _BROAD_BOUNDARY_TYPES or annotation.startswith(("dict[", "Dict["))
+    """Bare broad types; generic mappings are checked with their members."""
+    return annotation in _BROAD_BOUNDARY_TYPES
 
 
 _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
@@ -1296,41 +1291,6 @@ def _typing_module_binding(module: str, binding: str, imports_by_binding: Bindin
     )
 
 
-def _typing_dict_verdict(
-    annotation: str,
-    module: str,
-    imports_by_binding: BindingIndex,
-    classes_by_location: BindingIndex,
-) -> _Position | None:
-    try:
-        expression = ast.parse(annotation, mode="eval").body
-    except SyntaxError:
-        return None
-    if not isinstance(expression, ast.Subscript):
-        return None
-    head = expression.value
-    if isinstance(head, ast.Name):
-        key = (module, head.id)
-        imported = imports_by_binding.get(key)
-        if (
-            not isinstance(imported, dict)
-            or imported["target_module"] != "typing"
-            or imported["symbol"] != "Dict"
-        ):
-            return None
-    elif (
-        isinstance(head, ast.Attribute) and head.attr == "Dict" and isinstance(head.value, ast.Name)
-    ):
-        key = (module, head.value.id)
-        if not _typing_module_binding(module, head.value.id, imports_by_binding):
-            return None
-    else:
-        return None
-    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
-        return _Position(undecidable="ambiguous_binding")
-    return _Position(violation="instead of a typed model")
-
-
 def _mapping_parameters(
     annotation: str,
     module: str,
@@ -1350,24 +1310,31 @@ def _mapping_parameters(
         binding, member = head.value.id, head.attr
     else:
         return None
-    key = (module, binding)
-    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
-        return _Position(undecidable="ambiguous_binding")
-    imported = imports_by_binding.get(key)
-    if not isinstance(imported, dict):
-        return None
-    target, symbol = imported["target_module"], imported["symbol"]
-    if member is None:
-        mapping_module, mapping_name = target, symbol
+    if binding == "dict" and member is None:
+        mapping_module, mapping_name = "builtins", "dict"
     else:
-        # Import records cannot distinguish importing a dotted module from aliasing it to its root.
-        if symbol is None and target == "collections.abc" and binding == "collections":
-            return _Position(undecidable="dotted_name")
-        mapping_module = f"{target}.{symbol}" if symbol else target
-        mapping_name = member
-    if mapping_module not in {"typing", "collections.abc"} or mapping_name not in {
-        "Mapping",
-        "MutableMapping",
+        key = (module, binding)
+        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+            return _Position(undecidable="ambiguous_binding")
+        imported = imports_by_binding.get(key)
+        if not isinstance(imported, dict):
+            return None
+        target, symbol = imported["target_module"], imported["symbol"]
+        if member is None:
+            mapping_module, mapping_name = target, symbol
+        else:
+            # Import records cannot distinguish a dotted module from an alias to its root.
+            if symbol is None and target == "collections.abc" and binding == "collections":
+                return _Position(undecidable="dotted_name")
+            mapping_module = f"{target}.{symbol}" if symbol else target
+            mapping_name = member
+    if (mapping_module, mapping_name) not in {
+        ("builtins", "dict"),
+        ("typing", "Dict"),
+        ("typing", "Mapping"),
+        ("typing", "MutableMapping"),
+        ("collections.abc", "Mapping"),
+        ("collections.abc", "MutableMapping"),
     }:
         return None
     if (mapping_module, mapping_name) in classes_by_location:
@@ -1842,9 +1809,6 @@ def _boundary_type_verdict(
     )
     if wrapped is not None:
         return wrapped
-    typing_dict = _typing_dict_verdict(annotation, module, imports_by_binding, classes_by_location)
-    if typing_dict is not None:
-        return typing_dict
     if _is_broad_boundary_type(annotation):
         return _Position(violation="instead of a typed model")
     if annotation.startswith(("'", '"')):
@@ -3196,17 +3160,17 @@ def _boundary_type_allowance_fact(
 ) -> RawRecord | None:
     data = record["data"]
     path = data["path"] if "path" in data else None
-    nested_annotation = data.get("nested_annotation", data["annotation"] if path is None else None)
     for allowance in rule.allowed_positions:
         expected_path = (
             f"{allowance.position}.{allowance.field_path}" if allowance.field_path else None
         )
+        annotation = data.get("nested_annotation") if allowance.field_path else data["annotation"]
         if (
             allowance.annotation == "dict"
             or data["qualified_name"] != allowance.qualified_name
             or data["position"] != allowance.position
             or path != expected_path
-            or nested_annotation != allowance.annotation
+            or annotation != allowance.annotation
         ):
             continue
         return classified(

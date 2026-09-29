@@ -495,7 +495,7 @@
           "qualified_name": "archkeel.check.ports.FilesToWrite.__init__",
           "position": "files",
           "field_path": "",
-          "annotation": "Mapping[str, bytes]"
+          "annotation": "Mapping[str, bytes] | None"
         },
         {
           "qualified_name": "archkeel.check.ports.Host.__call__",
