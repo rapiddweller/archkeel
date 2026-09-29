@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 
 from archkeel.analyzer import observe
@@ -25,11 +26,33 @@ def _walk(nodes: list[dict[str, Any]]):
         yield from _walk(node["children"])
 
 
-def _acceptance_page(tmp_path: Path) -> tuple[str, dict[str, Any], set[str]]:
+def _acceptance_page(
+    tmp_path: Path,
+    *,
+    module_declarations: list[dict[str, str]] | None = None,
+    include_absent_component: bool = False,
+) -> tuple[str, dict[str, Any], set[str]]:
     tour = next(item for item in CATALOG if item.id == "tour")
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     root_layout = next(rule for rule in contract["rules"] if rule["kind"] == "root_layout")
     root_layout["allowed_children"].append("shop.missing")
+    if module_declarations is not None:
+        contract.setdefault("declarations", {})["modules"] = module_declarations
+    if include_absent_component:
+        ghost = next(
+            component for component in contract["components"] if component["id"] == "COMP-MODEL"
+        )
+        contract["components"].append(
+            {
+                **ghost,
+                "id": "COMP-GHOST",
+                "label": "ghost",
+                "packages": ["shop.ghost"],
+                "namespace": "shop.ghost",
+                "public": [],
+                "responsibilities": ["Own the absent ghost package."],
+            }
+        )
     files = {
         **dict(tour.files),
         "architecture-contract.json": json.dumps(contract),
@@ -85,3 +108,117 @@ def test_actual_target_diff_retains_absent_orphan_and_violating_evidence(tmp_pat
     assert violations, "tour fixture must retain its violating-import positive control"
     assert all(node["kind"] != "violation" for node in target)
     assert "Violations" in page and "Absent declared targets" in page
+
+
+def test_absent_diff_module_keeps_exact_target_declaration_reference(tmp_path: Path) -> None:
+    _, payload, _ = _acceptance_page(
+        tmp_path,
+        module_declarations=[
+            {
+                "path": "shop/missing.py",
+                "responsibility": "Own the missing module boundary.",
+            }
+        ],
+    )
+    target = next(
+        node
+        for node in _walk(payload["explorers"]["target"])
+        if node["kind"] == "module_target"
+        and any(
+            detail["label"] == "File" and detail["value"] == "shop/missing.py"
+            for detail in node["details"]
+        )
+    )
+    absent = next(
+        node
+        for node in _walk(payload["explorers"]["diff"])
+        if node["kind"] == "module_target" and node["label"] == "shop/missing.py"
+    )
+    assert any(
+        detail["label"] == "File" and detail["value"] == "shop/missing.py"
+        for detail in absent["details"]
+    ), f"absent Diff entry must link to exact target declaration {target['id']}"
+    assert any(
+        detail["label"] == "Responsibility"
+        and detail["value"] == "Own the missing module boundary."
+        for detail in absent["details"]
+    )
+
+
+def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: Path) -> None:
+    page_html, payload, _ = _acceptance_page(
+        tmp_path,
+        module_declarations=[
+            {
+                "path": "shop/app/orders.py",
+                "responsibility": "Own <order> decisions & totals.",
+            },
+            {
+                "path": "shop/model/orders.py",
+                "responsibility": "Own order value types.",
+            },
+            {
+                "path": "shop/missing.py",
+                "responsibility": "Own the missing module boundary.",
+            },
+        ],
+        include_absent_component=True,
+    )
+    missing_id = next(
+        node["id"]
+        for node in _walk(payload["explorers"]["diff"])
+        if node["label"] == "shop/missing.py" and node["kind"] == "module_target"
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 375, "height": 844})
+            page.set_content(page_html, wait_until="load")
+            responsibility = page.locator(".flow-selected-responsibility")
+            assert not responsibility.is_visible()
+            page.get_by_role("button", name="Actual").click()
+            page.locator('[data-projection-id="shop"]').click()
+            page.locator('[data-projection-id="shop.app"]').click()
+            page.locator('[data-projection-id="shop.app.orders"]').click()
+
+            assert responsibility.get_by_text(
+                "Own <order> decisions & totals.", exact=True
+            ).is_visible()
+            assert "observed" not in responsibility.inner_text().lower()
+
+            page.get_by_role("button", name="Target").click()
+            assert responsibility.get_by_text(
+                "Own <order> decisions & totals.", exact=True
+            ).is_visible()
+            assert "No matching entry" not in responsibility.inner_text()
+            page.get_by_role("button", name="Diff").click()
+            assert responsibility.get_by_text(
+                "Own <order> decisions & totals.", exact=True
+            ).is_visible()
+            page.locator('[data-projection-id="diff:absent"]').click()
+            page.locator(f'[data-projection-id="{missing_id}"]').click()
+            assert responsibility.get_by_text(
+                "Own the missing module boundary.", exact=True
+            ).is_visible()
+            assert "No matching entry" not in responsibility.inner_text()
+            page.get_by_role("button", name="Actual").click()
+            assert responsibility.get_by_text(
+                "Own the missing module boundary.", exact=True
+            ).is_visible()
+            assert "No matching entry in this view" in responsibility.inner_text()
+
+            page.get_by_role("button", name="Diff").click()
+            page.locator('[data-projection-id="diff:absent"]').click()
+            ghost = next(
+                node
+                for node in _walk(payload["explorers"]["diff"])
+                if node["kind"] == "component" and node["label"] == "ghost"
+            )
+            page.locator(f'[data-projection-id="{ghost["id"]}"]').click()
+            assert responsibility.get_by_text(
+                "Own the absent ghost package.", exact=True
+            ).is_visible()
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        finally:
+            browser.close()

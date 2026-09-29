@@ -157,8 +157,10 @@ unless the check has already classified them as a failure.
   conformance claims. Diff lists violations, unknown evidence, unmapped observed modules, and
   declared targets absent from the observation. A missing target stays visible in Target and Diff.
   Target cards preview each declared component or module responsibility. The inspector shows the
-  full sentence; a searchable list reaches every declaration. Folder grouping does not silently
-  drop list entries.
+  full sentence; a searchable list reaches every declaration. Selecting an item in Actual, Target,
+  or Diff shows its target-declared responsibility when there is one exact match. This is a target
+  statement, not an observation. Folder grouping does not silently drop list entries. Declared
+  modules outside component ownership remain visible under “Modules outside components”.
 - Never infer a symbol kind from a missing definition. A whole-module import is `module`, a star
   import is `star import`, and an unresolved named import is `unknown`, not `constant`.
 - Long lists of imported names and facade measurements use native disclosure controls. The

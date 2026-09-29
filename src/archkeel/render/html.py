@@ -1086,7 +1086,8 @@ def _absent_targets(
                 "label": path,
                 "kind": "module_target",
                 "details": [
-                    {"label": "Responsibility", "value": record.data.get("responsibility")}
+                    {"label": "File", "value": path},
+                    {"label": "Responsibility", "value": record.data.get("responsibility")},
                 ],
                 "children": [],
             }
@@ -1113,7 +1114,10 @@ def _absent_targets(
                     "id": f"absent:{record.id}",
                     "label": record.title,
                     "kind": "component",
-                    "details": [{"label": "Packages", "value": ", ".join(record.subjects)}],
+                    "details": [
+                        {"label": "Target declaration ID", "value": record.id},
+                        {"label": "Packages", "value": ", ".join(record.subjects)},
+                    ],
                     "children": [],
                 }
             )
@@ -1222,7 +1226,7 @@ def _target_module_projection(
                 *target_roots,
                 _explorer_group(
                     "module-targets",
-                    "Unresolved module targets",
+                    "Modules outside components",
                     "category",
                     unresolved,
                 ),
@@ -1237,7 +1241,7 @@ def _target_module_projection(
                 *children,
                 _explorer_group(
                     f"module-targets:{parent_id}",
-                    "Unresolved module targets",
+                    "Modules outside components",
                     "category",
                     nodes,
                 ),
@@ -1675,6 +1679,13 @@ _FLOW_RESPONSIBILITIES = """
   <div class="flow-responsibility-list"></div>
 </details>"""
 
+_FLOW_SELECTED_RESPONSIBILITY = """
+<section class="flow-selected-responsibility" aria-live="polite" hidden>
+  <h3>Declared responsibility</h3>
+  <p>Select a component or module to inspect its declared responsibility.</p>
+  <p class="flow-responsibility-match"></p>
+</section>"""
+
 
 def _flow_section(observation: Observation) -> str:
     """Render the AD-10 component flow view: an SVG diagram plus its canonical JSON data."""
@@ -1739,6 +1750,7 @@ def _flow_section(observation: Observation) -> str:
           <button type="button" class="flow-fit flow-arrange flow-diagram-control"
                   title="Lay the cards out again">Arrange</button>
         </div>
+        {_FLOW_SELECTED_RESPONSIBILITY}
         <div class="flow-layout">
           <div class="flow-canvas" tabindex="0" role="region"
                aria-label="Scrollable component flow diagram">

@@ -56,6 +56,7 @@
   const responsibilitySearch = root.querySelector(".flow-responsibility-search");
   const responsibilityList = root.querySelector(".flow-responsibility-list");
   const responsibilityCount = root.querySelector(".flow-responsibility-count");
+  const selectedResponsibility = root.querySelector(".flow-selected-responsibility");
   let pendingAlternativeFocus = null;
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
@@ -326,6 +327,7 @@
   let projectionSelection = null;
   let targetPath = [];
   let targetSelection = null;
+  let selectedSubject = null;
 
   function targetNode(id, nodes = DATA.explorers?.target || []) {
     for (const node of nodes) {
@@ -334,6 +336,30 @@
       if (child) return child;
     }
     return null;
+  }
+
+  function targetModulesForFile(file, nodes = DATA.explorers?.target || []) {
+    return nodes.flatMap((node) => [
+      ...(node.kind === "module_target" && node.details?.some((item) =>
+        item.label === "File" && item.value === file) ? [node] : []),
+      ...targetModulesForFile(file, node.children || []),
+    ]);
+  }
+
+  function targetNodesForId(id, nodes = DATA.explorers?.target || []) {
+    return nodes.flatMap((node) => [
+      ...(node.id === id ? [node] : []),
+      ...targetNodesForId(id, node.children || []),
+    ]);
+  }
+
+  function targetComponentsForPackage(scope, nodes = DATA.explorers?.target || []) {
+    return nodes.flatMap((node) => [
+      ...(node.kind === "component" && node.children?.some((child) =>
+        child.kind === "package_scope" && child.details?.some((item) =>
+          item.label === "Package scope" && item.value === scope)) ? [node] : []),
+      ...targetComponentsForPackage(scope, node.children || []),
+    ]);
   }
 
   const responsibilityRows = [];
@@ -350,7 +376,7 @@
             path: node.kind === "module_target"
               ? String(node.details.find((item) => item.label === "File")?.value || node.label)
               : [...ancestors.map((parent) => parent.label), node.label].join(" / "),
-            sentence: String(detail.value),
+            sentence: String(detail.value ?? ""),
           });
         }
       }
@@ -358,6 +384,71 @@
     }
   }
   collectResponsibilities(DATA.explorers?.target || []);
+
+  function selectSubject(node, view = viewMode) {
+    if (!node) return;
+    if (["actual", "diff"].includes(view)
+        && ["module", "observed_only_module_target"].includes(node.kind)) {
+      selectedSubject = { file: node.details?.find((item) => item.label === "File")?.value };
+    } else if (view === "actual" && node.kind === "group") {
+      selectedSubject = { package: node.id };
+    } else if (node.kind === "module_target") {
+      selectedSubject = { file: node.details?.find((item) => item.label === "File")?.value || node.label };
+    } else if (view === "diff" && node.kind === "component") {
+      selectedSubject = {
+        id: node.details?.find((item) => item.label === "Target declaration ID")?.value || node.id,
+      };
+    } else if (["component", "module_target"].includes(node.kind)) {
+      selectedSubject = { id: node.id };
+    }
+  }
+
+  function renderSelectedResponsibility() {
+    let matches = [];
+    if (selectedSubject?.package) {
+      matches = targetComponentsForPackage(selectedSubject.package);
+    } else if (selectedSubject?.id) {
+      matches = targetNodesForId(selectedSubject.id)
+        .filter((node) => node.kind === "component");
+    } else if (selectedSubject?.file) {
+      matches = targetModulesForFile(selectedSubject.file);
+    }
+    const heading = selectedResponsibility.querySelector("h3");
+    const body = selectedResponsibility.querySelector("p");
+    const matchStatus = selectedResponsibility.querySelector(".flow-responsibility-match");
+    const inView = (nodes, predicate) => nodes.some((node) =>
+      predicate(node) || inView(node.children || [], predicate));
+    const hasCurrentEntry = ["actual", "target", "diff"].includes(viewMode)
+      && (selectedSubject?.package
+        ? inView(DATA.explorers?.[viewMode] || [], (node) =>
+          (viewMode === "actual" ? node.kind === "group" && node.id === selectedSubject.package
+            : node.details?.some((item) =>
+              item.label === "Package scope" && item.value === selectedSubject.package)))
+        : selectedSubject?.id
+        ? ["target", "diff"].includes(viewMode)
+          && inView(DATA.explorers?.[viewMode] || [], (node) =>
+            node.id === selectedSubject.id || node.details?.some((item) =>
+              item.label === "Target declaration ID" && item.value === selectedSubject.id))
+        : selectedSubject?.file
+          && inView(DATA.explorers?.[viewMode] || [], (node) =>
+          node.details?.some((item) => item.label === "File" && item.value === selectedSubject.file))
+      );
+    selectedResponsibility.hidden = !selectedSubject || matches.length === 0;
+    if (!selectedSubject) {
+      body.textContent = "Select a component or module to inspect its declared responsibility.";
+    } else if (matches.length !== 1) {
+      body.textContent = "No unique declaration match.";
+    } else {
+      const sentence = matches[0].details?.find((item) => item.label === "Responsibility")?.value;
+      body.textContent = typeof sentence === "string" && sentence.trim()
+        ? sentence : "No declared responsibility.";
+    }
+    heading.textContent = "Declared responsibility";
+    selectedResponsibility.dataset.selected = String(!selectedResponsibility.hidden);
+    matchStatus.textContent = selectedSubject && !hasCurrentEntry
+      ? "No matching entry in this view; this declaration remains target information."
+      : "";
+  }
 
   function filterResponsibilities() {
     const query = responsibilitySearch.value.trim().toLocaleLowerCase();
@@ -769,11 +860,14 @@
       group.appendChild(title);
       const open = () => {
         if (graph?.owner === node.id) {
+          selectSubject(targetRecord);
           targetSelection = node.id;
         } else if ((targetRecord?.children || []).length) {
+          selectSubject(targetRecord);
           targetPath.push(node.id);
           targetSelection = null;
         } else {
+          selectSubject(targetRecord);
           targetSelection = node.id;
         }
         render();
@@ -819,6 +913,7 @@
   }
 
   function render() {
+    renderSelectedResponsibility();
     updateNavigation();
     const scope = fullLevel();
     const maximum = level().edges.reduce((acc, edge) => Math.max(acc, weight(edge)), 0);
@@ -1864,6 +1959,7 @@
     const button = event.target.closest("[data-responsibility-index]");
     if (!button) return;
     const row = responsibilityRows[Number(button.dataset.responsibilityIndex)];
+    selectSubject(targetNode(row.id), "target");
     targetPath = [...row.ancestors];
     targetSelection = row.id;
     positions = {};
@@ -1884,6 +1980,7 @@
         (items.find((item) => item.id === parent)?.children || []), DATA.explorers[viewMode]);
       const node = entries.find((item) => item.id === id);
       if (!node) return;
+      selectSubject(node);
       if ((node.children || []).length) {
         projectionPath.push(id);
         projectionSelection = null;
