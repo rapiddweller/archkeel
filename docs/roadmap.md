@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| A bounded single-base generic proof publishes inherited public method signature types; ambiguous effective bindings and inherited field/constructor uses remain UNKNOWN (AD-121) | `src/archkeel/analyzer/embedded/symbols.py`; `src/archkeel/analyzer/embedded/violations.py`; `tests/test_inherited_generic_facade_negative.py`; `docs/architecture/decisions/ad-121-boundary-methods-are-scoped-to-exported-classes.md` |
 | `boundary_types` checks the inner type of proven `Required[T]` and `NotRequired[T]`, leaving lookalikes and malformed forms UNKNOWN (AD-122) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_boundary_types_aliases.py`; CE finance report |
 | An observed direct child API consumer counts as local use only through all crossed public ancestor boundaries (AD-120, #193) | `src/archkeel/check/validation.py`; `tests/test_inside_direct_parent_publication.py` |
 | Recursive facade checks reuse a local re-export index per boundary pass without changing ownership or UNKNOWN semantics (AD-119, #192) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_recursive_boundary_index_work.py` |

@@ -858,6 +858,7 @@ DiagnosticCode: TypeAlias = Literal[
     "closed_world.duplicate",
     "interface.undeclared",
     "interface.unused",
+    "interface.usage_unknown",
     "interface.missing",
     "interface.planned_built",
     "rationale.placeholder",

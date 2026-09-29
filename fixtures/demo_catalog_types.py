@@ -460,6 +460,99 @@ _BOUNDARY_TYPES_MODEL_FIELD = Variant(
     expected_codes=("rule.violated",),
 )
 
+
+def _inherited_generic_service(return_type: str) -> dict[str, str]:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    app = next(item for item in contract["components"] if item["label"] == "app")
+    app["public"].extend(["shop.app.service:Child", "shop.app.payloads:Payload"])
+    return {
+        "shop/app/payloads.py": HEADER + "class Payload: pass\nclass Noise: pass\n",
+        "shop/app/base/__init__.py": HEADER
+        + "from shop.app.base.impl import Base\n__all__ = ['Base']\n",
+        "shop/app/base/impl.py": HEADER
+        + (
+            "from typing import Generic, TypeVar\n"
+            "T = TypeVar('T')\n"
+            "U = TypeVar('U')\n"
+            "class Base(Generic[T, U]):\n"
+            f"    def get(self) -> {return_type}: ...\n"
+            "T = str\n"
+        ),
+        "shop/app/service.py": HEADER
+        + (
+            "from shop.app.base import Base\n"
+            "from shop.app.payloads import Noise, Payload\n"
+            "class Child(Base[Payload, Noise]):\n"
+            "    pass\n"
+        ),
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace(
+            "from pathlib import Path", "from pathlib import Path\nfrom typing import TYPE_CHECKING"
+        )
+        .replace(
+            "from shop.render.text import render_order",
+            "from shop.render.text import render_order\n\n"
+            "if TYPE_CHECKING:\n"
+            "    from shop.app.service import Child",
+        ),
+        "architecture-contract.json": json.dumps(contract, indent=2) + "\n",
+    }
+
+
+_INHERITED_GENERIC_RETURN = Variant(
+    id="class-a-inherited-generic-return",
+    section="class_a",
+    item="interface_boundary:inherited_generic_return",
+    summary="Child inherits Base[Payload, Noise].get() -> list[T] from a re-exported base. "
+    "The base's later TypeVar rebind and unused second parameter do not change the published "
+    "Payload type.",
+    files=_inherited_generic_service("list[T]"),
+    expected_violations=(),
+    expected_codes=(),
+)
+
+_INHERITED_GENERIC_UNUSED = Variant(
+    id="class-a-inherited-generic-unused",
+    section="class_a",
+    item="interface_boundary:irrelevant_generic_argument",
+    summary="Child inherits Base[Payload, Noise].get() -> int. Neither generic argument reaches "
+    "the public signature, so declaring Payload public is still unused.",
+    files=_inherited_generic_service("int"),
+    expected_violations=(),
+    expected_codes=("interface.unused",),
+)
+
+_INHERITED_GENERIC_AMBIGUOUS = Variant(
+    id="class-a-inherited-generic-ambiguous",
+    section="class_a",
+    item="interface_boundary:ambiguous_inherited_generic",
+    summary="Two generic bases may expose Payload and Noise, so neither public entry is called "
+    "unused or treated as proven facade publication.",
+    files={
+        **_inherited_generic_service("T"),
+        "shop/app/base/impl.py": HEADER
+        + (
+            "from typing import Generic, TypeVar\n"
+            "T = TypeVar('T')\n"
+            "U = TypeVar('U')\n"
+            "class First(Generic[T]):\n"
+            "    def get(self) -> T: ...\n"
+            "class Second(Generic[U]):\n"
+            "    def get(self) -> U: ...\n"
+        ),
+        "shop/app/service.py": HEADER
+        + (
+            "from shop.app.base.impl import First, Second\n"
+            "from shop.app.payloads import Noise, Payload\n"
+            "class Child(First[Payload], Second[Noise]):\n"
+            "    pass\n"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=("interface.usage_unknown",),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _SYMBOL_PLACEMENT,
     _BOUNDARY_TYPES,
@@ -473,4 +566,7 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_OWNED_PUBLIC_TYPE,
     _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD,
     _BOUNDARY_TYPES_MODEL_FIELD,
+    _INHERITED_GENERIC_RETURN,
+    _INHERITED_GENERIC_UNUSED,
+    _INHERITED_GENERIC_AMBIGUOUS,
 )

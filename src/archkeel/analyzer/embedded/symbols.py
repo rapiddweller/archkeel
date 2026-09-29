@@ -213,6 +213,145 @@ def _class_field_annotations(node: ast.ClassDef) -> list[RecordData]:
     ]
 
 
+def _class_member_names(node: ast.ClassDef) -> list[str]:
+    """Names bound directly in a class body, including non-method overrides."""
+    names: set[str] = set()
+    deleted: set[str] = set()
+    for child in node.body:
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            names.add(child.name)
+        elif isinstance(child, ast.AnnAssign | ast.Assign) and (
+            not isinstance(child, ast.AnnAssign) or child.value is not None
+        ):
+            targets = [child.target] if isinstance(child, ast.AnnAssign) else child.targets
+            names.update(
+                item.id
+                for target in targets
+                for item in ast.walk(target)
+                if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store)
+            )
+        elif isinstance(child, ast.Import):
+            names.update(alias.asname or alias.name for alias in child.names)
+        elif isinstance(child, ast.ImportFrom):
+            names.update(alias.asname or alias.name for alias in child.names if alias.name != "*")
+        elif isinstance(child, ast.Delete):
+            deleted.update(target.id for target in child.targets if isinstance(target, ast.Name))
+    return sorted(names - deleted)
+
+
+def _class_definition_expressions(node: ast.ClassDef) -> list[ast.expr]:
+    expressions = [*node.decorator_list, *node.bases, *(kw.value for kw in node.keywords)]
+    for child in node.body:
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+            expressions.extend(child.decorator_list)
+            expressions.extend(child.args.defaults)
+            expressions.extend(value for value in child.args.kw_defaults if value is not None)
+            expressions.extend(
+                arg.annotation
+                for arg in [*child.args.posonlyargs, *child.args.args, *child.args.kwonlyargs]
+                if arg.annotation is not None
+            )
+            if child.args.vararg and child.args.vararg.annotation:
+                expressions.append(child.args.vararg.annotation)
+            if child.args.kwarg and child.args.kwarg.annotation:
+                expressions.append(child.args.kwarg.annotation)
+            if child.returns:
+                expressions.append(child.returns)
+        elif isinstance(child, ast.ClassDef):
+            expressions.extend(child.decorator_list)
+            expressions.extend(child.bases)
+            expressions.extend(kw.value for kw in child.keywords)
+        elif isinstance(child, ast.AnnAssign):
+            expressions.append(child.annotation)
+    return expressions
+
+
+def _class_statement_bindings(
+    child: ast.stmt,
+) -> tuple[list[str], bool, bool] | None:
+    if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        is_function = isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
+        return [child.name], is_function, is_function and "overload" in decorator_names(child)
+    if isinstance(child, ast.AnnAssign):
+        names = (
+            [name.id for name in ast.walk(child.target) if isinstance(name, ast.Name)]
+            if child.value is not None
+            else []
+        )
+        return names, False, False
+    if isinstance(child, ast.Assign):
+        names = [
+            name.id
+            for target in child.targets
+            for name in ast.walk(target)
+            if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)
+        ]
+        return names, False, False
+    if isinstance(child, ast.Import):
+        if any(alias.asname is None and "." in alias.name for alias in child.names):
+            return None
+        return [alias.asname or alias.name for alias in child.names], False, False
+    if isinstance(child, ast.ImportFrom):
+        if any(alias.name == "*" for alias in child.names):
+            return None
+        return [alias.asname or alias.name for alias in child.names], False, False
+    if isinstance(child, ast.Delete) or any(
+        isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store | ast.Del)
+        for item in ast.walk(child)
+    ):
+        return None
+    return [], False, False
+
+
+def _class_has_rebound_members(node: ast.ClassDef) -> bool:
+    """Flag repeated direct bindings whose final class member is not proven here."""
+    if any(
+        isinstance(item, ast.NamedExpr)
+        for expr in _class_definition_expressions(node)
+        for item in ast.walk(expr)
+    ):
+        return True
+    bindings: dict[str, tuple[int, int, int, bool, bool]] = {}
+    for child in node.body:
+        if (
+            isinstance(child, ast.Assign | ast.AnnAssign)
+            and child.value is not None
+            and any(isinstance(item, ast.NamedExpr) for item in ast.walk(child.value))
+        ):
+            return True
+        statement_bindings = _class_statement_bindings(child)
+        if statement_bindings is None:
+            return True
+        names, is_function, overloaded = statement_bindings
+        for name in names:
+            count, overload_count, implementation_count, _, all_functions = (
+                bindings[name] if name in bindings else (0, 0, 0, False, True)
+            )
+            bindings[name] = (
+                count + 1,
+                overload_count + int(overloaded),
+                implementation_count + int(not overloaded),
+                overloaded,
+                all_functions and is_function,
+            )
+    return any(
+        count > 1
+        and not (
+            all_functions
+            and overload_count == count - 1
+            and implementation_count == 1
+            and not last_overload
+        )
+        for (
+            count,
+            overload_count,
+            implementation_count,
+            last_overload,
+            all_functions,
+        ) in bindings.values()
+    )
+
+
 def _shape(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[str, int]:
     """Digest the body's node types in walk order, dropping every name and literal value.
 
@@ -287,6 +426,8 @@ def _symbol_data(
         "decorators": decorator_names(node),
     }
     if isinstance(node, ast.ClassDef):
+        generic_parameters = _generic_parameters(module, node)
+        generic_bases = _generic_bases(node)
         data.update(
             {
                 "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
@@ -294,6 +435,27 @@ def _symbol_data(
                 "frozen_object": _class_is_frozen(node, module),
                 "symbol_category": "class",
                 "fields": _class_field_annotations(node),
+                "class_members": _class_member_names(node),
+                "class_body_control_flow": any(
+                    isinstance(
+                        child,
+                        (
+                            ast.If,
+                            ast.For,
+                            ast.AsyncFor,
+                            ast.While,
+                            ast.With,
+                            ast.AsyncWith,
+                            ast.Try,
+                            ast.TryStar,
+                            ast.Match,
+                        ),
+                    )
+                    for child in node.body
+                )
+                or _class_has_rebound_members(node),
+                **({"generic_parameters": generic_parameters} if generic_parameters else {}),
+                **({"generic_bases": generic_bases} if generic_bases else {}),
             }
         )
     else:
@@ -321,6 +483,124 @@ def _symbol_data(
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
     return data
+
+
+def _bound_once_before(statements: Sequence[ast.stmt], stop: ast.AST, name: str) -> bool:
+    """Prove one direct module binding exists before a class definition."""
+    count = 0
+    for statement in statements:
+        if statement is stop:
+            return count == 1
+        if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            bindings = [statement.name]
+        elif isinstance(statement, ast.Import | ast.ImportFrom):
+            if isinstance(statement, ast.ImportFrom) and any(
+                alias.name == "*" for alias in statement.names
+            ):
+                return False
+            bindings = [
+                alias.asname
+                or (alias.name.split(".")[0] if isinstance(statement, ast.Import) else alias.name)
+                for alias in statement.names
+            ]
+        elif isinstance(statement, ast.Assign | ast.AnnAssign):
+            targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+            bindings = [
+                child.id
+                for target in targets
+                for child in ast.walk(target)
+                if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
+            ]
+        else:
+            if any(
+                isinstance(child, ast.Name)
+                and child.id == name
+                and isinstance(child.ctx, ast.Store | ast.Del)
+                for child in ast.walk(statement)
+            ):
+                return False
+            continue
+        count += bindings.count(name)
+        if count > 1:
+            return False
+    return False
+
+
+def _generic_parameters(module: ParsedModule, node: ast.ClassDef) -> list[str]:
+    """Return verified TypeVars from one explicit ``Generic[...]`` base."""
+    typevars: set[str] = set()
+    for statement in module.tree.body:
+        if not isinstance(statement, ast.Assign | ast.AnnAssign):
+            continue
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        if len(targets) != 1 or not isinstance(targets[0], ast.Name):
+            continue
+        name = targets[0].id
+        value = statement.value
+        if not isinstance(value, ast.Call):
+            continue
+        typevar_root = (
+            value.func.id
+            if isinstance(value.func, ast.Name)
+            else value.func.value.id
+            if isinstance(value.func, ast.Attribute) and isinstance(value.func.value, ast.Name)
+            else None
+        )
+        if (
+            not isinstance(typevar_root, str)
+            or not _bound_once_before(module.tree.body, statement, typevar_root)
+            or _resolve_static_name(module, value.func)
+            not in {"typing.TypeVar", "typing_extensions.TypeVar"}
+            or not value.args
+            or not isinstance(value.args[0], ast.Constant)
+            or value.args[0].value != name
+            or not _bound_once_before(module.tree.body, node, name)
+        ):
+            continue
+        typevars.add(name)
+
+    generic_bases = [
+        base
+        for base in node.bases
+        if isinstance(base, ast.Subscript)
+        and _resolve_static_name(module, base.value)
+        in {"typing.Generic", "typing_extensions.Generic"}
+    ]
+    if len(generic_bases) != 1:
+        return []
+    root = generic_bases[0].value
+    root_name = (
+        root.id
+        if isinstance(root, ast.Name)
+        else root.value.id
+        if isinstance(root, ast.Attribute) and isinstance(root.value, ast.Name)
+        else None
+    )
+    if not isinstance(root_name, str) or not _bound_once_before(module.tree.body, node, root_name):
+        return []
+    arguments = generic_bases[0].slice
+    values = list(arguments.elts) if isinstance(arguments, ast.Tuple) else [arguments]
+    names = [value.id for value in values if isinstance(value, ast.Name)]
+    if len(names) != len(values) or len(set(names)) != len(names) or not set(names) <= typevars:
+        return []
+    return names
+
+
+def _generic_bases(node: ast.ClassDef) -> list[RecordData]:
+    """Keep one resolvable spelling and its explicit type arguments for each generic base."""
+    bases: list[RecordData] = []
+    for base in node.bases:
+        if not isinstance(base, ast.Subscript):
+            continue
+        arguments = list(base.slice.elts) if isinstance(base.slice, ast.Tuple) else [base.slice]
+        bases.append(
+            {
+                "base": annotation_text(base.value) or "",
+                "arguments": [annotation_text(argument) or "" for argument in arguments],
+                "arguments_are_names": [isinstance(argument, ast.Name) for argument in arguments],
+            }
+        )
+    return bases
 
 
 def _class_bases(module: ParsedModule, node: ast.ClassDef) -> list[str]:

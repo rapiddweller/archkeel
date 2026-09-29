@@ -53,6 +53,16 @@ ALLOWED_LONG_FUNCTIONS = {
     "sets above it only feed that literal.",
     "src/archkeel/analyzer/embedded/scanner.py::scan_repository": "Sequences the collectors into "
     "ScanResult; the remaining lines are collector calls and result fields.",
+    "src/archkeel/analyzer/embedded/violations.py::_inherited_generic_facade_types": "One proof "
+    "walk binds base TypeVars and inspects direct inherited signature positions.",
+    "src/archkeel/analyzer/embedded/violations.py::facade_signature_types": "One signature "
+    "publication pass keeps resolved and uncertain inherited types tied to each facade.",
+    "src/archkeel/analyzer/embedded/violations.py::_scoped_facade_signature_types": "One nested "
+    "publication pass keeps inherited candidate evidence tied to its mount and publisher.",
+    "src/archkeel/analyzer/embedded/violations.py::_boundary_types_violations": "One rule and "
+    "position pass applies one violation and allowance policy to declared and inherited methods.",
+    "src/archkeel/analyzer/embedded/violations.py::_boundary_rule_positions": "One position "
+    "pass measures direct declarations, inherited methods and unresolved inherited surfaces.",
     "src/archkeel/check/delta.py::_compare_records": "Exact, relocated and changed stages share "
     "the unmatched record pools.",
     "src/archkeel/check/delta.py::build_architecture_delta": "Shared, coverage and availability "

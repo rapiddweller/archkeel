@@ -16,7 +16,12 @@ from test_recursive_inside_independent_contracts import (
 
 from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import COMPONENT_GRAPH_MARKER, inside_diagnostics, run_validate
+from archkeel.check.validation import (
+    COMPONENT_GRAPH_MARKER,
+    inside_diagnostics,
+    interface_diagnostics,
+    run_validate,
+)
 from archkeel.ir.codec import (
     canonical_report_bytes,
     decode_canonical_model,
@@ -906,3 +911,571 @@ def test_parent_reexport_chain_reaches_only_unique_local_targets(
         if item.code == "interface.unused" and item.subject == "sample.core.types:Payload"
     ]
     assert (unused == []) is used
+
+
+def _generic_facade_diagnostics(
+    tmp_path: Path,
+    api: str,
+    *,
+    extra_packages: tuple[str, ...] = (),
+    extra_files: dict[str, str] | None = None,
+) -> tuple[list[str], list[str], tuple[object, ...], tuple[object, ...]]:
+    payload = "sample.models:Payload"
+    noise = "sample.models:Noise"
+    unrelated = "sample.models:Unrelated"
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component(
+                "core",
+                packages=["sample.api", "sample.models", *extra_packages],
+                public=["sample.api:Child", payload, noise, unrelated],
+            ),
+            _component("client", packages=["sample.client"]),
+        ],
+        "rules": [
+            _rule("INTERFACE", "interface_boundary"),
+            _rule("TYPES", "boundary_types", source="sample.api"),
+        ],
+    }
+    _write_project(
+        tmp_path,
+        components=contract["components"],
+        rules=contract["rules"],
+        insides={},
+        files={
+            "sample/models.py": ("class Payload: pass\nclass Noise: pass\nclass Unrelated: pass\n"),
+            "sample/api.py": api,
+            "sample/client.py": "from sample.api import Child\nVALUE = Child()\n",
+            **(extra_files or {}),
+        },
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    diagnostics = interface_diagnostics(parse_contract(contract), result.observation)
+    unused = [item.subject for item in diagnostics if item.code == "interface.unused"]
+    usage_unknown = tuple(item for item in diagnostics if item.code == "interface.usage_unknown")
+    facade_types = [
+        name
+        for item in result.observation.records("symbols") or ()
+        if item.data.get("qualified_name") == "sample.api.Child"
+        for name in item.data.get("facade_types", ())
+    ]
+    return unused, facade_types, tuple(result.observation.records("unknowns") or ()), usage_unknown
+
+
+def test_inherited_generic_return_reaches_the_concrete_model(tmp_path: Path) -> None:
+    unused, facade_types, unknowns, _ = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        "    def get(self) -> T: ...\n"
+        "class Child(Base[Payload]):\n"
+        "    pass\n",
+    )
+
+    assert "sample.models:Payload" not in unused
+    assert "sample.models.Payload" in facade_types
+    assert "sample.models:Noise" in unused
+    assert "sample.models.Noise" not in facade_types
+    assert any(
+        item.kind == "boundary_type_position"
+        and item.data.get("position") == "inherited methods"
+        and item.data.get("qualified_name") == "sample.api.Child.__inherited_methods__"
+        for item in unknowns
+    )
+
+
+def test_reexported_generic_base_substitutes_only_the_used_typevar(tmp_path: Path) -> None:
+    unused, facade_types, unknowns, _ = _generic_facade_diagnostics(
+        tmp_path,
+        "from sample.models import Payload, Noise\n"
+        "from sample.base import Base\n"
+        "class Child(Base[Payload, Noise]):\n"
+        "    pass\n",
+        extra_packages=("sample.base",),
+        extra_files={
+            "sample/base/__init__.py": "from sample.base.impl import Base\n__all__ = ['Base']\n",
+            "sample/base/impl.py": (
+                "from typing import Generic, TypeVar\n"
+                "T = TypeVar('T')\n"
+                "U = TypeVar('U')\n"
+                "class Base(Generic[T, U]):\n"
+                "    def get(self) -> list[T]: ...\n"
+                "T = str\n"
+            ),
+        },
+    )
+
+    assert "sample.models.Payload" in facade_types
+    assert "sample.models.Noise" not in facade_types
+    assert "sample.models:Payload" not in unused
+    assert "sample.models:Noise" in unused
+    assert any(
+        item.kind == "boundary_type_position" and item.data.get("position") == "inherited methods"
+        for item in unknowns
+    )
+
+
+@pytest.mark.parametrize(
+    ("method", "override"),
+    [
+        ("def get(self) -> T: ...", "def get(self) -> str: ..."),
+        ("def _get(self) -> T: ...", ""),
+    ],
+    ids=["subclass-override", "private-inherited-method"],
+)
+def test_generic_override_and_private_method_do_not_publish_base_type(
+    tmp_path: Path, method: str, override: str
+) -> None:
+    api = (
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        f"    {method}\n"
+        "class Child(Base[Payload]):\n"
+    )
+    api += f"    {override}\n" if override else "    pass\n"
+    unused, facade_types, unknowns, _ = _generic_facade_diagnostics(tmp_path, api)
+
+    assert "sample.models:Payload" in unused
+    assert "sample.models.Payload" not in facade_types
+    assert any(
+        item.kind == "boundary_type_position"
+        and item.data.get("position") == "inherited methods"
+        and item.data.get("qualified_name") == "sample.api.Child.__inherited_methods__"
+        for item in unknowns
+    )
+
+
+def test_class_body_non_method_override_blocks_inherited_method_publication(
+    tmp_path: Path,
+) -> None:
+    unused, facade_types, _, _ = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        "    def get(self) -> T: ...\n"
+        "class Child(Base[Payload]):\n"
+        "    get = None\n",
+    )
+
+    assert "sample.models:Payload" in unused
+    assert "sample.models.Payload" not in facade_types
+
+
+def test_overload_implementation_does_not_publish_its_return_type(tmp_path: Path) -> None:
+    unused, facade_types, _, _ = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar, overload\n"
+        "from sample.models import Payload, Noise\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        "    @overload\n"
+        "    def get(self) -> T: ...\n"
+        "    def get(self) -> Noise: ...\n"
+        "class Child(Base[Payload]):\n"
+        "    pass\n",
+    )
+
+    assert "sample.models:Payload" not in unused
+    assert "sample.models.Payload" in facade_types
+    assert "sample.models.Noise" not in facade_types
+
+
+def test_ambiguous_generic_argument_not_named_in_signature_remains_unused(
+    tmp_path: Path,
+) -> None:
+    unused, _, _, usage_unknown = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload, Noise\n"
+        "T = TypeVar('T')\n"
+        "U = TypeVar('U')\n"
+        "class First(Generic[T]):\n"
+        "    def get(self) -> T: ...\n"
+        "class Second(Generic[U]):\n"
+        "    def get(self) -> int: ...\n"
+        "class Child(First[Payload], Second[Noise]):\n"
+        "    pass\n",
+    )
+
+    assert {item.subject for item in usage_unknown} == {"sample.models:Payload"}
+    assert "sample.models:Noise" in unused
+
+
+def test_proven_import_wins_over_ambiguous_inherited_candidate(tmp_path: Path) -> None:
+    unused, _, _, usage_unknown = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload, Noise\n"
+        "T = TypeVar('T')\n"
+        "U = TypeVar('U')\n"
+        "class First(Generic[T]):\n"
+        "    def get(self) -> T: ...\n"
+        "class Second(Generic[U]):\n"
+        "    def get(self) -> U: ...\n"
+        "class Child(First[Payload], Second[Noise]):\n"
+        "    pass\n",
+        extra_files={"sample/client.py": "from sample.models import Payload\n"},
+    )
+
+    assert "sample.models:Payload" not in unused
+    assert {item.subject for item in usage_unknown} == {"sample.models:Noise"}
+
+
+def test_inherited_overload_findings_keep_distinct_ids(tmp_path: Path) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component(
+                "api",
+                packages=["sample.api", "sample.models"],
+                public=["sample.api:Child"],
+            ),
+            _component("client", packages=["sample.client"]),
+        ],
+        "rules": [_rule("TYPES", "boundary_types", source="sample.api")],
+    }
+    _write_project(
+        tmp_path,
+        components=contract["components"],
+        rules=contract["rules"],
+        insides={},
+        files={
+            "sample/models.py": "class ForeignA: pass\nclass ForeignB: pass\nclass Payload: pass\n",
+            "sample/api.py": (
+                "from typing import Generic, TypeVar, overload\n"
+                "from sample.models import ForeignA, ForeignB, Payload\n"
+                "T = TypeVar('T')\n"
+                "class Base(Generic[T]):\n"
+                "    @overload\n"
+                "    def get(self, payload: ForeignA) -> ForeignA: ...\n"
+                "    @overload\n"
+                "    def get(self, payload: ForeignB) -> ForeignB: ...\n"
+                "    def get(self, payload: object) -> object: ...\n"
+                "class Child(Base[Payload]):\n"
+                "    pass\n"
+            ),
+            "sample/client.py": "from sample.api import Child\nVALUE = Child()\n",
+        },
+    )
+    result = _observe(tmp_path)
+
+    assert result.observation is not None, result.diagnostics
+    violations = [
+        item
+        for item in result.observation.records("violations") or ()
+        if item.kind == "boundary_types"
+    ]
+    assert len(violations) == 4
+    assert len({item.id for item in violations}) == 4
+    assert {item.data.get("position") for item in violations} == {"payload", "return"}
+    [limit] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    ]
+    assert (
+        limit.data.get("positions"),
+        limit.data.get("decided"),
+        limit.data.get("undecided"),
+    ) == (5, 4, 1)
+
+
+@pytest.mark.parametrize(
+    ("base_body", "child_body"),
+    [
+        ("payload: T", "pass"),
+        ("def __init__(self, payload: T) -> None: ...", "pass"),
+    ],
+    ids=["inherited-field", "inherited-constructor"],
+)
+def test_inherited_fields_and_constructor_parameters_block_unused_without_publication(
+    tmp_path: Path, base_body: str, child_body: str
+) -> None:
+    unused, facade_types, unknowns, usage_unknown = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        f"    {base_body}\n"
+        "class Child(Base[Payload]):\n"
+        f"    {child_body}\n",
+    )
+
+    assert "sample.models:Payload" not in unused
+    assert {item.subject for item in usage_unknown} == {"sample.models:Payload"}
+    assert "sample.models.Payload" not in facade_types
+    assert any(
+        item.kind == "boundary_type_position"
+        and item.data.get("position") == "inherited methods"
+        and item.data.get("reason") == "inherited_surface"
+        for item in unknowns
+    )
+
+
+@pytest.mark.parametrize(
+    ("base_body", "child_body"),
+    [
+        ("payload: T", "payload: str"),
+        ("def __init__(self, payload: T) -> None: ...", "def __init__(self) -> None: ..."),
+    ],
+    ids=["field-shadow", "constructor-shadow"],
+)
+def test_subclass_field_or_constructor_shadows_inherited_candidate(
+    tmp_path: Path, base_body: str, child_body: str
+) -> None:
+    unused, _, _, usage_unknown = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        f"    {base_body}\n"
+        "class Child(Base[Payload]):\n"
+        f"    {child_body}\n",
+    )
+
+    assert "sample.models:Payload" in unused
+    assert usage_unknown == ()
+
+
+def test_conditional_class_body_override_withholds_inherited_publication(tmp_path: Path) -> None:
+    unused, facade_types, _, usage_unknown = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        "    def get(self) -> T: ...\n"
+        "class Child(Base[Payload]):\n"
+        "    if True:\n"
+        "        def get(self) -> int: ...\n",
+    )
+
+    assert "sample.models:Payload" not in unused
+    assert "sample.models.Payload" not in facade_types
+    assert {item.subject for item in usage_unknown} == {"sample.models:Payload"}
+
+
+def test_except_star_class_body_override_withholds_inherited_publication(tmp_path: Path) -> None:
+    unused, facade_types, _, usage_unknown = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\n"
+        "from sample.models import Payload\n"
+        "T = TypeVar('T')\n"
+        "class Base(Generic[T]):\n"
+        "    def get(self) -> T: ...\n"
+        "class Child(Base[Payload]):\n"
+        "    try:\n"
+        "        pass\n"
+        "    except* Exception:\n"
+        "        def get(self) -> int: ...\n",
+    )
+
+    assert "sample.models:Payload" not in unused
+    assert "sample.models.Payload" not in facade_types
+    assert {item.subject for item in usage_unknown} == {"sample.models:Payload"}
+
+
+@pytest.mark.parametrize(
+    ("api", "expected_unused", "expected_unknown", "ambiguous"),
+    [
+        (
+            "from typing import Generic, TypeVar\n"
+            "from sample.models import Payload\n"
+            "T = TypeVar('T')\n"
+            "class Base(Generic[T]):\n"
+            "    def get(self) -> int: ...\n"
+            "class Child(Base[Payload]):\n"
+            "    pass\n",
+            ["sample.models:Payload", "sample.models:Noise", "sample.models:Unrelated"],
+            False,
+            False,
+        ),
+        (
+            "from typing import Generic, TypeVar\n"
+            "from sample.models import Payload\n"
+            "T = TypeVar('T')\n"
+            "class Base(Generic[T]):\n"
+            "    def get(self) -> T: ...\n"
+            "Payload = object\n"
+            "class Child(Base[Payload]):\n"
+            "    pass\n",
+            ["sample.models:Payload", "sample.models:Noise", "sample.models:Unrelated"],
+            True,
+            False,
+        ),
+        (
+            "from typing import Generic, TypeVar\n"
+            "from sample.models import Payload, Noise\n"
+            "T = TypeVar('T')\n"
+            "U = TypeVar('U')\n"
+            "class First(Generic[T]):\n"
+            "    def get(self) -> T: ...\n"
+            "class Second(Generic[U]):\n"
+            "    def get(self) -> U: ...\n"
+            "class Child(First[Payload], Second[Noise]):\n"
+            "    pass\n",
+            ["sample.models:Unrelated"],
+            True,
+            True,
+        ),
+        (
+            "from typing import Generic, TypeVar\n"
+            "from sample.models import Payload\n"
+            "T = TypeVar('T')\n"
+            "class Base(Generic[T]):\n"
+            "    def get(self) -> T: ...\n"
+            "class Child(Base[T]):\n"
+            "    pass\n",
+            ["sample.models:Payload", "sample.models:Noise", "sample.models:Unrelated"],
+            True,
+            False,
+        ),
+    ],
+    ids=[
+        "unrelated-generic-argument",
+        "rebound-base-argument",
+        "ambiguous-bases",
+        "unresolved-substitution",
+    ],
+)
+def test_unproven_inherited_generic_return_does_not_reach_models(
+    tmp_path: Path,
+    api: str,
+    expected_unused: list[str],
+    expected_unknown: bool,
+    ambiguous: bool,
+) -> None:
+    unused, facade_types, unknowns, usage_unknown = _generic_facade_diagnostics(tmp_path, api)
+
+    assert set(unused) == set(expected_unused)
+    if ambiguous:
+        assert "sample.models:Payload" not in unused
+        assert "sample.models:Noise" not in unused
+        assert "sample.models.Payload" not in facade_types
+        assert "sample.models.Noise" not in facade_types
+        assert {item.subject for item in usage_unknown} == {
+            "sample.models:Payload",
+            "sample.models:Noise",
+        }
+    if expected_unknown:
+        assert any(
+            item.kind == "boundary_type_position"
+            and item.data.get("position") == "inherited methods"
+            and item.data.get("reason") == "inherited_surface"
+            for item in unknowns
+        )
+
+
+def test_nested_inherited_generic_return_reaches_the_mounted_model(tmp_path: Path) -> None:
+    _write_project(
+        tmp_path,
+        components=[
+            _component(
+                "core",
+                packages=["sample.core"],
+                public=["sample.core.models:Payload"],
+            )
+            | {"inside": "core.json"}
+        ],
+        rules=[_rule("ROOT", "interface_boundary")],
+        insides={
+            "core.json": _inside(
+                [
+                    _child(
+                        "api",
+                        "sample.core.api",
+                        public=["sample.core.api:Child", "sample.core.models:Payload"],
+                    )
+                    | {"packages": ["sample.core.api", "sample.core.models"]},
+                    _child("client", "sample.core.client"),
+                ],
+                [_rule("LOCAL", "interface_boundary")],
+            )
+        },
+        files={
+            "sample/core/models.py": "class Payload: pass\n",
+            "sample/core/api.py": (
+                "from typing import Generic, TypeVar\n"
+                "from sample.core.models import Payload\n"
+                "T = TypeVar('T')\n"
+                "class Base(Generic[T]):\n"
+                "    def get(self) -> T: ...\n"
+                "class Child(Base[Payload]):\n"
+                "    pass\n"
+            ),
+            "sample/core/client.py": "from sample.core.api import Child\nVALUE = Child()\n",
+        },
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    contract = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
+    root_diagnostics = interface_diagnostics(contract, result.observation)
+    assert [
+        (item.code, item.subject) for item in root_diagnostics if item.code == "interface.unused"
+    ] == [("interface.unused", "sample.core.models:Payload")]
+    nested_diagnostics = inside_diagnostics(
+        tmp_path,
+        contract,
+        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        observation=result.observation,
+    )
+    assert not any(
+        item.code == "interface.unused" and item.subject == "sample.core.models:Payload"
+        for item in nested_diagnostics
+    )
+
+
+def test_undeclared_model_returned_by_inherited_generic_is_a_boundary_violation(
+    tmp_path: Path,
+) -> None:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            _component("app", packages=["sample.api"], public=["sample.api:Child"]),
+            _component("models", packages=["sample.models"]),
+            _component("client", packages=["sample.client"]),
+        ],
+        "rules": [_rule("APP-TYPES-NOT-DICT", "boundary_types", source="sample.api")],
+    }
+    _write_project(
+        tmp_path,
+        components=contract["components"],
+        rules=contract["rules"],
+        insides={},
+        files={
+            "sample/models.py": "class Extra: pass\n",
+            "sample/api.py": (
+                "from typing import Generic, TypeVar\n"
+                "from sample.models import Extra\n"
+                "T = TypeVar('T')\n"
+                "class Base(Generic[T]):\n"
+                "    def get(self) -> T: ...\n"
+                "class Child(Base[Extra]):\n"
+                "    pass\n"
+            ),
+            "sample/client.py": "from sample.api import Child\nVALUE = Child().get()\n",
+        },
+    )
+
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    violations = [
+        item
+        for item in trace_valid_violations(result.observation)
+        if item.rule_ids == ("APP-TYPES-NOT-DICT",)
+    ]
+
+    assert len(violations) == 1
+    assert violations[0].data.get("qualified_name") == "sample.api.Child.get"
+    assert "__inherited_methods__" not in str(violations[0].data.get("qualified_name"))
