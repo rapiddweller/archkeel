@@ -77,3 +77,28 @@ def test_identical_type_at_different_container_depths_keeps_distinct_findings() 
 
     assert len({record["id"] for record in records}) == 2
     assert {record["data"].get("container_depth", 0) for record in records} == {0, 1}
+
+
+def test_single_finding_inside_a_container_keeps_its_depth_free_id() -> None:
+    [record] = _records(
+        _Position(
+            violation="holding Extra which the app does not declare",
+            violations=(("holding Extra which the app does not declare", (), "Extra", 1),),
+        )
+    )
+
+    assert record["id"] == stable_id("VIO", _RULE.id, _ITEM["id"], "return")
+    assert record["data"]["container_depth"] == 1
+
+
+def test_single_nested_finding_inside_a_container_keeps_its_depth_free_id() -> None:
+    [record] = _records(
+        _Position(
+            violation="instead of a typed model",
+            violations=(("instead of a typed model", ("payload",), "dict", 1),),
+        )
+    )
+
+    assert record["id"] == stable_id(
+        "VIO", _RULE.id, _ITEM["id"], "return", "payload", "dict", "instead of a typed model"
+    )

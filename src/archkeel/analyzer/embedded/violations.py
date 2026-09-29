@@ -3464,7 +3464,8 @@ def _boundary_type_violation_records(
             identity_parts = (rule.id, item["id"], position)
             if identity_suffix:
                 identity_parts += (identity_suffix,)
-        if depth:
+        # Depth only separates findings that are otherwise identical; a lone one keeps its id.
+        if depth and len(findings) > 1:
             identity_parts += (str(depth),)
         nested_fields = " ".join(f"field {name}" for name in path)
         field_detail = f"{nested_fields} " if nested_fields else ""
