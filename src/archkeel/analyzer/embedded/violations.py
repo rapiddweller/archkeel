@@ -2954,20 +2954,18 @@ def _inherited_generic_facade_types(
         or any(argument is not True for argument in bare_arguments)
     ):
         return [], [], []
-    resolved_base = _boundary_type_verdict(
+    resolved_base = resolve_named_type(
         base_name,
         data["module"],
-        contract,
-        exports_by_module,
         imports_by_binding,
         classes_by_location,
     )
-    if len(resolved_base.resolved) != 1 or resolved_base.undecidable is not None:
+    if not isinstance(resolved_base, tuple):
         return [], [], []
-    base_module, base_class = resolved_base.resolved[0]
+    base_module, base_class = resolved_base
     base_qualified_name = f"{base_module}.{base_class}"
     base_symbol = classes_by_qualified_name.get(base_qualified_name)
-    if base_symbol is None:
+    if base_symbol is None or base_symbol["kind"] != "class":
         return [], [], []
     base_data = base_symbol["data"]
     parameters = base_data["generic_parameters"] if "generic_parameters" in base_data else None
@@ -2987,17 +2985,15 @@ def _inherited_generic_facade_types(
 
     substitutions: list[tuple[str, tuple[str, str]]] = []
     for parameter, argument in zip(parameters, arguments, strict=True):
-        resolved_argument = _boundary_type_verdict(
+        resolved_argument = resolve_named_type(
             argument,
             data["module"],
-            contract,
-            exports_by_module,
             imports_by_binding,
             classes_by_location,
         )
-        if len(resolved_argument.resolved) != 1 or resolved_argument.undecidable is not None:
+        if not isinstance(resolved_argument, tuple):
             return [], [], []
-        resolved_origin = resolved_argument.resolved[0]
+        resolved_origin = resolved_argument
         argument_symbol = classes_by_location.get(resolved_origin)
         if (
             not isinstance(argument_symbol, dict)

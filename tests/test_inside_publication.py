@@ -988,6 +988,53 @@ def test_inherited_generic_return_reaches_the_concrete_model(tmp_path: Path) -> 
     )
 
 
+@pytest.mark.parametrize(
+    ("api", "models"),
+    [
+        (
+            "from typing import Generic, TypeVar\n"
+            "from sample.models import Payload\n"
+            "T = TypeVar('T')\n"
+            "class Base(Generic[T]):\n"
+            "    def get(self) -> T: ...\n"
+            "class Child(Base[Payload]):\n"
+            "    pass\n",
+            "class EntitySchema: pass\n"
+            "class Payload:\n"
+            "    schema: EntitySchema\n"
+            "class Noise: pass\n"
+            "class Unrelated: pass\n",
+        ),
+        (
+            "from typing import Generic, TypeVar\n"
+            "from sample.models import EntitySchema, Payload\n"
+            "T = TypeVar('T')\n"
+            "class Base(Generic[T]):\n"
+            "    schema: EntitySchema\n"
+            "    def get(self) -> T: ...\n"
+            "class Child(Base[Payload]):\n"
+            "    pass\n",
+            "class EntitySchema: pass\n"
+            "class Payload: pass\n"
+            "class Noise: pass\n"
+            "class Unrelated: pass\n",
+        ),
+    ],
+    ids=["argument-field-reachability", "base-field-reachability"],
+)
+def test_inherited_generic_identity_ignores_reachable_field_types(
+    tmp_path: Path, api: str, models: str
+) -> None:
+    unused, facade_types, _, _ = _generic_facade_diagnostics(
+        tmp_path, api, extra_files={"sample/models.py": models}
+    )
+
+    assert "sample.models:Payload" not in unused
+    assert "sample.models.Payload" in facade_types
+    assert "sample.models:Noise" in unused
+    assert "sample.models:Unrelated" in unused
+
+
 def test_reexported_generic_base_substitutes_only_the_used_typevar(tmp_path: Path) -> None:
     unused, facade_types, unknowns, _ = _generic_facade_diagnostics(
         tmp_path,

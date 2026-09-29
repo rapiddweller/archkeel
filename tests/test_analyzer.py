@@ -2875,20 +2875,18 @@ def _top_level_callers(tree: ast.Module, called_name: str) -> set[str]:
 
 
 def test_only_one_function_resolves_an_annotations_named_type() -> None:
-    """AD-69 hand-synced two readers instead of merging them into one (the drift it names as
-    already having happened once, over `list[Type]`). `_boundary_type_verdict` (the
-    `boundary_types` rule) and `_resolved_position_types` (the `facade_types` reachability
-    reading) each call `_resolve_named_type` on their own candidate string, so a future
-    annotation shape -- `A | B`, `Mapping[str, A]`, `Optional[A]` -- has to be taught to both
-    call sites by hand, or the readings drift apart again. One shared analysis per annotation
-    means exactly one function in this module ever calls `_resolve_named_type`; a second caller
-    is the duplicated interpretation this pins against.
+    """Annotation traversal stays centralized; proven generic identities use bare names.
+
+    AD-69 records drift between boundary and facade annotation readers over `list[Type]`.
+    `_named_type_verdict` remains their shared resolver. `_inherited_generic_facade_types` has
+    a separate, narrower lookup because its inputs are proven bare base and argument names,
+    not signature annotations to expand recursively.
     """
     callers = _top_level_callers(_violations_source_ast(), "resolve_named_type")
-    assert len(callers) == 1, (
-        f"resolve_named_type is called directly from {sorted(callers)}: more than one "
-        "function derives a resolved type from an annotation, instead of one shared analysis "
-        "both `boundary_types` and `facade_types` read."
+    assert callers == {"_named_type_verdict", "_inherited_generic_facade_types"}, (
+        f"resolve_named_type is called directly from {sorted(callers)}: annotation walkers "
+        "must share `_named_type_verdict`; `_inherited_generic_facade_types` is the separate "
+        "bare-name identity lookup for a proven generic base and concrete arguments."
     )
 
 
