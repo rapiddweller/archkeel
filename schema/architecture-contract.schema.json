@@ -276,6 +276,12 @@
                 "$ref": "#/$defs/nonEmpty",
                 "not": {"const": "dict"}
               }
+            },
+            "if": {"properties": {"field_path": {"const": ""}}},
+            "then": {
+              "properties": {
+                "annotation": {"not": {"enum": ["Dict", "object", "Mapping", "MutableMapping"]}}
+              }
             }
           }
         }

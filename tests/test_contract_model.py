@@ -156,6 +156,37 @@ def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
         parse_contract(raw)
 
 
+@pytest.mark.parametrize("annotation", ("Dict", "object", "Mapping", "MutableMapping"))
+def test_root_boundary_allowance_cannot_name_a_bare_broad_type(annotation: str) -> None:
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["rules"] = [
+        {
+            "id": "BOUNDARY-TYPES",
+            "kind": "boundary_types",
+            "source": "sample.core",
+            "rationale": "Keep declared boundary types narrow.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+            "allowed_positions": [
+                {
+                    "qualified_name": "sample.core.api.run",
+                    "position": "values",
+                    "field_path": "",
+                    "annotation": annotation,
+                }
+            ],
+        }
+    ]
+
+    assert list(VALIDATOR.iter_errors(raw))
+    with pytest.raises(ValueError, match=f"annotation cannot allow bare {annotation} at the root"):
+        parse_contract(raw)
+
+    raw["rules"][0]["allowed_positions"][0]["field_path"] = "payload"
+    assert not list(VALIDATOR.iter_errors(raw))
+    assert parse_contract(raw).rules[0].allowed_positions[0].annotation == annotation
+
+
 _PROVENANCE = ["docs/architecture/shop.md"]
 
 
