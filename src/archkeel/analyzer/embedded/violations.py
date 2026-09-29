@@ -1292,6 +1292,60 @@ def _typing_module_binding(module: str, binding: str, imports_by_binding: Bindin
     )
 
 
+_PROVEN_MAPPINGS: Final = frozenset(
+    {
+        ("builtins", "dict"),
+        ("typing", "Dict"),
+        ("typing", "Mapping"),
+        ("typing", "MutableMapping"),
+        ("collections.abc", "Mapping"),
+        ("collections.abc", "MutableMapping"),
+    }
+)
+
+
+def _proven_mapping_head(
+    head: ast.expr,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> _Position | bool:
+    """Whether `head` is a mapping its imports prove, or why that stays undecidable (AD-123).
+
+    The one proof for a subscripted mapping and for a bare one, so `Mapping[str, str]` and
+    `Mapping` cannot be read differently. False leaves the head to the caller's own reading.
+    """
+    if isinstance(head, ast.Name):
+        binding, member = head.id, None
+    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
+        binding, member = head.value.id, head.attr
+    else:
+        return False
+    if binding == "dict" and member is None:
+        mapping_module, mapping_name = "builtins", "dict"
+    else:
+        key = (module, binding)
+        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+            return _Position(undecidable="ambiguous_binding")
+        imported = imports_by_binding.get(key)
+        if not isinstance(imported, dict):
+            return False
+        target, symbol = imported["target_module"], imported["symbol"]
+        if member is None:
+            mapping_module, mapping_name = target, symbol
+        else:
+            # Import records cannot distinguish a dotted module from an alias to its root.
+            if symbol is None and target == "collections.abc" and binding == "collections":
+                return _Position(undecidable="dotted_name")
+            mapping_module = f"{target}.{symbol}" if symbol else target
+            mapping_name = member
+    if (mapping_module, mapping_name) not in _PROVEN_MAPPINGS:
+        return False
+    if (mapping_module, mapping_name) in classes_by_location:
+        return _Position(undecidable="ambiguous_binding")
+    return True
+
+
 def _mapping_parameters(
     annotation: str,
     module: str,
@@ -1304,42 +1358,11 @@ def _mapping_parameters(
         return None
     if not isinstance(expression, ast.Subscript):
         return None
-    head = expression.value
-    if isinstance(head, ast.Name):
-        binding, member = head.id, None
-    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
-        binding, member = head.value.id, head.attr
-    else:
+    proven = _proven_mapping_head(expression.value, module, imports_by_binding, classes_by_location)
+    if isinstance(proven, _Position):
+        return proven
+    if not proven:
         return None
-    if binding == "dict" and member is None:
-        mapping_module, mapping_name = "builtins", "dict"
-    else:
-        key = (module, binding)
-        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
-            return _Position(undecidable="ambiguous_binding")
-        imported = imports_by_binding.get(key)
-        if not isinstance(imported, dict):
-            return None
-        target, symbol = imported["target_module"], imported["symbol"]
-        if member is None:
-            mapping_module, mapping_name = target, symbol
-        else:
-            # Import records cannot distinguish a dotted module from an alias to its root.
-            if symbol is None and target == "collections.abc" and binding == "collections":
-                return _Position(undecidable="dotted_name")
-            mapping_module = f"{target}.{symbol}" if symbol else target
-            mapping_name = member
-    if (mapping_module, mapping_name) not in {
-        ("builtins", "dict"),
-        ("typing", "Dict"),
-        ("typing", "Mapping"),
-        ("typing", "MutableMapping"),
-        ("collections.abc", "Mapping"),
-        ("collections.abc", "MutableMapping"),
-    }:
-        return None
-    if (mapping_module, mapping_name) in classes_by_location:
-        return _Position(undecidable="ambiguous_binding")
     if not isinstance(expression.slice, ast.Tuple) or len(expression.slice.elts) != 2:
         return _Position(undecidable="generic")
     if any(
@@ -1348,6 +1371,25 @@ def _mapping_parameters(
     ):
         return _Position(undecidable="generic")
     return [ast.unparse(arg) for arg in expression.slice.elts]
+
+
+def _bare_mapping_verdict(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> _Position | None:
+    """An unsubscripted proven mapping is as broad as a subscripted one (AD-123)."""
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(expression, (ast.Name, ast.Attribute)):
+        return None
+    proven = _proven_mapping_head(expression, module, imports_by_binding, classes_by_location)
+    if isinstance(proven, _Position):
+        return proven
+    return _Position(violation=_BROAD_BOUNDARY_REASON) if proven else None
 
 
 def _typing_wrapper_inner(
@@ -1812,6 +1854,11 @@ def _boundary_type_verdict(
         return wrapped
     if _is_broad_boundary_type(annotation):
         return _Position(violation=_BROAD_BOUNDARY_REASON)
+    bare_mapping = _bare_mapping_verdict(
+        annotation, module, imports_by_binding, classes_by_location
+    )
+    if bare_mapping is not None:
+        return bare_mapping
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
     if not annotation.isidentifier():

@@ -49,6 +49,114 @@ def test_stdlib_mapping_generics_are_broad_across_exact_import_forms(tmp_path: P
     assert _type_unknowns(result) == []
 
 
+@pytest.mark.parametrize(
+    ("imports", "annotation"),
+    (
+        ("from collections.abc import Mapping\n", "Mapping"),
+        ("from collections.abc import MutableMapping\n", "MutableMapping"),
+        ("from typing import Mapping\n", "Mapping"),
+        ("from typing import Mapping as M\n", "M"),
+        ("import typing\n", "typing.Mapping"),
+        ("import collections.abc as cabc\n", "cabc.MutableMapping"),
+        ("from typing import Mapping, Optional\n", "Optional[Mapping]"),
+        ("from collections.abc import Mapping\n", "Mapping | None"),
+        ("from collections.abc import Mapping\n", "list[Mapping]"),
+    ),
+    ids=(
+        "abc-mapping",
+        "abc-mutable-mapping",
+        "typing-mapping",
+        "aliased",
+        "typing-attribute",
+        "abc-alias-attribute",
+        "optional",
+        "or-none",
+        "list-member",
+    ),
+)
+def test_bare_stdlib_mapping_parameter_is_broad(
+    tmp_path: Path, imports: str, annotation: str
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=f"{imports}\ndef run(value: {annotation}) -> str:\n    return ''\n",
+        declared=("sample.app.impl:run",),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("position") == "value"
+    assert "instead of a typed model" in violation.title
+    assert _type_unknowns(result) == []
+
+
+def test_bare_stdlib_mapping_return_is_broad(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from collections.abc import Mapping\n\ndef run() -> Mapping:\n    return {}\n"
+        ),
+        declared=("sample.app.impl:run",),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("position") == "return"
+    assert "instead of a typed model" in violation.title
+    assert _type_unknowns(result) == []
+
+
+@pytest.mark.parametrize(
+    "shadow",
+    ("class Mapping:\n    pass\n", "Mapping = dict\n"),
+    ids=("local-class", "rebound"),
+)
+def test_bare_stdlib_mapping_shadowed_by_a_local_binding_stays_unknown(
+    tmp_path: Path, shadow: str
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from collections.abc import Mapping\n\n"
+            f"{shadow}\n"
+            "def run(value: Mapping) -> str:\n    return ''\n"
+        ),
+        declared=("sample.app.impl:run",),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [unknown] = _type_unknowns(result)
+    assert unknown.data.get("reason") == "ambiguous_binding"
+    assert unknown.data.get("annotation") == "Mapping"
+
+
+def test_bare_mapping_from_a_local_module_stays_unknown(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from .types import Mapping\n\ndef run(value: Mapping) -> str:\n    return ''\n"
+        ),
+        declared=("sample.app.impl:run",),
+    )
+    (tmp_path / "sample/app/types.py").write_text("class Mapping:\n    pass\n")
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert not [
+        item
+        for item in trace_valid_violations(result.observation)
+        if "instead of a typed model" in item.title
+    ]
+
+
 def test_non_stdlib_mapping_generic_stays_unknown(tmp_path: Path) -> None:
     _write_app(
         tmp_path,
