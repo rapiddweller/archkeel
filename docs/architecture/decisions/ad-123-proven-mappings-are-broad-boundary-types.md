@@ -10,9 +10,10 @@ record shape either.
 
 The shared annotation reader still resolves both member types. An undeclared
 member remains a separate violation; an undecidable member remains UNKNOWN.
-Malformed arity, shadowed mapping names (a shadowed `dict` still reports a violation), and
-imports the analyzer cannot prove remain UNKNOWN. A known violation and an undecidable member
-can coexist; an exact allowance removes only the violation, never the UNKNOWN.
+Malformed arity, shadowed mapping names (a shadowed `dict`, `Dict` or `object` still reports a
+violation, since that check is by name), and imports the analyzer cannot prove remain UNKNOWN.
+A known violation and an undecidable member can coexist; an exact allowance removes only the
+violation, never the UNKNOWN.
 `allowed_positions` uses an empty `field_path` for a direct signature position and a named
 path for a nested field. The direct selector matches the complete outer annotation;
 neither selector exempts sibling or member-type findings.
