@@ -509,7 +509,7 @@ class SymbolPlacementRule:
 
 @dataclass(frozen=True, slots=True)
 class BoundaryTypeAllowance:
-    """One exact nested field exception for a declared boundary position (#134)."""
+    """One exact boundary exception; an empty field path selects the signature position."""
 
     qualified_name: str
     position: str

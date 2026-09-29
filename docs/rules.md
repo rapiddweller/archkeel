@@ -402,15 +402,23 @@ analyzer digest make the result deterministic. Adding a `snapshot(context: dict)
 declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
 example violation, and so is `summarize_all(extras: list[Extra]) -> Money`, where wrapping the
 undeclared `Extra` in a list is no longer a way out of the same finding (AD-67).
+Proven standard-library `Mapping[K, V]` and `MutableMapping[K, V]` are also broad
+map findings: changing `dict` to an abstract mapping does not declare a record
+shape (AD-123). Their member types are still checked. Unproven or malformed
+mapping annotations remain UNKNOWN, not a clean pass.
+An undecidable mapping member retains UNKNOWN alongside the known broad-map violation.
+Mixed union or DTO findings likewise retain both known violations and UNKNOWNs.
 
-`allowed_positions` may exempt one nested DTO finding by exact `qualified_name`, `position`,
-`field_path` and `annotation`. `field_path` is relative to the parameter or `return`; the
-outer signature annotation stays in the violation record. The allowance applies only when
-`data.path` and `nested_annotation` both match. A mismatch leaves the violation intact, and a
+`allowed_positions` may exempt one finding by exact `qualified_name`, `position`,
+`field_path` and `annotation`. An empty `field_path` selects the parameter or return itself;
+otherwise it names a nested field relative to that position. `annotation` matches the offending
+leaf type, including a union member, while the outer signature stays in the violation record.
+A mismatch leaves the violation intact, and a
 bare `dict` cannot match an allowance for `dict[str, JsonValue]`. Applied entries produce a
 `FACT` in `typing_signals` linked to the rule and function evidence; an unused entry emits no
 fact and has no effect. Adding an entry widens the contract and needs an amendment under
 `validate --against`; removing one narrows it (AD-95).
+An allowance removes only its matching violation; member findings and UNKNOWNs remain visible.
 
 ### Known violations of a target contract
 

@@ -1439,7 +1439,11 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
         )
         qualified_name = _nonempty(entry["qualified_name"], f"{entry_label}.qualified_name")
         position = _nonempty(entry["position"], f"{entry_label}.position")
-        field_path = _nonempty(entry["field_path"], f"{entry_label}.field_path")
+        field_path = (
+            ""
+            if entry["field_path"] == ""
+            else _nonempty(entry["field_path"], f"{entry_label}.field_path")
+        )
         annotation = _nonempty(entry["annotation"], f"{entry_label}.annotation")
         if annotation == "dict":
             raise ValueError(f"{entry_label}.annotation cannot allow bare dict")

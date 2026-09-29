@@ -1,0 +1,7 @@
+{
+  "after_digest": "758ee98cf53acb7d543d850d7babcb4ac389c4147e4b706373fdcb15359e9650",
+  "before_digest": "e8f19e8a08501f540fa4291e7cec272353cd0eb32108414162a9ca7c91c9950a",
+  "decided_by": "Astra, reviewed by Codex",
+  "rationale": "Keep three exact open-map signatures: arbitrary file paths and environment names are data, not fixed records; the analyzer now exposes them and preserves other findings.",
+  "schema_version": "1.0.0"
+}

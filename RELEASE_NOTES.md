@@ -1,5 +1,9 @@
 # Unreleased
 
+- Proven standard-library `Mapping`/`MutableMapping` boundary annotations now receive the same
+  broad-map finding as `dict`, while their member types and UNKNOWNs remain visible. Exact
+  `allowed_positions` may name a direct signature position with `field_path: ""`; older
+  analyzers and contract schemas do not understand that allowance (AD-123).
 - The bundled analyzer now has a bounded 300-second deadline. A complete 487-file CE scan
   exceeded the former 60-second limit; genuine timeouts still return UNKNOWN.
 - Optional `declarations.modules` records exact Python-file targets and one-sentence

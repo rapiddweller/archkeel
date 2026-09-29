@@ -125,7 +125,13 @@ def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
                     "position": "return",
                     "field_path": "payload",
                     "annotation": "dict[str, JsonValue]",
-                }
+                },
+                {
+                    "qualified_name": "sample.core.api.run",
+                    "position": "values",
+                    "field_path": "",
+                    "annotation": "Mapping[str, float]",
+                },
             ],
         }
     ]
@@ -134,6 +140,10 @@ def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
     encoded = json.loads(contract_bytes(contract))
     assert not list(VALIDATOR.iter_errors(encoded))
     assert parse_contract(encoded) == contract
+    assert [item["field_path"] for item in encoded["rules"][0]["allowed_positions"]] == [
+        "payload",
+        "",
+    ]
 
     raw["rules"][0]["allowed_positions"][0]["annotation"] = "dict"
     assert list(VALIDATOR.iter_errors(raw))
@@ -141,11 +151,6 @@ def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
         parse_contract(raw)
     raw["rules"][0]["allowed_positions"][0]["annotation"] = "dict[str, JsonValue]"
 
-    raw["rules"][0]["allowed_positions"][0]["field_path"] = ""
-    with pytest.raises(ValueError, match="allowed_positions\\[0\\].field_path must not be empty"):
-        parse_contract(raw)
-
-    raw["rules"][0]["allowed_positions"][0]["field_path"] = "payload"
     raw["rules"][0]["allowed_positions"][0]["unexpected"] = True
     with pytest.raises(ValueError, match="fields mismatch"):
         parse_contract(raw)

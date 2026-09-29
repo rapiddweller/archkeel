@@ -92,6 +92,62 @@ _BOUNDARY_TYPES = Variant(
     expected_codes=("rule.violated",),
 )
 
+_MAPPING_PARAM_MODULE = HEADER + (
+    '"""An open map at a declared application boundary."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from collections.abc import Mapping\n\n\n"
+    "def snapshot(context: Mapping[str, str]) -> str:\n"
+    "    return str(len(context))\n"
+)
+
+
+def _mapping_contract(*, allowed: bool) -> str:
+    contract = json.loads(
+        contract_component_field_appended("app", "public", "shop.app.reports:snapshot")
+    )
+    if allowed:
+        rule = next(item for item in contract["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+        rule["allowed_positions"] = [
+            {
+                "qualified_name": "shop.app.reports.snapshot",
+                "position": "context",
+                "field_path": "",
+                "annotation": "Mapping[str, str]",
+            }
+        ]
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_MAPPING_BROAD = Variant(
+    id="class-a-boundary-types-mapping",
+    section="class_a",
+    item="boundary_types:proven_mapping",
+    summary="A proven standard-library Mapping[str, str] is an open record and violates "
+    "the typed boundary (AD-123).",
+    files={
+        "shop/app/reports.py": _MAPPING_PARAM_MODULE,
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
+        "architecture-contract.json": _mapping_contract(allowed=False),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
+_MAPPING_ALLOWED = Variant(
+    id="class-a-boundary-types-mapping-allowed",
+    section="class_a",
+    item="boundary_types:exact_open_mapping",
+    summary="One exact top-level allowance documents an intentional open map; the same "
+    "boundary otherwise stays checked (AD-123).",
+    files={
+        "shop/app/reports.py": _MAPPING_PARAM_MODULE,
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
+        "architecture-contract.json": _mapping_contract(allowed=True),
+    },
+    expected_violations=(),
+    expected_codes=(),
+)
+
 _BOUNDARY_TYPES_MIXED_EVIDENCE = Variant(
     id="class-a-boundary-types-mixed-evidence",
     section="class_a",
@@ -556,6 +612,8 @@ _INHERITED_GENERIC_AMBIGUOUS = Variant(
 VARIANTS: tuple[Variant, ...] = (
     _SYMBOL_PLACEMENT,
     _BOUNDARY_TYPES,
+    _MAPPING_BROAD,
+    _MAPPING_ALLOWED,
     _BOUNDARY_TYPES_MIXED_EVIDENCE,
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,

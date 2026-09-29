@@ -2093,7 +2093,7 @@ def test_boundary_types_does_not_assume_unimported_typing_names(tmp_path: Path) 
     assert unknown_positions(result.observation) == 3
 
 
-def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_path: Path) -> None:
+def test_boundary_types_keeps_unknown_alongside_nested_violation(tmp_path: Path) -> None:
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
     (tmp_path / "sample/app").mkdir(parents=True)
@@ -2108,7 +2108,13 @@ def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_p
 
     assert result.observation is not None
     assert len(trace_valid_violations(result.observation)) == 1
-    assert unknown_positions(result.observation) == 0
+    assert unknown_positions(result.observation) == 1
+    [unknown] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert unknown.data.get("reason") == "unresolved_name"
 
 
 def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
