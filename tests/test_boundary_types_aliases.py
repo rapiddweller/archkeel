@@ -226,7 +226,9 @@ def test_alias_preserves_nested_violation_and_unknown_coordinates() -> None:
     assert violation.violation == "instead of a typed model"
     assert violation.path == ("payload",)
     assert violation.nested_annotation == "dict[str, str]"
-    assert violation.violations == (("instead of a typed model", ("payload",), "dict[str, str]"),)
+    assert violation.violations == (
+        ("instead of a typed model", ("payload",), "dict[str, str]", 0),
+    )
 
     alias[("sample", "Request")]["fields"] = [{"name": "payload", "annotation": "Unresolved"}]
     unknown = _boundary_type_verdict("RequestAlias", "sample", contract, {}, BindingIndex(), alias)

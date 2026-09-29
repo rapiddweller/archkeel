@@ -13,6 +13,8 @@ allowance removes only the violation, never the UNKNOWN. `allowed_positions`
 uses an empty `field_path` for a direct signature position and a named path for
 a nested field. The direct selector matches the complete outer annotation;
 neither selector exempts sibling or member-type findings.
+Container depth is retained in each finding, so identical type text at the
+root and inside a map or collection cannot make one allowance remove both.
 
 Archkeel itself keeps three reviewed open maps: `FilesToWrite` accepts arbitrary
 paths and `run_check`/`Host` accept arbitrary environment names. Its own contract

@@ -263,6 +263,144 @@ def test_root_dict_allowance_does_not_exempt_nested_collection(tmp_path: Path) -
     ]
 
 
+@pytest.mark.parametrize(
+    "annotation",
+    (
+        "Mapping[str, HiddenType]",
+        "dict[str, HiddenType]",
+        "Mapping[str, str] | HiddenType",
+    ),
+)
+def test_root_mapping_allowance_keeps_private_member(tmp_path: Path, annotation: str) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "return",
+        "field_path": "",
+        "annotation": annotation,
+    }
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from collections.abc import Mapping\n\n"
+            "class HiddenType:\n    pass\n\n"
+            f"def run() -> {annotation}:\n    return {{}}\n"
+        ),
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert "HiddenType" in violation.title
+    assert "does not declare" in violation.title
+    allowance_facts = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    assert len(allowance_facts) == 1
+
+
+def test_root_allowance_cannot_exempt_undeclared_type(tmp_path: Path) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "return",
+        "field_path": "",
+        "annotation": "HiddenType",
+    }
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class HiddenType:\n    pass\n\ndef run() -> HiddenType:\n    return HiddenType()\n"
+        ),
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert "does not declare" in violation.title
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("annotation", "inner"),
+    (
+        ("Mapping[str, dict[str, str]]", "dict[str, str]"),
+        ("dict[str, Mapping[str, str]]", "Mapping[str, str]"),
+        ("Mapping[str, dict[str, str]] | None", "dict[str, str]"),
+        ("list[dict[str, str]] | dict[str, str]", "dict[str, str]"),
+    ),
+)
+def test_root_mapping_allowance_keeps_nested_mapping(
+    tmp_path: Path, annotation: str, inner: str
+) -> None:
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "return",
+        "field_path": "",
+        "annotation": annotation,
+    }
+    _write_app(
+        tmp_path,
+        implementation=(
+            f"from collections.abc import Mapping\n\ndef run() -> {annotation}:\n    return {{}}\n"
+        ),
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("nested_annotation") == inner
+    allowance_facts = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    assert len(allowance_facts) == 1
+
+
+def test_root_allowance_does_not_guess_between_multiple_broad_union_members(tmp_path: Path) -> None:
+    annotation = "Mapping[str, dict[str, str]] | dict[str, str]"
+    allowance = {
+        "qualified_name": "sample.app.impl.run",
+        "position": "return",
+        "field_path": "",
+        "annotation": annotation,
+    }
+    _write_app(
+        tmp_path,
+        implementation=(
+            f"from collections.abc import Mapping\n\ndef run() -> {annotation}:\n    return {{}}\n"
+        ),
+        declared=("sample.app.impl:run",),
+        allowed_positions=(allowance,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert len(violations) == 3
+    assert {item.data.get("container_depth", 0) for item in violations} == {0, 1}
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+
+
 def test_exact_mapping_allowance_does_not_hide_private_value_type(tmp_path: Path) -> None:
     allowance = {
         "qualified_name": "sample.app.impl.run",

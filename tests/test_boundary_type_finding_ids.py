@@ -52,8 +52,8 @@ def test_nested_finding_keeps_its_existing_id() -> None:
 
 
 def test_distinct_empty_path_findings_are_unique_deduplicated_and_order_independent() -> None:
-    duplicate = ("instead of a typed model", (), "dict")
-    other = ("instead of a typed model", (), "object")
+    duplicate = ("instead of a typed model", (), "dict", 0)
+    other = ("instead of a typed model", (), "object", 0)
     first = _records(_Position(violation=duplicate[0], violations=(duplicate, other, duplicate)))
     reversed_order = _records(
         _Position(violation=duplicate[0], violations=(other, duplicate, duplicate))
@@ -67,3 +67,13 @@ def test_distinct_empty_path_findings_are_unique_deduplicated_and_order_independ
         stable_id("VIO", _RULE.id, _ITEM["id"], "return", nested, duplicate[0])
         for nested in ("dict", "object")
     }
+
+
+def test_identical_type_at_different_container_depths_keeps_distinct_findings() -> None:
+    outer = ("instead of a typed model", (), "dict[str, str]", 0)
+    inner = ("instead of a typed model", (), "dict[str, str]", 1)
+
+    records = _records(_Position(violation=outer[0], violations=(outer, inner)))
+
+    assert len({record["id"] for record in records}) == 2
+    assert {record["data"].get("container_depth", 0) for record in records} == {0, 1}

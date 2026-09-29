@@ -1183,6 +1183,7 @@ _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 # from the running interpreter rather than a list kept here, the way `resolve.py` and `calls.py`
 # already answer the same question, so one repository holds one answer to what a builtin is.
 _BUILTIN_NAMES: Final = frozenset(dir(builtins))
+_BROAD_BOUNDARY_REASON: Final = "instead of a typed model"
 
 # Why a position stayed undecided, in the order the limit record reports them (AD-67).
 # `ambiguous_binding` (AD-74) sits next to `unresolved_name`: both are bare names that failed
@@ -1229,7 +1230,7 @@ class _Position(NamedTuple):
     resolved: tuple[tuple[str, str], ...] = ()
     path: tuple[str, ...] = ()
     nested_annotation: str | None = None
-    violations: tuple[tuple[str, tuple[str, ...], str | None], ...] = ()
+    violations: tuple[tuple[str, tuple[str, ...], str | None, int], ...] = ()
 
 
 # A container whose declared element type is the whole of what actually crosses the boundary
@@ -1810,7 +1811,7 @@ def _boundary_type_verdict(
     if wrapped is not None:
         return wrapped
     if _is_broad_boundary_type(annotation):
-        return _Position(violation="instead of a typed model")
+        return _Position(violation=_BROAD_BOUNDARY_REASON)
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
     if not annotation.isidentifier():
@@ -2126,14 +2127,20 @@ def _annotation_shape_verdict(
             enter_fields=enter_fields,
             _aliases_seen=_aliases_seen,
         )
-        reason = "instead of a typed model"
+        reason = _BROAD_BOUNDARY_REASON
         return _Position(
             violation=reason,
             undecidable=contents.undecidable,
             resolved=contents.resolved,
             path=contents.path,
             nested_annotation=contents.nested_annotation,
-            violations=((reason, (), annotation), *contents.violations),
+            violations=(
+                (reason, (), annotation, 0),
+                *(
+                    (name, path, nested, depth + 1)
+                    for name, path, nested, depth in contents.violations
+                ),
+            ),
         )
     union = _union_parameters(annotation, module, imports_by_binding)
     if union is not None:
@@ -2203,7 +2210,7 @@ def _declared_field_verdict(
     reached: tuple[tuple[str, str], ...] = tuple(
         sorted({pair for _, _, verdict in field_verdicts for pair in verdict.resolved})
     )
-    violations: list[tuple[str, tuple[str, ...], str | None]] = []
+    violations: list[tuple[str, tuple[str, ...], str | None, int]] = []
     for field_name, field_annotation, verdict in field_verdicts:
         if verdict.violations:
             violations.extend(
@@ -2211,8 +2218,9 @@ def _declared_field_verdict(
                     reason,
                     (field_name, *path),
                     nested_annotation or field_annotation,
+                    depth,
                 )
-                for reason, path, nested_annotation in verdict.violations
+                for reason, path, nested_annotation, depth in verdict.violations
             )
         elif verdict.violation is not None:
             violations.append(
@@ -2220,6 +2228,7 @@ def _declared_field_verdict(
                     verdict.violation,
                     (field_name, *verdict.path),
                     verdict.nested_annotation or field_annotation,
+                    0,
                 )
             )
     for field_name, field_annotation, verdict in field_verdicts:
@@ -2233,7 +2242,7 @@ def _declared_field_verdict(
                 violations=tuple(violations),
             )
     if violations:
-        reason, path, nested_annotation = violations[0]
+        reason, path, nested_annotation, _ = violations[0]
         return _Position(
             violation=reason,
             resolved=reached,
@@ -2272,7 +2281,7 @@ def _collection_verdict(
     parameters = _collection_parameters(annotation, module, imports_by_binding)
     if parameters is None:
         return None
-    return _combined_annotation_verdict(
+    verdict = _combined_annotation_verdict(
         parameters,
         module,
         contract,
@@ -2282,6 +2291,16 @@ def _collection_verdict(
         visited=visited,
         enter_fields=enter_fields,
         _aliases_seen=_aliases_seen,
+    )
+    return _Position(
+        violation=verdict.violation,
+        undecidable=verdict.undecidable,
+        resolved=verdict.resolved,
+        path=verdict.path,
+        nested_annotation=verdict.nested_annotation,
+        violations=tuple(
+            (reason, path, nested, depth + 1) for reason, path, nested, depth in verdict.violations
+        ),
     )
 
 
@@ -2335,11 +2354,12 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
                             f"holding {parameter} {verdict.violation}",
                             verdict.path,
                             verdict.nested_annotation or parameter,
+                            0,
                         ),
                     )
                 )
             },
-            key=lambda item: (item[0], item[1], item[2] or ""),
+            key=lambda item: (item[0], item[1], item[2] or "", item[3]),
         )
     )
     for _parameter, verdict in decided:
@@ -2353,7 +2373,7 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
                 violations=violations,
             )
     if violations:
-        reason, path, nested_annotation = violations[0]
+        reason, path, nested_annotation, _ = violations[0]
         return _Position(
             violation=reason,
             resolved=reached,
@@ -3155,8 +3175,16 @@ def _inherited_generic_candidate_types(
     return sorted(candidates)
 
 
+def _root_broad_count(records: Sequence[RawRecord]) -> int:
+    return sum(
+        record["data"]["reason"] == _BROAD_BOUNDARY_REASON
+        and "container_depth" not in record["data"]
+        for record in records
+    )
+
+
 def _boundary_type_allowance_fact(
-    rule: BoundaryTypesRule, facade_module: str, record: RawRecord
+    rule: BoundaryTypesRule, facade_module: str, record: RawRecord, root_broad_count: int
 ) -> RawRecord | None:
     data = record["data"]
     path = data["path"] if "path" in data else None
@@ -3165,8 +3193,14 @@ def _boundary_type_allowance_fact(
             f"{allowance.position}.{allowance.field_path}" if allowance.field_path else None
         )
         annotation = data.get("nested_annotation") if allowance.field_path else data["annotation"]
+        root_unmatched = not allowance.field_path and (
+            data["reason"] != _BROAD_BOUNDARY_REASON
+            or data.get("container_depth", 0) > 0
+            or root_broad_count != 1
+        )
         if (
             allowance.annotation == "dict"
+            or root_unmatched
             or data["qualified_name"] != allowance.qualified_name
             or data["position"] != allowance.position
             or path != expected_path
@@ -3282,8 +3316,11 @@ def _boundary_types_violations(
                     annotation,
                     verdict,
                 )
+                root_broad_count = _root_broad_count(records)
                 for record in records:
-                    fact = _boundary_type_allowance_fact(rule, facade_module, record)
+                    fact = _boundary_type_allowance_fact(
+                        rule, facade_module, record, root_broad_count
+                    )
                     if fact is None:
                         violations.append(record)
                     else:
@@ -3311,8 +3348,11 @@ def _boundary_types_violations(
                         verdict,
                         identity_suffix=method_id,
                     )
+                    root_broad_count = _root_broad_count(records)
                     for record in records:
-                        fact = _boundary_type_allowance_fact(rule, facade_module, record)
+                        fact = _boundary_type_allowance_fact(
+                            rule, facade_module, record, root_broad_count
+                        )
                         if fact is None:
                             violations.append(record)
                         else:
@@ -3361,11 +3401,13 @@ def _boundary_type_violation_records(
         return []
     verb = "returns" if position == "return" else f"takes {position} as"
     findings = sorted(
-        set(verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation),)),
-        key=lambda finding: (finding[0], finding[1], finding[2] or ""),
+        set(
+            verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation, 0),)
+        ),
+        key=lambda finding: (finding[0], finding[1], finding[2] or "", finding[3]),
     )
     records: list[RawRecord] = []
-    for reason, path, nested_annotation in findings:
+    for reason, path, nested_annotation, depth in findings:
         path_data = ".".join((position, *path)) if path else None
         if path:
             identity_parts = (rule.id, item["id"], position, *path, nested_annotation or "", reason)
@@ -3379,6 +3421,8 @@ def _boundary_type_violation_records(
             identity_parts = (rule.id, item["id"], position)
             if identity_suffix:
                 identity_parts += (identity_suffix,)
+        if depth:
+            identity_parts += (str(depth),)
         nested_fields = " ".join(f"field {name}" for name in path)
         field_detail = f"{nested_fields} " if nested_fields else ""
         records.append(
@@ -3398,6 +3442,8 @@ def _boundary_type_violation_records(
                     "module": facade_module,
                     "position": position,
                     "annotation": annotation,
+                    "reason": reason,
+                    **({"container_depth": depth} if depth else {}),
                     **({"path": path_data} if path_data else {}),
                     **({"nested_annotation": nested_annotation} if nested_annotation else {}),
                 },

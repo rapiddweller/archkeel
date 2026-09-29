@@ -2492,11 +2492,12 @@ def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) 
     result = _observe(tmp_path)
     assert result.observation is not None
     violations = trace_valid_violations(result.observation)
-    assert [item.title for item in violations] == [
+    assert len(violations) == 2
+    assert {item.title for item in violations} == {
         "sample.app.facade.broken returns set[Payload] holding Payload which app does not declare",
         "sample.app.facade.broken takes payloads as list[Payload] holding Payload "
         "which app does not declare",
-    ]
+    }
     limits = [
         item
         for item in result.observation.records("unknowns") or ()
