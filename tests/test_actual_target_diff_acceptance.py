@@ -263,7 +263,7 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             page.locator("[data-projection-root]").click()
             assert not responsibility.is_visible()
 
-            page.get_by_role("button", name="Target").click()
+            page.get_by_role("button", name="Target", exact=True).click()
             app = next(
                 node
                 for node in _walk(payload["explorers"]["target"])
