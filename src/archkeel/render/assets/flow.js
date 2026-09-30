@@ -325,6 +325,7 @@
   let transform = { k: 1 };
   let projectionPath = [];
   let projectionSelection = null;
+  let projectionContext = null;
   let targetPath = [];
   let targetSelection = null;
   let selectedSubject = null;
@@ -351,6 +352,104 @@
       ...(node.id === id ? [node] : []),
       ...targetNodesForId(id, node.children || []),
     ]);
+  }
+
+  function projectionKey(node) {
+    if (node.kind === "physical_child") return node.label;
+    if (node.kind === "root_layout") return node.label.replaceAll("/", ".");
+    if (["module", "group"].includes(node.kind)) return node.id;
+    if (node.kind === "component") {
+      const packages = node.details?.find((item) => item.label === "Packages")?.value?.split(", ") || [];
+      return packages.length === 1 ? packages[0] : null;
+    }
+    if (node.kind === "package_scope") {
+      return node.details?.find((item) => item.label === "Package scope")?.value || node.label;
+    }
+    const file = node.details?.find((item) => item.label === "File")?.value;
+    return typeof file === "string" ? file.replaceAll("/", ".").replace(/\.py$/, "").replace(/\.__init__$/, "") : null;
+  }
+
+  function projectionNodes(nodes, parents = []) {
+    return nodes.flatMap((node) => {
+      const path = [...parents, node];
+      return [{ node, path }, ...projectionNodes(node.children || [], path)];
+    });
+  }
+
+  function projectionCounterpart(from, to) {
+    const sourceTree = from === "target" ? DATA.explorers.target : DATA.explorers[from];
+    const sourcePath = from === "target" ? targetPath : projectionPath;
+    const sourceSelection = from === "target" ? targetSelection : projectionSelection;
+    const flattened = projectionNodes(sourceTree);
+    const sourceNodes = sourcePath.map((id) => {
+      return flattened.find(({ node }) => node.id === id)?.node;
+    }).filter(Boolean);
+    if (sourceSelection) {
+      const selected = flattened.find(({ node }) => node.id === sourceSelection)?.node;
+      if (selected) sourceNodes.push(selected);
+    }
+    if (!sourceNodes.length) return null;
+
+    const candidates = projectionNodes(DATA.explorers[to]);
+    for (const source of [...sourceNodes].reverse()) {
+      const declarationId = source.details?.find((item) => item.label === "Target declaration ID")?.value
+        || (from === "target" ? source.id : null);
+      const identityMatches = declarationId ? candidates.filter(({ node }) =>
+        node.id === declarationId || node.details?.some((item) =>
+          item.label === "Target declaration ID" && item.value === declarationId)) : [];
+      const key = projectionKey(source);
+      if (!key && !identityMatches.length) continue;
+      const keys = [key];
+      let ancestor = key || "";
+      while (ancestor.includes(".")) {
+        ancestor = ancestor.slice(0, ancestor.lastIndexOf("."));
+        keys.push(ancestor);
+      }
+      for (const candidateKey of keys) {
+        const exactIdentity = candidateKey === key && identityMatches.length > 0;
+        const matches = exactIdentity ? identityMatches
+          : candidates.filter(({ node }) => candidateKey && projectionKey(node) === candidateKey);
+        if (!matches.length) continue;
+        if (exactIdentity && matches.length !== 1) continue;
+        const rank = (node) => {
+          if (["module", "module_target"].includes(source.kind)) {
+            return node.kind === "module_target" ? 5 : node.kind === "module" ? 4
+              : node.kind === "package_scope" ? 3 : node.kind === "component" ? 2 : 1;
+          }
+          return node.kind === "package_scope" ? 5 : node.kind === "component" ? 4
+            : node.kind === "physical_child" || node.kind === "root_layout" ? 3 : 1;
+        };
+        const bestRank = Math.max(...matches.map(({ node }) => rank(node)));
+        let best = matches.filter(({ node }) => rank(node) === bestRank);
+        if (best.length > 1 && candidateKey === key) {
+          const sameIdentity = best.filter(({ node }) => node.id === source.id);
+          if (sameIdentity.length === 1) best = sameIdentity;
+        }
+        if (best.length !== 1) continue;
+        const match = best[0];
+        const selectionWithoutScope = !projectionKey(sourceNodes.at(-1))
+          && !(exactIdentity && source === sourceNodes.at(-1));
+        const context = candidateKey === key && !selectionWithoutScope ? null
+          : `No matching scope for ${selectionWithoutScope ? sourceNodes.at(-1).label : key}; showing nearest match ${candidateKey}.`;
+        const scopePath = match.node.children?.length ? match.path : match.path.slice(0, -1);
+        if (to === "target") {
+          const targetPath = scopePath
+            .filter(({ id }) => DATA.explorers.target_diagrams.nested[id])
+            .map((node) => node.id);
+          return {
+            targetPath,
+            targetSelection: match.node.children?.length ? null : match.node.id,
+            context,
+          };
+        }
+        return {
+          path: scopePath.map((node) => node.id),
+          selection: match.node.children?.length ? null : match.node.id,
+          context,
+        };
+      }
+    }
+    return null;
   }
 
   function targetComponentsForPackage(scope, nodes = DATA.explorers?.target || []) {
@@ -388,6 +487,7 @@
 
   function selectSubject(node, view = viewMode) {
     if (!node) return;
+    projectionContext = null;
     selectedSubject = null;
     if (["actual", "diff"].includes(view)
         && ["module", "observed_only_module_target"].includes(node.kind)) {
@@ -702,6 +802,8 @@
 
   function renderTargetInspector() {
     const node = targetSelection ? targetNode(targetSelection) : targetNode(targetPath.at(-1));
+    const context = projectionContext
+      ? `<p class="flow-projection-context">Context: ${esc(projectionContext)}</p>` : "";
     const children = (node?.children || DATA.explorers?.target || [])
       .filter((child) => ["component", "module_target"].includes(child.kind));
     const overview = children.length
@@ -712,7 +814,7 @@
       }).join("")}</ul>`
       : "";
     if (!node) {
-      inspector.innerHTML = `<p>Select a declared component or package for its contract details.</p>${overview}`;
+      inspector.innerHTML = `${context}<p>Select a declared component or package for its contract details.</p>${overview}`;
       return;
     }
     const kind = node.kind === "module_target" ? "Declared module"
@@ -724,7 +826,7 @@
           `<dt>${esc(item.missing ? "Missing responsibility" : item.label)}</dt>` +
           `<dd>${esc(item.missing ? "No declared responsibility." : item.value)}</dd>`
         ).join("")}</dl>`
-        : "<p>No additional details recorded.</p>"}${overview}`;
+        : "<p>No additional details recorded.</p>"}${context}${overview}`;
   }
 
   function renderTargetDiagram() {
@@ -787,6 +889,7 @@
         class: "hit target-hit", d: path, "aria-hidden": "true", "pointer-events": "stroke",
       }));
       const inspect = () => {
+        projectionContext = null;
         targetSelection = edge.declaration || null;
         render();
       };
@@ -1387,12 +1490,16 @@
     const selectedDetails = selected && details(selected)
       ? `<section aria-label="Selected entry"><h3>${esc(selected.label)}</h3>
         <dl class="kv flow-projection-details">${details(selected)}</dl></section>` : "";
+    const context = projectionContext
+      ? `<p class="flow-projection-context">${esc(projectionContext.startsWith("No matching scope")
+        ? projectionContext : `Context: ${projectionContext}`)}</p>` : "";
     alternative.innerHTML = `<div class="flow-projection">
       <nav class="flow-projection-breadcrumb" aria-label="${esc(viewMode)} path">
         <button type="button" data-projection-root>${esc(({ actual: "Actual", target: "Target", diff: "Diff" })[viewMode])}</button>
         ${crumbs ? `<span aria-hidden="true"> / </span>${crumbs}` : ""}
       </nav>
       <h2>${esc(title)}</h2>
+      ${context}
       ${currentDetails}
       ${rows ? `<div class="flow-item-list">${rows}</div>` : "<p>No entries at this level.</p>"}
       ${selectedDetails}</div>`;
@@ -1853,6 +1960,7 @@
         button.textContent = item.label;
         button.disabled = index === entries.length - 1;
         button.addEventListener("click", () => {
+          projectionContext = null;
           targetPath = targetPath.slice(0, item.depth);
           targetSelection = null;
           selectedSubject = null;
@@ -1952,6 +2060,7 @@
 
   backButton.addEventListener("click", () => {
     if (viewMode === "target" && targetPath.length) {
+      projectionContext = null;
       targetPath.pop();
       targetSelection = null;
       selectedSubject = null;
@@ -1964,11 +2073,24 @@
   toolbar.hidden = false;
   root.querySelector(".flow-views").hidden = false;
   viewButtons.forEach((button) => button.addEventListener("click", () => {
-    viewMode = button.dataset.flowView;
-    projectionPath = [];
-    projectionSelection = null;
-    targetPath = [];
-    targetSelection = null;
+    const nextView = button.dataset.flowView;
+    const projectionView = ["actual", "target", "diff"].includes(viewMode)
+      && ["actual", "target", "diff"].includes(nextView);
+    const counterpart = projectionView
+      ? projectionCounterpart(viewMode, nextView) : null;
+    const previous = projectionView ? [...(viewMode === "target" ? targetPath : projectionPath),
+      viewMode === "target" ? targetSelection : projectionSelection]
+      .map((id) => projectionNodes(DATA.explorers[viewMode]).find(({ node }) => node.id === id)?.node.label)
+      .filter(Boolean) : [];
+    projectionContext = projectionView
+      ? counterpart?.context || (!counterpart && previous.length
+        ? `No matching scope in this view. Context: ${previous.join(" / ")}` : null)
+      : null;
+    viewMode = nextView;
+    projectionPath = nextView === "target" ? [] : counterpart?.path || [];
+    projectionSelection = nextView === "target" ? null : counterpart?.selection || null;
+    targetPath = nextView === "target" ? counterpart?.targetPath || [] : [];
+    targetSelection = nextView === "target" ? counterpart?.targetSelection || null : null;
     positions = {};
     render();
   }));
@@ -2010,6 +2132,7 @@
     }
     const crumb = event.target.closest("[data-projection-crumb]");
     if (crumb) {
+      projectionContext = null;
       projectionPath = projectionPath.slice(0, Number(crumb.dataset.projectionCrumb) + 1);
       projectionSelection = null;
       selectedSubject = null;
@@ -2017,6 +2140,7 @@
       return;
     }
     if (event.target.closest("[data-projection-root]")) {
+      projectionContext = null;
       projectionPath = [];
       projectionSelection = null;
       selectedSubject = null;
@@ -2046,12 +2170,14 @@
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       if (viewMode === "target" && targetPath.length) {
+        projectionContext = null;
         targetPath.pop();
         targetSelection = null;
         selectedSubject = null;
         positions = {};
         render();
       } else if (["actual", "diff"].includes(viewMode) && projectionPath.length) {
+        projectionContext = null;
         projectionPath.pop();
         projectionSelection = null;
         selectedSubject = null;

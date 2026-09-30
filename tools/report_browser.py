@@ -473,6 +473,14 @@ def _check_module_target_reports(browser: Browser, reports: dict[str, Path], out
                 else "Observed modules without a declared target"
             )
             category_id = "absent" if name == "target-absent" else "observed-only-targets"
+            if name == "target-absent":
+                assert page.locator(".flow-projection h2").text_content() == category
+                assert (
+                    page.locator('.flow-projection [aria-label="Selected entry"]')
+                    .get_by_role("heading", name="shop/app/missing.py", exact=True)
+                    .is_visible()
+                )
+            page.locator("[data-projection-root]").click()
             page.locator(f'.flow-alternative [data-projection-id="diff:{category_id}"]').click()
             assert page.locator(".flow-projection h2").text_content() == category
             if name == "target-absent":
