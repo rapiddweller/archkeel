@@ -400,12 +400,13 @@ counterpart exists. Otherwise, the view opens the nearest unique ancestor or roo
 the fallback.
 
 The #224 candidate adds physical frames from declared `root_layout` rules. Frames describe file
-layout, not semantic ownership. Cards report placement as `declared`, `inferred`, `multiple`,
-`ambiguous`, or `unmapped`; unresolved entries stay visible. Target details retain exact `public`,
-`requires.through`, rationale, and provenance declarations. A null dependency rank means order is
-unresolved because of a cycle or a dependency on one; it does not make that dependent cyclic or
-change the architecture verdict. The candidate UI is being checked with 100% initial zoom, native
-scrolling, collapsed Details, and selection identity preserved across Actual, Target, and Diff.
+layout, not semantic ownership. Selecting a component shows its placement status (`declared`,
+`inferred`, `multiple`, `ambiguous`, or `unmapped`), scope, and reason in Details; unresolved
+entries stay visible. Target details retain exact `public`, `requires.through`, rationale, and
+provenance declarations. A null dependency rank means order is unresolved because of a cycle or a
+dependency on one; it does not make that dependent cyclic or change the architecture verdict.
+Local browser tests exercise 100% initial zoom, native scrolling, collapsed Details, and selection
+identity across Actual, Target, and Diff.
 
 `--output X.json` writes the JSON report and `X.report.html`.
 
