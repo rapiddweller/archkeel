@@ -1,5 +1,14 @@
 # Unreleased
 
+## Archkeel 0.8.2 candidate
+
+- Target hierarchy projects declared `root_layout` frames around existing semantic components.
+  Placement ambiguity, missing children and cyclic requirements stay explicit; an unranked
+  dependent is not labelled cyclic, and presentation order does not change verdicts (AD-125).
+- Browser acceptance is pending for 100% initial zoom, native scrolling, collapsed Details and
+  selection identity across Actual, Target and Diff. Alex's candidate review and the bundled
+  current screenshot refresh remain release prerequisites.
+
 # Archkeel 0.8.1 — Incomplete proof stays UNKNOWN
 
 - `complete_requires` and `interface_boundary` PASS now requires a non-empty, fully covered scope

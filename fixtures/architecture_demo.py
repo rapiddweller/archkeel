@@ -89,6 +89,15 @@ _DART_NOTE = (
     'scanned with `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them '
     "as one story with `make demo-dart`."
 )
+_TARGET_HIERARCHY_NOTE = (
+    "Target hierarchy rows exercise declared physical frames, missing and ambiguous placement, "
+    "and requirement cycles. Frames describe layout, not semantic ownership. Placement is "
+    "`declared`, `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and "
+    "`requires.through` remain declaration details. A null dependency rank can mean a cycle or a "
+    "dependent of one, so it does not name an SCC or change the architecture verdict. Candidate "
+    "browser behavior for #224 is still under review: 100% initial zoom, native scrolling, a "
+    "collapsed Details panel, and selection identity preserved across Actual, Target and Diff."
+)
 
 
 def _demo_type(variant: Variant) -> str:
@@ -118,6 +127,10 @@ def markdown() -> str:
         *textwrap.wrap(_REPLAY_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
         *textwrap.wrap(_DART_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
+        "",
+        *textwrap.wrap(
+            _TARGET_HIERARCHY_NOTE, width=100, break_long_words=False, break_on_hyphens=False
+        ),
         "",
         "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
         "|---|---|---|---|---|---|---|",

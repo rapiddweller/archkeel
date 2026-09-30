@@ -64,6 +64,113 @@ def test_variant_ids_are_unique() -> None:
     assert len(ids) == len(set(ids))
 
 
+@pytest.mark.parametrize(
+    "variant_id",
+    [
+        "target-hierarchy-positive",
+        "target-hierarchy-ambiguous",
+        "target-hierarchy-missing",
+        "target-hierarchy-cycle",
+    ],
+)
+def test_target_hierarchy_demo_reports_declared_targets(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    variant_id: str,
+) -> None:
+    output = tmp_path / f"{variant_id}.json"
+
+    assert demo_main(["--replay", variant_id, "--output", str(output)]) == 0
+    validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    assert validation["exit_code"] == 0
+    assert report["declared_rules"] == "UNKNOWN"
+    assert [
+        assessment["id"]
+        for assessment in report["rule_assessments"]
+        if assessment["status"] == "UNKNOWN"
+    ] == ["store:STORE-REQUIRES-COMPLETE"]
+
+    html = output.with_name(f"{variant_id}.report.html").read_text()
+    marker = html.index('id="flow-data"')
+    payload = json.loads(html[html.index(">", marker) + 1 : html.index("</script>", marker)])
+    diagrams = payload["explorers"]["target_diagrams"]
+    root = diagrams["root"]
+    root_nodes = {node["id"]: node for node in root["nodes"]}
+    target_nodes: dict[str, dict[str, object]] = {}
+    pending = list(payload["explorers"]["target"])
+    while pending:
+        node = pending.pop()
+        target_nodes[node["id"]] = node
+        pending.extend(node["children"])
+
+    if variant_id == "target-hierarchy-positive":
+        root_layout = next(
+            assessment
+            for assessment in report["rule_assessments"]
+            if assessment["id"] == "ROOT-LAYOUT"
+        )
+        assert (root_layout["status"], root_layout["provenance"]) == (
+            "PASS",
+            ["docs/architecture/shop.md"],
+        )
+        assert [
+            detail["value"]
+            for detail in root_nodes["COMP-APP"]["details"]
+            if detail["label"] == "Public interface"
+        ] == ["shop.app.orders:place_order"]
+        assert {
+            detail["label"]: detail["value"]
+            for detail in target_nodes["requires:COMP-APP:store"]["details"]
+        }["Through"] == "shop.store.repository:OrderRepository"
+        assert root["containers"]["layout:ROOT-LAYOUT"]["members"] == [
+            "COMP-APP",
+            "COMP-CLI",
+            "COMP-MODEL",
+            "COMP-RENDER",
+            "COMP-STORE",
+        ]
+        assert diagrams["nested"]["COMP-STORE"]["containers"]["layout:store:STORE-ROOT-LAYOUT"][
+            "members"
+        ] == [
+            "COMP-STORE",
+            "store:COMP-STORE-API",
+            "store:COMP-STORE-BACKEND",
+            "store:COMP-STORE-CODEC",
+            "store:COMP-STORE-REPOSITORY",
+        ]
+    elif variant_id == "target-hierarchy-ambiguous":
+        assert root_nodes["COMP-APP"]["placement"] == {
+            "status": "ambiguous",
+            "scopes": ["shop.app"],
+            "container": None,
+        }
+    elif variant_id == "target-hierarchy-missing":
+        layout = diagrams["nested"]["layout:ROOT-LAYOUT"]
+        assert "physical:shop.missing" in {node["id"] for node in layout["nodes"]}
+    else:
+        assert {node["id"] for node in root["nodes"]} >= {
+            "COMP-APP",
+            "COMP-CLI",
+            "COMP-STORE",
+        }
+        assert root_nodes["COMP-APP"]["dependency_rank"] is None
+        assert root_nodes["COMP-CLI"]["dependency_rank"] is None
+        assert root_nodes["COMP-STORE"]["dependency_rank"] is None
+        assert (
+            next(
+                assessment
+                for assessment in report["rule_assessments"]
+                if assessment["id"] == "COMPONENT-NO-CYCLES"
+            )["status"]
+            == "PASS"
+        )
+        assert {edge["declaration"] for edge in root["edges"]} >= {
+            "requires:COMP-APP:store",
+            "requires:COMP-CLI:app",
+            "requires:COMP-STORE:app",
+        }
+
+
 def test_recursive_wide_package_root_executes(tmp_path: Path) -> None:
     variant = next(item for item in CATALOG if item.id == "class-a-recursive-wide-package")
     root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)

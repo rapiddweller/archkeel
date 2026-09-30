@@ -23,6 +23,14 @@ Rows whose item starts with `dart:` run on `fixtures/G-dart`, a Flutter-style pa
 `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them as one story with `make
 demo-dart`.
 
+Target hierarchy rows exercise declared physical frames, missing and ambiguous placement, and
+requirement cycles. Frames describe layout, not semantic ownership. Placement is `declared`,
+`inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and `requires.through` remain
+declaration details. A null dependency rank can mean a cycle or a dependent of one, so it does not
+name an SCC or change the architecture verdict. Candidate browser behavior for #224 is still under
+review: 100% initial zoom, native scrolling, a collapsed Details panel, and selection identity
+preserved across Actual, Target and Diff.
+
 | Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |
 |---|---|---|---|---|---|---|
 | showcase | tour | tour | validate/report run | APP-TYPES-NOT-DICT, ASSIGNMENT-COMPLETE, COMPONENT-NO-CYCLES, CONSTRUCT-NO-ANY, CONSTRUCT-NO-ASSERT, CONSTRUCT-NO-BROAD-EXCEPT, CONSTRUCT-NO-DYNAMIC, CONSTRUCT-NO-DYNAMIC, DEP-APP-NO-STORE-BACKEND, DEP-APP-NO-STORE-SQLITE, DEP-MODEL-NO-RENDER, DEP-RENDER-NO-STORE, DEP-STORE-NO-MONEY, EXTERNAL-COMPLETE, EXTERNAL-JSON-STORE, INTERFACE-BOUNDARY, MODEL-TYPES-IN-ENTITIES, ROOT-LAYOUT, STORE-PEERS-ISOLATED, store:STORE-REQUIRES-COMPLETE | closed_world.observed_forbidden, closed_world.observed_forbidden, graph.drift, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated, rule.violated | shop/app/analytics.py, shop/app/maintenance.py, shop/app/orders.py, shop/cli/main.py, shop/extra.py, shop/model/entities.py, shop/model/promotions.py, shop/render/text.py, shop/store/architecture-contract.json, shop/store/repository.py, shop/store/sqlite.py |
@@ -99,6 +107,10 @@ demo-dart`.
 | clean | declarations.modules:present | target-module-present | validate/report run | - | - | architecture-contract.json |
 | clean | declarations.modules:absent | target-module-absent | validate/report run | - | - | architecture-contract.json |
 | clean | target.responsibilities:missing | target-empty-responsibilities | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
+| clean | target.hierarchy:declared | target-hierarchy-positive | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
+| clean | target.hierarchy:ambiguous-root | target-hierarchy-ambiguous | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
+| clean | target.hierarchy:missing-child | target-hierarchy-missing | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
+| clean | target.hierarchy:requirement-cycle | target-hierarchy-cycle | validate/report run | - | - | architecture-contract.json, docs/architecture/shop.md, shop/store/architecture-contract.json |
 | clean | root_layout:clean | class-a-root-layout-clean | validate/report run | - | - | clean sample |
 | clean | root_layout:nested-root | class-a-root-layout-nested-root | validate/report run | - | - | architecture-contract.json |
 | validation | root_layout:invalid-contract | validation-root-layout-invalid-child | validate/report run | - | contract.invalid | architecture-contract.json |
