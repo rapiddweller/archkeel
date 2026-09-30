@@ -377,6 +377,7 @@
               ? String(node.details.find((item) => item.label === "File")?.value || node.label)
               : [...ancestors.map((parent) => parent.label), node.label].join(" / "),
             sentence: String(detail.value ?? ""),
+            missing: detail.missing === true,
           });
         }
       }
@@ -442,11 +443,13 @@
     } else if (matches.length > 1) {
       body.textContent = "No unique declaration match.";
     } else {
-      const sentence = matches[0].details?.find((item) => item.label === "Responsibility")?.value;
-      body.textContent = typeof sentence === "string" && sentence.trim()
-        ? sentence : "No declared responsibility.";
+      const detail = matches[0].details?.find((item) => item.label === "Responsibility");
+      const missing = detail?.missing === true;
+      const sentence = detail?.value;
+      heading.textContent = missing ? "Missing responsibility" : "Declared responsibility";
+      body.textContent = missing ? "No declared responsibility." : String(sentence ?? "");
     }
-    heading.textContent = "Declared responsibility";
+    if (matches.length !== 1) heading.textContent = "Declared responsibility";
     selectedResponsibility.dataset.selected = String(!selectedResponsibility.hidden);
     matchStatus.textContent = selectedSubject && !hasCurrentEntry
       ? "No matching entry in this view; this declaration remains target information."
@@ -458,7 +461,8 @@
     let shown = 0;
     responsibilityList.querySelectorAll("button").forEach((button) => {
       const row = responsibilityRows[Number(button.dataset.responsibilityIndex)];
-      button.hidden = !`${row.kind} ${row.path} ${row.sentence}`.toLocaleLowerCase().includes(query);
+      button.hidden = !`${row.kind} ${row.path} ${row.missing ? "No declared responsibility" : row.sentence}`
+        .toLocaleLowerCase().includes(query);
       if (!button.hidden) shown += 1;
     });
     responsibilityCount.textContent = `${shown} of ${responsibilityRows.length} shown`;
@@ -466,13 +470,15 @@
 
   function renderResponsibilities() {
     if (responsibilityList.childElementCount) return;
+    const declared = responsibilityRows.filter((row) => !row.missing).length;
+    const missing = responsibilityRows.length - declared;
     responsibilities.querySelector(".flow-responsibility-total").textContent =
-      `(${responsibilityRows.length})`;
+      `(${declared} declared · ${missing} missing)`;
     responsibilityList.innerHTML = responsibilityRows.map((row, index) =>
       `<button type="button" data-responsibility-index="${index}">` +
       `<span><small>${esc(row.kind)}</small><strong>${esc(row.name)}</strong>` +
       `<code>${esc(row.path)}</code></span>` +
-      `<span>${esc(row.sentence)}</span></button>`).join("");
+      `<span>${esc(row.missing ? "No declared responsibility" : row.sentence)}</span></button>`).join("");
     filterResponsibilities();
   }
 
@@ -715,7 +721,9 @@
       <h2>${esc(node.label)}</h2>
       ${(node.details || []).length
         ? `<dl class="kv">${node.details.map((item) =>
-          `<dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd>`).join("")}</dl>`
+          `<dt>${esc(item.missing ? "Missing responsibility" : item.label)}</dt>` +
+          `<dd>${esc(item.missing ? "No declared responsibility." : item.value)}</dd>`
+        ).join("")}</dl>`
         : "<p>No additional details recorded.</p>"}${overview}`;
   }
 
@@ -835,10 +843,13 @@
         : allowed
           ? `${allowed} allowed child${allowed === 1 ? "" : "ren"} · Open`
           : children.length ? "Details · Open" : "Declared leaf";
-      const responsibility = targetRecord?.details?.find((detail) =>
-        detail.label === "Responsibility")?.value;
-      if (["component", "module"].includes(type) && responsibility) {
-        const sentence = String(responsibility);
+      const responsibilityDetail = targetRecord?.details?.find((detail) =>
+        detail.label === "Responsibility");
+      const missingResponsibility = responsibilityDetail?.missing === true;
+      const responsibility = responsibilityDetail?.value;
+      if (["component", "module"].includes(type) && (responsibility || missingResponsibility)) {
+        const sentence = missingResponsibility
+          ? "No declared responsibility" : String(responsibility);
         const breakAt = sentence.length > 24 ? sentence.lastIndexOf(" ", 24) : sentence.length;
         const first = sentence.slice(0, breakAt > 0 ? breakAt : 24);
         const rest = sentence.slice(first.length).trimStart();
@@ -857,7 +868,9 @@
         group.appendChild(count);
       }
       const title = el("title");
-      title.textContent = responsibility
+      title.textContent = missingResponsibility
+        ? `${type}: ${node.label} — No declared responsibility`
+        : responsibility
         ? `${type}: ${node.label} — ${responsibility}`
         : `${type}: ${node.label}`;
       group.appendChild(title);

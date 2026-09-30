@@ -850,11 +850,10 @@ def _target_component_details(record: Record, packages: list[str]) -> list[dict[
     details: list[dict[str, object]] = [{"label": "Packages", "value": ", ".join(packages)}]
     responsibilities = record.data.get("responsibilities")
     if isinstance(responsibilities, tuple):
-        details.extend(
-            {"label": "Responsibility", "value": sentence}
-            for sentence in responsibilities
-            if isinstance(sentence, str)
-        )
+        sentences = [sentence for sentence in responsibilities if isinstance(sentence, str)]
+        details.extend({"label": "Responsibility", "value": sentence} for sentence in sentences)
+        if not sentences:
+            details.append({"label": "Responsibility", "value": "", "missing": True})
     return details
 
 
@@ -1676,7 +1675,7 @@ _FLOW_SVG = """
 
 _FLOW_RESPONSIBILITIES = """
 <details class="flow-responsibilities" hidden>
-  <summary>Declared responsibilities
+  <summary>Responsibilities
     <span class="flow-responsibility-total"></span>
   </summary>
   <label for="flow-responsibility-search">Find a component or module</label>

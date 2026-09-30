@@ -11,6 +11,7 @@ from fixtures.demo_catalog_support import (
     FIXTURE_DIR,
     HEADER,
     Variant,
+    contract_component_field_set,
     contract_rule_field,
     contract_with_rule,
 )
@@ -22,6 +23,17 @@ def _module_target_contract(path: str) -> str:
         {"path": path, "responsibility": "Coordinate order workflows."}
     ]
     return json.dumps(contract)
+
+
+def _empty_responsibility_files() -> dict[str, str]:
+    nested = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    next(item for item in nested["components"] if item["id"] == "COMP-STORE-API")[
+        "responsibilities"
+    ] = []
+    return {
+        "architecture-contract.json": contract_component_field_set("app", "responsibilities", []),
+        "shop/store/architecture-contract.json": json.dumps(nested),
+    }
 
 
 VARIANTS: tuple[Variant, ...] = (
@@ -43,6 +55,17 @@ VARIANTS: tuple[Variant, ...] = (
         files={"architecture-contract.json": _module_target_contract("shop/app/missing.py")},
         expected_violations=(),
         expected_codes=(),
+    ),
+    Variant(
+        id="target-empty-responsibilities",
+        section="clean",
+        item="target.responsibilities:missing",
+        summary="Target shows existing root and nested components with no responsibility sentences "
+        "as missing design information while declared rules pass.",
+        files=_empty_responsibility_files(),
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="PASS",
     ),
     Variant(
         id="class-a-root-layout-clean",
