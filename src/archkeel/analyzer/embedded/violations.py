@@ -1168,12 +1168,22 @@ def _symbol_placement_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
-_BROAD_BOUNDARY_TYPES: Final = ("dict", "Dict", "object")
+_BROAD_BOUNDARY_TYPES: Final = ("object",)
 
 
-def _is_broad_boundary_type(annotation: str) -> bool:
-    """Bare broad types; generic mappings are checked with their members."""
-    return annotation in _BROAD_BOUNDARY_TYPES
+def _is_broad_boundary_type(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> bool:
+    """Bare broad builtins only when their module binding is unshadowed."""
+    return (
+        annotation in _BROAD_BOUNDARY_TYPES
+        and not _has_star_import(module, imports_by_binding)
+        and (module, annotation) not in imports_by_binding
+        and (module, annotation) not in classes_by_location
+    )
 
 
 _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
@@ -1321,12 +1331,19 @@ def _proven_mapping_head(
         binding, member = head.value.id, head.attr
     else:
         return False
-    if binding == "dict" and member is None:
+    key = (module, binding)
+    if _has_star_import(module, imports_by_binding):
+        return _Position(undecidable="other")
+    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+        return _Position(undecidable="ambiguous_binding")
+    if (
+        binding == "dict"
+        and member is None
+        and key not in imports_by_binding
+        and key not in classes_by_location
+    ):
         mapping_module, mapping_name = "builtins", "dict"
     else:
-        key = (module, binding)
-        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
-            return _Position(undecidable="ambiguous_binding")
         imported = imports_by_binding.get(key)
         if not isinstance(imported, dict):
             return False
@@ -1582,6 +1599,10 @@ class BindingIndex(dict[tuple[str, str], RecordData | _AmbiguousBinding]):
         self.ownership_contracts: tuple[ArchitectureContract, ...] = ()
 
 
+def _has_star_import(module: str, imports_by_binding: BindingIndex) -> bool:
+    return (module, "*") in imports_by_binding
+
+
 def _binding_is_ambiguous(
     key: tuple[str, str], imports_by_binding: BindingIndex, classes_by_location: BindingIndex
 ) -> bool:
@@ -1705,7 +1726,11 @@ def boundary_type_indexes(
     for item in symbols:
         data = item["data"]
         key = (data["module"], data["name"])
-        if item["kind"] == "function" and (key in classes_by_location or key in imports_by_binding):
+        if item["kind"] == "function" and (
+            key in classes_by_location
+            or key in imports_by_binding
+            or data["name"] in _BUILTIN_NAMES
+        ):
             classes_by_location[key] = _AMBIGUOUS
     ownership_contracts = ((contract,) if contract is not None else ()) + tuple(ancestor_contracts)
     imports_by_binding.ownership_contracts = ownership_contracts
@@ -1852,7 +1877,7 @@ def _boundary_type_verdict(
     )
     if wrapped is not None:
         return wrapped
-    if _is_broad_boundary_type(annotation):
+    if _is_broad_boundary_type(annotation, module, imports_by_binding, classes_by_location):
         return _Position(violation=_BROAD_BOUNDARY_REASON)
     bare_mapping = _bare_mapping_verdict(
         annotation, module, imports_by_binding, classes_by_location
@@ -1991,8 +2016,20 @@ def _type_alias_verdict(
     )
 
 
-def _unresolved_named_verdict(annotation: str, require_static_constant: bool) -> _Position:
-    if annotation in _BUILTIN_NAMES and not require_static_constant:
+def _unresolved_named_verdict(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    require_static_constant: bool,
+) -> _Position:
+    if (
+        annotation in _BUILTIN_NAMES
+        and not _has_star_import(module, imports_by_binding)
+        and (module, annotation) not in imports_by_binding
+        and (module, annotation) not in classes_by_location
+        and not require_static_constant
+    ):
         return _Position()
     if require_static_constant:
         return _Position(undecidable="other")
@@ -2031,7 +2068,13 @@ def _named_type_verdict(
         # not a guess at either candidate (AD-74).
         return _Position(undecidable="ambiguous_binding")
     if resolved is None:
-        return _unresolved_named_verdict(annotation, require_static_constant)
+        return _unresolved_named_verdict(
+            annotation,
+            module,
+            imports_by_binding,
+            classes_by_location,
+            require_static_constant,
+        )
     origin_module, origin_name = resolved
     reached: tuple[tuple[str, str], ...] = (resolved,)
     origin_symbol = classes_by_location.get(resolved)

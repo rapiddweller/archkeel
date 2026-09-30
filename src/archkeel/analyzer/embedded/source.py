@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import sys
 from collections import Counter
 from collections.abc import Iterable, Iterator, Sequence
 from collections.abc import Set as AbstractSet
@@ -22,7 +23,9 @@ FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
 
 def location(node: ast.AST) -> tuple[int, int, int]:
-    if not isinstance(node, ast.stmt | ast.expr | ast.excepthandler | ast.arg | ast.keyword):
+    if not isinstance(
+        node, ast.stmt | ast.expr | ast.excepthandler | ast.arg | ast.keyword | ast.pattern
+    ):
         return 1, 1, 0
     line = max(node.lineno, 1)
     return line, node.end_lineno or line, node.col_offset
@@ -245,6 +248,41 @@ def _module_scope_nodes(module: ast.Module) -> Iterator[ast.AST]:
             pending.extend(reversed([node.key, node.value, *node.generators]))
         else:
             pending.extend(reversed(list(ast.iter_child_nodes(node))))
+
+
+def module_scope_bindings(
+    module: ParsedModule,
+) -> Iterator[tuple[ast.AST, str]]:
+    """Yield names that module-evaluated binding forms may bind."""
+    for node in _module_scope_nodes(module.tree):
+        targets: Iterable[ast.AST] = ()
+        if isinstance(node, ast.Assign | ast.AnnAssign | ast.AugAssign):
+            if isinstance(node, ast.AnnAssign) and node.value is None:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+        elif isinstance(node, ast.NamedExpr):
+            targets = (node.target,)
+        elif isinstance(node, ast.For | ast.AsyncFor):
+            targets = (node.target,)
+        elif isinstance(node, ast.With | ast.AsyncWith):
+            targets = tuple(item.optional_vars for item in node.items if item.optional_vars)
+        elif sys.version_info >= (3, 12) and isinstance(node, ast.TypeAlias):
+            yield node, node.name.id
+        elif (
+            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+            and node not in module.tree.body
+        ):
+            yield node, node.name
+        for target in targets:
+            for child in ast.walk(target):
+                if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
+                    yield node, child.id
+        if isinstance(node, ast.ExceptHandler) and node.name:
+            yield node, node.name
+        elif isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
+            yield node, node.name
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            yield node, node.rest
 
 
 def _excerpt(module: ParsedModule, node: ast.AST) -> str:

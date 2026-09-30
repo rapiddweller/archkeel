@@ -148,6 +148,56 @@ _MAPPING_ALLOWED = Variant(
     expected_codes=(),
 )
 
+_DICT_ALLOWANCE = {
+    "qualified_name": "shop.app.reports.snapshot",
+    "position": "return",
+    "field_path": "",
+    "annotation": "dict[str, str]",
+}
+
+
+def _dict_allowance_contract() -> str:
+    contract = json.loads(
+        contract_component_field_appended("app", "public", "shop.app.reports:snapshot")
+    )
+    rule = next(item for item in contract["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+    rule["allowed_positions"] = [_DICT_ALLOWANCE]
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_BUILTIN_DICT_ALLOWED = Variant(
+    id="class-a-boundary-types-builtin-dict-allowed",
+    section="class_a",
+    item="boundary_types:exact_builtin_dict",
+    summary="One exact allowance accepts the genuine builtin dict[str, str] boundary.",
+    files={
+        "shop/app/reports.py": HEADER + "def snapshot() -> dict[str, str]:\n    return {}\n",
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
+        "architecture-contract.json": _dict_allowance_contract(),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="PASS",
+)
+
+_SHADOWED_DICT_ALLOWED = Variant(
+    id="class-a-boundary-types-shadowed-dict-unknown",
+    section="class_a",
+    item="boundary_types:shadowed_dict_unknown",
+    summary="The same allowance cannot prove a module-local dict; the boundary stays UNKNOWN.",
+    files={
+        "shop/app/reports.py": HEADER
+        + "from __future__ import annotations\n\n\n"
+        + "class dict:\n    pass\n\n\ndef snapshot() -> dict[str, str]:\n    return {}\n",
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
+        "architecture-contract.json": _dict_allowance_contract(),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("boundary_type_limit", "shop.app"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 _BOUNDARY_TYPES_MIXED_EVIDENCE = Variant(
     id="class-a-boundary-types-mixed-evidence",
     section="class_a",
@@ -614,6 +664,8 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES,
     _MAPPING_BROAD,
     _MAPPING_ALLOWED,
+    _BUILTIN_DICT_ALLOWED,
+    _SHADOWED_DICT_ALLOWED,
     _BOUNDARY_TYPES_MIXED_EVIDENCE,
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,
