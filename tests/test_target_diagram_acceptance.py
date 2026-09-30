@@ -16,7 +16,8 @@ from test_architecture_demo import CONFIG, _prepare_repo
 from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.render.html import render_html
+from archkeel.ir.model import EvidenceClass, Record, RecordData
+from archkeel.render.html import _target_diagrams, _target_roots, render_html
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import FIXTURE_DIR
 
@@ -36,6 +37,446 @@ def _component_route(nodes: list[dict[str, Any]], target_id: str, route=()):
         if found is not None:
             return found
     return None
+
+
+def _declaration_record(
+    identifier: str,
+    kind: str,
+    title: str,
+    *,
+    subjects: tuple[str, ...] = (),
+    data: dict[str, Any] | None = None,
+    provenance: tuple[str, ...] = ("architecture-contract.json",),
+) -> Record:
+    return Record(
+        id=identifier,
+        evidence_class=EvidenceClass.DECLARED_RULE,
+        area="components",
+        kind=kind,
+        title=title,
+        subjects=subjects,
+        evidence_ids=(),
+        rule_ids=(),
+        fact_ids=(),
+        provenance=provenance,
+        data=RecordData(
+            tuple(
+                (
+                    key,
+                    tuple(
+                        RecordData(tuple(entry.items())) if isinstance(entry, dict) else entry
+                        for entry in value
+                    )
+                    if key == "requires" and isinstance(value, tuple)
+                    else value,
+                )
+                for key, value in (data or {}).items()
+            )
+        ),
+    )
+
+
+def _declared_diagrams(components: list[Record], layouts: list[Record]) -> dict[str, Any]:
+    roots, _, _, _ = _target_roots((*components, *layouts))
+    return _target_diagrams(roots)
+
+
+def test_target_physical_frames_preserve_semantic_owners() -> None:
+    components = [
+        _declaration_record(
+            "COMP-RUNTIME",
+            "component_responsibility",
+            "runtime",
+            subjects=("repo.engine.runtime",),
+            data={
+                "namespace": "repo.engine.runtime",
+                "requires": ({"component": "domains", "rationale": "Runtime uses domains."},),
+            },
+        ),
+        _declaration_record(
+            "COMP-DOMAINS",
+            "component_responsibility",
+            "domains",
+            subjects=("repo.domains",),
+            data={
+                "namespace": "repo.domains",
+                "requires": ({"component": "io", "rationale": "Domains use IO."},),
+            },
+        ),
+        _declaration_record(
+            "COMP-IO",
+            "component_responsibility",
+            "io",
+            subjects=("repo.engine.io",),
+            data={"namespace": "repo.engine.io", "requires": ()},
+        ),
+    ]
+    layouts = [
+        _declaration_record(
+            "LAYOUT-ROOT",
+            "root_layout",
+            "repo",
+            data={"root": "repo", "allowed_children": ("repo.engine", "repo.domains")},
+        ),
+        _declaration_record(
+            "LAYOUT-ENGINE",
+            "root_layout",
+            "repo.engine",
+            data={
+                "root": "repo.engine",
+                "allowed_children": ("repo.engine.io", "repo.engine.runtime"),
+            },
+        ),
+    ]
+
+    diagrams = _declared_diagrams(components, layouts)
+    graph = diagrams["root"]
+    containers = graph["containers"]
+    ranks = {
+        node["id"]: node["dependency_rank"]
+        for node in graph["nodes"]
+        if node["kind"] == "component"
+    }
+    component_ids = {node["id"] for node in graph["nodes"] if node["kind"] == "component"}
+
+    assert containers["layout:LAYOUT-ENGINE"]["members"] == ["COMP-IO", "COMP-RUNTIME"]
+    assert ranks["COMP-RUNTIME"] < ranks["COMP-DOMAINS"] < ranks["COMP-IO"]
+    assert component_ids == {"COMP-RUNTIME", "COMP-DOMAINS", "COMP-IO"}
+    assert len(component_ids) == sum(node["kind"] == "component" for node in graph["nodes"])
+
+
+def test_target_diagram_projects_declared_placement_and_keeps_inventory_reachable() -> None:
+    components = [
+        _declaration_record(
+            "COMP-EXPLICIT",
+            "component_responsibility",
+            "explicit",
+            subjects=("app.engine.explicit",),
+            data={"namespace": "app.engine.explicit"},
+        ),
+        _declaration_record(
+            "COMP-INFERRED",
+            "component_responsibility",
+            "inferred",
+            subjects=("app.engine.inferred",),
+        ),
+        _declaration_record(
+            "COMP-SAME-FRAME",
+            "component_responsibility",
+            "same frame",
+            subjects=("app.engine.same", "app.engine.same.api"),
+        ),
+        _declaration_record(
+            "COMP-DISTINCT-FRAMES",
+            "component_responsibility",
+            "distinct frames",
+            subjects=("app.engine.explicit", "app.other"),
+        ),
+        _declaration_record(
+            "COMP-AMBIGUOUS",
+            "component_responsibility",
+            "ambiguous",
+            subjects=("app.engine.shared",),
+        ),
+        _declaration_record(
+            "COMP-UNSUPPORTED",
+            "component_responsibility",
+            "unsupported",
+            subjects=("app.engine.*",),
+        ),
+    ]
+    layouts = [
+        _declaration_record(
+            "LAYOUT-ROOT",
+            "root_layout",
+            "app",
+            data={"root": "app", "allowed_children": ("app.engine", "app.other")},
+        ),
+        _declaration_record(
+            "LAYOUT-ENGINE",
+            "root_layout",
+            "app.engine",
+            data={
+                "root": "app.engine",
+                "allowed_children": ("app.engine.shared", "app.engine.*"),
+            },
+        ),
+        _declaration_record(
+            "LAYOUT-ENGINE-ALIAS",
+            "root_layout",
+            "app.engine.shared",
+            data={"root": "app.engine.shared", "allowed_children": ()},
+        ),
+        _declaration_record(
+            "LAYOUT-ENGINE-ALIAS-2",
+            "root_layout",
+            "app.engine.shared",
+            data={"root": "app.engine.shared", "allowed_children": ()},
+        ),
+        _declaration_record(
+            "LAYOUT-OTHER",
+            "root_layout",
+            "app.other",
+            data={"root": "app.other", "allowed_children": ()},
+        ),
+    ]
+
+    diagrams = _declared_diagrams(components, layouts)
+    graph = diagrams["root"]
+    placements = {
+        node["id"]: node["placement"] for node in graph["nodes"] if node["kind"] == "component"
+    }
+
+    assert placements["COMP-EXPLICIT"] == {
+        "status": "declared",
+        "scopes": ["app.engine.explicit"],
+        "container": "layout:LAYOUT-ENGINE",
+    }
+    assert placements["COMP-INFERRED"] == {
+        "status": "inferred",
+        "scopes": ["app.engine.inferred"],
+        "container": "layout:LAYOUT-ENGINE",
+    }
+    assert placements["COMP-SAME-FRAME"] == {
+        "status": "multiple",
+        "scopes": ["app.engine.same", "app.engine.same.api"],
+        "container": "layout:LAYOUT-ENGINE",
+    }
+    assert placements["COMP-DISTINCT-FRAMES"]["status"] == "multiple"
+    assert placements["COMP-DISTINCT-FRAMES"]["container"] is None
+    assert placements["COMP-AMBIGUOUS"]["status"] == "ambiguous"
+    assert placements["COMP-AMBIGUOUS"]["container"] is None
+    assert placements["COMP-UNSUPPORTED"]["status"] == "unmapped"
+    assert placements["COMP-UNSUPPORTED"]["container"] is None
+
+    all_ids = {
+        node["id"] for diagram in [graph, *diagrams["nested"].values()] for node in diagram["nodes"]
+    }
+    assert {"layout:LAYOUT-ROOT", "layout:LAYOUT-ENGINE", "layout:LAYOUT-OTHER"} <= all_ids
+    assert "physical:app.engine.*" in all_ids
+    assert {node["id"] for node in graph["nodes"] if node["kind"] == "component"} == {
+        component.id for component in components
+    }
+
+
+def test_target_dependency_ranks_leave_cycles_and_dependents_unranked() -> None:
+    components = [
+        _declaration_record("A", "component_responsibility", "A", data={"requires": ()}),
+        _declaration_record(
+            "DISCONNECTED", "component_responsibility", "disconnected", data={"requires": ()}
+        ),
+        _declaration_record(
+            "B", "component_responsibility", "B", data={"requires": ({"component": "A"},)}
+        ),
+        _declaration_record(
+            "SELF",
+            "component_responsibility",
+            "self",
+            data={"requires": ({"component": "self"},)},
+        ),
+        _declaration_record(
+            "CYCLE-A",
+            "component_responsibility",
+            "cycle a",
+            data={"requires": ({"component": "cycle b"},)},
+        ),
+        _declaration_record(
+            "CYCLE-B",
+            "component_responsibility",
+            "cycle b",
+            data={"requires": ({"component": "cycle a"},)},
+        ),
+        _declaration_record(
+            "DEPENDENT",
+            "component_responsibility",
+            "dependent",
+            data={"requires": ({"component": "cycle a"},)},
+        ),
+    ]
+
+    graph = _declared_diagrams(components, [])["root"]
+    ranks = {node["id"]: node["dependency_rank"] for node in graph["nodes"]}
+
+    assert ranks["B"] < ranks["A"]
+    assert isinstance(ranks["DISCONNECTED"], int)
+    assert ranks["SELF"] is None
+    assert ranks["CYCLE-A"] is None
+    assert ranks["CYCLE-B"] is None
+    assert ranks["DEPENDENT"] is None
+
+
+def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() -> None:
+    components = [
+        _declaration_record(
+            "COMP-DECLARED",
+            "component_responsibility",
+            "declared",
+            subjects=("app.declared",),
+            data={
+                "namespace": "app.declared",
+                "public": ("app.declared.api",),
+                "requires": (
+                    {
+                        "component": "provider",
+                        "through": ("provider.api",),
+                        "rationale": "Use the provider API.",
+                        "decided_by": "architect",
+                    },
+                ),
+            },
+            provenance=("docs/architecture/declared.md",),
+        ),
+        _declaration_record(
+            "COMP-EMPTY",
+            "component_responsibility",
+            "empty",
+            data={
+                "public": (),
+                "requires": ({"component": "provider", "through": (), "rationale": "Empty path."},),
+            },
+        ),
+        _declaration_record(
+            "COMP-NULL",
+            "component_responsibility",
+            "null",
+            data={
+                "public": None,
+                "requires": (
+                    {"component": "provider", "through": None, "rationale": "Null path."},
+                ),
+            },
+        ),
+        _declaration_record(
+            "COMP-ABSENT",
+            "component_responsibility",
+            "absent",
+            data={"requires": ({"component": "provider", "rationale": "Default path."},)},
+        ),
+    ]
+
+    first = _declared_diagrams(components, [])
+    reordered = _declared_diagrams(
+        [
+            _declaration_record(
+                record.id,
+                record.kind,
+                record.title,
+                subjects=record.subjects,
+                data=dict(reversed(record.data.entries)),
+                provenance=record.provenance,
+            )
+            for record in reversed(components)
+        ],
+        [],
+    )
+    assert first == reordered
+
+    root_nodes = {node["id"]: node for node in first["root"]["nodes"]}
+    declared_details = {
+        detail["label"]: detail["value"] for detail in root_nodes["COMP-DECLARED"]["details"]
+    }
+    assert declared_details["Packages"] == "app.declared"
+    assert declared_details["Public interface"] == "app.declared.api"
+    requirement = next(
+        edge["details"] for edge in first["root"]["edges"] if edge["source"] == "COMP-DECLARED"
+    )
+    assert {detail["label"]: detail["value"] for detail in requirement} == {
+        "Rationale": "Use the provider API.",
+        "Through": "provider.api",
+        "Provenance": "docs/architecture/declared.md",
+        "Decided by": "architect",
+    }
+    requirement_details = {
+        edge["source"]: {detail["label"]: detail["value"] for detail in edge["details"]}
+        for edge in first["root"]["edges"]
+    }
+    for identifier, rationale in (
+        ("COMP-EMPTY", "Empty path."),
+        ("COMP-NULL", "Null path."),
+        ("COMP-ABSENT", "Default path."),
+    ):
+        assert requirement_details[identifier] == {
+            "Rationale": rationale,
+            "Through": "Entire public interface",
+            "Provenance": "architecture-contract.json",
+        }
+    empty_details = {
+        detail["label"]: detail["value"] for detail in root_nodes["COMP-EMPTY"]["details"]
+    }
+    assert empty_details["Public interface"] == "Explicitly empty"
+    null_details = {
+        detail["label"]: detail["value"] for detail in root_nodes["COMP-NULL"]["details"]
+    }
+    absent_details = {
+        detail["label"]: detail["value"] for detail in root_nodes["COMP-ABSENT"]["details"]
+    }
+    assert null_details["Public interface"] == "Not declared"
+    assert absent_details["Public interface"] == "Not declared"
+
+
+def test_target_graph_containers_are_local_and_single_component_frames_fold() -> None:
+    components = [
+        _declaration_record(
+            "ROOT",
+            "component_responsibility",
+            "root",
+            subjects=("app.engine.child",),
+            data={"namespace": "app.engine.child"},
+        ),
+    ]
+    layouts = [
+        _declaration_record(
+            "LAYOUT-ROOT",
+            "root_layout",
+            "app",
+            data={"root": "app", "allowed_children": ("app.engine.child",)},
+        ),
+        _declaration_record(
+            "LAYOUT-CHILD",
+            "root_layout",
+            "app.engine.child",
+            data={"root": "app.engine.child", "allowed_children": ()},
+        ),
+    ]
+
+    diagrams = _declared_diagrams(components, layouts)
+    root_graph = diagrams["root"]
+    child_graph = diagrams["nested"]["ROOT"]
+
+    for graph in (root_graph, child_graph):
+        nodes = {node["id"] for node in graph["nodes"]}
+        containers = graph["containers"]
+        assert all(
+            member in nodes for container in containers.values() for member in container["members"]
+        )
+        assert all(
+            container["parent"] is None or container["parent"] in containers
+            for container in containers.values()
+        )
+        for node in graph["nodes"]:
+            if node["kind"] != "component":
+                continue
+            container = node["placement"]["container"]
+            assert container is None or node["id"] in containers[container]["members"]
+            assert all(
+                node["id"] not in item["members"]
+                for key, item in containers.items()
+                if key != container
+            )
+    assert root_graph["containers"]["layout:LAYOUT-ROOT"]["members"] == ["ROOT"]
+    assert child_graph["containers"]["layout:LAYOUT-ROOT"]["members"] == ["ROOT"]
+    assert "layout:LAYOUT-CHILD" in {
+        node["id"] for node in _walk(_target_roots((*components, *layouts))[0])
+    }
+    root = next(node for node in root_graph["nodes"] if node["id"] == "ROOT")
+    assert root["placement"]["container"] == "layout:LAYOUT-ROOT"
+    assert root["placement"]["folded"] == [
+        {
+            "id": "layout:LAYOUT-CHILD",
+            "scope": "app.engine.child",
+            "details": [{"label": "Allowed children", "value": ""}],
+        }
+    ]
 
 
 def _target_diagram_page(

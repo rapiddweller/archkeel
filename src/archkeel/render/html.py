@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import base64
+import graphlib
 import html
 import json
 import posixpath
@@ -13,6 +14,7 @@ import re
 from dataclasses import replace
 from importlib.resources import files
 from typing import TypeAlias
+from typing import TypedDict as _TypedDict
 
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -57,6 +59,13 @@ from .summary import (
     report_summary,
     report_violates_rules,
 )
+
+
+class _TargetContainer(_TypedDict):
+    id: str
+    parent: str | None
+    members: list[str]
+    scope: str | None
 
 
 def _asset(name: str) -> bytes:
@@ -830,6 +839,7 @@ def _target_layout_node(
         "label": root_name,
         "kind": "root_layout",
         "details": [{"label": "Allowed children", "value": ", ".join(children)}],
+        "_layout_scope": root if isinstance(root, str) else None,
         "children": [
             {
                 "id": f"physical:{name}",
@@ -848,6 +858,24 @@ def _target_layout_node(
 
 def _target_component_details(record: Record, packages: list[str]) -> list[dict[str, object]]:
     details: list[dict[str, object]] = [{"label": "Packages", "value": ", ".join(packages)}]
+    namespace = record.data.get("namespace")
+    if isinstance(namespace, str):
+        details.append({"label": "Declared namespace", "value": namespace})
+    public = record.data.get("public")
+    public_values = (
+        [item for item in public if isinstance(item, str)] if isinstance(public, tuple) else []
+    )
+    details.append(
+        {
+            "label": "Public interface",
+            "value": ", ".join(public_values)
+            if public_values
+            else "Explicitly empty"
+            if isinstance(public, tuple)
+            else "Not declared",
+        }
+    )
+    details.append({"label": "Provenance", "value": ", ".join(record.provenance)})
     responsibilities = record.data.get("responsibilities")
     if isinstance(responsibilities, tuple):
         sentences = [sentence for sentence in responsibilities if isinstance(sentence, str)]
@@ -855,6 +883,32 @@ def _target_component_details(record: Record, packages: list[str]) -> list[dict[
         if not sentences:
             details.append({"label": "Responsibility", "value": "", "missing": True})
     return details
+
+
+def _target_requirement_node(record: Record, entry: dict[str, object]) -> dict[str, object]:
+    through = entry.get("through")
+    through_values = (
+        [item for item in through if isinstance(item, str)] if isinstance(through, tuple) else []
+    )
+    details: list[dict[str, object]] = [
+        {"label": "Rationale", "value": entry.get("rationale") or ""},
+        {
+            "label": "Through",
+            "value": ", ".join(through_values) if through_values else "Entire public interface",
+        },
+        {"label": "Provenance", "value": ", ".join(record.provenance)},
+    ]
+    decided_by = entry.get("decided_by")
+    if isinstance(decided_by, str):
+        details.append({"label": "Decided by", "value": decided_by})
+    component = entry["component"]
+    return {
+        "id": f"requires:{record.id}:{component}",
+        "label": f"requires {component}",
+        "kind": "requires",
+        "details": details,
+        "children": [],
+    }
 
 
 def _target_component_node(
@@ -897,20 +951,7 @@ def _target_component_node(
         for package in packages
     )
     nested.extend(
-        {
-            "id": f"requires:{record.id}:{entry['component']}",
-            "label": f"requires {entry['component']}",
-            "kind": "requires",
-            "details": [
-                {"label": "Rationale", "value": entry.get("rationale") or "Declared dependency"},
-                *(
-                    [{"label": "Decided by", "value": entry["decided_by"]}]
-                    if isinstance(entry.get("decided_by"), str)
-                    else []
-                ),
-            ],
-            "children": [],
-        }
+        _target_requirement_node(record, entry)
         for entry in _flow_requires(record)
         if isinstance(entry.get("component"), str)
     )
@@ -919,6 +960,8 @@ def _target_component_node(
         "label": record.title,
         "kind": "component",
         "details": details,
+        "_placement_scopes": packages,
+        "_placement_namespace": record.data.get("namespace"),
         "children": nested,
     }
 
@@ -1300,7 +1343,11 @@ def _target_projection(
 
 
 def _graph_node(node: dict[str, object]) -> dict[str, object]:
-    return {key: node[key] for key in ("id", "label", "kind", "details")}
+    result = {key: node[key] for key in ("id", "label", "kind", "details")}
+    if node["kind"] == "component":
+        result["placement"] = node["placement"]
+        result["dependency_rank"] = node.get("dependency_rank")
+    return result
 
 
 def _target_children(node: dict[str, object]) -> list[dict[str, object]]:
@@ -1413,13 +1460,254 @@ def _root_target_graph(target_roots: list[dict[str, object]]) -> dict[str, objec
     return {"owner": None, "nodes": root_nodes, "edges": root_edges}
 
 
+def _target_containers(
+    target_roots: list[dict[str, object]],
+) -> tuple[dict[str, _TargetContainer], dict[str, str | None], dict[str, list[dict[str, object]]]]:
+    containers: dict[str, _TargetContainer] = {}
+    scopes: dict[str, str | None] = {}
+    details: dict[str, list[dict[str, object]]] = {}
+    pending: list[tuple[dict[str, object], str | None]] = [
+        (node, None) for node in reversed(target_roots)
+    ]
+    while pending:
+        node, parent = pending.pop()
+        current_parent = parent
+        if node["kind"] == "root_layout":
+            identifier = str(node["id"])
+            scope = node.get("_layout_scope")
+            scope = scope if isinstance(scope, str) else None
+            containers[identifier] = {
+                "id": identifier,
+                "parent": parent,
+                "members": [],
+                "scope": scope,
+            }
+            scopes[identifier] = scope
+            node_details = node["details"]
+            details[identifier] = node_details if isinstance(node_details, list) else []
+            current_parent = identifier
+        pending.extend((child, current_parent) for child in reversed(_target_children(node)))
+    return dict(sorted(containers.items())), scopes, details
+
+
+def _target_folded_containers(
+    components: list[dict[str, object]],
+    containers: dict[str, _TargetContainer],
+) -> set[str]:
+    placed: dict[str, tuple[str, ...]] = {identifier: () for identifier in containers}
+    component_scopes: dict[str, list[str]] = {}
+    for component in components:
+        placement = component.get("placement")
+        if isinstance(placement, dict) and isinstance(container := placement.get("container"), str):
+            identifier = str(component["id"])
+            placed[container] = (*placed[container], identifier)
+            scopes = placement.get("scopes")
+            component_scopes[identifier] = scopes if isinstance(scopes, list) else []
+    return {
+        identifier
+        for identifier, members in placed.items()
+        if len(members) == 1
+        and containers[identifier]["scope"] is not None
+        and component_scopes[members[0]] == [containers[identifier]["scope"]]
+    }
+
+
+def _target_component_placement(
+    component: dict[str, object],
+    folded: set[str],
+    containers: dict[str, _TargetContainer],
+    container_details: dict[str, list[dict[str, object]]],
+) -> None:
+    placement = component.get("placement")
+    if not isinstance(placement, dict):
+        return
+    current = placement.get("container")
+    folded_details: list[dict[str, object]] = []
+    while isinstance(current, str) and current in folded:
+        container = containers[current]
+        folded_details.append(
+            {"id": current, "scope": container["scope"], "details": container_details[current]}
+        )
+        current = container["parent"]
+    placement["container"] = current if isinstance(current, str) else None
+    if folded_details:
+        placement["folded"] = folded_details
+
+
+def _target_graph_containers(
+    containers: dict[str, _TargetContainer],
+    folded: set[str],
+    nodes: list[dict[str, object]],
+) -> dict[str, _TargetContainer]:
+    result: dict[str, _TargetContainer] = {}
+    for identifier, container in containers.items():
+        if identifier in folded:
+            continue
+        parent = container["parent"]
+        while parent in folded:
+            parent = containers[parent]["parent"]
+        result[identifier] = {
+            **container,
+            "parent": parent,
+            "members": sorted(
+                str(node["id"])
+                for node in nodes
+                if node["kind"] == "component"
+                and isinstance((placement := node.get("placement")), dict)
+                and placement.get("container") == identifier
+            ),
+        }
+    return result
+
+
+def _target_placement(
+    node: dict[str, object],
+    layout_scopes: dict[str, str | None],
+    layout_parents: dict[str, str | None],
+) -> dict[str, object]:
+    packages = node.get("_placement_scopes")
+    scopes = sorted(packages) if isinstance(packages, list) else []
+    namespace = node.get("_placement_namespace")
+    declared = isinstance(namespace, str)
+    if declared:
+        scopes = [namespace]
+    if not scopes:
+        return {"status": "unmapped", "scopes": [], "container": None}
+
+    resolved: list[str | None] = []
+    for scope in scopes:
+        if (
+            not isinstance(scope, str)
+            or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*", scope) is None
+        ):
+            return {"status": "unmapped", "scopes": scopes, "container": None}
+        matches = [
+            identifier
+            for identifier, declared_scope in layout_scopes.items()
+            if isinstance(declared_scope, str) and (in_scope(scope, declared_scope))
+        ]
+        if not matches:
+            resolved.append(None)
+            continue
+        deepest_matches = [
+            candidate
+            for candidate in matches
+            if all(
+                other == candidate or _is_layout_ancestor(other, candidate, layout_parents)
+                for other in matches
+            )
+        ]
+        if len(deepest_matches) != 1:
+            return {"status": "ambiguous", "scopes": scopes, "container": None}
+        resolved.append(deepest_matches[0])
+
+    containers = set(resolved)
+    if None in containers or len(containers) != 1:
+        return {
+            "status": "multiple" if len(scopes) > 1 else "unmapped",
+            "scopes": scopes,
+            "container": None,
+        }
+    return {
+        "status": "multiple" if len(scopes) > 1 else "declared" if declared else "inferred",
+        "scopes": sorted(scopes),
+        "container": next(iter(containers)),
+    }
+
+
+def _is_layout_ancestor(
+    ancestor: str, descendant: str, layout_parents: dict[str, str | None]
+) -> bool:
+    parent = layout_parents.get(descendant)
+    while parent is not None:
+        if parent == ancestor:
+            return True
+        parent = layout_parents.get(parent)
+    return False
+
+
+def _target_dependency_ranks(
+    graphs: list[dict[str, object]], component_ids: set[str]
+) -> dict[str, int | None]:
+    prerequisites: dict[str, tuple[str, ...]] = {identifier: () for identifier in component_ids}
+    for graph in graphs:
+        edges = graph.get("edges")
+        if not isinstance(edges, list):
+            continue
+        for edge in edges:
+            if not isinstance(edge, dict) or edge.get("kind") != "requires":
+                continue
+            source, target = edge.get("source"), edge.get("target")
+            if isinstance(source, str) and isinstance(target, str):
+                if source in component_ids and target in component_ids:
+                    prerequisites[source] = tuple(sorted((*prerequisites[source], target)))
+
+    sorter = graphlib.TopologicalSorter(
+        {identifier: tuple(sorted(required)) for identifier, required in prerequisites.items()}
+    )
+    try:
+        sorter.prepare()
+    except graphlib.CycleError:
+        pass
+    depths: dict[str, int] = {}
+    ready = sorter.get_ready()
+    while ready:
+        batch = tuple(sorted(ready))
+        for identifier in batch:
+            required = prerequisites[identifier]
+            depths[identifier] = 1 + max((depths[item] for item in required), default=-1)
+        sorter.done(*batch)
+        ready = sorter.get_ready()
+    max_depth = max(depths.values(), default=0)
+    return {
+        identifier: max_depth - depth if (depth := depths.get(identifier)) is not None else None
+        for identifier in component_ids
+    }
+
+
 def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]:
-    nested = {
+    components = [node for node in _target_tree(target_roots) if node["kind"] == "component"]
+    containers, layout_scopes, container_details = _target_containers(target_roots)
+    layout_parents = {
+        identifier: container["parent"] for identifier, container in containers.items()
+    }
+    for component in components:
+        component["placement"] = _target_placement(component, layout_scopes, layout_parents)
+    folded = _target_folded_containers(components, containers)
+    for component in components:
+        _target_component_placement(component, folded, containers, container_details)
+    raw_nested = {
         str(node["id"]): graph
         for node in _target_tree(target_roots)
         if (graph := _target_nested_graph(node)) is not None
     }
-    return {"root": _root_target_graph(target_roots), "nested": nested}
+    root = _root_target_graph(target_roots)
+    graphs: list[dict[str, object]] = [root, *raw_nested.values()]
+    component_ids = {str(node["id"]) for node in components}
+    ranks = _target_dependency_ranks(graphs, component_ids)
+    for graph in graphs:
+        nodes = graph.get("nodes")
+        edges = graph.get("edges")
+        if not isinstance(nodes, list) or not isinstance(edges, list):
+            continue
+        for node in nodes:
+            if isinstance(node, dict) and node.get("kind") == "component":
+                node["dependency_rank"] = ranks[str(node["id"])]
+        graph["nodes"] = sorted(nodes, key=lambda node: str(node["id"]))
+        graph["edges"] = sorted(
+            edges,
+            key=lambda edge: (
+                str(edge["source"]),
+                str(edge["target"]),
+                str(edge["kind"]),
+                str(edge.get("declaration", "")),
+            ),
+        )
+        graph["containers"] = _target_graph_containers(containers, folded, nodes)
+    return {
+        "root": root,
+        "nested": {key: raw_nested[key] for key in sorted(raw_nested)},
+    }
 
 
 def _explorer_violation_rows(observation: Observation) -> list[dict[str, object]]:
