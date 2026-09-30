@@ -402,15 +402,32 @@ analyzer digest make the result deterministic. Adding a `snapshot(context: dict)
 declared in `shop.app`'s own `public` list, which `APP-TYPES-NOT-DICT` scopes to `shop.app`, is an
 example violation, and so is `summarize_all(extras: list[Extra]) -> Money`, where wrapping the
 undeclared `Extra` in a list is no longer a way out of the same finding (AD-67).
+Proven standard-library `Mapping[K, V]` and `MutableMapping[K, V]`, and a bare `Mapping` or
+`MutableMapping`, are also broad map findings: changing `dict` to an abstract mapping does not
+declare a record shape (AD-123). Their member types are still checked. Unproven or malformed
+subscripted mapping annotations remain UNKNOWN, not a clean pass; a bare name the analyzer
+cannot prove to be a standard-library mapping (`from mylib import Mapping`) is judged like any
+other external type.
+An undecidable mapping member retains UNKNOWN alongside the known broad-map violation.
+Mixed union or DTO findings likewise retain both known violations and UNKNOWNs.
 
-`allowed_positions` may exempt one nested DTO finding by exact `qualified_name`, `position`,
-`field_path` and `annotation`. `field_path` is relative to the parameter or `return`; the
-outer signature annotation stays in the violation record. The allowance applies only when
-`data.path` and `nested_annotation` both match. A mismatch leaves the violation intact, and a
+`allowed_positions` may exempt one finding by exact `qualified_name`, `position`,
+`field_path` and `annotation`. An empty `field_path` selects the parameter or return itself;
+its `annotation` must match the complete signature annotation. A nonempty `field_path`
+names a nested field relative to that position and matches the offending leaf type.
+Neither selector hides an unresolved union or mapping member.
+A root allowance applies only when the signature has one top-level broad-type
+finding; it never covers a nested map or an undeclared member. Multiple
+top-level broad findings leave the allowance unused. A root `annotation` cannot be a bare
+`Dict`, `object`, `Mapping` or `MutableMapping`; the contract is rejected (AD-95). The analyzer
+also applies a root allowance only to a parameterized mapping finding, so other spellings of a
+bare broad type (`typing.Mapping`, an alias) never match.
+A mismatch leaves the violation intact, and a
 bare `dict` cannot match an allowance for `dict[str, JsonValue]`. Applied entries produce a
 `FACT` in `typing_signals` linked to the rule and function evidence; an unused entry emits no
 fact and has no effect. Adding an entry widens the contract and needs an amendment under
 `validate --against`; removing one narrows it (AD-95).
+An allowance removes only its matching violation; member findings and UNKNOWNs remain visible.
 
 ### Known violations of a target contract
 

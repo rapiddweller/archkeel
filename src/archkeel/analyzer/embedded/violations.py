@@ -1172,13 +1172,8 @@ _BROAD_BOUNDARY_TYPES: Final = ("dict", "Dict", "object")
 
 
 def _is_broad_boundary_type(annotation: str) -> bool:
-    """A bare `dict`/`Dict`/`object`, or a `dict[...]`/`Dict[...]` generic (AD-58).
-
-    Restricted to what the annotation string alone decides: a generic other than `dict`, a
-    dotted name, a forward-reference string and a missing annotation all stay silent rather
-    than guess. A bare named type is decided separately, by `resolve_named_type` (AD-63).
-    """
-    return annotation in _BROAD_BOUNDARY_TYPES or annotation.startswith(("dict[", "Dict["))
+    """Bare broad types; generic mappings are checked with their members."""
+    return annotation in _BROAD_BOUNDARY_TYPES
 
 
 _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
@@ -1188,6 +1183,7 @@ _EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
 # from the running interpreter rather than a list kept here, the way `resolve.py` and `calls.py`
 # already answer the same question, so one repository holds one answer to what a builtin is.
 _BUILTIN_NAMES: Final = frozenset(dir(builtins))
+_BROAD_BOUNDARY_REASON: Final = "instead of a typed model"
 
 # Why a position stayed undecided, in the order the limit record reports them (AD-67).
 # `ambiguous_binding` (AD-74) sits next to `unresolved_name`: both are bare names that failed
@@ -1234,12 +1230,12 @@ class _Position(NamedTuple):
     resolved: tuple[tuple[str, str], ...] = ()
     path: tuple[str, ...] = ()
     nested_annotation: str | None = None
-    violations: tuple[tuple[str, tuple[str, ...], str | None], ...] = ()
+    violations: tuple[tuple[str, tuple[str, ...], str | None, int], ...] = ()
 
 
 # A container whose declared element type is the whole of what actually crosses the boundary
 # (AD-67). `dict`/`Dict` are absent because AD-58 already reports a `dict[...]` as broad, and
-# `Mapping` because whether a mapping is that same broad container is a reading AD-67 leaves open.
+# mappings are broad records, not a way to bypass the dict rule with an abstract annotation.
 _COLLECTION_CONTAINERS: Final = frozenset(
     {
         "list",
@@ -1296,39 +1292,104 @@ def _typing_module_binding(module: str, binding: str, imports_by_binding: Bindin
     )
 
 
-def _typing_dict_verdict(
+_PROVEN_MAPPINGS: Final = frozenset(
+    {
+        ("builtins", "dict"),
+        ("typing", "Dict"),
+        ("typing", "Mapping"),
+        ("typing", "MutableMapping"),
+        ("collections.abc", "Mapping"),
+        ("collections.abc", "MutableMapping"),
+    }
+)
+
+
+def _proven_mapping_head(
+    head: ast.expr,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> _Position | bool:
+    """Whether `head` is a mapping its imports prove, or why that stays undecidable (AD-123).
+
+    The one proof for a subscripted mapping and for a bare one, so `Mapping[str, str]` and
+    `Mapping` cannot be read differently. False leaves the head to the caller's own reading.
+    """
+    if isinstance(head, ast.Name):
+        binding, member = head.id, None
+    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
+        binding, member = head.value.id, head.attr
+    else:
+        return False
+    if binding == "dict" and member is None:
+        mapping_module, mapping_name = "builtins", "dict"
+    else:
+        key = (module, binding)
+        if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
+            return _Position(undecidable="ambiguous_binding")
+        imported = imports_by_binding.get(key)
+        if not isinstance(imported, dict):
+            return False
+        target, symbol = imported["target_module"], imported["symbol"]
+        if member is None:
+            mapping_module, mapping_name = target, symbol
+        else:
+            # Import records cannot distinguish a dotted module from an alias to its root.
+            if symbol is None and target == "collections.abc" and binding == "collections":
+                return _Position(undecidable="dotted_name")
+            mapping_module = f"{target}.{symbol}" if symbol else target
+            mapping_name = member
+    if (mapping_module, mapping_name) not in _PROVEN_MAPPINGS:
+        return False
+    if (mapping_module, mapping_name) in classes_by_location:
+        return _Position(undecidable="ambiguous_binding")
+    return True
+
+
+def _mapping_parameters(
     annotation: str,
     module: str,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
-) -> _Position | None:
+) -> list[str] | _Position | None:
     try:
         expression = ast.parse(annotation, mode="eval").body
     except SyntaxError:
         return None
     if not isinstance(expression, ast.Subscript):
         return None
-    head = expression.value
-    if isinstance(head, ast.Name):
-        key = (module, head.id)
-        imported = imports_by_binding.get(key)
-        if (
-            not isinstance(imported, dict)
-            or imported["target_module"] != "typing"
-            or imported["symbol"] != "Dict"
-        ):
-            return None
-    elif (
-        isinstance(head, ast.Attribute) and head.attr == "Dict" and isinstance(head.value, ast.Name)
-    ):
-        key = (module, head.value.id)
-        if not _typing_module_binding(module, head.value.id, imports_by_binding):
-            return None
-    else:
+    proven = _proven_mapping_head(expression.value, module, imports_by_binding, classes_by_location)
+    if isinstance(proven, _Position):
+        return proven
+    if not proven:
         return None
-    if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
-        return _Position(undecidable="ambiguous_binding")
-    return _Position(violation="instead of a typed model")
+    if not isinstance(expression.slice, ast.Tuple) or len(expression.slice.elts) != 2:
+        return _Position(undecidable="generic")
+    if any(
+        isinstance(arg, ast.Starred) or (isinstance(arg, ast.Constant) and arg.value is Ellipsis)
+        for arg in expression.slice.elts
+    ):
+        return _Position(undecidable="generic")
+    return [ast.unparse(arg) for arg in expression.slice.elts]
+
+
+def _bare_mapping_verdict(
+    annotation: str,
+    module: str,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> _Position | None:
+    """An unsubscripted proven mapping is as broad as a subscripted one (AD-123)."""
+    try:
+        expression = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(expression, (ast.Name, ast.Attribute)):
+        return None
+    proven = _proven_mapping_head(expression, module, imports_by_binding, classes_by_location)
+    if isinstance(proven, _Position):
+        return proven
+    return _Position(violation=_BROAD_BOUNDARY_REASON) if proven else None
 
 
 def _typing_wrapper_inner(
@@ -1627,6 +1688,12 @@ def boundary_type_indexes(
         )
         for data in (item["data"] for item in imports)
     )
+    uncertain_origins = uncertain_reexport_origins or {}
+    for item in imports:
+        data = item["data"]
+        key = (data["source_module"], data["binding"])
+        if key in imports_by_binding and f"{key[0]}.{key[1]}" in uncertain_origins:
+            imports_by_binding[key] = _AMBIGUOUS
     classes_by_location = _binding_index(
         (data["module"], data["name"], item["id"], data)
         for item in symbols
@@ -1785,11 +1852,13 @@ def _boundary_type_verdict(
     )
     if wrapped is not None:
         return wrapped
-    typing_dict = _typing_dict_verdict(annotation, module, imports_by_binding, classes_by_location)
-    if typing_dict is not None:
-        return typing_dict
     if _is_broad_boundary_type(annotation):
-        return _Position(violation="instead of a typed model")
+        return _Position(violation=_BROAD_BOUNDARY_REASON)
+    bare_mapping = _bare_mapping_verdict(
+        annotation, module, imports_by_binding, classes_by_location
+    )
+    if bare_mapping is not None:
+        return bare_mapping
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
     if not annotation.isidentifier():
@@ -2063,23 +2132,14 @@ def _owned_type_verdict(
             _aliases_seen=aliases_seen,
         )
         reached = tuple(sorted({*reached, *fields.resolved}))
-        if fields.violation is not None:
-            return _Position(
-                violation=fields.violation,
-                resolved=reached,
-                path=fields.path,
-                nested_annotation=fields.nested_annotation,
-                violations=fields.violations,
-            )
-        if fields.undecidable is not None:
-            return _Position(
-                undecidable=fields.undecidable,
-                resolved=reached,
-                path=fields.path,
-                nested_annotation=fields.nested_annotation,
-                violations=fields.violations,
-            )
-        return _Position(resolved=reached)
+        return _Position(
+            violation=fields.violation,
+            undecidable=fields.undecidable,
+            resolved=reached,
+            path=fields.path,
+            nested_annotation=fields.nested_annotation,
+            violations=fields.violations,
+        )
     if class_kind in _EXEMPT_CLASS_KINDS:
         return _Position(resolved=reached)
     return _Position(violation=f"which {origin_component.label} does not declare", resolved=reached)
@@ -2099,6 +2159,36 @@ def _annotation_shape_verdict(
     _aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     """Resolve standard unions and collections recursively; leave other shapes UNKNOWN."""
+    mapping = _mapping_parameters(annotation, module, imports_by_binding, classes_by_location)
+    if isinstance(mapping, _Position):
+        return mapping
+    if mapping is not None:
+        contents = _combined_annotation_verdict(
+            mapping,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            visited=visited,
+            enter_fields=enter_fields,
+            _aliases_seen=_aliases_seen,
+        )
+        reason = _BROAD_BOUNDARY_REASON
+        return _Position(
+            violation=reason,
+            undecidable=contents.undecidable,
+            resolved=contents.resolved,
+            path=contents.path,
+            nested_annotation=contents.nested_annotation,
+            violations=(
+                (reason, (), annotation, 0),
+                *(
+                    (name, path, nested, depth + 1)
+                    for name, path, nested, depth in contents.violations
+                ),
+            ),
+        )
     union = _union_parameters(annotation, module, imports_by_binding)
     if union is not None:
         return _combined_annotation_verdict(
@@ -2167,7 +2257,7 @@ def _declared_field_verdict(
     reached: tuple[tuple[str, str], ...] = tuple(
         sorted({pair for _, _, verdict in field_verdicts for pair in verdict.resolved})
     )
-    violations: list[tuple[str, tuple[str, ...], str | None]] = []
+    violations: list[tuple[str, tuple[str, ...], str | None, int]] = []
     for field_name, field_annotation, verdict in field_verdicts:
         if verdict.violations:
             violations.extend(
@@ -2175,8 +2265,9 @@ def _declared_field_verdict(
                     reason,
                     (field_name, *path),
                     nested_annotation or field_annotation,
+                    depth,
                 )
-                for reason, path, nested_annotation in verdict.violations
+                for reason, path, nested_annotation, depth in verdict.violations
             )
         elif verdict.violation is not None:
             violations.append(
@@ -2184,10 +2275,21 @@ def _declared_field_verdict(
                     verdict.violation,
                     (field_name, *verdict.path),
                     verdict.nested_annotation or field_annotation,
+                    0,
                 )
             )
+    for field_name, field_annotation, verdict in field_verdicts:
+        if verdict.undecidable is not None:
+            return _Position(
+                violation=violations[0][0] if violations else None,
+                undecidable=verdict.undecidable,
+                resolved=reached,
+                path=(field_name, *verdict.path),
+                nested_annotation=verdict.nested_annotation or field_annotation,
+                violations=tuple(violations),
+            )
     if violations:
-        reason, path, nested_annotation = violations[0]
+        reason, path, nested_annotation, _ = violations[0]
         return _Position(
             violation=reason,
             resolved=reached,
@@ -2195,14 +2297,6 @@ def _declared_field_verdict(
             nested_annotation=nested_annotation,
             violations=tuple(violations),
         )
-    for field_name, field_annotation, verdict in field_verdicts:
-        if verdict.undecidable is not None:
-            return _Position(
-                undecidable=verdict.undecidable,
-                resolved=reached,
-                path=(field_name, *verdict.path),
-                nested_annotation=verdict.nested_annotation or field_annotation,
-            )
     return _Position(resolved=reached)
 
 
@@ -2228,16 +2322,13 @@ def _collection_verdict(
     general descent into name resolution: a nested subscript, a dotted name, a forward
     reference and a type no component owns stay undecidable, and now say so.
 
-    A collection is only as decided as its parameters: any one of them violating makes the
-    position a violation, and otherwise any one of them undecidable makes the position
-    undecidable. `resolved` is the union of every parameter's own resolution regardless of
-    that verdict, so a type past the first violating parameter is still one `facade_types`
-    (AD-65) has to know about.
+    Member violations and UNKNOWNs both survive, so an exact allowance cannot hide uncertainty.
+    `resolved` includes every parameter's named types for `facade_types` (AD-65).
     """
     parameters = _collection_parameters(annotation, module, imports_by_binding)
     if parameters is None:
         return None
-    return _combined_annotation_verdict(
+    verdict = _combined_annotation_verdict(
         parameters,
         module,
         contract,
@@ -2247,6 +2338,16 @@ def _collection_verdict(
         visited=visited,
         enter_fields=enter_fields,
         _aliases_seen=_aliases_seen,
+    )
+    return _Position(
+        violation=verdict.violation,
+        undecidable=verdict.undecidable,
+        resolved=verdict.resolved,
+        path=verdict.path,
+        nested_annotation=verdict.nested_annotation,
+        violations=tuple(
+            (reason, path, nested, depth + 1) for reason, path, nested, depth in verdict.violations
+        ),
     )
 
 
@@ -2300,15 +2401,26 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
                             f"holding {parameter} {verdict.violation}",
                             verdict.path,
                             verdict.nested_annotation or parameter,
+                            0,
                         ),
                     )
                 )
             },
-            key=lambda item: (item[0], item[1], item[2] or ""),
+            key=lambda item: (item[0], item[1], item[2] or "", item[3]),
         )
     )
+    for _parameter, verdict in decided:
+        if verdict.undecidable is not None:
+            return _Position(
+                violation=violations[0][0] if violations else None,
+                undecidable=verdict.undecidable,
+                resolved=reached,
+                path=verdict.path,
+                nested_annotation=verdict.nested_annotation,
+                violations=violations,
+            )
     if violations:
-        reason, path, nested_annotation = violations[0]
+        reason, path, nested_annotation, _ = violations[0]
         return _Position(
             violation=reason,
             resolved=reached,
@@ -2316,15 +2428,6 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
             nested_annotation=nested_annotation,
             violations=violations,
         )
-    for _parameter, verdict in decided:
-        if verdict.undecidable is not None:
-            return _Position(
-                undecidable=verdict.undecidable,
-                resolved=reached,
-                path=verdict.path,
-                nested_annotation=verdict.nested_annotation,
-                violations=verdict.violations,
-            )
     return _Position(resolved=reached)
 
 
@@ -2898,20 +3001,18 @@ def _inherited_generic_facade_types(
         or any(argument is not True for argument in bare_arguments)
     ):
         return [], [], []
-    resolved_base = _boundary_type_verdict(
+    resolved_base = resolve_named_type(
         base_name,
         data["module"],
-        contract,
-        exports_by_module,
         imports_by_binding,
         classes_by_location,
     )
-    if len(resolved_base.resolved) != 1 or resolved_base.undecidable is not None:
+    if not isinstance(resolved_base, tuple):
         return [], [], []
-    base_module, base_class = resolved_base.resolved[0]
+    base_module, base_class = resolved_base
     base_qualified_name = f"{base_module}.{base_class}"
     base_symbol = classes_by_qualified_name.get(base_qualified_name)
-    if base_symbol is None:
+    if base_symbol is None or base_symbol["kind"] != "class":
         return [], [], []
     base_data = base_symbol["data"]
     parameters = base_data["generic_parameters"] if "generic_parameters" in base_data else None
@@ -2931,17 +3032,15 @@ def _inherited_generic_facade_types(
 
     substitutions: list[tuple[str, tuple[str, str]]] = []
     for parameter, argument in zip(parameters, arguments, strict=True):
-        resolved_argument = _boundary_type_verdict(
+        resolved_argument = resolve_named_type(
             argument,
             data["module"],
-            contract,
-            exports_by_module,
             imports_by_binding,
             classes_by_location,
         )
-        if len(resolved_argument.resolved) != 1 or resolved_argument.undecidable is not None:
+        if not isinstance(resolved_argument, tuple):
             return [], [], []
-        resolved_origin = resolved_argument.resolved[0]
+        resolved_origin = resolved_argument
         argument_symbol = classes_by_location.get(resolved_origin)
         if (
             not isinstance(argument_symbol, dict)
@@ -3119,19 +3218,39 @@ def _inherited_generic_candidate_types(
     return sorted(candidates)
 
 
+def _root_broad_count(records: Sequence[RawRecord]) -> int:
+    return sum(
+        record["data"]["reason"] == _BROAD_BOUNDARY_REASON
+        and "container_depth" not in record["data"]
+        for record in records
+    )
+
+
 def _boundary_type_allowance_fact(
-    rule: BoundaryTypesRule, facade_module: str, record: RawRecord
+    rule: BoundaryTypesRule, facade_module: str, record: RawRecord, root_broad_count: int
 ) -> RawRecord | None:
     data = record["data"]
     path = data["path"] if "path" in data else None
-    nested_annotation = data["nested_annotation"] if "nested_annotation" in data else None
     for allowance in rule.allowed_positions:
+        expected_path = (
+            f"{allowance.position}.{allowance.field_path}" if allowance.field_path else None
+        )
+        annotation = data.get("nested_annotation") if allowance.field_path else data["annotation"]
+        # Only a parameterized mapping records its `nested_annotation`; a bare broad type, however
+        # spelled (`typing.Mapping`, an alias), records none and no root allowance may exempt it.
+        root_unmatched = not allowance.field_path and (
+            data["reason"] != _BROAD_BOUNDARY_REASON
+            or "nested_annotation" not in data
+            or data.get("container_depth", 0) > 0
+            or root_broad_count != 1
+        )
         if (
             allowance.annotation == "dict"
+            or root_unmatched
             or data["qualified_name"] != allowance.qualified_name
             or data["position"] != allowance.position
-            or path != f"{allowance.position}.{allowance.field_path}"
-            or nested_annotation != allowance.annotation
+            or path != expected_path
+            or annotation != allowance.annotation
         ):
             continue
         return classified(
@@ -3147,7 +3266,10 @@ def _boundary_type_allowance_fact(
             evidence_class=EvidenceClass.FACT,
             area="type_architecture",
             kind="boundary_type_allowance",
-            title=(f"{allowance.qualified_name} has an exact nested boundary type allowance"),
+            title=(
+                f"{allowance.qualified_name} has an exact "
+                f"{'nested ' if allowance.field_path else ''}boundary type allowance"
+            ),
             subjects=[allowance.qualified_name, facade_module],
             evidence_ids=record["evidence_ids"],
             rule_ids=[rule.id],
@@ -3240,8 +3362,11 @@ def _boundary_types_violations(
                     annotation,
                     verdict,
                 )
+                root_broad_count = _root_broad_count(records)
                 for record in records:
-                    fact = _boundary_type_allowance_fact(rule, facade_module, record)
+                    fact = _boundary_type_allowance_fact(
+                        rule, facade_module, record, root_broad_count
+                    )
                     if fact is None:
                         violations.append(record)
                     else:
@@ -3269,8 +3394,11 @@ def _boundary_types_violations(
                         verdict,
                         identity_suffix=method_id,
                     )
+                    root_broad_count = _root_broad_count(records)
                     for record in records:
-                        fact = _boundary_type_allowance_fact(rule, facade_module, record)
+                        fact = _boundary_type_allowance_fact(
+                            rule, facade_module, record, root_broad_count
+                        )
                         if fact is None:
                             violations.append(record)
                         else:
@@ -3319,11 +3447,13 @@ def _boundary_type_violation_records(
         return []
     verb = "returns" if position == "return" else f"takes {position} as"
     findings = sorted(
-        set(verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation),)),
-        key=lambda finding: (finding[0], finding[1], finding[2] or ""),
+        set(
+            verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation, 0),)
+        ),
+        key=lambda finding: (finding[0], finding[1], finding[2] or "", finding[3]),
     )
     records: list[RawRecord] = []
-    for reason, path, nested_annotation in findings:
+    for reason, path, nested_annotation, depth in findings:
         path_data = ".".join((position, *path)) if path else None
         if path:
             identity_parts = (rule.id, item["id"], position, *path, nested_annotation or "", reason)
@@ -3337,6 +3467,9 @@ def _boundary_type_violation_records(
             identity_parts = (rule.id, item["id"], position)
             if identity_suffix:
                 identity_parts += (identity_suffix,)
+        # Depth only separates findings that are otherwise identical; a lone one keeps its id.
+        if depth and len(findings) > 1:
+            identity_parts += (str(depth),)
         nested_fields = " ".join(f"field {name}" for name in path)
         field_detail = f"{nested_fields} " if nested_fields else ""
         records.append(
@@ -3356,12 +3489,10 @@ def _boundary_type_violation_records(
                     "module": facade_module,
                     "position": position,
                     "annotation": annotation,
+                    "reason": reason,
+                    **({"container_depth": depth} if depth else {}),
                     **({"path": path_data} if path_data else {}),
-                    **(
-                        {"nested_annotation": nested_annotation}
-                        if path_data and nested_annotation
-                        else {}
-                    ),
+                    **({"nested_annotation": nested_annotation} if nested_annotation else {}),
                 },
             )
         )
@@ -3583,6 +3714,19 @@ def _public_alias_route_has_unproven_hop(
             ):
                 return True
             category = definitions[0]["kind"]
+            if category == "type_alias":
+                definition_data = definitions[0]["data"]
+                if "alias" not in definition_data:
+                    return True
+                alias_expression_text: str = definition_data["alias"]
+                try:
+                    expression = ast.parse(alias_expression_text, mode="eval").body
+                except SyntaxError:
+                    return True
+                return not (
+                    (isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr))
+                    or isinstance(expression, ast.Subscript)
+                )
             return category not in {"function", "class", "static_constant"}
         if len(bindings) != 1:
             return True

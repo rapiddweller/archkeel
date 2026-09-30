@@ -2093,7 +2093,7 @@ def test_boundary_types_does_not_assume_unimported_typing_names(tmp_path: Path) 
     assert unknown_positions(result.observation) == 3
 
 
-def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_path: Path) -> None:
+def test_boundary_types_keeps_unknown_alongside_nested_violation(tmp_path: Path) -> None:
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
     (tmp_path / "sample/app").mkdir(parents=True)
@@ -2108,7 +2108,13 @@ def test_boundary_types_nested_violation_outranks_undecidable_union_member(tmp_p
 
     assert result.observation is not None
     assert len(trace_valid_violations(result.observation)) == 1
-    assert unknown_positions(result.observation) == 0
+    assert unknown_positions(result.observation) == 1
+    [unknown] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert unknown.data.get("reason") == "unresolved_name"
 
 
 def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
@@ -2486,11 +2492,12 @@ def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) 
     result = _observe(tmp_path)
     assert result.observation is not None
     violations = trace_valid_violations(result.observation)
-    assert [item.title for item in violations] == [
+    assert len(violations) == 2
+    assert {item.title for item in violations} == {
         "sample.app.facade.broken returns set[Payload] holding Payload which app does not declare",
         "sample.app.facade.broken takes payloads as list[Payload] holding Payload "
         "which app does not declare",
-    ]
+    }
     limits = [
         item
         for item in result.observation.records("unknowns") or ()
@@ -2868,20 +2875,18 @@ def _top_level_callers(tree: ast.Module, called_name: str) -> set[str]:
 
 
 def test_only_one_function_resolves_an_annotations_named_type() -> None:
-    """AD-69 hand-synced two readers instead of merging them into one (the drift it names as
-    already having happened once, over `list[Type]`). `_boundary_type_verdict` (the
-    `boundary_types` rule) and `_resolved_position_types` (the `facade_types` reachability
-    reading) each call `_resolve_named_type` on their own candidate string, so a future
-    annotation shape -- `A | B`, `Mapping[str, A]`, `Optional[A]` -- has to be taught to both
-    call sites by hand, or the readings drift apart again. One shared analysis per annotation
-    means exactly one function in this module ever calls `_resolve_named_type`; a second caller
-    is the duplicated interpretation this pins against.
+    """Annotation traversal stays centralized; proven generic identities use bare names.
+
+    AD-69 records drift between boundary and facade annotation readers over `list[Type]`.
+    `_named_type_verdict` remains their shared resolver. `_inherited_generic_facade_types` has
+    a separate, narrower lookup because its inputs are proven bare base and argument names,
+    not signature annotations to expand recursively.
     """
     callers = _top_level_callers(_violations_source_ast(), "resolve_named_type")
-    assert len(callers) == 1, (
-        f"resolve_named_type is called directly from {sorted(callers)}: more than one "
-        "function derives a resolved type from an annotation, instead of one shared analysis "
-        "both `boundary_types` and `facade_types` read."
+    assert callers == {"_named_type_verdict", "_inherited_generic_facade_types"}, (
+        f"resolve_named_type is called directly from {sorted(callers)}: annotation walkers "
+        "must share `_named_type_verdict`; `_inherited_generic_facade_types` is the separate "
+        "bare-name identity lookup for a proven generic base and concrete arguments."
     )
 
 

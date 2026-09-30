@@ -12,6 +12,11 @@ import pytest
 from test_analyzer import _component
 
 from archkeel.analyzer import observe
+from archkeel.analyzer.embedded.imports import collect_imports, resolve_reexports
+from archkeel.analyzer.embedded.records import RawRecord
+from archkeel.analyzer.embedded.source import parse_sources
+from archkeel.ir.model import Observation
+from archkeel.ir.trace import trace_valid_violations
 
 
 def _observe_facade(
@@ -189,3 +194,148 @@ def test_ordinary_facade_does_not_follow_rebound_origin_definition(tmp_path: Pat
 
     assert not observation.records("violations")
     assert any(item.kind == "boundary_type_limit" for item in observation.records("unknowns") or ())
+
+
+def _union_alias_reexports(
+    tmp_path: Path, *, rebind: bool
+) -> tuple[RawRecord, dict[str, frozenset[str]]]:
+    constraints = tmp_path / "sample/app/constraints"
+    constraints.mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    alias_source = "Constraint = str | int\n"
+    if rebind:
+        alias_source += "Constraint = object\n"
+    (constraints / "types.py").write_text(alias_source)
+    (constraints / "__init__.py").write_text(
+        "from .types import Constraint\n__all__ = ['Constraint']\n"
+    )
+    (tmp_path / "sample/app/api.py").write_text(
+        "from .constraints import Constraint\n__all__ = ['Constraint']\n"
+    )
+    parsed = parse_sources(sorted(tmp_path.rglob("*.py")), root=tmp_path, namespace="sample")
+    imports = collect_imports(
+        parsed.modules, {module.module for module in parsed.modules}, {}, namespace="sample"
+    )
+    uncertain = resolve_reexports(
+        imports,
+        {module.module: module.all_exports for module in parsed.modules},
+        parsed.modules,
+    )
+    api_import = next(
+        item
+        for item in imports
+        if item["data"]["source_module"] == "sample.app.api"
+        and item["data"]["binding"] == "Constraint"
+    )
+    return api_import, uncertain
+
+
+def test_union_type_alias_reexport_through_package_facade_is_proven(tmp_path: Path) -> None:
+    api_import, uncertain = _union_alias_reexports(tmp_path, rebind=False)
+
+    assert api_import["data"]["reexport"] is True
+    assert api_import["data"]["origin_definition"] == "sample.app.constraints.types.Constraint"
+    assert not uncertain
+
+
+def test_rebound_union_alias_reexport_remains_uncertain(tmp_path: Path) -> None:
+    api_import, uncertain = _union_alias_reexports(tmp_path, rebind=True)
+
+    assert api_import["data"]["reexport"] is False
+    assert api_import["data"]["reexport_candidate"] is True
+    assert "sample.app.constraints.Constraint" in uncertain
+
+
+def _observe_declared_constraint_api(tmp_path: Path, *, alias_source: str) -> Observation:
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component(
+                        "app",
+                        packages=["sample.app"],
+                        public=[
+                            "sample.app.api:check_constraints",
+                            "sample.app.api:Constraint",
+                        ],
+                    )
+                ],
+                "rules": [
+                    {
+                        "id": "APP-TYPES-NOT-DICT",
+                        "kind": "boundary_types",
+                        "source": "sample.app",
+                        "rationale": "Keep declared API types resolvable.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    constraints = tmp_path / "sample/app/constraints"
+    constraints.mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (constraints / "types.py").write_text(alias_source)
+    (constraints / "__init__.py").write_text(
+        "from .types import Constraint\n__all__ = ['Constraint']\n"
+    )
+    (tmp_path / "sample/app/api.py").write_text(
+        "from .constraints import Constraint\n"
+        "__all__ = ['Constraint', 'check_constraints']\n"
+        "def check_constraints(value: Constraint) -> bool:\n    return True\n"
+    )
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    return result.observation
+
+
+def test_declared_union_alias_through_facade_is_decided(tmp_path: Path) -> None:
+    observation = _observe_declared_constraint_api(
+        tmp_path, alias_source="Constraint = str | int\n"
+    )
+
+    assert not trace_valid_violations(observation)
+    assert not [
+        item
+        for item in observation.records("unknowns") or ()
+        if "APP-TYPES-NOT-DICT" in item.rule_ids
+    ]
+
+
+@pytest.mark.parametrize(
+    ("alias_source", "route_is_unknown"),
+    [
+        ("Constraint = make_constraint()\n", True),
+        ("Constraint = str | make_constraint()\n", False),
+        ("Constraint = str | int\nif enabled:\n    Constraint = object\n", True),
+    ],
+    ids=("opaque-dynamic-value", "call-inside-union", "conditional-terminal-rebind"),
+)
+def test_dynamic_or_conditionally_rebound_alias_stays_unknown(
+    tmp_path: Path, alias_source: str, route_is_unknown: bool
+) -> None:
+    observation = _observe_declared_constraint_api(tmp_path, alias_source=alias_source)
+
+    assert not trace_valid_violations(observation)
+    assert any(
+        item.kind == "boundary_type_limit" and "APP-TYPES-NOT-DICT" in item.rule_ids
+        for item in observation.records("unknowns") or ()
+    )
+    if route_is_unknown:
+        assert any(
+            item.kind == "boundary_type_route" and "APP-TYPES-NOT-DICT" in item.rule_ids
+            for item in observation.records("unknowns") or ()
+        )

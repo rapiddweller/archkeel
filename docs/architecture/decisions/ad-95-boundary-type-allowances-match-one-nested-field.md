@@ -7,6 +7,15 @@ source. The outer signature annotation remains on the violation; an exact match 
 that nested finding and emits a `FACT` in `typing_signals` with the rule and function evidence.
 An unmatched allowance changes nothing and emits no fact.
 
+AD-123 later permits `field_path: ""` for an exact top-level parameter or
+return finding. It matches the complete signature annotation and exempts one
+top-level broad finding, including one inside an optional union. Nested maps,
+undeclared members, and UNKNOWN evidence remain visible. If there are multiple
+top-level broad findings, the root allowance matches none. A root allowance cannot name a
+bare `Dict`, `object`, `Mapping` or `MutableMapping`: it would exempt the whole position, so the
+parser and the schema reject it. The analyzer additionally applies a root allowance only to a
+parameterized mapping finding, so other spellings of a bare broad type never match.
+
 The contract parser rejects malformed and duplicate entries. Adding an allowance widens the
 contract and `--against` requires an amendment; removing one narrows it. A bare `dict` remains a
 violation when the allowance names `dict[str, JsonValue]`.

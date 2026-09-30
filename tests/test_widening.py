@@ -161,13 +161,25 @@ def _rule_diff(before: ArchitectureRule | None, after: ArchitectureRule | None) 
 
 
 def test_boundary_allowance_addition_widens_and_removal_narrows() -> None:
-    allowance = BoundaryTypeAllowance("pkg.api.run", "return", "payload", "dict[str, JsonValue]")
+    allowances = (
+        BoundaryTypeAllowance("pkg.api.run", "values", "", "Mapping[str, float]"),
+        BoundaryTypeAllowance("pkg.api.run", "return", "payload", "dict[str, JsonValue]"),
+    )
 
-    added = _rule_diff(_boundary_types(), _boundary_types(allowed_positions=(allowance,)))
-    assert len(added) == 1
-    assert "allowed_positions gained" in added[0]
-    assert "dict[str, JsonValue]" in added[0]
-    assert _rule_diff(_boundary_types(allowed_positions=(allowance,)), _boundary_types()) == ()
+    added = _rule_diff(_boundary_types(), _boundary_types(allowed_positions=allowances))
+    assert len(added) == 2
+    assert all("allowed_positions gained" in item for item in added)
+    assert any(
+        "Mapping[str, float]" in item and "position='values'" in item and "field_path=''" in item
+        for item in added
+    )
+    assert any(
+        "dict[str, JsonValue]" in item
+        and "position='return'" in item
+        and "field_path='payload'" in item
+        for item in added
+    )
+    assert _rule_diff(_boundary_types(allowed_positions=allowances), _boundary_types()) == ()
 
 
 def _component_diff(

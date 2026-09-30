@@ -1,11 +1,22 @@
 # Unreleased
 
+- Proven standard-library `Mapping`/`MutableMapping` boundary annotations, subscripted or bare,
+  now receive the same broad-map finding as `dict`, while their member types and UNKNOWNs remain
+  visible. Exact `allowed_positions` may name a direct signature position with `field_path: ""`,
+  but not a bare `Dict`, `object`, `Mapping` or `MutableMapping`; older analyzers and contract
+  schemas do not understand that allowance (AD-123). The new analyzer can report more violations
+  under an existing baseline fingerprint (`dict[str, UndeclaredModel]` now counts the map and the
+  member), so review existing baselines and re-accept them with `--write-baseline --accept-new`.
 - The bundled analyzer now has a bounded 300-second deadline. A complete 487-file CE scan
   exceeded the former 60-second limit; genuine timeouts still return UNKNOWN.
 - Optional `declarations.modules` records exact Python-file targets and one-sentence
   responsibilities. The Target report groups them by folder; Diff distinguishes absent targets
-  from observed-only modules. Present and absent cases are replayable demos. Existing contracts
-  retain their previous meaning.
+  from observed-only modules. Exact declared files are not mislabeled unmapped, and Back clears
+  the old responsibility selection. Present and absent cases are replayable demos. Existing
+  contracts retain their previous meaning.
+- `boundary_types` follows a stable union type alias through package facades. Statically
+  visible rebinding and computed aliases stay UNKNOWN; runtime mutation (`globals()[...] = ...`)
+  is not observed.
 
 # Archkeel 0.8.0 — Explore the structure. Inspect the evidence.
 

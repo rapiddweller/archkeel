@@ -1419,6 +1419,11 @@ def _parse_symbol_placement(raw: RawJson, label: str) -> SymbolPlacementRule:
     )
 
 
+# A nested allowance may still name one of these (compatibility); a root one would exempt the
+# whole position, so the schema and the parser both refuse it.
+_BARE_BROAD_ANNOTATIONS: Final = frozenset({"Dict", "object", "Mapping", "MutableMapping"})
+
+
 def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
     item, item_id, provenance = _contract_record(
         raw,
@@ -1439,10 +1444,16 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
         )
         qualified_name = _nonempty(entry["qualified_name"], f"{entry_label}.qualified_name")
         position = _nonempty(entry["position"], f"{entry_label}.position")
-        field_path = _nonempty(entry["field_path"], f"{entry_label}.field_path")
+        field_path = (
+            ""
+            if entry["field_path"] == ""
+            else _nonempty(entry["field_path"], f"{entry_label}.field_path")
+        )
         annotation = _nonempty(entry["annotation"], f"{entry_label}.annotation")
         if annotation == "dict":
             raise ValueError(f"{entry_label}.annotation cannot allow bare dict")
+        if not field_path and annotation in _BARE_BROAD_ANNOTATIONS:
+            raise ValueError(f"{entry_label}.annotation cannot allow bare {annotation} at the root")
         positions.append(BoundaryTypeAllowance(qualified_name, position, field_path, annotation))
     if len(set(positions)) != len(positions):
         raise ValueError(f"{label}.allowed_positions must contain unique entries")

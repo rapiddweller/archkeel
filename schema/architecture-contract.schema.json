@@ -271,10 +271,16 @@
             "properties": {
               "qualified_name": {"$ref": "#/$defs/nonEmpty"},
               "position": {"$ref": "#/$defs/nonEmpty"},
-              "field_path": {"$ref": "#/$defs/nonEmpty"},
+              "field_path": {"anyOf": [{"const": ""}, {"$ref": "#/$defs/nonEmpty"}]},
               "annotation": {
                 "$ref": "#/$defs/nonEmpty",
                 "not": {"const": "dict"}
+              }
+            },
+            "if": {"properties": {"field_path": {"const": ""}}},
+            "then": {
+              "properties": {
+                "annotation": {"not": {"enum": ["Dict", "object", "Mapping", "MutableMapping"]}}
               }
             }
           }

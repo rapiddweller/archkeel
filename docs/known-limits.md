@@ -92,6 +92,9 @@ for the same reason: the contract declared something and nothing could decide it
 other `unknowns` kind does too, except the standing disclaimers `dynamic_call_limit`,
 `context_alias_limit` and `private_attribute_access_limit`, and the same count is the
 `unknown_positions` scalar.
+Proven standard-library mappings are broad boundary findings (AD-123), but unproven or
+malformed subscripted mapping annotations remain UNKNOWN; a bare name not proven to be a
+standard-library mapping (`from mylib import Mapping`) is judged like any other external type.
 
 A package or module facade may re-export a function. The analyzer follows the recorded
 re-export chain to the definition, but keeps the declared facade as the violation subject. Alias

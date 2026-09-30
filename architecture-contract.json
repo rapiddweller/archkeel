@@ -487,9 +487,29 @@
       "id": "CHECK-TYPES-DECLARED",
       "kind": "boundary_types",
       "source": "archkeel.check",
-      "rationale": "check's facade takes its ports by type: a caller cannot call run_check without satisfying Analyzer and Host, so the type is the contract rather than something behind it (AD-65, AD-68).",
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
+      "rationale": "check's facade takes its ports by type: a caller cannot call run_check without satisfying Analyzer and Host. FilesToWrite receives arbitrary path-to-bytes output, and the host port receives arbitrary environment names; these three exact open-map positions are intentional (AD-123).",
+      "provenance": ["docs/architecture/archkeel.md", "docs/architecture/decisions/ad-123-proven-mappings-are-broad-boundary-types.md"],
+      "decided_by": "architect",
+      "allowed_positions": [
+        {
+          "qualified_name": "archkeel.check.ports.FilesToWrite.__init__",
+          "position": "files",
+          "field_path": "",
+          "annotation": "Mapping[str, bytes] | None"
+        },
+        {
+          "qualified_name": "archkeel.check.ports.Host.__call__",
+          "position": "environ",
+          "field_path": "",
+          "annotation": "Mapping[str, str]"
+        },
+        {
+          "qualified_name": "archkeel.check.run.run_check",
+          "position": "environ",
+          "field_path": "",
+          "annotation": "Mapping[str, str]"
+        }
+      ]
     },
     {
       "id": "RENDER-TYPES-DECLARED",
