@@ -113,6 +113,8 @@ demo-dart`.
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:proven_mapping | class-a-boundary-types-mapping | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:exact_open_mapping | class-a-boundary-types-mapping-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:exact_builtin_dict | class-a-boundary-types-builtin-dict-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:shadowed_dict_unknown | class-a-boundary-types-shadowed-dict-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:mixed_fail_unknown | class-a-boundary-types-mixed-evidence | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |
 | class_a | boundary_types:collection_element | class-a-boundary-types-in-collection | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/batches.py, shop/cli/main.py |

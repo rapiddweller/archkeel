@@ -71,6 +71,33 @@ def _parsed_module(source: str) -> ParsedModule:
     )
 
 
+def test_builtin_named_functions_are_undecidable_through_observe(tmp_path: Path) -> None:
+    contract = _boundary_types_contract(_component("app", public=["sample.app.facade:snapshot"]))
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample/app").mkdir(parents=True)
+    (tmp_path / "sample/app/__init__.py").write_text("")
+    (tmp_path / "sample/app/facade.py").write_text(
+        "def dict() -> None:\n"
+        "    return None\n\n\n"
+        "def object() -> None:\n"
+        "    return None\n\n\n"
+        "def snapshot(mapping: dict, value: object) -> str:\n"
+        "    return str(mapping) + str(value)\n"
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    limit = next(
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_limit"
+    )
+    assert (limit.data.get("positions"), limit.data.get("decided")) == (3, 1)
+    assert limit.data.get("ambiguous_binding") == 2
+
+
 def test_two_same_named_top_level_classes_leave_one_symbol_record_without_a_class_kind() -> None:
     """Pins the precondition for the crash directly on `collect_symbols`, independent of
     whatever order `boundary_type_indexes` later receives the records in (AD-30's fixpoint

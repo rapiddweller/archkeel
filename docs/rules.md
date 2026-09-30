@@ -347,7 +347,10 @@ an `exact_sources` entry (AD-49), and reports distinct violations within paramet
 annotation is exactly `dict`, `Dict`, `object`, a `dict[...]`/`Dict[...]` generic, or a bare name
 that resolves, through the same import bindings `interface_boundary` reads, to a class that is
 neither an `enum` nor a `pydantic_model` by kind and that no component's own `public` list
-declares. A function re-exported by a declared facade entry is checked at its definition, while
+declares. Builtin spellings are proven only without a module-scope shadowing binding. A shadowed
+parameterized spelling whose generic target is unresolved stays UNKNOWN and cannot consume an
+exact allowance; a bare name resolved to a known local non-public type may still violate. A
+function re-exported by a declared facade entry is checked at its definition, while
 the violation keeps the facade module and entry as its subject. For an ordinary module (not
 `__init__.py`), following an imported entry requires one unchanged literal `__all__` that exports
 its unique import binding, whose terminal definition also has one unambiguous binding; an import

@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import hashlib
 import json
+import sys
 from collections.abc import Sequence
 from types import EllipsisType
 
@@ -20,8 +22,11 @@ from .source import (
     annotation_text,
     decorator_names,
     location,
+    module_scope_bindings,
     stable_direct_module_bindings,
 )
+
+_BUILTIN_NAMES = frozenset(dir(builtins))
 
 
 def _resolve_static_name(module: ParsedModule, node: ast.AST) -> str:
@@ -736,7 +741,7 @@ def _static_enum_members(node: ast.ClassDef) -> list[str]:
 
 def _assignment_symbol(
     module: ParsedModule,
-    node: ast.Assign | ast.AnnAssign,
+    node: ast.AST,
     name: str,
     kind: str,
     evidence: dict[str, RawEvidence],
@@ -780,6 +785,30 @@ def _json_literal(value: str | bytes | int | float | complex | EllipsisType | No
     return True
 
 
+def _direct_assignment_names(module: ParsedModule, node: ast.AST) -> set[str]:
+    if node not in module.tree.body or not isinstance(
+        node, ast.Assign | ast.AnnAssign | ast.AugAssign
+    ):
+        return set()
+    targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+    return {target.id for target in targets if isinstance(target, ast.Name)}
+
+
+def _pep695_alias_symbol(
+    module: ParsedModule,
+    node: ast.AST,
+    name: str,
+    evidence: dict[str, RawEvidence],
+) -> RawRecord | None:
+    if not (sys.version_info >= (3, 12) and isinstance(node, ast.TypeAlias)):
+        return None
+    if node in module.tree.body and not node.type_params:
+        return _assignment_symbol(
+            module, node, name, "type_alias", evidence, alias=annotation_text(node.value)
+        )
+    return _assignment_symbol(module, node, name, "dynamic_binding", evidence)
+
+
 def _module_assignment_symbols(
     module: ParsedModule, evidence: dict[str, RawEvidence]
 ) -> list[RawRecord]:
@@ -791,9 +820,16 @@ def _module_assignment_symbols(
         and _resolve_static_name(module, node.annotation) == "typing.TypeAlias"
     }
     symbols: list[RawRecord] = []
-    for node in module.tree.body:
+    seen: set[tuple[ast.AST, str]] = set()
+    for node, name in module_scope_bindings(module):
+        event = (node, name)
+        if event in seen:
+            continue
+        seen.add(event)
+        direct_names = _direct_assignment_names(module, node)
         if (
             isinstance(node, ast.AnnAssign)
+            and node in module.tree.body
             and isinstance(node.target, ast.Name)
             and isinstance(node.value, ast.expr)
             and _resolve_static_name(module, node.annotation) == "typing.TypeAlias"
@@ -802,50 +838,55 @@ def _module_assignment_symbols(
                 _assignment_symbol(
                     module,
                     node,
-                    node.target.id,
+                    name,
                     "type_alias",
                     evidence,
                     alias=annotation_text(node.value),
                 )
             )
+        elif symbol := _pep695_alias_symbol(module, node, name, evidence):
+            symbols.append(symbol)
         elif (
             isinstance(node, ast.Assign)
+            and node in module.tree.body
             and len(node.targets) == 1
             and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id[:1].isupper()
+            and name == node.targets[0].id
+            and name[:1].isupper()
             and _is_static_type_alias_value(module, node.value)
         ):
             symbols.append(
                 _assignment_symbol(
                     module,
                     node,
-                    node.targets[0].id,
+                    name,
                     "type_alias",
                     evidence,
                     alias=annotation_text(node.value),
                 )
             )
-        elif isinstance(node, ast.Assign | ast.AnnAssign):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            for target in targets:
-                if not isinstance(target, ast.Name):
-                    continue
-                if isinstance(node.value, ast.Constant):
-                    value = node.value.value
-                    symbols.append(
-                        _assignment_symbol(
-                            module,
-                            node,
-                            target.id,
-                            "static_constant",
-                            evidence,
-                            **({"constant": value} if _json_literal(value) else {}),
-                        )
-                    )
-                elif target.id[:1].isupper() or target.id in aliases:
-                    symbols.append(
-                        _assignment_symbol(module, node, target.id, "dynamic_binding", evidence)
-                    )
+        elif (
+            name in direct_names
+            and isinstance(node, ast.Assign | ast.AnnAssign)
+            and isinstance(node.value, ast.Constant)
+        ):
+            value = node.value.value
+            symbols.append(
+                _assignment_symbol(
+                    module,
+                    node,
+                    name,
+                    "static_constant",
+                    evidence,
+                    **({"constant": value} if _json_literal(value) else {}),
+                )
+            )
+        elif (
+            name in _BUILTIN_NAMES
+            or name in direct_names
+            and (name[:1].isupper() or name in aliases)
+        ):
+            symbols.append(_assignment_symbol(module, node, name, "dynamic_binding", evidence))
     return symbols
 
 

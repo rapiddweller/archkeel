@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from test_analyzer import _component, _observe
 
 from archkeel.ir.model import ObservationResult, RecordData
@@ -52,6 +53,244 @@ def _type_unknowns(result: ObservationResult) -> list[object]:
         for item in result.observation.records("unknowns") or ()
         if item.kind == "boundary_type_position"
     ]
+
+
+_SHADOWED_DICT_ALLOWANCE = {
+    "qualified_name": "sample.app.impl.run",
+    "position": "return",
+    "field_path": "",
+    "annotation": "dict[str, str]",
+}
+
+
+@pytest.mark.parametrize(
+    ("implementation", "needs_type"),
+    (
+        (
+            "class dict:\n    pass\n\ndef run() -> dict[str, str]:\n    return dict()\n",
+            False,
+        ),
+        (
+            "from .types import LocalDict as dict\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return dict()\n",
+            True,
+        ),
+        (
+            "from .types import LocalDict\n"
+            "\n"
+            "dict = LocalDict\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return dict()\n",
+            True,
+        ),
+        (
+            "import types as dict\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return dict.MappingProxyType({})\n",
+            False,
+        ),
+        (
+            "class LocalDict:\n"
+            "    pass\n"
+            "\n"
+            "dict, other = LocalDict, None\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return dict()\n",
+            False,
+        ),
+        (
+            "class LocalDict:\n"
+            "    pass\n"
+            "\n"
+            "if condition:\n"
+            "    dict = LocalDict\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return dict()\n",
+            False,
+        ),
+        (
+            "if condition:\n    dict = 42\n\ndef run() -> dict[str, str]:\n    return {}\n",
+            False,
+        ),
+        (
+            "if (dict := object()):\n    pass\n\ndef run() -> dict[str, str]:\n    return {}\n",
+            False,
+        ),
+        (
+            "for dict in ():\n    pass\n\ndef run() -> dict[str, str]:\n    return {}\n",
+            False,
+        ),
+        (
+            "if condition:\n"
+            "    class dict:\n"
+            "        pass\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return {}\n",
+            False,
+        ),
+        (
+            "if condition:\n"
+            "    def dict() -> None:\n"
+            "        return None\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return {}\n",
+            False,
+        ),
+        (
+            "match subject:\n"
+            '    case {"value": dict}:\n'
+            "        pass\n"
+            "\n"
+            "def run() -> dict[str, str]:\n"
+            "    return {}\n",
+            False,
+        ),
+    ),
+    ids=(
+        "local-class",
+        "imported-alias",
+        "lowercase-rebound",
+        "module-import",
+        "tuple-rebound",
+        "conditional-rebound",
+        "conditional-constant",
+        "walrus-rebound",
+        "for-rebound",
+        "conditional-class",
+        "conditional-function",
+        "match-capture",
+    ),
+)
+@pytest.mark.parametrize("allowance", (False, True), ids=("unallowed", "exact-allowance"))
+def test_shadowed_dict_does_not_match_a_builtin_allowance(
+    tmp_path: Path, implementation: str, needs_type: bool, allowance: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=implementation,
+        declared=("sample.app.impl:run",),
+        allowed_positions=(_SHADOWED_DICT_ALLOWANCE,) if allowance else (),
+    )
+    if needs_type:
+        (tmp_path / "sample/app/types.py").write_text("class LocalDict:\n    pass\n")
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) or _type_unknowns(result)
+
+
+@pytest.mark.parametrize("allowance", (False, True), ids=("unallowed", "exact-allowance"))
+def test_builtin_dict_matches_only_its_exact_allowance(tmp_path: Path, allowance: bool) -> None:
+    _write_app(
+        tmp_path,
+        implementation="def run() -> dict[str, str]:\n    return {}\n",
+        declared=("sample.app.impl:run",),
+        allowed_positions=(_SHADOWED_DICT_ALLOWANCE,) if allowance else (),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    if allowance:
+        assert violations == ()
+        assert _type_unknowns(result) == []
+    else:
+        [violation] = violations
+        assert violation.data.get("annotation") == "dict[str, str]"
+
+
+def test_builtin_named_module_imports_are_unknown(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "import types as dict\n"
+            "import types as object\n"
+            "import types as int\n"
+            "\n"
+            "def run(mapping: dict, value: object, number: int) -> str:\n"
+            "    return str(mapping) + str(value) + str(number)\n"
+        ),
+        declared=("sample.app.impl:run",),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    assert len(_type_unknowns(result)) == 3
+
+
+@pytest.mark.parametrize(
+    "implementation",
+    (
+        "from builtins import dict\n\ndef run() -> dict[str, str]:\n    return {}\n",
+        "from typing import Mapping as dict\n\ndef run() -> dict[str, str]:\n    return {}\n",
+    ),
+    ids=("builtins-dict", "typing-mapping-alias"),
+)
+def test_explicit_proven_mapping_imports_remain_broad(tmp_path: Path, implementation: str) -> None:
+    _write_app(
+        tmp_path,
+        implementation=implementation,
+        declared=("sample.app.impl:run",),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("annotation") == "dict[str, str]"
+
+
+@pytest.mark.parametrize("allowance", (False, True), ids=("unallowed", "exact-allowance"))
+def test_annotation_only_builtin_declaration_does_not_shadow_dict(
+    tmp_path: Path, allowance: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation="dict: type\n\ndef run() -> dict[str, str]:\n    return {}\n",
+        declared=("sample.app.impl:run",),
+        allowed_positions=(_SHADOWED_DICT_ALLOWANCE,) if allowance else (),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    if allowance:
+        assert trace_valid_violations(result.observation) == ()
+        assert _type_unknowns(result) == []
+    else:
+        [violation] = trace_valid_violations(result.observation)
+        assert violation.data.get("annotation") == "dict[str, str]"
+
+
+def test_star_import_makes_builtin_mapping_unknown(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation="from .types import *\n\ndef run() -> dict[str, str]:\n    return {}\n",
+        declared=("sample.app.impl:run",),
+        allowed_positions=(_SHADOWED_DICT_ALLOWANCE,),
+    )
+    (tmp_path / "sample/app/types.py").write_text("value = 1\n")
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert any(
+        item.data.get("binding") == "*" for item in result.observation.records("imports") or ()
+    )
+    assert trace_valid_violations(result.observation) == ()
+    assert _type_unknowns(result)
 
 
 def test_two_level_owned_dtos_are_decided(tmp_path: Path) -> None:

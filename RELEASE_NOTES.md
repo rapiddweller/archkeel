@@ -1,5 +1,7 @@
 # Unreleased
 
+- `boundary_types` now fails closed for module-scope builtin shadowing: an exact `dict[...]`
+  allowance accepts only the genuine builtin; a shadowed spelling remains UNKNOWN.
 - Proven standard-library `Mapping`/`MutableMapping` boundary annotations, subscripted or bare,
   now receive the same broad-map finding as `dict`, while their member types and UNKNOWNs remain
   visible. Exact `allowed_positions` may name a direct signature position with `field_path: ""`,

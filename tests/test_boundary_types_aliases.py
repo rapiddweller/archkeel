@@ -6,13 +6,17 @@
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
+
+import pytest
 
 from archkeel.analyzer.embedded.source import AliasBinding, ParsedModule
 from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.analyzer.embedded.violations import (
     _AMBIGUOUS,
     BindingIndex,
+    _bare_mapping_verdict,
     _boundary_type_verdict,
     _typing_wrapper_inner,
     boundary_type_indexes,
@@ -62,6 +66,95 @@ def test_explicit_type_alias_and_static_literal_constants_are_recorded() -> None
     assert by_name[("sample", "Reference")] is _AMBIGUOUS
 
 
+def test_builtin_rebinding_emits_one_symbol_record() -> None:
+    symbols, _, _ = collect_symbols([_module("Exception = factory()\n")], {})
+
+    bindings = [item for item in symbols if item["data"].get("name") == "Exception"]
+    assert len(bindings) == 1
+    assert bindings[0]["data"].get("record_kind") == "dynamic_binding"
+
+
+def test_repeated_builtin_target_in_one_statement_emits_one_symbol_record() -> None:
+    symbols, _, _ = collect_symbols([_module("dict, dict = object, object\n")], {})
+
+    bindings = [item for item in symbols if item["data"].get("name") == "dict"]
+    assert len(bindings) == 1
+    assert bindings[0]["data"].get("record_kind") == "dynamic_binding"
+
+
+def test_match_capture_binding_keeps_its_source_location() -> None:
+    evidence = {}
+    symbols, _, _ = collect_symbols(
+        [_module('match subject:\n    case {"value": dict}:\n        pass\n')], evidence
+    )
+
+    [binding] = [item for item in symbols if item["data"].get("name") == "dict"]
+    [evidence_id] = binding["evidence_ids"]
+    assert evidence[evidence_id]["line"] == 2
+
+
+def test_conditional_builtin_type_alias_is_a_dynamic_binding() -> None:
+    symbols, _, _ = collect_symbols([_module("if condition:\n    dict: TypeAlias = str\n")], {})
+
+    [binding] = [item for item in symbols if item["data"].get("name") == "dict"]
+    assert binding["data"].get("record_kind") == "dynamic_binding"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+def test_pep695_builtin_type_aliases_keep_direct_and_conditional_bindings_distinct() -> None:
+    symbols, _, _ = collect_symbols(
+        [_module("type dict = Hidden\nif condition:\n    type int = Hidden\n")], {}
+    )
+
+    bindings = {item["data"]["name"]: item["data"]["record_kind"] for item in symbols}
+    assert bindings["dict"] == "type_alias"
+    assert bindings["int"] == "dynamic_binding"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.parametrize(
+    ("source", "annotation", "record_kind"),
+    (
+        ("type dict = Hidden\n", "dict[str, str]", "type_alias"),
+        ("if condition:\n    type dict = Hidden\n", "dict[str, str]", "dynamic_binding"),
+        ("if condition:\n    type int = Hidden\n", "int", "dynamic_binding"),
+    ),
+)
+def test_pep695_builtin_aliases_are_unknown_not_builtin_proof(
+    source: str, annotation: str, record_kind: str
+) -> None:
+    symbols, _, _ = collect_symbols([_module(source)], {})
+    imports, bindings = boundary_type_indexes(symbols, [])
+
+    [binding] = [item for item in symbols if item["data"].get("name") in {"dict", "int"}]
+    verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, bindings)
+    assert binding["data"].get("record_kind") == record_kind
+    assert verdict.violation is None
+    assert verdict.undecidable is not None
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.parametrize(
+    ("source", "annotation"),
+    (
+        ("type Payload[T] = int\n", "Payload"),
+        ("type dict[T] = Hidden\n", "dict[str, str]"),
+    ),
+    ids=("non-builtin-alias", "builtin-shadow"),
+)
+def test_parameterized_pep695_aliases_are_unknown_without_a_type_parameter_resolver(
+    source: str, annotation: str
+) -> None:
+    symbols, _, _ = collect_symbols([_module(source)], {})
+    imports, bindings = boundary_type_indexes(symbols, [])
+
+    [binding] = symbols
+    verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, bindings)
+    assert binding["data"].get("record_kind") == "dynamic_binding"
+    assert verdict.violation is None
+    assert verdict.undecidable is not None
+
+
 def test_annotated_reads_only_its_type_argument() -> None:
     imports = {("sample", "Annotated"): {"target_module": "typing", "symbol": "Annotated"}}
     assert (
@@ -70,6 +163,27 @@ def test_annotated_reads_only_its_type_argument() -> None:
         )
         == "dict"
     )
+
+
+def test_bare_dict_is_broad_only_when_its_builtin_binding_is_unshadowed() -> None:
+    builtin = _bare_mapping_verdict("dict", "sample", BindingIndex(), BindingIndex())
+    assert builtin is not None and builtin.violation == "instead of a typed model"
+
+    local_class = BindingIndex()
+    local_class[("sample", "dict")] = {"record_kind": "class"}
+    assert _bare_mapping_verdict("dict", "sample", BindingIndex(), local_class) is None
+
+    import_alias = BindingIndex()
+    import_alias[("sample", "dict")] = {
+        "target_module": "sample.types",
+        "symbol": "Payload",
+    }
+    assert _bare_mapping_verdict("dict", "sample", import_alias, BindingIndex()) is None
+
+    rebound = BindingIndex()
+    rebound[("sample", "dict")] = {"record_kind": "dynamic_binding"}
+    ambiguous = _bare_mapping_verdict("dict", "sample", import_alias, rebound)
+    assert ambiguous is not None and ambiguous.undecidable == "ambiguous_binding"
 
 
 def test_required_wrappers_resolve_only_proven_typing_imports() -> None:
