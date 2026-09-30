@@ -13,6 +13,7 @@
   const PER_ROW = 6;
   const ROW_STEP = CARD.h + ROW_GAP;
   const TARGET_ROW_STEP = CARD.h + 34;
+  const TARGET_RESIDUAL_GAP = 20;
   const LANE_GAP = 11;
 
   // The one place an EdgeState maps to a human label. Edge and chip elements already take their
@@ -850,16 +851,18 @@
     const kind = node.kind === "module_target" ? "Declared module"
       : node.kind === "folder" ? "Folder" : `Declared ${node.kind}`;
     const placementReasons = {
-      ambiguous: "Scope matches more than one declared frame.",
-      multiple: "Declared scopes do not share one frame.",
-      unmapped: "No declared frame resolves these scopes.",
+      ambiguous: "Multiple frame matches remain ambiguous in this view.",
+      multiple: "These scopes do not share one drawable frame in this view.",
+      unmapped: "No drawable frame resolves these scopes in this view.",
     };
     const placementDetails = placement ? (() => {
       const scopes = Array.isArray(placement.scopes)
         ? placement.scopes.filter((scope) => typeof scope === "string") : [];
       const folded = Array.isArray(placement.folded) ? placement.folded : [];
       const reason = placement.container === null
-        ? placementReasons[placement.status] || "No declared frame is associated with these scopes."
+        ? folded.length
+          ? "No drawable frame is associated in this view; the matching frame was folded."
+          : placementReasons[placement.status] || "No drawable frame is associated in this view."
         : "";
       const foldedMarkup = folded.map((frame) => {
         const details = Array.isArray(frame.details) ? frame.details : [];
@@ -953,6 +956,8 @@
       .sort((left, right) => left - right);
     const rowHeights = new Map();
     const rowStarts = new Map();
+    const rowY = (row) => row * TARGET_ROW_STEP
+      + (row >= rowStarts.get(residualRow) ? TARGET_RESIDUAL_GAP : 0);
     let nextRow = 0;
     rankedRows.forEach((rankRow) => {
       let rowHeight = 0;
@@ -999,7 +1004,7 @@
         if (!placed.has(identifier)) {
           nextPositions[identifier] = {
             x: x + (index + rowOffset(row, items)) * step,
-            y: y + row * TARGET_ROW_STEP,
+            y: y + rowY(row),
           };
         }
         placed.add(identifier);
@@ -1039,7 +1044,7 @@
         nodes.forEach((identifier, column) => {
           nextPositions[identifier] = {
             x: x + (column + offset) * step,
-            y: y + row * TARGET_ROW_STEP,
+            y: y + rowY(row),
           };
           placed.add(identifier);
         });
@@ -1050,7 +1055,7 @@
       nodes.forEach((identifier, index) => {
         nextPositions[identifier] = {
           x: x + (index + offset) * step,
-          y: y + row * TARGET_ROW_STEP,
+          y: y + rowY(row),
         };
       });
     });
@@ -1061,9 +1066,9 @@
     const same = Object.keys(positions).length === Object.keys(nextPositions).length
       && Object.entries(nextPositions).every(([id, position]) =>
         positions[id]?.x === position.x && positions[id]?.y === position.y);
-    const residualStart = rowStarts.get(residualRow);
-    if (same) return { positions, frameBounds, residualStart };
-    return { positions: nextPositions, frameBounds, residualStart };
+    const residualY = rowY(rowStarts.get(residualRow));
+    if (same) return { positions, frameBounds, residualY };
+    return { positions: nextPositions, frameBounds, residualY };
   }
 
   function targetGraphFor(current) {
@@ -1332,10 +1337,16 @@
     });
 
     if (graphNodes.some((node) => node.kind === "component" && node.dependency_rank === null)) {
+      const frameBounds = Object.values(layout.frameBounds);
+      const frameTop = frameBounds.length
+        ? Math.min(...frameBounds.map((bounds) => bounds.top)) : 0;
+      const warningY = layout.residualY - 26;
       const warning = el("text", {
         class: "target-cycle-warning",
         x: String(Math.min(0, ...Object.values(layout.frameBounds).map((bounds) => bounds.left))),
-        y: String(layout.residualStart * TARGET_ROW_STEP - 26),
+        y: String(graphNodes.some((node) => node.kind === "component"
+          && node.dependency_rank !== null)
+          || !frameBounds.length ? warningY : frameTop - 12),
       });
       warning.textContent = "Dependency order unresolved: cycle or dependency on a cycle.";
       emptyLayer.appendChild(warning);

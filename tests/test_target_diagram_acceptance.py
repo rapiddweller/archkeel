@@ -1040,21 +1040,21 @@ def test_target_inspector_explains_graph_local_placement(tmp_path: Path) -> None
             "empty",
             "ambiguous",
             "shop.empty.api",
-            "Scope matches more than one declared frame.",
+            "Multiple frame matches remain ambiguous in this view.",
         ),
         (
             "COMP-ARCHIVE",
             "archive",
             "multiple",
             "shop.archive, shop.other",
-            "Declared scopes do not share one frame.",
+            "These scopes do not share one drawable frame in this view.",
         ),
         (
             "COMP-CLI",
             "cli",
             "unmapped",
             "shop.*",
-            "No declared frame resolves these scopes.",
+            "No drawable frame resolves these scopes in this view.",
         ),
     )
     assert all(status not in label for _, label, status, _, _ in cases)
@@ -1082,6 +1082,45 @@ def test_target_inspector_explains_graph_local_placement(tmp_path: Path) -> None
             assert "layout:ROOT-LAYOUT" in content
             assert "layout:APP-SOLO" in content
             assert "shop.app.orders" in content
+        finally:
+            browser.close()
+
+
+def test_target_inspector_explains_folded_null_container(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path)
+    diagrams = payload["explorers"]["target_diagrams"]
+    placement = {
+        "status": "declared",
+        "scopes": ["shop.app"],
+        "container": None,
+        "folded": [
+            {
+                "id": "layout:APP-SOLO",
+                "scope": "shop.app",
+                "details": [{"label": "Allowed children", "value": "shop.app.orders"}],
+            }
+        ],
+    }
+    for graph in [diagrams["root"], *diagrams["nested"].values()]:
+        for component in graph["nodes"]:
+            if component["id"] == "COMP-APP":
+                component["placement"] = placement
+    page_html = _replace_flow_payload(page_html, payload)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            page.locator('[data-target-node="COMP-APP"]').click()
+            content = page.locator(".flow-inspector").inner_text()
+            assert "No drawable frame is associated in this view;" in content
+            assert "matching frame was folded" in content
+            assert "layout:APP-SOLO" in content
+            assert "shop.app.orders" in content
+            assert "No declared frame is associated" not in content
         finally:
             browser.close()
 
@@ -1145,6 +1184,41 @@ def test_target_cycle_warning_follows_wrapped_rank_bands(tmp_path: Path) -> None
             assert bands["rankOneY"] > max(bands["wrapped"])
             assert bands["warningY"] > bands["rankOneY"]
             assert bands["warningY"] < bands["unrankedY"]
+        finally:
+            browser.close()
+
+
+def test_target_cycle_warning_clears_all_residual_frame_header(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    for node in graph["nodes"]:
+        if node["kind"] == "component":
+            node["dependency_rank"] = None
+    page_html = _replace_flow_payload(page_html, payload)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            geometry = page.evaluate(
+                """() => {
+                  const box = selector => {
+                    const {x, y, width, height} = document.querySelector(selector)
+                      .getBBox();
+                    return {left: x, top: y, right: x + width, bottom: y + height};
+                  };
+                  const warning = box('.target-cycle-warning');
+                  const title = box('.target-frame-title');
+                  return {warning, title,
+                    intersects: warning.left < title.right && warning.right > title.left
+                      && warning.top < title.bottom && warning.bottom > title.top};
+                }"""
+            )
+            assert not geometry["intersects"]
+            assert geometry["warning"]["bottom"] < geometry["title"]["top"]
         finally:
             browser.close()
 
