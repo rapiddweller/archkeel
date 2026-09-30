@@ -1,5 +1,7 @@
 # Unreleased
 
+# Archkeel 0.8.1 — Incomplete proof stays UNKNOWN
+
 - `complete_requires` and `interface_boundary` PASS now requires a non-empty, fully covered scope
   with unique ownership (a blank Python package initializer is the sole unowned exception); any
   unproven non-declaration rule makes aggregate `declared_rules` UNKNOWN. Observed violations
