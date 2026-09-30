@@ -98,6 +98,7 @@ demo-dart`.
 | class_a | private_access:top-level Any owner | class-a-private-attribute-any-owner | validate/report run | - | - | architecture-contract.json, shop/app/any_private.py |
 | clean | declarations.modules:present | target-module-present | validate/report run | - | - | architecture-contract.json |
 | clean | declarations.modules:absent | target-module-absent | validate/report run | - | - | architecture-contract.json |
+| clean | target.responsibilities:missing | target-empty-responsibilities | validate/report run | - | - | architecture-contract.json, shop/store/architecture-contract.json |
 | clean | root_layout:clean | class-a-root-layout-clean | validate/report run | - | - | clean sample |
 | clean | root_layout:nested-root | class-a-root-layout-nested-root | validate/report run | - | - | architecture-contract.json |
 | validation | root_layout:invalid-contract | validation-root-layout-invalid-child | validate/report run | - | contract.invalid | architecture-contract.json |

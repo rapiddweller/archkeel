@@ -49,7 +49,34 @@ def _target_diagram_page(
             "label": "archive",
             "role": "component",
             "packages": ["shop.archive"],
-            "responsibilities": ["Retain archived orders."],
+            "responsibilities": ["Retain archived orders.", "Keep archive access explicit."],
+            "forbidden_responsibilities": [],
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    contract["components"].append(
+        {
+            "id": "COMP-EMPTY",
+            "label": "empty",
+            "role": "component",
+            "packages": ["shop.empty"],
+            "responsibilities": [],
+            "forbidden_responsibilities": [],
+            "provenance": ["docs/architecture/shop.md"],
+            "decided_by": "architect",
+        }
+    )
+    nested_contract = json.loads(
+        (FIXTURE_DIR / "shop/store/architecture-contract.json").read_text()
+    )
+    nested_contract["components"].append(
+        {
+            "id": "COMP-STORE-EMPTY",
+            "label": "empty nested",
+            "role": "component",
+            "packages": ["shop.store.empty"],
+            "responsibilities": [],
             "forbidden_responsibilities": [],
             "provenance": ["docs/architecture/shop.md"],
             "decided_by": "architect",
@@ -75,6 +102,7 @@ def _target_diagram_page(
     files = {
         **dict(tour.files),
         "architecture-contract.json": json.dumps(contract),
+        "shop/store/architecture-contract.json": json.dumps(nested_contract),
         "shop/orphan.py": "VALUE = 1\n",
     }
     root = _prepare_repo(tmp_path, files)
@@ -94,6 +122,21 @@ def test_target_diagram_shows_declared_root_and_nested_graphs_only(tmp_path: Pat
     explorers = payload["explorers"]
     target_nodes = list(_walk(explorers["target"]))
     target_ids = {node["id"] for node in target_nodes}
+    empty = next(node for node in target_nodes if node["id"] == "COMP-EMPTY")
+    missing = next(detail for detail in empty["details"] if detail["label"] == "Responsibility")
+    assert missing == {"label": "Responsibility", "value": "", "missing": True}
+    responsibility_details = [
+        detail
+        for node in target_nodes
+        for detail in node["details"]
+        if detail["label"] == "Responsibility"
+    ]
+    assert sum(detail.get("missing") is not True for detail in responsibility_details) == 11
+    assert sum(detail.get("missing") is True for detail in responsibility_details) == 2
+    archive = next(node for node in target_nodes if node["id"] == "COMP-ARCHIVE")
+    assert {
+        detail["value"] for detail in archive["details"] if detail["label"] == "Responsibility"
+    } == {"Retain archived orders.", "Keep archive access explicit."}
     require_ids = {node["id"] for node in target_nodes if node["kind"] == "requires"}
     assert len(require_ids) == sum(node["kind"] == "requires" for node in target_nodes)
 
@@ -102,6 +145,7 @@ def test_target_diagram_shows_declared_root_and_nested_graphs_only(tmp_path: Pat
     root_nodes = {node["id"]: node for node in root["nodes"]}
     assert "COMP-ARCHIVE" in root_nodes
     assert root_nodes["COMP-ARCHIVE"]["kind"] == "component"
+    assert root_nodes["COMP-EMPTY"]["details"] == empty["details"]
     assert "physical:shop.archive" not in root_nodes
     archive_requirement = next(
         edge for edge in root["edges"] if edge.get("declaration") == "requires:COMP-APP:archive"
@@ -292,6 +336,7 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
 def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> None:
     page_html, payload = _target_diagram_page(tmp_path, include_module_target=True)
     target_nodes = list(_walk(payload["explorers"]["target"]))
+    nested_empty = next(node for node in target_nodes if node["label"] == "empty nested")
     leaf = next(
         node
         for node in target_nodes
@@ -323,25 +368,73 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             page = browser.new_page()
             page.set_content(page_html, wait_until="load")
             page.get_by_role("button", name="Target").click()
+            responsibilities = page.locator(".flow-responsibilities")
+            responsibilities.locator("summary").click()
+            declared_count = sum(
+                detail["label"] == "Responsibility" and not detail.get("missing")
+                for node in target_nodes
+                for detail in node["details"]
+            )
+            missing_count = sum(
+                detail["label"] == "Responsibility" and detail.get("missing") is True
+                for node in target_nodes
+                for detail in node["details"]
+            )
+            total_rows = declared_count + missing_count
+            assert (
+                responsibilities.locator(".flow-responsibility-list button").count() == total_rows
+            )
+            assert declared_count == sum(
+                sum(
+                    detail["label"] == "Responsibility" and not detail.get("missing")
+                    for detail in node["details"]
+                )
+                for node in target_nodes
+                if node["kind"] in {"component", "module_target"}
+            )
+            assert responsibilities.locator(".flow-responsibility-total").text_content() == (
+                f"({declared_count} declared · {missing_count} missing)"
+            )
+            responsibilities.locator("input").fill("Retain archived orders.")
+            assert responsibilities.locator(".flow-responsibility-count").text_content() == (
+                f"1 of {total_rows} shown"
+            )
+            responsibilities.locator(".flow-responsibility-list button:visible").click()
             assert (
                 page.locator(".flow-inspector")
                 .get_by_text("Retain archived orders.", exact=True)
                 .is_visible()
             )
-            responsibilities = page.locator(".flow-responsibilities")
-            responsibilities.locator("summary").click()
-            declared_count = sum(
-                detail["label"] == "Responsibility"
-                for node in target_nodes
-                for detail in node["details"]
+            responsibilities.locator("input").fill("Keep archive access explicit.")
+            assert responsibilities.locator(".flow-responsibility-count").text_content() == (
+                f"1 of {total_rows} shown"
             )
+            responsibilities.locator(".flow-responsibility-list button:visible").click()
             assert (
-                responsibilities.locator(".flow-responsibility-list button").count()
-                == declared_count
+                page.locator(".flow-inspector")
+                .get_by_text("Keep archive access explicit.", exact=True)
+                .is_visible()
+            )
+            responsibilities.locator("input").fill("store / empty nested")
+            assert responsibilities.locator(".flow-responsibility-count").text_content() == (
+                f"1 of {total_rows} shown"
+            )
+            responsibilities.locator(".flow-responsibility-list button:visible").click()
+            inspector = page.locator(".flow-inspector")
+            assert inspector.get_by_text("Missing responsibility", exact=True).is_visible()
+            assert inspector.get_by_text("No declared responsibility.", exact=True).is_visible()
+            assert "store" in page.locator(".flow-breadcrumb").text_content().lower()
+            nested_card = page.locator(
+                f".flow-nodes .node[data-target-node='{nested_empty['id']}']"
+            )
+            assert nested_card.is_visible()
+            assert "No declared responsibility" in nested_card.locator("title").text_content()
+            assert "No declared responsibility" in " ".join(
+                nested_card.locator(".target-responsibility").all_text_contents()
             )
             responsibilities.locator("input").fill("Coordinate order workflows")
             assert responsibilities.locator(".flow-responsibility-count").text_content() == (
-                f"1 of {declared_count} shown"
+                f"1 of {total_rows} shown"
             )
             responsibilities.locator(".flow-responsibility-list button:visible").click()
             assert (

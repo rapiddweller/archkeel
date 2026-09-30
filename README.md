@@ -393,11 +393,15 @@ Diff (violations, unresolved evidence, unmapped modules, and absent declared tar
 Actual and Diff views are lists. Selecting an item in any of the three views shows its declared
 target responsibility when an exact match exists; this does not describe observed behavior.
 Target edges describe declarations, not observed imports or proof that a declared child exists.
+Components without a responsibility remain in the Target diagram and searchable index as
+“No declared responsibility.” This marks missing design information; rule verdicts stay unchanged.
 `--output X.json` writes the JSON report and `X.report.html`.
 
 <p>
   <img src="docs/assets/archkeel-target-store.png" alt="Target view for the Shop demo: declared store component, its inner components and requirements, and the selected responsibility" width="1180">
 </p>
+
+![Target component without a responsibility remains visible in the diagram and index](docs/assets/archkeel-empty-responsibility.png)
 
 Check a candidate against its published expectation:
 
