@@ -95,6 +95,10 @@ other `unknowns` kind does too, except the standing disclaimers `dynamic_call_li
 Proven standard-library mappings are broad boundary findings (AD-123), but unproven or
 malformed subscripted mapping annotations remain UNKNOWN; a bare name not proven to be a
 standard-library mapping (`from mylib import Mapping`) is judged like any other external type.
+An empty-path allowance can select one unique parameterized mapping contained in a collection or
+union only when its annotation matches the whole signature. Selection among multiple contained
+maps is unsupported; named aliases on the route to a contained map also remain unsupported. An
+allowed map does not clear UNKNOWN from an unresolved member or another branch.
 
 A package or module facade may re-export a function. The analyzer follows the recorded
 re-export chain to the definition, but keeps the declared facade as the violation subject. Alias

@@ -114,6 +114,9 @@ demo-dart`.
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:proven_mapping | class-a-boundary-types-mapping | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:exact_open_mapping | class-a-boundary-types-mapping-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:unique_contained_mapping | class-a-boundary-types-contained-mapping | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:ambiguous_contained_mappings | class-a-boundary-types-contained-mapping-siblings | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:contained_mapping_unknown_member | class-a-boundary-types-contained-mapping-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:exact_builtin_dict | class-a-boundary-types-builtin-dict-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:shadowed_dict_unknown | class-a-boundary-types-shadowed-dict-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:mixed_fail_unknown | class-a-boundary-types-mixed-evidence | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |

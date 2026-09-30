@@ -18,6 +18,7 @@ from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
+    BoundaryTypeAllowance,
     BoundaryTypesRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
@@ -1241,6 +1242,14 @@ class _Position(NamedTuple):
     path: tuple[str, ...] = ()
     nested_annotation: str | None = None
     violations: tuple[tuple[str, tuple[str, ...], str | None, int], ...] = ()
+    mapping_occurrences: tuple[_MappingOccurrence, ...] = ()
+
+
+class _MappingOccurrence(NamedTuple):
+    annotation: str
+    depth: int
+    path: tuple[str, ...] = ()
+    alias_free: bool = True
 
 
 # A container whose declared element type is the whole of what actually crosses the boundary
@@ -2013,6 +2022,12 @@ def _type_alias_verdict(
         path=expanded.path,
         nested_annotation=expanded.nested_annotation,
         violations=expanded.violations,
+        mapping_occurrences=tuple(
+            _MappingOccurrence(
+                occurrence.annotation, occurrence.depth, occurrence.path, alias_free=False
+            )
+            for occurrence in expanded.mapping_occurrences
+        ),
     )
 
 
@@ -2182,6 +2197,7 @@ def _owned_type_verdict(
             path=fields.path,
             nested_annotation=fields.nested_annotation,
             violations=fields.violations,
+            mapping_occurrences=fields.mapping_occurrences,
         )
     if class_kind in _EXEMPT_CLASS_KINDS:
         return _Position(resolved=reached)
@@ -2206,31 +2222,17 @@ def _annotation_shape_verdict(
     if isinstance(mapping, _Position):
         return mapping
     if mapping is not None:
-        contents = _combined_annotation_verdict(
+        return _mapping_container_verdict(
+            annotation,
             mapping,
             module,
             contract,
             exports_by_module,
             imports_by_binding,
             classes_by_location,
-            visited=visited,
-            enter_fields=enter_fields,
-            _aliases_seen=_aliases_seen,
-        )
-        reason = _BROAD_BOUNDARY_REASON
-        return _Position(
-            violation=reason,
-            undecidable=contents.undecidable,
-            resolved=contents.resolved,
-            path=contents.path,
-            nested_annotation=contents.nested_annotation,
-            violations=(
-                (reason, (), annotation, 0),
-                *(
-                    (name, path, nested, depth + 1)
-                    for name, path, nested, depth in contents.violations
-                ),
-            ),
+            visited,
+            enter_fields,
+            _aliases_seen,
         )
     union = _union_parameters(annotation, module, imports_by_binding)
     if union is not None:
@@ -2262,6 +2264,54 @@ def _annotation_shape_verdict(
     return _Position(undecidable=_unresolvable_shape(annotation))
 
 
+def _mapping_container_verdict(
+    annotation: str,
+    parameters: list[str],
+    module: str,
+    contract: ArchitectureContract,
+    exports_by_module: dict[str, frozenset[str]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    visited: frozenset[tuple[str, str]],
+    enter_fields: bool,
+    aliases_seen: frozenset[tuple[str, str]],
+) -> _Position:
+    contents = _combined_annotation_verdict(
+        parameters,
+        module,
+        contract,
+        exports_by_module,
+        imports_by_binding,
+        classes_by_location,
+        visited=visited,
+        enter_fields=enter_fields,
+        _aliases_seen=aliases_seen,
+    )
+    return _Position(
+        violation=_BROAD_BOUNDARY_REASON,
+        undecidable=contents.undecidable,
+        resolved=contents.resolved,
+        path=contents.path,
+        nested_annotation=contents.nested_annotation,
+        violations=(
+            (_BROAD_BOUNDARY_REASON, (), annotation, 0),
+            *((name, path, nested, depth + 1) for name, path, nested, depth in contents.violations),
+        ),
+        mapping_occurrences=(
+            _MappingOccurrence(annotation, 0),
+            *(
+                _MappingOccurrence(
+                    occurrence.annotation,
+                    occurrence.depth + 1,
+                    occurrence.path,
+                    occurrence.alias_free,
+                )
+                for occurrence in contents.mapping_occurrences
+            ),
+        ),
+    )
+
+
 def _declared_field_verdict(
     origin_symbol: RecordData | _AmbiguousBinding | None,
     module: str,
@@ -2276,71 +2326,69 @@ def _declared_field_verdict(
     """Inspect all owned declared model fields, stopping recursive graphs by origin."""
     if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
         return _Position()
-    field_verdicts: list[tuple[str, str, _Position]] = []
+    field_verdicts: list[tuple[str, _Position]] = []
     for field in origin_symbol["fields"]:
         if not isinstance(field, dict) or not isinstance(field.get("name"), str):
             continue
+        annotation = field.get("annotation") or ""
+        verdict = _boundary_type_verdict(
+            annotation,
+            module,
+            contract,
+            exports_by_module,
+            imports_by_binding,
+            classes_by_location,
+            visited=visited,
+            enter_fields=False,
+            _aliases_seen=_aliases_seen,
+        )
         field_verdicts.append(
-            (
-                field["name"],
-                field.get("annotation") or "",
-                _boundary_type_verdict(
-                    field.get("annotation") or "",
-                    module,
-                    contract,
-                    exports_by_module,
-                    imports_by_binding,
-                    classes_by_location,
-                    visited=visited,
-                    enter_fields=False,
-                    _aliases_seen=_aliases_seen,
-                ),
-            )
+            (field["name"], _field_position_verdict(field["name"], annotation, verdict))
         )
-    reached: tuple[tuple[str, str], ...] = tuple(
-        sorted({pair for _, _, verdict in field_verdicts for pair in verdict.resolved})
-    )
+    return _combine_position_verdicts(field_verdicts)
+
+
+def _field_position_verdict(
+    field_name: str, field_annotation: str, verdict: _Position
+) -> _Position:
     violations: list[tuple[str, tuple[str, ...], str | None, int]] = []
-    for field_name, field_annotation, verdict in field_verdicts:
-        if verdict.violations:
-            violations.extend(
-                (
-                    reason,
-                    (field_name, *path),
-                    nested_annotation or field_annotation,
-                    depth,
-                )
-                for reason, path, nested_annotation, depth in verdict.violations
+    if verdict.violations:
+        violations.extend(
+            (
+                reason,
+                (field_name, *path),
+                nested_annotation or field_annotation,
+                depth,
             )
-        elif verdict.violation is not None:
-            violations.append(
-                (
-                    verdict.violation,
-                    (field_name, *verdict.path),
-                    verdict.nested_annotation or field_annotation,
-                    0,
-                )
-            )
-    for field_name, field_annotation, verdict in field_verdicts:
-        if verdict.undecidable is not None:
-            return _Position(
-                violation=violations[0][0] if violations else None,
-                undecidable=verdict.undecidable,
-                resolved=reached,
-                path=(field_name, *verdict.path),
-                nested_annotation=verdict.nested_annotation or field_annotation,
-                violations=tuple(violations),
-            )
-    if violations:
-        reason, path, nested_annotation, _ = violations[0]
-        return _Position(
-            violation=reason,
-            resolved=reached,
-            path=path,
-            nested_annotation=nested_annotation,
-            violations=tuple(violations),
+            for reason, path, nested_annotation, depth in verdict.violations
         )
-    return _Position(resolved=reached)
+    elif verdict.violation is not None:
+        violations.append(
+            (
+                verdict.violation,
+                (field_name, *verdict.path),
+                verdict.nested_annotation or field_annotation,
+                0,
+            )
+        )
+    mapping_occurrences = tuple(
+        _MappingOccurrence(
+            occurrence.annotation,
+            occurrence.depth,
+            (field_name, *occurrence.path),
+            occurrence.alias_free,
+        )
+        for occurrence in verdict.mapping_occurrences
+    )
+    return _Position(
+        violation=verdict.violation,
+        undecidable=verdict.undecidable,
+        resolved=verdict.resolved,
+        path=(field_name, *verdict.path),
+        nested_annotation=verdict.nested_annotation or field_annotation,
+        violations=tuple(violations),
+        mapping_occurrences=mapping_occurrences,
+    )
 
 
 def _collection_verdict(
@@ -2391,6 +2439,15 @@ def _collection_verdict(
         violations=tuple(
             (reason, path, nested, depth + 1) for reason, path, nested, depth in verdict.violations
         ),
+        mapping_occurrences=tuple(
+            _MappingOccurrence(
+                occurrence.annotation,
+                occurrence.depth + 1,
+                occurrence.path,
+                occurrence.alias_free,
+            )
+            for occurrence in verdict.mapping_occurrences
+        ),
     )
 
 
@@ -2433,7 +2490,7 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
     reached = tuple(sorted({pair for _parameter, verdict in decided for pair in verdict.resolved}))
     violations = tuple(
         sorted(
-            {
+            [
                 violation
                 for parameter, verdict in decided
                 if verdict.violation is not None
@@ -2448,9 +2505,12 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
                         ),
                     )
                 )
-            },
+            ],
             key=lambda item: (item[0], item[1], item[2] or "", item[3]),
         )
+    )
+    mapping_occurrences = tuple(
+        occurrence for _parameter, verdict in decided for occurrence in verdict.mapping_occurrences
     )
     for _parameter, verdict in decided:
         if verdict.undecidable is not None:
@@ -2461,6 +2521,7 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
                 path=verdict.path,
                 nested_annotation=verdict.nested_annotation,
                 violations=violations,
+                mapping_occurrences=mapping_occurrences,
             )
     if violations:
         reason, path, nested_annotation, _ = violations[0]
@@ -2470,8 +2531,9 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
             path=path,
             nested_annotation=nested_annotation,
             violations=violations,
+            mapping_occurrences=mapping_occurrences,
         )
-    return _Position(resolved=reached)
+    return _Position(resolved=reached, mapping_occurrences=mapping_occurrences)
 
 
 def _declared_facade_positions(
@@ -3270,7 +3332,11 @@ def _root_broad_count(records: Sequence[RawRecord]) -> int:
 
 
 def _boundary_type_allowance_fact(
-    rule: BoundaryTypesRule, facade_module: str, record: RawRecord, root_broad_count: int
+    rule: BoundaryTypesRule,
+    facade_module: str,
+    record: RawRecord,
+    root_broad_count: int,
+    mapping_occurrences: tuple[_MappingOccurrence, ...],
 ) -> RawRecord | None:
     data = record["data"]
     path = data["path"] if "path" in data else None
@@ -3279,52 +3345,109 @@ def _boundary_type_allowance_fact(
             f"{allowance.position}.{allowance.field_path}" if allowance.field_path else None
         )
         annotation = data.get("nested_annotation") if allowance.field_path else data["annotation"]
-        # Only a parameterized mapping records its `nested_annotation`; a bare broad type, however
-        # spelled (`typing.Mapping`, an alias), records none and no root allowance may exempt it.
-        root_unmatched = not allowance.field_path and (
-            data["reason"] != _BROAD_BOUNDARY_REASON
-            or "nested_annotation" not in data
-            or data.get("container_depth", 0) > 0
-            or root_broad_count != 1
+        direct_match = (
+            not allowance.field_path
+            and data["reason"] == _BROAD_BOUNDARY_REASON
+            and "nested_annotation" in data
+            and data.get("container_depth", 0) == 0
+            and root_broad_count == 1
         )
         if (
-            allowance.annotation == "dict"
-            or root_unmatched
-            or data["qualified_name"] != allowance.qualified_name
+            data["qualified_name"] != allowance.qualified_name
             or data["position"] != allowance.position
             or path != expected_path
             or annotation != allowance.annotation
+            or allowance.annotation == "dict"
         ):
             continue
-        return classified(
-            item_id=stable_id(
-                "TYPE",
-                rule.id,
-                record["id"],
-                allowance.qualified_name,
-                allowance.position,
-                allowance.field_path,
-                allowance.annotation,
-            ),
-            evidence_class=EvidenceClass.FACT,
-            area="type_architecture",
-            kind="boundary_type_allowance",
-            title=(
-                f"{allowance.qualified_name} has an exact "
-                f"{'nested ' if allowance.field_path else ''}boundary type allowance"
-            ),
-            subjects=[allowance.qualified_name, facade_module],
-            evidence_ids=record["evidence_ids"],
-            rule_ids=[rule.id],
-            fact_ids=record["fact_ids"],
-            data={
-                "qualified_name": allowance.qualified_name,
-                "position": allowance.position,
-                "field_path": allowance.field_path,
-                "annotation": allowance.annotation,
-            },
+        if allowance.field_path:
+            is_contained = False
+        else:
+            if not direct_match and not _contained_mapping_allowance_matches(
+                allowance, data, mapping_occurrences
+            ):
+                continue
+            is_contained = not direct_match
+        return _boundary_type_allowance_fact_record(
+            rule, facade_module, record, allowance, is_contained
         )
     return None
+
+
+def _contained_mapping_allowance_matches(
+    allowance: BoundaryTypeAllowance,
+    data: RecordData,
+    mapping_occurrences: tuple[_MappingOccurrence, ...],
+) -> bool:
+    # Only parameterized mappings record `nested_annotation`; bare broad types stay unmatched.
+    if (
+        data["reason"] != _BROAD_BOUNDARY_REASON
+        or "nested_annotation" not in data
+        or data.get("container_depth", 0) <= 0
+        or allowance.annotation != data["annotation"]
+    ):
+        return False
+    contained = tuple(occurrence for occurrence in mapping_occurrences if not occurrence.path)
+    return (
+        len(contained) == 1
+        and contained[0].annotation == data["nested_annotation"]
+        and contained[0].depth == data["container_depth"]
+        and contained[0].alias_free
+    )
+
+
+def _boundary_type_allowance_fact_record(
+    rule: BoundaryTypesRule,
+    facade_module: str,
+    record: RawRecord,
+    allowance: BoundaryTypeAllowance,
+    is_contained: bool,
+) -> RawRecord:
+    data = record["data"]
+    allowance_scope = (
+        "unique contained mapping " if is_contained else "nested " if allowance.field_path else ""
+    )
+    return classified(
+        item_id=stable_id(
+            "TYPE",
+            rule.id,
+            record["id"],
+            allowance.qualified_name,
+            allowance.position,
+            allowance.field_path,
+            allowance.annotation,
+        ),
+        evidence_class=EvidenceClass.FACT,
+        area="type_architecture",
+        kind="boundary_type_allowance",
+        title=(
+            f"{allowance.qualified_name} has an exact {allowance_scope}"
+            "boundary type allowance"
+            + (
+                f" for {data['nested_annotation']} at container depth {data['container_depth']}"
+                if is_contained
+                else ""
+            )
+        ),
+        subjects=[allowance.qualified_name, facade_module],
+        evidence_ids=record["evidence_ids"],
+        rule_ids=[rule.id],
+        fact_ids=record["fact_ids"],
+        data={
+            "qualified_name": allowance.qualified_name,
+            "position": allowance.position,
+            "field_path": allowance.field_path,
+            "annotation": allowance.annotation,
+            **(
+                {
+                    "nested_annotation": data["nested_annotation"],
+                    "container_depth": data["container_depth"],
+                }
+                if is_contained
+                else {}
+            ),
+        },
+    )
 
 
 def _boundary_types_violations(
@@ -3408,7 +3531,11 @@ def _boundary_types_violations(
                 root_broad_count = _root_broad_count(records)
                 for record in records:
                     fact = _boundary_type_allowance_fact(
-                        rule, facade_module, record, root_broad_count
+                        rule,
+                        facade_module,
+                        record,
+                        root_broad_count,
+                        verdict.mapping_occurrences,
                     )
                     if fact is None:
                         violations.append(record)
@@ -3440,7 +3567,11 @@ def _boundary_types_violations(
                     root_broad_count = _root_broad_count(records)
                     for record in records:
                         fact = _boundary_type_allowance_fact(
-                            rule, facade_module, record, root_broad_count
+                            rule,
+                            facade_module,
+                            record,
+                            root_broad_count,
+                            verdict.mapping_occurrences,
                         )
                         if fact is None:
                             violations.append(record)

@@ -1,5 +1,10 @@
 # Unreleased
 
+- An exact `allowed_positions` entry may now allow one unique parameterized map inside a
+  collection or union when its empty-path annotation matches the complete signature. Repeated or
+  aliased contained maps remain violations, and other violations or UNKNOWN remain visible
+  (AD-127, analyzer 0.61.0).
+
 # Archkeel 0.8.1 — Incomplete proof stays UNKNOWN
 
 - `complete_requires` and `interface_boundary` PASS now requires a non-empty, fully covered scope

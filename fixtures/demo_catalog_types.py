@@ -148,6 +148,93 @@ _MAPPING_ALLOWED = Variant(
     expected_codes=(),
 )
 
+
+def _contained_mapping_contract(annotation: str) -> str:
+    contract = json.loads(
+        contract_component_field_appended(
+            "app", "public", "shop.app.reports:read_csv_having_weight_column"
+        )
+    )
+    rule = next(item for item in contract["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+    rule["allowed_positions"] = [
+        {
+            "qualified_name": "shop.app.reports.read_csv_having_weight_column",
+            "position": "return",
+            "field_path": "",
+            "annotation": annotation,
+        }
+    ]
+    return json.dumps(contract, indent=2) + "\n"
+
+
+def _contained_mapping_source(annotation: str) -> str:
+    return HEADER + f"def read_csv_having_weight_column() -> {annotation}:\n    return ([], [])\n"
+
+
+_CONTAINED_MAPPING_CLI = _CLI_IMPORTS_REPORTS.replace(
+    "from shop.app.reports import snapshot",
+    "from shop.app.reports import read_csv_having_weight_column",
+)
+
+
+_CONTAINED_MAPPING = Variant(
+    id="class-a-boundary-types-contained-mapping",
+    section="class_a",
+    item="boundary_types:unique_contained_mapping",
+    summary="An exact full-signature allowance applies to one contained mapping and records its "
+    "annotation and depth; it does not turn another member into PASS (AD-127).",
+    files={
+        "shop/app/reports.py": _contained_mapping_source(
+            "tuple[list[float], list[dict[str, str]]]"
+        ),
+        "shop/cli/main.py": _CONTAINED_MAPPING_CLI,
+        "architecture-contract.json": _contained_mapping_contract(
+            "tuple[list[float], list[dict[str, str]]]"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+)
+
+_CONTAINED_MAPPING_SIBLINGS = Variant(
+    id="class-a-boundary-types-contained-mapping-siblings",
+    section="class_a",
+    item="boundary_types:ambiguous_contained_mappings",
+    summary="Two identical contained mappings count as two occurrences before finding dedup, so "
+    "the allowance stays unused (AD-127).",
+    files={
+        "shop/app/reports.py": _contained_mapping_source(
+            "tuple[list[float], list[dict[str, str]], list[dict[str, str]]]"
+        ),
+        "shop/cli/main.py": _CONTAINED_MAPPING_CLI,
+        "architecture-contract.json": _contained_mapping_contract(
+            "tuple[list[float], list[dict[str, str]], list[dict[str, str]]]"
+        ),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
+_CONTAINED_MAPPING_UNKNOWN = Variant(
+    id="class-a-boundary-types-contained-mapping-unknown",
+    section="class_a",
+    item="boundary_types:contained_mapping_unknown_member",
+    summary="The unique map is allowed, while its unresolved member remains UNKNOWN (AD-127).",
+    files={
+        "shop/app/reports.py": _contained_mapping_source(
+            "tuple[list[float], list[dict[str, MissingRow]]]"
+        ),
+        "shop/cli/main.py": _CONTAINED_MAPPING_CLI,
+        "architecture-contract.json": _contained_mapping_contract(
+            "tuple[list[float], list[dict[str, MissingRow]]]"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("boundary_type_limit", "shop.app"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 _DICT_ALLOWANCE = {
     "qualified_name": "shop.app.reports.snapshot",
     "position": "return",
@@ -667,6 +754,9 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES,
     _MAPPING_BROAD,
     _MAPPING_ALLOWED,
+    _CONTAINED_MAPPING,
+    _CONTAINED_MAPPING_SIBLINGS,
+    _CONTAINED_MAPPING_UNKNOWN,
     _BUILTIN_DICT_ALLOWED,
     _SHADOWED_DICT_ALLOWED,
     _BOUNDARY_TYPES_MIXED_EVIDENCE,
