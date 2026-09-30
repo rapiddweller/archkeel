@@ -504,6 +504,107 @@ def _ce_nested_route_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
     return page, payload
 
 
+def _cross_frame_domains_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
+    def component(
+        component_id: str,
+        label: str,
+        package: str,
+        *,
+        inside: str | None = None,
+    ) -> dict[str, Any]:
+        record: dict[str, Any] = {
+            "id": component_id,
+            "label": label,
+            "role": "component",
+            "packages": [package],
+            "namespace": package,
+            "responsibilities": [f"Own {label} behavior."],
+            "forbidden_responsibilities": [],
+            "public": [],
+            "provenance": ["docs/architecture/ce.md"],
+            "decided_by": "architect",
+        }
+        if inside:
+            record["inside"] = inside
+        return record
+
+    def layout(rule_id: str, root: str, children: list[str]) -> dict[str, Any]:
+        return {
+            "id": rule_id,
+            "kind": "root_layout",
+            "root": root,
+            "allowed_children": children,
+            "rationale": "Keep the cross-frame dependency route explicit.",
+            "provenance": ["docs/architecture/ce.md"],
+            "decided_by": "architect",
+        }
+
+    domain_path = "datamimic_ce.domains"
+    domain_children = [
+        component(f"DOMAIN-{index:02}", f"domain {index:02}", f"{domain_path}.item{index:02}")
+        for index in range(6)
+    ]
+    domain_contract = {
+        "schema_version": "2.1.0",
+        "components": domain_children,
+        "rules": [
+            layout(
+                "LAYOUT-DOMAINS",
+                domain_path,
+                [f"{domain_path}.item{index:02}" for index in range(6)],
+            )
+        ],
+    }
+    runtime = component("COMP-RUNTIME", "runtime", "datamimic_ce.engine.runtime")
+    domains = component(
+        "COMP-DOMAINS",
+        "domains",
+        domain_path,
+        inside="docs/architecture/inner/domains/architecture-contract.json",
+    )
+    io = component("COMP-IO", "io", "datamimic_ce.engine.io")
+    dsl = component("COMP-DSL", "dsl", "datamimic_ce.engine.dsl")
+    runtime["requires"] = [{"component": "domains", "rationale": "Runtime uses domains."}]
+    domains["requires"] = [{"component": "io", "rationale": "Domains use IO."}]
+    components = [runtime, domains, io, dsl]
+    root_contract = {
+        "schema_version": "2.1.0",
+        "components": components,
+        "rules": [
+            layout("LAYOUT-ROOT", "datamimic_ce", ["datamimic_ce.engine", domain_path]),
+            layout(
+                "LAYOUT-ENGINE",
+                "datamimic_ce.engine",
+                [
+                    "datamimic_ce.engine.runtime",
+                    "datamimic_ce.engine.io",
+                    "datamimic_ce.engine.dsl",
+                ],
+            ),
+        ],
+    }
+    packages = [
+        *(item["packages"][0] for item in components),
+        *(item["packages"][0] for item in domain_children),
+    ]
+    files = {
+        "architecture-contract.json": json.dumps(root_contract),
+        "docs/architecture/inner/domains/architecture-contract.json": json.dumps(domain_contract),
+    }
+    files.update({f"{package.replace('.', '/')}/__init__.py": "" for package in packages})
+    root = _prepare_repo(tmp_path, files)
+    config = ScanConfig(("datamimic_ce",), "datamimic_ce", "architecture-contract.json", "0" * 64)
+    result, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None, result.diagnostics
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    page = render_html(
+        result, observation, repository="datamimic_ce", architecture_href="architecture.json"
+    ).decode()
+    start = page.index('id="flow-data"')
+    payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
+    return page, payload
+
+
 def _walk(nodes: list[dict[str, Any]]):
     for node in nodes:
         yield node
@@ -892,6 +993,167 @@ def test_ce_route_keeps_semantic_identity_across_actual_diff_target(
                 })"""
             )
             assert after == before
+        finally:
+            browser.close()
+
+
+def test_cross_frame_dependency_chain_uses_graph_global_render_order(tmp_path: Path) -> None:
+    page_html, payload = _cross_frame_domains_page(tmp_path)
+    root = payload["explorers"]["target_diagrams"]["root"]
+    nodes = _nodes(root)
+    assert nodes["COMP-RUNTIME"]["dependency_rank"] < nodes["COMP-DOMAINS"]["dependency_rank"]
+    assert nodes["COMP-DOMAINS"]["dependency_rank"] < nodes["COMP-IO"]["dependency_rank"]
+    assert root["containers"]["layout:LAYOUT-ENGINE"]["members"] == [
+        "COMP-DSL",
+        "COMP-IO",
+        "COMP-RUNTIME",
+    ]
+    assert {
+        (edge["source"], edge["target"]) for edge in root["edges"] if edge["kind"] == "requires"
+    } == {("COMP-RUNTIME", "COMP-DOMAINS"), ("COMP-DOMAINS", "COMP-IO")}
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.get_by_role("button", name="Target", exact=True).click()
+            card_centers = page.evaluate(
+                """() => Object.fromEntries(
+                  ['COMP-RUNTIME', 'COMP-DOMAINS', 'COMP-IO'].map(id => {
+                    const box = document.querySelector(`[data-target-node="${id}"]`)
+                      .getBoundingClientRect();
+                    return [id, box.top + box.height / 2];
+                  })
+                )"""
+            )
+            assert card_centers["COMP-RUNTIME"] < card_centers["COMP-DOMAINS"]
+            assert card_centers["COMP-DOMAINS"] < card_centers["COMP-IO"]
+        finally:
+            browser.close()
+
+
+def test_initial_narrow_canvas_keeps_unframed_lane_outside_engine_frame(
+    tmp_path: Path,
+) -> None:
+    page_html, _ = _cross_frame_domains_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            canvas = page.locator(".flow-canvas")
+            canvas.evaluate(
+                "node => { node.style.flex = '0 0 552px'; node.style.width = '552px'; }"
+            )
+            page.get_by_role("button", name="Target", exact=True).click()
+            assert canvas.evaluate("node => node.clientWidth") == 550
+
+            geometry = page.evaluate(
+                """() => {
+                  const box = selector => {
+                    const rect = document.querySelector(selector).getBoundingClientRect();
+                    return {left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom};
+                  };
+                  const frameGroup = document.querySelector(
+                    '[data-target-container="layout:LAYOUT-ENGINE"]'
+                  );
+                  const frame = frameGroup.previousElementSibling
+                    .querySelector('.target-frame');
+                  const rect = frame.getBoundingClientRect();
+                  const cards = Object.fromEntries(
+                    ['COMP-RUNTIME', 'COMP-DOMAINS', 'COMP-IO'].map(id => [
+                      id, box(`[data-target-node="${id}"]`),
+                    ])
+                  );
+                  return {
+                    frame: {
+                      left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+                    },
+                    cards,
+                  };
+                }"""
+            )
+
+            runtime = geometry["cards"]["COMP-RUNTIME"]
+            domains = geometry["cards"]["COMP-DOMAINS"]
+            io = geometry["cards"]["COMP-IO"]
+            frame = geometry["frame"]
+            assert runtime["left"] >= frame["left"] and runtime["right"] <= frame["right"]
+            assert runtime["top"] >= frame["top"] and runtime["bottom"] <= frame["bottom"]
+            assert io["left"] >= frame["left"] and io["right"] <= frame["right"]
+            assert io["top"] >= frame["top"] and io["bottom"] <= frame["bottom"]
+            centers = {
+                component_id: rect["top"] + (rect["bottom"] - rect["top"]) / 2
+                for component_id, rect in geometry["cards"].items()
+            }
+            assert centers["COMP-RUNTIME"] < centers["COMP-DOMAINS"]
+            assert centers["COMP-DOMAINS"] < centers["COMP-IO"]
+            assert (
+                domains["right"] <= frame["left"]
+                or domains["left"] >= frame["right"]
+                or domains["bottom"] <= frame["top"]
+                or domains["top"] >= frame["bottom"]
+            )
+        finally:
+            browser.close()
+
+
+def test_target_resize_preserves_open_graph_card_anchor(tmp_path: Path) -> None:
+    page_html, payload = _cross_frame_domains_page(tmp_path)
+    diagrams = payload["explorers"]["target_diagrams"]
+    domain_graph = diagrams["nested"]["COMP-DOMAINS"]
+    domain_ids = {node["id"] for node in domain_graph["nodes"] if node["kind"] == "component"}
+    assert domain_ids == {"COMP-DOMAINS", *(f"domains:DOMAIN-{index:02}" for index in range(6))}
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_default_timeout(2500)
+            page.set_content(page_html, wait_until="load")
+            page.get_by_role("button", name="Target", exact=True).click()
+            page.locator('[data-target-node="COMP-DOMAINS"]').click()
+            target = page.locator('[data-target-node="domains:DOMAIN-04"]')
+
+            def anchor_state() -> dict[str, Any]:
+                return target.evaluate(
+                    """node => {
+                      const box = node.getBoundingClientRect();
+                      const canvas = document.querySelector('.flow-canvas');
+                      return {
+                        transform: node.getAttribute('transform'),
+                        x: box.left,
+                        y: box.top,
+                        path: [...document.querySelectorAll('.flow-breadcrumb button')]
+                          .map(button => button.textContent.trim()),
+                        inspector: document.querySelector('.flow-inspector h2')
+                          ?.textContent.trim(),
+                        zoom: document.querySelector('.flow-zoom-value')?.textContent.trim(),
+                        scrollLeft: canvas.scrollLeft,
+                        scrollTop: canvas.scrollTop,
+                      };
+                    }"""
+                )
+
+            before = anchor_state()
+            assert before["path"] == ["Target", "domains"]
+            assert before["inspector"] == "domains"
+            assert before["zoom"] == "100%"
+            page.set_viewport_size({"width": 1856, "height": 1336})
+            page.wait_for_timeout(100)
+            after = anchor_state()
+            assert after["path"] == before["path"]
+            assert after["inspector"] == before["inspector"]
+            assert after["zoom"] == before["zoom"]
+            assert after["scrollLeft"] == before["scrollLeft"]
+            assert after["scrollTop"] == before["scrollTop"]
+            assert after["transform"] == before["transform"]
+            assert abs(after["x"] - before["x"]) <= 1
+            assert abs(after["y"] - before["y"]) <= 1
         finally:
             browser.close()
 
