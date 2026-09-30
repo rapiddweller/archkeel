@@ -62,7 +62,7 @@ demo-screenshots:
 	@firefox --headless --no-remote --window-size 375,2400 \
 	  --screenshot "$(OUTPUT)/A-check-375x2400.png" \
 	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
-	@$(UV) run --locked python tools/terminal_svg.py "$(OUTPUT)"
+	@$(UV) run --locked python -m tools.terminal_svg "$(OUTPUT)"
 	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
 
 PLAYWRIGHT_VERSION ?= 1.62.0
