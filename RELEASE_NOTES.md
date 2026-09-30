@@ -8,9 +8,9 @@
   allowance accepts only the genuine builtin; a shadowed spelling remains UNKNOWN.
 - The Target responsibility index now includes components with no responsibility sentence, labels
   them “No declared responsibility,” and keeps them searchable and selectable.
-- Switching among Actual, Target, and Diff preserves a uniquely matched scope or module.
-  Missing or ambiguous counterparts fall back to the nearest unique ancestor or root with
-  an explanation; explicit navigation clears that context.
+- Switching among Actual, Target, and Diff restores the original selection after an unmatched
+  view. The unmatched view still opens at the nearest unique ancestor or root with an explanation;
+  choosing another entry, category, or root replaces the saved selection.
 - Proven standard-library `Mapping`/`MutableMapping` boundary annotations, subscripted or bare,
   now receive the same broad-map finding as `dict`, while their member types and UNKNOWNs remain
   visible. Exact `allowed_positions` may name a direct signature position with `field_path: ""`,

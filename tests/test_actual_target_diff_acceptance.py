@@ -250,6 +250,11 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             assert "No matching entry in this view" in responsibility.inner_text()
 
             page.get_by_role("button", name="Diff").click()
+            assert (
+                page.locator(f'[data-projection-id="{missing_id}"]').get_attribute("aria-pressed")
+                == "true"
+            )
+            page.locator("[data-projection-root]").click()
             page.locator('[data-projection-id="diff:absent"]').click()
             ghost = next(
                 node
@@ -381,6 +386,127 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
             browser.close()
 
 
+@pytest.mark.parametrize(
+    "navigation", ["round_trip", "actual_round_trip", "diff_category", "diff_root"]
+)
+def test_unmatched_target_diff_round_trip_preserves_or_replaces_context(
+    tmp_path: Path, navigation: str
+) -> None:
+    page_html, payload, _ = _acceptance_page(
+        tmp_path,
+        module_declarations=[
+            {"path": "shop/missing.py", "responsibility": "Own the missing module."},
+        ],
+    )
+    target_module = next(
+        node
+        for node in _walk(payload["explorers"]["target"])
+        if node["kind"] == "module_target" and node["label"] == "missing.py"
+    )
+    next(detail for detail in target_module["details"] if detail["label"] == "File")["value"] = (
+        "runtime/tasks/values/construction/global_increment.py"
+    )
+    if navigation == "actual_round_trip":
+        actual = {
+            "id": "runtime",
+            "label": "runtime",
+            "kind": "group",
+            "details": [],
+            "children": [],
+        }
+        current = actual
+        for label in ("tasks", "values", "construction"):
+            child = {
+                "id": f"{current['id']}.{label}",
+                "label": label,
+                "kind": "group",
+                "details": [],
+                "children": [],
+            }
+            current["children"].append(child)
+            current = child
+        current["children"].append(
+            {
+                "id": "runtime.tasks.values.construction.global_increment",
+                "label": "global_increment",
+                "kind": "module",
+                "details": [
+                    {
+                        "label": "File",
+                        "value": "runtime/tasks/values/construction/global_increment.py",
+                    },
+                ],
+                "children": [],
+            }
+        )
+        payload["explorers"]["actual"].append(actual)
+
+    def remove_node(nodes: list[dict[str, Any]], node_id: str) -> bool:
+        for index, node in enumerate(nodes):
+            if node["id"] in {node_id, f"absent:{node_id}"} or any(
+                detail["label"] == "Target declaration ID" and detail["value"] == node_id
+                for detail in node["details"]
+            ):
+                del nodes[index]
+                return True
+            if remove_node(node["children"], node_id):
+                return True
+        return False
+
+    assert remove_node(payload["explorers"]["diff"], target_module["id"])
+    start = page_html.index('id="flow-data"')
+    payload_start = page_html.index(">", start) + 1
+    payload_end = page_html.index("</script>", payload_start)
+    page_html = page_html[:payload_start] + json.dumps(payload) + page_html[payload_end:]
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            page.locator(".flow-responsibilities summary").click()
+            page.locator(".flow-responsibility-search").fill("global_increment.py")
+            page.locator(".flow-responsibility-list button:visible").first.click()
+            page.locator('[data-flow-view="diff"]').click()
+            assert "No matching scope" in page.locator(".flow-projection-context").inner_text()
+
+            if navigation == "actual_round_trip":
+                page.locator('[data-flow-view="actual"]').click()
+                module_id = "runtime.tasks.values.construction.global_increment"
+                assert (
+                    page.locator(f'[data-projection-id="{module_id}"]').get_attribute(
+                        "aria-pressed"
+                    )
+                    == "true"
+                )
+                page.locator('[data-flow-view="target"]').click()
+                assert page.locator(
+                    f'.target-node[data-target-node="{target_module["id"]}"]'
+                ).is_visible()
+            elif navigation == "diff_category":
+                page.locator('[data-projection-id="diff:absent"]').click()
+            elif navigation == "diff_root":
+                page.locator("[data-projection-root]").click()
+            if navigation != "actual_round_trip":
+                page.locator('[data-flow-view="target"]').click()
+                if navigation == "round_trip":
+                    assert page.locator(
+                        f'.target-node[data-target-node="{target_module["id"]}"]'
+                    ).is_visible()
+                    assert (
+                        page.locator(".flow-inspector")
+                        .get_by_role("heading", name="missing.py")
+                        .is_visible()
+                    )
+                else:
+                    assert not page.locator(
+                        f'.target-node[data-target-node="{target_module["id"]}"]'
+                    ).is_visible()
+        finally:
+            browser.close()
+
+
 def test_ambiguous_target_package_uses_unique_ancestor_context(tmp_path: Path) -> None:
     page_html, payload, _ = _acceptance_page(tmp_path)
     target = payload["explorers"]["target"]
@@ -423,7 +549,10 @@ def test_ambiguous_target_package_uses_unique_ancestor_context(tmp_path: Path) -
             browser.close()
 
 
-def test_selected_root_actual_leaf_names_missing_target_context(tmp_path: Path) -> None:
+@pytest.mark.parametrize("escape_at_root", [False, True])
+def test_selected_root_actual_leaf_names_missing_target_context(
+    tmp_path: Path, escape_at_root: bool
+) -> None:
     page_html, payload, _ = _acceptance_page(tmp_path)
     payload["explorers"]["actual"].append(
         {
@@ -449,6 +578,18 @@ def test_selected_root_actual_leaf_names_missing_target_context(tmp_path: Path) 
             page.locator('[data-flow-view="target"]').click()
             assert page.locator(".flow-breadcrumb").inner_text() == "Target"
             assert "standalone" in page.locator(".flow-projection-context").inner_text(timeout=1000)
+            if escape_at_root:
+                page.keyboard.press("Escape")
+                assert page.locator(".flow-projection-context").count() == 0
+                assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+                page.keyboard.press("Escape")
+                assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+            page.locator('[data-flow-view="actual"]').click()
+            expected_selection = "false" if escape_at_root else "true"
+            assert (
+                page.locator('[data-projection-id="standalone"]').get_attribute("aria-pressed")
+                == expected_selection
+            )
         finally:
             browser.close()
 
@@ -501,8 +642,16 @@ def test_explicit_target_navigation_clears_fallback_context(
             page.set_content(page_html, wait_until="load")
             if navigation in {"edge", "breadcrumb", "back", "escape"}:
                 page.locator('[data-flow-view="actual"]').click()
-                package = "shop.store" if navigation == "edge" else "shop.app"
-                for node_id in ["shop", package, f"{package}.unclaimed"]:
+                path = (
+                    ["shop", "shop.orphan"]
+                    if navigation == "edge"
+                    else [
+                        "shop",
+                        "shop.app",
+                        "shop.app.unclaimed",
+                    ]
+                )
+                for node_id in path:
                     page.locator(f'[data-projection-id="{node_id}"]').click()
             else:
                 page.locator('[data-flow-view="diff"]').click()
@@ -515,10 +664,11 @@ def test_explicit_target_navigation_clears_fallback_context(
                     page.locator(".flow-inspector").get_by_role("heading", name="app").is_visible()
                 )
             elif navigation == "edge":
-                edge = page.locator(".target-edge.requires").first
+                edge = page.locator('[data-target-edge="physical:shop.app"]')
                 edge.focus()
                 page.keyboard.press("Enter")
                 assert edge.get_attribute("aria-pressed") == "true"
+                assert page.locator(".flow-selected-responsibility").is_hidden()
             elif navigation == "breadcrumb":
                 page.locator(".flow-breadcrumb button").first.click()
                 assert page.locator(".flow-breadcrumb").inner_text() == "Target"
@@ -538,6 +688,16 @@ def test_explicit_target_navigation_clears_fallback_context(
                     page.locator(".flow-inspector").get_by_role("heading", name="app").is_visible()
                 )
             assert page.locator(".flow-projection-context").count() == 0
+            if navigation == "edge":
+                page.locator('[data-flow-view="actual"]').click()
+                visible_path = page.locator(".flow-projection-breadcrumb")
+                assert visible_path.is_visible()
+                assert " ".join(visible_path.inner_text().split()) == "Actual / shop / app"
+                assert (
+                    page.locator('[data-projection-id="shop.orphan"][aria-pressed="true"]').count()
+                    == 0
+                )
+                assert page.locator(".flow-selected-responsibility").is_hidden()
             assert page_errors == []
         finally:
             browser.close()

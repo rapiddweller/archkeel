@@ -326,6 +326,7 @@
   let projectionPath = [];
   let projectionSelection = null;
   let projectionContext = null;
+  let projectionReturnContext = null;
   let targetPath = [];
   let targetSelection = null;
   let selectedSubject = null;
@@ -376,10 +377,12 @@
     });
   }
 
-  function projectionCounterpart(from, to) {
+  function projectionCounterpart(from, to, context = null) {
     const sourceTree = from === "target" ? DATA.explorers.target : DATA.explorers[from];
-    const sourcePath = from === "target" ? targetPath : projectionPath;
-    const sourceSelection = from === "target" ? targetSelection : projectionSelection;
+    const sourcePath = context?.view === from
+      ? context.path : from === "target" ? targetPath : projectionPath;
+    const sourceSelection = context?.view === from
+      ? context.selection : from === "target" ? targetSelection : projectionSelection;
     const flattened = projectionNodes(sourceTree);
     const sourceNodes = sourcePath.map((id) => {
       return flattened.find(({ node }) => node.id === id)?.node;
@@ -488,6 +491,7 @@
   function selectSubject(node, view = viewMode) {
     if (!node) return;
     projectionContext = null;
+    projectionReturnContext = null;
     selectedSubject = null;
     if (["actual", "diff"].includes(view)
         && ["module", "observed_only_module_target"].includes(node.kind)) {
@@ -890,7 +894,9 @@
       }));
       const inspect = () => {
         projectionContext = null;
+        projectionReturnContext = null;
         targetSelection = edge.declaration || null;
+        selectedSubject = null;
         render();
       };
       group.addEventListener("click", inspect);
@@ -1961,6 +1967,7 @@
         button.disabled = index === entries.length - 1;
         button.addEventListener("click", () => {
           projectionContext = null;
+          projectionReturnContext = null;
           targetPath = targetPath.slice(0, item.depth);
           targetSelection = null;
           selectedSubject = null;
@@ -2061,6 +2068,7 @@
   backButton.addEventListener("click", () => {
     if (viewMode === "target" && targetPath.length) {
       projectionContext = null;
+      projectionReturnContext = null;
       targetPath.pop();
       targetSelection = null;
       selectedSubject = null;
@@ -2076,21 +2084,33 @@
     const nextView = button.dataset.flowView;
     const projectionView = ["actual", "target", "diff"].includes(viewMode)
       && ["actual", "target", "diff"].includes(nextView);
-    const counterpart = projectionView
-      ? projectionCounterpart(viewMode, nextView) : null;
-    const previous = projectionView ? [...(viewMode === "target" ? targetPath : projectionPath),
-      viewMode === "target" ? targetSelection : projectionSelection]
-      .map((id) => projectionNodes(DATA.explorers[viewMode]).find(({ node }) => node.id === id)?.node.label)
+    const savedContext = projectionReturnContext;
+    const returning = savedContext?.view === nextView ? savedContext : null;
+    const source = savedContext || {
+      view: viewMode,
+      path: viewMode === "target" ? [...targetPath] : [...projectionPath],
+      selection: viewMode === "target" ? targetSelection : projectionSelection,
+    };
+    const counterpart = projectionView && !returning
+      ? projectionCounterpart(source.view, nextView, savedContext) : null;
+    const previous = projectionView ? [...source.path, source.selection]
+      .map((id) => projectionNodes(DATA.explorers[source.view]).find(({ node }) => node.id === id)?.node.label)
       .filter(Boolean) : [];
-    projectionContext = projectionView
+    projectionReturnContext = projectionView
+      ? returning ? null : savedContext || (counterpart?.context || (!counterpart && previous.length)
+        ? source : null)
+      : null;
+    projectionContext = returning ? null : projectionView
       ? counterpart?.context || (!counterpart && previous.length
         ? `No matching scope in this view. Context: ${previous.join(" / ")}` : null)
       : null;
     viewMode = nextView;
-    projectionPath = nextView === "target" ? [] : counterpart?.path || [];
-    projectionSelection = nextView === "target" ? null : counterpart?.selection || null;
-    targetPath = nextView === "target" ? counterpart?.targetPath || [] : [];
-    targetSelection = nextView === "target" ? counterpart?.targetSelection || null : null;
+    projectionPath = nextView === "target" ? [] : returning?.path || counterpart?.path || [];
+    projectionSelection = nextView === "target" ? null : returning?.selection || counterpart?.selection || null;
+    targetPath = nextView === "target"
+      ? returning?.path || counterpart?.targetPath || [] : [];
+    targetSelection = nextView === "target"
+      ? returning?.selection || counterpart?.targetSelection || null : null;
     positions = {};
     render();
   }));
@@ -2133,6 +2153,7 @@
     const crumb = event.target.closest("[data-projection-crumb]");
     if (crumb) {
       projectionContext = null;
+      projectionReturnContext = null;
       projectionPath = projectionPath.slice(0, Number(crumb.dataset.projectionCrumb) + 1);
       projectionSelection = null;
       selectedSubject = null;
@@ -2141,6 +2162,7 @@
     }
     if (event.target.closest("[data-projection-root]")) {
       projectionContext = null;
+      projectionReturnContext = null;
       projectionPath = [];
       projectionSelection = null;
       selectedSubject = null;
@@ -2171,6 +2193,7 @@
     if (event.key === "Escape") {
       if (viewMode === "target" && targetPath.length) {
         projectionContext = null;
+        projectionReturnContext = null;
         targetPath.pop();
         targetSelection = null;
         selectedSubject = null;
@@ -2178,8 +2201,15 @@
         render();
       } else if (["actual", "diff"].includes(viewMode) && projectionPath.length) {
         projectionContext = null;
+        projectionReturnContext = null;
         projectionPath.pop();
         projectionSelection = null;
+        selectedSubject = null;
+        render();
+      } else if (["actual", "target", "diff"].includes(viewMode)
+          && (projectionContext || projectionReturnContext)) {
+        projectionContext = null;
+        projectionReturnContext = null;
         selectedSubject = null;
         render();
       } else if (!["actual", "target", "diff"].includes(viewMode)) {
