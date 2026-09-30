@@ -27,7 +27,11 @@ def _nodes(graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {node["id"]: node for node in graph["nodes"]}
 
 
-def _cycle_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
+def _cycle_page(
+    tmp_path: Path,
+    *,
+    wrapped_rank_count: int = 0,
+) -> tuple[str, dict[str, Any]]:
     tour = next(item for item in CATALOG if item.id == "tour")
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     components = {component["id"]: component for component in contract["components"]}
@@ -56,12 +60,47 @@ def _cycle_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
     contract["components"].extend([archive, empty])
     root_layout = next(rule for rule in contract["rules"] if rule["kind"] == "root_layout")
     root_layout["allowed_children"].extend(["shop.archive", "shop.empty"])
+    files = dict(tour.files)
+    if wrapped_rank_count:
+        provider = {
+            **components["COMP-MODEL"],
+            "id": "COMP-RANK-PROVIDER",
+            "label": "rank-provider",
+            "packages": ["shop.rank.provider"],
+            "namespace": "shop.rank.provider",
+            "public": [],
+        }
+        consumers = []
+        for index in range(wrapped_rank_count):
+            package = f"shop.rank.consumer{index:02}"
+            consumer = {
+                **components["COMP-MODEL"],
+                "id": f"COMP-RANK-{index:02}",
+                "label": f"ranked {index:02}",
+                "packages": [package],
+                "namespace": package,
+                "public": [],
+                "requires": [
+                    {
+                        "component": "rank-provider",
+                        "rationale": "Keep all consumer cards in the same rank.",
+                    }
+                ],
+            }
+            consumers.append(consumer)
+        contract["components"].extend([provider, *consumers])
+        root_layout["allowed_children"].append("shop.rank")
+        rank_packages = ["shop.rank", "shop.rank.provider"] + [
+            f"shop.rank.consumer{index:02}" for index in range(wrapped_rank_count)
+        ]
+        files.update({f"{package.replace('.', '/')}/__init__.py": "" for package in rank_packages})
     nested = (FIXTURE_DIR / "shop/store/architecture-contract.json").read_text()
-    files = {
-        **dict(tour.files),
-        "architecture-contract.json": json.dumps(contract),
-        "shop/store/architecture-contract.json": nested,
-    }
+    files.update(
+        {
+            "architecture-contract.json": json.dumps(contract),
+            "shop/store/architecture-contract.json": nested,
+        }
+    )
     root = _prepare_repo(tmp_path, files)
     result, architecture = run_report(root, config=CONFIG, analyzer=observe)
     assert architecture is not None, result.diagnostics
@@ -74,7 +113,11 @@ def _cycle_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
     return page, payload
 
 
-def _placement_page(tmp_path: Path) -> dict[str, Any]:
+def _placement_page_data(
+    tmp_path: Path,
+    *,
+    neutral_labels: bool = False,
+) -> tuple[str, dict[str, Any]]:
     tour = next(item for item in CATALOG if item.id == "tour")
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     model = next(
@@ -96,13 +139,29 @@ def _placement_page(tmp_path: Path) -> dict[str, Any]:
         item.pop("namespace", None)
         return item
 
+    labels = (
+        {
+            "COMP-MULTI": "Orders API",
+            "COMP-AMBIG": "Catalog API",
+            "COMP-UNSUPPORTED": "Import Adapter",
+        }
+        if neutral_labels
+        else {
+            "COMP-MULTI": "multi",
+            "COMP-AMBIG": "ambiguous",
+            "COMP-UNSUPPORTED": "wildcard",
+        }
+    )
     contract["components"].extend(
         [
-            component("COMP-MULTI", "multi", ["shop.alpha", "shop.beta"], public=[]),
-            component("COMP-AMBIG", "ambiguous", ["shop.ambiguous.api"], public=None),
-            component("COMP-UNSUPPORTED", "wildcard", ["shop.*"], public=[]),
+            component("COMP-MULTI", labels["COMP-MULTI"], ["shop.alpha", "shop.beta"], public=[]),
+            component("COMP-AMBIG", labels["COMP-AMBIG"], ["shop.ambiguous.api"], public=None),
+            component("COMP-UNSUPPORTED", labels["COMP-UNSUPPORTED"], ["shop.*"], public=[]),
         ]
     )
+    if neutral_labels:
+        ambiguous = next(item for item in contract["components"] if item["id"] == "COMP-AMBIG")
+        ambiguous["responsibilities"] = ['Literal <script>alert("no")</script> & text.']
     root_layout = next(rule for rule in contract["rules"] if rule["kind"] == "root_layout")
     root_layout["allowed_children"].extend(
         ["shop.alpha", "shop.beta", "shop.ambiguous", "shop.detached"]
@@ -149,7 +208,8 @@ def _placement_page(tmp_path: Path) -> dict[str, Any]:
         result, observation, repository="shop", architecture_href="architecture.json"
     ).decode()
     start = page.index('id="flow-data"')
-    return json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
+    payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
+    return page, payload
 
 
 def _parent_with_inside_components_page(tmp_path: Path) -> dict[str, Any]:
@@ -728,7 +788,7 @@ def test_target_hierarchy_preserves_declarations_inventory_and_dependency_order(
 
 
 def test_scope_placement_inventory_and_interface_states(tmp_path: Path) -> None:
-    payload = _placement_page(tmp_path)
+    _, payload = _placement_page_data(tmp_path)
     diagrams = payload["explorers"]["target_diagrams"]
     _assert_normalized_graphs(diagrams)
     nodes = _nodes(diagrams["root"])
@@ -778,6 +838,121 @@ def test_scope_placement_inventory_and_interface_states(tmp_path: Path) -> None:
     assert requirement_details["Through"] == "shop.store.gateway"
     assert requirement_details["Rationale"] == "Keep the API edge explicit."
     assert requirement_details["Provenance"] == "docs/architecture/shop.md"
+
+
+@pytest.mark.parametrize(
+    ("node_id", "label", "status", "scopes", "container"),
+    [
+        (
+            "COMP-MULTI",
+            "Orders API",
+            "multiple",
+            ("shop.alpha", "shop.beta"),
+            "layout:ROOT-LAYOUT",
+        ),
+        (
+            "COMP-AMBIG",
+            "Catalog API",
+            "ambiguous",
+            ("shop.ambiguous.api",),
+            None,
+        ),
+        (
+            "COMP-UNSUPPORTED",
+            "Import Adapter",
+            "unmapped",
+            ("shop.*",),
+            None,
+        ),
+    ],
+)
+def test_selected_placement_status_and_scope_are_visible_in_details(
+    tmp_path: Path,
+    node_id: str,
+    label: str,
+    status: str,
+    scopes: tuple[str, ...],
+    container: str | None,
+) -> None:
+    page_html, _ = _placement_page_data(tmp_path, neutral_labels=True)
+    assert not any(token in label.casefold() for token in ("ambiguous", "multiple", "unmapped"))
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="networkidle")
+            page.get_by_role("button", name="Target").click()
+            card = page.locator(f'.flow-nodes .node[data-target-node="{node_id}"]')
+            assert card.is_visible()
+            assert card.get_attribute("data-placement-status") == status
+            card.click()
+
+            inspector = page.locator(".flow-inspector")
+            assert inspector.is_visible()
+            text = inspector.inner_text()
+            assert label in text
+            assert "Placement" in text
+            assert status in text
+            assert "Scopes" in text
+            for scope in scopes:
+                assert scope in text
+            if container is None:
+                assert "Unplaced" in text
+            else:
+                assert container in text
+            if node_id == "COMP-AMBIG":
+                literal = 'Literal <script>alert("no")</script> & text.'
+                assert literal in text
+                assert inspector.locator("script").count() == 0
+                assert inspector.locator("img").count() == 0
+        finally:
+            browser.close()
+
+
+def test_selected_component_details_retain_folded_layout_context(tmp_path: Path) -> None:
+    page_html, payload = _folded_single_component_page(tmp_path)
+    diagrams = payload["explorers"]["target_diagrams"]
+    assert diagrams["root"]["containers"] == {}
+    app = _nodes(diagrams["root"])["COMP-APP"]
+    assert app["placement"]["container"] is None
+    assert app["placement"]["folded"] == [
+        {
+            "id": "layout:ROOT-SOLO",
+            "scope": "shop.app",
+            "details": [{"label": "Allowed children", "value": "shop.app.orders"}],
+        }
+    ]
+    assert diagrams["nested"]["COMP-APP"]["containers"] == {}
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="networkidle")
+            page.get_by_role("button", name="Target").click()
+            page.locator('.flow-nodes .node[data-target-node="COMP-APP"]').click()
+            inspector = page.locator(".flow-inspector")
+            assert inspector.is_visible()
+            text = inspector.inner_text()
+            assert [
+                item.text_content().strip()
+                for item in page.locator(".flow-breadcrumb button").all()
+            ] == ["Target", "app"]
+            for value in (
+                "layout:ROOT-SOLO",
+                "shop.app",
+                "Allowed children",
+                "shop.app.orders",
+                "Public interface",
+                "shop.app.orders:place_order",
+                "Provenance",
+                "docs/architecture/shop.md",
+            ):
+                assert value in text
+            assert "no declared frame" not in text.casefold()
+        finally:
+            browser.close()
 
 
 def test_folded_null_container_component_remains_selectable_and_openable(
@@ -1287,6 +1462,75 @@ def test_cycle_unresolved_band_is_visible_in_target_browser(tmp_path: Path) -> N
         )
         assert unresolved.is_visible()
         browser.close()
+
+
+def test_cycle_warning_tracks_null_band_after_wrapped_ranked_rows(tmp_path: Path) -> None:
+    page_html, payload = _cycle_page(tmp_path, wrapped_rank_count=10)
+    root = payload["explorers"]["target_diagrams"]["root"]
+    nodes = _nodes(root)
+    consumer_ids = [f"COMP-RANK-{index:02}" for index in range(10)]
+    assert {nodes[node_id]["dependency_rank"] for node_id in consumer_ids} == {0}
+    assert nodes["COMP-RANK-PROVIDER"]["dependency_rank"] == 1
+    null_ids = {"COMP-APP", "COMP-ARCHIVE", "COMP-EMPTY", "COMP-STORE"}
+    assert {
+        node_id
+        for node_id, node in nodes.items()
+        if node.get("kind") == "component" and node.get("dependency_rank") is None
+    } == null_ids
+    ranked_ids = [
+        node_id
+        for node_id, node in nodes.items()
+        if node["kind"] == "component" and node["dependency_rank"] is not None
+    ]
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="networkidle")
+            canvas = page.locator(".flow-canvas")
+            canvas.evaluate(
+                "node => { node.style.flex = '0 0 552px'; node.style.width = '552px'; }"
+            )
+            page.get_by_role("button", name="Target").click()
+            assert canvas.evaluate("node => node.clientWidth") == 550
+            warning = page.get_by_text(
+                "Dependency order unresolved: cycle or dependency on a cycle.", exact=True
+            )
+            assert warning.is_visible()
+            geometry = page.evaluate(
+                """({rankedIds, nullIds, consumerIds}) => {
+                  const rects = ids => ids.map(id => {
+                    const rect = document.querySelector(`[data-target-node="${id}"]`)
+                      .getBoundingClientRect();
+                    return {top: rect.top, bottom: rect.bottom};
+                  });
+                  const warning = document.querySelector('.target-cycle-warning')
+                    .getBoundingClientRect();
+                  const consumerTops = [...new Set(rects(consumerIds).map(rect => rect.top))]
+                    .sort((left, right) => left - right);
+                  const rowSteps = consumerTops.slice(1).map(
+                    (top, index) => top - consumerTops[index]
+                  );
+                  const ranked = rects(rankedIds);
+                  const residual = rects(nullIds);
+                  return {
+                    warning: {top: warning.top, bottom: warning.bottom},
+                    rankedBottom: Math.max(...ranked.map(rect => rect.bottom)),
+                    residualTop: Math.min(...residual.map(rect => rect.top)),
+                    rowStep: Math.min(...rowSteps),
+                    wrappedRows: consumerTops.length,
+                  };
+                }""",
+                {"rankedIds": ranked_ids, "nullIds": sorted(null_ids), "consumerIds": consumer_ids},
+            )
+            assert geometry["wrappedRows"] > 1
+            assert geometry["rowStep"] > 0
+            assert geometry["warning"]["top"] >= geometry["rankedBottom"], geometry
+            assert geometry["warning"]["top"] <= geometry["residualTop"] + geometry["rowStep"]
+        finally:
+            browser.close()
 
 
 @pytest.mark.parametrize(("width", "height"), [(1440, 1000), (1856, 1336)])
