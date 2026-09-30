@@ -79,6 +79,7 @@ def minimal_contract(path: str) -> dict:
 
 
 def reproduce(output: Path) -> dict:
+    output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     commands = []
     cli = str(Path(sys.executable).with_name("archkeel"))

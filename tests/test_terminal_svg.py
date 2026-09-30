@@ -1,3 +1,7 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
 """Real-process checks for terminal SVG capture evidence."""
 
 import os
@@ -79,3 +83,22 @@ def test_module_exports_real_inside_capture_without_pythonpath(tmp_path: Path) -
     svg = " ".join(" ".join(document.getroot().itertext()).replace("\u00a0", " ").split())
     assert "rule.violated" in svg
     assert "NOT CHECKED" in svg
+
+
+def test_demo_accepts_relative_output_with_local_git_remotes(tmp_path: Path) -> None:
+    output = tmp_path / "relative-demo"
+    relative_output = os.path.relpath(output, REPOSITORY_ROOT)
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    env["UV_CACHE_DIR"] = str(tmp_path / "uv-cache")
+    result = subprocess.run(
+        ["make", "demo", f"OUTPUT={relative_output}"],
+        capture_output=True,
+        check=False,
+        cwd=REPOSITORY_ROOT,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert (output / "commands.json").is_file()

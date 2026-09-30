@@ -129,10 +129,10 @@ def test_target_hierarchy_demo_reports_declared_targets(
             "COMP-RENDER",
             "COMP-STORE",
         ]
+        assert "COMP-STORE" in root_nodes
         assert diagrams["nested"]["COMP-STORE"]["containers"]["layout:store:STORE-ROOT-LAYOUT"][
             "members"
         ] == [
-            "COMP-STORE",
             "store:COMP-STORE-API",
             "store:COMP-STORE-BACKEND",
             "store:COMP-STORE-CODEC",
