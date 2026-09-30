@@ -1204,7 +1204,10 @@
         if (!targetDetailsTouched) setTargetDetails(true);
         render();
       };
-      group.addEventListener("click", enter);
+      group.addEventListener("click", (event) => {
+        if (event.detail > 1) return;
+        enter();
+      });
       group.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -1352,7 +1355,10 @@
         if (!targetDetailsTouched) setTargetDetails(true);
         render();
       };
-      group.addEventListener("click", open);
+      group.addEventListener("click", (event) => {
+        if (event.detail > 1) return;
+        open();
+      });
       group.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();

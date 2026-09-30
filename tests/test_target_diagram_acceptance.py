@@ -995,6 +995,41 @@ def test_target_dependency_order_crosses_physical_frames(tmp_path: Path) -> None
             browser.close()
 
 
+def test_target_double_click_does_not_open_a_newly_drawn_frame(tmp_path: Path) -> None:
+    page_html, _ = _target_diagram_page(tmp_path, cross_frame_chain=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            observed = {}
+            for activation in ("double-click", "single-click", "keyboard"):
+                page.set_content(page_html, wait_until="load")
+                page.locator('[data-flow-view="target"]').click()
+                page.locator('[data-target-container-open="layout:ENGINE-LAYOUT"]').click()
+                runtime = page.locator('[data-target-node="COMP-RUNTIME"]')
+                if activation == "double-click":
+                    box = runtime.bounding_box()
+                    assert box is not None
+                    page.mouse.click(
+                        box["x"] + box["width"] / 2,
+                        box["y"] + box["height"] / 2,
+                        click_count=2,
+                        delay=100,
+                    )
+                elif activation == "single-click":
+                    runtime.click()
+                else:
+                    runtime.focus()
+                    page.keyboard.press("Enter")
+
+                observed[activation] = page.locator(".flow-breadcrumb").inner_text()
+            expected = "Target\n/\nshop.engine\n/\nruntime"
+            assert observed == {activation: expected for activation in observed}
+        finally:
+            browser.close()
+
+
 def test_target_inspector_explains_graph_local_placement(tmp_path: Path) -> None:
     page_html, payload = _target_diagram_page(tmp_path)
     placements = {
