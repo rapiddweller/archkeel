@@ -1,0 +1,7 @@
+{
+  "after_digest": "756f045fd383cbb3ea14e55ca6dac1656110ca7629247dc1a6a17987dfddb87e",
+  "before_digest": "756f045fd383cbb3ea14e55ca6dac1656110ca7629247dc1a6a17987dfddb87e",
+  "decided_by": "architect",
+  "rationale": "Astra's delegated decision accepts exactly four unresolved TopologicalSorter method calls for target presentation. The ceiling changes from 569 to 573; the UNKNOWN ceiling stays 40 and declared_rules remains UNKNOWN. AD-126 records the exact source and call sites.",
+  "schema_version": "1.0.0"
+}
