@@ -891,8 +891,6 @@
     const availableColumns = Math.max(1, Math.floor((canvas.clientWidth - 64 + GAP) / step));
     const maxColumns = targetPath.length > 0 ? Math.max(2, availableColumns) : availableColumns;
     const stackLanes = canvas.clientWidth < 600;
-    const rowOffset = (row, ids) =>
-      !stackLanes && targetPath.length > 0 && ids.length === 1 ? row % 2 : 0;
     const rowFor = (node) => node.kind === "component"
       ? node.dependency_rank === null ? residualRow : rowByRank.get(node.dependency_rank)
       : residualRow + 1;
@@ -900,19 +898,54 @@
       ...(containers[id].members || []).filter((member) => byId.has(member)),
       ...physical.get(id).filter((member) => byId.has(member)),
     ];
-    const rowsFor = (id) => {
+    const laneItems = new Map(Object.keys(containers).sort().map((id) => [id, itemsFor(id)]));
+    const containerMembers = new Set([...laneItems.values()].flat());
+    const unplacedNodes = rankNodes.filter((node) => !containerMembers.has(node.id));
+    laneItems.set("@unplaced", unplacedNodes.map((node) => node.id));
+    const inventory = graphNodes.filter((node) =>
+      !frameIds.has(node.id) && node.id !== graph?.owner
+      && !containerMembers.has(node.id) && !rankNodes.includes(node),
+    ).sort((left, right) => left.id.localeCompare(right.id));
+    laneItems.set("@inventory", inventory.map((node) => node.id));
+    const groupedRows = new Map();
+    for (const [lane, identifiers] of laneItems) {
       const grouped = new Map();
-      itemsFor(id).forEach((identifier) => {
+      identifiers.forEach((identifier) => {
         const row = rowFor(byId.get(identifier));
         if (!grouped.has(row)) grouped.set(row, []);
         grouped.get(row).push(identifier);
       });
+      for (const ids of grouped.values()) ids.sort();
+      groupedRows.set(lane, grouped);
+    }
+    const laneOrder = [...laneItems.keys()];
+    const laneOffsets = new Map(laneOrder.map((lane) => [lane, new Map()]));
+    const rankedRows = [...new Set([...groupedRows.values()].flatMap((rows) => [...rows.keys()]))]
+      .sort((left, right) => left - right);
+    const rowHeights = new Map();
+    const rowStarts = new Map();
+    let nextRow = 0;
+    rankedRows.forEach((rankRow) => {
+      let rowHeight = 0;
+      for (const lane of laneOrder) {
+        const count = Math.ceil((groupedRows.get(lane).get(rankRow)?.length || 0) / maxColumns);
+        laneOffsets.get(lane).set(rankRow, stackLanes ? rowHeight : 0);
+        rowHeight = stackLanes ? rowHeight + count : Math.max(rowHeight, count);
+      }
+      rowStarts.set(rankRow, nextRow);
+      rowHeights.set(rankRow, Math.max(1, rowHeight));
+      nextRow += rowHeights.get(rankRow);
+    });
+    const rowOffset = (row, ids) =>
+      !stackLanes && targetPath.length > 0 && ids.length === 1 ? row % 2 : 0;
+    const rowsFor = (id) => {
       const rows = new Map();
-      let displayRow = 0;
-      [...grouped.keys()].sort((left, right) => left - right).forEach((row) => {
-        const ids = grouped.get(row).sort();
+      const grouped = groupedRows.get(id);
+      [...grouped.keys()].sort((left, right) => left - right).forEach((rankRow) => {
+        const ids = grouped.get(rankRow);
+        const start = rowStarts.get(rankRow) + laneOffsets.get(id).get(rankRow);
         for (let index = 0; index < ids.length; index += maxColumns) {
-          rows.set(displayRow++, ids.slice(index, index + maxColumns));
+          rows.set(start + Math.floor(index / maxColumns), ids.slice(index, index + maxColumns));
         }
       });
       return rows;
@@ -925,13 +958,6 @@
       const ownWidth = columns * step;
       return stackLanes ? Math.max(ownWidth, ...childWidths)
         : ownWidth + childWidths.reduce((sum, width) => sum + width + GAP, 0);
-    };
-    const laneHeight = (id) => {
-      const ownHeight = Math.max(1, rowsFor(id).size) * TARGET_ROW_STEP;
-      const childHeights = children.get(id).map(laneHeight);
-      return ownHeight + (stackLanes
-        ? childHeights.reduce((sum, height) => sum + height + GAP, 0)
-        : Math.max(0, ...childHeights));
     };
     const nextPositions = {};
     const frameBounds = {};
@@ -952,11 +978,7 @@
         placed.add(identifier);
       }));
       if (stackLanes) {
-        let childY = y + Math.max(1, rows.size) * TARGET_ROW_STEP + GAP;
-        for (const child of children.get(id)) {
-          placeLane(child, x, childY);
-          childY += laneHeight(child) + GAP;
-        }
+        children.get(id).forEach((child) => placeLane(child, x, y));
       } else {
         let childX = x + rowWidth * step;
         for (const child of children.get(id)) {
@@ -985,53 +1007,29 @@
     const roots = Object.keys(containers).filter((id) => !containers[id].parent).sort();
     for (const id of roots) {
       placeLane(id, stackLanes ? 0 : x, y);
-      if (stackLanes) y += laneHeight(id) + GAP;
-      else x += laneWidth(id) + GAP;
+      if (!stackLanes) x += laneWidth(id) + GAP;
     }
-    const unplaced = rankNodes
-      .filter((node) => !placed.has(node.id))
-      .sort((left, right) =>
-        (rowFor(left)) - (rowFor(right))
-        || left.id.localeCompare(right.id));
-    const unplacedRows = new Map();
-    unplaced.forEach((node) => {
-      const row = rowFor(node);
-      if (!unplacedRows.has(row)) unplacedRows.set(row, []);
-      unplacedRows.get(row).push(node);
-    });
     let unplacedWidth = 1;
-    let unplacedDisplayRow = 0;
-    [...unplacedRows.keys()].sort((left, right) => left - right).forEach((row) => {
-      const nodes = unplacedRows.get(row);
-      nodes.sort((left, right) => left.id.localeCompare(right.id));
-      for (let index = 0; index < nodes.length; index += maxColumns) {
-        const batch = nodes.slice(index, index + maxColumns);
-        const offset = batch.length === 1 ? unplacedDisplayRow % 2 : 0;
-        unplacedWidth = Math.max(unplacedWidth, batch.length + offset);
-        batch.forEach((node, column) => {
-          nextPositions[node.id] = {
-            x: x + (column + offset) * step,
-            y: (stackLanes ? y : 0) + unplacedDisplayRow * TARGET_ROW_STEP,
+    rowsFor("@unplaced").forEach((nodes, row) => {
+        const offset = rowOffset(row, nodes);
+        unplacedWidth = Math.max(unplacedWidth, nodes.length + offset);
+        nodes.forEach((identifier, column) => {
+          nextPositions[identifier] = {
+            x: (stackLanes ? 0 : x) + (column + offset) * step,
+            y: y + row * TARGET_ROW_STEP,
           };
-          placed.add(node.id);
+          placed.add(identifier);
         });
-        unplacedDisplayRow += 1;
-      }
     });
-    if (stackLanes) {
-      x = 0;
-      y += unplacedDisplayRow * TARGET_ROW_STEP + GAP;
-    } else {
-      x += unplacedWidth * step;
-    }
-    const inventory = graphNodes.filter((node) =>
-      !placed.has(node.id) && !frameIds.has(node.id) && node.id !== graph?.owner,
-    ).sort((left, right) => left.id.localeCompare(right.id));
-    inventory.forEach((node, index) => {
-      nextPositions[node.id] = {
-        x: x + index * step,
-        y: (stackLanes ? y : (residualRow + 1) * TARGET_ROW_STEP),
-      };
+    if (!stackLanes) x += unplacedWidth * step;
+    rowsFor("@inventory").forEach((nodes, row) => {
+      const offset = rowOffset(row, nodes);
+      nodes.forEach((identifier, index) => {
+        nextPositions[identifier] = {
+          x: (stackLanes ? 0 : x) + (index + offset) * step,
+          y: y + row * TARGET_ROW_STEP,
+        };
+      });
     });
     if (graph?.owner && !nextPositions[graph.owner]) {
       nextPositions[graph.owner] = { x: 0, y: 0 };
@@ -2570,18 +2568,5 @@
 
   renderLegend();
   render();
-  window.addEventListener("resize", () => {
-    if (viewMode === "target") {
-      const scroll = { left: canvas.scrollLeft, top: canvas.scrollTop };
-      renderTargetDiagram();
-      const restoreScroll = () => {
-        canvas.scrollLeft = Math.min(scroll.left, canvas.scrollWidth - canvas.clientWidth);
-        canvas.scrollTop = Math.min(scroll.top, canvas.scrollHeight - canvas.clientHeight);
-      };
-      restoreScroll();
-      requestAnimationFrame(restoreScroll);
-    } else {
-      sizeDiagram();
-    }
-  });
+  window.addEventListener("resize", sizeDiagram);
 })();

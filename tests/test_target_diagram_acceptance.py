@@ -544,7 +544,11 @@ def test_parent_graph_folds_frame_for_visible_owner_not_hidden_inside_components
 
 
 def _target_diagram_page(
-    tmp_path: Path, *, include_module_target: bool = False, cycle: bool = False
+    tmp_path: Path,
+    *,
+    include_module_target: bool = False,
+    cycle: bool = False,
+    cross_frame_chain: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     tour = next(item for item in CATALOG if item.id == "tour")
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
@@ -594,6 +598,59 @@ def _target_diagram_page(
             "rationale": "Archived orders stay behind the declared archive boundary.",
         }
     ]
+    root_layout = next(rule for rule in contract["rules"] if rule["kind"] == "root_layout")
+    if cross_frame_chain:
+        contract["components"].extend(
+            [
+                {
+                    "id": "COMP-RUNTIME",
+                    "label": "runtime",
+                    "role": "component",
+                    "packages": ["shop.engine.runtime"],
+                    "namespace": "shop.engine.runtime",
+                    "responsibilities": ["Execute runtime work."],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/shop.md"],
+                    "decided_by": "architect",
+                    "requires": [{"component": "domains", "rationale": "Runtime uses domains."}],
+                },
+                {
+                    "id": "COMP-DOMAINS",
+                    "label": "domains",
+                    "role": "component",
+                    "packages": ["shop.domains"],
+                    "namespace": "shop.domains",
+                    "responsibilities": ["Own domain values."],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/shop.md"],
+                    "decided_by": "architect",
+                    "requires": [{"component": "io", "rationale": "Domains use IO."}],
+                },
+                {
+                    "id": "COMP-IO",
+                    "label": "io",
+                    "role": "component",
+                    "packages": ["shop.engine.io"],
+                    "namespace": "shop.engine.io",
+                    "responsibilities": ["Perform IO."],
+                    "forbidden_responsibilities": [],
+                    "provenance": ["docs/architecture/shop.md"],
+                    "decided_by": "architect",
+                },
+            ]
+        )
+        root_layout["allowed_children"].extend(["shop.engine", "shop.domains"])
+        contract["rules"].append(
+            {
+                "id": "ENGINE-LAYOUT",
+                "kind": "root_layout",
+                "root": "shop.engine",
+                "allowed_children": ["shop.engine.io", "shop.engine.runtime"],
+                "rationale": "Runtime and IO share the physical engine frame.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            }
+        )
     if cycle:
         archive = next(
             component for component in contract["components"] if component["id"] == "COMP-ARCHIVE"
@@ -611,7 +668,6 @@ def _target_diagram_page(
                 "responsibility": "Coordinate order workflows.",
             }
         )
-    root_layout = next(rule for rule in contract["rules"] if rule["kind"] == "root_layout")
     root_layout["allowed_children"].append("shop.archive")
     root_layout["allowed_children"].append("shop.missing")
     files = {
@@ -891,6 +947,104 @@ def test_target_physical_path_survives_actual_diff_round_trip(tmp_path: Path) ->
                 == selection
             )
             assert page.locator(".flow-inspector h2").text_content() == "shop.store.backend"
+        finally:
+            browser.close()
+
+
+def test_target_dependency_order_crosses_physical_frames(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path, cross_frame_chain=True)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    components = {node["id"]: node for node in graph["nodes"] if node["kind"] == "component"}
+    assert (
+        components["COMP-RUNTIME"]["dependency_rank"]
+        < components["COMP-DOMAINS"]["dependency_rank"]
+    )
+    assert components["COMP-DOMAINS"]["dependency_rank"] < components["COMP-IO"]["dependency_rank"]
+    assert graph["containers"]["layout:ENGINE-LAYOUT"]["members"] == [
+        "COMP-IO",
+        "COMP-RUNTIME",
+    ]
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            y_positions = page.locator(
+                '[data-target-node="COMP-RUNTIME"], [data-target-node="COMP-DOMAINS"], '
+                '[data-target-node="COMP-IO"]'
+            ).evaluate_all(
+                "nodes => Object.fromEntries(nodes.map(node => [node.dataset.targetNode, "
+                "Number(node.getAttribute('transform').match(/,([\\d.-]+)\\)/)[1])]))"
+            )
+            assert y_positions["COMP-RUNTIME"] < y_positions["COMP-DOMAINS"]
+            assert y_positions["COMP-DOMAINS"] < y_positions["COMP-IO"]
+        finally:
+            browser.close()
+
+
+def test_target_resize_keeps_graph_coordinates_and_content_anchor(tmp_path: Path) -> None:
+    page_html, _ = _target_diagram_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            before = page.evaluate(
+                """() => {
+                  const canvas = document.querySelector('.flow-canvas');
+                  const card = document.querySelector('[data-target-node="COMP-STORE"]');
+                  const canvasRect = canvas.getBoundingClientRect();
+                  const cardRect = card.getBoundingClientRect();
+                  return {
+                    positions: Object.fromEntries([...document.querySelectorAll(
+                      '.target-node[data-placement-status]')].map(node => [
+                        node.dataset.targetNode, node.getAttribute('transform')])),
+                    frames: Object.fromEntries([...document.querySelectorAll(
+                      '.target-container rect.target-frame')].map(rect => [
+                        rect.closest('[data-target-container]').dataset.targetContainer,
+                        [rect.getAttribute('x'), rect.getAttribute('y'),
+                          rect.getAttribute('width'), rect.getAttribute('height')]])),
+                    anchor: [cardRect.left - canvasRect.left, cardRect.top - canvasRect.top],
+                    scroll: [canvas.scrollLeft, canvas.scrollTop],
+                  };
+                }"""
+            )
+            assert page.locator(".flow-canvas").evaluate("element => element.clientWidth") > 600
+            page.set_viewport_size({"width": 520, "height": 1000})
+            page.evaluate(
+                "() => new Promise(resolve => requestAnimationFrame(() => "
+                "requestAnimationFrame(resolve)))"
+            )
+            after = page.evaluate(
+                """() => {
+                  const canvas = document.querySelector('.flow-canvas');
+                  const card = document.querySelector('[data-target-node="COMP-STORE"]');
+                  const canvasRect = canvas.getBoundingClientRect();
+                  const cardRect = card.getBoundingClientRect();
+                  return {
+                    positions: Object.fromEntries([...document.querySelectorAll(
+                      '.target-node[data-placement-status]')].map(node => [
+                        node.dataset.targetNode, node.getAttribute('transform')])),
+                    frames: Object.fromEntries([...document.querySelectorAll(
+                      '.target-container rect.target-frame')].map(rect => [
+                        rect.closest('[data-target-container]').dataset.targetContainer,
+                        [rect.getAttribute('x'), rect.getAttribute('y'),
+                          rect.getAttribute('width'), rect.getAttribute('height')]])),
+                    anchor: [cardRect.left - canvasRect.left, cardRect.top - canvasRect.top],
+                    scroll: [canvas.scrollLeft, canvas.scrollTop],
+                  };
+                }"""
+            )
+            assert page.locator(".flow-canvas").evaluate("element => element.clientWidth") < 600
+            assert after["positions"] == before["positions"]
+            assert after["frames"] == before["frames"]
+            assert after["anchor"] == pytest.approx(before["anchor"], abs=2)
+            assert after["scroll"] == pytest.approx(before["scroll"], abs=1)
         finally:
             browser.close()
 
