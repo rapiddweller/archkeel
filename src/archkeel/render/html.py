@@ -1345,7 +1345,9 @@ def _target_projection(
 def _graph_node(node: dict[str, object]) -> dict[str, object]:
     result = {key: node[key] for key in ("id", "label", "kind", "details")}
     if node["kind"] == "component":
-        result["placement"] = node["placement"]
+        placement = node.get("placement")
+        if isinstance(placement, dict):
+            result["placement"] = dict(placement)
         result["dependency_rank"] = node.get("dependency_rank")
     return result
 
@@ -1539,9 +1541,20 @@ def _target_graph_containers(
     folded: set[str],
     nodes: list[dict[str, object]],
 ) -> dict[str, _TargetContainer]:
+    relevant: set[str] = set()
+    for node in nodes:
+        placement = node.get("placement")
+        container = placement.get("container") if isinstance(placement, dict) else None
+        if node["kind"] == "root_layout" and isinstance(identifier := node.get("id"), str):
+            if identifier in containers:
+                container = identifier
+        while isinstance(container, str) and container not in relevant:
+            relevant.add(container)
+            container = containers[container]["parent"]
+
     result: dict[str, _TargetContainer] = {}
     for identifier, container in containers.items():
-        if identifier in folded:
+        if identifier not in relevant or identifier in folded:
             continue
         parent = container["parent"]
         while parent in folded:
@@ -1673,9 +1686,6 @@ def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]
     }
     for component in components:
         component["placement"] = _target_placement(component, layout_scopes, layout_parents)
-    folded = _target_folded_containers(components, containers)
-    for component in components:
-        _target_component_placement(component, folded, containers, container_details)
     raw_nested = {
         str(node["id"]): graph
         for node in _target_tree(target_roots)
@@ -1693,6 +1703,12 @@ def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]
         for node in nodes:
             if isinstance(node, dict) and node.get("kind") == "component":
                 node["dependency_rank"] = ranks[str(node["id"])]
+        graph_components = [
+            node for node in nodes if isinstance(node, dict) and node.get("kind") == "component"
+        ]
+        folded = _target_folded_containers(graph_components, containers)
+        for node in graph_components:
+            _target_component_placement(node, folded, containers, container_details)
         graph["nodes"] = sorted(nodes, key=lambda node: str(node["id"]))
         graph["edges"] = sorted(
             edges,

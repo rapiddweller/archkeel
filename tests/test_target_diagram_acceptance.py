@@ -479,6 +479,70 @@ def test_target_graph_containers_are_local_and_single_component_frames_fold() ->
     ]
 
 
+def test_parent_graph_folds_frame_for_visible_owner_not_hidden_inside_components() -> None:
+    components = [
+        _declaration_record(
+            "OWNER",
+            "component_responsibility",
+            "Owner",
+            subjects=("app.engine.runtime",),
+            data={"namespace": "app.engine.runtime"},
+        ),
+        *(
+            _declaration_record(
+                f"INSIDE-{name.upper()}",
+                "inside_component_responsibility",
+                name,
+                subjects=(f"app.engine.runtime.{name.lower()}",),
+                data={
+                    "namespace": f"app.engine.runtime.{name.lower()}",
+                    "parent_id": "Owner",
+                },
+            )
+            for name in ("DSL", "IO", "Workers")
+        ),
+    ]
+    layouts = [
+        _declaration_record(
+            "LAYOUT-ROOT",
+            "root_layout",
+            "app",
+            data={"root": "app", "allowed_children": ("app.engine",)},
+        ),
+        _declaration_record(
+            "LAYOUT-ENGINE",
+            "root_layout",
+            "app.engine",
+            data={"root": "app.engine", "allowed_children": ("app.engine.runtime",)},
+        ),
+        _declaration_record(
+            "LAYOUT-RUNTIME",
+            "root_layout",
+            "app.engine.runtime",
+            data={"root": "app.engine.runtime", "allowed_children": ()},
+        ),
+    ]
+
+    diagrams = _declared_diagrams(components, layouts)
+    root = diagrams["root"]
+    owner_graph = diagrams["nested"]["OWNER"]
+    root_layout_graph = diagrams["nested"]["layout:LAYOUT-ROOT"]
+    root_owner = next(node for node in root["nodes"] if node["id"] == "OWNER")
+    owner = next(node for node in owner_graph["nodes"] if node["id"] == "OWNER")
+
+    assert "layout:LAYOUT-RUNTIME" not in root["containers"]
+    assert root_owner["placement"]["container"] == "layout:LAYOUT-ENGINE"
+    assert root["containers"]["layout:LAYOUT-ENGINE"]["members"] == ["OWNER"]
+    assert owner["placement"]["container"] == "layout:LAYOUT-RUNTIME"
+    assert owner_graph["containers"]["layout:LAYOUT-RUNTIME"]["members"] == [
+        "INSIDE-DSL",
+        "INSIDE-IO",
+        "INSIDE-WORKERS",
+        "OWNER",
+    ]
+    assert root_layout_graph["containers"]["layout:LAYOUT-ROOT"]["members"] == []
+
+
 def _target_diagram_page(
     tmp_path: Path, *, include_module_target: bool = False
 ) -> tuple[str, dict[str, Any]]:
