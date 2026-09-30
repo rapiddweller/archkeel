@@ -98,6 +98,66 @@ def test_html_report_preserves_verdicts_evidence_and_visual_contract() -> None:
     assert "not change against an earlier revision or runtime behavior" in page
 
 
+def test_html_report_skips_allowance_panel_when_typing_signals_are_unavailable() -> None:
+    observation = parse_observation(_model(git_head="a" * 40))
+    observation = replace(
+        observation,
+        sections=tuple(
+            section for section in observation.sections if section.name != "typing_signals"
+        ),
+    )
+    result = RunResult(
+        "report",
+        0,
+        observation_complete="PASS",
+        declared_rules="PASS",
+        expectation_fulfilled="n/a",
+        coverage=observation.coverage,
+        python_version=observation.python_version,
+    )
+
+    page = render_html(
+        result,
+        observation,
+        repository="sample",
+        architecture_href="architecture.json",
+    ).decode()
+
+    assert "Applied boundary type allowances" not in page
+
+
+def test_html_report_wraps_long_text_in_the_allowance_table() -> None:
+    raw = _model(git_head="a" * 40)
+    raw["typing_signals"] = [
+        {
+            "id": "TYPE-" + "a" * 64,
+            "evidence_class": "FACT",
+            "area": "type_architecture",
+            "kind": "boundary_type_allowance",
+            "title": (
+                "sample.app.impl.read_csv_having_weight_column has an exact unique contained "
+                "mapping allowance for dict[str, str] at container depth 2"
+            ),
+            "subjects": ["sample.app.impl.read_csv_having_weight_column", "sample.app.facade"],
+            "evidence_ids": [],
+            "rule_ids": ["APP-TYPES-NOT-DICT"],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {},
+        }
+    ]
+    observation = parse_observation(raw)
+    result = RunResult("report", 0, "PASS", "PASS", "n/a", coverage=observation.coverage)
+
+    page = render_html(
+        result, observation, repository="sample", architecture_href="architecture.json"
+    ).decode()
+
+    assert '<table class="boundary-type-allowances-table">' in page
+    assert ".boundary-type-allowances-table td" in page
+    assert "overflow-wrap: anywhere;" in page
+
+
 def test_html_report_lists_compatibility_migration_work() -> None:
     raw = _model(git_head="a" * 40)
     raw["declarations"] = [

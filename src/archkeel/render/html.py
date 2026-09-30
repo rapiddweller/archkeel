@@ -32,6 +32,7 @@ from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
     Diagnostic,
+    EvidenceClass,
     Observation,
     Record,
     RecordData,
@@ -162,6 +163,28 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
           <tbody>{rows}</tbody>
         </table>
       </div></details>
+    </section>"""
+
+
+def _boundary_type_allowances(observation: Observation) -> str:
+    items = tuple(
+        item
+        for item in observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance" and item.evidence_class == EvidenceClass.FACT
+    )
+    if not items:
+        return ""
+    rows = "".join(_record_row(item, observation) for item in items)
+    return f"""
+    <section class="report-section">
+      <h2>Applied boundary type allowances · {len(items)}</h2>
+      <p>These facts document exceptions. Other violations and UNKNOWN remain
+      independently reported.</p>
+      <div class="table-wrap"><table class="boundary-type-allowances-table">
+        <thead><tr><th>Fingerprint</th><th>Applied allowance</th>
+        <th>Subjects</th><th>Evidence</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table></div>
     </section>"""
 
 
@@ -2055,6 +2078,9 @@ def render_html(
     focused = result.report_filter is not None and (
         result.report_filter.only_violations or result.report_filter.only_calls
     )
+    allowances_html = (
+        _boundary_type_allowances(observation) if observation is not None and not focused else ""
+    )
     unknowns_html = (
         _findings("Known unknowns", unknowns or (), observation)
         if observation is not None and not focused
@@ -2120,7 +2146,7 @@ def render_html(
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
     {flow_html}
-    {filters_html}{violations_html}{rule_html}
+    {filters_html}{violations_html}{allowances_html}{rule_html}
     <script>{_asset("report-filters.js").decode("utf-8")}</script>
     {baseline_html}{calls_html}
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>
