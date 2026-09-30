@@ -48,7 +48,7 @@ def _acceptance_page(
                 **ghost,
                 "id": "COMP-GHOST",
                 "label": "ghost",
-                "packages": ["shop.ghost"],
+                "packages": ["shop.ghost", "shop.phantom"],
                 "namespace": "shop.ghost",
                 "public": [],
                 "responsibilities": ["Own the absent ghost package."],
@@ -274,5 +274,270 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             page.locator(".flow-back").click()
             assert not responsibility.is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        finally:
+            browser.close()
+
+
+def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_path: Path) -> None:
+    page_html, payload, _ = _acceptance_page(
+        tmp_path,
+        module_declarations=[
+            {"path": "shop/app/orders.py", "responsibility": "Own order decisions."},
+            {"path": "shop/missing.py", "responsibility": "Own the missing module."},
+        ],
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 800, "height": 900})
+            page_errors: list[str] = []
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            page.set_content(page_html, wait_until="load")
+            actual = payload["explorers"]["actual"]
+            target = payload["explorers"]["target"]
+
+            def path_to(nodes: list[dict[str, Any]], target_id: str) -> list[str]:
+                for node in nodes:
+                    if node["id"] == target_id:
+                        return [target_id]
+                    path = path_to(node["children"], target_id)
+                    if path:
+                        return [node["id"], *path]
+                return []
+
+            def open_actual_path(path: list[str]) -> None:
+                for node_id in path:
+                    page.locator(f'[data-projection-id="{node_id}"]').click()
+
+            # The initial Diagram view switches to a visible projection without a JS error.
+            page.locator('[data-flow-view="actual"]').click()
+            open_actual_path(path_to(actual, "shop.app.orders"))
+            module_target = next(
+                node
+                for node in _walk(target)
+                if node["kind"] == "module_target" and node["label"] == "orders.py"
+            )
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(
+                f'.target-node[data-target-node="{module_target["id"]}"]'
+            ).is_visible()
+            assert (
+                page.locator(".flow-inspector")
+                .get_by_role("heading", name="orders.py")
+                .is_visible()
+            )
+            page.locator('[data-flow-view="actual"]').click()
+            assert page.get_by_role("heading", name="orders").is_visible()
+            assert page_errors == []
+
+            # A target-only nested edge returns to its uniquely mapped package context.
+            page.locator('[data-flow-view="target"]').click()
+            page.locator(".flow-breadcrumb button").first.click()
+            page.locator('.target-node[data-target-node="COMP-STORE"]').click()
+            edge = next(
+                item
+                for item in payload["explorers"]["target_diagrams"]["nested"]["COMP-STORE"]["edges"]
+                if item["kind"] == "requires"
+            )
+            edge_button = page.locator(f'[data-target-edge="{edge["declaration"]}"]')
+            hit_path = edge_button.locator(".target-hit")
+            hit_path.scroll_into_view_if_needed()
+            point = hit_path.evaluate(
+                "path => { const length = path.getTotalLength();"
+                " const matrix = path.getScreenCTM();"
+                " if (!length || !matrix) return null;"
+                " const edge = path.closest('[data-target-edge]');"
+                " for (let ratio = 0.2; ratio <= 0.8; ratio += 0.05) {"
+                " const p = path.getPointAtLength(length * ratio);"
+                " const s = new DOMPoint(p.x, p.y).matrixTransform(matrix);"
+                " const under = document.elementFromPoint(s.x, s.y);"
+                " if (under && edge.contains(under)) return {x: s.x, y: s.y}; } return null; }"
+            )
+            assert point is not None
+            page.mouse.click(point["x"], point["y"])
+            page.locator('[data-flow-view="actual"]').click()
+            assert (
+                "No matching scope for requires"
+                in page.locator(".flow-projection-context").inner_text()
+            )
+            assert page.locator(".flow-projection-breadcrumb").inner_text().endswith("store")
+
+            # A missing Target child maps to the nearest actual namespace ancestor.
+            page.locator('[data-flow-view="target"]').click()
+            page.locator(".flow-breadcrumb button").first.click()
+            page.locator('.target-node[data-target-node="layout:ROOT-LAYOUT"]').click()
+            page.locator('.target-node[data-target-node="physical:shop.missing"]').click()
+            page.locator('[data-flow-view="diff"]').click()
+            assert page.locator(
+                '[data-projection-id="absent:ROOT-LAYOUT:shop.missing"]'
+            ).is_visible()
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(
+                '.target-node[data-target-node="physical:shop.missing"]'
+            ).is_visible()
+            assert page_errors == []
+        finally:
+            browser.close()
+
+
+def test_ambiguous_target_package_uses_unique_ancestor_context(tmp_path: Path) -> None:
+    page_html, payload, _ = _acceptance_page(tmp_path)
+    target = payload["explorers"]["target"]
+    duplicate = next(
+        node
+        for node in _walk(target)
+        if node["kind"] == "package_scope" and node["label"] == "shop.app"
+    )
+    owner = next(node for node in target if node["id"] == "COMP-CLI")
+    owner["children"].append(
+        {
+            **duplicate,
+            "id": "package:COMP-CLI:shop.app-duplicate",
+            "children": [],
+        }
+    )
+    start = page_html.index('id="flow-data"')
+    payload_start = page_html.index(">", start) + 1
+    payload_end = page_html.index("</script>", payload_start)
+    page_html = page_html[:payload_start] + json.dumps(payload) + page_html[payload_end:]
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page_errors: list[str] = []
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="actual"]').click()
+            page.locator('[data-projection-id="shop"]').click()
+            page.locator('[data-projection-id="shop.app"]').click()
+            page.locator('[data-flow-view="target"]').click()
+            assert (
+                "No matching scope for shop.app"
+                in page.locator(".flow-projection-context").inner_text()
+            )
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("shop")
+            assert page_errors == []
+        finally:
+            browser.close()
+
+
+def test_selected_root_actual_leaf_names_missing_target_context(tmp_path: Path) -> None:
+    page_html, payload, _ = _acceptance_page(tmp_path)
+    payload["explorers"]["actual"].append(
+        {
+            "id": "standalone",
+            "label": "standalone",
+            "kind": "module",
+            "details": [{"label": "File", "value": "standalone.py"}],
+            "children": [],
+        }
+    )
+    start = page_html.index('id="flow-data"')
+    payload_start = page_html.index(">", start) + 1
+    payload_end = page_html.index("</script>", payload_start)
+    page_html = page_html[:payload_start] + json.dumps(payload) + page_html[payload_end:]
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="actual"]').click()
+            page.locator('[data-projection-id="standalone"]').click()
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+            assert "standalone" in page.locator(".flow-projection-context").inner_text(timeout=1000)
+        finally:
+            browser.close()
+
+
+def test_absent_multi_package_component_uses_declared_identity_across_views(tmp_path: Path) -> None:
+    page_html, _, _ = _acceptance_page(tmp_path, include_absent_component=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="diff"]').click()
+            page.locator('[data-projection-id="diff:absent"]').click()
+            page.locator('[data-projection-id="absent:COMP-GHOST"]').click()
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("ghost")
+            assert page.locator(".flow-inspector").get_by_role("heading", name="ghost").is_visible()
+            assert page.locator(".flow-projection-context").count() == 0
+            page.locator('[data-flow-view="diff"]').click()
+            assert (
+                page.locator('[data-projection-id="absent:COMP-GHOST"]').get_attribute(
+                    "aria-pressed"
+                )
+                == "true"
+            )
+            assert page.locator(".flow-projection-context").count() == 0
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("navigation", ["card", "edge", "breadcrumb", "back", "escape", "index"])
+def test_explicit_target_navigation_clears_fallback_context(
+    tmp_path: Path, navigation: str
+) -> None:
+    page_html, _, _ = _acceptance_page(
+        tmp_path,
+        extra_files={
+            "shop/app/unclaimed.py": "VALUE = 2\n",
+            "shop/store/unclaimed.py": "VALUE = 3\n",
+        },
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page_errors: list[str] = []
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            page.set_content(page_html, wait_until="load")
+            if navigation in {"edge", "breadcrumb", "back", "escape"}:
+                page.locator('[data-flow-view="actual"]').click()
+                package = "shop.store" if navigation == "edge" else "shop.app"
+                for node_id in ["shop", package, f"{package}.unclaimed"]:
+                    page.locator(f'[data-projection-id="{node_id}"]').click()
+            else:
+                page.locator('[data-flow-view="diff"]').click()
+                page.locator('[data-projection-id="diff:violations"]').click()
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(".flow-projection-context").is_visible()
+            if navigation == "card":
+                page.locator('.target-node[data-target-node="COMP-APP"]').click()
+                assert (
+                    page.locator(".flow-inspector").get_by_role("heading", name="app").is_visible()
+                )
+            elif navigation == "edge":
+                edge = page.locator(".target-edge.requires").first
+                edge.focus()
+                page.keyboard.press("Enter")
+                assert edge.get_attribute("aria-pressed") == "true"
+            elif navigation == "breadcrumb":
+                page.locator(".flow-breadcrumb button").first.click()
+                assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+            elif navigation == "back":
+                assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
+                page.locator(".flow-back").click()
+                assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+            elif navigation == "escape":
+                assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
+                page.keyboard.press("Escape")
+                assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+            else:
+                page.locator(".flow-responsibilities summary").click()
+                page.locator(".flow-responsibility-search").fill("app")
+                page.locator(".flow-responsibility-list button:visible").first.click()
+                assert (
+                    page.locator(".flow-inspector").get_by_role("heading", name="app").is_visible()
+                )
+            assert page.locator(".flow-projection-context").count() == 0
+            assert page_errors == []
         finally:
             browser.close()

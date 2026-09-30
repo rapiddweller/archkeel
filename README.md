@@ -395,6 +395,9 @@ target responsibility when an exact match exists; this does not describe observe
 Target edges describe declarations, not observed imports or proof that a declared child exists.
 Components without a responsibility remain in the Target diagram and searchable index as
 “No declared responsibility.” This marks missing design information; rule verdicts stay unchanged.
+Switching among Actual, Target, and Diff keeps the selected scope or module when a unique
+counterpart exists. Otherwise, the view opens the nearest unique ancestor or root and explains
+the fallback.
 `--output X.json` writes the JSON report and `X.report.html`.
 
 <p>
