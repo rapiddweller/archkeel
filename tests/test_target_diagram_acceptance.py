@@ -615,7 +615,7 @@ def _target_diagram_page(
                     "requires": [{"component": "domains", "rationale": "Runtime uses domains."}],
                 },
                 {
-                    "id": "COMP-DOMAINS",
+                    "id": "COMP-A-DOMAINS",
                     "label": "domains",
                     "role": "component",
                     "packages": ["shop.domains"],
@@ -957,9 +957,11 @@ def test_target_dependency_order_crosses_physical_frames(tmp_path: Path) -> None
     components = {node["id"]: node for node in graph["nodes"] if node["kind"] == "component"}
     assert (
         components["COMP-RUNTIME"]["dependency_rank"]
-        < components["COMP-DOMAINS"]["dependency_rank"]
+        < components["COMP-A-DOMAINS"]["dependency_rank"]
     )
-    assert components["COMP-DOMAINS"]["dependency_rank"] < components["COMP-IO"]["dependency_rank"]
+    assert (
+        components["COMP-A-DOMAINS"]["dependency_rank"] < components["COMP-IO"]["dependency_rank"]
+    )
     assert graph["containers"]["layout:ENGINE-LAYOUT"]["members"] == [
         "COMP-IO",
         "COMP-RUNTIME",
@@ -973,14 +975,76 @@ def test_target_dependency_order_crosses_physical_frames(tmp_path: Path) -> None
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="target"]').click()
             y_positions = page.locator(
-                '[data-target-node="COMP-RUNTIME"], [data-target-node="COMP-DOMAINS"], '
+                '[data-target-node="COMP-RUNTIME"], [data-target-node="COMP-A-DOMAINS"], '
                 '[data-target-node="COMP-IO"]'
             ).evaluate_all(
                 "nodes => Object.fromEntries(nodes.map(node => [node.dataset.targetNode, "
                 "Number(node.getAttribute('transform').match(/,([\\d.-]+)\\)/)[1])]))"
             )
-            assert y_positions["COMP-RUNTIME"] < y_positions["COMP-DOMAINS"]
-            assert y_positions["COMP-DOMAINS"] < y_positions["COMP-IO"]
+            assert y_positions["COMP-RUNTIME"] < y_positions["COMP-A-DOMAINS"]
+            assert y_positions["COMP-A-DOMAINS"] < y_positions["COMP-IO"]
+        finally:
+            browser.close()
+
+
+def test_target_narrow_layout_keeps_physical_lanes_disjoint(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path, cross_frame_chain=True)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    components = {node["id"]: node for node in graph["nodes"] if node["kind"] == "component"}
+    assert graph["containers"]["layout:ENGINE-LAYOUT"]["members"] == [
+        "COMP-IO",
+        "COMP-RUNTIME",
+    ]
+    assert (
+        components["COMP-RUNTIME"]["dependency_rank"]
+        < components["COMP-A-DOMAINS"]["dependency_rank"]
+    )
+    assert (
+        components["COMP-A-DOMAINS"]["dependency_rank"] < components["COMP-IO"]["dependency_rank"]
+    )
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 550, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            geometry = page.evaluate(
+                """() => {
+                  const containers = [...document.querySelectorAll('[data-target-container]')];
+                  const frameRects = [...document.querySelectorAll('rect.target-frame')];
+                  const engineIndex = containers.findIndex(node =>
+                    node.getAttribute('data-target-container') === 'layout:ENGINE-LAYOUT');
+                  const frame = frameRects[engineIndex];
+                  const frameBox = {
+                    left: Number(frame.getAttribute('x')),
+                    top: Number(frame.getAttribute('y')),
+                    right: Number(frame.getAttribute('x')) + Number(frame.getAttribute('width')),
+                    bottom: Number(frame.getAttribute('y')) + Number(frame.getAttribute('height')),
+                  };
+                  const cards = Object.fromEntries(['COMP-RUNTIME', 'COMP-A-DOMAINS', 'COMP-IO']
+                    .map(id => {
+                      const node = document.querySelector(`[data-target-node="${id}"]`);
+                      const [, x, y] = node.getAttribute('transform')
+                        .match(/translate\\(([\\d.-]+),([\\d.-]+)\\)/);
+                      return [id, {left: Number(x), top: Number(y),
+                        right: Number(x) + 200, bottom: Number(y) + 92}];
+                    }));
+                  const inside = box => box.left >= frameBox.left && box.right <= frameBox.right &&
+                    box.top >= frameBox.top && box.bottom <= frameBox.bottom;
+                  const intersects = box =>
+                    box.left < frameBox.right && box.right > frameBox.left &&
+                    box.top < frameBox.bottom && box.bottom > frameBox.top;
+                  return {runtimeInside: inside(cards['COMP-RUNTIME']),
+                    ioInside: inside(cards['COMP-IO']),
+                    domainsOutside: !intersects(cards['COMP-A-DOMAINS']),
+                    canvasWidth: document.querySelector('.flow-canvas').clientWidth};
+                }"""
+            )
+            assert geometry["canvasWidth"] < 600
+            assert geometry["runtimeInside"] and geometry["ioInside"]
+            assert geometry["domainsOutside"]
         finally:
             browser.close()
 

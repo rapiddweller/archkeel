@@ -890,7 +890,6 @@
     const step = CARD.w + GAP;
     const availableColumns = Math.max(1, Math.floor((canvas.clientWidth - 64 + GAP) / step));
     const maxColumns = targetPath.length > 0 ? Math.max(2, availableColumns) : availableColumns;
-    const stackLanes = canvas.clientWidth < 600;
     const rowFor = (node) => node.kind === "component"
       ? node.dependency_rank === null ? residualRow : rowByRank.get(node.dependency_rank)
       : residualRow + 1;
@@ -919,7 +918,6 @@
       groupedRows.set(lane, grouped);
     }
     const laneOrder = [...laneItems.keys()];
-    const laneOffsets = new Map(laneOrder.map((lane) => [lane, new Map()]));
     const rankedRows = [...new Set([...groupedRows.values()].flatMap((rows) => [...rows.keys()]))]
       .sort((left, right) => left - right);
     const rowHeights = new Map();
@@ -929,21 +927,20 @@
       let rowHeight = 0;
       for (const lane of laneOrder) {
         const count = Math.ceil((groupedRows.get(lane).get(rankRow)?.length || 0) / maxColumns);
-        laneOffsets.get(lane).set(rankRow, stackLanes ? rowHeight : 0);
-        rowHeight = stackLanes ? rowHeight + count : Math.max(rowHeight, count);
+        rowHeight = Math.max(rowHeight, count);
       }
       rowStarts.set(rankRow, nextRow);
       rowHeights.set(rankRow, Math.max(1, rowHeight));
       nextRow += rowHeights.get(rankRow);
     });
     const rowOffset = (row, ids) =>
-      !stackLanes && targetPath.length > 0 && ids.length === 1 ? row % 2 : 0;
+      targetPath.length > 0 && ids.length === 1 ? row % 2 : 0;
     const rowsFor = (id) => {
       const rows = new Map();
       const grouped = groupedRows.get(id);
       [...grouped.keys()].sort((left, right) => left - right).forEach((rankRow) => {
         const ids = grouped.get(rankRow);
-        const start = rowStarts.get(rankRow) + laneOffsets.get(id).get(rankRow);
+        const start = rowStarts.get(rankRow);
         for (let index = 0; index < ids.length; index += maxColumns) {
           rows.set(start + Math.floor(index / maxColumns), ids.slice(index, index + maxColumns));
         }
@@ -956,8 +953,7 @@
         ids.length + rowOffset(row, ids)));
       const childWidths = children.get(id).map(laneWidth);
       const ownWidth = columns * step;
-      return stackLanes ? Math.max(ownWidth, ...childWidths)
-        : ownWidth + childWidths.reduce((sum, width) => sum + width + GAP, 0);
+      return ownWidth + childWidths.reduce((sum, width) => sum + width + GAP, 0);
     };
     const nextPositions = {};
     const frameBounds = {};
@@ -977,14 +973,10 @@
         }
         placed.add(identifier);
       }));
-      if (stackLanes) {
-        children.get(id).forEach((child) => placeLane(child, x, y));
-      } else {
-        let childX = x + rowWidth * step;
-        for (const child of children.get(id)) {
-          placeLane(child, childX, y);
-          childX += laneWidth(child) + GAP;
-        }
+      let childX = x + rowWidth * step;
+      for (const child of children.get(id)) {
+        placeLane(child, childX, y);
+        childX += laneWidth(child) + GAP;
       }
       const descendants = [
         ...itemsFor(id).map((identifier) => nextPositions[identifier]),
@@ -1006,8 +998,8 @@
     let y = 0;
     const roots = Object.keys(containers).filter((id) => !containers[id].parent).sort();
     for (const id of roots) {
-      placeLane(id, stackLanes ? 0 : x, y);
-      if (!stackLanes) x += laneWidth(id) + GAP;
+      placeLane(id, x, y);
+      x += laneWidth(id) + GAP;
     }
     let unplacedWidth = 1;
     rowsFor("@unplaced").forEach((nodes, row) => {
@@ -1015,18 +1007,18 @@
         unplacedWidth = Math.max(unplacedWidth, nodes.length + offset);
         nodes.forEach((identifier, column) => {
           nextPositions[identifier] = {
-            x: (stackLanes ? 0 : x) + (column + offset) * step,
+            x: x + (column + offset) * step,
             y: y + row * TARGET_ROW_STEP,
           };
           placed.add(identifier);
         });
     });
-    if (!stackLanes) x += unplacedWidth * step;
+    x += unplacedWidth * step;
     rowsFor("@inventory").forEach((nodes, row) => {
       const offset = rowOffset(row, nodes);
       nodes.forEach((identifier, index) => {
         nextPositions[identifier] = {
-          x: (stackLanes ? 0 : x) + (index + offset) * step,
+          x: x + (index + offset) * step,
           y: y + row * TARGET_ROW_STEP,
         };
       });
