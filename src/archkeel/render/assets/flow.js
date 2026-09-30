@@ -14,6 +14,7 @@
   const ROW_STEP = CARD.h + ROW_GAP;
   const TARGET_ROW_STEP = CARD.h + 34;
   const TARGET_RESIDUAL_GAP = 20;
+  const TARGET_FRAME_HEADER_ALLOWANCE = 42;
   const LANE_GAP = 11;
 
   // The one place an EdgeState maps to a human label. Edge and chip elements already take their
@@ -956,8 +957,6 @@
       .sort((left, right) => left - right);
     const rowHeights = new Map();
     const rowStarts = new Map();
-    const rowY = (row) => row * TARGET_ROW_STEP
-      + (row >= rowStarts.get(residualRow) ? TARGET_RESIDUAL_GAP : 0);
     let nextRow = 0;
     rankedRows.forEach((rankRow) => {
       let rowHeight = 0;
@@ -983,6 +982,23 @@
       });
       return rows;
     };
+    const residualFrameDepth = (id, depth = 1) => Math.max(
+      itemsFor(id).some((identifier) => {
+        const node = byId.get(identifier);
+        return node.kind === "component" && node.dependency_rank === null;
+      }) ? depth : 0,
+      ...children.get(id).map((child) => residualFrameDepth(child, depth + 1)),
+    );
+    const residualRowStart = rowStarts.get(residualRow);
+    const residualFrameAllowance = Object.keys(containers)
+      .filter((id) => !containers[id].parent)
+      .reduce((depth, id) => Math.max(depth, residualFrameDepth(id)), 0)
+      * TARGET_FRAME_HEADER_ALLOWANCE;
+    const hasResidualComponents = rankNodes.some((node) => node.dependency_rank === null);
+    const captionBand = TARGET_RESIDUAL_GAP
+      + (hasResidualComponents ? residualFrameAllowance : 0);
+    const rowY = (row) => row * TARGET_ROW_STEP
+      + (row >= residualRowStart ? captionBand : 0);
     const laneWidth = (id) => {
       const rows = rowsFor(id);
       const columns = Math.max(1, ...[...rows].map(([row, ids]) =>
@@ -1023,9 +1039,19 @@
         const bottom = Math.max(...descendants.map((bounds) => bounds.bottom ?? bounds.y + CARD.h));
         const left = Math.min(...descendants.map((bounds) => bounds.left ?? bounds.x));
         const right = Math.max(...descendants.map((bounds) => bounds.right ?? bounds.x + CARD.w));
-        frameBounds[id] = { left: left - 24, top: top - 42, right: right + 24, bottom: bottom + 24 };
+        frameBounds[id] = {
+          left: left - 24,
+          top: top - TARGET_FRAME_HEADER_ALLOWANCE,
+          right: right + 24,
+          bottom: bottom + 24,
+        };
       } else {
-        frameBounds[id] = { left: x - 24, top: -42, right: x + CARD.w + 24, bottom: 24 };
+        frameBounds[id] = {
+          left: x - 24,
+          top: -TARGET_FRAME_HEADER_ALLOWANCE,
+          right: x + CARD.w + 24,
+          bottom: 24,
+        };
       }
       nextPositions[id] = { x: frameBounds[id].left + 12, y: frameBounds[id].top + 8 };
     };
@@ -1066,9 +1092,9 @@
     const same = Object.keys(positions).length === Object.keys(nextPositions).length
       && Object.entries(nextPositions).every(([id, position]) =>
         positions[id]?.x === position.x && positions[id]?.y === position.y);
-    const residualY = rowY(rowStarts.get(residualRow));
-    if (same) return { positions, frameBounds, residualY };
-    return { positions: nextPositions, frameBounds, residualY };
+    const captionY = hasResidualComponents && residualRowStart !== undefined
+      ? residualRowStart * TARGET_ROW_STEP + 4 : null;
+    return { positions: same ? positions : nextPositions, frameBounds, captionY };
   }
 
   function targetGraphFor(current) {
@@ -1336,17 +1362,11 @@
       nodeLayer.appendChild(group);
     });
 
-    if (graphNodes.some((node) => node.kind === "component" && node.dependency_rank === null)) {
-      const frameBounds = Object.values(layout.frameBounds);
-      const frameTop = frameBounds.length
-        ? Math.min(...frameBounds.map((bounds) => bounds.top)) : 0;
-      const warningY = layout.residualY - 26;
+    if (layout.captionY !== null) {
       const warning = el("text", {
         class: "target-cycle-warning",
         x: String(Math.min(0, ...Object.values(layout.frameBounds).map((bounds) => bounds.left))),
-        y: String(graphNodes.some((node) => node.kind === "component"
-          && node.dependency_rank !== null)
-          || !frameBounds.length ? warningY : frameTop - 12),
+        y: String(layout.captionY),
       });
       warning.textContent = "Dependency order unresolved: cycle or dependency on a cycle.";
       emptyLayer.appendChild(warning);

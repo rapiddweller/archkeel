@@ -1205,20 +1205,149 @@ def test_target_cycle_warning_clears_all_residual_frame_header(tmp_path: Path) -
             page.locator('[data-flow-view="target"]').click()
             geometry = page.evaluate(
                 """() => {
-                  const box = selector => {
-                    const {x, y, width, height} = document.querySelector(selector)
-                      .getBBox();
-                    return {left: x, top: y, right: x + width, bottom: y + height};
+                  const box = node => {
+                    const {left, top, right, bottom} = node.getBoundingClientRect();
+                    return {left, top, right, bottom};
                   };
-                  const warning = box('.target-cycle-warning');
-                  const title = box('.target-frame-title');
-                  return {warning, title,
-                    intersects: warning.left < title.right && warning.right > title.left
-                      && warning.top < title.bottom && warning.bottom > title.top};
+                  const warning = box(document.querySelector('.target-cycle-warning'));
+                  const titles = [...document.querySelectorAll('.target-frame-title')].map(box);
+                  const cards = [...document.querySelectorAll('.flow-nodes .node')].map(box);
+                  return {warning, titles, cards,
+                    intersectsTitle: titles.some(title => warning.left < title.right
+                      && warning.right > title.left && warning.top < title.bottom
+                      && warning.bottom > title.top),
+                    clearsTitles: titles.every(title => warning.bottom < title.top),
+                    clearsCards: cards.every(card => warning.bottom < card.top)};
                 }"""
             )
-            assert not geometry["intersects"]
-            assert geometry["warning"]["bottom"] < geometry["title"]["top"]
+            assert not geometry["intersectsTitle"], geometry
+            assert geometry["clearsTitles"], geometry
+            assert geometry["clearsCards"], geometry
+        finally:
+            browser.close()
+
+
+def test_target_cycle_warning_clears_residual_only_frame_in_mixed_graph(
+    tmp_path: Path,
+) -> None:
+    page_html, payload = _target_diagram_page(tmp_path, cross_frame_chain=True)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    graph_nodes = {node["id"]: node for node in graph["nodes"]}
+    kept_ids = {"COMP-RUNTIME", "COMP-A-DOMAINS", "COMP-IO"}
+    graph["nodes"] = [graph_nodes[node_id] for node_id in sorted(kept_ids)]
+    engine = graph["containers"]["layout:ENGINE-LAYOUT"]
+    engine["parent"] = "layout:ROOT-LAYOUT"
+    root = graph["containers"]["layout:ROOT-LAYOUT"]
+    root["parent"] = None
+    root["members"] = []
+    graph["containers"] = {"layout:ROOT-LAYOUT": root, "layout:ENGINE-LAYOUT": engine}
+    graph["edges"] = [
+        edge for edge in graph["edges"] if edge["source"] in kept_ids and edge["target"] in kept_ids
+    ]
+    for node in graph["nodes"]:
+        if node["kind"] == "component":
+            node["dependency_rank"] = None
+            if node["id"] == "COMP-A-DOMAINS":
+                node["dependency_rank"] = 0
+    assert graph["containers"]["layout:ENGINE-LAYOUT"]["members"] == [
+        "COMP-IO",
+        "COMP-RUNTIME",
+    ]
+    nodes = {node["id"]: node for node in graph["nodes"]}
+    assert nodes["COMP-A-DOMAINS"]["dependency_rank"] == 0
+    assert nodes["COMP-RUNTIME"]["dependency_rank"] is None
+    assert nodes["COMP-IO"]["dependency_rank"] is None
+    page_html = _replace_flow_payload(page_html, payload)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            geometry = page.evaluate(
+                """() => {
+                  const box = node => {
+                    const {left, top, right, bottom} = node.getBoundingClientRect();
+                    return {left, top, right, bottom};
+                  };
+                  const warning = box(document.querySelector('.target-cycle-warning'));
+                  const titles = [...document.querySelectorAll('.target-frame-title')].map(box);
+                  const cards = ['COMP-RUNTIME', 'COMP-IO'].map(id => box(
+                    document.querySelector(`[data-target-node="${id}"]`)));
+                  return {warning, titles, cards,
+                    intersects: titles.some(title => warning.left < title.right
+                      && warning.right > title.left && warning.top < title.bottom
+                      && warning.bottom > title.top),
+                    clearsCards: cards.every(card => warning.bottom < card.top)};
+                }"""
+            )
+            assert not geometry["intersects"], geometry
+            assert geometry["clearsCards"], geometry
+        finally:
+            browser.close()
+
+
+def test_target_cycle_warning_clears_frameless_residual_cards(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    graph["nodes"] = [node for node in graph["nodes"] if node["kind"] == "component"]
+    graph["containers"] = {}
+    graph["edges"] = []
+    for node in graph["nodes"]:
+        node["dependency_rank"] = None
+    page_html = _replace_flow_payload(page_html, payload)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            geometry = page.evaluate(
+                """() => {
+                  const warning = document.querySelector('.target-cycle-warning')
+                    .getBoundingClientRect();
+                  const cards = [...document.querySelectorAll('.flow-nodes .node')]
+                    .map(node => node.getBoundingClientRect());
+                  return {warning: {bottom: warning.bottom},
+                    firstCardTop: Math.min(...cards.map(card => card.top))};
+                }"""
+            )
+            assert geometry["warning"]["bottom"] < geometry["firstCardTop"]
+        finally:
+            browser.close()
+
+
+def test_target_acyclic_rank_coordinates_do_not_gain_caption_band(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path, cross_frame_chain=True)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    nodes = {node["id"]: node for node in graph["nodes"]}
+    graph["nodes"] = [nodes["COMP-A-DOMAINS"], nodes["COMP-IO"]]
+    graph["nodes"][0]["dependency_rank"] = 0
+    graph["nodes"][1]["dependency_rank"] = 1
+    graph["containers"] = {}
+    graph["edges"] = []
+    page_html = _replace_flow_payload(page_html, payload)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            positions = page.evaluate(
+                """() => Object.fromEntries(['COMP-A-DOMAINS', 'COMP-IO'].map(id => {
+                  const transform = document.querySelector(`[data-target-node="${id}"]`)
+                    .getAttribute('transform');
+                  return [id, Number(transform.match(/,([\\d.-]+)\\)/)[1])];
+                }))"""
+            )
+            assert positions == {"COMP-A-DOMAINS": 0, "COMP-IO": 126}
+            assert page.locator(".target-cycle-warning").count() == 0
         finally:
             browser.close()
 
