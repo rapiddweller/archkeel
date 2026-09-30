@@ -16,11 +16,11 @@ This removes repeated import scans per function, not all scaling limits.
 
 ## Empty-crossing rule receipts
 
-An `interface_boundary` or `complete_requires` scope with one observed owner may
-lack an evaluator receipt. Its report row then correctly stays UNKNOWN, but the
-aggregate `declared_rules` can still say PASS (#194). Do not treat that aggregate
-as proof that every rule completed. The paired direct-publication demos reproduce
-this gap; no renderer override or accepted-debt change hides it.
+An `interface_boundary` or `complete_requires` scope receives PASS only with a
+non-empty, fully covered scope and unique ownership. Missing receipts and any
+other unproven non-declaration rule make both its row and aggregate
+`declared_rules` UNKNOWN (#194, AD-124). A blank Python package initializer is
+the sole unowned-module exception; a nonblank facade remains UNKNOWN.
 
 ## Calls are partly resolved
 

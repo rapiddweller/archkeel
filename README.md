@@ -170,8 +170,8 @@ U_candidate × T_accepted <= U_accepted × T_candidate   (when both T > 0)
   returns exit `2` with a diagnostic. A complete report may instead exit `0` with
   `declared_rules: UNKNOWN` when a rule names the positions it could not decide; neither case is
   displayed as `PASS`.
-- **Verdict is not coverage.** `PASS` means no violation among positions Archkeel decided. Seen
-  positions without deterministic evidence stay `UNKNOWN` and remain counted separately.
+- **Verdict is not coverage.** `PASS` requires complete evaluator evidence for every required
+  rule and no violation among decided positions. Missing scope proof stays `UNKNOWN`.
 
 Archkeel complements tests, linters, and human review. It does not replace any
 of them. Its job is narrower: keep architecture changes declared, observable,
@@ -198,8 +198,8 @@ archkeel report --baseline known-violations.json # read-only fingerprint compari
 - **No blended score.** Scan completeness, contract compliance, expectation matching, Git order
   and publication order remain separate verdicts.
 - **Unknown stays visible.** Missing or invalid evidence includes the affected subject,
-  unknown claim, and remedy. An UNKNOWN rule prevents a green headline, even if the
-  aggregate verdict remains PASS; the report states that difference explicitly.
+  unknown claim, and remedy. An UNKNOWN non-declaration rule keeps the aggregate verdict
+  UNKNOWN; a known violation remains FAIL.
 - **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
   and runtime provenance remain available beside the verdict.
 - **Rules say what was checked.** Each rule has its own result, reason, owner and source.
@@ -277,7 +277,7 @@ make demo-architecture VARIANT=class-a-recursive-wide-package OUTPUT=demo-output
 ```bash
 make demo-onboarding
 archkeel validate --root fixtures/F-architecture   # exit 0, both levels
-archkeel report   --root fixtures/F-architecture   # PASS, 0 violations
+archkeel report   --root fixtures/F-architecture   # UNKNOWN: store:STORE-REQUIRES-COMPLETE
 archkeel validate --root fixtures/F-architecture --config archkeel-tests.toml   # its tests' own scope
 ```
 
@@ -596,9 +596,9 @@ holds Archkeel to the rules it sells, and every rule was proven by a deliberate 
   exactly, never as a prefix of the modules below it.
 - **Complete and acyclic.** Every module belongs to exactly one component, and neither
   components nor modules form a cycle.
-- **A second level where one was owed.** `check` holds 13 modules and 24 imports between them,
+- **A second level where one was owed.** `check` holds 13 modules and 27 dependency edges between them,
   more than the whole top level holds, so it declares a contract of its own: `entry`, `policy`
-  and `foundation`, whose crossings its `requires` entries cover at 23, 6 and 2 import sites.
+  and `foundation`, whose crossings its `requires` entries cover at 29, 14 and 2 import sites.
   The flow view opens it as a level of its own, and the one module no sub-component owns keeps
   a card of its own.
 

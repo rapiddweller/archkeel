@@ -135,7 +135,7 @@ _CASES: dict[str, tuple[list[dict[str, object]], dict[str, str], dict[str, str]]
 
 
 @pytest.mark.parametrize("case", sorted(_CASES))
-def test_decided_rule_passes_on_a_clean_package(tmp_path: Path, case: str) -> None:
+def test_decided_rule_has_no_violation_on_a_clean_package(tmp_path: Path, case: str) -> None:
     rules, passing, _ = _CASES[case]
     root = dart_package(
         tmp_path / "pkg",
@@ -147,7 +147,11 @@ def test_decided_rule_passes_on_a_clean_package(tmp_path: Path, case: str) -> No
     assert result.exit_code == 0, result.diagnostics
     assert observation is not None
     assert list(observation.records("violations") or ()) == []
-    assert result.declared_rules == "PASS"
+    assert result.declared_rules == ("UNKNOWN" if case == "no_component_cycles" else "PASS")
+    if case == "no_component_cycles":
+        assert [(item.id, item.status) for item in result.rule_assessments or ()] == [
+            ("RULE", "UNKNOWN")
+        ]
 
 
 @pytest.mark.parametrize("case", sorted(_CASES))

@@ -5,8 +5,8 @@
 
 The directive forms that look unusual to an import-graph reader (conditional alternatives,
 `part` files, `deferred` imports, `export`) are ordinary Dart and add exactly their real edges;
-text after the header is code, not a directive. Each case below is a clean package under strict
-rules, so any invented edge or invented module shows up as a violation and fails the PASS.
+text after the header is code, not a directive. Each case below has no violations. The Dart
+cycle assessment remains UNKNOWN because the profile does not prove complete cycle coverage.
 """
 
 from pathlib import Path
@@ -59,7 +59,10 @@ def _clean(tmp_path: Path, files: dict[str, str]) -> Observation:
     assert result.exit_code == 0, result.diagnostics
     assert observation is not None
     assert list(observation.records("violations") or ()) == []
-    assert result.declared_rules == "PASS"
+    assert result.declared_rules == "UNKNOWN"
+    assert {item.id for item in result.rule_assessments or () if item.status == "UNKNOWN"} == {
+        "CYCLES"
+    }
     return observation
 
 

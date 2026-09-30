@@ -24,6 +24,7 @@ from archkeel.ir.baseline import (
     violation_drift_counts,
 )
 from archkeel.ir.codec import contract_bytes, parse_contract
+from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import EvidenceClass, NoComponentCyclesRule, Observation, Record
 from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import baseline_widenings
@@ -115,6 +116,65 @@ def test_the_component_rule_passes_while_a_module_cycle_exists(tmp_path: Path) -
 
     assert _violations(observation) == []
     assert _module_sccs(observation) == [("sample.core.a", "sample.core.b")]
+
+
+@pytest.mark.parametrize("reverse_roots", [False, True], ids=["forward", "reversed"])
+@pytest.mark.parametrize(
+    ("roots", "status"),
+    [
+        (("first/sample", "second/sample/core/b"), "UNKNOWN"),
+        (("first/sample", "second/sample"), "PASS"),
+    ],
+    ids=["partial", "full"],
+)
+def test_cycle_receipts_require_every_physical_package_domain(
+    tmp_path: Path, roots: tuple[str, ...], status: str, reverse_roots: bool
+) -> None:
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_component("core")],
+                "rules": [
+                    {
+                        "id": rule_id,
+                        "kind": "no_component_cycles",
+                        "rationale": "Check the complete cycle domain.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                        **options,
+                    }
+                    for rule_id, options in (("COMPONENT", {}), ("MODULE", {"level": "module"}))
+                ],
+            }
+        )
+    )
+    for relative in (
+        "first/sample/core/api.py",
+        "second/sample/core/b/api.py",
+        "second/sample/core/hidden.py",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("VALUE = 1\n")
+    result = observe(
+        tmp_path,
+        roots=tuple(reversed(roots)) if reverse_roots else roots,
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert {
+        item.id: (item.status, item.evaluation_proven)
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+    } == {
+        "COMPONENT": (status, status == "PASS"),
+        "MODULE": (status, status == "PASS"),
+    }
 
 
 def test_the_module_level_names_members_and_the_imports_that_close_the_cycle(

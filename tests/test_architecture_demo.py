@@ -656,6 +656,7 @@ def test_unproven_ordinary_reexport_stays_unknown_in_cli_json(
     ("variant_id", "expected_violations"),
     [
         ("class-a-boundary-types-owned-public-type", ()),
+        ("class-a-boundary-types-builtin-dict-allowed", ()),
         (
             "class-a-boundary-types-owned-public-broad-field",
             ("APP-TYPES-NOT-DICT",),
@@ -676,7 +677,7 @@ def test_owned_public_type_field_is_decided_by_cli_json(
     expected_codes = ("rule.violated",) if expected_violations else ()
     assert tuple(sorted(item["code"] for item in validation["diagnostics"])) == expected_codes
     if not expected_violations:
-        assert validation["declared_rules"] == "PASS"
+        assert validation["declared_rules"] == "UNKNOWN"
     if expected_violations:
         assert validate_code != 0
     else:
@@ -688,7 +689,12 @@ def test_owned_public_type_field_is_decided_by_cli_json(
     if expected_violations:
         assert report["declared_rules"] != "PASS"
     else:
-        assert report["declared_rules"] == "PASS"
+        assert report["declared_rules"] == "UNKNOWN"
+        assessments = {item["id"]: item for item in report["rule_assessments"]}
+        assert {
+            item["id"] for item in report["rule_assessments"] if item["status"] == "UNKNOWN"
+        } == {"store:STORE-REQUIRES-COMPLETE"}
+        assert assessments["APP-TYPES-NOT-DICT"]["status"] == "PASS"
     observation = parse_observation(
         decode_canonical_model(json.loads(architecture_path.read_bytes()))
     )
@@ -707,6 +713,20 @@ def test_owned_public_type_field_is_decided_by_cli_json(
         assert violation.data.get("nested_annotation") == "dict"
     else:
         assert violations == ()
+
+
+def test_target_empty_responsibilities_keeps_store_rule_unknown_in_cli_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    variant = next(item for item in CATALOG if item.id == "target-empty-responsibilities")
+    root = _prepare_repo(tmp_path, dict(variant.files))
+
+    assert main(["report", "--root", str(root), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["declared_rules"] == "UNKNOWN"
+    assert {item["id"] for item in report["rule_assessments"] if item["status"] == "UNKNOWN"} == {
+        "store:STORE-REQUIRES-COMPLETE"
+    }
 
 
 def test_inside_forbidden_construct_is_reported_by_validate_and_report_cli(
@@ -867,8 +887,8 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
     )
 
     if not check.regressed_scalars and not check.regressed_dimensions:
-        # AD-93 resolves the clean facade's owned DTO fields through its collections.
-        assert result.declared_rules == "PASS"
+        # Its product scan's only UNKNOWN is store:STORE-REQUIRES-COMPLETE: the unowned facade.
+        assert result.declared_rules == "UNKNOWN"
         return
     delta = result.delta
     assert delta is not None
@@ -1011,6 +1031,9 @@ def test_test_scope_leaves_the_product_scan_unchanged(tmp_path: Path) -> None:
         observed.append(
             (
                 result.declared_rules,
+                tuple(
+                    item.id for item in result.rule_assessments or () if item.status == "UNKNOWN"
+                ),
                 result.measurements,
                 observation.source.scope,
                 observation.source.source_digest,
@@ -1018,30 +1041,37 @@ def test_test_scope_leaves_the_product_scan_unchanged(tmp_path: Path) -> None:
             )
         )
     assert observed[0] == observed[1]
-    declared_rules, _, scope, _, _ = observed[0]
-    assert (declared_rules, scope) == ("PASS", ("shop/**/*.py",))
+    declared_rules, unknown_rules, _, scope, _, _ = observed[0]
+    assert (declared_rules, unknown_rules, scope) == (
+        "UNKNOWN",
+        ("store:STORE-REQUIRES-COMPLETE",),
+        ("shop/**/*.py",),
+    )
 
 
-def test_clean_variant_is_fully_clean(tmp_path: Path) -> None:
+def test_clean_variant_has_no_violations_but_store_scope_is_unknown(tmp_path: Path) -> None:
     clean = next(variant for variant in CATALOG if variant.id == "clean")
     root = _prepare_repo(tmp_path, dict(clean.files))
 
     validate_result, _ = run_validate(root, CONFIG, observe)
-    assert validate_result.exit_code == 0
+    assert (validate_result.exit_code, validate_result.declared_rules) == (0, "UNKNOWN")
     assert validate_result.diagnostics == ()
     # AD-46: the clean page is what --write-graph writes, so the command leaves it alone.
     assert run_validate(root, CONFIG, observe, write_graph=True)[1] == {}
 
     report_result, _ = run_report(root, config=CONFIG, analyzer=observe)
     # AD-93 follows collection-contained fields through the declared DTO graph.
-    assert report_result.declared_rules == "PASS"
+    assert report_result.declared_rules == "UNKNOWN"
+    assert {
+        item.id for item in report_result.rule_assessments or () if item.status == "UNKNOWN"
+    } == {"store:STORE-REQUIRES-COMPLETE"}
 
 
-def test_dart_clean_variant_is_fully_clean(tmp_path: Path) -> None:
+def test_dart_clean_variant_has_no_violations_but_unknown_cycle_scope(tmp_path: Path) -> None:
     """AD-97: the Dart sample's conditional, deferred and part directives add no finding.
 
-    PASS, not UNKNOWN, is the claim: any unknown besides a standing disclaimer would turn the
-    verdict UNKNOWN, so PASS proves every declared rule decided every import it saw.
+    No violation is the claim. The unsupported Dart cycle-completeness proof keeps the aggregate
+    UNKNOWN and names COMPONENT-NO-CYCLES; it does not turn the directive probes into findings.
     """
     clean = next(variant for variant in CATALOG if variant.id == "dart-clean")
     root = _prepare_repo(tmp_path, dict(clean.files), clean.fixture)
@@ -1051,7 +1081,9 @@ def test_dart_clean_variant_is_fully_clean(tmp_path: Path) -> None:
     assert run_validate(root, load_config(root), observe, write_graph=True)[1] == {}
 
     report_result, _ = run_report(root, config=load_config(root), analyzer=observe)
-    assert (report_result.exit_code, report_result.declared_rules) == (0, "PASS")
+    assert (report_result.exit_code, report_result.declared_rules) == (0, "UNKNOWN")
+    unknown = {item.id for item in report_result.rule_assessments or () if item.status == "UNKNOWN"}
+    assert unknown == {"COMPONENT-NO-CYCLES"}
 
 
 def test_architecture_demo_markdown_matches_generated_output() -> None:

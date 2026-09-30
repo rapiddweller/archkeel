@@ -29,7 +29,7 @@ from archkeel.ir.codec import (
     parse_observation,
     result_payload,
 )
-from archkeel.ir.decisions import review_claims
+from archkeel.ir.decisions import review_claims, rule_assessments
 from archkeel.ir.measurements import MeasurementBudget, compare_measurements
 from archkeel.ir.model import ObservationResult, RunResult
 
@@ -174,6 +174,34 @@ def test_pubspec_name_must_be_the_namespace(tmp_path: Path) -> None:
     )
     assert mismatch.exit_code == 2
     assert "'other'" in mismatch.diagnostics[0].unknown_claim
+
+
+def test_dart_inside_rules_without_declared_package_coverage_are_unknown(tmp_path: Path) -> None:
+    result = _observe(
+        tmp_path,
+        {"lib/a/api.dart": "class Api {}\n"},
+        {
+            "components": [
+                _component("a", "app.a"),
+                _component("missing", "app.missing"),
+            ],
+            "rules": [
+                _rule("INTERFACE", "interface_boundary"),
+                _rule("REQUIRES", "complete_requires"),
+            ],
+        },
+    )
+    assert result.observation is not None
+    observation = result.observation
+
+    assert inspect_observation(observation)[1] == "UNKNOWN"
+    assert {
+        item.id: (item.status, item.evaluation_proven)
+        for item in rule_assessments(observation, undecided_by_rule={})
+    } == {
+        "INTERFACE": ("UNKNOWN", False),
+        "REQUIRES": ("UNKNOWN", False),
+    }
 
 
 _LAYERS = {

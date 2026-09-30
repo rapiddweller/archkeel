@@ -4289,6 +4289,7 @@ def _collect_rule_violations(
     boundary_violations: Sequence[RawRecord],
     assessment_facts: list[RawRecord] | None,
     assessment_parent: str | None,
+    receipt_scope_complete: bool,
     cycle_scope_complete: bool,
     cycle_graph_components: tuple[str, ...],
     cycle_namespace_complete: bool,
@@ -4338,6 +4339,8 @@ def _collect_rule_violations(
                 scope=assessment_parent or "root",
                 modules=modules,
                 source_modules=source_modules,
+                blank_modules=blank_modules,
+                receipt_scope_complete=receipt_scope_complete,
             )
         )
     return sorted(result, key=lambda item: item["id"])
@@ -4415,6 +4418,15 @@ def rule_violations(
         boundary_violations=boundary_violations,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
+        receipt_scope_complete=_scan_covers_packages(
+            (
+                *source_roots,
+                *(package for component in contract.components for package in component.packages),
+            ),
+            modules,
+            profile,
+            cycle_scan_roots,
+        ),
         cycle_scope_complete=(
             len(cycle_graph_components) == len(contract.components) and bool(contract.components)
         ),
@@ -4467,49 +4479,55 @@ def _cycle_scan_coverage(
     if not roots or namespace is None or profile.source_suffix != ".py":
         return False, ()
 
-    scan_roots = tuple(_relative_path(root) for root in roots)
-
-    def package_path(package: str) -> PurePosixPath | None:
-        package_parts = package.split(".")
-        for record in modules:
-            name = record["data"].get("qualified_name")
-            file = record["data"].get("file")
-            if (
-                not isinstance(name, str)
-                or not isinstance(file, str)
-                or not in_scope(name, package)
-            ):
-                continue
-            module_parts = name.split(".")
-            extra_modules = len(module_parts) - len(package_parts)
-            path = _relative_path(file).parent
-            # An __init__.py is the package directory itself, not a module file one level below it.
-            extra_parent_steps = (
-                extra_modules
-                if PurePosixPath(file).name == "__init__.py"
-                else max(extra_modules - 1, 0)
-            )
-            for _ in range(extra_parent_steps):
-                path = path.parent
-            return path
-        return None
-
-    def covered(package: str) -> bool:
-        path = package_path(package)
-        return path is not None and any(_contains(root, path) for root in scan_roots)
-
     components = tuple(
         sorted(
             component.label
             for component in contract.components
-            if component.packages and all(covered(package) for package in component.packages)
+            if _scan_covers_packages(component.packages, modules, profile, roots)
         )
     )
-    namespace_path = package_path(namespace)
-    namespace_complete = namespace_path is not None and any(
-        _contains(root, namespace_path) for root in scan_roots
-    )
+    namespace_complete = _scan_covers_packages((namespace,), modules, profile, roots)
     return namespace_complete, components
+
+
+def _package_paths(
+    package: str, modules: Sequence[RawRecord], profile: Profile
+) -> frozenset[PurePosixPath]:
+    package_parts = package.split(".")
+    paths: set[PurePosixPath] = set()
+    for record in modules:
+        name = record["data"].get("qualified_name")
+        file = record["data"].get("file")
+        if not isinstance(name, str) or not isinstance(file, str) or not in_scope(name, package):
+            continue
+        extra_modules = len(name.split(".")) - len(package_parts)
+        path = _relative_path(file).parent
+        extra_parent_steps = (
+            extra_modules
+            if profile.source_suffix == ".py" and PurePosixPath(file).name == "__init__.py"
+            else max(extra_modules - 1, 0)
+        )
+        for _ in range(extra_parent_steps):
+            path = path.parent
+        paths.add(path)
+    return frozenset(paths)
+
+
+def _scan_covers_packages(
+    packages: Sequence[str],
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    roots: tuple[str, ...],
+) -> bool:
+    """Prove every observed physical domain of each package lies under scan roots."""
+    if not packages or not roots:
+        return False
+    scan_roots = tuple(_relative_path(root) for root in roots)
+    return all(
+        (paths := _package_paths(package, modules, profile))
+        and all(any(_contains(root, path) for root in scan_roots) for path in paths)
+        for package in packages
+    )
 
 
 def _relative_path(value: str) -> PurePosixPath:
@@ -4528,6 +4546,8 @@ def rule_evaluation_receipts(
     scope: str,
     modules: Sequence[RawRecord],
     source_modules: frozenset[str] | None,
+    blank_modules: frozenset[str],
+    receipt_scope_complete: bool,
 ) -> list[RawRecord]:
     """Record the supported rule evaluators that just ran for one observation scope.
 
@@ -4550,12 +4570,13 @@ def rule_evaluation_receipts(
             # allowed_sources is an exception list, not the rule's observed scope.
             selected = observed
         elif isinstance(rule, CompleteRequiresRule | InterfaceBoundaryRule):
-            owners = {
-                component.label
-                for item in observed
-                if (component := contract.component_for(item["data"]["qualified_name"])) is not None
-            }
-            selected = observed if len(owners) > 1 else ()
+            selected = (
+                observed
+                if _inside_rule_scope_is_complete(
+                    contract, observed, profile, blank_modules, receipt_scope_complete
+                )
+                else ()
+            )
         elif isinstance(rule, ForbiddenDependencyRule):
             selected = _modules_for_rule_source(rule.source, observed, contract)
         elif isinstance(rule, SiblingIsolationRule):
@@ -4581,6 +4602,40 @@ def rule_evaluation_receipts(
         if selected:
             receipts.append(_rule_evaluation_receipt(rule, scope, selected))
     return receipts
+
+
+def _inside_rule_scope_is_complete(
+    contract: ArchitectureContract,
+    observed: Sequence[RawRecord],
+    profile: Profile,
+    blank_modules: frozenset[str],
+    receipt_scope_complete: bool,
+) -> bool:
+    if not receipt_scope_complete or not observed:
+        return False
+    ownership = tuple(
+        (
+            item,
+            sum(
+                any(
+                    in_scope(item["data"]["qualified_name"], package)
+                    for package in component.packages
+                )
+                for component in contract.components
+            ),
+        )
+        for item in observed
+    )
+    return any(owner_count == 1 for _, owner_count in ownership) and all(
+        owner_count == 1
+        or (
+            owner_count == 0
+            and profile.source_suffix == ".py"
+            and PurePosixPath(item["data"]["file"]).name == "__init__.py"
+            and item["data"]["qualified_name"] in blank_modules
+        )
+        for item, owner_count in ownership
+    )
 
 
 def _modules_for_rule_source(

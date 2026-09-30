@@ -111,12 +111,13 @@ VARIANTS: tuple[Variant, ...] = (
         item="dart:clean",
         summary="The G-dart package as committed: four components, a facade library that "
         "re-exports with `export ... show`, a conditional import, a `part` file and a "
-        "`deferred as` import. Every rule decides, so validate exits 0 and report reads PASS.",
+        "`deferred as` import. No violation is found; the Dart cycle assessment remains "
+        "UNKNOWN because scan completeness is not proven.",
         files={},
         expected_violations=(),
         expected_codes=(),
         fixture=DART_FIXTURE_DIR,
-        expected_declared_rules="PASS",
+        expected_declared_rules="UNKNOWN",
     ),
     Variant(
         id="dart-forbidden-dart-io",
@@ -243,7 +244,9 @@ VARIANTS: tuple[Variant, ...] = (
         id="dart-nested-interface-show",
         section="class_a",
         item="dart:interface_boundary:nested_show",
-        summary="The same deep boundary decides PASS when the import explicitly names Order.",
+        summary="The import explicitly names Order, so the symbol boundary has no violation; "
+        "the aggregate remains UNKNOWN because COMPONENT-NO-CYCLES lacks Dart scope proof and "
+        "domain:core:INTERFACE lacks unique ownership for its full nested scope.",
         files={
             **_NESTED_SYMBOL_FILES,
             _REPOSITORY: (DART_FIXTURE_DIR / _REPOSITORY)
@@ -253,7 +256,7 @@ VARIANTS: tuple[Variant, ...] = (
         expected_violations=(),
         expected_codes=(),
         fixture=DART_FIXTURE_DIR,
-        expected_declared_rules="PASS",
+        expected_declared_rules="UNKNOWN",
     ),
     Variant(
         id="dart-nested-interface-mixed",
