@@ -5,9 +5,8 @@
 - Target hierarchy projects declared `root_layout` frames around existing semantic components.
   Placement ambiguity, missing children and cyclic requirements stay explicit; an unranked
   dependent is not labelled cyclic, and presentation order does not change verdicts (AD-125).
-- Local browser acceptance covers hierarchy placement, 100% initial zoom, native scrolling,
-  collapsed Details and selection identity across Actual, Target and Diff; the latest run reports
-  48 passing checks. Two bounded fixes remain under review. These are local results, not CI.
+- Browser acceptance tests cover hierarchy placement, 100% initial zoom, native scrolling,
+  collapsed Details and selection identity across Actual, Target and Diff.
 - Alex's approval, implementation merge, one screenshot refresh from the merged approved source,
   and final integrated CI remain prerequisites for 0.8.2.
 
