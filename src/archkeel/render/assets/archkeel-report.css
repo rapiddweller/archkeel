@@ -626,6 +626,40 @@ code {
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: var(--ck-space-4);
 }
+.flow[data-view="target"] {
+  position: relative;
+  left: 50%;
+  width: min(calc(100vw - 48px), 1856px);
+  margin-left: calc(min(calc(100vw - 48px), 1856px) / -2);
+}
+.flow[data-view="target"] .flow-layout {
+  display: block;
+}
+.flow:not([data-view="target"]) .flow-details-toggle {
+  display: none;
+}
+.flow[data-view="target"][data-target-details-open="true"] .flow-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  align-items: start;
+}
+.flow[data-view="target"] .flow-inspector {
+  overflow-wrap: break-word;
+}
+.flow[data-view="target"] .flow-inspector:not([hidden]) {
+  margin-top: var(--ck-space-3);
+}
+.flow[data-view="target"][data-target-details-open="true"] .flow-inspector:not([hidden]) {
+  margin-top: 0;
+}
+@media (max-width: 900px) {
+  .flow[data-view="target"][data-target-details-open="true"] .flow-layout {
+    display: block;
+  }
+  .flow[data-view="target"][data-target-details-open="true"] .flow-inspector:not([hidden]) {
+    margin-top: var(--ck-space-3);
+  }
+}
 .flow-responsibilities {
   margin-top: var(--ck-space-4);
   border: 1px solid var(--ck-border);
@@ -709,6 +743,11 @@ code {
   border: 1px solid var(--ck-border);
   background: var(--ck-surface);
   overscroll-behavior: contain;
+}
+.flow[data-view="target"] .flow-canvas {
+  height: min(1000px, calc(100vh - 300px));
+  min-height: 560px;
+  max-height: none;
 }
 .flow-canvas:focus-visible {
   outline: 2px solid var(--ck-lime);
@@ -1030,7 +1069,45 @@ code {
 }
 .node .target-responsibility {
   fill: var(--ck-text);
+  font: 13px var(--ck-font-sans);
+}
+.node.target-node .target-label {
+  font-size: 15px;
+}
+.target-frame {
+  fill: var(--ck-surface-raised);
+  fill-opacity: 0.3;
+  stroke: var(--ck-border);
+  stroke-width: 1.5px;
+  pointer-events: none;
+}
+.target-frame-header-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+.target-container {
+  cursor: pointer;
+}
+.target-container:hover .target-frame,
+.target-container:focus-visible .target-frame,
+.target-container.selected .target-frame {
+  stroke: var(--ck-lime);
+  stroke-width: 2px;
+}
+.target-frame-title {
+  fill: var(--ck-text);
+  font: 600 15px var(--ck-font-sans);
+  pointer-events: none;
+}
+.target-frame-open {
+  fill: var(--ck-teal);
   font: 12px var(--ck-font-sans);
+  pointer-events: auto;
+}
+.target-cycle-warning {
+  fill: var(--ck-unknown);
+  font: 12px var(--ck-font-sans);
+  pointer-events: none;
 }
 .node .stereotype {
   fill: var(--ck-muted);

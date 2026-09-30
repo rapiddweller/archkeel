@@ -12,6 +12,7 @@
   const ROW_GAP = 150;
   const PER_ROW = 6;
   const ROW_STEP = CARD.h + ROW_GAP;
+  const TARGET_ROW_STEP = CARD.h + 34;
   const LANE_GAP = 11;
 
   // The one place an EdgeState maps to a human label. Edge and chip elements already take their
@@ -33,6 +34,7 @@
   const nodeLayer = viewport.querySelector(".flow-nodes");
   const emptyLayer = viewport.querySelector(".flow-empty");
   const inspector = root.querySelector(".flow-inspector");
+  inspector.id = "flow-inspector";
   const toolbar = root.querySelector(".flow-toolbar");
   const legend = root.querySelector(".flow-legend");
   const thresholdInput = root.querySelector(".flow-threshold");
@@ -58,6 +60,28 @@
   const responsibilityCount = root.querySelector(".flow-responsibility-count");
   const selectedResponsibility = root.querySelector(".flow-selected-responsibility");
   let pendingAlternativeFocus = null;
+  let targetDetailsOpen = false;
+  let targetDetailsTouched = false;
+  const detailsToggle = document.createElement("button");
+  detailsToggle.type = "button";
+  detailsToggle.className = "flow-fit flow-diagram-control flow-details-toggle";
+  detailsToggle.dataset.flowDetailsToggle = "";
+  detailsToggle.setAttribute("aria-controls", inspector.id);
+  detailsToggle.setAttribute("aria-expanded", "false");
+  detailsToggle.textContent = "Details";
+  toolbar.appendChild(detailsToggle);
+
+  function setTargetDetails(open) {
+    targetDetailsOpen = open;
+    root.dataset.targetDetailsOpen = String(open);
+    detailsToggle.setAttribute("aria-expanded", String(open));
+    inspector.hidden = !open;
+  }
+
+  detailsToggle.addEventListener("click", () => {
+    targetDetailsTouched = true;
+    setTargetDetails(!targetDetailsOpen);
+  });
 
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
   // already-captured element); the drag/pan state machine below tolerates that silently.
@@ -833,36 +857,309 @@
         : "<p>No additional details recorded.</p>"}${context}${overview}`;
   }
 
+  function targetLayout(graph, graphNodes) {
+    const containers = graph?.containers || {};
+    const children = new Map(Object.keys(containers).map((id) => [id, []]));
+    const physical = new Map(Object.keys(containers).map((id) => [id, []]));
+    for (const [id, container] of Object.entries(containers)) {
+      if (container.parent && children.has(container.parent)) children.get(container.parent).push(id);
+    }
+    children.forEach((ids) => ids.sort());
+    const byId = new Map(graphNodes.map((node) => [node.id, node]));
+    const frameIds = new Set(Object.keys(containers));
+    const physicalParent = new Map();
+    for (const edge of graph?.edges || []) {
+      if (frameIds.has(edge.source) && !physicalParent.has(edge.target)) {
+        physicalParent.set(edge.target, edge.source);
+      }
+    }
+    for (const node of graphNodes) {
+      if (node.kind === "physical_child" || node.kind === "module_target" || node.kind === "folder") {
+        const parent = physicalParent.get(node.id);
+        if (parent && physical.has(parent)) physical.get(parent).push(node.id);
+      }
+    }
+    physical.forEach((ids) => ids.sort());
+
+    const rankNodes = graphNodes.filter((node) => node.kind === "component");
+    const visibleRanks = [...new Set(rankNodes
+      .map((node) => node.dependency_rank)
+      .filter((rank) => rank !== null))].sort((left, right) => left - right);
+    const rowByRank = new Map(visibleRanks.map((rank, index) => [rank, index]));
+    const residualRow = visibleRanks.length;
+    const step = CARD.w + GAP;
+    const availableColumns = Math.max(1, Math.floor((canvas.clientWidth - 64 + GAP) / step));
+    const maxColumns = targetPath.length > 0 ? Math.max(2, availableColumns) : availableColumns;
+    const stackLanes = canvas.clientWidth < 600;
+    const rowOffset = (row, ids) =>
+      !stackLanes && targetPath.length > 0 && ids.length === 1 ? row % 2 : 0;
+    const rowFor = (node) => node.kind === "component"
+      ? node.dependency_rank === null ? residualRow : rowByRank.get(node.dependency_rank)
+      : residualRow + 1;
+    const itemsFor = (id) => [
+      ...(containers[id].members || []).filter((member) => byId.has(member)),
+      ...physical.get(id).filter((member) => byId.has(member)),
+    ];
+    const rowsFor = (id) => {
+      const grouped = new Map();
+      itemsFor(id).forEach((identifier) => {
+        const row = rowFor(byId.get(identifier));
+        if (!grouped.has(row)) grouped.set(row, []);
+        grouped.get(row).push(identifier);
+      });
+      const rows = new Map();
+      let displayRow = 0;
+      [...grouped.keys()].sort((left, right) => left - right).forEach((row) => {
+        const ids = grouped.get(row).sort();
+        for (let index = 0; index < ids.length; index += maxColumns) {
+          rows.set(displayRow++, ids.slice(index, index + maxColumns));
+        }
+      });
+      return rows;
+    };
+    const laneWidth = (id) => {
+      const rows = rowsFor(id);
+      const columns = Math.max(1, ...[...rows].map(([row, ids]) =>
+        ids.length + rowOffset(row, ids)));
+      const childWidths = children.get(id).map(laneWidth);
+      const ownWidth = columns * step;
+      return stackLanes ? Math.max(ownWidth, ...childWidths)
+        : ownWidth + childWidths.reduce((sum, width) => sum + width + GAP, 0);
+    };
+    const laneHeight = (id) => {
+      const ownHeight = Math.max(1, rowsFor(id).size) * TARGET_ROW_STEP;
+      const childHeights = children.get(id).map(laneHeight);
+      return ownHeight + (stackLanes
+        ? childHeights.reduce((sum, height) => sum + height + GAP, 0)
+        : Math.max(0, ...childHeights));
+    };
+    const nextPositions = {};
+    const frameBounds = {};
+    const placed = new Set();
+
+    const placeLane = (id, x, y = 0) => {
+      const container = containers[id];
+      const rows = rowsFor(id);
+      const rowWidth = Math.max(1, ...[...rows].map(([row, ids]) =>
+        ids.length + rowOffset(row, ids)));
+      rows.forEach((items, row) => items.forEach((identifier, index) => {
+        if (!placed.has(identifier)) {
+          nextPositions[identifier] = {
+            x: x + (index + rowOffset(row, items)) * step,
+            y: y + row * TARGET_ROW_STEP,
+          };
+        }
+        placed.add(identifier);
+      }));
+      if (stackLanes) {
+        let childY = y + Math.max(1, rows.size) * TARGET_ROW_STEP + GAP;
+        for (const child of children.get(id)) {
+          placeLane(child, x, childY);
+          childY += laneHeight(child) + GAP;
+        }
+      } else {
+        let childX = x + rowWidth * step;
+        for (const child of children.get(id)) {
+          placeLane(child, childX, y);
+          childX += laneWidth(child) + GAP;
+        }
+      }
+      const descendants = [
+        ...itemsFor(id).map((identifier) => nextPositions[identifier]),
+        ...children.get(id).map((child) => frameBounds[child]),
+      ].filter(Boolean);
+      if (descendants.length) {
+        const top = Math.min(...descendants.map((bounds) => bounds.top ?? bounds.y));
+        const bottom = Math.max(...descendants.map((bounds) => bounds.bottom ?? bounds.y + CARD.h));
+        const left = Math.min(...descendants.map((bounds) => bounds.left ?? bounds.x));
+        const right = Math.max(...descendants.map((bounds) => bounds.right ?? bounds.x + CARD.w));
+        frameBounds[id] = { left: left - 24, top: top - 42, right: right + 24, bottom: bottom + 24 };
+      } else {
+        frameBounds[id] = { left: x - 24, top: -42, right: x + CARD.w + 24, bottom: 24 };
+      }
+      nextPositions[id] = { x: frameBounds[id].left + 12, y: frameBounds[id].top + 8 };
+    };
+
+    let x = 0;
+    let y = 0;
+    const roots = Object.keys(containers).filter((id) => !containers[id].parent).sort();
+    for (const id of roots) {
+      placeLane(id, stackLanes ? 0 : x, y);
+      if (stackLanes) y += laneHeight(id) + GAP;
+      else x += laneWidth(id) + GAP;
+    }
+    const unplaced = rankNodes
+      .filter((node) => !placed.has(node.id))
+      .sort((left, right) =>
+        (rowFor(left)) - (rowFor(right))
+        || left.id.localeCompare(right.id));
+    const unplacedRows = new Map();
+    unplaced.forEach((node) => {
+      const row = rowFor(node);
+      if (!unplacedRows.has(row)) unplacedRows.set(row, []);
+      unplacedRows.get(row).push(node);
+    });
+    let unplacedWidth = 1;
+    let unplacedDisplayRow = 0;
+    [...unplacedRows.keys()].sort((left, right) => left - right).forEach((row) => {
+      const nodes = unplacedRows.get(row);
+      nodes.sort((left, right) => left.id.localeCompare(right.id));
+      for (let index = 0; index < nodes.length; index += maxColumns) {
+        const batch = nodes.slice(index, index + maxColumns);
+        const offset = batch.length === 1 ? unplacedDisplayRow % 2 : 0;
+        unplacedWidth = Math.max(unplacedWidth, batch.length + offset);
+        batch.forEach((node, column) => {
+          nextPositions[node.id] = {
+            x: x + (column + offset) * step,
+            y: (stackLanes ? y : 0) + unplacedDisplayRow * TARGET_ROW_STEP,
+          };
+          placed.add(node.id);
+        });
+        unplacedDisplayRow += 1;
+      }
+    });
+    if (stackLanes) {
+      x = 0;
+      y += unplacedDisplayRow * TARGET_ROW_STEP + GAP;
+    } else {
+      x += unplacedWidth * step;
+    }
+    const inventory = graphNodes.filter((node) =>
+      !placed.has(node.id) && !frameIds.has(node.id) && node.id !== graph?.owner,
+    ).sort((left, right) => left.id.localeCompare(right.id));
+    inventory.forEach((node, index) => {
+      nextPositions[node.id] = {
+        x: x + index * step,
+        y: (stackLanes ? y : (residualRow + 1) * TARGET_ROW_STEP),
+      };
+    });
+    if (graph?.owner && !nextPositions[graph.owner]) {
+      nextPositions[graph.owner] = { x: 0, y: 0 };
+    }
+
+    const same = Object.keys(positions).length === Object.keys(nextPositions).length
+      && Object.entries(nextPositions).every(([id, position]) =>
+        positions[id]?.x === position.x && positions[id]?.y === position.y);
+    if (same) return { positions, frameBounds, residualRow };
+    return { positions: nextPositions, frameBounds, residualRow };
+  }
+
+  function targetGraphFor(current) {
+    const diagrams = DATA.explorers.target_diagrams;
+    const graph = current
+      ? diagrams.nested[current.id]
+      : diagrams.root;
+    if (!current || !graph) return graph;
+    const sources = [diagrams.root, ...Object.values(diagrams.nested)];
+    const members = [...new Set(sources.flatMap((source) =>
+      source.containers?.[current.id]?.members || []))];
+    if (!members.length) return graph;
+    const available = new Map();
+    sources.forEach((source) => source.nodes.forEach((node) => {
+      if (members.includes(node.id) && !available.has(node.id)) available.set(node.id, node);
+    }));
+    const nodes = [...graph.nodes];
+    const present = new Set(nodes.map((node) => node.id));
+    members.forEach((id) => {
+      const node = available.get(id);
+      if (node && !present.has(id)) nodes.push(node);
+    });
+    const containers = {
+      ...graph.containers,
+      [current.id]: {
+        ...graph.containers[current.id],
+        members,
+      },
+    };
+    return { ...graph, nodes, containers };
+  }
+
   function renderTargetDiagram() {
     const focusedNode = document.activeElement.closest("[data-target-node]")?.dataset.targetNode;
     const focusedEdge = document.activeElement.closest("[data-target-edge]")?.dataset.targetEdge;
     const current = targetNode(targetPath.at(-1));
-    const graph = current
-      ? DATA.explorers.target_diagrams.nested[current.id]
-      : DATA.explorers.target_diagrams.root;
+    const graph = targetGraphFor(current);
     const graphNodes = graph?.nodes || [];
-    const owner = graph?.owner ? graphNodes.find((node) => node.id === graph.owner) : null;
-    const children = graphNodes.filter((node) => !owner || node.id !== owner.id);
-    const columns = Math.max(
-      1,
-      Math.min(4, Math.floor((canvas.clientWidth - 64 + GAP) / (CARD.w + GAP))),
-    );
-    positions = {};
-    if (owner) positions[owner.id] = { x: 0, y: 0 };
-    const rows = owner ? children : graphNodes;
-    rows.forEach((node, index) => {
-      const row = Math.floor(index / columns);
-      const column = index % columns;
-      const rowCount = Math.min(columns, rows.length - row * columns);
-      positions[node.id] = {
-        x: (column - (rowCount - 1) / 2) * (CARD.w + GAP),
-        y: (row + (owner ? 1 : 0)) * ROW_STEP,
-      };
-    });
+    const layout = targetLayout(graph, graphNodes);
+    positions = layout.positions;
     emptyLayer.textContent = "";
     edgeLayer.textContent = "";
     chipLayer.textContent = "";
     nodeLayer.textContent = "";
+
+    const containers = graph?.containers || {};
+    Object.entries(containers).forEach(([id, container]) => {
+      const bounds = layout.frameBounds[id];
+      const record = targetNode(id);
+      if (!bounds || !record) return;
+      const group = el("g", {
+        class: `node target-node target-container${targetSelection === id ? " selected" : ""}`,
+        tabindex: "0",
+        role: "button",
+        "aria-label": `Open ${record.label} layout frame`,
+        "data-target-node": id,
+        "data-label": record.label,
+        "data-target-container": id,
+        "data-target-container-open": id,
+      });
+      const backplate = el("g", { class: "target-frame-backplate", "aria-hidden": "true" });
+      backplate.appendChild(el("rect", {
+        class: "target-frame",
+        x: String(bounds.left),
+        y: String(bounds.top),
+        width: String(bounds.right - bounds.left),
+        height: String(bounds.bottom - bounds.top),
+        rx: "8",
+      }));
+      nodeLayer.appendChild(backplate);
+      group.appendChild(el("rect", {
+        class: "target-frame-header-hit",
+        x: String(bounds.left),
+        y: String(bounds.top),
+        width: String(bounds.right - bounds.left),
+        height: "32",
+        rx: "8",
+      }));
+      const title = el("text", {
+        class: "target-frame-title",
+        x: String(bounds.left + 14),
+        y: String(bounds.top + 23),
+      });
+      title.textContent = container.scope || record.label;
+      group.appendChild(title);
+      const open = el("text", {
+        class: "target-frame-open",
+        x: String(bounds.right - 14),
+        y: String(bounds.top + 23),
+        "text-anchor": "end",
+      });
+      open.textContent = "Open ↗";
+      group.appendChild(open);
+      const tooltip = el("title");
+      tooltip.textContent = `${record.label}: ${container.members.length} direct component${container.members.length === 1 ? "" : "s"}. Open frame.`;
+      group.appendChild(tooltip);
+      const enter = () => {
+        projectionContext = null;
+        projectionReturnContext = null;
+        selectSubject(record);
+        if (graph?.owner !== id && (record.children || []).length) {
+          targetPath.push(id);
+          targetSelection = null;
+        } else {
+          targetSelection = id;
+        }
+        if (!targetDetailsTouched) setTargetDetails(true);
+        render();
+      };
+      group.addEventListener("click", enter);
+      group.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          enter();
+        }
+      });
+      nodeLayer.appendChild(group);
+    });
 
     const edges = graph?.edges || [];
     const lanes = groupBy(edges, laneKey);
@@ -897,6 +1194,7 @@
         projectionReturnContext = null;
         targetSelection = edge.declaration || null;
         selectedSubject = null;
+        if (!targetDetailsTouched) setTargetDetails(true);
         render();
       };
       group.addEventListener("click", inspect);
@@ -910,7 +1208,9 @@
     });
 
     graphNodes.forEach((node) => {
+      if (containers[node.id]) return;
       const position = positions[node.id];
+      if (!position) return;
       const type = node.kind === "component" ? "component"
         : node.kind === "requires" ? "requires"
           : node.kind === "root_layout" ? "layout"
@@ -926,6 +1226,7 @@
         "aria-label": `${type}: ${node.label}`,
         "data-label": node.label,
         "data-target-node": node.id,
+        ...(node.kind === "component" ? { "data-placement-status": node.placement?.status || "unmapped" } : {}),
       });
       group.appendChild(el("rect", {
         class: "card target-card", width: String(CARD.w), height: String(CARD.h), rx: "8",
@@ -995,6 +1296,7 @@
           selectSubject(targetRecord);
           targetSelection = node.id;
         }
+        if (!targetDetailsTouched) setTargetDetails(true);
         render();
       };
       group.addEventListener("click", open);
@@ -1006,6 +1308,16 @@
       });
       nodeLayer.appendChild(group);
     });
+
+    if (graphNodes.some((node) => node.kind === "component" && node.dependency_rank === null)) {
+      const warning = el("text", {
+        class: "target-cycle-warning",
+        x: String(Math.min(0, ...Object.values(layout.frameBounds).map((bounds) => bounds.left))),
+        y: String((layout.residualRow + 1) * TARGET_ROW_STEP - 26),
+      });
+      warning.textContent = "Dependency order unresolved: cycle or dependency on a cycle.";
+      emptyLayer.appendChild(warning);
+    }
 
     legend.textContent = "";
     for (const [kind, label] of [
@@ -1025,16 +1337,16 @@
     }
     const scopeHint = document.createElement("span");
     scopeHint.className = "flow-legend-hint";
-    scopeHint.textContent = `${graphNodes.length} declared items in this scope · scroll to see all`;
+    scopeHint.dataset.scopeCount = `${graphNodes.length}/${graphNodes.length}`;
+    scopeHint.textContent = `${graphNodes.length} of ${graphNodes.length} items shown in this scope · scroll to see all`;
     legend.appendChild(scopeHint);
-    inspector.hidden = false;
+    inspector.hidden = !targetDetailsOpen;
     renderTargetInspector();
-    sizedPositions = {};
     sizeDiagram();
     const focusTarget = focusedEdge
       ? edgeLayer.querySelector(`[data-target-edge="${CSS.escape(focusedEdge)}"]`)
       : nodeLayer.querySelector(`[data-target-node="${CSS.escape(focusedNode || "")}"]`);
-    if (focusTarget) focusTarget.focus();
+    if (focusTarget) focusTarget.focus({ preventScroll: true });
   }
 
   function render() {
@@ -2086,19 +2398,19 @@
       && ["actual", "target", "diff"].includes(nextView);
     const savedContext = projectionReturnContext;
     const returning = savedContext?.view === nextView ? savedContext : null;
-    const source = savedContext || {
+    const currentSource = {
       view: viewMode,
       path: viewMode === "target" ? [...targetPath] : [...projectionPath],
       selection: viewMode === "target" ? targetSelection : projectionSelection,
     };
+    const source = savedContext && projectionContext ? savedContext : currentSource;
     const counterpart = projectionView && !returning
       ? projectionCounterpart(source.view, nextView, savedContext) : null;
     const previous = projectionView ? [...source.path, source.selection]
       .map((id) => projectionNodes(DATA.explorers[source.view]).find(({ node }) => node.id === id)?.node.label)
       .filter(Boolean) : [];
     projectionReturnContext = projectionView
-      ? returning ? null : savedContext || (counterpart?.context || (!counterpart && previous.length)
-        ? source : null)
+      ? returning ? null : savedContext || source
       : null;
     projectionContext = returning ? null : projectionView
       ? counterpart?.context || (!counterpart && previous.length
@@ -2111,6 +2423,10 @@
       ? returning?.path || counterpart?.targetPath || [] : [];
     targetSelection = nextView === "target"
       ? returning?.selection || counterpart?.targetSelection || null : null;
+    if (nextView === "target" && !targetDetailsTouched
+        && (projectionContext || projectionReturnContext || targetPath.length || targetSelection)) {
+      setTargetDetails(true);
+    }
     positions = {};
     render();
   }));
@@ -2123,6 +2439,7 @@
     targetPath = [...row.ancestors];
     targetSelection = row.id;
     positions = {};
+    if (!targetDetailsTouched) setTargetDetails(true);
     render();
     canvas.scrollIntoView({ block: "nearest" });
   });
@@ -2254,7 +2571,17 @@
   renderLegend();
   render();
   window.addEventListener("resize", () => {
-    if (viewMode === "target") renderTargetDiagram();
-    else sizeDiagram();
+    if (viewMode === "target") {
+      const scroll = { left: canvas.scrollLeft, top: canvas.scrollTop };
+      renderTargetDiagram();
+      const restoreScroll = () => {
+        canvas.scrollLeft = Math.min(scroll.left, canvas.scrollWidth - canvas.clientWidth);
+        canvas.scrollTop = Math.min(scroll.top, canvas.scrollHeight - canvas.clientHeight);
+      };
+      restoreScroll();
+      requestAnimationFrame(restoreScroll);
+    } else {
+      sizeDiagram();
+    }
   });
 })();

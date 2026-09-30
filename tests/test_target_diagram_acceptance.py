@@ -544,7 +544,7 @@ def test_parent_graph_folds_frame_for_visible_owner_not_hidden_inside_components
 
 
 def _target_diagram_page(
-    tmp_path: Path, *, include_module_target: bool = False
+    tmp_path: Path, *, include_module_target: bool = False, cycle: bool = False
 ) -> tuple[str, dict[str, Any]]:
     tour = next(item for item in CATALOG if item.id == "tour")
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
@@ -594,6 +594,16 @@ def _target_diagram_page(
             "rationale": "Archived orders stay behind the declared archive boundary.",
         }
     ]
+    if cycle:
+        archive = next(
+            component for component in contract["components"] if component["id"] == "COMP-ARCHIVE"
+        )
+        archive["requires"] = [
+            {
+                "component": "app",
+                "rationale": "The browser fixture keeps a deliberate dependency cycle visible.",
+            }
+        ]
     if include_module_target:
         contract.setdefault("declarations", {}).setdefault("modules", []).append(
             {
@@ -716,6 +726,7 @@ def test_target_diagram_shows_declared_root_and_nested_graphs_only(tmp_path: Pat
             edge["kind"] in {"allowed_child", "contains", "owns_package", "requires"}
             for edge in graph["edges"]
         )
+
     assert all(node["label"] != "shop.orphan" for node in root["nodes"])
 
 
@@ -834,6 +845,226 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             page.locator('[data-projection-id="diff:unmapped"]').click()
             assert page.locator('[data-projection-id="unmapped:shop.orphan"]').is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        finally:
+            browser.close()
+
+
+def test_target_physical_path_survives_actual_diff_round_trip(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path)
+    diagrams = payload["explorers"]["target_diagrams"]
+    target_path = [
+        "layout:ROOT-LAYOUT",
+        "COMP-STORE",
+        "store:COMP-STORE-BACKEND",
+    ]
+    assert all(identifier in diagrams["nested"] for identifier in target_path)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            page.locator('[data-target-container-open="layout:ROOT-LAYOUT"]').click()
+            page.locator('[data-target-node="COMP-STORE"]').click()
+            page.locator('[data-target-node="store:COMP-STORE-BACKEND"]').click()
+            page.locator(
+                '[data-target-node="package:store:COMP-STORE-BACKEND:shop.store.backend"]'
+            ).click()
+
+            breadcrumb = page.locator(".flow-breadcrumb").inner_text()
+            selection = page.locator(".target-node.selected").evaluate_all(
+                "nodes => nodes.map(node => node.dataset.targetNode)"
+            )
+            assert breadcrumb == "Target\n/\nshop\n/\nstore\n/\nbackend"
+            assert selection == ["package:store:COMP-STORE-BACKEND:shop.store.backend"]
+
+            for view in ("actual", "diff", "target"):
+                page.locator(f'[data-flow-view="{view}"]').click()
+
+            assert page.locator(".flow-breadcrumb").inner_text() == breadcrumb
+            assert (
+                page.locator(".target-node.selected").evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.targetNode)"
+                )
+                == selection
+            )
+            assert page.locator(".flow-inspector h2").text_content() == "shop.store.backend"
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("viewport", [(1440, 1000), (1856, 1336)])
+def test_target_hierarchy_browser_layout_and_details_toggle(
+    tmp_path: Path, viewport: tuple[int, int]
+) -> None:
+    page_html, payload = _target_diagram_page(tmp_path, cycle=True)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    cyclic = {
+        node["id"]
+        for node in graph["nodes"]
+        if node["kind"] == "component" and node["dependency_rank"] is None
+    }
+    assert cyclic == {"COMP-APP", "COMP-ARCHIVE"}
+    assert graph["containers"]["layout:ROOT-LAYOUT"]["members"]
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": viewport[0], "height": viewport[1]})
+            page_errors: list[str] = []
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            assert page_errors == []
+            canvas = page.locator(".flow-canvas")
+            assert canvas.is_visible()
+            assert page.locator(".flow-zoom-value").text_content() == "100%"
+            rendered_components = set(
+                page.locator(".target-node[data-placement-status]").evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.targetNode)"
+                )
+            )
+            expected_components = {
+                node["id"] for node in graph["nodes"] if node["kind"] == "component"
+            }
+            assert rendered_components == expected_components
+            assert page.locator("[data-target-container='layout:ROOT-LAYOUT']").count() == 1
+            assert page.locator("[data-target-container-open='layout:ROOT-LAYOUT']").count() == 1
+            assert page.locator(".flow-legend-hint").get_attribute("data-scope-count") == (
+                f"{len(graph['nodes'])}/{len(graph['nodes'])}"
+            )
+            assert page.get_by_text(
+                "Dependency order unresolved: cycle or dependency on a cycle."
+            ).is_visible()
+
+            # Card text must stay readable after the SVG transform, and placed cards cannot overlap.
+            metrics = page.locator(".flow-nodes").evaluate(
+                """layer => {
+                  const screenBox = element => {
+                    const box = element.getBBox();
+                    const matrix = element.getScreenCTM();
+                    const points = [
+                      new DOMPoint(box.x, box.y), new DOMPoint(box.x + box.width, box.y),
+                      new DOMPoint(box.x, box.y + box.height),
+                      new DOMPoint(box.x + box.width, box.y + box.height),
+                    ].map(point => point.matrixTransform(matrix));
+                    return {
+                      left: Math.min(...points.map(point => point.x)),
+                      right: Math.max(...points.map(point => point.x)),
+                      top: Math.min(...points.map(point => point.y)),
+                      bottom: Math.max(...points.map(point => point.y)),
+                    };
+                  };
+                  const cards = [...layer.querySelectorAll('.target-node[data-placement-status]')]
+                    .map(node => ({ id: node.dataset.targetNode, box: screenBox(node) }));
+                  const overlap = cards.some((left, index) => cards.slice(index + 1).some(right =>
+                    left.box.left < right.box.right && left.box.right > right.box.left &&
+                    left.box.top < right.box.bottom && left.box.bottom > right.box.top));
+                  const scaledFont = selector => [...layer.querySelectorAll(selector)].map(node => {
+                    const style = getComputedStyle(node);
+                    const matrix = node.getScreenCTM();
+                    return parseFloat(style.fontSize) * Math.hypot(matrix.a, matrix.b);
+                  });
+                  return {
+                    overlap,
+                    names: scaledFont('.target-label'),
+                    responsibilities: scaledFont('.target-responsibility'),
+                  };
+                }"""
+            )
+            assert not metrics["overlap"]
+            assert metrics["names"] and min(metrics["names"]) >= 14
+            assert metrics["responsibilities"] and min(metrics["responsibilities"]) >= 12
+
+            details_toggle = page.locator("[data-flow-details-toggle]")
+            assert details_toggle.get_attribute("aria-expanded") == "false"
+            assert details_toggle.get_attribute("aria-controls") == "flow-inspector"
+            frame = page.locator("[data-target-container-open='layout:ROOT-LAYOUT']")
+            frame.focus()
+            page.keyboard.press("Enter")
+            assert "shop" in page.locator(".flow-breadcrumb").inner_text()
+            inspector = page.locator(".flow-inspector")
+            assert inspector.is_visible()
+            inspector_rect = inspector.evaluate(
+                "element => element.getBoundingClientRect().toJSON()"
+            )
+            assert inspector_rect["x"] >= 0
+            assert inspector_rect["x"] + inspector_rect["width"] <= viewport[0]
+            assert inspector_rect["y"] < viewport[1]
+            assert inspector_rect["y"] + inspector_rect["height"] > 0
+            page.get_by_role("button", name="Zoom in").click()
+            anchor = canvas.evaluate(
+                "element => { element.scrollTop = Math.min(80, "
+                "element.scrollHeight - element.clientHeight); "
+                "return {top: element.scrollTop, left: element.scrollLeft}; }"
+            )
+            before = {
+                "path": page.locator(".flow-breadcrumb").inner_text(),
+                "zoom": page.locator(".flow-zoom-value").text_content(),
+                "position": page.locator(
+                    "[data-target-container='layout:ROOT-LAYOUT'] rect"
+                ).evaluate(
+                    "element => [element.getAttribute('x'), element.getAttribute('y')].join(',')"
+                ),
+                "selection": page.locator(".target-node.selected").evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.targetNode)"
+                ),
+                "anchor": anchor,
+            }
+            details_toggle.click()
+            assert details_toggle.get_attribute("aria-expanded") == "false"
+            assert page.locator(".flow-inspector").is_hidden()
+            assert page.locator(".flow-breadcrumb").inner_text() == before["path"]
+            assert page.locator(".flow-zoom-value").text_content() == before["zoom"]
+            assert (
+                page.locator(".target-node.selected").evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.targetNode)"
+                )
+                == before["selection"]
+            )
+            assert (
+                page.locator("[data-target-container='layout:ROOT-LAYOUT'] rect").evaluate(
+                    "element => [element.getAttribute('x'), element.getAttribute('y')].join(',')"
+                )
+                == before["position"]
+            )
+            assert (
+                canvas.evaluate("element => ({top: element.scrollTop, left: element.scrollLeft})")
+                == before["anchor"]
+            )
+
+            page.set_viewport_size({"width": viewport[0] + 80, "height": viewport[1] + 60})
+            page.evaluate(
+                "() => new Promise(resolve => requestAnimationFrame(() => "
+                "requestAnimationFrame(resolve)))"
+            )
+            assert page.locator(".flow-breadcrumb").inner_text() == before["path"]
+            assert page.locator(".flow-zoom-value").text_content() == before["zoom"]
+            assert details_toggle.get_attribute("aria-expanded") == "false"
+            resized_anchor = canvas.evaluate(
+                "element => ({top: element.scrollTop, left: element.scrollLeft})"
+            )
+            assert resized_anchor["left"] == before["anchor"]["left"]
+            max_scroll = page.locator(".flow-canvas").evaluate(
+                "element => element.scrollHeight - element.clientHeight"
+            )
+            assert abs(resized_anchor["top"] - min(before["anchor"]["top"], max_scroll)) <= 1
+            details_toggle.click()
+            assert details_toggle.get_attribute("aria-expanded") == "true"
+            inspector = page.locator(".flow-inspector")
+            assert inspector.is_visible()
+            inspector_rect = inspector.evaluate(
+                "element => element.getBoundingClientRect().toJSON()"
+            )
+            assert inspector_rect["x"] >= 0
+            assert inspector_rect["x"] + inspector_rect["width"] <= viewport[0] + 80
+            assert inspector_rect["y"] < viewport[1] + 60
+            assert inspector_rect["y"] + inspector_rect["height"] > 0
+            assert page.locator(".flow-canvas").evaluate("element => element.clientWidth") > 1000
+            assert page_errors == []
         finally:
             browser.close()
 
