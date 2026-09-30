@@ -828,8 +828,10 @@
     }
   }
 
-  function renderTargetInspector() {
+  function renderTargetInspector(graph) {
     const node = targetSelection ? targetNode(targetSelection) : targetNode(targetPath.at(-1));
+    const graphNode = graph?.nodes.find((item) => item.id === node?.id);
+    const placement = graphNode?.kind === "component" ? graphNode.placement : null;
     const context = projectionContext
       ? `<p class="flow-projection-context">Context: ${esc(projectionContext)}</p>` : "";
     const children = (node?.children || DATA.explorers?.target || [])
@@ -847,6 +849,35 @@
     }
     const kind = node.kind === "module_target" ? "Declared module"
       : node.kind === "folder" ? "Folder" : `Declared ${node.kind}`;
+    const placementReasons = {
+      ambiguous: "Scope matches more than one declared frame.",
+      multiple: "Declared scopes do not share one frame.",
+      unmapped: "No declared frame resolves these scopes.",
+    };
+    const placementDetails = placement ? (() => {
+      const scopes = Array.isArray(placement.scopes)
+        ? placement.scopes.filter((scope) => typeof scope === "string") : [];
+      const folded = Array.isArray(placement.folded) ? placement.folded : [];
+      const reason = placement.container === null
+        ? placementReasons[placement.status] || "No declared frame is associated with these scopes."
+        : "";
+      const foldedMarkup = folded.map((frame) => {
+        const details = Array.isArray(frame.details) ? frame.details : [];
+        const detailMarkup = details.length
+          ? `<ul class="plain">${details.map((detail) =>
+            `<li>${esc(detail.label)}: ${esc(detail.value)}</li>`
+          ).join("")}</ul>` : "";
+        return `<li><strong>${esc(frame.id)}</strong> — ${esc(frame.scope)}${detailMarkup}</li>`;
+      }).join("");
+      return `<h3>Placement</h3><dl class="kv target-placement">
+        <dt>Status</dt><dd>${esc(placement.status)}</dd>
+        <dt>Scopes</dt><dd>${scopes.length ? scopes.map(esc).join(", ") : "No declared scopes."}</dd>
+        <dt>Container</dt><dd>${placement.container === null
+          ? "Unplaced" : esc(placement.container)}</dd>
+        ${reason ? `<dt>Reason</dt><dd>${esc(reason)}</dd>` : ""}
+        ${foldedMarkup ? `<dt>Folded frames</dt><dd><ul class="plain">${foldedMarkup}</ul></dd>` : ""}
+      </dl>`;
+    })() : "";
     inspector.innerHTML = `<div class="kicker">${esc(kind)}</div>
       <h2>${esc(node.label)}</h2>
       ${(node.details || []).length
@@ -854,7 +885,7 @@
           `<dt>${esc(item.missing ? "Missing responsibility" : item.label)}</dt>` +
           `<dd>${esc(item.missing ? "No declared responsibility." : item.value)}</dd>`
         ).join("")}</dl>`
-        : "<p>No additional details recorded.</p>"}${context}${overview}`;
+        : "<p>No additional details recorded.</p>"}${placementDetails}${context}${overview}`;
   }
 
   function targetLayout(graph, graphNodes) {
@@ -1030,8 +1061,9 @@
     const same = Object.keys(positions).length === Object.keys(nextPositions).length
       && Object.entries(nextPositions).every(([id, position]) =>
         positions[id]?.x === position.x && positions[id]?.y === position.y);
-    if (same) return { positions, frameBounds, residualRow };
-    return { positions: nextPositions, frameBounds, residualRow };
+    const residualStart = rowStarts.get(residualRow);
+    if (same) return { positions, frameBounds, residualStart };
+    return { positions: nextPositions, frameBounds, residualStart };
   }
 
   function targetGraphFor(current) {
@@ -1303,7 +1335,7 @@
       const warning = el("text", {
         class: "target-cycle-warning",
         x: String(Math.min(0, ...Object.values(layout.frameBounds).map((bounds) => bounds.left))),
-        y: String((layout.residualRow + 1) * TARGET_ROW_STEP - 26),
+        y: String(layout.residualStart * TARGET_ROW_STEP - 26),
       });
       warning.textContent = "Dependency order unresolved: cycle or dependency on a cycle.";
       emptyLayer.appendChild(warning);
@@ -1331,7 +1363,7 @@
     scopeHint.textContent = `${graphNodes.length} of ${graphNodes.length} items shown in this scope · scroll to see all`;
     legend.appendChild(scopeHint);
     inspector.hidden = !targetDetailsOpen;
-    renderTargetInspector();
+    renderTargetInspector(graph);
     sizeDiagram();
     const focusTarget = focusedEdge
       ? edgeLayer.querySelector(`[data-target-edge="${CSS.escape(focusedEdge)}"]`)

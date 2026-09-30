@@ -543,6 +543,14 @@ def test_parent_graph_folds_frame_for_visible_owner_not_hidden_inside_components
     assert root_layout_graph["containers"]["layout:LAYOUT-ROOT"]["members"] == []
 
 
+def _replace_flow_payload(page_html: str, payload: dict[str, Any]) -> str:
+    script_start = page_html.index('id="flow-data"')
+    payload_start = page_html.index(">", script_start) + 1
+    payload_end = page_html.index("</script>", payload_start)
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).replace("<", "\\u003c")
+    return page_html[:payload_start] + encoded + page_html[payload_end:]
+
+
 def _target_diagram_page(
     tmp_path: Path,
     *,
@@ -983,6 +991,160 @@ def test_target_dependency_order_crosses_physical_frames(tmp_path: Path) -> None
             )
             assert y_positions["COMP-RUNTIME"] < y_positions["COMP-A-DOMAINS"]
             assert y_positions["COMP-A-DOMAINS"] < y_positions["COMP-IO"]
+        finally:
+            browser.close()
+
+
+def test_target_inspector_explains_graph_local_placement(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path)
+    placements = {
+        "COMP-EMPTY": {
+            "status": "ambiguous",
+            "scopes": ["shop.empty.api"],
+            "container": None,
+        },
+        "COMP-ARCHIVE": {
+            "status": "multiple",
+            "scopes": ["shop.archive", "shop.other"],
+            "container": None,
+        },
+        "COMP-CLI": {
+            "status": "unmapped",
+            "scopes": ["shop.*"],
+            "container": None,
+        },
+        "COMP-APP": {
+            "status": "declared",
+            "scopes": ["shop.app"],
+            "container": "layout:ROOT-LAYOUT",
+            "folded": [
+                {
+                    "id": "layout:APP-SOLO",
+                    "scope": "shop.app",
+                    "details": [{"label": "Allowed children", "value": "shop.app.orders"}],
+                }
+            ],
+        },
+    }
+    diagrams = payload["explorers"]["target_diagrams"]
+    for graph in [diagrams["root"], *diagrams["nested"].values()]:
+        for node in graph["nodes"]:
+            if node["id"] in placements:
+                node["placement"] = placements[node["id"]]
+
+    page_html = _replace_flow_payload(page_html, payload)
+
+    cases = (
+        (
+            "COMP-EMPTY",
+            "empty",
+            "ambiguous",
+            "shop.empty.api",
+            "Scope matches more than one declared frame.",
+        ),
+        (
+            "COMP-ARCHIVE",
+            "archive",
+            "multiple",
+            "shop.archive, shop.other",
+            "Declared scopes do not share one frame.",
+        ),
+        (
+            "COMP-CLI",
+            "cli",
+            "unmapped",
+            "shop.*",
+            "No declared frame resolves these scopes.",
+        ),
+    )
+    assert all(status not in label for _, label, status, _, _ in cases)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            for node_id, label, status, scopes, reason in cases:
+                page.set_content(page_html, wait_until="load")
+                page.locator('[data-flow-view="target"]').click()
+                page.locator(f'[data-target-node="{node_id}"]').click()
+                inspector = page.locator(".flow-inspector")
+                assert inspector.locator("h2").text_content() == label
+                content = inspector.inner_text()
+                assert status in content
+                assert scopes in content
+                assert reason in content
+
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            page.locator('[data-target-node="COMP-APP"]').click()
+            content = page.locator(".flow-inspector").inner_text()
+            assert "layout:ROOT-LAYOUT" in content
+            assert "layout:APP-SOLO" in content
+            assert "shop.app.orders" in content
+        finally:
+            browser.close()
+
+
+def test_target_cycle_warning_follows_wrapped_rank_bands(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    graph["nodes"].extend(
+        [
+            {
+                "id": f"COMP-WRAPPED-{index:02}",
+                "kind": "component",
+                "label": f"wrapped {index:02}",
+                "dependency_rank": 0,
+                "placement": {"status": "unmapped", "scopes": [], "container": None},
+                "details": [],
+            }
+            for index in range(10)
+        ]
+        + [
+            {
+                "id": "COMP-RANK-ONE",
+                "kind": "component",
+                "label": "rank one",
+                "dependency_rank": 1,
+                "placement": {"status": "unmapped", "scopes": [], "container": None},
+                "details": [],
+            },
+            {
+                "id": "COMP-UNRANKED",
+                "kind": "component",
+                "label": "unranked",
+                "dependency_rank": None,
+                "placement": {"status": "unmapped", "scopes": [], "container": None},
+                "details": [],
+            },
+        ]
+    )
+    page_html = _replace_flow_payload(page_html, payload)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 550, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            bands = page.evaluate(
+                """() => {
+                  const y = id => Number(document.querySelector(`[data-target-node="${id}"]`)
+                    .getAttribute('transform').match(/,([\\d.-]+)\\)/)[1]);
+                  const warningY = Number(document.querySelector('.target-cycle-warning')
+                    .getAttribute('y'));
+                  const wrapped = Array.from({length: 10}, (_, index) =>
+                    y(`COMP-WRAPPED-${String(index).padStart(2, '0')}`));
+                  return {warningY, wrapped, rankOneY: y('COMP-RANK-ONE'),
+                    unrankedY: y('COMP-UNRANKED')};
+                }"""
+            )
+            assert len(set(bands["wrapped"])) > 1
+            assert bands["rankOneY"] > max(bands["wrapped"])
+            assert bands["warningY"] > bands["rankOneY"]
+            assert bands["warningY"] < bands["unrankedY"]
         finally:
             browser.close()
 
