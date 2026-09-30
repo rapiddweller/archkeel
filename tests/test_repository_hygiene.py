@@ -57,6 +57,8 @@ ALLOWED_LONG_FUNCTIONS = {
     "walk binds base TypeVars and inspects direct inherited signature positions.",
     "src/archkeel/analyzer/embedded/violations.py::facade_signature_types": "One signature "
     "publication pass keeps resolved and uncertain inherited types tied to each facade.",
+    "src/archkeel/analyzer/embedded/violations.py::rule_violations": "Sequences independent "
+    "rule evaluators and keeps each receipt attached to its own scope proof.",
     "src/archkeel/analyzer/embedded/violations.py::_scoped_facade_signature_types": "One nested "
     "publication pass keeps inherited candidate evidence tied to its mount and publisher.",
     "src/archkeel/analyzer/embedded/violations.py::_boundary_types_violations": "One rule and "

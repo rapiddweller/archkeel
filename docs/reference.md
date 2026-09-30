@@ -114,10 +114,9 @@ undecided counts, evaluation evidence, rationale, decision owner and provenance.
 a completed evaluator receipt for the observed scope. Missing receipts or undecided positions
 remain UNKNOWN; a rule with violations stays FAIL while retaining its undecided count.
 `allowed_dependency` is a permission, labelled DECLARATION rather than PASS. These per-rule
-rows do not redefine the existing overall verdict or count a multi-rule UNKNOWN twice globally.
-The aggregate can therefore pass while a per-rule assessment remains UNKNOWN. The report's
-headline then reads NOT CHECKED and states the aggregate PASS explicitly; JSON and exit codes
-are unchanged. Cycle-scope completeness currently requires recursive Python scans;
+rows do not count a multi-rule UNKNOWN twice globally. Any UNKNOWN non-declaration rule makes
+the aggregate UNKNOWN; a known violation remains FAIL. The report headline reads NOT CHECKED.
+Cycle-scope completeness currently requires recursive Python scans;
 module-cycle proof needs the whole
 namespace. Smaller scans, explicit `source_paths`, and Dart cannot prove that completeness,
 but observed violations still produce FAIL.

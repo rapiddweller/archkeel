@@ -864,7 +864,7 @@ def test_executable_package_init_does_not_prove_omitted_namespace_cycle_absent(
     cycle_assessment = _assessment(result, "MODEL-MODULES-ACYCLIC")
     assert cycle_assessment["status"] == "UNKNOWN"
     assert cycle_assessment["evaluation_proven"] is False
-    assert result["exit_code"] == 0 and result["declared_rules"] == "PASS"
+    assert result["exit_code"] == 0 and result["declared_rules"] == "UNKNOWN"
     assert [item["id"] for item in result["rule_assessments"] if item["status"] == "UNKNOWN"] == [
         "MODEL-MODULES-ACYCLIC"
     ]
@@ -882,9 +882,7 @@ def test_executable_package_init_does_not_prove_omitted_namespace_cycle_absent(
     ]
 
 
-def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
-    tmp_path: Path, capsys
-) -> None:
+def test_html_banner_discloses_unknown_rule_in_aggregate_verdict(tmp_path: Path, capsys) -> None:
     root = _repo(tmp_path, "unknown-cycle-summary", {})
     _minimal_contract(root, [module_cycle_rule(components=["model"])], {"model"})
     baseline = _baseline_file(root, observed_violations(_observe(root)))
@@ -902,7 +900,7 @@ def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
     )
 
     assert result["exit_code"] == 0
-    assert result["declared_rules"] == "PASS"
+    assert result["declared_rules"] == "UNKNOWN"
     assert (tmp_path / "unknown-cycle-report" / "architecture.json").read_bytes() == (
         canonical_report_bytes(observation)
     )
@@ -911,7 +909,7 @@ def test_html_banner_discloses_unknown_rule_when_aggregate_remains_pass(
     ]
     assert not result["open_decisions"]
     page = (tmp_path / "unknown-cycle-report" / "architecture.report.html").read_text()
-    assert "The scan completed. Overall verdict: PASS. Rules still UNKNOWN: 1." in page
+    assert "declared rules could not be evaluated completely." in page
     banner = page.split('<section class="decision-banner"', 1)[1].split("</section>", 1)[0]
     assert 'data-decision="unknown"' in banner
     assert 'aria-label="Decision: NOT CHECKED"' in banner
@@ -1133,10 +1131,12 @@ def test_real_report_scopes_root_intermediate_and_leaf_assessments_to_receipts(
         for rule_id in record.rule_ids
     }
 
-    assert assessments["REQUIRES-COMPLETE"]["status"] == "UNKNOWN"
-    assert assessments["app:REQUIRES-COMPLETE"]["status"] == "UNKNOWN"
-    assert "REQUIRES-COMPLETE" not in receipts
-    assert "app:REQUIRES-COMPLETE" not in receipts
+    assert assessments["REQUIRES-COMPLETE"]["status"] == "PASS"
+    assert assessments["app:REQUIRES-COMPLETE"]["status"] == "PASS"
+    assert assessments["REQUIRES-COMPLETE"]["evaluation_proven"] is True
+    assert assessments["app:REQUIRES-COMPLETE"]["evaluation_proven"] is True
+    assert receipts["REQUIRES-COMPLETE"].data.get("scope") == "root"
+    assert receipts["app:REQUIRES-COMPLETE"].data.get("scope") == "app"
 
     assert assessments["app:app:REQUIRES-COMPLETE"]["status"] == "PASS"
     assert assessments["app:app:REQUIRES-COMPLETE"]["evaluation_proven"] is True

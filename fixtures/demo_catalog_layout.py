@@ -60,12 +60,12 @@ VARIANTS: tuple[Variant, ...] = (
         id="target-empty-responsibilities",
         section="clean",
         item="target.responsibilities:missing",
-        summary="Target shows existing root and nested components with no responsibility sentences "
-        "as missing design information while declared rules pass.",
+        summary="Target shows missing responsibility design information; the unowned store facade "
+        "keeps STORE-REQUIRES-COMPLETE unproven.",
         files=_empty_responsibility_files(),
         expected_violations=(),
         expected_codes=(),
-        expected_declared_rules="PASS",
+        expected_declared_rules="UNKNOWN",
     ),
     Variant(
         id="class-a-root-layout-clean",

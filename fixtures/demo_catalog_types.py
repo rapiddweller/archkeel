@@ -169,7 +169,8 @@ _BUILTIN_DICT_ALLOWED = Variant(
     id="class-a-boundary-types-builtin-dict-allowed",
     section="class_a",
     item="boundary_types:exact_builtin_dict",
-    summary="One exact allowance accepts the genuine builtin dict[str, str] boundary.",
+    summary="The exact allowance accepts the builtin dict boundary; the unowned store facade "
+    "keeps aggregate declared rules UNKNOWN.",
     files={
         "shop/app/reports.py": HEADER + "def snapshot() -> dict[str, str]:\n    return {}\n",
         "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
@@ -177,7 +178,7 @@ _BUILTIN_DICT_ALLOWED = Variant(
     },
     expected_violations=(),
     expected_codes=(),
-    expected_declared_rules="PASS",
+    expected_declared_rules="UNKNOWN",
 )
 
 _SHADOWED_DICT_ALLOWED = Variant(
@@ -513,11 +514,13 @@ _BOUNDARY_TYPES_OWNED_PUBLIC_TYPE = Variant(
     section="class_a",
     item="boundary_types:owned_public_type",
     summary="shop.app.api explicitly re-exports its own Payload and make from an ordinary module. "
-    "The typed field is a proven same-owner public boundary and stays clean.",
+    "The typed field is a proven same-owner public boundary with no violation. Aggregate rules "
+    "remain UNKNOWN because store:STORE-REQUIRES-COMPLETE lacks a receipt for the unowned "
+    "shop.store facade.",
     files=_owned_public_payload("str"),
     expected_violations=(),
     expected_codes=(),
-    expected_declared_rules="PASS",
+    expected_declared_rules="UNKNOWN",
 )
 
 _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD = Variant(

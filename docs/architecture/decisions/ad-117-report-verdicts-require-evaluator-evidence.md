@@ -6,8 +6,8 @@ The analyzer records each supported evaluator's actual scope and selected facts.
 projects those receipts, violations and shared UNKNOWN counts into typed rule rows. No receipt
 means UNKNOWN, not PASS. Permissions remain declarations. A failed rule retains its undecided
 positions; filtering UNKNOWN includes that mixed result without hiding its failure.
-An UNKNOWN rule prevents a green report headline even when the aggregate remains PASS.
-The summary states that difference; canonical verdicts and exit codes do not change.
+AD-124 closes the earlier gap: an UNKNOWN non-declaration rule makes the aggregate UNKNOWN,
+not PASS. A known violation remains FAIL.
 
 Analyzer profile `0.57.0` identifies the new evaluation facts. Observation and contract schemas
 stay unchanged; older observations without receipts cannot prove per-rule PASS.

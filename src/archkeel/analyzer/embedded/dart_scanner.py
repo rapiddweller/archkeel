@@ -108,6 +108,8 @@ def _inside_results(
     module_cycles: Sequence[RawRecord],
     facade_exports: dict[str, frozenset[str]],
     uncertain_reexport_origins: dict[str, frozenset[str]],
+    roots: tuple[str, ...],
+    namespace: str,
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate nested Dart rules with the imports and topology collected in its one pass."""
     results = evaluate_inside_rule_results(
@@ -126,6 +128,8 @@ def _inside_results(
         scanned_modules={library.module for library in sources.libraries},
         stable_bindings_by_module={},
         evidence={item["id"]: item for item in sources.evidence},
+        cycle_scan_roots=roots if not sources.failures else (),
+        cycle_namespace=namespace,
     )
     return results[:5]
 
@@ -193,6 +197,8 @@ def _rule_results(
         module_cycles,
         facade_exports,
         uncertain_reexport_origins,
+        roots,
+        namespace,
     )
     return (
         sorted([*violations, *inside[0]], key=lambda item: item["id"]),

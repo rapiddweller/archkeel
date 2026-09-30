@@ -16,6 +16,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import inside_diagnostics
 from archkeel.cli import main
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
+from archkeel.ir.model import Observation
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 from archkeel.render.flow import build_flow
 
@@ -67,10 +68,12 @@ def _inside_edge(root: Path):
     )
 
 
-def _scan_config(root: Path, *, language: str = "python", source: str = "sample") -> None:
+def _scan_config(
+    root: Path, *, language: str = "python", roots: tuple[str, ...] = ("sample",)
+) -> None:
     (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     (root / "archkeel.toml").write_text(
-        f'[scan]\nroots = ["{source}"]\nnamespace = "sample"\n'
+        f'[scan]\nroots = {json.dumps(roots)}\nnamespace = "sample"\n'
         f'contract = "contract.json"\nlanguage = "{language}"\n'
     )
 
@@ -84,6 +87,58 @@ def _commit_test_root(root: Path) -> None:
         ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"],
     ):
         subprocess.run(args, cwd=root, check=True, capture_output=True)
+
+
+def _inside_rule_report(
+    root: Path,
+    components: list[dict[str, object]],
+    capsys: pytest.CaptureFixture[str],
+    *,
+    modules: dict[str, str] | None = None,
+    module_root: str = "sample",
+    scan_roots: tuple[str, ...] = ("sample",),
+) -> tuple[int, dict[str, object], Observation, str]:
+    _scan_config(root, roots=scan_roots)
+    for relative, source in (modules or {"__init__.py": "", "api.py": "VALUE = 1\n"}).items():
+        path = root / module_root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+    (root / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_component("app", packages=["sample"]) | {"inside": "inner.json"}],
+                "rules": [],
+            }
+        )
+    )
+    (root / "inner.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": components,
+                "rules": [
+                    {
+                        "id": rule_id,
+                        "kind": kind,
+                        "rationale": "Check the complete inside scope.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                    for rule_id, kind in (
+                        ("INTERFACE", "interface_boundary"),
+                        ("REQUIRES", "complete_requires"),
+                    )
+                ],
+            }
+        )
+    )
+    output = root / "architecture.json"
+    _commit_test_root(root)
+    code = main(["report", "--root", str(root), "--output", str(output), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    observation = parse_observation(decode_canonical_model(json.loads(output.read_text())))
+    return code, payload, observation, (root / "architecture.report.html").read_text()
 
 
 @pytest.mark.parametrize(
@@ -798,3 +853,346 @@ def test_cli_never_reports_pass_for_an_unevaluated_inside_rule(
     else:
         assert code == 2, payload
         assert "store:NO-INNER-EVAL" in json.dumps(payload["violations_by_rule"])
+
+
+def test_single_owner_inside_rules_have_cli_receipts_and_render_as_pass(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, payload, artifact, html = _inside_rule_report(
+        tmp_path, [_component("app", packages=["sample"], public=[])], capsys
+    )
+    assert code == 0, json.dumps(payload, indent=2)
+    assert {
+        rule_id
+        for item in artifact.records("scope_observations") or ()
+        if item.kind == "rule_evaluation"
+        for rule_id in item.rule_ids
+    } >= {"app:INTERFACE", "app:REQUIRES"}
+    assert payload["declared_rules"] == "PASS"
+    assert {
+        item["id"]: (item["status"], item["evaluation_proven"])
+        for item in payload["rule_assessments"]
+    } == {
+        "app:INTERFACE": ("PASS", True),
+        "app:REQUIRES": ("PASS", True),
+    }
+    for rule_id in ("app:INTERFACE", "app:REQUIRES"):
+        row_start = html.index(f'data-search="{rule_id} ')
+        row = html[row_start : html.index("</tr>", row_start)]
+        assert 'data-status="pass"' in row and ">PASS</strong>" in row
+
+
+@pytest.mark.parametrize(
+    "inner_components",
+    [
+        [_component("app", packages=["sample.absent"], public=[])],
+        [
+            _component("left", packages=["sample"], public=[]),
+            _component("right", packages=["sample"], public=[]),
+        ],
+    ],
+    ids=["missing-owner", "ambiguous-owner"],
+)
+def test_inside_rule_without_a_complete_unique_scope_is_unknown_in_cli_report(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    inner_components: list[dict[str, object]],
+) -> None:
+    code, payload, _, html = _inside_rule_report(
+        tmp_path,
+        inner_components,
+        capsys,
+        modules={"__init__.py": "", "api.py": "VALUE = 1\n"},
+    )
+
+    assert code == 0, json.dumps(payload, indent=2)
+    assert payload["declared_rules"] == "UNKNOWN"
+    assert {
+        item["id"]: (item["status"], item["evaluation_proven"])
+        for item in payload["rule_assessments"]
+    } == {
+        "app:INTERFACE": ("UNKNOWN", False),
+        "app:REQUIRES": ("UNKNOWN", False),
+    }
+    assert "UNKNOWN" in html
+
+
+def test_inside_rule_does_not_pass_with_a_real_unowned_module_in_scope(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, payload, _, _ = _inside_rule_report(
+        tmp_path,
+        [_component("app", packages=["sample.api"], public=[])],
+        capsys,
+        modules={
+            "__init__.py": "",
+            "api.py": "VALUE = 1\n",
+            "unowned.py": "VALUE = 2\n",
+        },
+    )
+
+    assert code == 0, payload
+    assert payload["declared_rules"] == "UNKNOWN"
+    assert {
+        item["id"]: (item["status"], item["evaluation_proven"])
+        for item in payload["rule_assessments"]
+    } == {
+        "app:INTERFACE": ("UNKNOWN", False),
+        "app:REQUIRES": ("UNKNOWN", False),
+    }
+
+
+def test_inside_rule_allows_only_a_blank_unowned_python_package_initializer(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, payload, artifact, _ = _inside_rule_report(
+        tmp_path,
+        [_component("app", packages=["sample.api"], public=[])],
+        capsys,
+        modules={"__init__.py": "", "api.py": "VALUE = 1\n"},
+    )
+
+    assert code == 0, payload
+    assert payload["declared_rules"] == "PASS"
+    assert {
+        item["id"]: (item["status"], item["evaluation_proven"])
+        for item in payload["rule_assessments"]
+    } == {
+        "app:INTERFACE": ("PASS", True),
+        "app:REQUIRES": ("PASS", True),
+    }
+    assert any(
+        item.kind == "rule_evaluation" and "app:INTERFACE" in item.rule_ids
+        for item in artifact.records("scope_observations") or ()
+    )
+
+
+def test_inside_rule_does_not_treat_a_call_only_initializer_as_inert(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, payload, _, _ = _inside_rule_report(
+        tmp_path,
+        [_component("app", packages=["sample.api"], public=[])],
+        capsys,
+        modules={
+            "__init__.py": "__import__('sample.api')\n",
+            "api.py": "VALUE = 1\n",
+        },
+    )
+
+    assert code == 0, payload
+    assert payload["declared_rules"] == "UNKNOWN"
+    assert {
+        item["id"]: (item["status"], item["evaluation_proven"])
+        for item in payload["rule_assessments"]
+    } == {
+        "app:INTERFACE": ("UNKNOWN", False),
+        "app:REQUIRES": ("UNKNOWN", False),
+    }
+
+
+@pytest.mark.parametrize(
+    ("components", "modules", "scan_roots"),
+    [
+        (
+            [_component("a", packages=["sample.a", "sample.missing"], public=[])],
+            {
+                "__init__.py": "",
+                "a/__init__.py": "",
+                "a/api.py": "VALUE = 1\n",
+            },
+            ("sample",),
+        ),
+        (
+            [
+                _component("a", packages=["sample.a"], public=[]),
+                _component("missing", packages=["sample.missing"], public=[]),
+            ],
+            {
+                "__init__.py": "",
+                "a/__init__.py": "",
+                "a/api.py": "VALUE = 1\n",
+            },
+            ("sample",),
+        ),
+        (
+            [
+                _component("a", packages=["sample.a"], public=[]),
+                _component("b", packages=["sample.b"], public=[]),
+            ],
+            {
+                "__init__.py": "",
+                "a/__init__.py": "",
+                "a/api.py": "VALUE = 1\n",
+                "b/__init__.py": "",
+                "b/api.py": "import sample.a.api\n",
+            },
+            ("sample/a",),
+        ),
+    ],
+    ids=["missing-declared-package", "missing-component", "narrowed-parent-scan"],
+)
+def test_inside_rule_without_complete_declared_scan_coverage_is_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    components: list[dict[str, object]],
+    modules: dict[str, str],
+    scan_roots: tuple[str, ...],
+) -> None:
+    code, payload, _, _ = _inside_rule_report(
+        tmp_path, components, capsys, modules=modules, scan_roots=scan_roots
+    )
+
+    assert code == 0, json.dumps(payload, indent=2)
+    assert payload["declared_rules"] == "UNKNOWN"
+    assert {
+        item["id"]: (item["status"], item["evaluation_proven"])
+        for item in payload["rule_assessments"]
+    } == {
+        "app:INTERFACE": ("UNKNOWN", False),
+        "app:REQUIRES": ("UNKNOWN", False),
+    }
+
+
+@pytest.mark.parametrize("reverse_roots", [False, True], ids=["forward", "reversed"])
+@pytest.mark.parametrize(
+    ("scan_roots", "hidden_source", "status"),
+    [
+        (("first/sample", "second/sample/b"), "import sample.b.api\n", "UNKNOWN"),
+        (("first/sample", "second/sample"), "import sample.b.api\n", "FAIL"),
+        (("first/sample", "second/sample"), "VALUE = 3\n", "PASS"),
+    ],
+    ids=["partial-parent", "full-violation", "full-clean"],
+)
+def test_inside_cli_receipts_require_every_physical_package_domain(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    scan_roots: tuple[str, ...],
+    hidden_source: str,
+    status: str,
+    reverse_roots: bool,
+) -> None:
+    code, payload, artifact, html = _inside_rule_report(
+        tmp_path,
+        [
+            _component("a", packages=["sample.a"], public=[]),
+            _component("b", packages=["sample.b"], public=[]),
+        ],
+        capsys,
+        modules={
+            "first/sample/__init__.py": "",
+            "first/sample/a/api.py": "VALUE = 1\n",
+            "second/sample/b/api.py": "VALUE = 2\n",
+            "second/sample/a/hidden.py": hidden_source,
+        },
+        module_root=".",
+        scan_roots=tuple(reversed(scan_roots)) if reverse_roots else scan_roots,
+    )
+
+    assert code == 0, json.dumps(payload, indent=2)
+    assert payload["declared_rules"] == status
+    assert {
+        item["id"]: (item["status"], item["evaluation_proven"])
+        for item in payload["rule_assessments"]
+    } == {
+        "app:INTERFACE": (status, status != "UNKNOWN"),
+        "app:REQUIRES": (status, status != "UNKNOWN"),
+    }
+    receipts = {
+        rule_id
+        for item in artifact.records("scope_observations") or ()
+        if item.kind == "rule_evaluation"
+        for rule_id in item.rule_ids
+    }
+    assert receipts == (set() if status == "UNKNOWN" else {"app:INTERFACE", "app:REQUIRES"})
+    if status == "FAIL":
+        assert {item.kind for item in trace_valid_violations(artifact)} >= {
+            "complete_requires",
+            "interface_boundary",
+        }
+    else:
+        assert not trace_valid_violations(artifact)
+    for rule_id in ("app:INTERFACE", "app:REQUIRES"):
+        row_start = html.index(f'data-search="{rule_id} ')
+        row = html[row_start : html.index("</tr>", row_start)]
+        assert f'data-status="{status.lower()}"' in row and f">{status}</strong>" in row
+
+
+def test_complete_and_incomplete_nested_scopes_preserve_outer_violation_in_cli_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _scan_config(tmp_path)
+    (tmp_path / "sample/core").mkdir(parents=True)
+    (tmp_path / "sample/target").mkdir(parents=True)
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/core/__init__.py").write_text("")
+    (tmp_path / "sample/core/api.py").write_text("import sample.target.api\n")
+    (tmp_path / "sample/target/__init__.py").write_text("")
+    (tmp_path / "sample/target/api.py").write_text("VALUE = 1\n")
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component("core", packages=["sample.core"]) | {"inside": "core.json"},
+                    _component("target", packages=["sample.target"]) | {"inside": "missing.json"},
+                ],
+                "rules": [
+                    {
+                        "id": "OUTER-BLOCK",
+                        "kind": "forbidden_dependency",
+                        "source": "sample.core",
+                        "target": "sample.target",
+                        "include_type_checking": True,
+                        "rationale": "Core must not import target.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    (tmp_path / "core.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [_component("core", packages=["sample.core"], public=[])],
+                "rules": [
+                    {
+                        "id": rule_id,
+                        "kind": kind,
+                        "rationale": "Check the complete inside scope.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                    }
+                    for rule_id, kind in (
+                        ("INTERFACE", "interface_boundary"),
+                        ("REQUIRES", "complete_requires"),
+                    )
+                ],
+            }
+        )
+    )
+    output = tmp_path / "architecture.json"
+    _commit_test_root(tmp_path)
+
+    code = main(["report", "--root", str(tmp_path), "--output", str(output), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    artifact = parse_observation(decode_canonical_model(json.loads(output.read_text())))
+
+    assert code == 2, json.dumps(payload, indent=2)
+    assert payload["declared_rules"] == "UNKNOWN"
+    assert any(
+        item.kind == "forbidden_dependency" and item.rule_ids == ("OUTER-BLOCK",)
+        for item in artifact.records("violations") or ()
+    )
+    assert any(
+        item.kind == "inside_contract_incomplete" for item in artifact.records("unknowns") or ()
+    )
+    assert {
+        rule_id
+        for item in artifact.records("scope_observations") or ()
+        if item.kind == "rule_evaluation"
+        for rule_id in item.rule_ids
+    } >= {"core:INTERFACE", "core:REQUIRES"}
+    assert "OUTER-BLOCK" in (tmp_path / "architecture.report.html").read_text()

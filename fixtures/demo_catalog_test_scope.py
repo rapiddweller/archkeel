@@ -4,7 +4,7 @@
 """AD-101 test scope demos: `archkeel-tests.toml` governs the shop sample's `tests/` on its own.
 
 Every row runs with `--config archkeel-tests.toml`; the product's `archkeel.toml` and contract
-are the clean sample's, untouched, and its own rows keep passing beside this tree.
+are the clean sample's, untouched, and its own rows keep their results beside this tree.
 """
 
 from __future__ import annotations
@@ -34,7 +34,9 @@ VARIANTS: tuple[Variant, ...] = (
         id="test-scope-clean",
         section="clean",
         item="test_scope:clean",
-        summary="A second configuration scans tests/ against its own contract, and it passes.",
+        summary="A second configuration scans tests/ against its own contract with no test-rule "
+        "violations. The product report remains UNKNOWN because its nested "
+        "store:STORE-REQUIRES-COMPLETE scope contains the unowned shop.store facade.",
         files={},
         expected_violations=(),
         expected_codes=(),

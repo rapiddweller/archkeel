@@ -293,9 +293,9 @@ _PARTIAL_MODULE_CYCLE_SCAN = Variant(
     section="showcase",
     item="report:partial_cycle_scan",
     summary="A model-cycle baseline is compared with a scan rooted only at shop/store. The "
-    "aggregate report verdict is PASS; the selected module-cycle assessment and baseline "
-    "comparison are UNKNOWN because model was not scanned. complete_requires is also UNKNOWN "
-    "because a store-only scan cannot assess every component owner. Validation retains its "
+    "aggregate report verdict is UNKNOWN: MODEL-MODULES-ACYCLIC is UNKNOWN because model was "
+    "not scanned, and REQUIRES-COMPLETE is UNKNOWN because the store-only scan cannot assess "
+    "every component owner. The baseline comparison remains unresolved. Validation retains its "
     "reference.package_unscanned diagnostic for shop.model.",
     files={
         **MODEL_MODULE_CYCLE,
@@ -309,7 +309,7 @@ _PARTIAL_MODULE_CYCLE_SCAN = Variant(
     expected_violations=(),
     expected_codes=("reference.package_unscanned",),
     baseline="known-violations.json",
-    expected_declared_rules="PASS",
+    expected_declared_rules="UNKNOWN",
 )
 _PACKAGE_CYCLE_ROLLUP_ONLY = Variant(
     id="class-a-package-cycle-rollup-only",
@@ -668,8 +668,10 @@ _RECURSIVE_INSIDE_CLEAN = Variant(
     id="class-a-recursive-inside-clean",
     section="class_a",
     item="complete_requires:recursive_inside_clean",
-    summary="A task-level dependency three declared inside levels deep is covered by its local "
-    "requires entry.",
+    summary="The declared task edge is covered by the local requires entry, but the aggregate "
+    "is UNKNOWN: store:STORE-REQUIRES-COMPLETE and "
+    "store:backend:tasks:DEEP-REQUIRES-COMPLETE lack receipts because each scope includes an "
+    "unowned nonblank facade/initializer.",
     files={
         **_RECURSIVE_INSIDE_FILES,
         "shop/store/backend/tasks/architecture-contract.json": _recursive_inside_rule_contract(
@@ -678,7 +680,7 @@ _RECURSIVE_INSIDE_CLEAN = Variant(
     },
     expected_violations=(),
     expected_codes=(),
-    expected_declared_rules="PASS",
+    expected_declared_rules="UNKNOWN",
 )
 _RECURSIVE_INSIDE_VIOLATION = Variant(
     id="class-a-recursive-inside-violation",
@@ -784,11 +786,13 @@ _RECURSIVE_WIDE_PACKAGE = Variant(
     section="showcase",
     item="recursive_inside:wide_package",
     summary="Three nested contracts partition eight task modules below one executable package "
-    "root; the report carries the package root and each isolated module through all levels.",
+    "root, but its aggregate is UNKNOWN: STORE-REQUIRES-COMPLETE and "
+    "DEEP-REQUIRES-COMPLETE lack receipts because their scopes include unowned nonblank "
+    "facades/initializers.",
     files={**_RECURSIVE_INSIDE_FILES, **_WIDE_TASK_FILES},
     expected_violations=(),
     expected_codes=(),
-    expected_declared_rules="PASS",
+    expected_declared_rules="UNKNOWN",
 )
 _RECURSIVE_DEEP_INTERFACE = Variant(
     id="class-a-recursive-deep-interface",
@@ -962,11 +966,13 @@ def _recursive_interface_variant(state: str, used: bool) -> Variant:
         section="validation",
         item=f"interface.lifecycle:recursive_{state}_{usage}",
         summary=f"Three declared levels down, the target is {state} and {usage}. "
-        "Public needs use; planned stays target work until reached, then requires promotion.",
+        "Public needs use; planned stays target work until reached, then requires promotion. "
+        "Unowned nonblank initializers leave scope receipts unproven; "
+        "known violations still make the aggregate FAIL.",
         files=files,
         expected_violations=violations,
         expected_codes=codes,
-        expected_declared_rules="FAIL" if violations else "PASS",
+        expected_declared_rules="FAIL" if violations else "UNKNOWN",
     )
 
 

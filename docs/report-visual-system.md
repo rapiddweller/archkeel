@@ -91,8 +91,8 @@ red only when the contract classifies the change as a regression or failure.
 
 1. Logo, repository, candidate SHA, accepted SHA when available, and source digest.
 2. Decision banner: pass, reject, or not checked. It follows verdicts and per-rule evidence,
-   not the exit code alone, and is not a score. UNKNOWN rule results prevent a green banner
-   even when the aggregate verdict remains PASS; that difference is stated explicitly.
+   not the exit code alone, and is not a score. An UNKNOWN non-declaration rule keeps the
+   aggregate verdict UNKNOWN; a known violation remains FAIL.
 3. The report verdict cards, always in contract order. Architecture reports show three;
    check reports add `git_predicate` and `host_order` for five total verdicts.
 4. Evidence that caused a failure or uncertainty.

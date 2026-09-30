@@ -25,31 +25,41 @@ def printed() -> list[str]:
     return run.stdout.splitlines()
 
 
-def test_the_story_runs_clean_then_measured_then_unknown_then_refused(printed: list[str]) -> None:
+def test_the_story_separates_violations_unknowns_and_refusals(printed: list[str]) -> None:
     assert printed == [
-        "clean: every rule decided every import",
-        "  dart-clean               PASS",
-        "  dart-nested-interface-show PASS",
         "measured violations",
-        "  dart-forbidden-dart-io   FAIL  rules: DEP-DOMAIN-NO-DART-IO",
-        "  dart-complete-requires   FAIL  rules: REQUIRES-COMPLETE",
+        "  dart-forbidden-dart-io   FAIL  rules: DEP-DOMAIN-NO-DART-IO  "
+        "unknown rules: COMPONENT-NO-CYCLES",
+        "  dart-complete-requires   FAIL  rules: REQUIRES-COMPLETE  "
+        "unknown rules: COMPONENT-NO-CYCLES",
         "  dart-component-cycle     FAIL  rules: COMPONENT-NO-CYCLES, REQUIRES-COMPLETE",
-        "  dart-complete-assignment FAIL  rules: ASSIGNMENT-COMPLETE, ROOT-LAYOUT",
-        "  dart-external-scope      FAIL  rules: EXTERNAL-HTTP-DATA",
-        "  dart-interface-show      FAIL  rules: INTERFACE-BOUNDARY",
+        "  dart-complete-assignment FAIL  rules: ASSIGNMENT-COMPLETE, ROOT-LAYOUT  "
+        "unknown rules: COMPONENT-NO-CYCLES, INTERFACE-BOUNDARY, REQUIRES-COMPLETE",
+        "  dart-external-scope      FAIL  rules: EXTERNAL-HTTP-DATA  "
+        "unknown rules: COMPONENT-NO-CYCLES",
+        "  dart-interface-show      FAIL  rules: INTERFACE-BOUNDARY  "
+        "unknown rules: COMPONENT-NO-CYCLES",
         "  dart-nested-interface-mixed FAIL  rules: domain:core:INTERFACE  "
+        "unknown rules: COMPONENT-NO-CYCLES  "
         "unknown: interface_symbol_limit",
         f"  dart-tour                FAIL  rules: {_TOUR_RULES}  unknown: interface_symbol_limit",
-        "not measurable -> UNKNOWN, counted, never PASS",
-        "  dart-interface-unknown   UNKNOWN  unknown: interface_symbol_limit",
-        "  dart-nested-interface-unknown UNKNOWN  unknown: interface_symbol_limit",
-        "  dart-nested-forbidden-symbol-unknown UNKNOWN  unknown: dependency_symbol_limit",
+        "incomplete rule proof -> UNKNOWN",
+        "  dart-clean               UNKNOWN  unknown rules: COMPONENT-NO-CYCLES",
+        "  dart-interface-unknown   UNKNOWN  unknown rules: COMPONENT-NO-CYCLES, "
+        "INTERFACE-BOUNDARY  "
+        "unknown: interface_symbol_limit",
+        "  dart-nested-interface-unknown UNKNOWN  unknown rules: COMPONENT-NO-CYCLES, "
+        "domain:core:INTERFACE  unknown: interface_symbol_limit",
+        "  dart-nested-interface-show UNKNOWN  unknown rules: COMPONENT-NO-CYCLES, "
+        "domain:core:INTERFACE",
+        "  dart-nested-forbidden-symbol-unknown UNKNOWN  unknown rules: COMPONENT-NO-CYCLES, "
+        "domain:core:NO-DRAFT  unknown: dependency_symbol_limit",
         "unsupported or unreadable -> refused with exit 2",
         "  dart-unsupported-rule    exit 2 rule_unsupported_by_profile",
         "  dart-unsupported-budget  exit 2 rule_unsupported_by_profile",
         "  dart-unreadable-header   exit 2 parse_error",
         "",
-        "What the directives decide is PASS or FAIL. The rest is UNKNOWN or refused.",
+        "No violation is different from a complete PASS: unproven scope stays UNKNOWN.",
     ]
 
 

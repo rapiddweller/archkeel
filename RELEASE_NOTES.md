@@ -1,5 +1,9 @@
 # Unreleased
 
+- `complete_requires` and `interface_boundary` PASS now requires a non-empty, fully covered scope
+  with unique ownership (a blank Python package initializer is the sole unowned exception); any
+  unproven non-declaration rule makes aggregate `declared_rules` UNKNOWN. Observed violations
+  remain FAIL (AD-124, analyzer 0.60.0).
 - `boundary_types` now fails closed for module-scope builtin shadowing: an exact `dict[...]`
   allowance accepts only the genuine builtin; a shadowed spelling remains UNKNOWN.
 - The Target responsibility index now includes components with no responsibility sentence, labels

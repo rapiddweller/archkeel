@@ -16,6 +16,7 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_lock,
 )
+from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.digest import package_digest
 from archkeel.ir.host_records import parse_records
 from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observation
@@ -50,7 +51,12 @@ from .git import (
 )
 from .ordering import check_order
 from .ports import Analyzer, Host, ScanConfig
-from .ratchets import calls_measured, measure_python_ratchets, unresolved_call_changes
+from .ratchets import (
+    calls_measured,
+    measure_python_ratchets,
+    unknown_positions_by_rule,
+    unresolved_call_changes,
+)
 from .snapshot import SnapshotError, materialize_git_snapshot
 
 
@@ -64,6 +70,13 @@ def inspect_observation(model: Observation) -> tuple[Measurements, RuleVerdict]:
         return measurements, "FAIL"
     # AD-92: one count decides both the verdict and the scalar a budget can pin.
     if measurements.scalars.unknown_positions:
+        return measurements, "UNKNOWN"
+    if any(
+        assessment.status == "UNKNOWN"
+        for assessment in rule_assessments(
+            model, undecided_by_rule=unknown_positions_by_rule(model)
+        )
+    ):
         return measurements, "UNKNOWN"
     return measurements, "PASS"
 

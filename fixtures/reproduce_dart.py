@@ -36,7 +36,7 @@ from fixtures.demo_catalog_support import Variant, apply_overlay
 CHAPTERS = (
     ("PASS", "clean: every rule decided every import"),
     ("FAIL", "measured violations"),
-    ("UNKNOWN", "not measurable -> UNKNOWN, counted, never PASS"),
+    ("UNKNOWN", "incomplete rule proof -> UNKNOWN"),
     ("refused", "unsupported or unreadable -> refused with exit 2"),
 )
 
@@ -49,6 +49,7 @@ class Outcome:
     verdict: str
     rule_ids: tuple[str, ...] = ()
     unknown_kinds: tuple[str, ...] = ()
+    unknown_rules: tuple[str, ...] = ()
 
 
 def _repository(workspace: Path, variant: Variant) -> Path:
@@ -84,7 +85,16 @@ def run_variant(workspace: Path, variant: Variant) -> Outcome:
     unknown_kinds = sorted(
         {record.kind for record in observation.records("unknowns") or () if record.rule_ids}
     )
-    return Outcome(variant.id, report.declared_rules, tuple(rule_ids), tuple(unknown_kinds))
+    unknown_rules = sorted(
+        item.id for item in report.rule_assessments or () if item.status == "UNKNOWN"
+    )
+    return Outcome(
+        variant.id,
+        report.declared_rules,
+        tuple(rule_ids),
+        tuple(unknown_kinds),
+        tuple(unknown_rules),
+    )
 
 
 def run_dart_demo(workspace: Path) -> tuple[Outcome, ...]:
@@ -107,6 +117,8 @@ def story(outcomes: tuple[Outcome, ...]) -> tuple[str, ...]:
             parts = [f"  {outcome.variant:<24} {outcome.verdict}"]
             if outcome.rule_ids:
                 parts.append(f"rules: {', '.join(outcome.rule_ids)}")
+            if outcome.unknown_rules:
+                parts.append(f"unknown rules: {', '.join(outcome.unknown_rules)}")
             if outcome.unknown_kinds:
                 parts.append(f"unknown: {', '.join(outcome.unknown_kinds)}")
             lines.append("  ".join(parts))
@@ -117,7 +129,7 @@ def main() -> int:
     with TemporaryDirectory(prefix="archkeel-dart-") as temporary:
         for line in story(run_dart_demo(Path(temporary))):
             print(line)
-    print("\nWhat the directives decide is PASS or FAIL. The rest is UNKNOWN or refused.")
+    print("\nNo violation is different from a complete PASS: unproven scope stays UNKNOWN.")
     return 0
 
 
