@@ -16,11 +16,13 @@ Regenerate `docs/architecture-demo.md` from the repository root with:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import shutil
 import subprocess
 import sys
 import tempfile
 import textwrap
+from collections.abc import Iterator
 from pathlib import Path
 
 from archkeel.cli import html_path
@@ -199,20 +201,7 @@ def replay(variant_id: str, output: Path) -> int:
         for path in (output, report_html):
             with path.open("xb"):
                 reserved.append(path)
-        with tempfile.TemporaryDirectory(prefix="archkeel-demo-") as temporary:
-            root = Path(temporary) / variant.fixture.name
-            shutil.copytree(variant.fixture, root)
-            if variant.against is not None:
-                apply_overlay(root, variant.against.base_files)
-            for command in (
-                ("init", "-q", "-b", "main"),
-                ("config", "user.email", "demo@example.invalid"),
-                ("config", "user.name", "Demo"),
-                ("add", "-A"),
-                ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant_id),
-            ):
-                subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
-            apply_overlay(root, variant.files)
+        with materialized_fixture(variant) as root:
             validate = ["validate", "--root", str(root), "--config", variant.config]
             if variant.baseline is not None:
                 validate.extend(("--baseline", variant.baseline))
@@ -242,6 +231,26 @@ def replay(variant_id: str, output: Path) -> int:
             if path.is_file() and path.stat().st_size == 0:
                 path.unlink()
         raise
+
+
+@contextlib.contextmanager
+def materialized_fixture(variant: Variant) -> Iterator[Path]:
+    """Yield a clean-baseline demo tree with its catalog overlay applied."""
+    with tempfile.TemporaryDirectory(prefix="archkeel-demo-") as temporary:
+        root = Path(temporary) / variant.fixture.name
+        shutil.copytree(variant.fixture, root)
+        if variant.against is not None:
+            apply_overlay(root, variant.against.base_files)
+        for command in (
+            ("init", "-q", "-b", "main"),
+            ("config", "user.email", "demo@example.invalid"),
+            ("config", "user.name", "Demo"),
+            ("add", "-A"),
+            ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant.id),
+        ):
+            subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
+        apply_overlay(root, variant.files)
+        yield root
 
 
 if __name__ == "__main__":
