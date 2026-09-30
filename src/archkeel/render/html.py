@@ -830,6 +830,7 @@ def _target_layout_node(
 ) -> dict[str, object]:
     root = record.data.get("root")
     allowed = record.data.get("allowed_children")
+    context = record.data.get("parent_id")
     root_name = root if isinstance(root, str) else record.title
     children = (
         [name for name in allowed if isinstance(name, str)] if isinstance(allowed, tuple) else []
@@ -840,6 +841,7 @@ def _target_layout_node(
         "kind": "root_layout",
         "details": [{"label": "Allowed children", "value": ", ".join(children)}],
         "_layout_scope": root if isinstance(root, str) else None,
+        "_layout_context": context if isinstance(context, str) else None,
         "children": [
             {
                 "id": f"physical:{name}",
@@ -849,6 +851,7 @@ def _target_layout_node(
                 "children": [
                     _target_layout_node(child_layout, layouts_by_root)
                     for child_layout in layouts_by_root.get(name, ())
+                    if child_layout.data.get("parent_id") == context
                 ],
             }
             for name in children
@@ -962,6 +965,8 @@ def _target_component_node(
         "details": details,
         "_placement_scopes": packages,
         "_placement_namespace": record.data.get("namespace"),
+        "_placement_context": record.data.get("parent_id"),
+        "_placement_scope_key": key,
         "children": nested,
     }
 
@@ -1009,6 +1014,7 @@ def _target_roots(
         for root in allowed
         if isinstance(root, str)
         for child in layouts_by_root.get(root, ())
+        if child.data.get("parent_id") == parent.data.get("parent_id")
         if child.id != parent.id
     }
 
@@ -1464,9 +1470,15 @@ def _root_target_graph(target_roots: list[dict[str, object]]) -> dict[str, objec
 
 def _target_containers(
     target_roots: list[dict[str, object]],
-) -> tuple[dict[str, _TargetContainer], dict[str, str | None], dict[str, list[dict[str, object]]]]:
+) -> tuple[
+    dict[str, _TargetContainer],
+    dict[str, str | None],
+    dict[str, str | None],
+    dict[str, list[dict[str, object]]],
+]:
     containers: dict[str, _TargetContainer] = {}
     scopes: dict[str, str | None] = {}
+    contexts: dict[str, str | None] = {}
     details: dict[str, list[dict[str, object]]] = {}
     pending: list[tuple[dict[str, object], str | None]] = [
         (node, None) for node in reversed(target_roots)
@@ -1485,11 +1497,13 @@ def _target_containers(
                 "scope": scope,
             }
             scopes[identifier] = scope
+            context = node.get("_layout_context")
+            contexts[identifier] = context if isinstance(context, str) else None
             node_details = node["details"]
             details[identifier] = node_details if isinstance(node_details, list) else []
             current_parent = identifier
         pending.extend((child, current_parent) for child in reversed(_target_children(node)))
-    return dict(sorted(containers.items())), scopes, details
+    return dict(sorted(containers.items())), scopes, contexts, details
 
 
 def _target_folded_containers(
@@ -1577,6 +1591,8 @@ def _target_placement(
     node: dict[str, object],
     layout_scopes: dict[str, str | None],
     layout_parents: dict[str, str | None],
+    layout_contexts: dict[str, str | None],
+    context_parents: dict[str, str | None],
 ) -> dict[str, object]:
     packages = node.get("_placement_scopes")
     scopes = sorted(packages) if isinstance(packages, list) else []
@@ -1587,6 +1603,22 @@ def _target_placement(
     if not scopes:
         return {"status": "unmapped", "scopes": [], "container": None}
 
+    declaration_context = node.get("_placement_context")
+    contexts: list[str | None] = []
+    if isinstance(declaration_context, str):
+        seen_contexts: set[str] = set()
+        current: str | None = declaration_context
+        while isinstance(current, str) and current not in seen_contexts:
+            seen_contexts.add(current)
+            contexts.append(current)
+            if current not in context_parents:
+                break
+            current = context_parents[current]
+        if current is None:
+            contexts.append(None)
+    else:
+        contexts.append(None)
+
     resolved: list[str | None] = []
     for scope in scopes:
         if (
@@ -1594,25 +1626,30 @@ def _target_placement(
             or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*", scope) is None
         ):
             return {"status": "unmapped", "scopes": scopes, "container": None}
-        matches = [
-            identifier
-            for identifier, declared_scope in layout_scopes.items()
-            if isinstance(declared_scope, str) and (in_scope(scope, declared_scope))
-        ]
-        if not matches:
-            resolved.append(None)
-            continue
-        deepest_matches = [
-            candidate
-            for candidate in matches
-            if all(
-                other == candidate or _is_layout_ancestor(other, candidate, layout_parents)
-                for other in matches
-            )
-        ]
-        if len(deepest_matches) != 1:
-            return {"status": "ambiguous", "scopes": scopes, "container": None}
-        resolved.append(deepest_matches[0])
+        selected: str | None = None
+        for context in contexts:
+            matches = [
+                identifier
+                for identifier, declared_scope in layout_scopes.items()
+                if layout_contexts.get(identifier) == context
+                and isinstance(declared_scope, str)
+                and in_scope(scope, declared_scope)
+            ]
+            if not matches:
+                continue
+            deepest_matches = [
+                candidate
+                for candidate in matches
+                if all(
+                    other == candidate or _is_layout_ancestor(other, candidate, layout_parents)
+                    for other in matches
+                )
+            ]
+            if len(deepest_matches) != 1:
+                return {"status": "ambiguous", "scopes": scopes, "container": None}
+            selected = deepest_matches[0]
+            break
+        resolved.append(selected)
 
     containers = set(resolved)
     if None in containers or len(containers) != 1:
@@ -1680,12 +1717,20 @@ def _target_dependency_ranks(
 
 def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]:
     components = [node for node in _target_tree(target_roots) if node["kind"] == "component"]
-    containers, layout_scopes, container_details = _target_containers(target_roots)
+    containers, layout_scopes, layout_contexts, container_details = _target_containers(target_roots)
     layout_parents = {
         identifier: container["parent"] for identifier, container in containers.items()
     }
+    context_parents: dict[str, str | None] = {}
     for component in components:
-        component["placement"] = _target_placement(component, layout_scopes, layout_parents)
+        scope_key = component.get("_placement_scope_key")
+        context = component.get("_placement_context")
+        if isinstance(scope_key, str):
+            context_parents[scope_key] = context if isinstance(context, str) else None
+    for component in components:
+        component["placement"] = _target_placement(
+            component, layout_scopes, layout_parents, layout_contexts, context_parents
+        )
     raw_nested = {
         str(node["id"]): graph
         for node in _target_tree(target_roots)
@@ -1694,6 +1739,7 @@ def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]
     root = _root_target_graph(target_roots)
     graphs: list[dict[str, object]] = [root, *raw_nested.values()]
     component_ids = {str(node["id"]) for node in components}
+    components_by_id = {str(component["id"]): component for component in components}
     ranks = _target_dependency_ranks(graphs, component_ids)
     for graph in graphs:
         nodes = graph.get("nodes")
@@ -1706,6 +1752,22 @@ def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]
         graph_components = [
             node for node in nodes if isinstance(node, dict) and node.get("kind") == "component"
         ]
+        owner = graph.get("owner")
+        owner_component = components_by_id.get(owner) if isinstance(owner, str) else None
+        owner_context = (
+            owner_component.get("_placement_context") if owner_component is not None else None
+        )
+        has_local_layout = any(
+            node.get("kind") == "root_layout"
+            and isinstance(identifier := node.get("id"), str)
+            and layout_contexts.get(identifier) != owner_context
+            for node in nodes
+            if isinstance(node, dict)
+        )
+        if has_local_layout:
+            for node in graph_components:
+                if node.get("id") == owner and isinstance(placement := node.get("placement"), dict):
+                    placement["container"] = None
         folded = _target_folded_containers(graph_components, containers)
         for node in graph_components:
             _target_component_placement(node, folded, containers, container_details)
