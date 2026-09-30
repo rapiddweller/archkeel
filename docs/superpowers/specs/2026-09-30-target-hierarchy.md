@@ -8,11 +8,11 @@ Use the existing explorer, declarations and navigation. Do not change CE ownersh
 
 ## Projection
 
-- Add presentation-only `containers` to `target_diagrams`: `{id, parent, members, scope}`. IDs are existing `layout:<rule-id>` IDs; members are existing node IDs.
+- Each target graph has presentation-only `containers`, an ID-keyed mapping of `{id, parent, members, scope}`; empty is `{}`. Keys equal entry IDs, using existing `layout:<rule-id>` IDs. Parents refer only to frames in that graph; members are its directly placed existing card IDs, sorted and unique.
 - Add component `placement: {status, scopes, container}`. Status is `declared`, `inferred`, `multiple`, `ambiguous` or `unmapped`. Container is an ID or null.
 - Derive placement only from concrete declared namespace/package strings and a declared `root_layout` chain. Never use observed modules, prose, labels or substring guesses. Unsupported selectors remain unmapped.
 - Use the deepest unambiguous container covering every scope. Multiple scopes may share one frame only when they resolve to that frame. Otherwise retain one explicit unplaced card with all scopes and its reason; do not duplicate a semantic component.
-- Fold redundant single-component/same-namespace frames into the component's placement details. Keep every declaration navigable, including folded layouts, physical-only children, module inventory and modules outside components, with counts.
+- Task 1 folds redundant single-component/same-namespace frames into the component's placement details, promoting the card and surviving inner frames to the nearest remaining parent. Folded frames are absent from drawable `containers`, not replaced by empty frames. Task 2 draws this normalized structure without another folding rule. Keep every declaration navigable, including folded layouts, physical-only children, module inventory and modules outside components, with counts.
 - CE root has ten semantic owners. Its `datamimic_ce` frame contains an expanded `engine` frame holding the existing DSL, IO and Runtime cards. Engine is not a new semantic owner.
 - Target details expose exact `public`, `requires.through`, rationale and provenance. Distinguish absent/null and explicitly empty interfaces. UML circles/sockets denote declarations, not observed assembly or PASS.
 
