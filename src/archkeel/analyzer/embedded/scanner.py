@@ -612,7 +612,7 @@ def scan_repository(
         package_edges=package_edges,
         package_edge_pairs=package_edge_pairs,
     )
-    blank_modules = frozenset(module.module for module in parsed if not module.source.strip())
+    blank_modules = frozenset(module.module for module in parsed if not module.tree.body)
     violations, boundary_allowances = rule_violations(
         imports=imports,
         typing_signals=typing_signals,

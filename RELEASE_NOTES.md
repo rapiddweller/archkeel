@@ -1,3 +1,11 @@
+# Unreleased
+
+- Python rule receipts exempt only package initializers with no AST statements;
+  docstrings and imports retain their ownership obligation (#232).
+- Complete Python scope coverage follows physical package paths, so dotted `.py`
+  filenames no longer make full scans UNKNOWN; partial scans remain UNKNOWN
+  (#233, analyzer 0.62.0).
+
 # Archkeel 0.8.2 — Explore the hierarchy. Keep the evidence.
 
 - Target hierarchy projects declared `root_layout` frames around existing semantic components.

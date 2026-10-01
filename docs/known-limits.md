@@ -32,8 +32,10 @@ This removes repeated import scans per function, not all scaling limits.
 An `interface_boundary` or `complete_requires` scope receives PASS only with a
 non-empty, fully covered scope and unique ownership. Missing receipts and any
 other unproven non-declaration rule make both its row and aggregate
-`declared_rules` UNKNOWN (#194, AD-124). A blank Python package initializer is
-the sole unowned-module exception; a nonblank facade remains UNKNOWN.
+`declared_rules` UNKNOWN (#194, AD-124). A Python package initializer with no AST
+statements is the sole unowned-module exception: comments and whitespace qualify;
+docstrings and imports do not. Physical scope proof follows recorded module names
+and file paths; an unmappable domain prevents proof (#232, #233).
 
 ## Calls are partly resolved
 
