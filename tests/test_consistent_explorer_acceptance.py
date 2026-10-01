@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from test_architecture_demo import CONFIG
+from test_architecture_demo import CONFIG, _prepare_repo
+from test_report_filter import _tour_root
 from test_target_diagram_acceptance import _replace_flow_payload, _target_diagram_page
 from test_target_hierarchy_independent_acceptance import (
     _ce_nested_route_page,
@@ -56,6 +57,256 @@ def _report_page(root: Path) -> tuple[str, dict[str, Any]]:
     start = page_html.index(">", marker) + 1
     payload = json.loads(page_html[start : page_html.index("</script>", start)])
     return page_html, payload
+
+
+def _tour_report_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
+    return _report_page(_tour_root(tmp_path))
+
+
+def _assert_flow_geometry(geometry: dict[str, Any]) -> None:
+    assert geometry["chipCardIntersections"] == []
+    assert geometry["chipChipIntersections"] == []
+    assert geometry["chipTextIntersections"] == []
+    assert geometry["labelIntersections"] == []
+    assert geometry["headerCardIntersections"] == []
+    assert geometry["headerChipIntersections"] == []
+    assert geometry["headerLabelIntersections"] == []
+    assert geometry["outsideSvg"] == 0
+
+
+def _assert_flow_inside_svg(geometry: dict[str, Any]) -> None:
+    assert geometry["outsideSvg"] == 0
+
+
+def _assert_chips_match_edges(geometry: dict[str, Any], edges: list[dict[str, Any]]) -> None:
+    rendered = {item["key"]: item["text"] for item in geometry["chipLabels"]}
+    assert len(rendered) == len(edges)
+    for edge in edges:
+        key = f"{edge['source']}>{edge['target']}"
+        label = edge["rule_ids"][0] + (
+            f" +{len(edge['rule_ids']) - 1}" if len(edge["rule_ids"]) > 1 else ""
+        )
+        assert rendered[key] in {label, f"{edge['source']} → {edge['target']} · {label}"}
+
+
+def test_tour_focus_fit_keeps_all_violation_edges_and_chips_inspectable(tmp_path: Path) -> None:
+    html, payload = _tour_report_page(tmp_path)
+    expected = [edge for edge in payload["edges"] if edge["state"] == "violation"]
+    assert len(expected) == 7
+    expected_keys = {f"{edge['source']}>{edge['target']}" for edge in expected}
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _browser_page(playwright_api, html)
+    try:
+        page.get_by_role("button", name="Diagram", exact=True).click()
+        page.locator("#flow-focus").select_option(label="app")
+        page.locator("#flow-violations-only").check()
+        _open_details(page)
+        page.get_by_role("button", name="Set zoom to 100%").click()
+        assert page.locator(".flow-zoom-value").inner_text() == "100%"
+        assert page.locator(".flow-inspector").is_visible()
+
+        for view in ("100%", "Fit overview"):
+            if view == "Fit overview":
+                page.get_by_role("button", name=view).click()
+            geometry = _diagram_geometry(page)
+            assert set(geometry["edges"]) == expected_keys
+            _assert_chips_match_edges(geometry, expected)
+            _assert_flow_geometry(geometry)
+
+        page.get_by_role("button", name="Set zoom to 100%").click()
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.get_by_role("button", name="Arrange").click()
+        geometry = _diagram_geometry(page)
+        assert set(geometry["edges"]) == expected_keys
+        _assert_chips_match_edges(geometry, expected)
+        _assert_flow_geometry(geometry)
+
+        app_card = page.locator('.flow-nodes .node[data-label="app"]')
+        box = app_card.bounding_box()
+        assert box is not None
+        x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x + 8, y + 8, steps=2)
+        page.mouse.up()
+        geometry = _diagram_geometry(page)
+        assert set(geometry["edges"]) == expected_keys
+        _assert_chips_match_edges(geometry, expected)
+        _assert_flow_geometry(geometry)
+
+        labels = {item["label"]: item["label"] for item in payload["components"]}
+        labels.update({item["label"]: item["display"] for item in payload.get("libraries", [])})
+        for edge in expected:
+            key = f"{edge['source']}>{edge['target']}"
+            hit = page.locator(f'.flow-edges .edge .hit[data-key="{key}"]')
+            assert hit.get_attribute("tabindex") == "0"
+            assert f"{edge['source']} to {edge['target']}" in hit.get_attribute("aria-label")
+            assert f"{edge['source']} uses {edge['target']}" in hit.locator("title").text_content()
+            hit.focus()
+            page.keyboard.press("Enter")
+            details = page.locator(".flow-inspector-content").inner_text()
+            assert f"{labels[edge['source']]} → {labels[edge['target']]}" in details
+            assert all(rule_id in details for rule_id in edge["rule_ids"])
+
+        edge = expected[0]
+        hit = page.locator(f'.flow-edges .edge .hit[data-key="{edge["source"]}>{edge["target"]}"]')
+        point = hit.evaluate(
+            "node => {for(const fraction of [.12,.18,.24,.31,.38,.44,.57,.66,.76,.88]){"
+            "const point=node.getPointAtLength(node.getTotalLength()*fraction);"
+            "const screen=new DOMPoint(point.x,point.y).matrixTransform(node.getScreenCTM());"
+            "const target=document.elementFromPoint(screen.x,screen.y);"
+            "if(target===node||target?.closest('.hit')===node)return {x:screen.x,y:screen.y};}"
+            "const point=node.getPointAtLength(node.getTotalLength()*.5);"
+            "const screen=new DOMPoint(point.x,point.y).matrixTransform(node.getScreenCTM());"
+            "return {x:screen.x,y:screen.y};}"
+        )
+        page.mouse.click(point["x"], point["y"])
+        details = page.locator(".flow-inspector-content").inner_text()
+        assert f"{labels[edge['source']]} → {labels[edge['target']]}" in details
+        assert all(rule_id in details for rule_id in edge["rule_ids"])
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_gutter_chips_show_their_edge_and_keep_rule_evidence_selectable(tmp_path: Path) -> None:
+    html, payload = _tour_report_page(tmp_path)
+    edges = {f"{edge['source']}>{edge['target']}": edge for edge in payload["edges"]}
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _browser_page(playwright_api, html)
+    try:
+        page.get_by_role("button", name="Diagram", exact=True).click()
+        page.locator("#flow-focus").select_option(label="app")
+        page.locator("#flow-violations-only").check()
+        _open_details(page)
+        page.get_by_role("button", name="Set zoom to 100%").click()
+        gutter = page.locator(".flow-chips .chip").evaluate_all(
+            "nodes => {const right=Math.max(...[...document.querySelectorAll("
+            "'.flow-nodes .node .card')].map(node=>node.getBoundingClientRect().right));"
+            "return nodes.filter(node=>node.getBoundingClientRect().left>=right).map(node=>({"
+            "key:node.dataset.key,text:node.textContent.trim(),label:node.getAttribute('aria-label'),"
+            "tabindex:node.getAttribute('tabindex')}));}"
+        )
+        assert gutter, "fixture must exercise at least one right-gutter label"
+        labels = {item["label"]: item["label"] for item in payload["components"]}
+        for item in gutter:
+            edge = edges[item["key"]]
+            source = labels.get(edge["source"], edge["source"])
+            target = labels.get(edge["target"], edge["target"])
+            assert f"{source} → {target}" in item["text"]
+            assert item["tabindex"] == "0"
+            assert all(rule_id in item["label"] for rule_id in edge["rule_ids"])
+            chip = page.locator(f'.flow-chips .chip[data-key="{item["key"]}"]')
+            chip.focus()
+            page.keyboard.press("Enter")
+            details = page.locator(".flow-inspector-content").inner_text()
+            assert all(rule_id in details for rule_id in edge["rule_ids"])
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_tour_long_responsibility_and_rule_id_remain_readable(tmp_path: Path) -> None:
+    html, payload = _tour_report_page(tmp_path)
+    long_responsibility = "Own " + "unbroken_responsibility_identifier_" * 16
+    long_rule_id = "ARCHITECTURE-APP-STORE-BACKEND-REQUIRES-AN-EXPLICIT-CONTRACT-AND-REVIEW"
+    old_rule_id = "DEP-APP-NO-STORE-BACKEND"
+    app = next(item for item in payload["components"] if item["label"] == "app")
+    declaration = next(
+        item
+        for item in _walk(payload["explorers"]["target"])
+        if item["id"] == app["declared_component"]
+    )
+    declaration["details"] = [
+        item for item in declaration["details"] if item["label"] != "Responsibility"
+    ] + [{"label": "Responsibility", "value": long_responsibility}]
+    payload["rules"][long_rule_id] = payload["rules"].pop(old_rule_id)
+    app_to_store = next(
+        edge for edge in payload["edges"] if edge["source"] == "app" and edge["target"] == "store"
+    )
+    app_to_store["rule_ids"] = [
+        long_rule_id if rule_id == old_rule_id else rule_id for rule_id in app_to_store["rule_ids"]
+    ]
+    html = _replace_flow_payload(html, payload)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _browser_page(playwright_api, html)
+    try:
+        page.get_by_role("button", name="Diagram", exact=True).click()
+        page.locator("#flow-focus").select_option(label="app")
+        page.locator("#flow-violations-only").check()
+        _open_details(page)
+        page.get_by_role("button", name="Set zoom to 100%").click()
+        app_card = page.locator('.flow-nodes .node[data-label="app"]')
+        responsibility = app_card.locator(".diagram-responsibility")
+        responsibility_text = responsibility.evaluate("node => node.textContent")
+        assert " ".join(responsibility_text.split()) == long_responsibility
+        assert "…" not in responsibility_text
+        chip_texts = page.locator(".flow-chips .chip text").all_text_contents()
+        assert len(chip_texts) == 7
+        assert any(long_rule_id in label for label in chip_texts)
+        assert all("…" not in label for label in chip_texts)
+
+        hit = page.locator('.flow-edges .edge .hit[data-key="app>store"]')
+        hit.focus()
+        page.keyboard.press("Enter")
+        details = page.locator(".flow-inspector-content").inner_text()
+        assert long_rule_id in details
+        assert "app → store" in details
+        _assert_flow_inside_svg(_diagram_geometry(page))
+        page.get_by_role("button", name="Target", exact=True).click()
+        page.locator('[data-target-node="COMP-APP"]').focus()
+        page.keyboard.press("Space")
+        selected_responsibility = page.locator(".flow-selected-responsibility")
+        assert selected_responsibility.is_visible()
+        assert long_responsibility in selected_responsibility.inner_text()
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.parametrize("case", ["clean", "store", "unfiltered-tour"])
+def test_clean_store_and_unfiltered_tour_keep_their_flow_inventory(
+    tmp_path: Path, case: str
+) -> None:
+    if case in {"clean", "store"}:
+        html, payload = _report_page(_prepare_repo(tmp_path, {}))
+        focus = "app" if case == "clean" else None
+    else:
+        html, payload = _tour_report_page(tmp_path)
+        focus = None
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _browser_page(playwright_api, html)
+    try:
+        page.get_by_role("button", name="Diagram", exact=True).click()
+        if case == "store":
+            page.locator('.flow-nodes .node[data-label="store"]').dblclick()
+            expected = next(item for item in payload["components"] if item["label"] == "store")[
+                "inside"
+            ]["edges"]
+            keys = {f"{edge['source']}>{edge['target']}" for edge in expected}
+            geometry = _diagram_geometry(page)
+            assert set(geometry["edges"]) == keys
+            _assert_flow_geometry(geometry)
+            return
+        if focus:
+            page.locator("#flow-focus").select_option(label=focus)
+        if focus:
+            expected = [
+                edge
+                for edge in payload["edges"]
+                if edge["state"] == "violation"
+                or edge["source"] == focus
+                or edge["target"] == focus
+            ]
+        else:
+            expected = payload["edges"]
+        geometry = _diagram_geometry(page)
+        assert set(geometry["edges"]) == {f"{edge['source']}>{edge['target']}" for edge in expected}
+        _assert_flow_geometry(geometry)
+    finally:
+        browser.close()
+        playwright.stop()
 
 
 def _frame(page: Any, frame_id: str):
@@ -113,6 +364,75 @@ def _diagram_inventory(page: Any) -> tuple[list[str], list[str]]:
         page.locator(".flow-edges .edge .hit").evaluate_all(
             "nodes => nodes.map(node => node.dataset.key)"
         ),
+    )
+
+
+def _diagram_geometry(page: Any) -> dict[str, Any]:
+    return page.locator("#flow-graph").evaluate(
+        """svg => {
+          const viewport = svg.querySelector('.flow-viewport');
+          const screenBox = element => {
+            const box = element.getBBox(), matrix = element.getScreenCTM();
+            const points = [[box.x, box.y], [box.x + box.width, box.y],
+              [box.x, box.y + box.height], [box.x + box.width, box.y + box.height]]
+              .map(([x, y]) => new DOMPoint(x, y).matrixTransform(matrix));
+            return {left:Math.min(...points.map(p=>p.x)), right:Math.max(...points.map(p=>p.x)),
+              top:Math.min(...points.map(p=>p.y)), bottom:Math.max(...points.map(p=>p.y))};
+          };
+          const svgBox = element => {
+            const box = element.getBBox();
+            const matrix = svg.getScreenCTM().inverse().multiply(element.getScreenCTM());
+            const points = [[box.x, box.y], [box.x + box.width, box.y],
+              [box.x, box.y + box.height], [box.x + box.width, box.y + box.height]]
+              .map(([x, y]) => new DOMPoint(x, y).matrixTransform(matrix));
+            return {left:Math.min(...points.map(p=>p.x)), right:Math.max(...points.map(p=>p.x)),
+              top:Math.min(...points.map(p=>p.y)), bottom:Math.max(...points.map(p=>p.y))};
+          };
+          const overlaps = (a, b, pad=0) => a.left < b.right + pad && b.left < a.right + pad
+            && a.top < b.bottom + pad && b.top < a.bottom + pad;
+          const chips = [...viewport.querySelectorAll('.flow-chips .chip rect')];
+          const cards = [...viewport.querySelectorAll('.flow-nodes .node .card')];
+          const labels = [...viewport.querySelectorAll('.flow-nodes .node .label')];
+          const text = [...viewport.querySelectorAll('.flow-nodes .node text')];
+          const frameHeaders = [...viewport.querySelectorAll(
+            '.diagram-frame .target-frame-role, .diagram-frame .target-frame-title')];
+          const chipBoxes = chips.map(screenBox), cardBoxes = cards.map(screenBox);
+          const labelBoxes = labels.map(screenBox), textBoxes = text.map(screenBox);
+          const frameHeaderBoxes = frameHeaders.map(screenBox);
+          const chipCardIntersections = chipBoxes.flatMap((chip, i) => cardBoxes
+            .map((card, j) => overlaps(chip, card, 4) ? [i, j] : null).filter(Boolean));
+          const chipChipIntersections = chipBoxes.flatMap((chip, i) => chipBoxes.slice(i + 1)
+            .map((other, j) => overlaps(chip, other, 3) ? [i, i + 1 + j] : null).filter(Boolean));
+          const chipTextIntersections = chipBoxes.flatMap((chip, i) => textBoxes
+            .map((label, j) => overlaps(chip, label, 2) ? [i, j] : null).filter(Boolean));
+          const labelIntersections = labelBoxes.flatMap((label, i) => labelBoxes.slice(i + 1)
+            .map((other, j) => overlaps(label, other) ? [i, i + 1 + j] : null).filter(Boolean));
+          const headerCardIntersections = frameHeaderBoxes.flatMap((header, i) => cardBoxes
+            .map((card, j) => overlaps(header, card, 2) ? [i, j] : null).filter(Boolean));
+          const headerChipIntersections = frameHeaderBoxes.flatMap((header, i) => chipBoxes
+            .map((chip, j) => overlaps(header, chip, 2) ? [i, j] : null).filter(Boolean));
+          const headerLabelIntersections = frameHeaderBoxes.flatMap((header, i) => labelBoxes
+            .map((label, j) => overlaps(header, label, 2) ? [i, j] : null).filter(Boolean));
+          const view = svg.viewBox.baseVal;
+          const extentBoxes = [...cards, ...chips, ...text, ...frameHeaders].map(svgBox);
+          const outsideSvg = extentBoxes.filter(box => box.left < view.x - 1
+            || box.top < view.y - 1 || box.right > view.x + view.width + 1
+            || box.bottom > view.y + view.height + 1).length;
+          return {chipCardIntersections, chipChipIntersections, chipTextIntersections,
+            labelIntersections, headerCardIntersections, headerChipIntersections,
+            headerLabelIntersections, outsideSvg,
+            chips:chips.map(node=>node.parentElement.textContent.trim()),
+            chipLabels:[...viewport.querySelectorAll('.flow-chips .chip')]
+              .map(node=>({key:node.dataset.key,text:node.textContent.trim()})),
+            chipCards:chipCardIntersections.map(([i,j])=>({chip:chips[i].parentElement.textContent.trim(),
+              card:cards[j].parentElement.dataset.label})),
+            chipPairs:chipChipIntersections.map(([i,j])=>[chips[i].parentElement.textContent.trim(),
+              chips[j].parentElement.textContent.trim()]),
+            labels:labels.map(node=>node.textContent.replace(/\\s+/g,' ').trim()),
+            frameHeaders:frameHeaders.map(node=>node.textContent.trim()),
+            edges:[...viewport.querySelectorAll('.flow-edges .edge .hit')]
+              .map(node=>node.dataset.key)};
+        }"""
     )
 
 

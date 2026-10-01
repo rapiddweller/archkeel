@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Shared Diagram/Actual/Target/Diff exploration, fullscreen and measured hierarchy; tight focused labels remain inspectable without covering cards (#224) | `src/archkeel/render/assets/flow.js`; `tests/test_consistent_explorer_acceptance.py`; `tests/test_compact_report_headers.py`; `make report-browser`; current `docs/assets/` |
 | Proven stdlib `Mapping` is a broad boundary type, with member evidence preserved; exact top-level or nested allowances cannot erase unrelated violations or UNKNOWNs (AD-123) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_boundary_types_mappings.py`; `docs/architecture/decisions/ad-123-proven-mappings-are-broad-boundary-types.md`; self-validation |
 | An exact full-signature allowance can select one unique contained mapping; duplicate or alias-routed maps stay visible and applied evidence renders in HTML (AD-127) | `src/archkeel/analyzer/embedded/violations.py`; `src/archkeel/render/html.py`; `tests/test_boundary_types_contained_mapping.py`; `fixtures/demo_catalog_types.py` |
 | Shadowed mapping names follow binding evidence: unresolved parameterized names stay UNKNOWN, while known bare local types can violate (#214) | `tests/test_boundary_type_ambiguous_bindings.py`; `tests/test_boundary_types_aliases.py`; `fixtures/demo_catalog_types.py`; `docs/architecture-demo.md` |
@@ -175,10 +176,6 @@ only when its row names repository evidence.
    settled on 3. Naming each draft's size (AD-38) makes the imbalance visible but does not fix
    it: a directory-per-component draft still proposes 12 or 17 components to consolidate by
    hand, one per module, regardless of how those modules import each other.
-6. Complete #224's shared explorer and hierarchy browser acceptance (AD-125). Diagram keeps
-   observed inventory and edges, with navigation frames only for uniquely matched observed
-   modules; Target retains declared placement. Alex accepted the CE preview on 1 October; the
-   bundled screenshot refresh and integrated release gates remain prerequisites for 0.8.2.
 ## Later
 
 - Let a second level run on its own (AD-20): an inside is recorded, derived, judged, drawn and

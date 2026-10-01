@@ -215,6 +215,59 @@ def test_terminal_view_omits_the_claim_line_when_no_claim_was_derived() -> None:
     assert report_summary(RunResult("report", 0, "PASS", "PASS", "n/a")).claims == ""
 
 
+def test_terminal_svg_export_keeps_adjacent_styled_text_on_fallback_columns(
+    tmp_path, monkeypatch
+) -> None:
+    """The documented fallback font keeps styled badge and reason runs separated."""
+    from xml.etree import ElementTree
+
+    from rich.cells import cell_len
+
+    from tools import terminal_svg
+
+    check_text = "× REJECT Do not merge: calls_unresolved rose 0 → 1"
+    inside_text = "✓ PASS All source files under sample were read."
+    monkeypatch.setattr(
+        terminal_svg,
+        "capture",
+        lambda command, *, expected_exit_code, required_output=(): (
+            "× \x1b[31mREJECT\x1b[0m Do not merge: calls_unresolved rose 0 → 1"
+        ),
+    )
+    monkeypatch.setattr(
+        terminal_svg,
+        "capture_inside_violation",
+        lambda: "✓ \x1b[32mPASS\x1b[0m All source files under sample were read.",
+    )
+    (tmp_path / "commands.json").write_text(
+        '[{"command":"archkeel check --root fixture --config archkeel.toml","exit_code":1}]',
+        encoding="utf-8",
+    )
+
+    exported_paths = terminal_svg.export(tmp_path)
+    assert [path.name for path in exported_paths] == [
+        "fixture-check-terminal.svg",
+        "archkeel-shop-inside-violation.svg",
+    ]
+    char_width = 20 * 0.61
+    for path, expected in zip(exported_paths, (check_text, inside_text), strict=True):
+        root = ElementTree.parse(path).getroot()
+        text_runs = [
+            run
+            for run in root.findall(".//{http://www.w3.org/2000/svg}text")
+            if not run.attrib.get("class", "").endswith("-title") and run.text != "\n"
+        ]
+        actual = "".join(run.text or "" for run in text_runs).replace("\u00a0", " ")
+        assert actual == expected
+        column = 0
+        for run in text_runs:
+            width = cell_len(run.text or "")
+            assert float(run.attrib["x"]) == pytest.approx(column * char_width)
+            assert float(run.attrib["textLength"]) == pytest.approx(width * char_width)
+            assert run.attrib["lengthAdjust"] == "spacingAndGlyphs"
+            column += width
+
+
 _OPEN_PAIR = OpenDecision(
     source="core",
     target="cli",

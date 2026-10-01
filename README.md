@@ -33,7 +33,9 @@ secondary detail and leaves the verdict, failures, unknowns and evidence availab
 flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
 Both change the view, never the verdict or evidence. This capture uses <strong>Fit overview</strong>
 and focuses on <code>app</code>;
-<strong>All components and groups</strong> restores the unassigned module omitted by that focus.</sub>
+<strong>All components and groups</strong> restores the unassigned module omitted by that focus.
+Labels without space on their edge move beside the graph and name their source and target;
+select one for its complete rule evidence.</sub>
 
 Modules without a unique declared owner remain reachable through a navigation-only
 <code>Unassigned modules</code> group; it does not create a component boundary or verdict.
@@ -49,39 +51,37 @@ Implemented and planned work is tracked in the [roadmap](https://github.com/rapi
 
 ## What it does, on one sample
 
-Everything below runs on `fixtures/F-architecture`, a small shop with five components where
-`store` is large enough to need an architecture of its own. `make demo-onboarding` replays the
-whole loop in about a second, and a test pins every number on this page to what the commands
-actually answer.
+Everything below uses `fixtures/F-architecture`, a small shop with five components where
+`store` is large enough to need an architecture of its own. `make demo-onboarding` is an
+INTERVIEW-MODE REPLAY: it runs command implementations against pre-approved decision fixtures.
+No live agent or architect approvals occur; tests pin the printed results to the commands.
 
-### 1. The agent drafts the target. It does not decide it.
+### 1. The agent drafts; interview decisions come from the architect
 
-`archkeel init` observes the packages and the imports, drafts one component per subpackage with
-its `public` interface, and decides **no** dependency. The 20 ordered component pairs come back
-as open decisions, heaviest first, each with the exact rule to choose from. `validate` then
-refuses that draft — a contract nobody decided is not a target, and the gate stays shut until
-the architect answers.
+`archkeel init` observes packages and imports, drafts one component per subpackage with its
+`public` interface, and writes no dependency rules. It derives 20 open ordered pairs from the
+draft, heaviest first. `validate` refuses that draft. The replay then checks the committed,
+architect-attributed fixture contract; that fixture stands in for an earlier interview and is
+not a live approval in this run.
 
-That is the split the whole tool rests on: **the agent does the reading, the architect does the
-deciding, and the file records which is which.** Every rule carries `decided_by`, and so may a
-`requires` entry and a component, whose own covers its `public` list, so a later report counts
-every edge, interface and rule an agent decided and no human has reviewed.
+`decided_by` records authorship for rules, `requires` entries and component `public` lists. In
+auto mode, the agent can author decisions; that attribution does not mean a human approved them.
 
 <p>
-  <img src="docs/assets/archkeel-onboarding-loop.svg" alt="Swimlane diagram of the onboarding loop across three lanes: the agent drafts five components and twenty open decisions, Archkeel refuses the draft with twenty decision.open, the architect decides every pair, the report names one oversized component, the agent drafts the inside, and Archkeel fails a crossing inside that level" width="980">
+  <img src="docs/assets/archkeel-onboarding-loop.svg" alt="Seven-step interview-mode replay across agent, Archkeel and architect lanes. The agent drafts five components with twenty open decisions; Archkeel refuses; a pre-approved top-level decision fixture passes validation; the report flags store; the agent drafts a nested target; an architect-attributed fixture maps sqlite to api and records three requires entries; Archkeel catches a later crossing. No live approvals occur." width="980">
 </p>
 
-<sub>Drawn from the run itself, not by hand: a test renders the figure again from the same
-values and compares it byte for byte, so a picture that disagrees with the tool is a failing
-test. <code>make demo-onboarding</code> prints the same six steps with the reasoning under each.</sub>
+<sub>Rendered from the replay results, not by hand. <code>make demo-onboarding</code> prints the
+same seven steps. Committed decision fixtures stand in for earlier interview answers.</sub>
 
 ### 2. A component that outgrows its level gets one of its own
 
 The report names `store`: 7 modules where the whole level has 5 components. That is a claim,
-never a verdict — a reason to ask, not permission to split. When the architect does open it,
-`init` at the narrower scope drafts 4 sub-components and 12 more pair questions; the architect
-settles them with 3 `requires` entries, because absence forbids. The two levels are then held
-to one public surface, and the flow view opens the component into them.
+not permission to split. `init --source shop/store --namespace shop.store --force` separately
+drafts `backend`, `codec`, `repository` and `sqlite`, with 12 open pairs. The approved nested
+fixture maps `shop.store.sqlite` to `api` and records three `requires` entries: `api → backend`,
+`repository → backend`, and `repository → codec`. `complete_requires` makes every absent pair
+forbidden. These are replayed fixture decisions, not approvals made during the demo.
 
 <p>
   <img src="docs/assets/archkeel-shop-components.png" alt="Clean shop sample: five components and the json library, seven connections, all twelve modules, with the heaviest connections listed beside the graph" width="980">
@@ -89,7 +89,7 @@ to one public surface, and the flow view opens the component into them.
 
 <sub>Fit overview shows the five components and their scoped <code>json</code> dependency.
 The interactive diagram starts at 100% zoom; scroll to explore it. Every edge carries its
-import sites; teal means the contract allows it.
+import sites; teal means the displayed imports were checked without an edge violation or UNKNOWN.
 <code>store</code> shows 7 modules against a level of 5 components — that is the claim.</sub>
 
 <p>
@@ -101,10 +101,12 @@ import sites; teal means the contract allows it.
 three crossings at 3, 2 and 2 import sites, and <code>shop.store</code>, the module no
 sub-component owns, carried rather than dropped.</sub>
 
-### 3. The gate names the boundary, the level and the fix
+### 3. Validation names the boundary, the level and the fix
 
-When an agent then imports across a boundary the architect closed, the finding is not a lint
-warning. It names the rule, the level that holds it and the importing module:
+This negative fixture removes a required dependency. Validation exits 2 and names three
+`rule.violated` diagnostics under `store:STORE-REQUIRES-COMPLETE`: repository imports backend
+without requiring it. The incomplete aggregate remains `NOT CHECKED`; it is not a green gate.
+Concrete import sites are available in the HTML report's evidence.
 
 <p>
   <img src="docs/assets/archkeel-shop-inside-violation.svg" alt="archkeel validate reporting three rule.violated diagnostics under store:STORE-REQUIRES-COMPLETE, each naming that repository imports backend without requiring it" width="760">
@@ -305,9 +307,9 @@ no dependency rule. Every ordered component pair is an open decision; `init --js
 that hides an outsized sub-package is visible before you decide anything about it. The
 installed skill runs onboarding in one of two
 modes: an interview, where the agent reads your ADRs and documents, recommends and asks only about
-conflicts and gaps, or auto mode, where the agent decides. Every rule records `decided_by`, a
-`requires` entry and a component may too, and reports count the decisions the architect has not
-reviewed yet. The prompt is in
+conflicts and gaps, or explicitly delegated auto mode, where the agent decides. Every rule records
+`decided_by`; a `requires` entry and a component may too. Reports count entries marked
+agent-decided; attribution does not authenticate a human review. The prompt is in
 [docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
 rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
 The skill reviews physical packages recursively, including uncontracted interiors. More than
@@ -434,7 +436,7 @@ UNKNOWN remains unresolved work. Fit overview can shrink labels; use 100% and sc
 `--output X.json` writes the JSON report and `X.report.html`.
 
 <p>
-  <img src="docs/assets/archkeel-target-store.png" alt="Target view for the Shop demo: declared store component, its inner components and requirements, and the selected responsibility" width="1180">
+  <img src="docs/assets/archkeel-target-store.png" alt="Target view for the Shop demo: declared store hierarchy, physical placement and the selected responsibility" width="1180">
 </p>
 
 ![Target component without a responsibility remains visible in the diagram and index](docs/assets/archkeel-empty-responsibility.png)

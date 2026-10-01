@@ -104,7 +104,11 @@ _TARGET_HIERARCHY_NOTE = (
 _BROWSER_NOTE = (
     "`make report-browser OUTPUT=<fresh-directory>` captures the current README views. The "
     "independent browser tests also cover a native dragged no-route case: selected Details "
-    "exposes a separate layout warning without changing architecture data."
+    "exposes a separate layout warning without changing architecture data. "
+    "The `tour` capture exercises tight focused rows: choose `app` and `Violating edges only`. "
+    "All seven violating edges retain selectable labels; labels moved beside the graph name "
+    "their source and target. The clean root and nested `store` captures exercise the "
+    "conforming case."
 )
 
 

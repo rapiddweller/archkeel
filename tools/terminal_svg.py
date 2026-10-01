@@ -21,6 +21,14 @@ WIDTH = 80
 INSIDE_VARIANT = "class-a-complete-requires-inside"
 
 
+def save_svg(console: Console, path: Path, *, title: str) -> None:
+    # Fallback fonts need glyph scaling to preserve Rich's measured terminal columns.
+    svg = console.export_svg(title=title).replace(
+        ' textLength="', ' lengthAdjust="spacingAndGlyphs" textLength="'
+    )
+    path.write_text(svg, encoding="utf-8")
+
+
 def capture(
     command: list[str], *, expected_exit_code: int, required_output: tuple[str, ...] = ()
 ) -> str:
@@ -66,13 +74,13 @@ def export(output: Path) -> list[Path]:
                 end="",
             )
         target = output / f"{case}-check-terminal.svg"
-        console.save_svg(str(target), title=f"archkeel check · fixture {case}")
+        save_svg(console, target, title=f"archkeel check · fixture {case}")
         exported.append(target)
     inside_target = output / "archkeel-shop-inside-violation.svg"
     with open(os.devnull, "w") as sink:
         console = Console(record=True, width=WIDTH, file=sink, force_terminal=True)
         console.print(Text.from_ansi(capture_inside_violation()), end="")
-        console.save_svg(str(inside_target), title="archkeel validate · inside rule violation")
+        save_svg(console, inside_target, title="archkeel validate · inside rule violation")
     exported.append(inside_target)
     return exported
 

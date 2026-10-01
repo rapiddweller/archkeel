@@ -1,12 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Replay the onboarding loop on the shop sample, one step per command an agent runs.
+"""Replay interview-mode onboarding with Archkeel commands and approved decision fixtures.
 
-No agent runs here and none is simulated: every step is a real Archkeel command, and the
-decisions the architect makes between them are the ones this repository committed, replayed
-so the numbers cannot drift from the tool. What the loop shows is where an agent does the
-work and where it must stop and ask, which is the whole of AD-15.
+This is not a live agent or architect interview. The fixture contracts stand in for decisions
+already made; command implementations produce the observations and gate results.
 
 Run from the repository root with:
 
@@ -63,23 +61,27 @@ def _repository(workspace: Path) -> Path:
     return root
 
 
-def _draft(root: Path, source: str, namespace: str) -> tuple[int, int, tuple[str, ...]]:
+def _draft(root: Path, source: str, namespace: str) -> tuple[int, int, int, tuple[str, ...]]:
     """Run `init` at one scope and report what it drafted, without writing anything."""
     result, files = run_init(root, source=source, namespace=namespace, force=True, analyzer=observe)
     contract = json.loads(files["architecture-contract.json"])
     labels = tuple(sorted(item["label"] for item in contract["components"]))
-    return len(labels), len(result.open_decisions), labels
+    dependency_kinds = {"allowed_dependency", "forbidden_dependency"}
+    dependency_rules = sum(rule["kind"] in dependency_kinds for rule in contract["rules"])
+    return len(labels), len(result.open_decisions), dependency_rules, labels
 
 
 def _drafts_the_top_level(root: Path) -> Step:
-    components, open_decisions, labels = _draft(root, "shop", "shop")
+    components, open_decisions, dependency_rules, labels = _draft(root, "shop", "shop")
     return Step(
         "The agent drafts the structure",
-        "archkeel init --source shop --namespace shop",
-        f"{components} components, {open_decisions} open decisions, 0 dependency rules",
+        "archkeel init --source shop --namespace shop --force",
+        f"{components} components, {open_decisions} open decisions, "
+        f"{dependency_rules} dependency rules",
         (
             f"components: {', '.join(labels)}",
-            "`init` reads the packages and the imports it can see, and decides no pair.",
+            "INTERVIEW-MODE REPLAY: approved answers below come from committed fixtures.",
+            "`init` derives open pairs from the draft; it writes no dependency rules.",
             "Every ordered pair is listed heaviest first, with the rule to choose from.",
         ),
         "agent",
@@ -105,27 +107,27 @@ def _refuses_the_draft(root: Path) -> Step:
         "archkeel validate",
         f"exit {result.exit_code}, {len(open_decisions)} x decision.open",
         (
-            "A drafted contract is not a target. Nothing an agent observed becomes a",
-            "decision on its own, so the gate stays shut until the architect decides.",
+            "In this interview-mode replay, a drafted contract is not the approved target.",
+            "Its 20 pairs remain open until the pre-approved fixture is applied.",
         ),
         "gate",
     )
 
 
 def _architect_decides(root: Path) -> Step:
-    """The committed contract, replayed: what the architect answered to those 20 questions."""
+    """Replay the pre-approved top-level contract fixture through the validator."""
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_bytes())
     kinds = [rule["kind"] for rule in contract["rules"]]
     result, _ = run_validate(root, SHOP, observe)
     return Step(
-        "The architect decides every pair",
+        "The approved top-level target enters the replay",
         "archkeel validate",
         f"exit {result.exit_code}, no diagnostics",
         (
             f"{kinds.count('forbidden_dependency')} forbidden, "
             f"{kinds.count('allowed_dependency')} allowed, each with a reason.",
-            "Every rule records `decided_by`, so a later report can count what the",
-            "architect has not reviewed yet.",
+            "INTERVIEW-MODE REPLAY: these committed fixture decisions are attributed to",
+            "the architect; no live person or agent approved them during this run.",
         ),
         "architect",
     )
@@ -149,23 +151,41 @@ def _names_the_large_component(root: Path) -> Step:
 
 
 def _drafts_the_inside(root: Path) -> Step:
-    components, open_decisions, labels = _draft(root, "shop/store", "shop.store")
-    inner = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_bytes())
-    requires = sum(len(item.get("requires", ())) for item in inner["components"])
+    components, open_decisions, _, labels = _draft(root, "shop/store", "shop.store")
     return Step(
         "The agent drafts the inside",
-        "archkeel init --source shop/store --namespace shop.store",
+        "archkeel init --source shop/store --namespace shop.store --force",
         f"{components} sub-components, {open_decisions} open decisions",
         (
             f"drafted: {', '.join(labels)}",
-            f"settled: {', '.join(sorted(item['label'] for item in inner['components']))}",
-            "`sqlite` was drafted from the module name; the architect calls it `api`,",
-            "because the target says what the part is for, not what the file is called.",
-            f"{requires} `requires` entries settle it, where the draft asked "
-            f"{open_decisions} pair questions:",
-            "under `complete_requires` absence forbids, so the list is the whole decision.",
+            "The draft is shown separately from the approved nested target in the next step.",
         ),
         "agent",
+    )
+
+
+def _architect_decides_inside(root: Path) -> Step:
+    """Replay the approved nested fixture and validate it with the real command implementation."""
+    inner = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_bytes())
+    components = {item["label"]: item for item in inner["components"]}
+    pairs = tuple(
+        f"{component['label']} -> {entry['component']}"
+        for component in inner["components"]
+        for entry in component.get("requires", ())
+    )
+    result, _ = run_validate(root, SHOP, observe)
+    return Step(
+        "The approved nested target enters the replay",
+        "archkeel validate",
+        f"exit {result.exit_code}, {len(pairs)} requires entries",
+        (
+            f"INTERVIEW-MODE REPLAY: approved fixture maps `sqlite` / "
+            f"`{components['api']['packages'][0]}` to `api`.",
+            f"approved target: {', '.join(pairs)}",
+            "`complete_requires` makes every absent pair forbidden; "
+            "fixture attribution is architect.",
+        ),
+        "architect",
     )
 
 
@@ -201,6 +221,7 @@ def run_onboarding_demo(workspace: Path) -> tuple[Step, ...]:
         _architect_decides(root),
         _names_the_large_component(root),
         _drafts_the_inside(root),
+        _architect_decides_inside(root),
         _catches_the_agent(workspace),
     )
 
@@ -213,7 +234,10 @@ def main() -> int:
             print(f"   => {step.outcome}")
             for line in step.detail:
                 print(f"      {line}")
-    print("\nThe agent drafts and observes. The architect decides. The gate refuses the rest.")
+    print(
+        "\nINTERVIEW-MODE REPLAY: command implementations run against "
+        "pre-approved decision fixtures."
+    )
     return 0
 
 

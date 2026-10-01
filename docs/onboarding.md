@@ -12,27 +12,28 @@ There is no contract field for a quality goal — it lives in the rationale, nex
 it justifies.
 
 `archkeel init` writes a first draft of the contract's structure from what the code already
-does, deciding no dependency; every rule it drafts carries `decided_by: "agent"` as a
-placeholder, not an answer. From there, the architect picks one of two modes:
+does. It drafts no dependency rules; it derives open component pairs from that structure.
+Structural rules and proposed `public` lists may carry `decided_by: "agent"` as attribution,
+not evidence of a human decision. The onboarding workflow then uses one of two modes:
 
 - **Interview mode** — the agent asks, the architect decides. Every decision the architect
   makes is written `decided_by: "architect"`. Best for a first pass on a repository whose
   boundaries matter enough to review now.
-- **Auto mode** — the agent decides every allowed direction itself, from documents and
-  confirmed layer principles first, judgment last, and writes `decided_by: "agent"`. Best
-  for a fast first target; a later interview can revisit only the agent's decisions.
+- **Auto mode** — the agent authors decisions from documents and confirmed layer principles
+  first, judgment last, and records `decided_by: "agent"`. This is an agent-authored target,
+  not human approval; a later interview can revisit those decisions.
 
-This page is the loop for interview mode, and the prompt to hand a coding agent to run it.
-Auto mode runs the same commands without the human back-and-forth: the agent fills every
-allowed direction itself, in the evidence order above, and ends with a summary of its decisions
-by basis (document, layer principle, judgment) with the lowest-confidence ones named first.
+This page describes interview mode and includes a prompt for a coding agent. Auto mode is a
+documented agent workflow, not a separate CLI mode: the agent fills each allowed direction in
+the evidence order above, then summarizes decisions by basis (document, layer principle,
+judgment), with the lowest-confidence ones first.
 
-`make demo-onboarding` runs the loop end to end on the two-level shop sample in
-`fixtures/F-architecture`, one real command per step: what `init` drafts, why `validate`
-refuses that draft, what the architect answers, how the report asks for a second level, and
-what the gate says when a later edit crosses a boundary inside it. No agent runs there and
-none is simulated; the decisions are this repository's committed ones, replayed, and a test
-holds every printed number to what the commands answer.
+`make demo-onboarding` runs an INTERVIEW-MODE REPLAY on the two-level shop sample in
+`fixtures/F-architecture`. It calls Archkeel command implementations and uses committed,
+pre-approved contracts as decision fixtures; no live agent or architect approval occurs.
+Seven steps show the top-level draft and refusal, the approved target and validation, the
+oversized-component finding, a separate nested draft and approved target, and a later crossing
+caught inside that level. A test holds each printed result to the command implementations.
 
 ## The onboarding loop (interview mode)
 
@@ -99,9 +100,9 @@ Install the Archkeel skill for yourself, then onboard this repository:
 ```
 
 AD-15 makes onboarding a decision interview: `init` proposes components and interfaces, never a
-dependency rule; the code proposes, the architect decides. AD-16 adds auto mode alongside it,
-and `decided_by` on every rule so a later interview can find exactly the decisions the agent
-made without the architect.
+dependency rule; the code proposes, the architect decides. AD-16 documents auto mode, where an
+agent authors decisions and `decided_by` lets a later interview find them; that attribution is
+not human approval.
 
 ## Review the physical structure
 
@@ -122,7 +123,7 @@ document. Mark deferred subtrees explicitly. A read-only assessment does not aut
 | File | Content | Who decides the content |
 |---|---|---|
 | `archkeel.toml` | Scan roots, namespace, contract path. | Deterministic from detection. |
-| `architecture-contract.json` | Components, `complete_assignment`, `no_component_cycles` when acyclic, `interface_boundary` when any component has a `public` list. No dependency decision. Every drafted rule carries `decided_by: "agent"`. | Structure is deterministic; the allowed directions become component `requires` entries plus one `complete_requires` rule only after the architect confirms them. |
+| `architecture-contract.json` | Components and structural rules; no dependency decision. `decided_by: "agent"` marks authored proposals, not approval. | Structure is deterministic; the allowed directions become component `requires` entries plus one `complete_requires` rule after the interview decision. |
 | `docs/architecture/architecture.md` | Component table with each component's modules and inner edges, and a marked Mermaid graph of observed edges. | Deterministic from the observation; after a contract edit, `validate --write-graph` rewrites the graph's edges and leaves the rest of the page alone, unless the block holds a `subgraph`, a labeled edge or a style, which it leaves to a hand edit. |
 
 The [target-first guide](target-first.md) covers the ownership-first placement path when the

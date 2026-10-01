@@ -200,7 +200,9 @@ unless the check has already classified them as a failure.
 - Inside edges stay observed unless an inside rule decides them; absence of a finding alone is
   not conformance.
 - Right-angle connectors use lanes per row pair to reduce crossings. Rule chips take priority
-  over weight badges; dense levels can still need filtering or manual arrangement.
+  over weight badges. Measured chips avoid cards, frame headers and other chips; when none of
+  the sampled positions fits, a selectable gutter row names the source, target and rule summary.
+  Dense levels can still need filtering or manual arrangement.
 - The legend is drawn from the same edge states that style the graph, and the overview lists the
   five heaviest connections.
 - Structure and Review work by keyboard as well as pointer. Without script, the component
@@ -236,7 +238,14 @@ make report-browser OUTPUT=test-artifacts/report-browser
 
 It replays synthetic catalog fixtures, exercises nested navigation, Actual/Target/Diff at desktop
 and mobile width, and report filters, then saves screenshots and traces. Use a new output
-directory for each run. It also writes the eight README report PNGs from catalog cases.
+directory for each run. It writes the eight README report PNGs into that directory, not
+`docs/assets`. Review each image and its caption before copying the canonical PNGs into
+`docs/assets`. Repeat the captures after every renderer change; an earlier green run does not
+verify the new images.
+For the terminal SVGs, run `make demo OUTPUT=<new-directory>` and
+`uv run --locked python -m tools.terminal_svg <new-directory>`; copy the reviewed exports too.
+The 0.8.2 PNG refresh uses `PLAYWRIGHT_CHANNEL=chromium` with the existing capture command.
+Terminal exports use SVG glyph scaling to keep measured columns aligned with fallback fonts.
 Independent browser tests cover a native dragged no-route case: complete inventory and evidence
 stay unchanged, and selected Details exposes the separate warning. These checks are
 separate from the Python gate; static HTML assertions alone do not prove browser behavior.

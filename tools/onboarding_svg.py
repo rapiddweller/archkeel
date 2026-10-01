@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Draw the onboarding loop as a swimlane SVG, from the run that produced its numbers.
+"""Draw the interview-mode replay as a swimlane SVG from its command results.
 
 The picture is derived, never written by hand: it renders the same `Step` values
 `tests/test_onboarding_demo.py` asserts, so a figure that disagrees with the tool is a
@@ -26,7 +26,7 @@ LANE_TITLE = {
 LANE_NOTE = {
     "agent": "reads and drafts",
     "gate": "refuses or passes",
-    "architect": "decides",
+    "architect": "approved fixture decisions",
 }
 # docs/report-visual-system.md: teal is candidate evidence, lime accepted, amber not checked.
 LANE_COLOR = {"agent": "#5EEAD4", "gate": "#F4C95D", "architect": "#C5F82A"}
@@ -70,10 +70,10 @@ def _lanes(height: int) -> list[str]:
 def _header() -> list[str]:
     parts = [
         '<text x="40" y="42" fill="#E8E8E2" font-size="19" font-weight="600">'
-        "How an architecture contract comes to exist</text>",
+        "How an architecture contract comes to exist — INTERVIEW-MODE REPLAY</text>",
         '<text x="40" y="66" fill="#8A8A84" font-size="12.5">'
-        "Every box is one real command. The agent reads and drafts; only the architect "
-        "decides; the gate refuses the rest.</text>",
+        "Real command implementations run against pre-approved decision fixtures; no live "
+        "agent or architect approvals occur here.</text>",
     ]
     for lane in LANES:
         x = LANE_X[lane]
@@ -168,7 +168,7 @@ def render(steps: tuple[Step, ...]) -> str:
         parts.extend(_card(index, step, y))
     parts.append(
         f'<text x="40" y="{height - 16}" fill="#8A8A84" font-size="11.5">'
-        "The agent never decides a boundary, and the gate never guesses one."
+        "Pre-approved fixture decisions are replayed; this run contains no live approvals."
         "</text>"
     )
     parts.append("</svg>")
