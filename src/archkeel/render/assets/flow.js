@@ -1457,16 +1457,21 @@
       const other = view.components.map((card) => card.label).filter((name) =>
         name !== focusLabel && !incoming.includes(name) && !outgoing.includes(name));
       const rows = Math.max(incoming.length, outgoing.length, 1);
-      const centerY = (rows - 1) * 145 / 2;
+      const rowPitch = CARD.h + GAP;
+      const centerY = (rows - 1) * rowPitch / 2;
       if (!positions[focusLabel]) positions[focusLabel] = { x: 0, y: centerY };
       incoming.forEach((name, index) => {
-        if (!positions[name]) positions[name] = { x: -310, y: index * 145 };
+        if (!positions[name]) positions[name] = { x: -310, y: index * rowPitch };
       });
       outgoing.forEach((name, index) => {
-        if (!positions[name]) positions[name] = { x: 310, y: index * 145 };
+        if (!positions[name]) positions[name] = { x: 310, y: index * rowPitch };
       });
       other.forEach((name, index) => {
-        if (!positions[name]) positions[name] = { x: (index % 2 ? 310 : -310), y: (rows + Math.floor(index / 2)) * 145 };
+        if (!positions[name]) {
+          positions[name] = {
+            x: (index % 2 ? 310 : -310), y: (rows + Math.floor(index / 2)) * rowPitch,
+          };
+        }
       });
       return rows + Math.ceil(other.length / 2);
     }
@@ -1776,6 +1781,9 @@
       return { kind: "frame", key: node.getAttribute("data-diagram-frame") };
     }
     if (node) return { kind: "node", key: node.getAttribute("data-label") };
+    if (document.activeElement.classList.contains("chip")) {
+      return { kind: "chip", key: document.activeElement.getAttribute("data-key") };
+    }
     if (document.activeElement.classList.contains("hit")) {
       return { kind: "edge", key: document.activeElement.getAttribute("data-key") };
     }
@@ -1787,7 +1795,8 @@
     const attr = focused.kind === "node" ? "data-label" : "data-key";
     const selector = `[${attr}="${CSS.escape(focused.key)}"]`;
     const layer = focused.kind === "frame" ? frameLayer
-      : focused.kind === "node" ? nodeLayer : edgeLayer;
+      : focused.kind === "node" ? nodeLayer
+        : focused.kind === "chip" ? chipLayer : edgeLayer;
     const target = focused.kind === "frame"
       ? layer.querySelector(`[data-diagram-frame="${CSS.escape(focused.key)}"]`)
       : layer.querySelector(selector);
@@ -2633,6 +2642,7 @@
         selected = { type: "edge", key: edgeKey(r.edge) };
         render();
       };
+      r.select = select;
       const hit = el(
         "path",
         {
@@ -2686,45 +2696,113 @@
       h: CARD.h + 8,
     }));
     const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    const frameHeaderBoxes = protectedFrameHeaders(frameBounds).map((header) => ({
+      x: header.left - 4,
+      y: header.top - 4,
+      w: header.right - header.left + 8,
+      h: header.bottom - header.top + 8,
+    }));
+    const protectedBoxes = [...cardBoxes, ...frameHeaderBoxes];
     const placed = [];
     const fractions = [0.5, 0.35, 0.65, 0.2, 0.8, 0.12, 0.88];
-    // Violated edges' rule-id chips are placed first, so they win the roomiest spots; a plain
-    // weight badge takes what is left. Every label is kept either way - the number is the only
-    // place weight is shown now, so dropping one would hide a measurement rather than tidy it.
-    const byPriority = [...routed].sort((a, b) => (b.edge.state === "violation" ? 1 : 0) - (a.edge.state === "violation" ? 1 : 0));
+    // Keep rule ids visible first, then make placement independent of input edge order.
+    const byPriority = [...routed].sort((a, b) =>
+      Number(b.edge.state === "violation") - Number(a.edge.state === "violation")
+        || edgeKey(a.edge).localeCompare(edgeKey(b.edge)));
+    const gutter = [];
     byPriority.forEach((r) => {
       const extra = r.edge.rule_ids.length > 1 ? ` +${r.edge.rule_ids.length - 1}` : "";
       const label = r.edge.rule_ids.length ? `${r.edge.rule_ids[0]}${extra}` : String(weight(r.edge));
       const text = el("text", { "text-anchor": "middle", "dominant-baseline": "central" });
       text.textContent = label;
       const rect = el("rect", { rx: "3", height: "18" });
-      const group = el("g", { class: `chip ${r.edge.state}${related(r.edge) ? "" : " dim"}` }, rect, text);
+      const fullRuleIds = r.edge.rule_ids.length ? ` Rules: ${r.edge.rule_ids.join(", ")}.` : "";
+      const group = el("g", {
+        class: `chip ${r.edge.state}${related(r.edge) ? "" : " dim"}`,
+        tabindex: "0",
+        role: "button",
+        cursor: "pointer",
+        "aria-pressed": String(selected?.type === "edge" && selected.key === edgeKey(r.edge)),
+        "aria-label": `${r.edge.source} to ${r.edge.target}, ${edgeCountLabel(r.edge)}, `
+          + `${r.edge.state}; ${label}.${fullRuleIds} Select for details.`,
+        "data-key": edgeKey(r.edge),
+      }, rect, text);
       chipLayer.appendChild(group);
+      group.addEventListener("pointerdown", (event) => event.stopPropagation());
+      group.addEventListener("click", (event) => {
+        event.stopPropagation();
+        r.select();
+      });
+      group.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          r.select();
+        }
+      });
       const width = Math.max(24, text.getComputedTextLength() + 12);
       rect.setAttribute("x", String(-width / 2));
       rect.setAttribute("y", "-9");
       rect.setAttribute("width", String(width));
+      const labelBounds = group.getBBox();
       const length = r.node.getTotalLength();
       let best = null;
       for (const fraction of fractions) {
         const point = r.node.getPointAtLength(length * fraction);
-        const box = { x: point.x - width / 2 - 3, y: point.y - 12, w: width + 6, h: 24 };
-        if (![...cardBoxes, ...placed].some((other) => overlaps(box, other))) {
+        const box = {
+          x: point.x + labelBounds.x - 3,
+          y: point.y + labelBounds.y - 3,
+          w: labelBounds.width + 6,
+          h: labelBounds.height + 6,
+        };
+        if (![...protectedBoxes, ...placed].some((other) => overlaps(box, other))) {
           best = { point, box };
           break;
         }
       }
       if (!best) {
-        // Every label stays visible in a tight spot: fall back to the path midpoint rather
-        // than disappearing. Weight is no longer drawn into the line, so a dropped number is
-        // a number the reader cannot recover - and inside a component, where every edge is
-        // observed and the spots are crowded, dropping was the common case, not the rare one.
-        const point = r.node.getPointAtLength(length * 0.5);
-        best = { point, box: { x: point.x - width / 2 - 3, y: point.y - 12, w: width + 6, h: 24 } };
+        gutter.push({ group, labelBounds, r, text, rect, label });
+        return;
       }
       placed.push(best.box);
       group.setAttribute("transform", `translate(${best.point.x},${best.point.y})`);
     });
+    if (gutter.length) {
+      gutter.forEach(({ group, r, text, rect, label }, index) => {
+        text.textContent = `${r.edge.source} → ${r.edge.target} · ${label}`;
+        const width = Math.max(24, text.getComputedTextLength() + 12);
+        rect.setAttribute("x", String(-width / 2));
+        rect.setAttribute("y", "-9");
+        rect.setAttribute("width", String(width));
+        gutter[index].labelBounds = group.getBBox();
+      });
+      const right = Math.max(
+        0,
+        ...cardBoxes.map((box) => box.x + box.w),
+        ...Object.values(frameBounds).map((frame) => frame.right),
+        ...placed.map((box) => box.x + box.w),
+        ...routed.map((r) => {
+          const bounds = r.node.getBBox();
+          return bounds.x + bounds.width;
+        }),
+      );
+      const left = right + GAP;
+      let top = Math.min(0, ...cardBoxes.map((box) => box.y),
+        ...Object.values(frameBounds).map((frame) => frame.top));
+      gutter.forEach(({ group, labelBounds }) => {
+        const box = {
+          x: left,
+          y: top,
+          w: labelBounds.width + 6,
+          h: labelBounds.height + 6,
+        };
+        group.setAttribute(
+          "transform",
+          `translate(${left - labelBounds.x + 3},${top - labelBounds.y + 3})`,
+        );
+        placed.push(box);
+        top += box.h + GAP;
+      });
+    }
 
     nodeLayer.textContent = "";
     level().components.forEach((component) => {

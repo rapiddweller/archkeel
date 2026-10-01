@@ -33,7 +33,10 @@ was accepted on 1 October; the report does not certify CE completion.
 
 `make report-browser OUTPUT=<fresh-directory>` captures the current README views. The independent
 browser tests also cover a native dragged no-route case: selected Details exposes a separate layout
-warning without changing architecture data.
+warning without changing architecture data. The `tour` capture exercises tight focused rows: choose
+`app` and `Violating edges only`. All seven violating edges retain selectable labels; labels moved
+beside the graph name their source and target. The clean root and nested `store` captures exercise
+the conforming case.
 
 | Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |
 |---|---|---|---|---|---|---|

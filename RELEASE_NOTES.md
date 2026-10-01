@@ -1,6 +1,4 @@
-# Unreleased
-
-## Archkeel 0.8.2 candidate
+# Archkeel 0.8.2 — Explore the hierarchy. Keep the evidence.
 
 - Target hierarchy projects declared `root_layout` frames around existing semantic components.
   Placement ambiguity, missing children and cyclic requirements stay explicit; an unranked
@@ -15,8 +13,14 @@
   measured space runs out; connector detours avoid headers when a bounded detour is found. An unsolved
   route keeps its edge and exposes a separate layout warning. Fullscreen preserves view state.
   Observed edges, declared targets, and Diff evidence remain separate.
-- Alex accepted the CE preview on 1 October. Integrated CI and a screenshot refresh from merged
-  source remain prerequisites for publication.
+- Focused Diagram rows now use measured card height. Rule labels avoid cards, frame headers and
+  each other; a label without a sampled free position moves beside the graph with its source and
+  target. Pointer and keyboard selection expose complete rule IDs. Tests retain every violating
+  edge at 100%, Fit, resize and manual arrangement; this is bounded layout coverage, not a
+  guarantee for every graph.
+- Eight current report screenshots and both terminal SVGs are recaptured. Terminal glyph scaling
+  preserves measured columns with browser fallback fonts. The seven-step onboarding figure is
+  a command replay using pre-approved fixtures, not live approvals or enforced human review.
 - Real CE evidence: 491 parsed modules, 102 violations and 155 counted UNKNOWN positions on the
   experiment checkout. Nested exploration and reproduced layout regressions were checked; these
   report improvements do not certify CE architecture completion or runtime behavior.
