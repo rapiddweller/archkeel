@@ -12,7 +12,7 @@
   const GAP = 34;
   const ROW_GAP = 150;
   const PER_ROW = 6;
-  const FRAME_HEADER_HEIGHT = 52;
+  const FRAME_HEADER_HEIGHT = 53;
   const TARGET_RESIDUAL_GAP = 20;
   let TARGET_FRAME_HEADER_ALLOWANCE = FRAME_HEADER_HEIGHT;
   const LANE_GAP = 11;

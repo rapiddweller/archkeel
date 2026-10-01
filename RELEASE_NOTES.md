@@ -7,6 +7,8 @@
   dependent is not labelled cyclic, and presentation order does not change verdicts (AD-125).
 - Browser acceptance tests cover hierarchy placement, 100% initial zoom, native scrolling,
   collapsed Details and selection identity across Actual, Target and Diff.
+- Corrected frame/header spacing under Linux system fonts; the unchanged browser checks require
+  at least 12px between the title and its first child at 100% zoom.
 - The shared explorer aligns Diagram, Actual, Target and Diff viewport and navigation behavior.
   Select updates closed-by-default Details; explicit Open actions drill one level. Complete
   responsibilities and metadata remain complete in Details. Compact labels abbreviate only when
