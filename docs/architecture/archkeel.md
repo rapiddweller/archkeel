@@ -161,6 +161,8 @@ often explains an earlier one; the index below keeps that order.
 | AD-122 | [Required field wrappers keep their inner boundary type](decisions/ad-122-required-fields-keep-their-inner-boundary-type.md) |
 | AD-123 | [Proven mappings are broad boundary types](decisions/ad-123-proven-mappings-are-broad-boundary-types.md) |
 | AD-124 | [A rule PASS requires a complete scope receipt](decisions/ad-124-rule-pass-requires-complete-scope-receipt.md) |
+| AD-125 | [Target hierarchy is physical presentation](decisions/ad-125-target-hierarchy-is-physical-presentation.md) |
+| AD-126 | [Target ranking retains four unresolved stdlib calls](decisions/ad-126-target-ranking-call-budget.md) |
 | AD-127 | [A contained-map allowance needs one proven occurrence](decisions/ad-127-a-contained-map-allowance-needs-one-proven-occurrence.md) |
 
 ## Allowed dependencies

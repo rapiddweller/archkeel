@@ -175,6 +175,10 @@ only when its row names repository evidence.
    settled on 3. Naming each draft's size (AD-38) makes the imbalance visible but does not fix
    it: a directory-per-component draft still proposes 12 or 17 components to consolidate by
    hand, one per module, regardless of how those modules import each other.
+6. Complete #224's shared explorer and hierarchy browser acceptance (AD-125). Diagram keeps
+   observed inventory and edges, with navigation frames only for uniquely matched observed
+   modules; Target retains declared placement. Alex accepted the CE preview on 1 October; the
+   bundled screenshot refresh and integrated release gates remain prerequisites for 0.8.2.
 ## Later
 
 - Let a second level run on its own (AD-20): an inside is recorded, derived, judged, drawn and

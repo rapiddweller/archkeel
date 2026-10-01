@@ -320,7 +320,7 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
 const begin = text.indexOf("  function moduleLevel(");
-const end = text.indexOf("  // AD-24: the first tap", begin);
+const end = text.indexOf("  function selectCard(", begin);
 const DATA = {modules: {"pkg.mod": {symbols: [], edges: [
   {source: "pkg.mod.caller", target: "pkg.mod.callee"},
 ]}}};

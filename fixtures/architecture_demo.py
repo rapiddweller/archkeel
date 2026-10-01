@@ -16,11 +16,13 @@ Regenerate `docs/architecture-demo.md` from the repository root with:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import shutil
 import subprocess
 import sys
 import tempfile
 import textwrap
+from collections.abc import Iterator
 from pathlib import Path
 
 from archkeel.cli import html_path
@@ -89,6 +91,21 @@ _DART_NOTE = (
     'scanned with `language = "dart"` (AD-97); `dart-tour` is their showcase. Replay them '
     "as one story with `make demo-dart`."
 )
+_TARGET_HIERARCHY_NOTE = (
+    "Target hierarchy rows exercise declared physical frames, missing and ambiguous placement, "
+    "and requirement cycles. Frames describe layout, not semantic ownership. Placement is "
+    "`declared`, `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and "
+    "`requires.through` remain declaration details. A null dependency rank can mean a cycle or a "
+    "dependent of one, so it does not name an SCC or change the architecture verdict. Browser "
+    "acceptance checks 100% initial zoom, native scrolling, collapsed Details, and selection "
+    "identity across Actual, Target and Diff. The CE preview was accepted on 1 October; the "
+    "report does not certify CE completion."
+)
+_BROWSER_NOTE = (
+    "`make report-browser OUTPUT=<fresh-directory>` captures the current README views. The "
+    "independent browser tests also cover a native dragged no-route case: selected Details "
+    "exposes a separate layout warning without changing architecture data."
+)
 
 
 def _demo_type(variant: Variant) -> str:
@@ -118,6 +135,12 @@ def markdown() -> str:
         *textwrap.wrap(_REPLAY_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
         *textwrap.wrap(_DART_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
+        "",
+        *textwrap.wrap(
+            _TARGET_HIERARCHY_NOTE, width=100, break_long_words=False, break_on_hyphens=False
+        ),
+        "",
+        *textwrap.wrap(_BROWSER_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
         "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
         "|---|---|---|---|---|---|---|",
@@ -186,20 +209,7 @@ def replay(variant_id: str, output: Path) -> int:
         for path in (output, report_html):
             with path.open("xb"):
                 reserved.append(path)
-        with tempfile.TemporaryDirectory(prefix="archkeel-demo-") as temporary:
-            root = Path(temporary) / variant.fixture.name
-            shutil.copytree(variant.fixture, root)
-            if variant.against is not None:
-                apply_overlay(root, variant.against.base_files)
-            for command in (
-                ("init", "-q", "-b", "main"),
-                ("config", "user.email", "demo@example.invalid"),
-                ("config", "user.name", "Demo"),
-                ("add", "-A"),
-                ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant_id),
-            ):
-                subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
-            apply_overlay(root, variant.files)
+        with materialized_fixture(variant) as root:
             validate = ["validate", "--root", str(root), "--config", variant.config]
             if variant.baseline is not None:
                 validate.extend(("--baseline", variant.baseline))
@@ -229,6 +239,26 @@ def replay(variant_id: str, output: Path) -> int:
             if path.is_file() and path.stat().st_size == 0:
                 path.unlink()
         raise
+
+
+@contextlib.contextmanager
+def materialized_fixture(variant: Variant) -> Iterator[Path]:
+    """Yield a clean-baseline demo tree with its catalog overlay applied."""
+    with tempfile.TemporaryDirectory(prefix="archkeel-demo-") as temporary:
+        root = Path(temporary) / variant.fixture.name
+        shutil.copytree(variant.fixture, root)
+        if variant.against is not None:
+            apply_overlay(root, variant.against.base_files)
+        for command in (
+            ("init", "-q", "-b", "main"),
+            ("config", "user.email", "demo@example.invalid"),
+            ("config", "user.name", "Demo"),
+            ("add", "-A"),
+            ("-c", "commit.gpgsign=false", "commit", "-q", "-m", variant.id),
+        ):
+            subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
+        apply_overlay(root, variant.files)
+        yield root
 
 
 if __name__ == "__main__":

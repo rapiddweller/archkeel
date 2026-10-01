@@ -62,7 +62,7 @@ demo-screenshots:
 	@firefox --headless --no-remote --window-size 375,2400 \
 	  --screenshot "$(OUTPUT)/A-check-375x2400.png" \
 	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
-	@$(UV) run --locked python tools/terminal_svg.py "$(OUTPUT)"
+	@$(UV) run --locked python -m tools.terminal_svg "$(OUTPUT)"
 	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
 
 PLAYWRIGHT_VERSION ?= 1.62.0
@@ -71,7 +71,7 @@ browser-install:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m playwright install --with-deps chromium
 
 report-browser:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_actual_target_diff_acceptance.py tests/test_target_diagram_acceptance.py
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_actual_target_diff_acceptance.py tests/test_target_diagram_acceptance.py tests/test_target_hierarchy_independent_acceptance.py tests/test_consistent_explorer_acceptance.py tests/test_compact_report_headers.py tests/test_frame_edge_semantics.py
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.

@@ -4,6 +4,19 @@ Archkeel decides from one static observation of Python source. This page lists w
 observation cannot see or only sees partly, with the measured size where one exists. A limit here
 is a reason for review, not a failed check.
 
+## Report layout is not architecture proof
+
+Physical frames are navigation groupings, not semantic owners. Target dependencies are
+declarations, not observed calls or execution order. Responsibilities are contract annotations;
+the report does not prove that the code fulfills them.
+
+The connector router tries bounded detours around headers and cards. Dense or manually moved
+layouts can have no clear route: the edge remains visible with a renderer layout warning, without
+changing the architecture verdict. Browser checks cover concrete regressions, not universal
+collision-free routing. Fit overview can shrink labels; 100% zoom and scrolling retain detail.
+Fullscreen has a browser-API path and a window fallback; headless tests do not prove every OS's
+native fullscreen behavior.
+
 ## Analyzer deadline
 
 The bundled analyzer has a 300-second deadline. Exceeding it returns exit 2 and
@@ -167,9 +180,10 @@ modules without `__all__`, so its contract pins pair budgets only.
 - Explicit `inside` references are followed recursively. Physical folder navigation alone
   declares no boundary and proves no contract was evaluated. An invalid mount makes the
   observation incomplete; valid findings remain visible, but baseline/graph writes are refused.
-- Inside contracts support components and rules, not nonempty `declarations` fields. Those
-  fields are refused rather than silently ignored. Keep API, compatibility, measurement and
-  interface-budget declarations at the root until they have scoped evaluators (AD-111).
+- Inside contracts support components, rules and `declarations.modules`. Other nonempty
+  declaration fields are refused rather than silently ignored. Keep API, compatibility,
+  measurement and interface-budget declarations at the root until they have scoped evaluators
+  (AD-111).
 - Child `public` entries govern local sibling boundaries, not their parent's outward API
   (AD-112). Publication does not prove cohesion or a well-designed interface. With a local
   `interface_boundary`, unused-public and planned-promotion diagnostics use sibling imports

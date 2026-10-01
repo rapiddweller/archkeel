@@ -36,6 +36,83 @@ def _empty_responsibility_files() -> dict[str, str]:
     }
 
 
+def _target_hierarchy_files(case: str) -> dict[str, str]:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    root_layout = next(rule for rule in contract["rules"] if rule["kind"] == "root_layout")
+    if case == "missing":
+        root_layout["allowed_children"].append("shop.missing")
+    elif case == "ambiguous":
+        contract["rules"].append(
+            {
+                **root_layout,
+                "id": "ROOT-LAYOUT-SECOND",
+                "rationale": "Second declaration for the same physical root.",
+            }
+        )
+    elif case == "cycle":
+        app = next(
+            component for component in contract["components"] if component["id"] == "COMP-APP"
+        )
+        cli = next(
+            component for component in contract["components"] if component["id"] == "COMP-CLI"
+        )
+        store = next(
+            component for component in contract["components"] if component["id"] == "COMP-STORE"
+        )
+        app["requires"] = [{"component": "store", "rationale": "The target declares app to store."}]
+        store["requires"] = [
+            {"component": "app", "rationale": "The target declares store back to app."}
+        ]
+        cli["requires"] = [{"component": "app", "rationale": "The target declares CLI after app."}]
+    elif case != "positive":
+        raise ValueError(f"unknown target hierarchy case: {case}")
+
+    nested = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    if case == "positive":
+        app = next(
+            component for component in contract["components"] if component["id"] == "COMP-APP"
+        )
+        app["requires"] = [
+            {
+                "component": "store",
+                "through": ["shop.store.repository:OrderRepository"],
+                "rationale": "Order use cases persist through the declared repository API.",
+            }
+        ]
+        nested["rules"].append(
+            {
+                "id": "STORE-ROOT-LAYOUT",
+                "kind": "root_layout",
+                "root": "shop.store",
+                "allowed_children": [
+                    "shop.store.backend",
+                    "shop.store.codec",
+                    "shop.store.repository",
+                    "shop.store.sqlite",
+                ],
+                "rationale": "The store root exposes its declared immediate children.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            }
+        )
+    files = {
+        "architecture-contract.json": json.dumps(contract),
+        "shop/store/architecture-contract.json": json.dumps(nested),
+    }
+    if case == "cycle":
+        target_graph = (FIXTURE_DIR / "docs/architecture/shop.md").read_text()
+        marker = "<!-- archkeel-target-graph -->"
+        before, separator, after = target_graph.partition(marker)
+        if not separator:
+            raise ValueError("shop fixture has no target graph marker")
+        files["docs/architecture/shop.md"] = (
+            before
+            + separator
+            + after.replace("    store --> model\n", "    store --> app\n    store --> model\n", 1)
+        )
+    return files
+
+
 VARIANTS: tuple[Variant, ...] = (
     Variant(
         id="target-module-present",
@@ -63,6 +140,46 @@ VARIANTS: tuple[Variant, ...] = (
         summary="Target shows missing responsibility design information; the unowned store facade "
         "keeps STORE-REQUIRES-COMPLETE unproven.",
         files=_empty_responsibility_files(),
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+    ),
+    Variant(
+        id="target-hierarchy-positive",
+        section="clean",
+        item="target.hierarchy:declared",
+        summary="The declared shop and store roots expose one nested physical hierarchy.",
+        files=_target_hierarchy_files("positive"),
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+    ),
+    Variant(
+        id="target-hierarchy-ambiguous",
+        section="clean",
+        item="target.hierarchy:ambiguous-root",
+        summary="Two declarations for the same root stay explicit and do not guess placement.",
+        files=_target_hierarchy_files("ambiguous"),
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+    ),
+    Variant(
+        id="target-hierarchy-missing",
+        section="clean",
+        item="target.hierarchy:missing-child",
+        summary="An allowed child with no observed package remains a declared physical target.",
+        files=_target_hierarchy_files("missing"),
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+    ),
+    Variant(
+        id="target-hierarchy-cycle",
+        section="clean",
+        item="target.hierarchy:requirement-cycle",
+        summary="A declared target cycle remains inspectable without changing the shop verdict.",
+        files=_target_hierarchy_files("cycle"),
         expected_violations=(),
         expected_codes=(),
         expected_declared_rules="UNKNOWN",

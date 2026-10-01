@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import base64
+import graphlib
 import html
 import json
 import posixpath
@@ -13,6 +14,7 @@ import re
 from dataclasses import replace
 from importlib.resources import files
 from typing import TypeAlias
+from typing import TypedDict as _TypedDict
 
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -58,6 +60,13 @@ from .summary import (
     report_summary,
     report_violates_rules,
 )
+
+
+class _TargetContainer(_TypedDict):
+    id: str
+    parent: str | None
+    members: list[str]
+    scope: str | None
 
 
 def _asset(name: str) -> bytes:
@@ -482,14 +491,27 @@ def _inner_edge_payload(
     ]
 
 
+def _inside_declaration_id(declarations: tuple[Record, ...], parent: str, label: str) -> str | None:
+    matches = [
+        record.id
+        for record in declarations
+        if record.kind == "inside_component_responsibility"
+        and record.data.get("parent_id") == parent
+        and record.title == label
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _inside_payload(
     inside: FlowInside | None,
     sites: dict[tuple[str, ...], set[str]],
     parent: str,
+    declarations: tuple[Record, ...],
 ) -> dict[str, object] | None:
     """Serialise a declared inside the way `level()` consumes it, or None when none exists."""
     if inside is None:
         return None
+
     return {
         "components": [
             {
@@ -498,7 +520,13 @@ def _inside_payload(
                 "public": list(card.public) if card.public is not None else None,
                 "requires": _flow_requirement_entries(card.requires),
                 "inner_edges": _inner_edge_payload(card.inner_edges, sites),
-                "inside": _inside_payload(card.inside, sites, f"{parent}:{card.label}"),
+                "declared_component": _inside_declaration_id(declarations, parent, card.label),
+                "inside": _inside_payload(
+                    card.inside,
+                    sites,
+                    f"{parent}:{card.label}",
+                    declarations,
+                ),
             }
             for card in inside.components
         ],
@@ -723,14 +751,17 @@ def _flow_component_payload(
     component: FlowComponent,
     sites: dict[tuple[str, ...], set[str]],
     requires: dict[str, list[dict[str, object]]],
+    declaration_id: str | None,
+    declarations: tuple[Record, ...],
 ) -> dict[str, object]:
     return {
         "label": component.label,
         "modules": list(component.modules),
         "public": list(component.public) if component.public is not None else None,
         "requires": requires.get(component.label, []),
+        "declared_component": declaration_id,
         "inner_edges": _inner_edge_payload(component.inner_edges, sites),
-        "inside": _inside_payload(component.inside, sites, component.label),
+        "inside": _inside_payload(component.inside, sites, component.label, declarations),
     }
 
 
@@ -844,6 +875,7 @@ def _target_layout_node(
 ) -> dict[str, object]:
     root = record.data.get("root")
     allowed = record.data.get("allowed_children")
+    context = record.data.get("parent_id")
     root_name = root if isinstance(root, str) else record.title
     children = (
         [name for name in allowed if isinstance(name, str)] if isinstance(allowed, tuple) else []
@@ -853,6 +885,8 @@ def _target_layout_node(
         "label": root_name,
         "kind": "root_layout",
         "details": [{"label": "Allowed children", "value": ", ".join(children)}],
+        "_layout_scope": root if isinstance(root, str) else None,
+        "_layout_context": context if isinstance(context, str) else None,
         "children": [
             {
                 "id": f"physical:{name}",
@@ -862,6 +896,7 @@ def _target_layout_node(
                 "children": [
                     _target_layout_node(child_layout, layouts_by_root)
                     for child_layout in layouts_by_root.get(name, ())
+                    if child_layout.data.get("parent_id") == context
                 ],
             }
             for name in children
@@ -871,6 +906,24 @@ def _target_layout_node(
 
 def _target_component_details(record: Record, packages: list[str]) -> list[dict[str, object]]:
     details: list[dict[str, object]] = [{"label": "Packages", "value": ", ".join(packages)}]
+    namespace = record.data.get("namespace")
+    if isinstance(namespace, str):
+        details.append({"label": "Declared namespace", "value": namespace})
+    public = record.data.get("public")
+    public_values = (
+        [item for item in public if isinstance(item, str)] if isinstance(public, tuple) else []
+    )
+    details.append(
+        {
+            "label": "Public interface",
+            "value": ", ".join(public_values)
+            if public_values
+            else "Explicitly empty"
+            if isinstance(public, tuple)
+            else "Not declared",
+        }
+    )
+    details.append({"label": "Provenance", "value": ", ".join(record.provenance)})
     responsibilities = record.data.get("responsibilities")
     if isinstance(responsibilities, tuple):
         sentences = [sentence for sentence in responsibilities if isinstance(sentence, str)]
@@ -878,6 +931,32 @@ def _target_component_details(record: Record, packages: list[str]) -> list[dict[
         if not sentences:
             details.append({"label": "Responsibility", "value": "", "missing": True})
     return details
+
+
+def _target_requirement_node(record: Record, entry: dict[str, object]) -> dict[str, object]:
+    through = entry.get("through")
+    through_values = (
+        [item for item in through if isinstance(item, str)] if isinstance(through, tuple) else []
+    )
+    details: list[dict[str, object]] = [
+        {"label": "Rationale", "value": entry.get("rationale") or ""},
+        {
+            "label": "Through",
+            "value": ", ".join(through_values) if through_values else "Entire public interface",
+        },
+        {"label": "Provenance", "value": ", ".join(record.provenance)},
+    ]
+    decided_by = entry.get("decided_by")
+    if isinstance(decided_by, str):
+        details.append({"label": "Decided by", "value": decided_by})
+    component = entry["component"]
+    return {
+        "id": f"requires:{record.id}:{component}",
+        "label": f"requires {component}",
+        "kind": "requires",
+        "details": details,
+        "children": [],
+    }
 
 
 def _target_component_node(
@@ -920,20 +999,7 @@ def _target_component_node(
         for package in packages
     )
     nested.extend(
-        {
-            "id": f"requires:{record.id}:{entry['component']}",
-            "label": f"requires {entry['component']}",
-            "kind": "requires",
-            "details": [
-                {"label": "Rationale", "value": entry.get("rationale") or "Declared dependency"},
-                *(
-                    [{"label": "Decided by", "value": entry["decided_by"]}]
-                    if isinstance(entry.get("decided_by"), str)
-                    else []
-                ),
-            ],
-            "children": [],
-        }
+        _target_requirement_node(record, entry)
         for entry in _flow_requires(record)
         if isinstance(entry.get("component"), str)
     )
@@ -942,6 +1008,10 @@ def _target_component_node(
         "label": record.title,
         "kind": "component",
         "details": details,
+        "_placement_scopes": packages,
+        "_placement_namespace": record.data.get("namespace"),
+        "_placement_context": record.data.get("parent_id"),
+        "_placement_scope_key": key,
         "children": nested,
     }
 
@@ -989,6 +1059,7 @@ def _target_roots(
         for root in allowed
         if isinstance(root, str)
         for child in layouts_by_root.get(root, ())
+        if child.data.get("parent_id") == parent.data.get("parent_id")
         if child.id != parent.id
     }
 
@@ -1323,7 +1394,13 @@ def _target_projection(
 
 
 def _graph_node(node: dict[str, object]) -> dict[str, object]:
-    return {key: node[key] for key in ("id", "label", "kind", "details")}
+    result = {key: node[key] for key in ("id", "label", "kind", "details")}
+    if node["kind"] == "component":
+        placement = node.get("placement")
+        if isinstance(placement, dict):
+            result["placement"] = dict(placement)
+        result["dependency_rank"] = node.get("dependency_rank")
+    return result
 
 
 def _target_children(node: dict[str, object]) -> list[dict[str, object]]:
@@ -1436,13 +1513,324 @@ def _root_target_graph(target_roots: list[dict[str, object]]) -> dict[str, objec
     return {"owner": None, "nodes": root_nodes, "edges": root_edges}
 
 
+def _target_containers(
+    target_roots: list[dict[str, object]],
+) -> tuple[
+    dict[str, _TargetContainer],
+    dict[str, str | None],
+    dict[str, str | None],
+    dict[str, list[dict[str, object]]],
+]:
+    containers: dict[str, _TargetContainer] = {}
+    scopes: dict[str, str | None] = {}
+    contexts: dict[str, str | None] = {}
+    details: dict[str, list[dict[str, object]]] = {}
+    pending: list[tuple[dict[str, object], str | None]] = [
+        (node, None) for node in reversed(target_roots)
+    ]
+    while pending:
+        node, parent = pending.pop()
+        current_parent = parent
+        if node["kind"] == "root_layout":
+            identifier = str(node["id"])
+            scope = node.get("_layout_scope")
+            scope = scope if isinstance(scope, str) else None
+            containers[identifier] = {
+                "id": identifier,
+                "parent": parent,
+                "members": [],
+                "scope": scope,
+            }
+            scopes[identifier] = scope
+            context = node.get("_layout_context")
+            contexts[identifier] = context if isinstance(context, str) else None
+            node_details = node["details"]
+            details[identifier] = node_details if isinstance(node_details, list) else []
+            current_parent = identifier
+        pending.extend((child, current_parent) for child in reversed(_target_children(node)))
+    return dict(sorted(containers.items())), scopes, contexts, details
+
+
+def _target_folded_containers(
+    components: list[dict[str, object]],
+    containers: dict[str, _TargetContainer],
+) -> set[str]:
+    placed: dict[str, tuple[str, ...]] = {identifier: () for identifier in containers}
+    component_scopes: dict[str, list[str]] = {}
+    for component in components:
+        placement = component.get("placement")
+        if isinstance(placement, dict) and isinstance(container := placement.get("container"), str):
+            identifier = str(component["id"])
+            placed[container] = (*placed[container], identifier)
+            scopes = placement.get("scopes")
+            component_scopes[identifier] = scopes if isinstance(scopes, list) else []
+    return {
+        identifier
+        for identifier, members in placed.items()
+        if len(members) == 1
+        and containers[identifier]["scope"] is not None
+        and component_scopes[members[0]] == [containers[identifier]["scope"]]
+    }
+
+
+def _target_component_placement(
+    component: dict[str, object],
+    folded: set[str],
+    containers: dict[str, _TargetContainer],
+    container_details: dict[str, list[dict[str, object]]],
+) -> None:
+    placement = component.get("placement")
+    if not isinstance(placement, dict):
+        return
+    current = placement.get("container")
+    folded_details: list[dict[str, object]] = []
+    while isinstance(current, str) and current in folded:
+        container = containers[current]
+        folded_details.append(
+            {"id": current, "scope": container["scope"], "details": container_details[current]}
+        )
+        current = container["parent"]
+    placement["container"] = current if isinstance(current, str) else None
+    if folded_details:
+        placement["folded"] = folded_details
+
+
+def _target_graph_containers(
+    containers: dict[str, _TargetContainer],
+    folded: set[str],
+    nodes: list[dict[str, object]],
+) -> dict[str, _TargetContainer]:
+    relevant: set[str] = set()
+    for node in nodes:
+        placement = node.get("placement")
+        container = placement.get("container") if isinstance(placement, dict) else None
+        if node["kind"] == "root_layout" and isinstance(identifier := node.get("id"), str):
+            if identifier in containers:
+                container = identifier
+        while isinstance(container, str) and container not in relevant:
+            relevant.add(container)
+            container = containers[container]["parent"]
+
+    result: dict[str, _TargetContainer] = {}
+    for identifier, container in containers.items():
+        if identifier not in relevant or identifier in folded:
+            continue
+        parent = container["parent"]
+        while parent in folded:
+            parent = containers[parent]["parent"]
+        result[identifier] = {
+            **container,
+            "parent": parent,
+            "members": sorted(
+                str(node["id"])
+                for node in nodes
+                if node["kind"] == "component"
+                and isinstance((placement := node.get("placement")), dict)
+                and placement.get("container") == identifier
+            ),
+        }
+    return result
+
+
+def _target_placement(
+    node: dict[str, object],
+    layout_scopes: dict[str, str | None],
+    layout_parents: dict[str, str | None],
+    layout_contexts: dict[str, str | None],
+    context_parents: dict[str, str | None],
+) -> dict[str, object]:
+    packages = node.get("_placement_scopes")
+    scopes = sorted(packages) if isinstance(packages, list) else []
+    namespace = node.get("_placement_namespace")
+    declared = isinstance(namespace, str)
+    if declared:
+        scopes = [namespace]
+    if not scopes:
+        return {"status": "unmapped", "scopes": [], "container": None}
+
+    declaration_context = node.get("_placement_context")
+    contexts: list[str | None] = []
+    if isinstance(declaration_context, str):
+        seen_contexts: set[str] = set()
+        current: str | None = declaration_context
+        while isinstance(current, str) and current not in seen_contexts:
+            seen_contexts.add(current)
+            contexts.append(current)
+            if current not in context_parents:
+                break
+            current = context_parents[current]
+        if current is None:
+            contexts.append(None)
+    else:
+        contexts.append(None)
+
+    resolved: list[str | None] = []
+    for scope in scopes:
+        if (
+            not isinstance(scope, str)
+            or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*", scope) is None
+        ):
+            return {"status": "unmapped", "scopes": scopes, "container": None}
+        selected: str | None = None
+        for context in contexts:
+            matches = [
+                identifier
+                for identifier, declared_scope in layout_scopes.items()
+                if layout_contexts.get(identifier) == context
+                and isinstance(declared_scope, str)
+                and in_scope(scope, declared_scope)
+            ]
+            if not matches:
+                continue
+            deepest_matches = [
+                candidate
+                for candidate in matches
+                if all(
+                    other == candidate or _is_layout_ancestor(other, candidate, layout_parents)
+                    for other in matches
+                )
+            ]
+            if len(deepest_matches) != 1:
+                return {"status": "ambiguous", "scopes": scopes, "container": None}
+            selected = deepest_matches[0]
+            break
+        resolved.append(selected)
+
+    containers = set(resolved)
+    if None in containers or len(containers) != 1:
+        return {
+            "status": "multiple" if len(scopes) > 1 else "unmapped",
+            "scopes": scopes,
+            "container": None,
+        }
+    return {
+        "status": "multiple" if len(scopes) > 1 else "declared" if declared else "inferred",
+        "scopes": sorted(scopes),
+        "container": next(iter(containers)),
+    }
+
+
+def _is_layout_ancestor(
+    ancestor: str, descendant: str, layout_parents: dict[str, str | None]
+) -> bool:
+    parent = layout_parents.get(descendant)
+    while parent is not None:
+        if parent == ancestor:
+            return True
+        parent = layout_parents.get(parent)
+    return False
+
+
+def _target_dependency_ranks(
+    graphs: list[dict[str, object]], component_ids: set[str]
+) -> dict[str, int | None]:
+    prerequisites: dict[str, tuple[str, ...]] = {identifier: () for identifier in component_ids}
+    for graph in graphs:
+        edges = graph.get("edges")
+        if not isinstance(edges, list):
+            continue
+        for edge in edges:
+            if not isinstance(edge, dict) or edge.get("kind") != "requires":
+                continue
+            source, target = edge.get("source"), edge.get("target")
+            if isinstance(source, str) and isinstance(target, str):
+                if source in component_ids and target in component_ids:
+                    prerequisites[source] = tuple(sorted((*prerequisites[source], target)))
+
+    sorter = graphlib.TopologicalSorter(
+        {identifier: tuple(sorted(required)) for identifier, required in prerequisites.items()}
+    )
+    try:
+        sorter.prepare()
+    except graphlib.CycleError:
+        pass
+    depths: dict[str, int] = {}
+    ready = sorter.get_ready()
+    while ready:
+        batch = tuple(sorted(ready))
+        for identifier in batch:
+            required = prerequisites[identifier]
+            depths[identifier] = 1 + max((depths[item] for item in required), default=-1)
+        sorter.done(*batch)
+        ready = sorter.get_ready()
+    max_depth = max(depths.values(), default=0)
+    return {
+        identifier: max_depth - depth if (depth := depths.get(identifier)) is not None else None
+        for identifier in component_ids
+    }
+
+
 def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]:
-    nested = {
+    components = [node for node in _target_tree(target_roots) if node["kind"] == "component"]
+    containers, layout_scopes, layout_contexts, container_details = _target_containers(target_roots)
+    layout_parents = {
+        identifier: container["parent"] for identifier, container in containers.items()
+    }
+    context_parents: dict[str, str | None] = {}
+    for component in components:
+        scope_key = component.get("_placement_scope_key")
+        context = component.get("_placement_context")
+        if isinstance(scope_key, str):
+            context_parents[scope_key] = context if isinstance(context, str) else None
+    for component in components:
+        component["placement"] = _target_placement(
+            component, layout_scopes, layout_parents, layout_contexts, context_parents
+        )
+    raw_nested = {
         str(node["id"]): graph
         for node in _target_tree(target_roots)
         if (graph := _target_nested_graph(node)) is not None
     }
-    return {"root": _root_target_graph(target_roots), "nested": nested}
+    root = _root_target_graph(target_roots)
+    graphs: list[dict[str, object]] = [root, *raw_nested.values()]
+    component_ids = {str(node["id"]) for node in components}
+    components_by_id = {str(component["id"]): component for component in components}
+    ranks = _target_dependency_ranks(graphs, component_ids)
+    for graph in graphs:
+        nodes = graph.get("nodes")
+        edges = graph.get("edges")
+        if not isinstance(nodes, list) or not isinstance(edges, list):
+            continue
+        for node in nodes:
+            if isinstance(node, dict) and node.get("kind") == "component":
+                node["dependency_rank"] = ranks[str(node["id"])]
+        graph_components = [
+            node for node in nodes if isinstance(node, dict) and node.get("kind") == "component"
+        ]
+        owner = graph.get("owner")
+        owner_component = components_by_id.get(owner) if isinstance(owner, str) else None
+        owner_context = (
+            owner_component.get("_placement_context") if owner_component is not None else None
+        )
+        has_local_layout = any(
+            node.get("kind") == "root_layout"
+            and isinstance(identifier := node.get("id"), str)
+            and layout_contexts.get(identifier) != owner_context
+            for node in nodes
+            if isinstance(node, dict)
+        )
+        if has_local_layout:
+            for node in graph_components:
+                if node.get("id") == owner and isinstance(placement := node.get("placement"), dict):
+                    placement["container"] = None
+        folded = _target_folded_containers(graph_components, containers)
+        for node in graph_components:
+            _target_component_placement(node, folded, containers, container_details)
+        graph["nodes"] = sorted(nodes, key=lambda node: str(node["id"]))
+        graph["edges"] = sorted(
+            edges,
+            key=lambda edge: (
+                str(edge["source"]),
+                str(edge["target"]),
+                str(edge["kind"]),
+                str(edge.get("declaration", "")),
+            ),
+        )
+        graph["containers"] = _target_graph_containers(containers, folded, nodes)
+    return {
+        "root": root,
+        "nested": {key: raw_nested[key] for key in sorted(raw_nested)},
+    }
 
 
 def _explorer_violation_rows(observation: Observation) -> list[dict[str, object]]:
@@ -1591,6 +1979,15 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
     by_component = {
         record.title: record for record in declarations if record.kind == "component_responsibility"
     }
+    component_ids = {
+        record.title: [
+            item.id
+            for item in declarations
+            if item.kind == "component_responsibility" and item.title == record.title
+        ]
+        for record in declarations
+        if record.kind == "component_responsibility"
+    }
     rules = {
         record.id: {
             "rationale": record.data.get("rationale"),
@@ -1610,7 +2007,16 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
         "rules": rules,
         "libraries": libraries,
         "components": [
-            _flow_component_payload(component, sites, requires) for component in flow.components
+            _flow_component_payload(
+                component,
+                sites,
+                requires,
+                component_ids[component.label][0]
+                if len(component_ids.get(component.label, ())) == 1
+                else None,
+                declarations,
+            )
+            for component in flow.components
         ],
         "unassigned": (
             {
@@ -1646,16 +2052,21 @@ _FLOW_GUIDE = """
         external dependency; a forbidden use is red.
         All components and connections appear by default. Focus narrows the diagram to one box
         and its direct connections; all violations at that level remain visible. Select a box
-        twice for level 3: physical package folders and modules inside it.
-        Folders are not declared architectural boundaries. Open a module for level 4 symbols.
+        once to inspect it; use Enter, double-click, or Open selected to drill one level.
+        Folders and physical package frames are navigation, not declared architectural boundaries
+        or owners. Frames show only observed modules inside their declared namespace; they do not
+        change observed edges. Open a module for level 4 symbols.
         Scroll the diagram horizontally or vertically; use Zoom Out, 100%, Zoom In, and Fit
         Overview to control its scale. Arrange resets the card layout. Use the breadcrumb to go
-        back. Hover or select a connection for its evidence. Level 1,
+        back. One Details pane holds selection evidence, complete responsibilities, and the
+        searchable declaration list in every view. Fullscreen expands the explorer and Restore
+        returns it. Hover or select a connection for its evidence. Level 1,
         interfaces between repositories, is unavailable because this observation contains
-        no cross-repository interface contract. Actual lists every observed module. Target
-        contains declared components, requirements and root-layout children only. Diff lists
-        recorded violations, unmapped modules and declared targets not found in the observation.
-        These three views navigate independently and do not infer contract state from imports.
+        no cross-repository interface contract. Actual lists every observed module. Target shows
+        the complete declared component and physical-layout hierarchy; its edges are declarations,
+        not observed imports or execution order. Diff keeps recorded violations, unmapped modules,
+        absent targets, and UNKNOWN evidence distinct. The shared navigation never infers contract
+        state from imports. Structure and Review retain their existing meanings.
         The import evidence below works without JavaScript.</p>
       </details>
 """
@@ -1689,6 +2100,7 @@ _FLOW_SVG = """
     </marker>
   </defs>
   <g class="flow-viewport">
+    <g class="flow-frames"></g>
     <g class="flow-edges"></g>
     <g class="flow-chips"></g>
     <g class="flow-nodes"></g>
@@ -1715,20 +2127,10 @@ _FLOW_SELECTED_RESPONSIBILITY = """
   <p class="flow-responsibility-match"></p>
 </section>"""
 
-
-def _flow_section(observation: Observation) -> str:
-    """Render the AD-10 component flow view: an SVG diagram plus its canonical JSON data."""
-    flow = build_flow(observation)
-    # Canonical, sorted-key JSON keeps report bytes deterministic; `<` is escaped because this
-    # value is embedded inside a <script> element, where a literal "</script" would close it.
-    payload = json.dumps(_flow_payload(observation, flow), sort_keys=True, separators=(",", ":"))
-    payload = payload.replace("<", "\\u003c")
-    script = _asset("flow.js").decode("utf-8")
-    return f"""
-    <section class="report-section flow-section" aria-labelledby="flow-heading">
-      <h2 id="flow-heading">Component flow</h2>
-      {_FLOW_GUIDE}
+_FLOW_SECTION_HEAD = f"""
+    <section class="report-section flow-section" aria-label="Architecture explorer">
       <div id="flow" class="flow">
+        <h2 id="flow-heading">Component flow</h2>
         <nav class="flow-views" aria-label="Architecture views" hidden>
           <button type="button" data-flow-view="diagram" aria-pressed="true">Diagram</button>
           <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
@@ -1763,7 +2165,7 @@ def _flow_section(observation: Observation) -> str:
                   class="flow-threshold-value flow-diagram-control flow-diagram-filter">
             ≥ 0 import sites
           </output>
-          <button type="button" class="flow-back flow-navigation-control" hidden>
+          <button type="button" class="flow-fit flow-back flow-navigation-control" hidden>
             Back to components</button>
           <nav class="flow-breadcrumb flow-navigation-control"
                aria-label="Diagram breadcrumb"></nav>
@@ -1778,22 +2180,42 @@ def _flow_section(observation: Observation) -> str:
           </div>
           <button type="button" class="flow-fit flow-arrange flow-diagram-control"
                   title="Lay the cards out again">Arrange</button>
+          <button type="button" class="flow-fit flow-open-selected" disabled>Open selected</button>
+          <button type="button" class="flow-fit flow-fullscreen">Fullscreen</button>
+          <output class="flow-expand-status" role="status" aria-live="polite" hidden></output>
         </div>
-        {_FLOW_SELECTED_RESPONSIBILITY}
+        {_FLOW_GUIDE}
         <div class="flow-layout">
           <div class="flow-canvas" tabindex="0" role="region"
                aria-label="Scrollable component flow diagram">
             {_FLOW_SVG}
           </div>
           <div class="flow-alternative" hidden></div>
-          <aside class="flow-inspector" aria-label="Selection details"></aside>
+          <aside class="flow-inspector" aria-label="Selection details" hidden>
+            <div class="flow-inspector-content"></div>
+            {_FLOW_SELECTED_RESPONSIBILITY}
+            {_FLOW_RESPONSIBILITIES}
+          </aside>
         </div>
-        {_FLOW_RESPONSIBILITIES}
-        <div class="flow-legend" aria-label="Legend"></div>
+        <div class="flow-legend" role="region" aria-label="Scrollable legend" tabindex="0"></div>
       </div>
-      <script id="flow-data" type="application/json">{payload}</script>
-      <script>{script}</script>
-    </section>"""
+      <script id="flow-data" type="application/json">"""
+
+_FLOW_SECTION_BETWEEN_SCRIPTS = "</script>\n      <script>"
+_FLOW_SECTION_TAIL = "</script>\n    </section>"
+
+
+def _flow_section(observation: Observation) -> str:
+    """Render the AD-10 component flow view: an SVG diagram plus its canonical JSON data."""
+    flow = build_flow(observation)
+    # Canonical, sorted-key JSON keeps report bytes deterministic; `<` is escaped because this
+    # value is embedded inside a <script> element, where a literal "</script" would close it.
+    payload = json.dumps(_flow_payload(observation, flow), sort_keys=True, separators=(",", ":"))
+    payload = payload.replace("<", "\\u003c")
+    script = _asset("flow.js").decode("utf-8")
+    return (
+        _FLOW_SECTION_HEAD + payload + _FLOW_SECTION_BETWEEN_SCRIPTS + script + _FLOW_SECTION_TAIL
+    )
 
 
 def _measurements(measurements: Measurements | None) -> str:

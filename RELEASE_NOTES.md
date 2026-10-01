@@ -1,5 +1,25 @@
 # Unreleased
 
+## Archkeel 0.8.2 candidate
+
+- Target hierarchy projects declared `root_layout` frames around existing semantic components.
+  Placement ambiguity, missing children and cyclic requirements stay explicit; an unranked
+  dependent is not labelled cyclic, and presentation order does not change verdicts (AD-125).
+- Browser acceptance tests cover hierarchy placement, 100% initial zoom, native scrolling,
+  collapsed Details and selection identity across Actual, Target and Diff.
+- Corrected frame/header spacing under Linux system fonts; the unchanged browser checks require
+  at least 12px between the title and its first child at 100% zoom.
+- The shared explorer aligns Diagram, Actual, Target and Diff viewport and navigation behavior.
+  Select updates closed-by-default Details; explicit Open actions drill one level. Complete
+  responsibilities and metadata remain complete in Details. Compact labels abbreviate only when
+  measured space runs out; connector detours avoid headers when a bounded detour is found. An unsolved
+  route keeps its edge and exposes a separate layout warning. Fullscreen preserves view state.
+  Observed edges, declared targets, and Diff evidence remain separate.
+- Alex accepted the CE preview on 1 October. Integrated CI and a screenshot refresh from merged
+  source remain prerequisites for publication.
+- Real CE evidence: 491 parsed modules, 102 violations and 155 counted UNKNOWN positions on the
+  experiment checkout. Nested exploration and reproduced layout regressions were checked; these
+  report improvements do not certify CE architecture completion or runtime behavior.
 - An exact `allowed_positions` entry may now allow one unique parameterized map inside a
   collection or union when its empty-path annotation matches the complete signature. Repeated or
   aliased contained maps remain violations, and other violations or UNKNOWN remain visible

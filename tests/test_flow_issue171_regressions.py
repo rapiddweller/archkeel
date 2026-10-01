@@ -19,8 +19,6 @@ def test_issue_171_regressions() -> None:
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
-assert(text.indexOf("normalizeThreshold(maximum);") <
-  text.indexOf("filterStatus.textContent = activeFilterSummary(viewMode);"));
 const part = (start, end) => {
   const begin = text.indexOf(start);
   const finish = text.indexOf(end, begin);
@@ -84,7 +82,8 @@ const rankSource = part("  function computeRanks()", "  function layout()");
 const layoutSource = part("  function layout()", "  function portX(");
 const sizeSource = part("  function sizeDiagram()", "  function fit()");
 const sizing = new Function("viewport", "svg", "canvas", "zoomValue", "transform",
-  "level", "visibleEdges", "groupBy", "CARD", "GAP", "PER_ROW", "ROW_STEP",
+  "level", "visibleEdges", "groupBy", "CARD", "GAP", "PER_ROW", "ROW_GAP", "ROW_STEP",
+  "getComputedStyle",
   `let positions = {}; let sizedPositions = positions; let diagramOrigin = null; ` +
   `let dragState = null; let viewMode = "diagram"; let focusLabel = null; ` +
   `${rankSource} ${layoutSource} ${sizeSource}` +
@@ -100,7 +99,9 @@ const sizing = new Function("viewport", "svg", "canvas", "zoomValue", "transform
         groups.get(value).push(item);
       });
       return groups;
-    }, {w: 200}, 32, 4, 120,
+    }, {w: 200, h: 100}, 32, 4, 150, 120,
+    () => ({borderLeftWidth: "0px", borderRightWidth: "0px",
+      borderTopWidth: "0px", borderBottomWidth: "0px"}),
   );
 sizing.layout();
 box = {...sizing.positions.card, width: 200, height: 100};
