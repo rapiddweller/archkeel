@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Comment-only Python initializers count as empty; physical scope proof handles dotted filenames without hiding partial or unmappable domains (#232, #233) | `tests/test_python_scope_certification.py`; `docs/architecture/decisions/ad-124-rule-pass-requires-complete-scope-receipt.md` |
 | Shared Diagram/Actual/Target/Diff exploration, fullscreen and measured hierarchy; tight focused labels remain inspectable without covering cards (#224) | `src/archkeel/render/assets/flow.js`; `tests/test_consistent_explorer_acceptance.py`; `tests/test_compact_report_headers.py`; `make report-browser`; current `docs/assets/` |
 | Proven stdlib `Mapping` is a broad boundary type, with member evidence preserved; exact top-level or nested allowances cannot erase unrelated violations or UNKNOWNs (AD-123) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_boundary_types_mappings.py`; `docs/architecture/decisions/ad-123-proven-mappings-are-broad-boundary-types.md`; self-validation |
 | An exact full-signature allowance can select one unique contained mapping; duplicate or alias-routed maps stay visible and applied evidence renders in HTML (AD-127) | `src/archkeel/analyzer/embedded/violations.py`; `src/archkeel/render/html.py`; `tests/test_boundary_types_contained_mapping.py`; `fixtures/demo_catalog_types.py` |

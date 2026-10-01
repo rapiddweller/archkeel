@@ -4624,23 +4624,47 @@ def _cycle_scan_coverage(
 def _package_paths(
     package: str, modules: Sequence[RawRecord], profile: Profile
 ) -> frozenset[PurePosixPath]:
-    package_parts = package.split(".")
+    package_parts = tuple(package.split("."))
     paths: set[PurePosixPath] = set()
     for record in modules:
         name = record["data"].get("qualified_name")
         file = record["data"].get("file")
         if not isinstance(name, str) or not isinstance(file, str) or not in_scope(name, package):
             continue
-        extra_modules = len(name.split(".")) - len(package_parts)
-        path = _relative_path(file).parent
-        extra_parent_steps = (
-            extra_modules
-            if profile.source_suffix == ".py" and PurePosixPath(file).name == "__init__.py"
-            else max(extra_modules - 1, 0)
+        if profile.source_suffix != ".py":
+            extra_modules = len(name.split(".")) - len(package_parts)
+            path = _relative_path(file).parent
+            extra_parent_steps = max(extra_modules - 1, 0)
+            for _ in range(extra_parent_steps):
+                path = path.parent
+            paths.add(path)
+            continue
+        file_path = _relative_path(file)
+        directories = file_path.parent.parts
+        module_parts = (
+            directories if file_path.name == "__init__.py" else (*directories, file_path.stem)
         )
-        for _ in range(extra_parent_steps):
-            path = path.parent
-        paths.add(path)
+        anchor = next(
+            (start for start in range(len(module_parts)) if ".".join(module_parts[start:]) == name),
+            None,
+        )
+        if anchor is None:
+            return frozenset()
+        package_path = next(
+            (
+                PurePosixPath(*directories[:end])
+                for end in range(anchor + 1, len(directories) + 1)
+                if in_scope(".".join(module_parts[anchor:end]), package)
+                and in_scope(name, ".".join(module_parts[anchor:end]))
+            ),
+            None,
+        )
+        if package_path is not None:
+            paths.add(package_path)
+        elif name == package and file_path.name != "__init__.py":
+            paths.add(file_path.parent)
+        else:
+            return frozenset()
     return frozenset(paths)
 
 
