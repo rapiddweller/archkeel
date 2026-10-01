@@ -668,7 +668,7 @@ def test_diagram_edges_show_endpoints_relation_weight_and_evidence(tmp_path: Pat
                 assert "symbol-use edge" in title
             else:
                 sites = expected["import_sites"]
-                assert f"{sites} import site" in title
+                assert f"{sites} import location" in title
             for site in expected["sites"]:
                 assert site in title
 
@@ -682,7 +682,7 @@ def test_diagram_edges_show_endpoints_relation_weight_and_evidence(tmp_path: Pat
             if expected.get("kind") == "symbol_use":
                 assert "Relationship" in details and "Symbol use" in details
             else:
-                assert "Observed import sites" in details
+                assert "Import locations" in details
                 assert str(expected["import_sites"]) in details
             for site in expected["sites"]:
                 assert site in details
@@ -709,7 +709,7 @@ def test_diagram_edges_show_endpoints_relation_weight_and_evidence(tmp_path: Pat
         assert inspector.is_visible()
         details = inspector.inner_text()
         assert "Relationship" in details and "Symbol use" in details
-        assert "Observed import sites" not in details
+        assert "Import locations" not in details
     finally:
         browser.close()
         playwright.stop()

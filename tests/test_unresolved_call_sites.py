@@ -628,7 +628,7 @@ def test_only_calls_page_shows_the_call_table_instead_of_the_other_sections(
     assert "Declared-rule violations" not in page
     assert "see declared-rule violations below" not in page
     assert "--only calls hides the declared-rule violations" in page
-    assert "Component flow" not in page
+    assert "Component dependencies" not in page
     listed = len(result.filtered_calls)
     assert (
         f"Filtered (only calls): {listed} unresolved or partially resolved call(s) listed."

@@ -200,7 +200,7 @@ def test_html_report_states_the_filter_that_produced_it(tmp_path: Path) -> None:
     assert "Filtered (rule DEP-STORE-NO-MONEY): 1 of 20 violation(s) shown." in page
     # A rule/component facet alone narrows the violations table; it leaves the other
     # sections in place, unlike --only violations below.
-    assert "Component flow" in page
+    assert "Component dependencies" in page
     assert "Cross-component imports" in page
 
 
@@ -216,13 +216,13 @@ def test_only_violations_hides_every_other_section(tmp_path: Path) -> None:
     assert 'data-report-filter="true"' in page
     assert "Filtered (only violations): 20 of 20 violation(s) shown." in page
     assert "Declared-rule violations" in page
-    assert "Component flow" not in page
+    assert "Component dependencies" not in page
     assert "Cross-component imports" not in page
     assert "Known unknowns" not in page
     assert "Size and coupling" not in page
     assert "Review claim" not in page
     # The escape hatch to the complete evidence stays, filter or not.
-    assert "Complete ArchitectureIR inventory" in page
+    assert "Complete scan inventory" in page
 
 
 def test_unfiltered_html_report_carries_no_filter_marker(tmp_path: Path) -> None:
@@ -236,7 +236,7 @@ def test_unfiltered_html_report_carries_no_filter_marker(tmp_path: Path) -> None
 
     assert 'data-report-filter="false"' in page
     assert "Filtered (" not in page
-    assert "Component flow" in page and "Review claim" in page
+    assert "Component dependencies" in page and "Review claim" in page
 
 
 def test_terminal_summary_announces_the_filter(tmp_path: Path) -> None:

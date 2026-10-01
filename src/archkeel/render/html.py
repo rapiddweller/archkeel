@@ -2041,39 +2041,24 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
 
 _FLOW_GUIDE = """
       <details class="flow-how-to-read"><summary>How to read this report</summary>
-        <p>Level 2 shows declared components. If modules have no unique declared owner, an
-        “Unassigned modules” card provides navigation only; it is not a component or a boundary.
-        A circle marks a provided interface; a socket
-        marks a declared dependency. A ball-and-socket on an arrow marks an observed use
-        narrowed to a specific interface by <code>through</code>. Arrows are observed imports
-        from user to provider, not every dependency the contract permits. Teal conforms,
-        red breaks a rule, amber needs a decision, and grey shows imports inside a component.
-        A <code>«library»</code> box and dashed teal arrow show observed use of a scoped
-        external dependency; a forbidden use is red.
-        All components and connections appear by default. Focus narrows the diagram to one box
-        and its direct connections; all violations at that level remain visible. Select a box
-        once to inspect it; use Enter, double-click, or Open selected to drill one level.
-        Folders and physical package frames are navigation, not declared architectural boundaries
-        or owners. Frames show only observed modules inside their declared namespace; they do not
-        change observed edges. Open a module for level 4 symbols.
-        Scroll the diagram horizontally or vertically; use Zoom Out, 100%, Zoom In, and Fit
-        Overview to control its scale. Arrange resets the card layout. Use the breadcrumb to go
-        back. One Details pane holds selection evidence, complete responsibilities, and the
-        searchable declaration list in every view. Fullscreen expands the explorer and Restore
-        returns it. Hover or select a connection for its evidence. Level 1,
-        interfaces between repositories, is unavailable because this observation contains
-        no cross-repository interface contract. Actual lists every observed module. Target shows
-        the complete declared component and physical-layout hierarchy; its edges are declarations,
-        not observed imports or execution order. Diff keeps recorded violations, unmapped modules,
-        absent targets, and UNKNOWN evidence distinct. The shared navigation never infers contract
-        state from imports. Structure and Review retain their existing meanings.
-        The import evidence below works without JavaScript.</p>
+        <p>In the component diagram, connections show observed imports and which components depend
+        on each other. Select a component or connection for details; double-click, press Enter, or
+        use Open selected to explore one level. A circle marks a provided interface; a socket
+        marks a declared dependency. Arrows point from importer to provider. Teal means the
+        displayed imports were checked with no violation or relevant UNKNOWN; red means a rule
+        fails, amber means a decision is needed, and grey shows imports within a component.
+        Unassigned modules and physical folders are navigation only; they do not create component
+        boundaries or owners. UNKNOWN findings remain in the report's evidence sections; Details
+        shows evidence for the selected item. The Actual view lists observed modules. Target
+        connections show declarations, not observed imports or execution order. Diff keeps
+        violations, UNKNOWN evidence, unmapped modules, and absent targets distinct. The import
+        evidence below works without JavaScript.</p>
       </details>
 """
 
 
 _FLOW_SVG = """
-<svg id="flow-graph" class="flow-graph" role="group" aria-label="Component flow diagram">
+<svg id="flow-graph" class="flow-graph" role="group" aria-label="Component dependencies diagram">
   <defs>
     <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
          line: a heavy edge grew a 26px head, a light one 8px, so the size read as
@@ -2130,7 +2115,7 @@ _FLOW_SELECTED_RESPONSIBILITY = """
 _FLOW_SECTION_HEAD = f"""
     <section class="report-section flow-section" aria-label="Architecture explorer">
       <div id="flow" class="flow">
-        <h2 id="flow-heading">Component flow</h2>
+        <h2 id="flow-heading">Component dependencies</h2>
         <nav class="flow-views" aria-label="Architecture views" hidden>
           <button type="button" data-flow-view="diagram" aria-pressed="true">Diagram</button>
           <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
@@ -2157,13 +2142,13 @@ _FLOW_SECTION_HEAD = f"""
             Violating edges only
           </label>
           <label class="flow-diagram-control flow-diagram-filter"
-                 for="flow-threshold-input">Minimum import sites</label>
+                 for="flow-threshold-input">Minimum import locations</label>
           <input id="flow-threshold-input"
                  class="flow-threshold flow-diagram-control flow-diagram-filter"
                  type="range" min="0" value="0" aria-describedby="flow-threshold-value">
           <output id="flow-threshold-value"
                   class="flow-threshold-value flow-diagram-control flow-diagram-filter">
-            ≥ 0 import sites
+            ≥ 0 import locations
           </output>
           <button type="button" class="flow-fit flow-back flow-navigation-control" hidden>
             Back to components</button>
@@ -2187,7 +2172,7 @@ _FLOW_SECTION_HEAD = f"""
         {_FLOW_GUIDE}
         <div class="flow-layout">
           <div class="flow-canvas" tabindex="0" role="region"
-               aria-label="Scrollable component flow diagram">
+               aria-label="Scrollable component dependencies diagram">
             {_FLOW_SVG}
           </div>
           <div class="flow-alternative" hidden></div>
@@ -2277,7 +2262,7 @@ def _coverage(observation: Observation | None) -> str:
 
 def _section_inventory(observation: Observation | None) -> str:
     if observation is None:
-        return "<p>No ArchitectureIR sections are available.</p>"
+        return "<p>No scan sections are available.</p>"
     rows = "".join(
         f"<tr><td><code>{_text(section.name)}</code></td>"
         f'<td class="numeric">{len(section.records)}</td></tr>'
@@ -2295,7 +2280,7 @@ def _section_inventory(observation: Observation | None) -> str:
         else ""
     )
     return (
-        '<div class="table-wrap"><table><thead><tr><th>ArchitectureIR section</th>'
+        '<div class="table-wrap"><table><thead><tr><th>Scan section</th>'
         f'<th class="numeric">Records</th></tr></thead><tbody>{rows}</tbody></table></div>'
         f"{module_tree}"
     )
@@ -2584,7 +2569,7 @@ def render_html(
       {claims_html}
     </details>
     <section class="report-section">
-      <h2>Complete ArchitectureIR inventory</h2>
+      <h2>Complete scan inventory</h2>
       <p>{raw_link}. The JSON remains the source for complete records and evidence.</p>
       {inventory_html}
     </section>
