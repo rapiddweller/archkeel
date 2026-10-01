@@ -34,6 +34,7 @@ from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
     Diagnostic,
+    EvidenceClass,
     Observation,
     Record,
     RecordData,
@@ -171,6 +172,28 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
           <tbody>{rows}</tbody>
         </table>
       </div></details>
+    </section>"""
+
+
+def _boundary_type_allowances(observation: Observation) -> str:
+    items = tuple(
+        item
+        for item in observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance" and item.evidence_class == EvidenceClass.FACT
+    )
+    if not items:
+        return ""
+    rows = "".join(_record_row(item, observation) for item in items)
+    return f"""
+    <section class="report-section">
+      <h2>Applied boundary type allowances · {len(items)}</h2>
+      <p>These facts document exceptions. Other violations and UNKNOWN remain
+      independently reported.</p>
+      <div class="table-wrap"><table class="boundary-type-allowances-table">
+        <thead><tr><th>Fingerprint</th><th>Applied allowance</th>
+        <th>Subjects</th><th>Evidence</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table></div>
     </section>"""
 
 
@@ -468,14 +491,27 @@ def _inner_edge_payload(
     ]
 
 
+def _inside_declaration_id(declarations: tuple[Record, ...], parent: str, label: str) -> str | None:
+    matches = [
+        record.id
+        for record in declarations
+        if record.kind == "inside_component_responsibility"
+        and record.data.get("parent_id") == parent
+        and record.title == label
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _inside_payload(
     inside: FlowInside | None,
     sites: dict[tuple[str, ...], set[str]],
     parent: str,
+    declarations: tuple[Record, ...],
 ) -> dict[str, object] | None:
     """Serialise a declared inside the way `level()` consumes it, or None when none exists."""
     if inside is None:
         return None
+
     return {
         "components": [
             {
@@ -484,7 +520,13 @@ def _inside_payload(
                 "public": list(card.public) if card.public is not None else None,
                 "requires": _flow_requirement_entries(card.requires),
                 "inner_edges": _inner_edge_payload(card.inner_edges, sites),
-                "inside": _inside_payload(card.inside, sites, f"{parent}:{card.label}"),
+                "declared_component": _inside_declaration_id(declarations, parent, card.label),
+                "inside": _inside_payload(
+                    card.inside,
+                    sites,
+                    f"{parent}:{card.label}",
+                    declarations,
+                ),
             }
             for card in inside.components
         ],
@@ -709,14 +751,17 @@ def _flow_component_payload(
     component: FlowComponent,
     sites: dict[tuple[str, ...], set[str]],
     requires: dict[str, list[dict[str, object]]],
+    declaration_id: str | None,
+    declarations: tuple[Record, ...],
 ) -> dict[str, object]:
     return {
         "label": component.label,
         "modules": list(component.modules),
         "public": list(component.public) if component.public is not None else None,
         "requires": requires.get(component.label, []),
+        "declared_component": declaration_id,
         "inner_edges": _inner_edge_payload(component.inner_edges, sites),
-        "inside": _inside_payload(component.inside, sites, component.label),
+        "inside": _inside_payload(component.inside, sites, component.label, declarations),
     }
 
 
@@ -1934,6 +1979,15 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
     by_component = {
         record.title: record for record in declarations if record.kind == "component_responsibility"
     }
+    component_ids = {
+        record.title: [
+            item.id
+            for item in declarations
+            if item.kind == "component_responsibility" and item.title == record.title
+        ]
+        for record in declarations
+        if record.kind == "component_responsibility"
+    }
     rules = {
         record.id: {
             "rationale": record.data.get("rationale"),
@@ -1953,7 +2007,16 @@ def _flow_payload(observation: Observation, flow: FlowData) -> dict[str, object]
         "rules": rules,
         "libraries": libraries,
         "components": [
-            _flow_component_payload(component, sites, requires) for component in flow.components
+            _flow_component_payload(
+                component,
+                sites,
+                requires,
+                component_ids[component.label][0]
+                if len(component_ids.get(component.label, ())) == 1
+                else None,
+                declarations,
+            )
+            for component in flow.components
         ],
         "unassigned": (
             {
@@ -1989,16 +2052,21 @@ _FLOW_GUIDE = """
         external dependency; a forbidden use is red.
         All components and connections appear by default. Focus narrows the diagram to one box
         and its direct connections; all violations at that level remain visible. Select a box
-        twice for level 3: physical package folders and modules inside it.
-        Folders are not declared architectural boundaries. Open a module for level 4 symbols.
+        once to inspect it; use Enter, double-click, or Open selected to drill one level.
+        Folders and physical package frames are navigation, not declared architectural boundaries
+        or owners. Frames show only observed modules inside their declared namespace; they do not
+        change observed edges. Open a module for level 4 symbols.
         Scroll the diagram horizontally or vertically; use Zoom Out, 100%, Zoom In, and Fit
         Overview to control its scale. Arrange resets the card layout. Use the breadcrumb to go
-        back. Hover or select a connection for its evidence. Level 1,
+        back. One Details pane holds selection evidence, complete responsibilities, and the
+        searchable declaration list in every view. Fullscreen expands the explorer and Restore
+        returns it. Hover or select a connection for its evidence. Level 1,
         interfaces between repositories, is unavailable because this observation contains
-        no cross-repository interface contract. Actual lists every observed module. Target
-        contains declared components, requirements and root-layout children only. Diff lists
-        recorded violations, unmapped modules and declared targets not found in the observation.
-        These three views navigate independently and do not infer contract state from imports.
+        no cross-repository interface contract. Actual lists every observed module. Target shows
+        the complete declared component and physical-layout hierarchy; its edges are declarations,
+        not observed imports or execution order. Diff keeps recorded violations, unmapped modules,
+        absent targets, and UNKNOWN evidence distinct. The shared navigation never infers contract
+        state from imports. Structure and Review retain their existing meanings.
         The import evidence below works without JavaScript.</p>
       </details>
 """
@@ -2032,6 +2100,7 @@ _FLOW_SVG = """
     </marker>
   </defs>
   <g class="flow-viewport">
+    <g class="flow-frames"></g>
     <g class="flow-edges"></g>
     <g class="flow-chips"></g>
     <g class="flow-nodes"></g>
@@ -2058,20 +2127,10 @@ _FLOW_SELECTED_RESPONSIBILITY = """
   <p class="flow-responsibility-match"></p>
 </section>"""
 
-
-def _flow_section(observation: Observation) -> str:
-    """Render the AD-10 component flow view: an SVG diagram plus its canonical JSON data."""
-    flow = build_flow(observation)
-    # Canonical, sorted-key JSON keeps report bytes deterministic; `<` is escaped because this
-    # value is embedded inside a <script> element, where a literal "</script" would close it.
-    payload = json.dumps(_flow_payload(observation, flow), sort_keys=True, separators=(",", ":"))
-    payload = payload.replace("<", "\\u003c")
-    script = _asset("flow.js").decode("utf-8")
-    return f"""
-    <section class="report-section flow-section" aria-labelledby="flow-heading">
-      <h2 id="flow-heading">Component flow</h2>
-      {_FLOW_GUIDE}
+_FLOW_SECTION_HEAD = f"""
+    <section class="report-section flow-section" aria-label="Architecture explorer">
       <div id="flow" class="flow">
+        <h2 id="flow-heading">Component flow</h2>
         <nav class="flow-views" aria-label="Architecture views" hidden>
           <button type="button" data-flow-view="diagram" aria-pressed="true">Diagram</button>
           <button type="button" data-flow-view="structure" aria-pressed="false">Structure</button>
@@ -2106,7 +2165,7 @@ def _flow_section(observation: Observation) -> str:
                   class="flow-threshold-value flow-diagram-control flow-diagram-filter">
             ≥ 0 import sites
           </output>
-          <button type="button" class="flow-back flow-navigation-control" hidden>
+          <button type="button" class="flow-fit flow-back flow-navigation-control" hidden>
             Back to components</button>
           <nav class="flow-breadcrumb flow-navigation-control"
                aria-label="Diagram breadcrumb"></nav>
@@ -2121,22 +2180,42 @@ def _flow_section(observation: Observation) -> str:
           </div>
           <button type="button" class="flow-fit flow-arrange flow-diagram-control"
                   title="Lay the cards out again">Arrange</button>
+          <button type="button" class="flow-fit flow-open-selected" disabled>Open selected</button>
+          <button type="button" class="flow-fit flow-fullscreen">Fullscreen</button>
+          <output class="flow-expand-status" role="status" aria-live="polite" hidden></output>
         </div>
-        {_FLOW_SELECTED_RESPONSIBILITY}
+        {_FLOW_GUIDE}
         <div class="flow-layout">
           <div class="flow-canvas" tabindex="0" role="region"
                aria-label="Scrollable component flow diagram">
             {_FLOW_SVG}
           </div>
           <div class="flow-alternative" hidden></div>
-          <aside class="flow-inspector" aria-label="Selection details"></aside>
+          <aside class="flow-inspector" aria-label="Selection details" hidden>
+            <div class="flow-inspector-content"></div>
+            {_FLOW_SELECTED_RESPONSIBILITY}
+            {_FLOW_RESPONSIBILITIES}
+          </aside>
         </div>
-        {_FLOW_RESPONSIBILITIES}
-        <div class="flow-legend" aria-label="Legend"></div>
+        <div class="flow-legend" role="region" aria-label="Scrollable legend" tabindex="0"></div>
       </div>
-      <script id="flow-data" type="application/json">{payload}</script>
-      <script>{script}</script>
-    </section>"""
+      <script id="flow-data" type="application/json">"""
+
+_FLOW_SECTION_BETWEEN_SCRIPTS = "</script>\n      <script>"
+_FLOW_SECTION_TAIL = "</script>\n    </section>"
+
+
+def _flow_section(observation: Observation) -> str:
+    """Render the AD-10 component flow view: an SVG diagram plus its canonical JSON data."""
+    flow = build_flow(observation)
+    # Canonical, sorted-key JSON keeps report bytes deterministic; `<` is escaped because this
+    # value is embedded inside a <script> element, where a literal "</script" would close it.
+    payload = json.dumps(_flow_payload(observation, flow), sort_keys=True, separators=(",", ":"))
+    payload = payload.replace("<", "\\u003c")
+    script = _asset("flow.js").decode("utf-8")
+    return (
+        _FLOW_SECTION_HEAD + payload + _FLOW_SECTION_BETWEEN_SCRIPTS + script + _FLOW_SECTION_TAIL
+    )
 
 
 def _measurements(measurements: Measurements | None) -> str:
@@ -2421,6 +2500,9 @@ def render_html(
     focused = result.report_filter is not None and (
         result.report_filter.only_violations or result.report_filter.only_calls
     )
+    allowances_html = (
+        _boundary_type_allowances(observation) if observation is not None and not focused else ""
+    )
     unknowns_html = (
         _findings("Known unknowns", unknowns or (), observation)
         if observation is not None and not focused
@@ -2486,7 +2568,7 @@ def render_html(
       <h3>Diagnostics</h3><div class="diagnostic-list">{diagnostics}</div>
     </section>
     {flow_html}
-    {filters_html}{violations_html}{rule_html}
+    {filters_html}{violations_html}{allowances_html}{rule_html}
     <script>{_asset("report-filters.js").decode("utf-8")}</script>
     {baseline_html}{calls_html}
     <div id="component-communication-detail" data-secondary-detail>{communication_html}</div>

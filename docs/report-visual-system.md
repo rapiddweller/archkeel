@@ -151,18 +151,27 @@ unless the check has already classified them as a failure.
   Review shows every violated or undecided connection before the busiest conforming ones;
   the matrix is optional and shows up to twelve high-traffic entries. Focus can be reset to
   “All components and groups”; each view reports shown and total entries for its current scope.
-- The separate Actual, Target, and Diff views navigate independently. Actual lists every observed
-  module, including unassigned ones. Target draws only declared components, package scopes,
-  allowed layout children, and requirements; its edges are declarations, not import evidence or
-  conformance claims. Diff lists violations, unknown evidence, observed modules with neither a
-  component owner nor an exact module target, and declared targets absent from the observation.
-  A missing target stays visible in Target and Diff.
-  Target cards preview each declared component or module responsibility. The inspector shows the
-  full sentence; a searchable list reaches every declaration. Selecting an item in Actual, Target,
-  or Diff shows its target-declared responsibility when there is one exact match, or says when
-  no target matches. This is a target statement, not an observation. Folder grouping does not
-  silently drop list entries. Declared
-  modules outside component ownership remain visible under “Modules outside components”.
+- Diagram, Actual, Target, and Diff share one explorer shell and navigation contract while keeping
+  their evidence distinct. Actual lists every observed module, including unassigned ones. Target shows
+  declared components, package scopes, physical layout, allowed children, and requirements; its
+  edges are declarations, not import evidence or conformance claims. Diff retains violations,
+  UNKNOWN evidence, unmapped modules, and declared targets absent from the observation. Folder
+  grouping does not silently drop entries; declared modules outside component ownership remain
+  visible under “Modules outside components”.
+- Diagram's optional physical frames require every actual module in a card to match the uniquely
+  resolved declared namespace. Only populated frames and ancestors appear; they do not add
+  target-only cards, edges, or ranks to the observed graph. Existing declared cards with zero
+  observed modules remain visible but never prove observed existence or populate frames.
+- Select once to update Details. Enter, double-click, or Open selected drills one level. The shared
+  Details pane and searchable declaration list expose complete declared responsibilities in every
+  view. A correspondence requires stable declaration identity, exact module-file identity, or a
+  unique package match; otherwise Details says no declaration matches. This is target information,
+  not observed behavior. Fullscreen and Restore preserve the current explorer state.
+- Package headers use a compact role and name. Abbreviate only measured overflow, with the full
+  identity available in Details by pointer, keyboard and touch. Relationship paths stay visibly
+  clear of header text when a bounded detour exists. If not, keep the relationship and expose a
+  renderer layout warning in its accessible label and selected Details; architecture status is
+  unchanged. Reserve the same compact legend row when switching views.
 - Never infer a symbol kind from a missing definition. A whole-module import is `module`, a star
   import is `star import`, and an unresolved named import is `unknown`, not `constant`.
 - Long lists of imported names and facade measurements use native disclosure controls. The
@@ -227,7 +236,9 @@ make report-browser OUTPUT=test-artifacts/report-browser
 
 It replays synthetic catalog fixtures, exercises nested navigation, Actual/Target/Diff at desktop
 and mobile width, and report filters, then saves screenshots and traces. Use a new output
-directory for each run. These checks are
+directory for each run. It also writes the eight README report PNGs from catalog cases.
+Independent browser tests cover a native dragged no-route case: complete inventory and evidence
+stay unchanged, and selected Details exposes the separate warning. These checks are
 separate from the Python gate; static HTML assertions alone do not prove browser behavior.
 
 ## Accessibility and print

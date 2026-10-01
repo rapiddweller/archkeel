@@ -96,9 +96,15 @@ _TARGET_HIERARCHY_NOTE = (
     "and requirement cycles. Frames describe layout, not semantic ownership. Placement is "
     "`declared`, `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and "
     "`requires.through` remain declaration details. A null dependency rank can mean a cycle or a "
-    "dependent of one, so it does not name an SCC or change the architecture verdict. Candidate "
-    "browser behavior for #224 is still under review: 100% initial zoom, native scrolling, a "
-    "collapsed Details panel, and selection identity preserved across Actual, Target and Diff."
+    "dependent of one, so it does not name an SCC or change the architecture verdict. Browser "
+    "acceptance checks 100% initial zoom, native scrolling, collapsed Details, and selection "
+    "identity across Actual, Target and Diff. The CE preview was accepted on 1 October; the "
+    "report does not certify CE completion."
+)
+_BROWSER_NOTE = (
+    "`make report-browser OUTPUT=<fresh-directory>` captures the current README views. The "
+    "independent browser tests also cover a native dragged no-route case: selected Details "
+    "exposes a separate layout warning without changing architecture data."
 )
 
 
@@ -133,6 +139,8 @@ def markdown() -> str:
         *textwrap.wrap(
             _TARGET_HIERARCHY_NOTE, width=100, break_long_words=False, break_on_hyphens=False
         ),
+        "",
+        *textwrap.wrap(_BROWSER_NOTE, width=100, break_long_words=False, break_on_hyphens=False),
         "",
         "| Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |",
         "|---|---|---|---|---|---|---|",

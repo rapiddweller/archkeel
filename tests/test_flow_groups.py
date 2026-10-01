@@ -376,10 +376,11 @@ const enterEnd = text.indexOf("  // One step back per press", enterBegin);
 assert(scopeBegin >= 0 && scopeEnd > scopeBegin && fullBegin >= 0 && fullEnd > fullBegin
   && insideBegin >= 0 && insideEnd > insideBegin
   && enterBegin >= 0 && enterEnd > enterBegin);
-const deepLevel = {components: [{label: "leaf", modules: ["sample.layer.source.leaf"]}],
+const deepLevel = {components: [{label: "leaf", declared_component: "COMP-LEAF",
+  modules: ["sample.layer.source.leaf"]}],
   unassigned: ["sample.layer.orphan"], edges: []};
-const levelTwo = {components: [{label: "source", inside: deepLevel}], edges: []};
-const levelOne = {components: [{label: "app", inside: levelTwo}], edges: []};
+const levelTwo = {components: [{label: "source", inside: deepLevel, openable: true}], edges: []};
+const levelOne = {components: [{label: "app", inside: levelTwo, openable: true}], edges: []};
 const root = {label: "app", inside: {components: [
   {label: "app", inside: levelOne},
 ], edges: []}};
@@ -391,7 +392,8 @@ let current = levelOne;
 const componentByLabel = new Map([["app", root]]);
 const navigation = new Function("DATA", "opened", "selected", "positions", "focusLabel",
   "componentByLabel", "insideLevel", "cardLevel", "moduleLevel", "level", "defaultFocus",
-  "defaultThreshold", "render", "fit",
+  "defaultThreshold", "render", "fit", "invalidateOtherViewStates", "selectSubject",
+  "rememberNavigationState", "focusCurrentLevel",
   text.slice(insideBegin, insideEnd) + text.slice(scopeBegin, scopeEnd)
     + text.slice(fullBegin, fullEnd)
     + text.slice(enterBegin, enterEnd)
@@ -399,7 +401,7 @@ const navigation = new Function("DATA", "opened", "selected", "positions", "focu
       {modules: {"sample.layer.orphan": {symbols: []}}, components: [], edges: []},
       opened, selected, positions, focusLabel, componentByLabel,
       value => value, () => ({}), () => ({}), () => current, () => null, () => {},
-      () => {}, () => {});
+      () => {}, () => {}, () => {}, () => {}, () => {}, () => {});
     navigation.enter("app");
     assert.equal(navigation.getOpened().inside, "app");
     current = levelOne;
@@ -412,7 +414,8 @@ const navigation = new Function("DATA", "opened", "selected", "positions", "focu
 const nested = navigation.fullLevel();
 assert.equal(nested.declaredInside, true);
 assert.equal(nested.components[0].label, "leaf");
-assert.equal(nested.components[0].declared_component, true);
+assert.equal(nested.components[0].declared_component, "COMP-LEAF");
+assert.equal(nested.components[0].declared_inside_component, true);
 assert.equal(nested.components[1].declared_component, false);
 assert.equal(nested.components[1].opensModule, "sample.layer.orphan");
 """
@@ -466,20 +469,21 @@ const end = text.indexOf("  function legendSwatch(state)", begin);
 assert(begin >= 0 && end > begin);
 function render(componentLabel, allEdges, focusedEdges) {
   const component = {label: componentLabel, modules: [], public: null, requires: []};
-  const inspector = {innerHTML: ""};
+  const inspectorContent = {innerHTML: ""};
   const selected = {type: "node", label: componentLabel};
   const view = {components: [component], edges: focusedEdges};
   const complete = {components: [component], edges: allEdges};
   const renderInspector = new Function(
     "selected", "showOverview", "level", "fullLevel", "esc", "opened",
-    "componentByLabel", "moduleTree", "DATA", "scopeRules", "scopeRuleList", "inspector",
+    "componentByLabel", "moduleTree", "DATA", "scopeRules", "scopeRuleList",
+    "inspectorContent", "viewMode",
     text.slice(begin, end) + ";return renderInspector",
   )(
     selected, () => {}, () => view, () => complete, String, null,
-    new Map(), () => "", {}, () => [], () => "", inspector,
+    new Map(), () => "", {}, () => [], () => "", inspectorContent, "structure",
   );
   renderInspector([]);
-  return inspector.innerHTML;
+  return inspectorContent.innerHTML;
 }
 const outbound = Array.from({length: 6}, (_, i) => ({source: "api", target: `consumer${i}`}));
 const inbound = Array.from({length: 6}, (_, i) => ({source: `provider${i}`, target: "api"}));
@@ -858,7 +862,7 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const text = fs.readFileSync(process.argv[1], "utf8");
 const begin = text.indexOf("  function moduleLevel(");
-const end = text.indexOf("  // AD-24: the first tap", begin);
+const end = text.indexOf("  function selectCard(", begin);
 assert(begin >= 0 && end > begin);
 const data = {modules: {pkg: {
   symbols: [], edges: [{source: "pkg:caller", target: "pkg:callee"}],

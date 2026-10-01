@@ -41,6 +41,8 @@ WIDE_MODULES = {
 
 def _make_reports(output: Path) -> dict[str, Path]:
     cases = {
+        "tour": ("tour", 2),
+        "clean": ("clean", 0),
         "wide": ("class-a-recursive-wide-package", 0),
         "deep": ("class-a-recursive-inside-violation", 2),
         "mixed": ("class-a-boundary-types-mixed-evidence", 2),
@@ -48,6 +50,8 @@ def _make_reports(output: Path) -> dict[str, Path]:
         "known": ("validation-baseline-subject-order", 0),
         "target-present": ("target-module-present", 0),
         "target-absent": ("target-module-absent", 0),
+        "target-store": ("target-hierarchy-positive", 0),
+        "empty-responsibility": ("target-empty-responsibilities", 0),
     }
     reports = {}
     for name, (variant, expected_exit) in cases.items():
@@ -106,6 +110,18 @@ def _click_card(page: Page, label: str) -> None:
     page.locator(f'.flow-alternative [data-flow-card="{label}"]').first.click()
 
 
+def _show_details(page: Page) -> None:
+    toggle = page.locator(".flow-details-toggle")
+    if toggle.get_attribute("aria-expanded") != "true":
+        toggle.click()
+
+
+def _open_selected(page: Page) -> None:
+    button = page.locator(".flow-open-selected")
+    assert button.is_enabled(), "The selected item has no drill destination"
+    button.click()
+
+
 def _return_to_root(page: Page) -> None:
     crumbs = page.locator(".flow-breadcrumb button")
     if crumbs.count() > 1:
@@ -115,6 +131,7 @@ def _return_to_root(page: Page) -> None:
 def _check_wide_navigation(page: Page) -> None:
     _return_to_root(page)
     page.get_by_role("button", name="Structure").click()
+    _show_details(page)
     for label in ("store", "backend", "tasks"):
         _click_card(page, label)
     modules = _flow(page)["modules"]
@@ -150,6 +167,7 @@ def _check_projection_navigation(page: Page) -> None:
     actual.focus()
     page.keyboard.press("Enter")
     assert actual.get_attribute("aria-pressed") == "true"
+    _return_to_root(page)
     for identifier, title in (
         ("shop", "shop"),
         ("shop.store", "store"),
@@ -162,12 +180,18 @@ def _check_projection_navigation(page: Page) -> None:
         assert page.evaluate("document.activeElement.tagName") != "BODY"
     page.locator('.flow-alternative [data-projection-id="shop.store.backend.tasks.alpha"]').focus()
     page.keyboard.press("Enter")
+    assert page.locator(
+        '[data-projection-id="shop.store.backend.tasks.alpha"][aria-pressed="true"]'
+    ).is_visible()
+    _show_details(page)
     assert page.get_by_role("heading", name="alpha", exact=True).is_visible()
     assert page.evaluate("document.activeElement.tagName") != "BODY"
-    page.locator('.flow-projection-breadcrumb [data-projection-crumb="1"]').click()
+    page.locator(".flow-breadcrumb").get_by_role("button", name="store", exact=True).click()
     assert page.locator(".flow-projection h2").text_content() == "store"
-    page.locator("[data-projection-root]").click()
+    assert page.evaluate("document.activeElement.tagName") != "BODY"
+    _return_to_root(page)
     assert page.locator(".flow-projection h2").text_content() == "Observed modules"
+    assert page.evaluate("document.activeElement.tagName") != "BODY"
     for mode, title in (("Diff", "Differences"), ("Actual", "Observed modules")):
         button = page.locator(f'[data-flow-view="{mode.lower()}"]')
         button.click()
@@ -180,29 +204,34 @@ def _check_projection_navigation(page: Page) -> None:
 def _check_target_navigation(page: Page, output: Path, width: int) -> None:
     target = page.locator('[data-flow-view="target"]')
     target.click()
+    _return_to_root(page)
+    _show_details(page)
     canvas = page.locator(".flow-canvas")
     assert canvas.is_visible()
     assert page.locator(".flow-diagram-filter").first.is_hidden()
     root_graph = _flow(page)["explorers"]["target_diagrams"]["root"]
     assert page.locator(".flow-nodes .node").count() == len(root_graph["nodes"])
     if width == 375:
-        assert canvas.evaluate("element => element.scrollWidth <= element.clientWidth + 1")
+        # Readable 100% diagrams scroll inside the canvas, never outside the page.
+        assert page.locator(".flow-zoom-value").text_content() == "100%"
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     root_labels = set(
         page.locator(".flow-nodes .node").evaluate_all(
             "nodes => nodes.map(node => node.getAttribute('data-label'))"
         )
     )
     assert {"store", "shop"} <= root_labels
-    page.locator("#flow").screenshot(path=str(output / f"target-root-{width}.png"))
+    page.screenshot(path=str(output / f"target-root-{width}.png"), full_page=False)
 
     for label in ("store", "backend", "tasks", "source"):
         node = page.locator(f'.flow-nodes .node[data-label="{label}"]').first
         assert node.is_visible(), f"Target node {label!r} is not reachable"
         node.click()
+        _open_selected(page)
         if label == "store":
             if width == 1440:
                 page.get_by_role("button", name="Fit overview").click()
-                page.locator("#flow").screenshot(path=str(output / "target-store-1440.png"))
+                page.screenshot(path=str(output / "target-store-1440.png"), full_page=False)
                 page.get_by_role("button", name="Set zoom to 100%").click()
             requirement = page.locator(".flow-edges .target-edge.requires").first
             line = requirement.locator(".line")
@@ -250,7 +279,8 @@ def _check_target_navigation(page: Page, output: Path, width: int) -> None:
     )
     package_scope = page.locator('.flow-nodes .node[data-label="shop.store.backend.tasks.source"]')
     assert package_scope.is_visible()
-    page.locator("#flow").screenshot(path=str(output / f"target-sources-{width}.png"))
+    page.screenshot(path=str(output / f"target-sources-{width}.png"), full_page=False)
+    page.locator(".flow-details-toggle").click()
     page.keyboard.press("Escape")
     assert page.locator(".flow-breadcrumb button").count() >= 4
     page.locator(".flow-breadcrumb button").first.click()
@@ -259,6 +289,7 @@ def _check_target_navigation(page: Page, output: Path, width: int) -> None:
 
 def _check_diagram_controls(page: Page) -> None:
     page.get_by_role("button", name="Diagram").click()
+    _show_details(page)
     assert page.locator(".flow-inspector").is_visible()
     _return_to_root(page)
     focus = page.locator("#flow-focus")
@@ -268,8 +299,8 @@ def _check_diagram_controls(page: Page) -> None:
     assert page.locator(".flow-filter-status").text_content() == "No diagram filters active"
     page.locator('.node[data-label="store"]').focus()
     page.keyboard.press("Enter")
-    page.keyboard.press("Enter")
     assert page.get_by_role("button", name="Back to components").is_visible()
+    page.locator(".flow-details-toggle").click()
     page.keyboard.press("Escape")
     assert page.get_by_role("button", name="Back to components").is_hidden()
 
@@ -369,6 +400,7 @@ def _check_violation_bar(page: Page) -> None:
     for label in ("store", "backend", "tasks"):
         _click_card(page, label)
     page.get_by_role("button", name="Diagram").click()
+    _show_details(page)
     toggle = page.locator("#flow-violations-only")
     toggle.check()
     heading = page.locator(".flow-inspector h3", has_text="Violating connections")
@@ -435,6 +467,7 @@ def _check_module_target_reports(browser: Browser, reports: dict[str, Path], out
         page, errors = _visit(browser, reports[name], name, output)
         try:
             page.locator('[data-flow-view="target"]').click()
+            _show_details(page)
             target = _flow(page)["explorers"]["target"]
             module = next(
                 node
@@ -450,22 +483,23 @@ def _check_module_target_reports(browser: Browser, reports: dict[str, Path], out
             assert route is not None
             for component_id in route:
                 page.locator(f'.flow-nodes .node[data-target-node="{component_id}"]').click()
+                _open_selected(page)
             leaf = page.locator(f'.flow-nodes .node[data-target-node="{module["id"]}"]')
             assert leaf.is_visible()
             assert leaf.locator(".target-kind").text_content() == "MODULE"
             leaf.click()
-            assert page.locator(".flow-inspector").get_by_text(f"shop/app/{file}").is_visible()
-            assert (
-                page.locator(".flow-inspector")
-                .get_by_text("Coordinate order workflows.")
-                .is_visible()
-            )
-            assert (
-                page.locator(".flow-inspector")
-                .get_by_text("architecture-contract.json")
-                .is_visible()
-            )
-            page.locator("#flow").screenshot(path=str(output / f"{name}-drilldown.png"))
+            content = page.locator(".flow-inspector-content")
+            assert content.get_by_text(f"shop/app/{file}", exact=True).is_visible()
+            assert content.get_by_text("Coordinate order workflows.").is_visible()
+            assert content.get_by_text("architecture-contract.json").is_visible()
+            page.screenshot(path=str(output / f"{name}-drilldown.png"), full_page=False)
+            if name == "target-present":
+                page.set_viewport_size({"width": 1440, "height": 1300})
+                page.get_by_role("button", name="Fit overview").click()
+                page.locator("#flow").evaluate(
+                    "element => element.scrollIntoView({block: 'start'})"
+                )
+                page.screenshot(path=str(output / "archkeel-module-target.png"), full_page=False)
             page.locator('[data-flow-view="diff"]').click()
             category = (
                 "Absent declared targets"
@@ -475,22 +509,124 @@ def _check_module_target_reports(browser: Browser, reports: dict[str, Path], out
             category_id = "absent" if name == "target-absent" else "observed-only-targets"
             if name == "target-absent":
                 assert page.locator(".flow-projection h2").text_content() == category
+                _show_details(page)
                 assert (
-                    page.locator('.flow-projection [aria-label="Selected entry"]')
+                    page.locator('.flow-inspector-content [aria-label="Selected entry"]')
                     .get_by_role("heading", name="shop/app/missing.py", exact=True)
                     .is_visible()
                 )
-            page.locator("[data-projection-root]").click()
+            _return_to_root(page)
             page.locator(f'.flow-alternative [data-projection-id="diff:{category_id}"]').click()
+            _open_selected(page)
             assert page.locator(".flow-projection h2").text_content() == category
             if name == "target-absent":
                 assert (
                     page.locator(".flow-projection").get_by_text("shop/app/missing.py").is_visible()
                 )
-            page.locator(".flow-projection").screenshot(path=str(output / f"{name}-diff.png"))
+            page.screenshot(path=str(output / f"{name}-diff.png"), full_page=False)
             assert not errors, f"{name} JavaScript errors: {errors}"
         finally:
             _finish(page, name, output)
+
+
+def _capture_readme_assets(browser: Browser, reports: dict[str, Path], output: Path) -> None:
+    tour, errors = _visit(browser, reports["tour"], "readme-tour", output)
+    try:
+        tour.evaluate("() => document.fonts.ready")
+        tour.get_by_role("button", name="Diagram").click()
+        focus = tour.locator("#flow-focus")
+        focus.select_option(label="app")
+        tour.locator("#flow-violations-only").check()
+        _show_details(tour)
+        tour.get_by_role("button", name="Fit overview").click()
+        tour.locator("#flow").screenshot(path=str(output / "archkeel-component-flow.png"))
+        assert not errors, f"tour JavaScript errors: {errors}"
+    finally:
+        _finish(tour, "readme-tour", output)
+
+    clean, errors = _visit(browser, reports["clean"], "readme-clean", output)
+    try:
+        clean.evaluate("() => document.fonts.ready")
+        clean.set_viewport_size({"width": 1440, "height": 1400})
+        clean.get_by_role("button", name="Diagram").click()
+        focus = clean.locator("#flow-focus")
+        focus.select_option(value="")
+        clean.locator("#flow-violations-only").uncheck()
+        assert clean.locator("#flow-threshold-input").input_value() == "0"
+        _show_details(clean)
+        clean.get_by_role("button", name="Fit overview").click()
+        clean.locator("#flow").screenshot(path=str(output / "archkeel-shop-components.png"))
+        clean.set_viewport_size({"width": 1440, "height": 1000})
+        clean.locator('.flow-nodes .node[data-label="store"]').click()
+        _open_selected(clean)
+        clean.get_by_role("button", name="Fit overview").click()
+        clean.locator("#flow").screenshot(path=str(output / "archkeel-shop-store-inside.png"))
+        assert not errors, f"clean JavaScript errors: {errors}"
+    finally:
+        _finish(clean, "readme-clean", output)
+
+    preview, errors = _visit(browser, reports["tour"], "readme-preview", output)
+    try:
+        preview.evaluate("() => document.fonts.ready")
+        preview.screenshot(path=str(output / "archkeel-report-preview.png"), full_page=False)
+        assert not errors, f"tour JavaScript errors: {errors}"
+    finally:
+        _finish(preview, "readme-preview", output)
+
+    evidence, errors = _visit(browser, reports["mixed"], "readme-evidence", output)
+    try:
+        evidence.evaluate("() => document.fonts.ready")
+        evidence.locator("#report-search").fill("APP-TYPES-NOT-DICT")
+        evidence.locator("#report-status").select_option("UNKNOWN")
+        row = evidence.locator(
+            '[data-filter-row][data-undecided][data-search*="APP-TYPES-NOT-DICT"]'
+        )
+        assert row.count() == 1 and row.is_visible()
+        row.locator("summary", has_text="Scope, decision and evidence").click()
+        evidence.locator("[data-report-filters]").evaluate(
+            "element => element.scrollIntoView({block: 'start'})"
+        )
+        evidence.screenshot(path=str(output / "archkeel-rule-evidence.png"), full_page=False)
+        assert not errors, f"mixed JavaScript errors: {errors}"
+    finally:
+        _finish(evidence, "readme-evidence", output)
+
+    target, errors = _visit(browser, reports["target-store"], "readme-target-store", output)
+    try:
+        target.evaluate("() => document.fonts.ready")
+        target.locator('[data-flow-view="target"]').click()
+        _show_details(target)
+        target.locator('.flow-nodes .node[data-label="store"]').click()
+        _open_selected(target)
+        target.get_by_role("button", name="Fit overview").click()
+        target.locator("#flow").screenshot(path=str(output / "archkeel-target-store.png"))
+        assert not errors, f"target hierarchy JavaScript errors: {errors}"
+    finally:
+        _finish(target, "readme-target-store", output)
+
+    empty, errors = _visit(
+        browser, reports["empty-responsibility"], "readme-empty-responsibility", output
+    )
+    try:
+        empty.evaluate("() => document.fonts.ready")
+        empty.locator('[data-flow-view="target"]').click()
+        _show_details(empty)
+        empty.locator('.flow-nodes .node[data-label="store"]').click()
+        _open_selected(empty)
+        api = empty.locator('.flow-nodes .node[data-label="api"]')
+        assert api.count() == 1
+        api.click()
+        assert (
+            empty.locator(".flow-selected-responsibility")
+            .get_by_text("No declared responsibility.", exact=True)
+            .is_visible()
+        )
+        empty.locator(".flow-responsibilities summary").click()
+        empty.get_by_role("button", name="Fit overview").click()
+        empty.locator("#flow").screenshot(path=str(output / "archkeel-empty-responsibility.png"))
+        assert not errors, f"empty responsibility JavaScript errors: {errors}"
+    finally:
+        _finish(empty, "readme-empty-responsibility", output)
 
 
 def main() -> int:
@@ -518,9 +654,9 @@ def main() -> int:
             wide.set_viewport_size({"width": 375, "height": 844})
             _check_target_navigation(wide, output, 375)
             _check_projection_navigation(wide)
-            wide.locator(".flow-projection").screenshot(path=str(output / "actual-375.png"))
+            wide.screenshot(path=str(output / "actual-375.png"), full_page=False)
             wide.locator('[data-flow-view="diff"]').click()
-            wide.locator(".flow-projection").screenshot(path=str(output / "diff-375.png"))
+            wide.screenshot(path=str(output / "diff-375.png"), full_page=False)
             _check_wide_navigation(wide)
             _check_diagram_controls(wide)
             _return_to_root(wide)
@@ -558,11 +694,13 @@ def main() -> int:
                 _check_unknown_color(unknown)
                 unknown.locator('[data-flow-view="diff"]').click()
                 unknown.locator('[data-projection-id="diff:unknowns"]').click()
+                _open_selected(unknown)
                 rows = unknown.locator(".flow-projection [data-projection-id]")
                 assert rows.count() > 0, "UNKNOWN records are missing from Diff navigation"
                 rows.first.click()
+                _show_details(unknown)
                 assert unknown.locator(
-                    '.flow-projection [aria-label="Selected entry"]'
+                    '.flow-inspector-content [aria-label="Selected entry"]'
                 ).is_visible()
                 assert not unknown_errors, f"unknown JavaScript errors: {unknown_errors}"
             finally:
@@ -574,6 +712,7 @@ def main() -> int:
             finally:
                 _finish(known, "known", output)
             _check_module_target_reports(browser, reports, output)
+            _capture_readme_assets(browser, reports, output)
         finally:
             _finish(wide, "wide", output)
             browser.close()

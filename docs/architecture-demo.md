@@ -27,9 +27,13 @@ Target hierarchy rows exercise declared physical frames, missing and ambiguous p
 requirement cycles. Frames describe layout, not semantic ownership. Placement is `declared`,
 `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and `requires.through` remain
 declaration details. A null dependency rank can mean a cycle or a dependent of one, so it does not
-name an SCC or change the architecture verdict. Candidate browser behavior for #224 is still under
-review: 100% initial zoom, native scrolling, a collapsed Details panel, and selection identity
-preserved across Actual, Target and Diff.
+name an SCC or change the architecture verdict. Browser acceptance checks 100% initial zoom, native
+scrolling, collapsed Details, and selection identity across Actual, Target and Diff. The CE preview
+was accepted on 1 October; the report does not certify CE completion.
+
+`make report-browser OUTPUT=<fresh-directory>` captures the current README views. The independent
+browser tests also cover a native dragged no-route case: selected Details exposes a separate layout
+warning without changing architecture data.
 
 | Section | Item | Variant | Demo | Rule ids | Diagnostic codes | Evidence / files |
 |---|---|---|---|---|---|---|
@@ -126,6 +130,9 @@ preserved across Actual, Target and Diff.
 | class_a | boundary_types:dict | class-a-boundary-types | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:proven_mapping | class-a-boundary-types-mapping | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:exact_open_mapping | class-a-boundary-types-mapping-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:unique_contained_mapping | class-a-boundary-types-contained-mapping | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:ambiguous_contained_mappings | class-a-boundary-types-contained-mapping-siblings | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:contained_mapping_unknown_member | class-a-boundary-types-contained-mapping-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:exact_builtin_dict | class-a-boundary-types-builtin-dict-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:shadowed_dict_unknown | class-a-boundary-types-shadowed-dict-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:mixed_fail_unknown | class-a-boundary-types-mixed-evidence | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |

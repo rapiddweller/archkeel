@@ -28,6 +28,20 @@ def _walk(nodes: list[dict[str, Any]]):
         yield from _walk(node["children"])
 
 
+def _open_target_node(page: Any, selector: str) -> None:
+    page.locator(selector).click()
+    open_selected = page.locator(".flow-open-selected")
+    if open_selected.is_enabled():
+        open_selected.click()
+
+
+def _open_projection_entry(page: Any, selector: str) -> None:
+    page.locator(selector).click()
+    open_selected = page.locator(".flow-open-selected")
+    if open_selected.is_enabled():
+        open_selected.click()
+
+
 def _component_route(nodes: list[dict[str, Any]], target_id: str, route=()):
     for node in nodes:
         current = (*route, node["id"]) if node["kind"] == "component" else route
@@ -806,6 +820,7 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             page = browser.new_page()
             page.set_content(page_html, wait_until="load")
             page.get_by_role("button", name="Target").click()
+            page.locator("[data-flow-details-toggle]").click()
             assert page.locator(".flow-canvas").is_visible()
             assert page.locator(".flow-nodes .node").count() >= 6
             root_labels = {
@@ -816,17 +831,14 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             }
             assert "archive" in root_labels
             assert page.locator(".flow-edges .edge").count() > 0
-            assert (
-                page.locator(
-                    '.target-node[data-target-node="COMP-STORE"] .target-meta'
-                ).text_content()
-                == "Persist orders as JSON"
-            )
             assert page.locator(
                 '.target-node[data-target-node="COMP-STORE"] .target-responsibility'
-            ).all_text_contents() == ["Persist orders as JSON", "files."]
-            assert page.locator(".flow-filter-status").text_content().strip() != (
-                "No diagram filters active"
+            ).all_text_contents() == ["Persist orders as JSON files."]
+            assert (
+                page.locator(".flow-filter-status").evaluate(
+                    "element => getComputedStyle(element).visibility"
+                )
+                == "hidden"
             )
             requirement_edge = page.locator(".flow-edges .target-edge.requires").first
             hit_path = requirement_edge.locator(".target-hit")
@@ -862,7 +874,7 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             page.keyboard.press("Enter")
             assert requirement_edge.get_attribute("aria-pressed") == "true"
 
-            page.locator('.flow-nodes .node[data-target-node="layout:ROOT-LAYOUT"]').click()
+            _open_target_node(page, '.flow-nodes .node[data-target-node="layout:ROOT-LAYOUT"]')
             layout_labels = {
                 label
                 for label in page.locator(".flow-nodes .node").evaluate_all(
@@ -877,6 +889,7 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             ).is_visible()
 
             page.locator('.flow-nodes .node[data-target-node="COMP-STORE"]').click()
+            page.locator(".flow-open-selected").click()
             nested_labels = {
                 label
                 for label in page.locator(".flow-nodes .node").evaluate_all(
@@ -884,29 +897,45 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
                 )
             }
             assert {"api", "backend", "codec", "repository"} <= nested_labels
+            assert "package:COMP-STORE:shop.store" in {
+                node_id
+                for node_id in page.locator(".flow-nodes .node").evaluate_all(
+                    "nodes => nodes.map(node => node.getAttribute('data-target-node'))"
+                )
+            }
+            assert page.locator(".flow-breadcrumb").inner_text() == "Target\n/\nshop\n/\nstore"
             assert page.locator(".flow-edges .edge").count() > 0
-            assert page.locator(".flow-filter-status").text_content().strip() != (
-                "No diagram filters active"
+            assert (
+                page.locator(".flow-filter-status").evaluate(
+                    "element => getComputedStyle(element).visibility"
+                )
+                == "hidden"
             )
-            page.locator(".flow-back").click()
+            page.keyboard.press("Escape")
+            assert page.locator(".flow-breadcrumb").inner_text() == "Target\n/\nshop"
+            assert page.locator(".flow-inspector").is_hidden()
+            page.keyboard.press("Escape")
+            assert page.locator(".flow-breadcrumb").inner_text() == "Target"
             assert page.locator('.flow-nodes .node[data-target-node="COMP-STORE"]').is_visible()
 
             page.get_by_role("button", name="Diff").click()
+            if page.locator("[data-flow-details-toggle]").get_attribute("aria-expanded") != "true":
+                page.locator("[data-flow-details-toggle]").click()
             for category, entry in (
                 ("diff:unmapped", "unmapped:shop.orphan"),
                 ("diff:absent", "absent:ROOT-LAYOUT:shop.missing"),
             ):
-                page.locator(f'[data-projection-id="{category}"]').click()
+                _open_projection_entry(page, f'[data-projection-id="{category}"]')
                 page.locator(f'[data-projection-id="{entry}"]').click()
-                assert page.locator('.flow-projection [aria-label="Selected entry"]').is_visible()
+                assert page.locator('.flow-inspector [aria-label="Selected entry"]').is_visible()
                 page.locator("[data-projection-root]").click()
 
             page.set_viewport_size({"width": 375, "height": 844})
             page.get_by_role("button", name="Actual").click()
-            page.locator('[data-projection-id="shop"]').click()
+            _open_projection_entry(page, '[data-projection-id="shop"]')
             assert page.locator('[data-projection-id="shop.orphan"]').is_visible()
             page.get_by_role("button", name="Diff").click()
-            page.locator('[data-projection-id="diff:unmapped"]').click()
+            _open_projection_entry(page, '[data-projection-id="diff:unmapped"]')
             assert page.locator('[data-projection-id="unmapped:shop.orphan"]').is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         finally:
@@ -930,9 +959,10 @@ def test_target_physical_path_survives_actual_diff_round_trip(tmp_path: Path) ->
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="target"]').click()
-            page.locator('[data-target-container-open="layout:ROOT-LAYOUT"]').click()
-            page.locator('[data-target-node="COMP-STORE"]').click()
-            page.locator('[data-target-node="store:COMP-STORE-BACKEND"]').click()
+            page.locator('[data-target-container="layout:ROOT-LAYOUT"]').click()
+            page.locator(".flow-open-selected").click()
+            _open_target_node(page, '[data-target-node="COMP-STORE"]')
+            _open_target_node(page, '[data-target-node="store:COMP-STORE-BACKEND"]')
             page.locator(
                 '[data-target-node="package:store:COMP-STORE-BACKEND:shop.store.backend"]'
             ).click()
@@ -1006,7 +1036,8 @@ def test_target_double_click_does_not_open_a_newly_drawn_frame(tmp_path: Path) -
             for activation in ("double-click", "single-click", "keyboard"):
                 page.set_content(page_html, wait_until="load")
                 page.locator('[data-flow-view="target"]').click()
-                page.locator('[data-target-container-open="layout:ENGINE-LAYOUT"]').click()
+                page.locator('[data-target-container="layout:ENGINE-LAYOUT"]').click()
+                page.locator(".flow-open-selected").click()
                 runtime = page.locator('[data-target-node="COMP-RUNTIME"]')
                 if activation == "double-click":
                     box = runtime.bounding_box()
@@ -1024,8 +1055,234 @@ def test_target_double_click_does_not_open_a_newly_drawn_frame(tmp_path: Path) -
                     page.keyboard.press("Enter")
 
                 observed[activation] = page.locator(".flow-breadcrumb").inner_text()
-            expected = "Target\n/\nshop.engine\n/\nruntime"
-            assert observed == {activation: expected for activation in observed}
+            assert observed == {
+                "double-click": "Target\n/\nshop.engine\n/\nruntime",
+                "single-click": "Target\n/\nshop.engine",
+                "keyboard": "Target\n/\nshop.engine\n/\nruntime",
+            }
+        finally:
+            browser.close()
+
+
+def test_diagram_physical_frame_opens_on_native_header_double_click(tmp_path: Path) -> None:
+    page_html, _ = _target_diagram_page(tmp_path, cross_frame_chain=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            frame = page.locator('[data-diagram-frame="layout:ROOT-LAYOUT"]')
+            frame.dblclick(position={"x": 20, "y": 15})
+            assert (
+                "Physical package · navigation grouping: shop"
+                in page.locator(".flow-breadcrumb").inner_text()
+            )
+            assert page.locator('[data-label="app"]').is_visible()
+        finally:
+            browser.close()
+
+
+def test_actual_package_opens_its_observed_diagram_frame(tmp_path: Path) -> None:
+    page_html, payload = _target_diagram_page(tmp_path, cross_frame_chain=True)
+    root_frame = next(
+        (identifier, frame)
+        for identifier, frame in payload["explorers"]["target_diagrams"]["root"][
+            "containers"
+        ].items()
+        if frame["scope"] == "shop"
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="actual"]').click()
+            _open_projection_entry(page, '[data-projection-id="shop"]')
+            page.locator('[data-flow-view="diagram"]').click()
+            assert (
+                f"Physical package · navigation grouping: {root_frame[1]['scope']}"
+                in page.locator(".flow-breadcrumb").text_content()
+            )
+            assert page.locator('[data-label="app"]').is_visible()
+        finally:
+            browser.close()
+
+
+def test_target_single_click_selects_before_opening(tmp_path: Path) -> None:
+    page_html, _ = _target_diagram_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            page.locator('[data-target-node="COMP-STORE"]').click()
+
+            assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+            assert (
+                page.locator('[data-target-node="COMP-STORE"]').get_attribute("aria-pressed")
+                == "true"
+            )
+            page.get_by_role("button", name="Open selected").click()
+            assert page.locator(".flow-breadcrumb").inner_text() == "Target\n/\nstore"
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("viewport", [(1920, 1080), (1024, 768), (375, 844)])
+def test_explorer_viewport_geometry_is_shared(tmp_path: Path, viewport: tuple[int, int]) -> None:
+    page_html, _ = _target_diagram_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": viewport[0], "height": viewport[1]})
+            page.set_content(page_html, wait_until="load")
+            measurements = {}
+            toggle = page.locator("[data-flow-details-toggle]")
+            for details_open in (False, True):
+                if (toggle.get_attribute("aria-expanded") == "true") != details_open:
+                    page.evaluate("document.querySelector('[data-flow-details-toggle]').click()")
+                for view in ("diagram", "actual", "target", "diff"):
+                    page.evaluate(
+                        "view => document.querySelector(`[data-flow-view=${view}]`).click()", view
+                    )
+                    viewport_selector = (
+                        ".flow-alternative" if view in {"actual", "diff"} else ".flow-canvas"
+                    )
+                    measurements[(details_open, view)] = page.evaluate(
+                        """selector => {
+                          const box = element => {
+                            const rect = element.getBoundingClientRect();
+                            return [rect.x, rect.y, rect.width, rect.height];
+                          };
+                            const documentBox = selector => {
+                              const rect = document.querySelector(selector).getBoundingClientRect();
+                              return [rect.x + scrollX, rect.y + scrollY, rect.width, rect.height];
+                            };
+                            return {layout: documentBox('.flow-layout'),
+                                viewport: documentBox(selector), scrollX, scrollY,
+                                scrollWidth: document.documentElement.scrollWidth};
+                        }""",
+                        viewport_selector,
+                    )
+            for details_open in (False, True):
+                baseline = measurements[(details_open, "diagram")]
+                for view in ("actual", "target", "diff"):
+                    current = measurements[(details_open, view)]
+                    for part in ("layout", "viewport"):
+                        assert all(
+                            abs(left - right) <= 1
+                            for left, right in zip(baseline[part], current[part], strict=True)
+                        ), (details_open, view, part, baseline[part], current[part])
+                    assert current["scrollWidth"] <= viewport[0]
+                    assert (current["scrollX"], current["scrollY"]) == (
+                        baseline["scrollX"],
+                        baseline["scrollY"],
+                    )
+            assert page.locator(".flow-zoom-value").text_content() == "100%"
+        finally:
+            browser.close()
+
+
+def test_fullscreen_fallback_restores_scope_focus_and_page_scroll(tmp_path: Path) -> None:
+    page_html, _ = _target_diagram_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1024, "height": 768})
+            page.set_content(page_html, wait_until="load")
+            page.evaluate(
+                "Object.defineProperty(Element.prototype, 'requestFullscreen', "
+                "{value: undefined, configurable: true});"
+            )
+            page.locator('[data-flow-view="target"]').click()
+            _open_target_node(page, '[data-target-node="COMP-STORE"]')
+            page.locator(".target-node[data-placement-status]").first.click()
+            path_before = page.locator(".flow-breadcrumb").inner_text()
+            selected_before = page.locator(".target-node.selected").get_attribute(
+                "data-target-node"
+            )
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            fullscreen = page.locator(".flow-fullscreen")
+            assert page.evaluate("typeof Element.prototype.requestFullscreen") == "undefined"
+            fullscreen.focus()
+            scroll_before = page.evaluate("window.scrollY")
+            fullscreen.click()
+            assert page.locator("#flow").get_attribute("data-expanded") == "fallback"
+            assert page.get_by_role("status").get_by_text("Expanded in this window").is_visible()
+            assert page.locator("#flow").get_attribute("aria-modal") == "true"
+            assert (
+                page.locator("body").evaluate("element => getComputedStyle(element).overflow")
+                == "hidden"
+            )
+            expanded_bounds = page.evaluate(
+                """() => {
+                  const box = selector => {
+                    const rect = document.querySelector(selector).getBoundingClientRect();
+                    return {top: rect.top, bottom: rect.bottom, height: rect.height};
+                  };
+                  return {
+                    root: box('#flow'), layout: box('.flow-layout'),
+                    canvas: box('.flow-canvas'), toolbar: box('.flow-toolbar'),
+                    legend: box('.flow-legend'),
+                    clientHeight: document.querySelector('#flow').clientHeight,
+                    scrollHeight: document.querySelector('#flow').scrollHeight,
+                  };
+                }"""
+            )
+            assert expanded_bounds["scrollHeight"] <= expanded_bounds["clientHeight"] + 1, (
+                expanded_bounds
+            )
+            for element in ("layout", "canvas", "toolbar", "legend"):
+                assert expanded_bounds[element]["top"] >= expanded_bounds["root"]["top"]
+                assert expanded_bounds[element]["bottom"] <= expanded_bounds["root"]["bottom"] + 1
+            assert expanded_bounds["canvas"]["height"] >= 200
+            page.keyboard.press("Escape")
+            assert page.locator("#flow").get_attribute("data-expanded") is None
+            assert page.locator("#flow").get_attribute("aria-modal") is None
+            assert page.evaluate("window.scrollY") == scroll_before
+            assert page.evaluate("document.activeElement.className") == "flow-fit flow-fullscreen"
+            assert page.locator(".flow-breadcrumb").inner_text() == path_before
+            assert (
+                page.locator(".target-node.selected").get_attribute("data-target-node")
+                == selected_before
+            )
+        finally:
+            browser.close()
+
+
+def test_fullscreen_request_rejection_uses_the_fallback(tmp_path: Path) -> None:
+    page_html, _ = _target_diagram_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1024, "height": 768})
+            page.set_content(page_html, wait_until="load")
+            page.evaluate(
+                """() => {
+                  window.fullscreenRequestCount = 0;
+                  window.unhandledRejectionCount = 0;
+                  window.addEventListener('unhandledrejection', () => {
+                    window.unhandledRejectionCount += 1;
+                  });
+                  Object.defineProperty(document, 'fullscreenEnabled', {value: true});
+                  Element.prototype.requestFullscreen = async function() {
+                    window.fullscreenRequestCount += 1;
+                    throw new DOMException('denied by embedding policy', 'NotAllowedError');
+                  };
+                }"""
+            )
+            page.locator(".flow-fullscreen").click()
+            assert page.evaluate("window.fullscreenRequestCount") == 1
+            assert page.locator("#flow").get_attribute("data-expanded") == "fallback"
+            assert page.get_by_role("status").get_by_text("Expanded in this window").is_visible()
+            assert page.evaluate("window.unhandledRejectionCount || 0") == 0
         finally:
             browser.close()
 
@@ -1102,7 +1359,7 @@ def test_target_inspector_explains_graph_local_placement(tmp_path: Path) -> None
             for node_id, label, status, scopes, reason in cases:
                 page.set_content(page_html, wait_until="load")
                 page.locator('[data-flow-view="target"]').click()
-                page.locator(f'[data-target-node="{node_id}"]').click()
+                _open_target_node(page, f'[data-target-node="{node_id}"]')
                 inspector = page.locator(".flow-inspector")
                 assert inspector.locator("h2").text_content() == label
                 content = inspector.inner_text()
@@ -1113,6 +1370,7 @@ def test_target_inspector_explains_graph_local_placement(tmp_path: Path) -> None
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="target"]').click()
             page.locator('[data-target-node="COMP-APP"]').click()
+            page.locator(".flow-open-selected").click()
             content = page.locator(".flow-inspector").inner_text()
             assert "layout:ROOT-LAYOUT" in content
             assert "layout:APP-SOLO" in content
@@ -1150,6 +1408,7 @@ def test_target_inspector_explains_folded_null_container(tmp_path: Path) -> None
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="target"]').click()
             page.locator('[data-target-node="COMP-APP"]').click()
+            page.locator(".flow-open-selected").click()
             content = page.locator(".flow-inspector").inner_text()
             assert "No drawable frame is associated in this view;" in content
             assert "matching frame was folded" in content
@@ -1375,13 +1634,16 @@ def test_target_acyclic_rank_coordinates_do_not_gain_caption_band(tmp_path: Path
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="target"]').click()
             positions = page.evaluate(
-                """() => Object.fromEntries(['COMP-A-DOMAINS', 'COMP-IO'].map(id => {
+                """() => ({positions: Object.fromEntries(['COMP-A-DOMAINS', 'COMP-IO'].map(id => {
                   const transform = document.querySelector(`[data-target-node="${id}"]`)
                     .getAttribute('transform');
                   return [id, Number(transform.match(/,([\\d.-]+)\\)/)[1])];
-                }))"""
+                })), cardHeight: document.querySelector(
+                    '[data-target-node="COMP-A-DOMAINS"] .target-card')
+                  .getBBox().height})"""
             )
-            assert positions == {"COMP-A-DOMAINS": 0, "COMP-IO": 126}
+            assert positions["positions"]["COMP-A-DOMAINS"] == 0
+            assert positions["positions"]["COMP-IO"] == positions["cardHeight"] + 34
             assert page.locator(".target-cycle-warning").count() == 0
         finally:
             browser.close()
@@ -1535,6 +1797,28 @@ def test_target_hierarchy_browser_layout_and_details_toggle(
             page_errors: list[str] = []
             page.on("pageerror", lambda error: page_errors.append(str(error)))
             page.set_content(page_html, wait_until="load")
+            diagram_metrics = page.locator(".flow-nodes").evaluate(
+                """layer => [...layer.querySelectorAll('.diagram-responsibility, .meta')]
+                  .map(text => {
+                    const card = text.closest('.node').querySelector('.card').getBBox();
+                    const box = text.getBBox();
+                    const matrix = text.getScreenCTM();
+                    const style = getComputedStyle(text);
+                    return {
+                      role: text.classList.contains('diagram-responsibility')
+                        ? 'responsibility' : 'meta',
+                      right: box.x + box.width,
+                      cardRight: card.x + card.width - 8,
+                      font: parseFloat(style.fontSize) * Math.hypot(matrix.a, matrix.b),
+                    };
+                  })"""
+            )
+            assert diagram_metrics
+            assert all(item["right"] <= item["cardRight"] for item in diagram_metrics)
+            assert (
+                min(item["font"] for item in diagram_metrics if item["role"] == "responsibility")
+                >= 13
+            )
             page.locator('[data-flow-view="target"]').click()
             assert page_errors == []
             canvas = page.locator(".flow-canvas")
@@ -1595,7 +1879,7 @@ def test_target_hierarchy_browser_layout_and_details_toggle(
             )
             assert not metrics["overlap"]
             assert metrics["names"] and min(metrics["names"]) >= 14
-            assert metrics["responsibilities"] and min(metrics["responsibilities"]) >= 12
+            assert metrics["responsibilities"] and min(metrics["responsibilities"]) >= 13
 
             details_toggle = page.locator("[data-flow-details-toggle]")
             assert details_toggle.get_attribute("aria-expanded") == "false"
@@ -1605,6 +1889,9 @@ def test_target_hierarchy_browser_layout_and_details_toggle(
             page.keyboard.press("Enter")
             assert "shop" in page.locator(".flow-breadcrumb").inner_text()
             inspector = page.locator(".flow-inspector")
+            assert details_toggle.get_attribute("aria-expanded") == "false"
+            details_toggle.click()
+            assert details_toggle.get_attribute("aria-expanded") == "true"
             assert inspector.is_visible()
             inspector_rect = inspector.evaluate(
                 "element => element.getBoundingClientRect().toJSON()"
@@ -1722,6 +2009,8 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             page = browser.new_page()
             page.set_content(page_html, wait_until="load")
             page.get_by_role("button", name="Target").click()
+            if page.locator("[data-flow-details-toggle]").get_attribute("aria-expanded") != "true":
+                page.locator("[data-flow-details-toggle]").click()
             responsibilities = page.locator(".flow-responsibilities")
             responsibilities.locator("summary").click()
             declared_count = sum(
@@ -1755,8 +2044,8 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             )
             responsibilities.locator(".flow-responsibility-list button:visible").click()
             assert (
-                page.locator(".flow-inspector")
-                .get_by_text("Retain archived orders.", exact=True)
+                page.locator(".flow-inspector .kv dd")
+                .filter(has_text="Retain archived orders.")
                 .is_visible()
             )
             responsibilities.locator("input").fill("Keep archive access explicit.")
@@ -1765,8 +2054,8 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             )
             responsibilities.locator(".flow-responsibility-list button:visible").click()
             assert (
-                page.locator(".flow-inspector")
-                .get_by_text("Keep archive access explicit.", exact=True)
+                page.locator(".flow-inspector .kv dd")
+                .filter(has_text="Keep archive access explicit.")
                 .is_visible()
             )
             responsibilities.locator("input").fill("store / empty nested")
@@ -1775,8 +2064,12 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             )
             responsibilities.locator(".flow-responsibility-list button:visible").click()
             inspector = page.locator(".flow-inspector")
-            assert inspector.get_by_text("Missing responsibility", exact=True).is_visible()
-            assert inspector.get_by_text("No declared responsibility.", exact=True).is_visible()
+            assert inspector.get_by_role("heading", name="Missing responsibility").is_visible()
+            assert (
+                inspector.locator("p")
+                .get_by_text("No declared responsibility.", exact=True)
+                .is_visible()
+            )
             assert "store" in page.locator(".flow-breadcrumb").text_content().lower()
             nested_card = page.locator(
                 f".flow-nodes .node[data-target-node='{nested_empty['id']}']"
@@ -1792,8 +2085,8 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             )
             responsibilities.locator(".flow-responsibility-list button:visible").click()
             assert (
-                page.locator(".flow-inspector")
-                .get_by_text("Coordinate order workflows.", exact=True)
+                page.locator(".flow-inspector .kv dd")
+                .filter(has_text="Coordinate order workflows.")
                 .is_visible()
             )
             path = page.locator(".flow-breadcrumb").text_content()
@@ -1802,13 +2095,21 @@ def test_target_diagram_opens_exact_module_leaf_as_module(tmp_path: Path) -> Non
             assert page.locator(".flow-breadcrumb").text_content() == path
             page.locator('.flow-views [data-flow-view="target"]').click()
             for component_id in route:
-                page.locator(f'.flow-nodes .node[data-target-node="{component_id}"]').click()
+                _open_target_node(page, f'.flow-nodes .node[data-target-node="{component_id}"]')
             card = page.locator(f'.flow-nodes .node[data-target-node="{leaf["id"]}"]')
             assert card.is_visible()
             assert card.locator(".target-kind").text_content() == "MODULE"
             card.click()
             inspector = page.locator(".flow-inspector")
-            assert inspector.get_by_text("shop/app/orders.py", exact=True).is_visible()
-            assert inspector.get_by_text("Coordinate order workflows.", exact=True).is_visible()
+            assert (
+                inspector.locator(".kv dd")
+                .get_by_text("shop/app/orders.py", exact=True)
+                .is_visible()
+            )
+            assert (
+                inspector.locator(".kv dd")
+                .get_by_text("Coordinate order workflows.", exact=True)
+                .is_visible()
+            )
         finally:
             browser.close()

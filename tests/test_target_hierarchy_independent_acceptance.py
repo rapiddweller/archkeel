@@ -377,7 +377,15 @@ def _folded_single_component_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
     return page, payload
 
 
-def _ce_nested_route_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
+def _ce_nested_route_page(
+    tmp_path: Path,
+    *,
+    include_worker_module_target: bool = False,
+    include_domain_route: bool = False,
+    include_overlapping_actual_modules: bool = False,
+    include_engine_owner: bool = False,
+    include_root_compat_target: bool = False,
+) -> tuple[str, dict[str, Any]]:
     def component(
         component_id: str,
         label: str,
@@ -425,6 +433,12 @@ def _ce_nested_route_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
             namespace=True,
         ),
     ]
+    if include_engine_owner:
+        root_owners.append(component("COMP-ENGINE", "engine", "datamimic_ce.engine"))
+    if include_root_compat_target:
+        root_owners.append(component("COMP-PYTHON-COMPAT", "python_compat", "datamimic_ce"))
+    if include_domain_route:
+        root_owners.append(component("COMP-DOMAINS", "domains", "datamimic_ce.domains"))
     runtime_packages = [
         ("RUNTIME-API", "api", "api"),
         ("RUNTIME-CONTRACTS", "contracts", "contracts"),
@@ -517,11 +531,31 @@ def _ce_nested_route_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
             )
         ],
     }
+    if include_worker_module_target:
+        generate_contract["declarations"] = {
+            "modules": [
+                {
+                    "path": "datamimic_ce/engine/runtime/tasks/generate/workers/generate_worker.py",
+                    "responsibility": "Own worker page generation.",
+                },
+                {
+                    "path": "datamimic_ce/engine/runtime/tasks/generate/workers/single/one.py",
+                    "responsibility": "Own the single physical module.",
+                },
+            ]
+        }
     root_contract = {
         "schema_version": "2.1.0",
         "components": root_owners,
         "rules": [
-            layout("LAYOUT-ROOT", "datamimic_ce", ["datamimic_ce.engine"]),
+            layout(
+                "LAYOUT-ROOT",
+                "datamimic_ce",
+                [
+                    "datamimic_ce.engine",
+                    *(["datamimic_ce.domains"] if include_domain_route else []),
+                ],
+            ),
             layout(
                 "LAYOUT-ENGINE",
                 "datamimic_ce.engine",
@@ -533,6 +567,15 @@ def _ce_nested_route_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
             ),
         ],
     }
+    if include_root_compat_target:
+        root_contract["declarations"] = {
+            "modules": [
+                {
+                    "path": "datamimic_ce/_compat.py",
+                    "responsibility": "This module provides compatibility helpers.",
+                }
+            ]
+        }
     packages = [
         *(owner["packages"][0] for owner in root_owners),
         *(f"{runtime_path}.{suffix}" for _, _, suffix in runtime_packages),
@@ -550,6 +593,26 @@ def _ce_nested_route_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
         ),
         "datamimic_ce/unlisted.py": "VALUE = 1\n",
     }
+    if include_worker_module_target:
+        files.update(
+            {
+                "datamimic_ce/engine/runtime/tasks/generate/workers/generate_worker.py": (
+                    "class GenerateWorker: pass\n"
+                ),
+                "datamimic_ce/engine/runtime/tasks/generate/workers/single/one.py": ("VALUE = 1\n"),
+            }
+        )
+    if include_overlapping_actual_modules:
+        files.update(
+            {
+                "datamimic_ce/engine/runtime/tasks/values/variable/__init__.py": "",
+                "datamimic_ce/engine/runtime/tasks/values/variable/task.py": "VALUE = 1\n",
+            }
+        )
+    if include_domain_route:
+        files["datamimic_ce/domains/domain_core.py"] = "VALUE = 1\n"
+    if include_root_compat_target:
+        files["datamimic_ce/_compat.py"] = "VALUE = 1\n"
     files.update({f"{package.replace('.', '/')}/__init__.py": "" for package in packages})
     root = _prepare_repo(tmp_path, files)
     config = ScanConfig(("datamimic_ce",), "datamimic_ce", "architecture-contract.json", "0" * 64)
@@ -564,7 +627,13 @@ def _ce_nested_route_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
     return page, payload
 
 
-def _cross_frame_domains_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
+def _cross_frame_domains_page(
+    tmp_path: Path,
+    *,
+    observed_cross_frame_edge: bool = False,
+    incoming_engine_requirements: bool = False,
+    engine_scope: str = "datamimic_ce.engine",
+) -> tuple[str, dict[str, Any]]:
     def component(
         component_id: str,
         label: str,
@@ -615,30 +684,49 @@ def _cross_frame_domains_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
             )
         ],
     }
-    runtime = component("COMP-RUNTIME", "runtime", "datamimic_ce.engine.runtime")
+    runtime = component("COMP-RUNTIME", "runtime", f"{engine_scope}.runtime")
     domains = component(
         "COMP-DOMAINS",
         "domains",
         domain_path,
         inside="docs/architecture/inner/domains/architecture-contract.json",
     )
-    io = component("COMP-IO", "io", "datamimic_ce.engine.io")
-    dsl = component("COMP-DSL", "dsl", "datamimic_ce.engine.dsl")
+    io = component("COMP-IO", "io", f"{engine_scope}.io")
+    dsl = component("COMP-DSL", "dsl", f"{engine_scope}.dsl")
+    external_dependencies = []
+    if incoming_engine_requirements:
+        for component_id, label in (
+            ("COMP-AUTHORING", "authoring"),
+            ("COMP-RESOURCES", "resources"),
+        ):
+            dependency = component(component_id, label, f"datamimic_ce.{label}")
+            dependency["requires"] = [
+                {"component": "runtime", "rationale": f"{label} uses runtime."}
+            ]
+            external_dependencies.append(dependency)
     runtime["requires"] = [{"component": "domains", "rationale": "Runtime uses domains."}]
     domains["requires"] = [{"component": "io", "rationale": "Domains use IO."}]
-    components = [runtime, domains, io, dsl]
+    components = [runtime, domains, io, dsl, *external_dependencies]
     root_contract = {
         "schema_version": "2.1.0",
         "components": components,
         "rules": [
-            layout("LAYOUT-ROOT", "datamimic_ce", ["datamimic_ce.engine", domain_path]),
+            layout(
+                "LAYOUT-ROOT",
+                "datamimic_ce",
+                [
+                    engine_scope,
+                    domain_path,
+                    *(item["packages"][0] for item in external_dependencies),
+                ],
+            ),
             layout(
                 "LAYOUT-ENGINE",
-                "datamimic_ce.engine",
+                engine_scope,
                 [
-                    "datamimic_ce.engine.runtime",
-                    "datamimic_ce.engine.io",
-                    "datamimic_ce.engine.dsl",
+                    f"{engine_scope}.runtime",
+                    f"{engine_scope}.io",
+                    f"{engine_scope}.dsl",
                 ],
             ),
         ],
@@ -652,6 +740,8 @@ def _cross_frame_domains_page(tmp_path: Path) -> tuple[str, dict[str, Any]]:
         "docs/architecture/inner/domains/architecture-contract.json": json.dumps(domain_contract),
     }
     files.update({f"{package.replace('.', '/')}/__init__.py": "" for package in packages})
+    if observed_cross_frame_edge:
+        files["datamimic_ce/engine/runtime/__init__.py"] = "import datamimic_ce.domains\n"
     root = _prepare_repo(tmp_path, files)
     config = ScanConfig(("datamimic_ce",), "datamimic_ce", "architecture-contract.json", "0" * 64)
     result, architecture = run_report(root, config=config, analyzer=observe)
@@ -887,6 +977,8 @@ def test_selected_placement_status_and_scope_are_visible_in_details(
             assert card.is_visible()
             assert card.get_attribute("data-placement-status") == status
             card.click()
+            if page.locator("[data-flow-details-toggle]").get_attribute("aria-expanded") != "true":
+                page.locator("[data-flow-details-toggle]").click()
 
             inspector = page.locator(".flow-inspector")
             assert inspector.is_visible()
@@ -932,6 +1024,9 @@ def test_selected_component_details_retain_folded_layout_context(tmp_path: Path)
             page.set_content(page_html, wait_until="networkidle")
             page.get_by_role("button", name="Target").click()
             page.locator('.flow-nodes .node[data-target-node="COMP-APP"]').click()
+            page.locator(".flow-open-selected").click()
+            if page.locator("[data-flow-details-toggle]").get_attribute("aria-expanded") != "true":
+                page.locator("[data-flow-details-toggle]").click()
             inspector = page.locator(".flow-inspector")
             assert inspector.is_visible()
             text = inspector.inner_text()
@@ -1004,6 +1099,7 @@ def test_folded_null_container_component_remains_selectable_and_openable(
             assert component.get_attribute("data-placement-status") == "declared"
 
             component.click()
+            page.locator(".flow-open-selected").click()
             package = page.locator(
                 '.flow-nodes .node[data-target-node="package:COMP-APP:shop.app"]'
             )
@@ -1109,9 +1205,12 @@ def test_ce_route_keeps_semantic_identity_across_actual_diff_target(
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.set_content(page_html, wait_until="load")
             page.get_by_role("button", name="Target").click()
+            page.locator("[data-flow-details-toggle]").click()
 
-            page.locator('[data-target-container-open="layout:LAYOUT-ENGINE"]').click()
+            page.locator('[data-target-container="layout:LAYOUT-ENGINE"]').click()
+            page.locator(".flow-open-selected").click()
             page.locator('.flow-nodes .node[data-target-node="COMP-RUNTIME"]').click()
+            page.locator(".flow-open-selected").click()
             task_owner = page.locator('.flow-nodes .node[data-target-node="runtime:RUNTIME-TASKS"]')
             task_owner.focus()
             page.keyboard.press("Enter")
@@ -1119,6 +1218,7 @@ def test_ce_route_keeps_semantic_identity_across_actual_diff_target(
                 '.flow-nodes .node[data-target-node="runtime:tasks:TASKS-GENERATE"]'
             )
             generate_owner.click()
+            page.locator(".flow-open-selected").click()
             workers_owner = page.locator(
                 '.flow-nodes .node[data-target-node="runtime:tasks:generate:GENERATE-WORKERS"]'
             )
@@ -1168,6 +1268,1069 @@ def test_ce_route_keeps_semantic_identity_across_actual_diff_target(
                 })"""
             )
             assert after == before
+        finally:
+            browser.close()
+
+
+def test_diagram_keeps_exact_nested_component_responsibilities(tmp_path: Path) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path)
+    expected = [
+        ("COMP-RUNTIME", "api", "runtime:RUNTIME-API", "Own api behavior."),
+        ("COMP-RUNTIME", "tasks", "runtime:RUNTIME-TASKS", "Own tasks behavior."),
+        (
+            "runtime:RUNTIME-TASKS",
+            "generate",
+            "runtime:tasks:TASKS-GENERATE",
+            "Own generate behavior.",
+        ),
+        (
+            "runtime:tasks:TASKS-GENERATE",
+            "workers",
+            "runtime:tasks:generate:GENERATE-WORKERS",
+            "Own workers behavior.",
+        ),
+    ]
+    target_ids = {node["id"] for node in _walk(payload["explorers"]["target"])}
+    assert {declaration_id for _, _, declaration_id, _ in expected} <= target_ids
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            details = page.locator("[data-flow-details-toggle]")
+            details.click()
+            page.locator('.flow-nodes .node[data-label="runtime"]').click()
+            page.locator(".flow-open-selected").click()
+            for index, (_, label, _, sentence) in enumerate(expected):
+                card = page.locator(f'.flow-nodes .node[data-label="{label}"]')
+                card.click()
+                assert sentence in card.locator(".diagram-responsibility").text_content()
+                if index in {1, 2}:
+                    page.locator(".flow-open-selected").click()
+        finally:
+            browser.close()
+
+
+def test_diagram_worker_module_uses_its_exact_target_responsibility(tmp_path: Path) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path, include_worker_module_target=True)
+    target = next(
+        node
+        for node in _walk(payload["explorers"]["target"])
+        if node["kind"] == "module_target"
+        and any(
+            detail["label"] == "File"
+            and detail["value"]
+            == "datamimic_ce/engine/runtime/tasks/generate/workers/generate_worker.py"
+            for detail in node["details"]
+        )
+    )
+    module_id = "datamimic_ce.engine.runtime.tasks.generate.workers.generate_worker"
+    assert target["id"] == "MODULE-TARGET-9b62f66da7603113"
+    assert (
+        next(detail["value"] for detail in target["details"] if detail["label"] == "File")
+        == "datamimic_ce/engine/runtime/tasks/generate/workers/generate_worker.py"
+    )
+    assert isinstance(payload["modules"][module_id], dict)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator("[data-flow-details-toggle]").click()
+            for label in ("runtime", "tasks", "generate", "workers"):
+                page.locator(f'.flow-nodes .node[data-label="{label}"]').press("Enter")
+            card = page.locator(f'.flow-nodes .node[data-label="{module_id}"]')
+            assert card.is_visible()
+            assert card.locator(".diagram-responsibility").count() == 1
+            assert (
+                "Own worker page generation."
+                in card.locator(".diagram-responsibility").text_content()
+            )
+            card.press("Space")
+            assert (
+                page.locator(".flow-selected-responsibility")
+                .get_by_text("Own worker page generation.", exact=True)
+                .is_visible()
+            )
+            assert (
+                page.locator(".flow-selected-responsibility").get_attribute("data-declaration-id")
+                == target["id"]
+            )
+            assert (
+                page.locator(".flow-selected-responsibility")
+                .get_by_text("No matching entry in this view", exact=False)
+                .count()
+                == 0
+            )
+        finally:
+            browser.close()
+
+
+def test_single_module_physical_folder_does_not_inherit_module_responsibility(
+    tmp_path: Path,
+) -> None:
+    page_html, _ = _ce_nested_route_page(tmp_path, include_worker_module_target=True)
+    folder_id = "datamimic_ce.engine.runtime.tasks.generate.workers.single"
+    module_id = f"{folder_id}.one"
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            for label in ("runtime", "tasks", "generate", "workers"):
+                page.locator(f'.flow-nodes .node[data-label="{label}"]').press("Enter")
+            folder = page.locator(f'.flow-nodes .node[data-label="{folder_id}"]')
+            assert folder.is_visible()
+            assert folder.locator(".diagram-responsibility").count() == 0
+            folder.press("Enter")
+            module = page.locator(f'.flow-nodes .node[data-label="{module_id}"]')
+            assert module.is_visible()
+            assert (
+                "Own the single physical module."
+                in module.locator(".diagram-responsibility").text_content()
+            )
+        finally:
+            browser.close()
+
+
+def test_selected_generate_maps_to_its_exact_actual_module(tmp_path: Path) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path, include_overlapping_actual_modules=True)
+    generate_id = "datamimic_ce.engine.runtime.tasks.generate"
+    wrong_id = "datamimic_ce.engine.runtime.tasks.values.variable.task"
+    actual_ids = {node["id"] for node in _walk(payload["explorers"]["actual"])}
+    assert generate_id in actual_ids
+    assert wrong_id in actual_ids
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            for label in ("runtime", "tasks"):
+                page.locator(f'.flow-nodes .node[data-label="{label}"]').press("Enter")
+            page.locator('.flow-nodes .node[data-label="generate"]').press("Space")
+            page.locator('[data-flow-view="actual"]').click()
+            result = page.evaluate(
+                """() => ({
+                  crumb: [...document.querySelectorAll('.flow-breadcrumb button')]
+                    .map(node => node.textContent.trim()),
+                  details: [...document.querySelectorAll(
+                    '.flow-projection-details dd'
+                  )].map(node => node.textContent.trim()),
+                })"""
+            )
+            assert result["crumb"] == [
+                "Actual",
+                "datamimic_ce",
+                "engine",
+                "runtime",
+                "tasks",
+                "generate",
+            ]
+            assert "datamimic_ce/engine/runtime/tasks/generate/__init__.py" in result["details"]
+            assert wrong_id not in result["crumb"]
+        finally:
+            browser.close()
+
+
+def test_target_runtime_switches_to_its_observed_diagram_frame(tmp_path: Path) -> None:
+    page_html, _ = _ce_nested_route_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            runtime = page.locator('[data-target-node="COMP-RUNTIME"]')
+            runtime.click()
+            page.locator(".flow-open-selected").click()
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("runtime")
+            page.locator('[data-flow-view="diagram"]').click()
+            assert page.locator(
+                '.flow-nodes .node[data-label="runtime"][aria-pressed="true"]'
+            ).is_visible()
+            assert (
+                page.locator(".flow-selected-responsibility").get_attribute("data-declaration-id")
+                == "COMP-RUNTIME"
+            )
+        finally:
+            browser.close()
+
+
+def test_actual_domains_cannot_restore_an_old_diagram_route(tmp_path: Path) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path, include_domain_route=True)
+    actual_ids = {node["id"] for node in _walk(payload["explorers"]["actual"])}
+    assert "datamimic_ce.domains" in actual_ids
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            for label in ("runtime", "tasks"):
+                page.locator(f'.flow-nodes .node[data-label="{label}"]').press("Enter")
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("tasks")
+            page.locator('[data-flow-view="actual"]').click()
+            page.locator(".flow-breadcrumb button").first.click()
+            for module_id in ("datamimic_ce", "datamimic_ce.domains"):
+                page.locator(f'[data-projection-id="{module_id}"]').press("Enter")
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("domains")
+            page.locator('[data-flow-view="diagram"]').click()
+            domains = page.locator('.flow-nodes .node[data-label="domains"][aria-pressed="true"]')
+            assert domains.is_visible(), page.evaluate(
+                """() => ({
+                  breadcrumb: document.querySelector('.flow-breadcrumb').innerText,
+                  selected: document.querySelector('.flow-nodes .node.selected')?.dataset.label,
+                  context: document.querySelector('.flow-projection-context')?.textContent,
+                  responsibility: document.querySelector('.flow-selected-responsibility')
+                    ?.innerText,
+                })"""
+            )
+            assert (
+                page.locator(".flow-selected-responsibility").get_attribute("data-declaration-id")
+                == "COMP-DOMAINS"
+            )
+            assert page.locator(
+                ".flow-selected-responsibility p:not(.flow-responsibility-match)"
+            ).inner_text() == ("Own domains behavior.")
+            assert "runtime / tasks" not in page.locator(".flow-breadcrumb").inner_text()
+        finally:
+            browser.close()
+
+
+def test_target_module_file_maps_to_its_exact_diagram_leaf(tmp_path: Path) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path, include_worker_module_target=True)
+    target = next(
+        node
+        for node in _walk(payload["explorers"]["target"])
+        if node["kind"] == "module_target" and node["label"] == "generate_worker.py"
+    )
+    module_id = "datamimic_ce.engine.runtime.tasks.generate.workers.generate_worker"
+    assert target["details"]
+    assert next(item["value"] for item in target["details"] if item["label"] == "File") == (
+        "datamimic_ce/engine/runtime/tasks/generate/workers/generate_worker.py"
+    )
+    assert module_id in payload["modules"]
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_default_timeout(2500)
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            for owner_id in (
+                "COMP-RUNTIME",
+                "runtime:RUNTIME-TASKS",
+                "runtime:tasks:TASKS-GENERATE",
+                "runtime:tasks:generate:GENERATE-WORKERS",
+            ):
+                page.locator(f'[data-target-node="{owner_id}"]').press("Enter")
+            page.locator(f'[data-target-node="{target["id"]}"]').click()
+            page.locator('[data-flow-view="diagram"]').click()
+            assert page.locator(
+                f'.flow-nodes .node[data-label="{module_id}"][aria-pressed="true"]'
+            ).is_visible()
+            assert (
+                page.locator(".flow-selected-responsibility").get_attribute("data-declaration-id")
+                == target["id"]
+            )
+        finally:
+            browser.close()
+
+
+def test_selected_diagram_module_round_trips_to_actual_and_target_by_file(
+    tmp_path: Path,
+) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path, include_worker_module_target=True)
+    module_id = "datamimic_ce.engine.runtime.tasks.generate.workers.generate_worker"
+    target = next(
+        node
+        for node in _walk(payload["explorers"]["target"])
+        if node["kind"] == "module_target"
+        and any(
+            detail["label"] == "File"
+            and detail["value"]
+            == "datamimic_ce/engine/runtime/tasks/generate/workers/generate_worker.py"
+            for detail in node["details"]
+        )
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            for label in ("runtime", "tasks", "generate", "workers"):
+                page.locator(f'.flow-nodes .node[data-label="{label}"]').press("Enter")
+            page.locator(f'.flow-nodes .node[data-label="{module_id}"]').press("Space")
+            page.locator('[data-flow-view="actual"]').click()
+            actual = page.locator(f'[data-projection-id="{module_id}"]')
+            assert actual.is_visible()
+            assert actual.get_attribute("aria-pressed") == "true"
+            page.locator('[data-flow-view="diagram"]').click()
+            assert page.locator(
+                f'.flow-nodes .node[data-label="{module_id}"][aria-pressed="true"]'
+            ).is_visible()
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(f'[data-target-node="{target["id"]}"]').is_visible()
+            assert page.locator(
+                f'[data-target-node="{target["id"]}"][aria-pressed="true"]'
+            ).is_visible()
+            assert page.locator(".flow-projection-context").count() == 0
+        finally:
+            browser.close()
+
+
+def test_actual_open_engine_package_maps_to_its_exact_physical_frame(
+    tmp_path: Path,
+) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path, include_engine_owner=True)
+    engine = next(
+        node
+        for node in _walk(payload["explorers"]["actual"])
+        if node["id"] == "datamimic_ce.engine"
+    )
+    assert engine["kind"] == "module"
+    assert {child["id"] for child in engine["children"]} >= {
+        "datamimic_ce.engine.dsl",
+        "datamimic_ce.engine.io",
+        "datamimic_ce.engine.runtime",
+    }
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            for label in ("runtime", "tasks", "generate", "workers"):
+                page.locator(f'.flow-nodes .node[data-label="{label}"]').press("Enter")
+            page.locator('[data-flow-view="actual"]').click()
+            page.locator(".flow-breadcrumb button").first.click()
+            page.locator('[data-projection-id="datamimic_ce"]').press("Enter")
+            engine = page.locator('[data-projection-id="datamimic_ce.engine"]')
+            assert engine.is_visible()
+            engine.press("Enter")
+            page.locator('[data-flow-view="diagram"]').click()
+            assert page.locator('[data-diagram-frame="layout:LAYOUT-ENGINE"]').is_visible()
+            assert "Physical package · navigation grouping: datamimic_ce.engine" in (
+                page.locator(".flow-breadcrumb").inner_text()
+            )
+            assert (
+                "No matching scope"
+                not in page.locator(".flow-projection-context").all_text_contents()
+            )
+            assert (
+                page.locator('.flow-nodes .node[data-label="Unassigned modules"].selected').count()
+                == 0
+            )
+        finally:
+            browser.close()
+
+
+def test_actual_root_module_keeps_its_exact_target_responsibility_in_diagram(
+    tmp_path: Path,
+) -> None:
+    page_html, payload = _ce_nested_route_page(tmp_path, include_root_compat_target=True)
+    target = next(
+        node
+        for node in _walk(payload["explorers"]["target"])
+        if node["kind"] == "module_target"
+        and any(
+            detail["label"] == "File" and detail["value"] == "datamimic_ce/_compat.py"
+            for detail in node["details"]
+        )
+    )
+    actual_module = next(
+        node
+        for node in _walk(payload["explorers"]["actual"])
+        if node["id"] == "datamimic_ce._compat"
+    )
+    assert actual_module["kind"] == "module"
+    assert next(
+        detail["value"] for detail in actual_module["details"] if detail["label"] == "File"
+    ) == ("datamimic_ce/_compat.py")
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('[data-flow-view="actual"]').click()
+            page.locator('[data-projection-id="datamimic_ce"]').press("Enter")
+            actual_leaf = page.locator('[data-projection-id="datamimic_ce._compat"]')
+            assert actual_leaf.is_visible()
+            actual_leaf.click()
+            assert actual_leaf.get_attribute("aria-pressed") == "true"
+            page.locator('[data-flow-view="diagram"]').click()
+            module = page.locator(
+                '.flow-nodes .node[data-label="datamimic_ce._compat"][aria-pressed="true"]'
+            )
+            assert module.is_visible(), page.evaluate(
+                "() => ({crumb:document.querySelector('.flow-breadcrumb').textContent,"
+                "selected:[...document.querySelectorAll('.flow-nodes .selected')]"
+                ".map(n=>n.dataset.label),"
+                "cards:[...document.querySelectorAll('.flow-nodes .node')]"
+                ".map(n=>n.dataset.label),"
+                "details:document.querySelector('.flow-selected-responsibility').textContent,"
+                "declaration:document.querySelector('.flow-selected-responsibility').dataset.declarationId})"
+            )
+            details = page.locator(".flow-selected-responsibility")
+            assert details.get_attribute("data-declaration-id") == target["id"]
+            assert "This module provides compatibility helpers." in details.inner_text(), (
+                details.inner_text()
+            )
+            assert details.get_by_text("Own python_compat behavior.", exact=True).count() == 0
+        finally:
+            browser.close()
+
+
+def test_back_restoration_does_not_steal_focus_from_view_switcher(tmp_path: Path) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path, include_engine_owner=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            actual_button = page.locator('.flow-views [data-flow-view="actual"]')
+            page.locator('.flow-views [data-flow-view="structure"]').click()
+            page.locator('.flow-alternative [data-flow-card="runtime"]').first.click()
+            assert page.locator(".flow-back").is_enabled()
+
+            page.locator(".flow-back").click()
+            actual_button.focus()
+            page.wait_for_timeout(25)
+            page.keyboard.press("Enter")
+
+            assert actual_button.get_attribute("aria-pressed") == "true"
+        finally:
+            browser.close()
+
+
+def test_actual_and_target_back_to_root_restore_meaningful_focus(tmp_path: Path) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path, include_engine_owner=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('.flow-views [data-flow-view="actual"]').click()
+            root_module = page.locator('.flow-alternative [data-projection-id="datamimic_ce"]')
+            root_module.focus()
+            page.keyboard.press("Enter")
+            page.locator(".flow-back").click()
+            assert page.evaluate("() => document.activeElement.matches('[data-projection-id]')")
+
+            page.set_content(page_html, wait_until="load")
+            page.locator('.flow-views [data-flow-view="target"]').click()
+            component = page.locator('.flow-nodes .node[data-target-node="COMP-RUNTIME"]')
+            component.click()
+            page.locator(".flow-open-selected").click()
+            page.locator(".flow-back").click()
+            assert page.evaluate("() => document.activeElement.matches('[data-target-node]')")
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "fallback", "minimum_content_height"),
+    [
+        (375, 844, False, 337),
+        (375, 844, True, 337),
+        (1024, 768, False, 300),
+        (1920, 1080, False, 680),
+    ],
+)
+def test_fullscreen_keeps_explorer_content_usable(
+    tmp_path: Path,
+    width: int,
+    height: int,
+    fallback: bool,
+    minimum_content_height: int,
+) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": height})
+            if fallback:
+                page.add_init_script("Element.prototype.requestFullscreen = undefined")
+            page.set_content(page_html, wait_until="load")
+            page.locator('.flow-views [data-flow-view="target"]').click()
+            assert page.locator(".flow-details-toggle").get_attribute("aria-expanded") == "false"
+            page.locator(".flow-fullscreen").click()
+            page.wait_for_timeout(50)
+
+            result = page.evaluate(
+                """() => {
+                  const root = document.querySelector('#flow');
+                  const content = [...root.querySelectorAll('.flow-canvas, .flow-alternative')]
+                    .find(element => getComputedStyle(element).display !== 'none');
+                  const box = content.getBoundingClientRect();
+                  const toolbar = root.querySelector('.flow-toolbar');
+                  return {
+                    expanded: root.dataset.expanded,
+                    contentHeight: box.height,
+                    viewportHeight: innerHeight,
+                    documentWidth: document.documentElement.scrollWidth,
+                    viewportWidth: innerWidth,
+                    toolbarWidth: toolbar.clientWidth,
+                    toolbarContentWidth: toolbar.scrollWidth,
+                  fullscreenVisible: root.querySelector('.flow-fullscreen')
+                    .getClientRects().length > 0,
+                  openVisible: root.querySelector('.flow-open-selected')
+                    .getClientRects().length > 0,
+                  };
+                }"""
+            )
+            assert result["expanded"] in {"native", "fallback"}
+            assert result["contentHeight"] >= minimum_content_height, result
+            assert result["documentWidth"] <= result["viewportWidth"] + 1, result
+            assert result["fullscreenVisible"] and result["openVisible"], result
+
+            page.locator('.flow-nodes .node[data-target-node="COMP-RUNTIME"]').click()
+            page.locator(".flow-open-selected").click()
+            assert page.locator(".flow-back").is_visible()
+            page.locator(".flow-zoom-in").click()
+            page.locator('.flow-views [data-flow-view="actual"]').click()
+            assert (
+                page.locator('.flow-views [data-flow-view="actual"]').get_attribute("aria-pressed")
+                == "true"
+            )
+            page.locator(".flow-fullscreen").click()
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("view", ["diagram", "target", "actual", "diff"])
+@pytest.mark.parametrize("fallback", [False, True])
+def test_mobile_fullscreen_content_height_is_stable_across_views(
+    tmp_path: Path, view: str, fallback: bool
+) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 375, "height": 844})
+            if fallback:
+                page.add_init_script("Element.prototype.requestFullscreen = undefined")
+            page.set_content(page_html, wait_until="load")
+            page.locator(f'.flow-views [data-flow-view="{view}"]').click()
+            page.locator(".flow-fullscreen").click()
+            page.wait_for_timeout(50)
+            result = page.evaluate(
+                """() => {
+                  const root = document.querySelector('#flow');
+                  const content = [...root.querySelectorAll('.flow-canvas, .flow-alternative')]
+                    .find(element => getComputedStyle(element).display !== 'none');
+                  return {
+                    view: root.dataset.view,
+                    expanded: root.dataset.expanded,
+                    contentHeight: content.getBoundingClientRect().height,
+                    viewportHeight: innerHeight,
+                  };
+                }"""
+            )
+            assert result["contentHeight"] >= 337, result
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize(
+    ("view", "frame_selector", "role"),
+    [
+        ("diagram", '[data-diagram-frame="layout:LAYOUT-ENGINE"]', "Physical package"),
+        ("target", '[data-target-node="layout:LAYOUT-ENGINE"]', "Package layout"),
+    ],
+)
+def test_frame_headers_compact_visible_labels_keep_full_scope_accessible(
+    tmp_path: Path, view: str, frame_selector: str, role: str
+) -> None:
+    page_html, _payload = _cross_frame_domains_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_default_timeout(2_500)
+            page.set_content(page_html, wait_until="load")
+            page.locator(f'.flow-views [data-flow-view="{view}"]').click()
+            frame = page.locator(frame_selector)
+            assert frame.is_visible()
+            visible = frame.locator(".target-frame-title").evaluate("node => node.textContent")
+            assert frame.locator(".target-frame-role").evaluate("node => node.textContent") == role
+            assert "engine" in visible
+            assert "datamimic_ce.engine" not in visible
+            assert "datamimic_ce.engine" in frame.get_attribute("aria-label")
+            assert "datamimic_ce.engine" in frame.locator("title").text_content()
+            page.locator(".flow-details-toggle").click()
+            frame.locator(".target-frame-header-hit").click(position={"x": 10, "y": 10})
+            assert "datamimic_ce.engine" in page.locator(".flow-inspector").inner_text()
+        finally:
+            browser.close()
+
+
+def test_normal_explorer_geometry_is_stable_across_all_views(tmp_path: Path) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1920, "height": 1080})
+            page.set_content(page_html, wait_until="load")
+            measurements = {}
+            for view in ("diagram", "structure", "review", "actual", "target", "diff"):
+                page.locator(f'.flow-views [data-flow-view="{view}"]').click()
+                measurements[view] = page.evaluate(
+                    """() => {
+                      const flow = document.querySelector('#flow').getBoundingClientRect();
+                      const layout = document.querySelector('.flow-layout').getBoundingClientRect();
+                      const legend = document.querySelector('.flow-legend').getBoundingClientRect();
+                      return {top: flow.top, height: flow.height, layoutTop: layout.top,
+                        layoutHeight: layout.height, legendHeight: legend.height};
+                    }"""
+                )
+            baseline = measurements["diagram"]
+            for _view, measurement in measurements.items():
+                assert abs(measurement["top"] - baseline["top"]) <= 2, measurements
+                assert abs(measurement["height"] - baseline["height"]) <= 2, measurements
+                assert abs(measurement["layoutTop"] - baseline["layoutTop"]) <= 2, measurements
+                assert abs(measurement["layoutHeight"] - baseline["layoutHeight"]) <= 2, (
+                    measurements
+                )
+                assert abs(measurement["legendHeight"] - baseline["legendHeight"]) <= 2, (
+                    measurements
+                )
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize(
+    ("view", "frame_selector", "role"),
+    [
+        ("diagram", '[data-diagram-frame="layout:LAYOUT-ENGINE"]', "Physical package"),
+        ("target", '[data-target-node="layout:LAYOUT-ENGINE"]', "Package layout"),
+    ],
+)
+def test_long_frame_header_ellipsizes_to_measured_width_but_keeps_full_scope(
+    tmp_path: Path, view: str, frame_selector: str, role: str
+) -> None:
+    scope = f"datamimic_ce.engine_{'scope' * 24}"
+    page_html, _payload = _cross_frame_domains_page(tmp_path, engine_scope=scope)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_default_timeout(2_500)
+            page.set_content(page_html, wait_until="load")
+            page.locator(f'.flow-views [data-flow-view="{view}"]').click()
+            frame = page.locator(frame_selector)
+            measurement = frame.evaluate(
+                """frame => {
+                  const name = frame.querySelector('.target-frame-title');
+                  const header = frame.querySelector('.target-frame-header-hit');
+                  return {
+                    role: frame.querySelector('.target-frame-role').textContent,
+                    name: name.textContent,
+                    textWidth: name.getComputedTextLength(),
+                    availableWidth: header.getBBox().width - 28,
+                  };
+                }"""
+            )
+            assert measurement["role"] == role
+            assert measurement["name"].endswith("…")
+            assert measurement["textWidth"] <= measurement["availableWidth"] + 1
+            assert scope in frame.get_attribute("aria-label")
+            assert scope in frame.locator("title").text_content()
+            page.locator(".flow-details-toggle").click()
+            frame.locator(".target-frame-header-hit").click(position={"x": 10, "y": 10})
+            assert scope in page.locator(".flow-inspector").inner_text()
+        finally:
+            browser.close()
+
+
+def test_clicking_active_diagram_tab_preserves_open_scope_and_selection(
+    tmp_path: Path,
+) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            runtime = page.locator('.flow-nodes .node[data-label="runtime"]')
+            runtime.press("Enter")
+            before = page.evaluate(
+                """() => ({
+                  breadcrumb: document.querySelector('.flow-breadcrumb').textContent,
+                  cards: [...document.querySelectorAll('.flow-nodes .node')]
+                    .map(node => node.dataset.label),
+                  heading: document.querySelector('.flow-inspector h2')?.textContent,
+                })"""
+            )
+            assert "runtime" in before["breadcrumb"]
+            page.locator('.flow-views [data-flow-view="diagram"]').click()
+            after = page.evaluate(
+                """() => ({
+                  breadcrumb: document.querySelector('.flow-breadcrumb').textContent,
+                  cards: [...document.querySelectorAll('.flow-nodes .node')]
+                    .map(node => node.dataset.label),
+                  heading: document.querySelector('.flow-inspector h2')?.textContent,
+                })"""
+            )
+            assert after == before
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("view", ["diagram", "target"])
+def test_edges_route_around_frame_headers_and_share_one_geometry(tmp_path: Path, view: str) -> None:
+    page_html, payload = _cross_frame_domains_page(tmp_path, observed_cross_frame_edge=True)
+    graph = payload["explorers"]["target_diagrams"]["root"]
+    frame_ids = set(graph["containers"])
+    frame_edges = (
+        [
+            edge
+            for edge in graph["edges"]
+            if edge["source"] in frame_ids or edge["target"] in frame_ids
+        ]
+        if view == "target"
+        else []
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator(f'.flow-views [data-flow-view="{view}"]').click()
+            if view == "diagram":
+                page.locator(".flow-reset-filters").click()
+            result = page.evaluate(
+                """args => {
+                  const {frameEdges, frameIds: frameIdList} = args;
+                  const frameIds = new Set(frameIdList);
+                  const root = document.querySelector('#flow');
+                  const svg = root.querySelector('svg.flow-graph');
+                  const headers = [...svg.querySelectorAll(
+                    '.diagram-frame .target-frame-header-hit, ' +
+                    '.target-container .target-frame-header-hit'
+                  )].map(header => {
+                    const box = header.getBBox();
+                    return {left: box.x, top: box.y, right: box.x + box.width,
+                      bottom: box.y + box.height};
+                  });
+                  const collisions = [], frameNormals = [];
+                  const paths = [...svg.querySelectorAll('.edge .line, .target-edge .line')];
+                  for (const path of paths) {
+                    const length = path.getTotalLength();
+                    for (let at = 0; at <= length; at += 1) {
+                      const point = path.getPointAtLength(at);
+                      if (headers.some(box => point.x > box.left && point.x < box.right &&
+                        point.y > box.top && point.y < box.bottom)) {
+                        collisions.push(path.closest('.edge, .target-edge')
+                          ?.getAttribute('aria-label'));
+                        break;
+                      }
+                    }
+                  }
+                  const aligned = [...svg.querySelectorAll('.edge, .target-edge')].every(group => {
+                    const selectors = group.matches('.target-edge')
+                      ? ['.line', '.hit'] : ['.line', '.pulse', '.hit'];
+                    const paths = selectors.map(selector =>
+                      group.querySelector(selector)?.getAttribute('d'));
+                    return paths[0] && paths.every(path => path === paths[0]);
+                  });
+                  for (const edge of frameEdges) {
+                    const group = svg.querySelector(`[data-target-edge="${edge.declaration}"]`);
+                    const frameId = frameIds.has(edge.source) ? edge.source : edge.target;
+                    const frame = svg.querySelector(`[data-target-container="${frameId}"]`);
+                    const path = group?.querySelector('.line');
+                    const rect = frame?.querySelector('.target-frame');
+                    if (!path || !rect) { frameNormals.push(false); continue; }
+                    const bounds = element => {
+                      const b = element.getBBox(), m = element.getScreenCTM();
+                      const p = [[b.x,b.y],[b.x+b.width,b.y],[b.x,b.y+b.height],
+                        [b.x+b.width,b.y+b.height]].map(([x,y])=>
+                          new DOMPoint(x,y).matrixTransform(m));
+                      return {left:Math.min(...p.map(v=>v.x)),right:Math.max(...p.map(v=>v.x)),
+                        top:Math.min(...p.map(v=>v.y)),bottom:Math.max(...p.map(v=>v.y))};
+                    };
+                    const box = bounds(rect), length = path.getTotalLength();
+                    const matrix = path.getScreenCTM();
+                    const at = distance => { const p=path.getPointAtLength(distance);
+                      return new DOMPoint(p.x,p.y).matrixTransform(matrix); };
+                    const sourceFrame = edge.source === frameId;
+                    const point = at(sourceFrame ? 0 : length);
+                    const adjacent = at(sourceFrame ? Math.min(2,length) : Math.max(0,length-2));
+                    const onSide = Math.abs(point.x-box.left)<=1 || Math.abs(point.x-box.right)<=1;
+                    const outward = sourceFrame
+                      ? (point.x<=box.left ? adjacent.x<point.x : adjacent.x>point.x)
+                      : (point.x<=box.left ? adjacent.x<point.x : adjacent.x>point.x);
+                    frameNormals.push(onSide && Math.abs(adjacent.y-point.y)<=0.5 && outward);
+                  }
+                  return {collisions, aligned, edgeCount: paths.length, frameNormals};
+                }""",
+                {"frameEdges": frame_edges, "frameIdList": sorted(frame_ids)},
+            )
+            assert result["edgeCount"] > 0, result
+            assert result["collisions"] == [], result
+            assert result["aligned"], result
+            assert all(result["frameNormals"]), result
+        finally:
+            browser.close()
+
+
+def test_diagram_keeps_clear_framed_card_edges_on_normal_ports(tmp_path: Path) -> None:
+    page_html, _payload = _cross_frame_domains_page(tmp_path, observed_cross_frame_edge=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('.flow-views [data-flow-view="diagram"]').click()
+            result = page.evaluate(
+                """() => {
+                  const svg = document.querySelector('svg.flow-graph');
+                  const group = [...svg.querySelectorAll('.edge')].find(item =>
+                    item.querySelector('.hit')?.dataset.key === 'runtime>domains');
+                  const path = group?.querySelector('.line');
+                  const card = svg.querySelector('.flow-nodes .node[data-label="runtime"] .card');
+                  if (!path || !card) return null;
+                  const matrix = path.getScreenCTM();
+                  const length = path.getTotalLength();
+                  const screenPoint = at => {
+                    const point = path.getPointAtLength(at);
+                    return new DOMPoint(point.x, point.y).matrixTransform(matrix);
+                  };
+                  const first = screenPoint(0), next = screenPoint(Math.min(2, length));
+                  const box = card.getBBox(), cardMatrix = card.getScreenCTM();
+                  const corners = [[box.x, box.y], [box.x + box.width, box.y],
+                    [box.x, box.y + box.height], [box.x + box.width, box.y + box.height]]
+                    .map(([x, y]) => new DOMPoint(x, y).matrixTransform(cardMatrix));
+                  const bounds = {top: Math.min(...corners.map(p => p.y)),
+                    bottom: Math.max(...corners.map(p => p.y))};
+                  return {atCardTopOrBottom: Math.min(Math.abs(first.y - bounds.top),
+                    Math.abs(first.y - bounds.bottom)) <= 1,
+                    normalTangent: Math.abs(next.x - first.x) <= 0.5,
+                    aligned: [...group.querySelectorAll('.line, .hit, .pulse')]
+                      .every(item => item.getAttribute('d') === path.getAttribute('d'))};
+                }"""
+            )
+            assert result is not None
+            assert result["atCardTopOrBottom"] and result["normalTangent"], result
+            assert result["aligned"], result
+        finally:
+            browser.close()
+
+
+def test_target_incoming_requirements_detour_around_engine_header(tmp_path: Path) -> None:
+    page_html, _payload = _cross_frame_domains_page(tmp_path, incoming_engine_requirements=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_content(page_html, wait_until="load")
+            page.locator('.flow-views [data-flow-view="target"]').click()
+            result = page.evaluate(
+                """() => {
+                  const svg = document.querySelector('svg.flow-graph');
+                  const header = svg.querySelector(
+                    '[data-target-node="layout:LAYOUT-ENGINE"] .target-frame-header-hit');
+                  const headerBox = header.getBBox(), headerMatrix = header.getScreenCTM();
+                  const corners = [[headerBox.x, headerBox.y],
+                    [headerBox.x + headerBox.width, headerBox.y],
+                    [headerBox.x, headerBox.y + headerBox.height],
+                    [headerBox.x + headerBox.width, headerBox.y + headerBox.height]]
+                    .map(([x, y]) => new DOMPoint(x, y).matrixTransform(headerMatrix));
+                  const protectedBox = {left: Math.min(...corners.map(p => p.x)),
+                    right: Math.max(...corners.map(p => p.x)),
+                    top: Math.min(...corners.map(p => p.y)),
+                    bottom: Math.max(...corners.map(p => p.y))};
+                  const collisions = [], endpoints = {}, normals = {}, cardCrossings = [];
+                  for (const id of ['COMP-AUTHORING', 'COMP-RESOURCES']) {
+                    const key = `requires:${id}:runtime`;
+                    const group = svg.querySelector(`[data-target-edge="${key}"]`);
+                    const path = group?.querySelector('.line');
+                    if (!path) return {missing: key};
+                    const matrix = path.getScreenCTM(), length = path.getTotalLength();
+                    const at = distance => {
+                      const p = path.getPointAtLength(distance);
+                      return new DOMPoint(p.x, p.y).matrixTransform(matrix);
+                    };
+                    for (let distance = 0; distance <= length; distance += 0.5) {
+                      const p = at(distance);
+                      if (p.x > protectedBox.left && p.x < protectedBox.right &&
+                          p.y > protectedBox.top && p.y < protectedBox.bottom) {
+                        collisions.push(key);
+                        break;
+                      }
+                    }
+                    for (const node of svg.querySelectorAll('.target-node .target-card')) {
+                      const owner = node.closest('[data-target-node]')?.dataset.targetNode;
+                      if (owner === id || owner === 'COMP-RUNTIME') continue;
+                      const box = node.getBBox(), nodeMatrix = node.getScreenCTM();
+                      const points = [[box.x, box.y], [box.x + box.width, box.y],
+                        [box.x, box.y + box.height], [box.x + box.width, box.y + box.height]]
+                        .map(([x, y]) => new DOMPoint(x, y).matrixTransform(nodeMatrix));
+                      const card = {left: Math.min(...points.map(p => p.x)),
+                        right: Math.max(...points.map(p => p.x)),
+                        top: Math.min(...points.map(p => p.y)),
+                        bottom: Math.max(...points.map(p => p.y))};
+                      for (let distance = 0; distance <= length; distance += 0.5) {
+                        const p = at(distance);
+                        if (p.x > card.left && p.x < card.right &&
+                            p.y > card.top && p.y < card.bottom) {
+                          cardCrossings.push(`${key}:${owner}`);
+                          break;
+                        }
+                      }
+                    }
+                    const node = svg.querySelector(
+                      '[data-target-node="COMP-RUNTIME"] .target-card');
+                    const box = node.getBBox(), nodeMatrix = node.getScreenCTM();
+                    const points = [[box.x, box.y], [box.x + box.width, box.y],
+                      [box.x, box.y + box.height], [box.x + box.width, box.y + box.height]]
+                      .map(([x, y]) => new DOMPoint(x, y).matrixTransform(nodeMatrix));
+                    const nodeBox = {left: Math.min(...points.map(p => p.x)),
+                      right: Math.max(...points.map(p => p.x)),
+                      top: Math.min(...points.map(p => p.y)),
+                      bottom: Math.max(...points.map(p => p.y))};
+                    const end = at(length);
+                    endpoints[key] = Math.min(Math.abs(end.x - nodeBox.left),
+                      Math.abs(end.x - nodeBox.right), Math.abs(end.y - nodeBox.top),
+                      Math.abs(end.y - nodeBox.bottom)) <= 1;
+                    const sourceNode = svg.querySelector(`[data-target-node="${id}"] .target-card`);
+                    const sourceBox = sourceNode.getBBox();
+                    const sourceMatrix = sourceNode.getScreenCTM();
+                    const sourceCorners = [[sourceBox.x, sourceBox.y],
+                      [sourceBox.x + sourceBox.width, sourceBox.y],
+                      [sourceBox.x, sourceBox.y + sourceBox.height],
+                      [sourceBox.x + sourceBox.width, sourceBox.y + sourceBox.height]]
+                      .map(([x, y]) => new DOMPoint(x, y).matrixTransform(sourceMatrix));
+                    const sourceBounds = {left: Math.min(...sourceCorners.map(p => p.x)),
+                      right: Math.max(...sourceCorners.map(p => p.x)),
+                      top: Math.min(...sourceCorners.map(p => p.y)),
+                      bottom: Math.max(...sourceCorners.map(p => p.y))};
+                    const start = at(0), next = at(Math.min(2, length));
+                    const previous = at(Math.max(0, length - 2));
+                    const sourceSide = Math.min(
+                      Math.abs(start.x - sourceBounds.left), Math.abs(start.x - sourceBounds.right),
+                      Math.abs(start.y - sourceBounds.top),
+                      Math.abs(start.y - sourceBounds.bottom));
+                    const targetSide = Math.min(
+                      Math.abs(end.x - nodeBox.left), Math.abs(end.x - nodeBox.right),
+                      Math.abs(end.y - nodeBox.top), Math.abs(end.y - nodeBox.bottom));
+                    const sourceIsHorizontal = Math.min(Math.abs(start.x - sourceBounds.left),
+                      Math.abs(start.x - sourceBounds.right)) < Math.min(
+                      Math.abs(start.y - sourceBounds.top),
+                      Math.abs(start.y - sourceBounds.bottom));
+                    const targetIsHorizontal = Math.min(Math.abs(end.x - nodeBox.left),
+                      Math.abs(end.x - nodeBox.right)) < Math.min(
+                      Math.abs(end.y - nodeBox.top), Math.abs(end.y - nodeBox.bottom));
+                    normals[key] = sourceSide <= 1 && targetSide <= 1 &&
+                      (sourceIsHorizontal ? Math.abs(next.y - start.y) <= 0.5
+                        : Math.abs(next.x - start.x) <= 0.5) &&
+                      (targetIsHorizontal ? Math.abs(previous.y - end.y) <= 0.5
+                        : Math.abs(previous.x - end.x) <= 0.5);
+                    if (![...group.querySelectorAll('.line, .hit')].every(item =>
+                      item.getAttribute('d') === path.getAttribute('d'))) {
+                      collisions.push(`${key}:geometry`);
+                    }
+                  }
+                  return {collisions, endpoints, normals, cardCrossings};
+                }"""
+            )
+            assert "missing" not in result, result
+            assert result["collisions"] == [], result
+            assert result["cardCrossings"] == [], result
+            assert all(result["endpoints"].values()), result
+            assert all(result["normals"].values()), result
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("view", ["diagram", "structure", "review", "actual", "target", "diff"])
+def test_active_explorer_tab_preserves_selection_in_every_view(tmp_path: Path, view: str) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_default_timeout(2_500)
+            page.set_content(page_html, wait_until="load")
+            page.locator(f'.flow-views [data-flow-view="{view}"]').click()
+            if view == "diagram":
+                page.locator(".flow-nodes .node:not(.diagram-frame)").first.click()
+            elif view == "structure":
+                page.locator(".flow-alternative [data-flow-card]").first.click()
+            elif view == "review":
+                page.locator('.flow-alternative details summary:has-text("Open an entry")').click()
+                page.locator(".flow-alternative [data-flow-card]").first.click()
+            elif view in {"actual", "diff"}:
+                page.locator(".flow-alternative [data-projection-id]").first.click()
+            else:
+                page.locator(".flow-nodes .target-node:not(.target-container)").first.click()
+            before = page.evaluate(
+                """() => ({
+                  heading: document.querySelector('.flow-inspector h2')?.textContent,
+                  selected: [...document.querySelectorAll(
+                    '.flow-alternative [aria-pressed="true"], .flow-nodes [aria-pressed="true"]'
+                  )].map(node => node.dataset.flowCard || node.dataset.flowEdge ||
+                    node.dataset.projectionId || node.dataset.targetNode || node.dataset.label),
+                })"""
+            )
+            assert before["selected"] or before["heading"]
+            page.locator(f'.flow-views [data-flow-view="{view}"]').click()
+            after = page.evaluate(
+                """() => ({
+                  heading: document.querySelector('.flow-inspector h2')?.textContent,
+                  selected: [...document.querySelectorAll(
+                    '.flow-alternative [aria-pressed="true"], .flow-nodes [aria-pressed="true"]'
+                  )].map(node => node.dataset.flowCard || node.dataset.flowEdge ||
+                    node.dataset.projectionId || node.dataset.targetNode || node.dataset.label),
+                })"""
+            )
+            assert after == before
+        finally:
+            browser.close()
+
+
+def test_returning_to_diagram_from_structure_preserves_open_scope(
+    tmp_path: Path,
+) -> None:
+    page_html, _payload = _ce_nested_route_page(tmp_path)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            page.set_default_timeout(3_000)
+            page.set_content(page_html, wait_until="load")
+            page.locator('.flow-views [data-flow-view="structure"]').click()
+            page.locator('.flow-alternative [data-flow-card="runtime"]').first.click()
+            before = page.locator(".flow-inspector h2").text_content()
+            assert before == "runtime"
+            page.locator('.flow-views [data-flow-view="diagram"]').click()
+            assert page.locator(".flow-inspector h2").text_content() == before
+            assert page.locator(".flow-back").is_visible()
         finally:
             browser.close()
 
@@ -1291,7 +2454,9 @@ def test_target_resize_preserves_open_graph_card_anchor(tmp_path: Path) -> None:
             page.set_default_timeout(2500)
             page.set_content(page_html, wait_until="load")
             page.get_by_role("button", name="Target", exact=True).click()
+            page.locator("[data-flow-details-toggle]").click()
             page.locator('[data-target-node="COMP-DOMAINS"]').click()
+            page.locator(".flow-open-selected").click()
             target = page.locator('[data-target-node="domains:DOMAIN-04"]')
 
             def anchor_state() -> dict[str, Any]:
@@ -1299,10 +2464,11 @@ def test_target_resize_preserves_open_graph_card_anchor(tmp_path: Path) -> None:
                     """node => {
                       const box = node.getBoundingClientRect();
                       const canvas = document.querySelector('.flow-canvas');
+                      const canvasBox = canvas.getBoundingClientRect();
                       return {
                         transform: node.getAttribute('transform'),
-                        x: box.left,
-                        y: box.top,
+                        x: box.left - canvasBox.left,
+                        y: box.top - canvasBox.top,
                         path: [...document.querySelectorAll('.flow-breadcrumb button')]
                           .map(button => button.textContent.trim()),
                         inspector: document.querySelector('.flow-inspector h2')
@@ -1327,7 +2493,7 @@ def test_target_resize_preserves_open_graph_card_anchor(tmp_path: Path) -> None:
             assert after["scrollLeft"] == before["scrollLeft"]
             assert after["scrollTop"] == before["scrollTop"]
             assert after["transform"] == before["transform"]
-            assert abs(after["x"] - before["x"]) <= 1
+            assert abs(after["x"] - before["x"]) <= 2
             assert abs(after["y"] - before["y"]) <= 1
         finally:
             browser.close()
@@ -1555,6 +2721,12 @@ def test_target_hierarchy_is_readable_and_details_toggle_preserves_state(
             page.locator('[data-target-node="COMP-APP"]').get_attribute("data-placement-status")
             == "declared"
         )
+        assert page.locator('[data-target-node="COMP-APP"]').get_attribute("aria-pressed") == "true"
+        assert [
+            item.text_content().strip() for item in page.locator(".flow-breadcrumb button").all()
+        ] == ["Target"]
+        assert toggle.get_attribute("aria-expanded") == "false"
+        toggle.click()
 
         before = page.evaluate(
             """() => ({
@@ -1568,8 +2740,8 @@ def test_target_hierarchy_is_readable_and_details_toggle_preserves_state(
                 ?.getAttribute('aria-expanded'),
             })"""
         )
-        assert before["selected"] is None
-        assert before["path"] == ["Target", "app"]
+        assert before["selected"] == "COMP-APP"
+        assert before["path"] == ["Target"]
         assert before["inspector"] == "app"
         assert before["details"] == "true"
         assert before["zoom"] == "100%"

@@ -26,6 +26,20 @@ def _walk(nodes: list[dict[str, Any]]):
         yield from _walk(node["children"])
 
 
+def _open_projection_entry(page: Any, selector: str) -> None:
+    page.locator(selector).click()
+    open_selected = page.locator(".flow-open-selected")
+    if open_selected.is_enabled():
+        open_selected.click()
+
+
+def _open_target_node(page: Any, selector: str) -> None:
+    page.locator(selector).click()
+    open_selected = page.locator(".flow-open-selected")
+    if open_selected.is_enabled():
+        open_selected.click()
+
+
 def _acceptance_page(
     tmp_path: Path,
     *,
@@ -215,13 +229,14 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             responsibility = page.locator(".flow-selected-responsibility")
             assert not responsibility.is_visible()
             page.get_by_role("button", name="Actual").click()
-            page.locator('[data-projection-id="shop"]').click()
-            page.locator('[data-projection-id="shop.orphan"]').click()
+            page.locator("[data-flow-details-toggle]").click()
+            _open_projection_entry(page, '[data-projection-id="shop"]')
+            _open_projection_entry(page, '[data-projection-id="shop.orphan"]')
             assert responsibility.get_by_text("No matching target declaration.").is_visible()
             page.locator("[data-projection-root]").click()
-            page.locator('[data-projection-id="shop"]').click()
-            page.locator('[data-projection-id="shop.app"]').click()
-            page.locator('[data-projection-id="shop.app.orders"]').click()
+            _open_projection_entry(page, '[data-projection-id="shop"]')
+            _open_projection_entry(page, '[data-projection-id="shop.app"]')
+            _open_projection_entry(page, '[data-projection-id="shop.app.orders"]')
 
             assert responsibility.get_by_text(
                 "Own <order> decisions & totals.", exact=True
@@ -237,8 +252,8 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             assert responsibility.get_by_text(
                 "Own <order> decisions & totals.", exact=True
             ).is_visible()
-            page.locator('[data-projection-id="diff:absent"]').click()
-            page.locator(f'[data-projection-id="{missing_id}"]').click()
+            _open_projection_entry(page, '[data-projection-id="diff:absent"]')
+            _open_projection_entry(page, f'[data-projection-id="{missing_id}"]')
             assert responsibility.get_by_text(
                 "Own the missing module boundary.", exact=True
             ).is_visible()
@@ -255,13 +270,13 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
                 == "true"
             )
             page.locator("[data-projection-root]").click()
-            page.locator('[data-projection-id="diff:absent"]').click()
+            _open_projection_entry(page, '[data-projection-id="diff:absent"]')
             ghost = next(
                 node
                 for node in _walk(payload["explorers"]["diff"])
                 if node["kind"] == "component" and node["label"] == "ghost"
             )
-            page.locator(f'[data-projection-id="{ghost["id"]}"]').click()
+            _open_projection_entry(page, f'[data-projection-id="{ghost["id"]}"]')
             assert responsibility.get_by_text(
                 "Own the absent ghost package.", exact=True
             ).is_visible()
@@ -274,10 +289,20 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
                 for node in _walk(payload["explorers"]["target"])
                 if node["kind"] == "component" and node["label"] == "app"
             )
+            app_responsibility = next(
+                detail["value"]
+                for detail in app["details"]
+                if detail["label"] == "Responsibility" and not detail.get("missing")
+            )
             page.locator(f'[data-target-node="{app["id"]}"]').click()
+            page.locator(".flow-open-selected").click()
             assert responsibility.is_visible()
             page.locator(".flow-back").click()
-            assert not responsibility.is_visible()
+            assert (
+                page.locator(f'[data-target-node="{app["id"]}"]').get_attribute("aria-pressed")
+                == "true"
+            )
+            assert responsibility.get_by_text(app_responsibility, exact=True).is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         finally:
             browser.close()
@@ -313,7 +338,7 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
 
             def open_actual_path(path: list[str]) -> None:
                 for node_id in path:
-                    page.locator(f'[data-projection-id="{node_id}"]').click()
+                    _open_projection_entry(page, f'[data-projection-id="{node_id}"]')
 
             # The initial Diagram view switches to a visible projection without a JS error.
             page.locator('[data-flow-view="actual"]').click()
@@ -324,6 +349,7 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
                 if node["kind"] == "module_target" and node["label"] == "orders.py"
             )
             page.locator('[data-flow-view="target"]').click()
+            page.locator("[data-flow-details-toggle]").click()
             assert page.locator(
                 f'.target-node[data-target-node="{module_target["id"]}"]'
             ).is_visible()
@@ -339,7 +365,7 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
             # A target-only nested edge returns to its uniquely mapped package context.
             page.locator('[data-flow-view="target"]').click()
             page.locator(".flow-breadcrumb button").first.click()
-            page.locator('.target-node[data-target-node="COMP-STORE"]').click()
+            _open_target_node(page, '.target-node[data-target-node="COMP-STORE"]')
             edge = next(
                 item
                 for item in payload["explorers"]["target_diagrams"]["nested"]["COMP-STORE"]["edges"]
@@ -364,15 +390,20 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
             page.locator('[data-flow-view="actual"]').click()
             assert (
                 "No matching scope for requires"
-                in page.locator(".flow-projection-context").inner_text()
+                in page.locator(".flow-projection-context").first.inner_text()
             )
-            assert page.locator(".flow-projection-breadcrumb").inner_text().endswith("store")
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("store")
+            page.locator(".flow-breadcrumb button").first.click()
+            assert page.locator(".flow-breadcrumb").inner_text() == "Actual"
+            assert page.evaluate("document.activeElement.closest('.flow-breadcrumb') !== null")
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(".flow-breadcrumb").inner_text() == "Target"
+            assert not page.locator(".target-edge.selected").count()
 
             # A missing Target child maps to the nearest actual namespace ancestor.
             page.locator('[data-flow-view="target"]').click()
-            page.locator(".flow-breadcrumb button").first.click()
-            page.locator('.target-node[data-target-node="layout:ROOT-LAYOUT"]').click()
-            page.locator('.target-node[data-target-node="physical:shop.missing"]').click()
+            _open_target_node(page, '.target-node[data-target-node="layout:ROOT-LAYOUT"]')
+            _open_target_node(page, '.target-node[data-target-node="physical:shop.missing"]')
             page.locator('[data-flow-view="diff"]').click()
             assert page.locator(
                 '[data-projection-id="absent:ROOT-LAYOUT:shop.missing"]'
@@ -403,43 +434,6 @@ def test_unmatched_target_diff_round_trip_preserves_or_replaces_context(
         for node in _walk(payload["explorers"]["target"])
         if node["kind"] == "module_target" and node["label"] == "missing.py"
     )
-    next(detail for detail in target_module["details"] if detail["label"] == "File")["value"] = (
-        "runtime/tasks/values/construction/global_increment.py"
-    )
-    if navigation == "actual_round_trip":
-        actual = {
-            "id": "runtime",
-            "label": "runtime",
-            "kind": "group",
-            "details": [],
-            "children": [],
-        }
-        current = actual
-        for label in ("tasks", "values", "construction"):
-            child = {
-                "id": f"{current['id']}.{label}",
-                "label": label,
-                "kind": "group",
-                "details": [],
-                "children": [],
-            }
-            current["children"].append(child)
-            current = child
-        current["children"].append(
-            {
-                "id": "runtime.tasks.values.construction.global_increment",
-                "label": "global_increment",
-                "kind": "module",
-                "details": [
-                    {
-                        "label": "File",
-                        "value": "runtime/tasks/values/construction/global_increment.py",
-                    },
-                ],
-                "children": [],
-            }
-        )
-        payload["explorers"]["actual"].append(actual)
 
     def remove_node(nodes: list[dict[str, Any]], node_id: str) -> bool:
         for index, node in enumerate(nodes):
@@ -465,27 +459,30 @@ def test_unmatched_target_diff_round_trip_preserves_or_replaces_context(
             page = browser.new_page()
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="target"]').click()
+            page.locator("[data-flow-details-toggle]").click()
             page.locator(".flow-responsibilities summary").click()
-            page.locator(".flow-responsibility-search").fill("global_increment.py")
+            page.locator(".flow-responsibility-search").fill("missing.py")
             page.locator(".flow-responsibility-list button:visible").first.click()
             page.locator('[data-flow-view="diff"]').click()
-            assert "No matching scope" in page.locator(".flow-projection-context").inner_text()
+            absent_counterpart = page.locator(
+                '[data-projection-id="absent:ROOT-LAYOUT:shop.missing"]'
+            )
+            assert absent_counterpart.is_visible()
+            assert absent_counterpart.get_attribute("aria-pressed") == "true"
 
             if navigation == "actual_round_trip":
                 page.locator('[data-flow-view="actual"]').click()
-                module_id = "runtime.tasks.values.construction.global_increment"
-                assert (
-                    page.locator(f'[data-projection-id="{module_id}"]').get_attribute(
-                        "aria-pressed"
-                    )
-                    == "true"
-                )
+                context = page.locator(".flow-projection-context").first
+                assert context.is_visible()
+                assert "No matching scope" in context.inner_text()
+                assert "shop.missing" in context.inner_text()
                 page.locator('[data-flow-view="target"]').click()
                 assert page.locator(
                     f'.target-node[data-target-node="{target_module["id"]}"]'
                 ).is_visible()
             elif navigation == "diff_category":
-                page.locator('[data-projection-id="diff:absent"]').click()
+                page.locator(".flow-breadcrumb button").first.click()
+                _open_projection_entry(page, '[data-projection-id="diff:absent"]')
             elif navigation == "diff_root":
                 page.locator("[data-projection-root]").click()
             if navigation != "actual_round_trip":
@@ -536,12 +533,12 @@ def test_ambiguous_target_package_uses_unique_ancestor_context(tmp_path: Path) -
             page.on("pageerror", lambda error: page_errors.append(str(error)))
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="actual"]').click()
-            page.locator('[data-projection-id="shop"]').click()
-            page.locator('[data-projection-id="shop.app"]').click()
+            _open_projection_entry(page, '[data-projection-id="shop"]')
+            _open_projection_entry(page, '[data-projection-id="shop.app"]')
             page.locator('[data-flow-view="target"]').click()
             assert (
                 "No matching scope for shop.app"
-                in page.locator(".flow-projection-context").inner_text()
+                in page.locator(".flow-projection-context").first.inner_text()
             )
             assert page.locator(".flow-breadcrumb").inner_text().endswith("shop")
             assert page_errors == []
@@ -603,9 +600,10 @@ def test_absent_multi_package_component_uses_declared_identity_across_views(tmp_
             page = browser.new_page()
             page.set_content(page_html, wait_until="load")
             page.locator('[data-flow-view="diff"]').click()
-            page.locator('[data-projection-id="diff:absent"]').click()
-            page.locator('[data-projection-id="absent:COMP-GHOST"]').click()
+            _open_projection_entry(page, '[data-projection-id="diff:absent"]')
+            _open_projection_entry(page, '[data-projection-id="absent:COMP-GHOST"]')
             page.locator('[data-flow-view="target"]').click()
+            page.locator("[data-flow-details-toggle]").click()
             assert page.locator(".flow-breadcrumb").inner_text().endswith("ghost")
             assert page.locator(".flow-inspector").get_by_role("heading", name="ghost").is_visible()
             assert page.locator(".flow-projection-context").count() == 0
@@ -652,14 +650,16 @@ def test_explicit_target_navigation_clears_fallback_context(
                     ]
                 )
                 for node_id in path:
-                    page.locator(f'[data-projection-id="{node_id}"]').click()
+                    _open_projection_entry(page, f'[data-projection-id="{node_id}"]')
             else:
                 page.locator('[data-flow-view="diff"]').click()
-                page.locator('[data-projection-id="diff:violations"]').click()
+                _open_projection_entry(page, '[data-projection-id="diff:violations"]')
             page.locator('[data-flow-view="target"]').click()
-            assert page.locator(".flow-projection-context").is_visible()
+            page.locator("[data-flow-details-toggle]").click()
+            assert page.locator(".flow-projection-context").first.is_visible()
             if navigation == "card":
                 page.locator('.target-node[data-target-node="COMP-APP"]').click()
+                page.locator(".flow-open-selected").click()
                 assert (
                     page.locator(".flow-inspector").get_by_role("heading", name="app").is_visible()
                 )
@@ -679,6 +679,8 @@ def test_explicit_target_navigation_clears_fallback_context(
             elif navigation == "escape":
                 assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
                 page.keyboard.press("Escape")
+                assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
+                page.keyboard.press("Escape")
                 assert page.locator(".flow-breadcrumb").inner_text() == "Target"
             else:
                 page.locator(".flow-responsibilities summary").click()
@@ -690,7 +692,7 @@ def test_explicit_target_navigation_clears_fallback_context(
             assert page.locator(".flow-projection-context").count() == 0
             if navigation == "edge":
                 page.locator('[data-flow-view="actual"]').click()
-                visible_path = page.locator(".flow-projection-breadcrumb")
+                visible_path = page.locator(".flow-breadcrumb")
                 assert visible_path.is_visible()
                 assert " ".join(visible_path.inner_text().split()) == "Actual / shop / app"
                 assert (

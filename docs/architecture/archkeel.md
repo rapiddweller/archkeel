@@ -163,6 +163,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-124 | [A rule PASS requires a complete scope receipt](decisions/ad-124-rule-pass-requires-complete-scope-receipt.md) |
 | AD-125 | [Target hierarchy is physical presentation](decisions/ad-125-target-hierarchy-is-physical-presentation.md) |
 | AD-126 | [Target ranking retains four unresolved stdlib calls](decisions/ad-126-target-ranking-call-budget.md) |
+| AD-127 | [A contained-map allowance needs one proven occurrence](decisions/ad-127-a-contained-map-allowance-needs-one-proven-occurrence.md) |
 
 ## Allowed dependencies
 

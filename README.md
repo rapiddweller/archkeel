@@ -180,7 +180,7 @@ and mechanically checkable.
 ## Review surface
 
 <p>
-  <img src="docs/assets/archkeel-report-preview.png" alt="Shop tour report: a completed scan, failed rules and a violated dependency diagram" width="1100">
+  <img src="docs/assets/archkeel-report-preview.png" alt="Shop tour report: a completed scan, failed rules and independent evidence verdicts" width="1100">
 </p>
 
 The HTML report is designed for a reviewer making a merge decision:
@@ -317,11 +317,15 @@ Use `root_layout` when a package root must expose an exact set of immediate pack
 the root module and missing future children are ignored, while an unexpected child is a normal
 baselineable violation.
 Optionally declare exact Python files and one-sentence responsibilities in
-`declarations.modules` at the deepest existing contract. The Target view groups each declared
-Python file under the deepest uniquely matching component within its declaring scope, using
-configured roots and namespace. This is navigation, not ownership; files without a unique
-component match remain visible under “Modules outside components”. Target cards preview the
-responsibility; select one for the full sentence.
+`declarations.modules` at the deepest existing contract. Target groups each declared Python file
+under the deepest uniquely matching component within its declaring scope, using configured roots
+and namespace. This is navigation, not ownership; files without a unique component match remain
+visible under “Modules outside components”. Diagram, Actual, Target, and Diff share one explorer
+shell while preserving their distinct evidence and hierarchy. Existing declared Diagram cards with
+zero observed modules remain visible but do not prove observed existence or populate physical
+frames. Select once for Details; use
+Enter, double-click, or Open selected to drill one level. Details shows complete responsibilities
+and the searchable declaration list in every view.
 Diff shows declared files that are absent and observed files without a target.
 
 ![Target view drilled into a declared Python module and its responsibility](docs/assets/archkeel-module-target.png)
@@ -387,26 +391,45 @@ The command writes the canonical `architecture.json` and a self-contained
 `architecture.report.html` beside it. A terminal shows the decision and verdicts; pipes and
 `--json` receive the JSON result.
 
-The HTML report separates Actual (the complete observed module tree), Target (an interactive
-diagram of declared components, package scopes, layout-allowed children, and requirements), and
-Diff (violations, unresolved evidence, unmapped modules, and absent declared targets). The
-Actual and Diff views are lists. Selecting an item in any of the three views shows its declared
-target responsibility when an exact match exists; this does not describe observed behavior.
-Target edges describe declarations, not observed imports or proof that a declared child exists.
-Components without a responsibility remain in the Target diagram and searchable index as
+The HTML report keeps Actual (the complete observed module tree), Target (declared components,
+package scopes, physical layout, and requirements), and Diff (violations, UNKNOWN evidence,
+unmapped modules, and absent declared targets) distinct inside one explorer shell. Diagram keeps
+its observed cards and imports; optional physical frames require a unique declared scope containing
+every actual module in the card. They add no Target-only cards or edges. Target edges remain
+declarations, not observed imports or proof that a declared child exists. Selecting an item shows its declared
+responsibility only when stable identity, exact module file, or a unique package match establishes
+the correspondence; this does not describe observed behavior. Use Enter, double-click, or Open
+selected to drill one level.
+Components without a responsibility remain in Target and its searchable index as
 “No declared responsibility.” This marks missing design information; rule verdicts stay unchanged.
 Switching among Actual, Target, and Diff keeps the selected scope or module when a unique
 counterpart exists. Otherwise, the view opens the nearest unique ancestor or root and explains
 the fallback.
 
-The #224 candidate adds physical frames from declared `root_layout` rules. Frames describe file
-layout, not semantic ownership. Selecting a component shows its placement status (`declared`,
+Physical frames from declared `root_layout` rules describe file
+layout, not semantic ownership; only populated frames and their ancestors appear. Selecting a component shows its placement status (`declared`,
 `inferred`, `multiple`, `ambiguous`, or `unmapped`), scope, and reason in Details; unresolved
 entries stay visible. Target details retain exact `public`, `requires.through`, rationale, and
 provenance declarations. A null dependency rank means order is unresolved because of a cycle or a
 dependency on one; it does not make that dependent cyclic or change the architecture verdict.
-Local browser tests exercise 100% initial zoom, native scrolling, collapsed Details, and selection
-identity across Actual, Target, and Diff.
+The shared Details pane starts closed, preserves selection identity, and exposes complete
+responsibilities plus the searchable declaration list in every view. Fullscreen and Restore use
+the same explorer state; no view infers execution order from declarations or imports. Local
+browser tests exercise 100% initial zoom, native scrolling, and selection identity across views.
+Package headers keep names compact, abbreviating only measured overflow; Details preserves the
+full identity. Connectors attempt to bypass headers; an unsolved route keeps its edge and reports a
+layout warning, not an architecture failure. Switching views retains the explorer bounds.
+
+### Checked on DATAMIMIC CE
+
+On 1 October 2026, the CE experiment checkout (`b38899c9` plus local changes) yielded 491 parsed
+modules, 102 violations and 155 counted UNKNOWN positions. Desktop browser checks exercised the
+root, nested runtime/tasks, cross-view identity and the reproduced header-routing defects.
+The report keeps observed imports, declared targets and their differences separate.
+
+This proves that a real nested repository can be scanned and explored. It does not prove CE is
+finished, every boundary is well designed, or runtime behavior matches the import graph.
+UNKNOWN remains unresolved work. Fit overview can shrink labels; use 100% and scroll for detail.
 
 `--output X.json` writes the JSON report and `X.report.html`.
 
