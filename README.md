@@ -11,10 +11,12 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 [![PyPI version](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
 
-Archkeel checks architecture boundaries and declared changes in AI-assisted code.
-It compares an accepted commit with a candidate, checks their scans against the
-configured contract, and verifies that the candidate matches an expectation
-published before its first submission.
+Archkeel checks architecture boundaries, scan coverage, and declared changes in
+AI-assisted code. It compares an accepted commit with a candidate, then checks
+the candidate against the configured contract and an expectation published
+before its first submission. Start with `archkeel report`; use `archkeel check`
+to gate a candidate. See the [reference](docs/reference.md) for the protocol and
+command details.
 
 It catches two failure modes that finding-only diffs miss:
 
@@ -26,19 +28,12 @@ It catches two failure modes that finding-only diffs miss:
   <img src="docs/assets/archkeel-component-flow.png" alt="Shop tour focused on app: five components and the json library, seven dashed red connections, eight broken edge rules, and explicit shown-versus-total counts" width="1000">
 </p>
 
-<sub>A real negative case from the <code>fixtures/F-architecture</code> tour:
-<code>shop.store.repository</code> imports <code>Money</code> and breaks
-<code>DEP-STORE-NO-MONEY</code>. In the open HTML report, <strong>Violations only</strong> collapses
-secondary detail and leaves the verdict, failures, unknowns and evidence available; Component
-flow's <strong>Violating edges only</strong> control keeps only broken edges at the current level.
-Both change the view, never the verdict or evidence. This capture uses <strong>Fit overview</strong>
-and focuses on <code>app</code>;
-<strong>All components and groups</strong> restores the unassigned module omitted by that focus.
-Labels without space on their edge move beside the graph and name their source and target;
-select one for its complete rule evidence.</sub>
+<sub>Negative case: <code>shop.store.repository</code> imports <code>Money</code>, breaking
+<code>DEP-STORE-NO-MONEY</code>. Filters change the view, not verdicts or evidence. Select a
+connection to inspect its rule evidence.</sub>
 
-Modules without a unique declared owner remain reachable through a navigation-only
-<code>Unassigned modules</code> group; it does not create a component boundary or verdict.
+Unassigned modules remain visible in a navigation-only group. The group creates no boundary or
+verdict.
 
 <p>
   <img src="docs/assets/archkeel-check-terminal.svg" alt="Archkeel rejects Fixture A in the terminal because calls_unresolved rose from 0 to 1" width="720">
@@ -51,62 +46,53 @@ Implemented and planned work is tracked in the [roadmap](https://github.com/rapi
 
 ## What it does, on one sample
 
-Everything below uses `fixtures/F-architecture`, a small shop with five components where
-`store` is large enough to need an architecture of its own. `make demo-onboarding` is an
-INTERVIEW-MODE REPLAY: it runs command implementations against pre-approved decision fixtures.
-No live agent or architect approvals occur; tests pin the printed results to the commands.
+The examples use `fixtures/F-architecture`, a shop with five components. `make demo-onboarding`
+replays command implementations against committed decision fixtures; no live approvals occur.
 
 ### 1. The agent drafts; interview decisions come from the architect
 
 `archkeel init` observes packages and imports, drafts one component per subpackage with its
-`public` interface, and writes no dependency rules. It derives 20 open ordered pairs from the
-draft, heaviest first. `validate` refuses that draft. The replay then checks the committed,
-architect-attributed fixture contract; that fixture stands in for an earlier interview and is
-not a live approval in this run.
+`public` interface, and leaves dependency pairs open. `validate` refuses the draft. The replay
+then checks a committed, architect-attributed fixture contract; it does not record a live
+approval.
 
-`decided_by` records authorship for rules, `requires` entries and component `public` lists. In
-auto mode, the agent can author decisions; that attribution does not mean a human approved them.
+`decided_by` records who authored a rule, `requires` entry, or component `public` list. An
+agent-authored decision is not evidence of human approval.
 
 <p>
   <img src="docs/assets/archkeel-onboarding-loop.svg" alt="Seven-step interview-mode replay across agent, Archkeel and architect lanes. The agent drafts five components with twenty open decisions; Archkeel refuses; a pre-approved top-level decision fixture passes validation; the report flags store; the agent drafts a nested target; an architect-attributed fixture maps sqlite to api and records three requires entries; Archkeel catches a later crossing. No live approvals occur." width="980">
 </p>
 
-<sub>Rendered from the replay results, not by hand. <code>make demo-onboarding</code> prints the
-same seven steps. Committed decision fixtures stand in for earlier interview answers.</sub>
+<sub>Generated from replay results. The committed fixtures stand in for earlier interview answers.</sub>
 
 ### 2. A component that outgrows its level gets one of its own
 
-The report names `store`: 7 modules where the whole level has 5 components. That is a claim,
-not permission to split. `init --source shop/store --namespace shop.store --force` separately
-drafts `backend`, `codec`, `repository` and `sqlite`, with 12 open pairs. The approved nested
-fixture maps `shop.store.sqlite` to `api` and records three `requires` entries: `api → backend`,
-`repository → backend`, and `repository → codec`. `complete_requires` makes every absent pair
-forbidden. These are replayed fixture decisions, not approvals made during the demo.
+The report flags `store`: 7 modules at a level with 5 components. This is a review prompt, not an
+automatic split. `init --source shop/store --namespace shop.store --force` drafts four nested
+components and 12 open pairs. The replayed fixture maps `shop.store.sqlite` to `api` and records
+three `requires` entries. `complete_requires` makes every other pair forbidden; these are fixture
+decisions, not live approvals.
 
 <p>
   <img src="docs/assets/archkeel-shop-components.png" alt="Clean shop sample: five components and the json library, seven connections, all twelve modules, with the heaviest connections listed beside the graph" width="980">
 </p>
 
-<sub>Fit overview shows the five components and their scoped <code>json</code> dependency.
-The interactive diagram starts at 100% zoom; scroll to explore it. Every edge carries its
-import sites; teal means the displayed imports were checked without an edge violation or UNKNOWN.
-<code>store</code> shows 7 modules against a level of 5 components — that is the claim.</sub>
+<sub>The diagram shows five components and their scoped <code>json</code> dependency. Teal means
+the displayed imports were checked, with no violation or relevant UNKNOWN. <code>store</code> has
+7 modules at a level with 5 components.</sub>
 
 <p>
   <img src="docs/assets/archkeel-shop-store-inside.png" alt="The store component opened into its declared inside: api, repository, codec and backend, plus shop.store, the module no sub-component owns" width="980">
 </p>
 
-<sub>Fit overview after opening <code>store</code>: the level its own contract declares —
-<code>api</code>, <code>repository</code>, <code>codec</code>, <code>backend</code> — with their
-three crossings at 3, 2 and 2 import sites, and <code>shop.store</code>, the module no
-sub-component owns, carried rather than dropped.</sub>
+<sub>The declared <code>store</code> level contains four components and the unassigned
+<code>shop.store</code> module.</sub>
 
 ### 3. Validation names the boundary, the level and the fix
 
-This negative fixture removes a required dependency. Validation exits 2 and names three
-`rule.violated` diagnostics under `store:STORE-REQUIRES-COMPLETE`: repository imports backend
-without requiring it. The incomplete aggregate remains `NOT CHECKED`; it is not a green gate.
-Concrete import sites are available in the HTML report's evidence.
+This fixture removes a required dependency. Validation exits 2 with three
+`rule.violated` diagnostics: repository imports backend without requiring it. The aggregate is
+`NOT CHECKED`; exact import locations are in the HTML evidence.
 
 <p>
   <img src="docs/assets/archkeel-shop-inside-violation.svg" alt="archkeel validate reporting three rule.violated diagnostics under store:STORE-REQUIRES-COMPLETE, each naming that repository imports backend without requiring it" width="760">
@@ -116,9 +102,9 @@ Concrete import sites are available in the HTML report's evidence.
 
 | | |
 |---|---|
-| **For the architect** | The target is a file you own, not a description of the code. The distance between the two is measured, not argued. You decide once per pair and see every decision an agent made on your behalf. |
-| **For the agent** | A boundary it can read before it writes, and a refusal it can act on: the rule id, the level that declares it, the importing module, and the contract to change. No taste, no review latency, no guessing which of ten findings matters. |
-| **For the review** | Two failure modes a finding diff cannot see: architecture that changed without being declared, and a scan that got blinder so the result only looks clean. |
+| **For the architect** | A target contract, measured against the code, with decision authorship recorded. |
+| **For the agent** | A boundary to read before editing and diagnostics that name the rule, level, and importer. |
+| **For review** | Checks for undeclared changes and reduced scan coverage, beyond finding diffs. |
 
 ## Why Archkeel
 
@@ -164,14 +150,13 @@ U_candidate × T_accepted <= U_accepted × T_candidate   (when both T > 0)
 ### What the gate adds
 
 - **Precommitment with evidence.** The agent publishes the intended change
-  before it submits the candidate. Git ancestry and host records prove the
+  before it submits the candidate. Git ancestry and trusted host records prove the
   order; author timestamps do not.
 - **Coverage-aware regression checks.** A disappearing edge is not mistaken
   for an improvement just because a finding disappeared with it.
 - **Explicit uncertainty.** An incomplete scan, broken lock, empty scope, or runtime mismatch
   returns exit `2` with a diagnostic. A complete report may instead exit `0` with
-  `declared_rules: UNKNOWN` when a rule names the positions it could not decide; neither case is
-  displayed as `PASS`.
+  `declared_rules: UNKNOWN` when a rule names positions it could not decide. Neither is `PASS`.
 - **Verdict is not coverage.** `PASS` requires complete evaluator evidence for every required
   rule and no violation among decided positions. Missing scope proof stays `UNKNOWN`.
 
@@ -185,7 +170,7 @@ and mechanically checkable.
   <img src="docs/assets/archkeel-report-preview.png" alt="Shop tour report: a completed scan, failed rules and independent evidence verdicts" width="1100">
 </p>
 
-The HTML report is designed for a reviewer making a merge decision:
+The HTML report keeps verdicts and evidence separate:
 
 ```bash
 archkeel report --only violations
@@ -195,54 +180,20 @@ archkeel report --only calls --component store   # unresolved and partial calls 
 archkeel report --baseline known-violations.json # read-only fingerprint comparison
 ```
 
-- **Decision first.** `PASS`, `REJECT`, or `NOT CHECKED` and one sentence explaining it are
-  visible before details, in the HTML report and in the terminal.
-- **No blended score.** Scan completeness, contract compliance, expectation matching, Git order
-  and publication order remain separate verdicts.
-- **Unknown stays visible.** Missing or invalid evidence includes the affected subject,
-  unknown claim, and remedy. An UNKNOWN non-declaration rule keeps the aggregate verdict
-  UNKNOWN; a known violation remains FAIL.
-- **Evidence stays inspectable.** Exact counts, fingerprints, source locations, digests,
-  and runtime provenance remain available beside the verdict.
-- **Rules say what was checked.** Each rule has its own result, reason, owner and source.
-  PASS requires evaluator evidence; a permission is a declaration, not a passed check.
-  Search and filter rules and findings without changing the observation (AD-117).
-- **Known debt stays debt.** An explicit baseline adds fingerprint counts, not exemptions.
-  Known findings keep a FAIL marker; new findings are red. Mixed occurrence counts do
-  not pretend to identify which source line is old.
-  Missing rules or undecided evidence cannot make old findings appear resolved.
-  Resolution is relative to current rules; `validate --against` checks contract widening.
-- **Violations can take focus.** `Violations only` works in the already-open report: it hides
-  secondary detail and non-violating flow edges without changing the verdict, totals or evidence.
-- **Nested flow stays inspectable.** Physical folders lead to every observed module, including
-  import-only package initializers. Explicit `inside` contracts can nest; their rules and
-  findings remain attached to that level. Child APIs stay local unless the parent explicitly
-  publishes them; internal and outward APIs need not match (AD-112). Folders alone are not
-  contracts. An inside connection
-  is green only when all its displayed
-  imports were checked, with no relevant UNKNOWN or edge violation (AD-110). No finding alone
-  is not a conformance claim. Structure and Review remain
-  keyboard-operable, and the diagram can restore its complete current scope with “All components
-  and groups”; visible and total counts disclose focus and threshold filtering.
-- **Readable before filtering.** The diagram starts at 100% zoom with all groups and edges.
-  Scroll to explore; use Fit for an overview. Focus keeps every direct neighbor, and Arrange
-  preserves your filters and zoom (AD-116).
-- **Claims are named, never gated on.** `report` and `validate` print what the five review
-  claims found in the terminal and under `claims` in `--json`, while the HTML report lists
-  the candidates. Current self counts live in `fixtures/D-self/result.json`.
-  Unread bindings are lexical candidates; the claim does not assess whether an interface requires
-  them. Statically proven `Enum.MEMBER` uses in field annotations and defaults reference their
-  enum class (AD-108). None of these claims reaches an exit code.
-- **Declared facades include ordinary modules.** `boundary_types` follows an imported entry from
-  an ordinary module only when its unchanged literal `__all__` explicitly exports that unique
-  binding; unclear export evidence stays UNKNOWN. A type's proven export through its owner's
-  facade counts as public without exposing the implementation module (AD-109).
-- **Facade shape stays measured, not inferred.** The report shows declared export counts,
-  re-exports, names defined in a facade, unused re-exports, consumers per export and coupling
-  width. These facts do not claim a barrel is complete (AD-88). A contract may set a target for
-  one facade's names or one component pair's imported names. `validate` names every counted name
-  over it, a baseline freezes today's names so a new one fails, and a count it cannot complete is
-  UNKNOWN, never PASS (AD-99).
+- **Separate verdicts.** Scan completeness, declared rules, candidate expectations, Git order,
+  and publication order stay separate. `PASS`, `FAIL`, `UNKNOWN`, and `NOT CHECKED` keep distinct
+  meanings.
+- **Evidence stays inspectable.** Counts, fingerprints, source locations, digests, and runtime
+  provenance remain available. Each rule shows its result, reason, owner, and source; permissions
+  are declarations, not proof of a passed check.
+- **Baselines track findings.** Known findings keep a `FAIL` marker. New fingerprints are reported
+  separately; missing rules or undecided evidence cannot make findings appear resolved.
+- **The report stays navigable.** Filters do not change verdicts or evidence. The diagram, Actual,
+  Target, and Diff views retain observed imports, declarations, and UNKNOWN evidence as distinct
+  data. Folders are navigation, not contracts; Structure and Review work by keyboard.
+- **Claims do not gate.** `report` and `validate` show five review claims, but they do not affect
+  exit codes. Their limits and measured facade details are in the
+  [reference](docs/reference.md).
 
 <p>
   <img src="docs/assets/archkeel-rule-evidence.png" alt="UNKNOWN filter keeps a failed boundary-type rule visible with one violation, one undecided position and its scope, rationale and evidence" width="1100">
@@ -296,49 +247,23 @@ uvx archkeel init
 uvx archkeel validate
 ```
 
-The contract is your target architecture, not a copy of the code. `init` observes the only
-top-level package, or the one your `pyproject.toml`'s `[project] name` names when a test package
-sits beside it, and writes `archkeel.toml`, `architecture-contract.json` and
-`docs/architecture/architecture.md`: one component per subpackage, drafted `public` interfaces and
-no dependency rule. Every ordered component pair is an open decision; `init --json` and
-`validate --json` list them heaviest first, each with the exact `allowed_dependency` and
-`forbidden_dependency` rule to choose from. The component table and `init --json`'s
-`draft_sizes` also carry each drafted component's modules and inner edges, so a directory
-that hides an outsized sub-package is visible before you decide anything about it. The
-installed skill runs onboarding in one of two
-modes: an interview, where the agent reads your ADRs and documents, recommends and asks only about
-conflicts and gaps, or explicitly delegated auto mode, where the agent decides. Every rule records
-`decided_by`; a `requires` entry and a component may too. Reports count entries marked
-agent-decided; attribution does not authenticate a human review. The prompt is in
-[docs/onboarding.md](https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md); the
-rule catalog is in [docs/rules.md](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
-The skill reviews physical packages recursively, including uncontracted interiors. More than
-seven children prompts a cohesion review, not an automatic split; green rules do not certify
-the whole design. It records deferred areas and preserves existing contracts during assessment.
-Use `root_layout` when a package root must expose an exact set of immediate packages or modules;
-the root module and missing future children are ignored, while an unexpected child is a normal
-baselineable violation.
-Optionally declare exact Python files and one-sentence responsibilities in
-`declarations.modules` at the deepest existing contract. Target groups each declared Python file
-under the deepest uniquely matching component within its declaring scope, using configured roots
-and namespace. This is navigation, not ownership; files without a unique component match remain
-visible under “Modules outside components”. Diagram, Actual, Target, and Diff share one explorer
-shell while preserving their distinct evidence and hierarchy. Existing declared Diagram cards with
-zero observed modules remain visible but do not prove observed existence or populate physical
-frames. Select once for Details; use
-Enter, double-click, or Open selected to drill one level. Details shows complete responsibilities
-and the searchable declaration list in every view.
-Diff shows declared files that are absent and observed files without a target.
+`init` drafts one component per subpackage, proposes `public` interfaces, and leaves dependency
+decisions open. The contract describes the target architecture; it does not copy the current code.
+Choose interview mode to keep decisions with a human, or explicitly delegate them to auto mode.
+`decided_by` records authorship; it does not prove human approval. The installed skill reviews
+physical packages recursively, but a green rule does not certify the whole design.
+
+The report separates observed modules (Actual), declared architecture (Target), and their
+differences (Diff). Optional module responsibilities and physical package groups aid navigation;
+they do not establish ownership. Select once for Details; use Enter, double-click, or Open selected
+to explore. See the [onboarding guide](docs/onboarding.md) for the agent workflow and
+[architecture rules](docs/rules.md) for rule semantics.
 
 ![Target view drilled into a declared Python module and its responsibility](docs/assets/archkeel-module-target.png)
 
-When a later contract edit merges or renames components, `archkeel validate --write-graph`
-rewrites the edges of the page's marked component graph and leaves the rest of the page alone;
-a graph with a `subgraph`, a labeled edge or a style is left for you to edit by hand.
+`archkeel validate --write-graph` can update a marked component graph after contract edits.
 
-If your contract states the architecture you are heading for, the code that has yet to reach it
-is violating it — by design. Freeze those known violations once and gate on the difference,
-instead of weakening the contract to make it green:
+To track existing violations, write a baseline and gate on changes:
 
 ```bash
 archkeel validate --baseline known-violations.json --write-baseline   # initial file, then review it
@@ -348,35 +273,10 @@ archkeel validate --baseline known-violations.json --write-baseline --accept-new
 archkeel validate --root mobile --baseline known-violations.json      # reads mobile/known-violations.json
 ```
 
-The baseline path is relative to `--root`, like the contract, or absolute inside it, so a second
-code base in a subdirectory is gated from the repository root against its own file; a path
-outside the root is `baseline.invalid`, exit 2 (AD-103).
-The gate exits 1 on a violation the file does not state, and on one it states that nobody
-violates any more, so the budget only shrinks. An existing baseline is compared before a write:
-resolved-only drift may be written, while new or increased fingerprints refuse the write unless
-`--accept-new` is explicit. Results expose deterministic `baseline_new` and `baseline_resolved`
-counts of changed fingerprints, not violation occurrences. One fingerprint contributes one even
-when its occurrence count changes by more than one. Each entry names its violation by rule and
-subjects rather than by line, so unrelated edits above it do not move it. Running that loop day
-to day — gating CI, keeping the target from widening, working the backlog down — is
-[docs/target-first.md](https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md).
-
-The contract may also select deterministic scalars under `declarations.measurement_budgets`.
-Baseline schema 1.2 and later stores their accepted values. A rise fails; a fall must be written
-back. Archkeel uses this itself for cycle edges, private crossings, typing positions, unresolved
-calls and untyped private accesses (AD-89). Facade and coupling budgets put a target in the
-contract (`declarations.facade_budgets`, `declarations.coupling_budgets`); baseline schema 1.3
-adds each one's accepted names, so a new name fails while a known gap to the target passes
-(AD-99).
-With `--against <ref>`, a `calls_unresolved` change names its call sites (AD-100).
-A package rename is accepted only when the selected historical `--config` and both layouts prove
-the move; Python candidates always scan that config, even when its roots and namespace are
-unchanged. Missing historical config or a copied old package leaves the comparison unrenamed.
-
-Baseline roles, introduced in schema 1.1, also prove when a resolved importer was the last reach
-of one exact public module or symbol. `validate --baseline` reports the resolved violation,
-suppresses only that matching `interface.unused` twin, and says to remove the now-unreached
-entry; old 1.0 files and unrelated roles stay fail-closed (AD-85).
+An existing baseline rejects new or increased violations unless `--accept-new` is explicit.
+Fingerprints use rules and subjects, not source lines. The [target-first guide](docs/target-first.md)
+covers baseline maintenance; the [reference](docs/reference.md) documents measurement budgets,
+historical comparisons, and baseline schemas.
 
 To install it permanently instead, run `pip install archkeel`. Every command explains itself
 with `archkeel <command> --help`.
@@ -393,45 +293,20 @@ The command writes the canonical `architecture.json` and a self-contained
 `architecture.report.html` beside it. A terminal shows the decision and verdicts; pipes and
 `--json` receive the JSON result.
 
-The HTML report keeps Actual (the complete observed module tree), Target (declared components,
-package scopes, physical layout, and requirements), and Diff (violations, UNKNOWN evidence,
-unmapped modules, and absent declared targets) distinct inside one explorer shell. Diagram keeps
-its observed cards and imports; optional physical frames require a unique declared scope containing
-every actual module in the card. They add no Target-only cards or edges. Target edges remain
-declarations, not observed imports or proof that a declared child exists. Selecting an item shows its declared
-responsibility only when stable identity, exact module file, or a unique package match establishes
-the correspondence; this does not describe observed behavior. Use Enter, double-click, or Open
-selected to drill one level.
-Components without a responsibility remain in Target and its searchable index as
-“No declared responsibility.” This marks missing design information; rule verdicts stay unchanged.
-Switching among Actual, Target, and Diff keeps the selected scope or module when a unique
-counterpart exists. Otherwise, the view opens the nearest unique ancestor or root and explains
-the fallback.
-
-Physical frames from declared `root_layout` rules describe file
-layout, not semantic ownership; only populated frames and their ancestors appear. Selecting a component shows its placement status (`declared`,
-`inferred`, `multiple`, `ambiguous`, or `unmapped`), scope, and reason in Details; unresolved
-entries stay visible. Target details retain exact `public`, `requires.through`, rationale, and
-provenance declarations. A null dependency rank means order is unresolved because of a cycle or a
-dependency on one; it does not make that dependent cyclic or change the architecture verdict.
-The shared Details pane starts closed, preserves selection identity, and exposes complete
-responsibilities plus the searchable declaration list in every view. Fullscreen and Restore use
-the same explorer state; no view infers execution order from declarations or imports. Local
-browser tests exercise 100% initial zoom, native scrolling, and selection identity across views.
-Package headers keep names compact, abbreviating only measured overflow; Details preserves the
-full identity. Connectors attempt to bypass headers; an unsolved route keeps its edge and reports a
-layout warning, not an architecture failure. Switching views retains the explorer bounds.
+The report separates observed imports (Diagram and Actual), declared architecture (Target), and
+their differences (Diff). Target edges are declarations, not observed imports or execution order.
+Selecting an item shows its declared responsibility only when its identity can be matched; this
+does not describe observed behavior. Details keeps declarations and unresolved placement evidence
+available. Use Enter, double-click, or Open selected to explore one level. Folders are navigation,
+not ownership. Report controls and layout warnings do not change architecture verdicts; see
+[known limits](docs/known-limits.md) for details.
 
 ### Checked on DATAMIMIC CE
 
-On 1 October 2026, the CE experiment checkout (`b38899c9` plus local changes) yielded 491 parsed
-modules, 102 violations and 155 counted UNKNOWN positions. Desktop browser checks exercised the
-root, nested runtime/tasks, cross-view identity and the reproduced header-routing defects.
-The report keeps observed imports, declared targets and their differences separate.
-
-This proves that a real nested repository can be scanned and explored. It does not prove CE is
-finished, every boundary is well designed, or runtime behavior matches the import graph.
-UNKNOWN remains unresolved work. Fit overview can shrink labels; use 100% and scroll for detail.
+The 1 October 2026 CE experiment (`b38899c9` plus local changes) parsed 491 modules and recorded
+102 violations and 155 counted UNKNOWN positions. It shows that a nested repository can be scanned
+and explored. It does not prove CE is finished, every boundary is well designed, or runtime behavior
+matches imports. UNKNOWN remains unresolved work.
 
 `--output X.json` writes the JSON report and `X.report.html`.
 
@@ -510,66 +385,13 @@ A broken lock is therefore not interpreted as an empty accepted state.
 
 ## The M → B → E → H protocol
 
-```mermaid
-gitGraph
-    commit id: "M · accepted"
-    commit id: "B · lock only"
-    branch candidate
-    commit id: "E · expectation only"
-    commit id: "H · implementation"
-```
-
-| Commit | Contract |
-| --- | --- |
-| **M** | Accepted state. Archkeel re-observes it. |
-| **B** | Lock-only child of M and tip of the accepted branch. It binds the config, checker, and observation digests. |
-| **E** | Child of B that changes only the expectation file. It must be published before the first submission of H. |
-| **H** | Descendant of E. It must not modify the lock, config, architecture contract, or expectation. |
-
-E's `selected_changes` may be `[]`, declaring that the candidate has no semantic change at all. A
-refactor is a legal move under the protocol even when it moves nothing architectural. That
-declaration is not weaker than naming changes: Archkeel then fails the check on any semantic
-change at all, in any delta dimension, not only the six guardrail ones (AD-39). A non-empty
-declaration still lets an added, undeclared entry through in most dimensions, but not in
-`dependency_edges`: a new edge `selected_changes` never named is a guardrail failure there too
-(AD-44).
-
-### Agent workflow
-
-1. Start from the lock commit **B**.
-2. Write the intended architecture change and commit it alone as **E** — or declare
-   `selected_changes: []` when the change is not meant to be architectural at all.
-3. Publish **E** before submitting implementation work.
-4. Implement the change in one or more commits ending at **H**.
-5. Run `archkeel check`. Fix the code or revise the proposal in a new protocol
-   cycle; do not rewrite protected inputs inside H.
-
-Fixture B writes its expectation after implementation by deriving it from the
-observed delta. Its architecture findings are otherwise clean. Archkeel still
-rejects it:
-
-```text
-host_order: FAIL
-expectation_fulfilled: FAIL
-expectation was not published before the first candidate submission
-```
-
-Precommitment proves "published before submission." It does not prove that no
-private edit existed before publication.
-
-## Host evidence
-
-In GitLab CI, Archkeel reads merge-request diff versions through `glab` to
-establish publication order.
-
-For local testing, replay captured host records:
-
-```bash
-uv run archkeel check ... --host-records records.json
-```
-
-A local replay validates the record shape and behavior. It does not prove host
-authenticity.
+Start at accepted commit **M**. Lock commit **B** binds the config, checker, and observation.
+Expectation commit **E** follows B and must be published before the first submission of candidate
+**H**. H must preserve the lock, config, contract, and expectation. `selected_changes: []` rejects
+every observed semantic change. A non-empty list checks named changes plus fixed guardrails; other
+undeclared changes can pass. With trusted host records, the check verifies publication order, not
+private editing history. A local replay checks supplied records; it does not authenticate them.
+See the [reference](docs/reference.md) for commit rules and host evidence.
 
 ## Development
 
@@ -614,67 +436,25 @@ make fixtures
 ## Archkeel checks itself
 
 [architecture-contract.json](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json)
-holds Archkeel to the rules it sells, and every rule was proven by a deliberate violation:
+holds Archkeel to its own rules. Seven components cover all 42 ordered pairs; all 19 rules have
+rationales, and deliberate violations exercise them. The deterministic core has no adapter or
+presentation imports. The nested `check` component has its own contract. See the
+[architecture guide](docs/architecture/archkeel.md) for the declared boundaries.
 
-- **Every pair decided.** Seven components, so 42 ordered pairs, decided by nine `requires`
-  entries and one `complete_requires` rule: a pair no entry names is forbidden, not open. All
-  19 rules carry a rationale and are decided by the architect. The
-  [architecture guide](docs/architecture/archkeel.md) names the quality goal each required edge
-  serves.
-- **Deterministic core.** `ir` and `check` never import adapters or presentation; the CLI is
-  the composition root. The analyzer's `requires` entry goes `through` `archkeel.ir.model` and
-  `archkeel.ir.codec` only, so any other `ir` module is a violation.
-- **No dynamic shortcuts.** `getattr`, `hasattr`, `setattr`, `delattr`, `vars`, `__dict__`,
-  `cast`, `eval`, `exec`, dynamic imports and `type: ignore` are forbidden everywhere.
-- **Confined dependencies.** `packaging` only in the analyzer runtime gate, `rich` only in the
-  terminal view, `rich_argparse` only in the CLI's root module: each names its one module
-  exactly, never as a prefix of the modules below it.
-- **Complete and acyclic.** Every module belongs to exactly one component, and neither
-  components nor modules form a cycle.
-- **A second level where one was owed.** `check` holds 13 modules and 27 dependency edges between them,
-  more than the whole top level holds, so it declares a contract of its own: `entry`, `policy`
-  and `foundation`, whose crossings its `requires` entries cover at 29, 14 and 2 import sites.
-  The flow view opens it as a level of its own, and the one module no sub-component owns keeps
-  a card of its own.
-
-`make check` reobserves the repository and compares it with
-[fixtures/D-self](https://github.com/rapiddweller/archkeel/tree/main/fixtures/D-self): the
-canonical model in `architecture.json`, the digests in `provenance.json`, and the verdicts
-`report` printed in `result.json`. The `gate` target adds the contract validation; CI uploads the
-self-observation separately as evidence.
+`make check` compares a fresh observation with
+[fixtures/D-self](https://github.com/rapiddweller/archkeel/tree/main/fixtures/D-self), including
+the canonical model, provenance digests, and verdicts. `make gate` also validates the contract.
 
 ## Current boundaries
 
-Archkeel is deliberately strict about what it can prove:
+Archkeel observes static source within the configured roots and namespace. It does not observe
+runtime behavior, data flow, or performance. Incomplete evidence remains UNKNOWN, and a green scan
+does not establish that every design choice is sound. A separate test tree needs its own scan and
+contract. Archkeel's Python version must meet the target repository's requirement.
 
-- **Competing implementations:** review is still required when no declared rule
-  or observed regression exposes them.
-- **Private crossings:** private cross-package imports remain confirmed findings. A private
-  attribute rooted in an untyped or `Any` parameter is measured and named as UNKNOWN because
-  static source does not prove which component owns the runtime object. Typed parameters,
-  locals and public attributes are excluded.
-- **Precommitment:** publication order is proven; private editing order is not.
-- **Analyzer runtime:** Archkeel's Python must be at least the target
-  repository's Python.
-- **Onboarding:** `init` detects the only top-level package, or the one `pyproject.toml`'s
-  `[project] name` names when several sit side by side (AD-47); other layouts need `--source` and
-  `--namespace`. It never decides a dependency; the architect or, in auto mode, the agent does,
-  and `decided_by` keeps the difference visible.
-- **Validation baseline:** the file is compared, never authenticated; `check`'s digest
-  chain does not cover it. `--write-baseline` compares an existing file before updating it;
-  `--accept-new` is required to accept new or increased violations or measurement values.
-  `validate --against <ref>` classifies a padded entry or raised budget as a widening
-  like any other and fails it without an amendment (AD-61), but only when a reviewer or CI runs
-  it with `--against`; nothing forces that flag on every gate.
-- **Scan scope:** a run observes the roots and the one namespace its configuration names, and
-  its scan-complete reason names those roots. Tests beside the product are a second scope with
-  their own `--config` file and contract (AD-101); a green product run says nothing about them.
-- **Static observation:** runtime behavior, data flow and performance are not observed; see
-  [docs/known-limits.md](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
-- **Compatibility shims:** moved-module shims are declared in `declarations.compat`; migration
-  entries remain visible work, and logic or product imports fail closed (AD-87).
-- **Dart:** `language = "dart"` checks the import graph from directive headers; what it cannot see
-  is UNKNOWN. Demo: [fixtures/G-dart](https://github.com/rapiddweller/archkeel/tree/main/fixtures/G-dart).
+Baselines are compared, not authenticated; `validate --against` checks contract widening when a
+reviewer or CI runs it. See
+[known limits](docs/known-limits.md) and the [reference](docs/reference.md) for details.
 
 ## Roadmap
 

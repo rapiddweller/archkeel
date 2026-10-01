@@ -224,7 +224,7 @@ def test_report_is_deterministic_and_keeps_unknown_context_when_focusing_violati
     ).decode()
 
     assert page == repeated
-    assert "Complete ArchitectureIR inventory" in page
+    assert "Complete scan inventory" in page
     assert "Known unknowns" not in page
     assert any(
         record.kind == "boundary_type_limit" and record.rule_ids == ("APP-TYPES-NOT-DICT",)

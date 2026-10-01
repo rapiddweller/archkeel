@@ -1739,7 +1739,7 @@
     const active = [];
     if (focusLabel) active.push(`Focus: ${focusLabel}`);
     if (Number(thresholdInput.value) > 0) {
-      const unit = opened?.module ? "symbol-use edges" : "import sites";
+      const unit = opened?.module ? "symbol-use edges" : "import locations";
       active.push(`edges with at least ${thresholdInput.value} ${unit}`);
     }
     if (violationsOnly.checked) active.push("violating edges only");
@@ -1755,7 +1755,7 @@
   function updateEdgeCount(shown, total) {
     thresholdValue.textContent =
       `Edges shown / at this level: ${shown}/${total} · ` +
-      `show ≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import sites"}`;
+      `show ≥ ${thresholdInput.value} ${opened?.module ? "symbol-use edges" : "import locations"}`;
   }
 
   function related(edge) {
@@ -2553,7 +2553,7 @@
       ? opened.module
         ? `${component.kind}${component.members.length ? ` · ${component.members.length} method${component.members.length === 1 ? "" : "s"}` : ""}${component.public === null ? "" : " · used outside"}`
         : component.folder
-          ? `${component.modules.length} modules · ${component.import_sites} import sites`
+          ? `${component.modules.length} modules · ${component.import_sites} import locations`
           : component.modules && component.modules.length > 1
             ? modulesMeta(component)
             : component.opensModule
@@ -2563,7 +2563,7 @@
                 : "provided part"
       : component.navigation_only
         ? `${component.modules.length} modules · navigation only`
-        : component.library ? `${component.import_sites} import sites` : modulesMeta(component);
+        : component.library ? `${component.import_sites} import locations` : modulesMeta(component);
     const diagramMetrics = new Map();
     let diagramHeight = 92;
     level().components.forEach((component) => {
@@ -2860,7 +2860,7 @@
         ? `${component.display}: external library scope under ${scopeRules(component).map((rule) => rule.rule_id).join(", ")}.`
         : !opened || declaredComponent
         ? `${component.label}: ${component.modules.length} modules; ${component.public === null ? "no interface boundary declared" : `${component.public.length} provided entries`}; ${(component.requires || []).length} required components. ${responsibilityText.join(" ")} Select for details; Enter or Open selected to open.`
-        : `${component.label}: ${component.folder ? "physical package, not a declared component" : "module"}; ${component.import_sites || 0} import sites touching it.`;
+        : `${component.label}: ${component.folder ? "physical package, not a declared component" : "module"}; ${component.import_sites || 0} import locations touching it.`;
       const group = el(
         "g",
         {
@@ -2872,7 +2872,7 @@
           "aria-label": component.navigation_only
             ? `${component.modules.length} unassigned modules, navigation only`
             : component.library
-            ? `${component.display}, external library, ${component.import_sites} import sites`
+            ? `${component.display}, external library, ${component.import_sites} import locations`
             : `${component.label}, ${component.modules.length} modules`,
           "data-label": component.label,
         },
@@ -3027,7 +3027,7 @@
       ${remaining.length ? `<details><summary>Other connections · ${remaining.length}</summary>
         <div class="flow-item-list">${remaining.map(edgeButton).join("")}</div></details>` : ""}
       <details class="flow-review-matrix"><summary>Dependency matrix · ${shown.length} of ${cards.length} entries</summary>
-        <p>Row uses column. Numbers count import sites; • marks a symbol-use edge; · means no observed connection.</p>
+        <p>Row uses column. Numbers count import locations; • marks a symbol-use edge; · means no observed connection.</p>
         ${shown.length ? `<div class="flow-matrix-wrap"><table class="flow-matrix"><thead>
           <tr><th scope="col">uses →</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
           : "<p>No components or modules recorded at this level.</p>"}</details>
@@ -3118,13 +3118,13 @@
     if (opened) {
       const owner = componentByLabel.get(opened.component);
       const modules = (items) => items.reduce((total, item) => total + item.modules.length, 0);
-      return `<dl class="kv"><dt>Modules shown / in this scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Groups shown / at this level</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Connections shown / at this level</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / at this level</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd></dl>`;
+      return `<dl class="kv"><dt>Modules shown / in this scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Groups shown / at this level</dt><dd>${view.components.length}/${scope.components.length}</dd><dt>Connections shown / at this level</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import locations shown / at this level</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd></dl>`;
     }
     const modules = (items) => items.reduce((total, card) => total + card.modules.length, 0);
     const libraries = scope.components.filter((card) => card.library).length;
     const navigation = scope.components.filter((card) => card.navigation_only).length;
     const violations = new Set(scope.edges.flatMap((edge) => edge.rule_ids)).size;
-    return `<dl class="kv"><dt>Declared components</dt><dd>${scope.components.length - libraries - navigation}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Unassigned module groups</dt><dd>${navigation}</dd><dt>Modules shown / in scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Edges shown / in scope</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import sites shown / in scope</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd><dt>Broken edge rules in scope</dt><dd>${violations}</dd></dl>`;
+    return `<dl class="kv"><dt>Declared components</dt><dd>${scope.components.length - libraries - navigation}</dd><dt>Observed libraries</dt><dd>${libraries}</dd><dt>Unassigned module groups</dt><dd>${navigation}</dd><dt>Modules shown / in scope</dt><dd>${modules(view.components)}/${modules(scope.components)}</dd><dt>Edges shown / in scope</dt><dd>${edges.length}/${scope.edges.length}</dd><dt>Import locations shown / in scope</dt><dd>${importSites(edges)}/${importSites(scope.edges)}</dd><dt>Broken rules on connections at this level</dt><dd>${violations}</dd></dl>`;
   }
 
   function topHeaviestEdges(limit) {
@@ -3147,7 +3147,7 @@
 
   function edgeCountLabel(edge) {
     if (edge.kind === "symbol_use") return "symbol-use edge";
-    return `${edge.import_sites} import site${edge.import_sites === 1 ? "" : "s"}`;
+    return `${edge.import_sites} import location${edge.import_sites === 1 ? "" : "s"}`;
   }
 
   function heaviestBlock() {
@@ -3203,14 +3203,14 @@
         : "";
       return `<div class="kicker">Inside</div><h2>${esc(prefix || insideScope()?.card?.label || opened.inside || opened.component)}</h2><p>${ownerNote}Folders follow physical package names; they are not declared architecture boundaries. Connections crossing visible folders are summed. Open a folder to inspect its contents; a red connection still marks a broken rule.</p>${statBlock()}${outNote}${heaviestBlock()}`;
     }
-    return `<div class="kicker">Level 2 · components</div><h2>Component flow</h2><p>Declared components are shown with their observed imports. “Unassigned modules” is navigation only and does not imply a component boundary or verdict. Physical package frames are navigation groupings, not owners. Select a box or connection for evidence; use Enter, double-click, or Open selected to open one level.</p>${statBlock()}${heaviestBlock()}`;
+    return `<div class="kicker">Level 2 · components</div><h2>Component dependencies</h2><p>Imports show which components depend on each other. Select a component or connection for details; double-click, press Enter, or use Open selected to explore one level. Unassigned modules and physical package frames are navigation only; they are not component boundaries or owners.</p>${statBlock()}${heaviestBlock()}`;
   }
 
   function moduleTree(component, path = []) {
     const cards = cardLevel(component, path).components;
     if (!cards.length) return '<p class="empty">No modules observed.</p>';
     return `<ul class="module-tree">${cards.map((card) => card.folder
-      ? `<li><details><summary>${esc(card.display)} <small>${card.modules.length} modules · ${card.import_sites} import sites${card.internal_violation ? " · contains violation" : ""}</small></summary>${moduleTree(component, [...path, card.label])}</details></li>`
+      ? `<li><details><summary>${esc(card.display)} <small>${card.modules.length} modules · ${card.import_sites} import locations${card.internal_violation ? " · contains violation" : ""}</small></summary>${moduleTree(component, [...path, card.label])}</details></li>`
       : `<li><code>${esc(card.display)}</code>${card.public === null ? "" : ' <span class="interface-label">provided</span>'}</li>`).join("")}</ul>`;
   }
 
@@ -3283,7 +3283,7 @@
       if (component.library) {
         const rules = scopeRules(component);
         inspectorContent.innerHTML = `<div class="kicker">External library</div><h2>${esc(component.display)}</h2>
-          <dl class="kv"><dt>Observed import sites</dt><dd>${component.import_sites}</dd>
+          <dl class="kv"><dt>Observed import locations</dt><dd>${component.import_sites}</dd>
           <dt>Scope rules</dt><dd>${rules.length}</dd>${relations}</dl>${scopeRuleList(component)}`;
         return;
       }
@@ -3300,7 +3300,7 @@
         const declaredComponent = Boolean(level().declaredInside && component.declared_inside_component);
         const card = scope?.card || componentByLabel.get(opened.component);
         inspectorContent.innerHTML = `<div class="kicker">${declaredComponent ? "Declared component" : component.folder ? "Physical package" : "Module"}</div><h2>${esc(component.label)}</h2>
-          <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd><dt>Import sites touching group</dt><dd>${component.import_sites || 0}</dd>${relations}</dl>
+          <dl class="kv"><dt>Modules</dt><dd>${component.modules.length}</dd><dt>Import locations touching group</dt><dd>${component.import_sites || 0}</dd>${relations}</dl>
           ${component.folder ? moduleTree({ ...card, modules: component.modules, inner_edges: card.inner_edges }, [...(opened.path || []), component.label]) : `<p>${declaredComponent ? "Use Open selected or Enter to open its declared inside or inspect its physical modules." : component.openable ? "Use Open selected or Enter to inspect its symbols." : "No symbols recorded."}</p>`}`;
         return;
       }
@@ -3363,10 +3363,10 @@
       .join("");
     inspectorContent.innerHTML = `<div class="kicker">Connection</div><h2>${esc(sourceName)} → ${esc(targetName)}</h2>
       ${sourceName === edge.source && targetName === edge.target ? "" : `<details><summary>Exact names</summary><p><code>${esc(edge.source)}</code> → <code>${esc(edge.target)}</code></p></details>`}
-      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>${edge.kind === "symbol_use" ? "Relationship" : "Observed import sites"}</dt><dd>${edge.kind === "symbol_use" ? "Symbol use" : edge.import_sites}</dd>${edge.library || !edge.names.length ? "" : `<dt>Interface names</dt><dd>${edge.names.length}</dd>`}</dl>
+      <dl class="kv"><dt>Verdict</dt><dd>${esc(edge.state)}</dd><dt>${edge.kind === "symbol_use" ? "Relationship" : "Import locations"}</dt><dd>${edge.kind === "symbol_use" ? "Symbol use" : edge.import_sites}</dd>${edge.library || !edge.names.length ? "" : `<dt>Interface names</dt><dd>${edge.names.length}</dd>`}</dl>
       ${edge.library ? `<h3>External library scope</h3>${scopeRuleList(edge.scope)}` : ""}
       ${edge.requirement && edge.requirement.component ? `<p>Declared dependency: ${edge.requirement.through && edge.requirement.through.length ? `through <code>${edge.requirement.through.map(esc).join(", ")}</code>` : "interface not narrowed"}${edge.requirement.rationale ? ` — ${esc(edge.requirement.rationale)}` : ""}${edge.requirement.decided_by ? ` (${esc(edge.requirement.decided_by)})` : ""}.</p>` : ""}
-      ${edge.kind !== "symbol_use" && (edge.sites || []).length ? `<h3>Example import sites</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
+      ${edge.kind !== "symbol_use" && (edge.sites || []).length ? `<h3>Example import locations</h3><ul class="plain">${edge.sites.map((site) => `<li><code>${esc(site)}</code></li>`).join("")}</ul>` : ""}
       ${
         edge.rule_ids.length
           ? `<h3>Broken rules</h3><ul class="plain">${edge.rule_ids.map((r) => { const rule = (DATA.rules || {})[r] || {}; return `<li class="violation-card"><code>${esc(r)}</code>${rule.rationale ? ` — ${esc(rule.rationale)}` : ""}${rule.decided_by ? ` (${esc(rule.decided_by)})` : ""}</li>`; }).join("")}</ul>`

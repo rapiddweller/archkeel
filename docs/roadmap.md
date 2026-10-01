@@ -163,8 +163,8 @@ only when its row names repository evidence.
    (AD-19). Evidence: one `validate` run on the shop sample with a removed decision prints 15
    panels, all titled `contract_invalid`, covering graph drift, rule violations and the open
    decision.
-3. Replace internal vocabulary in the HTML report labels: `Complete ArchitectureIR inventory`,
-   `Canonical result`, `Reproduction metadata`, `Coverage dimension`, `Fingerprint` and
+3. Replace the remaining internal vocabulary in the HTML report labels: `Canonical result`,
+   `Reproduction metadata`, `Coverage dimension`, `Fingerprint` and
    `Publication order evidence` name concepts a reader has to look up (AD-19).
 4. Show the analyzer, contract and checker digests in the check report heading, so a reader sees
    without the JSON that the two snapshots were comparable at all.

@@ -142,7 +142,7 @@ kind · subject · unknown_claim · remedy
 The remedy is actionable and comes last. Diagnostics use the unknown color
 unless the check has already classified them as a failure.
 
-### Component flow
+### Component dependencies
 
 - The observed flow has three views at the same breadcrumb level: focused UML diagram to explain
   interfaces, physical structure map to find modules, and a connection-first review queue.
@@ -184,7 +184,8 @@ unless the check has already classified them as a failure.
 - Level 3 groups physical subpackages as folders, not new semantic components. Package
   initializers stay openable module cards, including import-only initializers; folder navigation
   reaches every observed module, including those without symbols or a unique owner. Group edges
-  sum import sites and preserve rule ids; hidden same-folder edges reappear when the folder opens.
+  sum import locations and preserve rule ids; hidden same-folder edges reappear when the folder
+  opens.
 - One provided interface marker per component keeps large APIs legible; the inspector expands
   the exact entries. Breadcrumbs return through component, package, and module levels.
 - An observed import governed by `external_dependency_scope` draws a `«library»` card and
@@ -194,9 +195,9 @@ unless the check has already classified them as a failure.
   opening a large level must not silently shrink it. Zoom and Fit are explicit controls.
   A chosen threshold hides only non-violating edges, with shown/total counts beside it.
   Arrange resets card positions, not focus, threshold or zoom. Resize preserves the chosen zoom.
-- Import edges carry their observed import-site counts. Module call/reference edges are marked
-  as symbol-use relationships, not import sites. A conforming edge is solid teal; a violated edge
-  is dashed red with a chip naming the rule id.
+- Import edges carry their observed import-location counts. Module call/reference edges are marked
+  as symbol-use relationships, not import locations. A conforming edge is solid teal; a violated
+  edge is dashed red with a chip naming the rule id.
 - Inside edges stay observed unless an inside rule decides them; absence of a finding alone is
   not conformance.
 - Right-angle connectors use lanes per row pair to reduce crossings. Rule chips take priority

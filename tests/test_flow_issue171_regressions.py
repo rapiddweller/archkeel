@@ -161,7 +161,7 @@ const summaries = new Function("focusLabel", "opened", "thresholdInput", "violat
   );
 summaries.normalizeThreshold(1);
 assert.equal(input.value, "1");
-assert.match(summaries.activeFilterSummary("diagram"), /at least 1 import sites/);
+assert.match(summaries.activeFilterSummary("diagram"), /at least 1 import locations/);
 summaries.updateEdgeCount(0, 0);
 assert.match(count.textContent, /0\/0/);
 assert(text.includes("updateEdgeCount(visibleEdges().length, fullLevel().edges.length);"));
