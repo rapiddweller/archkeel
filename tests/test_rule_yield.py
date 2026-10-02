@@ -8,8 +8,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from test_analyzer import _component
 from test_boundary_types_nested_dtos import _write_app
-from test_inside_publication import _child, _inside
+from test_dart_directives import dart_package
+from test_inside_publication import _child, _inside, _rule
 
 from archkeel.analyzer.embedded.report import analyze_snapshot
 from tools import rule_yield
@@ -97,6 +99,39 @@ def test_changed_replay_findings_cannot_publish_a_rule_runtime(tmp_path: Path) -
     assert rule["replay_matches"] is False
     assert rule["runtime_seconds"] is None
     assert "changes observed findings" in " ".join(rule["evidence_gaps"])
+
+
+def test_replay_keeps_import_proof_before_the_scanner_strips_it(tmp_path: Path) -> None:
+    _repo(tmp_path, "str")
+    package = tmp_path / "sample/app"
+    (package / "__init__.py").write_text("from .facade import convert\n__all__ = ['convert']\n")
+    (package / "facade.py").write_text("from .impl import convert\n__all__ = ['convert']\n")
+    contract = tmp_path / "contract.json"
+    raw = json.loads(contract.read_text())
+    raw["components"][0]["public"] = ["sample.app:convert"]
+    raw["components"][0]["inside"] = "inside.json"
+    contract.write_text(json.dumps(raw))
+    (tmp_path / "inside.json").write_text(
+        json.dumps(
+            _inside(
+                [
+                    _child("facade", "sample.app.facade", public=["sample.app.facade:convert"]),
+                    _child("impl", "sample.app.impl"),
+                ],
+                [{**raw["rules"][0], "id": "INNER-TYPES", "source": "sample.app.facade"}],
+            )
+        )
+    )
+    _repin(tmp_path)
+
+    metrics, observation = measure(tmp_path, repeats=1)
+
+    assert len(metrics["rules"]) == 2
+    assert all(row["replay_matches"] is True for row in metrics["rules"])
+    assert all(row["runtime_seconds"] > 0 for row in metrics["rules"])
+    assert metrics["canonical_capture_matches"] is True
+    assert not [row for row in observation["unknowns"] if row["rule_ids"]]
+    assert all("module_level_import" not in row["data"] for row in observation["imports"])
 
 
 def test_absent_boundary_policy_is_reported_as_not_measured(tmp_path: Path) -> None:
@@ -320,6 +355,331 @@ def test_nonboundary_assessment_pass_is_not_a_positional_pass_count(tmp_path: Pa
     rule = next(row for row in metrics["rules"] if row["id"] == "NO-IMPORT")
     assert rule["assessment_status"] == "PASS"
     assert rule["decided_pass_positions"] is None
+    assert rule["import_ledger"]["unit"] == "import"
+    assert rule["import_ledger"]["decided_passes"] == 0
+
+
+def _import_repo(root: Path) -> None:
+    _repo(root, "str")
+    contract = root / "contract.json"
+    raw = json.loads(contract.read_text())
+    raw["components"] += [
+        _component("client", public=[]),
+        _component("target", public=["sample.target:published"]),
+    ]
+    raw["rules"] += [
+        _rule(
+            "NO-SECRET",
+            "forbidden_dependency",
+            source="sample.client",
+            target="sample.target",
+            target_symbol="secret",
+            include_type_checking=False,
+        ),
+        _rule("INTERFACES", "interface_boundary", include_type_checking=False),
+    ]
+    contract.write_text(json.dumps(raw))
+    (root / "sample/target.py").write_text(
+        "def published() -> str: return 'yes'\n"
+        "def private() -> str: return 'private'\n"
+        "def secret() -> str: return 'secret'\n"
+    )
+    (root / "sample/client.py").write_text(
+        "from sample.target import published, private, secret\n"
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n    from sample.target import secret as typing_secret\n"
+    )
+    _repin(root)
+
+
+def _scope_repo(root: Path) -> None:
+    _repo(root, "str")
+    contract = root / "contract.json"
+    raw = json.loads(contract.read_text())
+    raw["rules"] = [
+        _rule("ASSIGN", "complete_assignment", source="sample"),
+        _rule("LAYOUT", "root_layout", root="sample", allowed_children=["sample.app"]),
+        _rule("CONSTRUCT", "forbidden_construct", source="sample", constructs=["assert"]),
+        _rule("CYCLES", "no_component_cycles"),
+        _rule("REQUIRES", "complete_requires"),
+        _rule("PERMISSION", "allowed_dependency", source="sample.app", target="sample.app"),
+    ]
+    raw["components"][0]["inside"] = "inside.json"
+    contract.write_text(json.dumps(raw))
+    (root / "inside.json").write_text(
+        json.dumps(
+            _inside(
+                [_child("impl", "sample.app.impl")],
+                [_rule("ASSIGN", "complete_assignment", source="sample.app")],
+            )
+        )
+    )
+    _repin(root)
+
+
+def test_scope_conjunctions_bind_actual_producer_receipts_and_scopes(tmp_path: Path) -> None:
+    _scope_repo(tmp_path)
+
+    metrics, observation = measure(tmp_path, repeats=1)
+
+    receipts = {
+        row["id"]: row
+        for row in observation["scope_observations"]
+        if row["kind"] == "rule_evaluation"
+    }
+    modules = {row["id"] for row in observation["modules"]}
+    for row in metrics["rules"]:
+        assert row["decided_pass_positions"] is None
+        if row["id"] == "PERMISSION":
+            assert row["assessment_status"] == "DECLARATION"
+            assert row["decision_unit"] is None
+            assert row["scope_ledger"] is None
+            continue
+        assert row["decision_unit"] == "observed_scope"
+        ledger = row["scope_ledger"]
+        assert ledger["producer_bound"] is ledger["scope_complete"] is True
+        assert ledger["population"] == ledger["decided_passes"] == 1
+        assert ledger["decided_violations"] == ledger["unknown_decisions"] == 0
+        assert ledger["verdict"] == "PASS"
+        receipt = receipts[ledger["receipt_id"]]
+        assert receipt["rule_ids"] == [row["id"]]
+        assert receipt["data"]["scope"] == ledger["scope"]
+        assert ledger["fact_ids"] == receipt["fact_ids"]
+        assert set(ledger["fact_ids"]) <= modules
+        assert ledger["evidence_ids"] == receipt["evidence_ids"]
+    child = next(row for row in metrics["rules"] if row["id"] == "app:ASSIGN")
+    assert child["scope_ledger"]["scope"] == "app"
+    assert metrics["canonical_capture_matches"] is True
+
+
+@pytest.mark.parametrize(
+    "loss", ["receipt", "completion", "scope", "facts", "duplicate", "publication"]
+)
+def test_unbound_scope_proof_keeps_predicate_counts_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, loss: str
+) -> None:
+    _scope_repo(tmp_path)
+    capture = rule_yield._captured_analysis
+
+    def incomplete_capture(root: Path, arguments: dict) -> tuple[dict, list]:
+        model, calls = capture(root, arguments)
+        adjusted = []
+        for function, inputs, result in calls:
+            if function is rule_yield.rule_violations and loss == "completion":
+                continue
+            if function is rule_yield._rule_evaluation_receipt and inputs["rule"].id == "ASSIGN":
+                if loss == "receipt":
+                    continue
+                if loss == "scope":
+                    inputs = {**inputs, "scope": "another-scope"}
+                if loss == "facts":
+                    inputs = {**inputs, "evaluated": []}
+                if loss == "duplicate":
+                    adjusted.append((function, inputs, result))
+                if loss == "publication":
+                    result = {**result, "id": "not-published"}
+            adjusted.append((function, inputs, result))
+        return model, adjusted
+
+    monkeypatch.setattr(rule_yield, "_captured_analysis", incomplete_capture)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    row = next(row for row in metrics["rules"] if row["id"] == "ASSIGN")
+    assert row["assessment_status"] == "PASS"
+    assert row["scope_ledger"]["producer_bound"] is False
+    assert row["scope_ledger"]["scope_complete"] is False
+    assert row["scope_ledger"]["population"] is None
+    assert row["scope_ledger"]["decided_passes"] is None
+    assert row["scope_ledger"]["unknown_decisions"] is None
+
+
+def test_partial_scope_never_turns_a_safe_conjunction_into_a_pass(tmp_path: Path) -> None:
+    _scope_repo(tmp_path)
+    (tmp_path / "sample/broken.py").write_text("def broken(\n")
+    _repin(tmp_path)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    row = next(row for row in metrics["rules"] if row["id"] == "CONSTRUCT")
+    ledger = row["scope_ledger"]
+    assert row["assessment_status"] == "UNKNOWN"
+    assert ledger["producer_bound"] is True
+    assert ledger["scope_complete"] is False
+    assert ledger["population"] == ledger["unknown_decisions"] == 1
+    assert ledger["decided_passes"] == ledger["decided_violations"] == 0
+
+
+def test_false_scope_conjunction_keeps_partial_coverage_visible(tmp_path: Path) -> None:
+    _scope_repo(tmp_path)
+    source = tmp_path / "sample/app/impl.py"
+    source.write_text(source.read_text() + "assert True\nassert False\n")
+    (tmp_path / "sample/broken.py").write_text("def broken(\n")
+    _repin(tmp_path)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    row = next(row for row in metrics["rules"] if row["id"] == "CONSTRUCT")
+    ledger = row["scope_ledger"]
+    assert row["violation_records"] == 2
+    assert row["assessment_status"] == ledger["verdict"] == "FAIL"
+    assert ledger["decided_violations"] == ledger["population"] == 1
+    assert ledger["decided_passes"] == ledger["unknown_decisions"] == 0
+    assert ledger["scope_complete"] is False
+    assert metrics["coverage"]["failures"]
+
+
+def test_partial_graph_receipt_is_an_unknown_scope_decision(tmp_path: Path) -> None:
+    _scope_repo(tmp_path)
+    contract = tmp_path / "contract.json"
+    raw = json.loads(contract.read_text())
+    raw["components"].append(_component("outside", packages=["elsewhere"]))
+    contract.write_text(json.dumps(raw))
+    _repin(tmp_path)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    row = next(row for row in metrics["rules"] if row["id"] == "CYCLES")
+    assert metrics["coverage"]["status"] == "PASS"
+    assert row["assessment_status"] == "UNKNOWN"
+    assert row["scope_ledger"]["producer_bound"] is True
+    assert row["scope_ledger"]["scope_complete"] is False
+    assert row["scope_ledger"]["unknown_decisions"] == 1
+    assert row["scope_ledger"]["decided_passes"] == 0
+
+
+def test_a_false_scope_conjunction_retains_its_actual_unknown_causes(tmp_path: Path) -> None:
+    _scope_repo(tmp_path)
+    inside = tmp_path / "inside.json"
+    raw = json.loads(inside.read_text())
+    raw["components"].append(_child("outside", "sample.outside"))
+    inside.write_text(json.dumps(raw))
+    (tmp_path / "sample/app/unowned.py").write_text("VALUE = 1\n")
+    _repin(tmp_path)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    row = next(row for row in metrics["rules"] if row["id"] == "app:ASSIGN")
+    assert row["assessment_status"] == row["scope_ledger"]["verdict"] == "FAIL"
+    assert row["scope_ledger"]["decided_violations"] == 1
+    assert row["violation_records"] == 1
+    assert row["unknown_by_cause"] == {"inside_source_domain_incomplete": 1}
+
+
+def test_import_passes_are_the_actual_yielded_verdicts(tmp_path: Path) -> None:
+    _import_repo(tmp_path)
+
+    metrics, observation = measure(tmp_path, repeats=1)
+
+    rows = {row["id"]: row for row in metrics["rules"]}
+    forbidden = rows["NO-SECRET"]["import_ledger"]
+    interface = rows["INTERFACES"]["import_ledger"]
+    assert forbidden["unit"] == interface["unit"] == "import"
+    assert forbidden["population"] == 3
+    assert forbidden["decided_passes"] == 2
+    assert forbidden["violations"] == 1
+    assert forbidden["unknowns"] == 0
+    assert interface["population"] == 2
+    assert interface["decided_passes"] == interface["violations"] == 1
+    assert interface["unknowns"] == 0
+    assert forbidden["capture_complete"] is interface["capture_complete"] is True
+    assert forbidden["scope_complete"] is interface["scope_complete"] is True
+    assert forbidden["scope"] == interface["scope"] == "root"
+    assert len(observation["violations"]) == 2
+    import_ids = {row["id"] for row in observation["imports"]}
+    for ledger in (forbidden, interface):
+        assert {row["import_id"] for row in ledger["evaluations"]} <= import_ids
+        assert all(row["source_module"] == "sample.client" for row in ledger["evaluations"])
+    assert metrics["canonical_capture_matches"] is True
+
+
+@pytest.mark.parametrize("loss", ["yield", "completion", "scope"])
+def test_incomplete_import_capture_cannot_certify_pass_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, loss: str
+) -> None:
+    _import_repo(tmp_path)
+    capture = rule_yield._captured_analysis
+
+    def incomplete_capture(root: Path, arguments: dict) -> tuple[dict, list]:
+        model, calls = capture(root, arguments)
+        return model, [
+            (call[0], {**call[1], "scope": "another-scope"}, call[2])
+            if loss == "scope" and call[0] is rule_yield._forbidden_dependency_verdicts
+            else call
+            for call in calls
+            if not (
+                call[0] is rule_yield._forbidden_dependency_verdicts
+                and (
+                    (loss == "completion" and call[2] is None)
+                    or (loss == "yield" and call[2] is not None)
+                )
+            )
+        ]
+
+    monkeypatch.setattr(rule_yield, "_captured_analysis", incomplete_capture)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    row = next(row for row in metrics["rules"] if row["id"] == "NO-SECRET")
+    assert row["import_ledger"]["capture_complete"] is False
+    assert row["import_ledger"]["population"] is None
+    assert row["import_ledger"]["decided_passes"] is None
+
+
+def test_incomplete_scan_retains_import_verdicts_without_scope_closure(tmp_path: Path) -> None:
+    _import_repo(tmp_path)
+    (tmp_path / "sample/broken.py").write_text("def broken(\n")
+    _repin(tmp_path)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    row = next(row for row in metrics["rules"] if row["id"] == "NO-SECRET")
+    assert row["import_ledger"]["capture_complete"] is True
+    assert row["import_ledger"]["decided_passes"] == 2
+    assert row["import_ledger"]["scope_complete"] is False
+
+
+def test_an_existing_unknown_import_verdict_never_becomes_a_pass(tmp_path: Path) -> None:
+    dart_package(
+        tmp_path,
+        {"lib/client.dart": "import 'target.dart';\n", "lib/target.dart": "class Secret {}\n"},
+        components=[
+            _component("client", packages=["app.client"]),
+            _component("target", packages=["app.target"]),
+        ],
+        rules=[
+            _rule(
+                "NO-SECRET",
+                "forbidden_dependency",
+                source="app.client",
+                target="app.target",
+                target_symbol="Secret",
+                include_type_checking=True,
+            )
+        ],
+        libraries={},
+    )
+    head = subprocess.check_output(
+        ["git", "-C", str(tmp_path), "rev-parse", "HEAD"], text=True
+    ).strip()
+    model, calls = _captured_analysis(
+        tmp_path,
+        {
+            "git_head": head,
+            "dirty": False,
+            "contract_path": tmp_path / "contract.json",
+            "roots": ("lib",),
+            "namespace": "app",
+            "language": "dart",
+        },
+    )
+
+    ledger = rule_yield._import_ledgers(model, calls)["NO-SECRET"]
+
+    assert ledger["capture_complete"] is True
+    assert ledger["population"] == ledger["unknowns"] == 1
+    assert ledger["decided_passes"] == ledger["violations"] == 0
+    assert ledger["evaluations"][0]["verdict"] == "undecided"
 
 
 def test_additional_ambiguous_facade_positions_join_the_population(tmp_path: Path) -> None:

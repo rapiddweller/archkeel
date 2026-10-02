@@ -4,8 +4,8 @@ Observed 2026-10-02 with Python 3.11.12, three sequential scans per runtime.
 [Measurements](measurements.json) contain every rule, UNKNOWN cause, digest and
 profiling overhead. [Classification](classification.json) compares raw findings.
 These artifacts measure the earlier #205 candidate, not current main. The
-[version 2 command](../../rule-yield.md) now captures boundary population receipts,
-true passes and separate global API limits; repeat it for each pinned installation.
+[current command](../../rule-yield.md) captures boundary positions, actual import
+verdicts and receipt-bound observed-scope conjunctions; repeat it for each installation.
 
 | Input | Pin |
 |---|---|
@@ -47,5 +47,6 @@ Reproduce each pin with its isolated installation using the
 [measurement command](../../rule-yield.md). Compare `violations` in the raw companion
 observations by record ID and contents; review any added finding with its cited source.
 These local source snapshots and their provenance must be retained to repeat this run.
-Post-blocker release, explicit EE boundary policy and unsupported predicate pass/runtime
-evidence remain pending.
+This is historical evidence, not a current release measurement. EE boundary yield
+is N/A under this unchanged policy; adding a policy is not a measurement prerequisite.
+Repeat published baselines with the current tool; missing producer/runtime proof stays explicit.
