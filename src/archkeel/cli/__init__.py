@@ -322,8 +322,9 @@ def build_parser() -> _Parser:
         help="Install the Archkeel instructions for a coding agent.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
-            "Writes .claude/skills/archkeel/SKILL.md for Claude Code or a marked section in\n"
-            "AGENTS.md for Codex. Running it again replaces the section in place.\n\n"
+            "Writes .claude/skills/archkeel/SKILL.md for Claude Code or\n"
+            ".agents/skills/archkeel/SKILL.md for Codex. Reinstalling updates the skill.\n"
+            "Codex also removes a legacy managed AGENTS.md section, preserving user text.\n\n"
             "Examples:\n"
             "  archkeel skill install claude\n"
             "  archkeel skill install codex --root ../service\n\n"

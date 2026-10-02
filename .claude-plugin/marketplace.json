@@ -1,0 +1,6 @@
+{
+  "name": "archkeel",
+  "description": "Archkeel architecture checks for coding agents",
+  "owner": { "name": "Rapiddweller Asia Co., Ltd." },
+  "plugins": [{ "name": "archkeel", "source": "./" }]
+}

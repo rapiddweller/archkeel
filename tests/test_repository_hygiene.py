@@ -104,6 +104,7 @@ ROOT_FILES = frozenset(
         "architecture-baseline.json",
         "architecture-contract.json",
         "archkeel.toml",
+        "plugin.json",
         "pyproject.toml",
         "uv.lock",
     )

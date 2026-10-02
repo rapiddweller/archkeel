@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots browser-install report-browser build smoke release-check
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots browser-install report-browser plugin build smoke release-check
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -15,7 +15,7 @@ test:
 	$(UV) run --locked python -m pytest -q
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
-	tools/onboarding_svg.py tools/report_browser.py \
+	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
@@ -69,6 +69,10 @@ PLAYWRIGHT_VERSION ?= 1.62.0
 
 browser-install:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m playwright install --with-deps chromium
+
+plugin:
+	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
+	$(UV) run --locked python -m tools.package_plugin "$(OUTPUT)"
 
 report-browser:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_actual_target_diff_acceptance.py tests/test_target_diagram_acceptance.py tests/test_target_hierarchy_independent_acceptance.py tests/test_consistent_explorer_acceptance.py tests/test_compact_report_headers.py tests/test_frame_edge_semantics.py tests/test_exact_module_target_leaf.py
