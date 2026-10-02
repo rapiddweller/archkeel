@@ -657,10 +657,12 @@ _BOUNDARY_TYPES_MODEL_FIELD = Variant(
 )
 
 
-def _inherited_generic_service(return_type: str) -> dict[str, str]:
+def _inherited_generic_service(return_type: str, *, declared: bool = True) -> dict[str, str]:
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     app = next(item for item in contract["components"] if item["label"] == "app")
-    app["public"].extend(["shop.app.service:Child", "shop.app.payloads:Payload"])
+    app["public"].append("shop.app.service:Child")
+    if declared:
+        app["public"].append("shop.app.payloads:Payload")
     return {
         "shop/app/payloads.py": HEADER + "class Payload: pass\nclass Noise: pass\n",
         "shop/app/base/__init__.py": HEADER
@@ -707,6 +709,30 @@ _INHERITED_GENERIC_RETURN = Variant(
     expected_violations=(),
     expected_codes=(),
 )
+
+_INHERITED_GENERIC_UNDECLARED_RETURN = Variant(
+    id="class-a-inherited-generic-undeclared-return",
+    section="class_a",
+    item="boundary_types:inherited_concrete_return",
+    summary="Child.get() -> T resolves to the undeclared shop.app.payloads:Payload. "
+    "The finding keeps T and shows that concrete origin (AD-137).",
+    files=_inherited_generic_service("T", declared=False),
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
+
+_INHERITED_GENERIC_UNDECLARED_BATCH = Variant(
+    id="class-a-inherited-generic-undeclared-batch",
+    section="class_a",
+    item="boundary_types:inherited_concrete_collection",
+    summary="Child.get() -> list[T] exposes the undeclared shop.app.payloads:Payload. "
+    "The finding keeps list[T] and its stable identity (AD-137).",
+    files=_inherited_generic_service("list[T]", declared=False),
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
 
 _INHERITED_GENERIC_UNUSED = Variant(
     id="class-a-inherited-generic-unused",
@@ -857,6 +883,8 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD,
     _BOUNDARY_TYPES_MODEL_FIELD,
     _INHERITED_GENERIC_RETURN,
+    _INHERITED_GENERIC_UNDECLARED_RETURN,
+    _INHERITED_GENERIC_UNDECLARED_BATCH,
     _INHERITED_GENERIC_UNUSED,
     _INHERITED_GENERIC_AMBIGUOUS,
     _PUBLIC_API_INHERITED_MISSING,

@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Inherited boundary findings preserve raw annotations and stable identity while naming proven concrete origins; ambiguous substitutions stay UNKNOWN (AD-137, #210) | `tests/test_inherited_boundary_diagnostics.py`; `fixtures/demo_catalog_types.py`; `docs/architecture/decisions/ad-137-inherited-boundary-findings-show-resolved-types.md` |
 | External API closure checks inherited public fields through proven local base chains, with overrides and generic substitutions; unresolved inheritance retains UNKNOWN (AD-131, #243) | `tests/test_public_api_boundary.py`; `fixtures/demo_catalog_types.py`; `docs/architecture/decisions/ad-131-public-api-includes-inherited-fields.md` |
 | Report review starts with findings and limits; finding links and copyable packets retain snapshot evidence; absent comparison stays unavailable (AD-130, #236) | `tests/test_review_surface.py`; `make report-browser` |
 | Codex and Claude install the same native skill; Codex migrates its managed AGENTS block without changing user bytes; a skills-only bundle exports that source (AD-129, #236) | `tests/test_skill.py`; `tests/smoke_test.py`; `make plugin OUTPUT=<new directory>` |

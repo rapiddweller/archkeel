@@ -58,6 +58,9 @@ one of its parameter or return annotations resolves, and on a class for a proven
 generic method signature (AD-121): the dotted `module.Name` origins that signature exposes,
 resolved by `boundary_types` (AD-63) and read back by `validate`'s unused-entry check (AD-65).
 Ambiguous inherited candidates are tracked separately and do not count as proven publication.
+Inherited boundary violations keep their raw `annotation` and stable identity; their title and
+`resolved_types` name the concrete `module:Name` origins already proven by the signature walk,
+including reached model fields (AD-137). Ambiguous substitutions remain UNKNOWN.
 An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 
