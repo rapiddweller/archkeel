@@ -279,6 +279,10 @@ def reproduce(output: Path) -> dict:
     assert results["A"]["host_order"] == "PASS" and all(
         "regression check failed" in item for item in results["A"]["failures"]
     )
+    assert set(results["A"]["failures"]) == {
+        "regression check failed in calls_unresolved: 0->1",
+        "regression check failed in unresolved_ratio: 0/2->1/1",
+    }
     assert CASE_A_CALL in results["A"]["calls"]
     assert results["B"]["failures"] == [
         "expectation was not published before the first candidate submission"

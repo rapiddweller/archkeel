@@ -284,6 +284,8 @@ forbidden. `forbidden_construct` and `external_dependency_scope` exempt by prefi
 call; neighbors remain forbidden. Moving or changing it needs contract review; a changed
 permission widens under `--against`. Class B
 regression checks compare an accepted observation with a candidate.
+Counts and unresolved-call share must each not increase; conflicting directions reject.
+Require comparable profiles and complete coverage; retain UNKNOWN and unmeasured `n/a`.
 Class C declarations are recorded and reported. `public_api` is also checked for existence,
 membership in a non-empty literal `__all__` and resolvable types exposed by declared classes and
 functions; an empty `__all__`, ambiguous bindings and unsupported annotation forms are not
