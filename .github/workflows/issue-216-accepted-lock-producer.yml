@@ -1,0 +1,57 @@
+name: Bootstrap reviewed accepted lock
+
+on:
+  push:
+    branches: [feat/issue-216-accepted-lock-producer]
+
+permissions:
+  contents: read
+
+env:
+  ACCEPTED_COMMIT: 462c90cc24f9372070a847209d0d4e5fd872b06f
+  APPROVAL_REF: https://github.com/rapiddweller/archkeel/pull/265
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read reviewed producer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: producer
+          persist-credentials: false
+
+      - name: Read approved source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.ACCEPTED_COMMIT }}
+          path: accepted
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pinned uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Build approved checker
+        run: make -C accepted build
+
+      - name: Produce lock from isolated approved checker
+        run: |
+          uv run --isolated --no-project --with accepted/dist/*.whl \
+            python producer/tools/produce_accepted_lock.py --root accepted \
+            --accepted-commit "$ACCEPTED_COMMIT" --approval-ref "$APPROVAL_REF" \
+            --output "$RUNNER_TEMP/accepted-lock"
+          mkdir "$RUNNER_TEMP/accepted-lock/dist"
+          cp accepted/dist/* "$RUNNER_TEMP/accepted-lock/dist/"
+
+      - name: Retain immutable lock and checker
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reviewed-accepted-lock
+          path: ${{ runner.temp }}/accepted-lock/
+          if-no-files-found: error
+          retention-days: 90
