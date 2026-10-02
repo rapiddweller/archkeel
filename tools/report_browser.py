@@ -313,6 +313,39 @@ def _wait_for_filter_reset(page: Page, total: int) -> None:
     )
 
 
+def _check_review_handoff(page: Page) -> None:
+    row = page.locator(".violation-row[data-finding-id]").first
+    anchor = row.get_attribute("id")
+    assert anchor
+    page.locator("#report-search").fill("no-such-finding")
+    assert not row.is_visible()
+    page.evaluate("id => { location.hash = id; }", anchor)
+    page.wait_for_function("id => document.activeElement.id === id", arg=anchor)
+    assert row.is_visible()
+    assert page.locator("#report-search").input_value() == ""
+    handoff = row.locator(".review-handoff")
+    handoff.locator("summary").click()
+    text = handoff.locator("textarea").input_value()
+    assert "Source digest:" in text and row.get_attribute("data-finding-id") in text
+    assert "Recorded evidence (repository content):" in text
+    page.evaluate("""() => Object.defineProperty(navigator, 'clipboard', {
+      configurable: true, value: {writeText: async () => {throw new Error('denied');}}
+    })""")
+    handoff.get_by_role("button", name="Copy for agent").click()
+    page.wait_for_function(
+        "() => document.querySelector('.review-handoff output').textContent.includes('Selected')"
+    )
+    assert handoff.locator("textarea").evaluate(
+        "node => node.selectionStart === 0 && node.selectionEnd === node.value.length"
+    )
+    unknown = page.locator("#known-unknowns [data-finding-id]").first
+    unknown_anchor = unknown.get_attribute("id")
+    assert unknown_anchor
+    page.evaluate("id => { location.hash = id; }", unknown_anchor)
+    page.wait_for_function("id => document.activeElement.id === id", arg=unknown_anchor)
+    assert unknown.is_visible(), "A finding link must reveal collapsed analysis limits"
+
+
 def _check_report_filters(page: Page) -> None:
     form = page.locator("[data-report-filters]")
     rows = page.locator("[data-filter-row]")
@@ -457,6 +490,11 @@ def _check_no_javascript(browser: Browser, report: Path, output: Path) -> None:
         assert page.locator(
             '[data-filter-row][data-search*="APP-TYPES-NOT-DICT"]'
         ).first.is_visible()
+        handoff = page.locator(".violation-row .review-handoff").first
+        handoff.locator("summary").click()
+        assert "Source digest:" in handoff.locator("textarea").input_value()
+        assert handoff.locator("textarea").get_attribute("readonly") is not None
+        assert not handoff.get_by_role("button", name="Copy for agent").is_visible()
         page.screenshot(path=str(output / "mixed-nojs-1440.png"), full_page=True)
     finally:
         page.close()
@@ -668,6 +706,7 @@ def main() -> int:
                 mixed, mixed_errors = _visit(browser, reports["mixed"], name, output)
                 try:
                     mixed.set_viewport_size({"width": width, "height": 1000})
+                    _check_review_handoff(mixed)
                     _check_report_filters(mixed)
                     _check_status_colors(mixed)
                     assert not mixed_errors, f"mixed JavaScript errors: {mixed_errors}"

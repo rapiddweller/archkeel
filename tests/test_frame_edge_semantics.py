@@ -564,6 +564,7 @@ def test_unroutable_drag_keeps_edge_and_explains_layout_warning_for_all_inputs(
             page.locator('[data-flow-view="diagram"]').click()
             if page.locator(".flow-reset-filters").count() == 1:
                 page.locator(".flow-reset-filters").click()
+            page.locator("#flow").evaluate("node => node.scrollIntoView({block: 'start'})")
             frame = page.locator('[data-diagram-frame="layout:LAYOUT-ENGINE"]')
             header = frame.locator(".target-frame-header-hit")
             card = page.locator('.flow-nodes .node[data-label="domains"]')
