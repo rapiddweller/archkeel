@@ -225,6 +225,7 @@ def _construct_violations(
     signals: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
     source_modules: frozenset[str] | None = None,
+    allowance_facts: list[RawRecord] | None = None,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
     for rule in rules:
@@ -232,7 +233,8 @@ def _construct_violations(
             continue
         for item in signals:
             construct = _CONSTRUCT_SIGNALS.get(item["kind"])
-            owner = item["data"]["owner"]
+            data = item["data"]
+            owner = data["owner"]
             scope = owner.split(":", 1)[0]
             belongs_to_source = source_modules is None or any(
                 owner == module or owner.startswith(f"{module}.") for module in source_modules
@@ -245,6 +247,42 @@ def _construct_violations(
                 or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
                 or scope in rule.exact_sources
             ):
+                continue
+            allowance = next(
+                (
+                    entry
+                    for entry in rule.allowed_type_ignores
+                    if construct is ForbiddenConstructKind.TYPE_IGNORE
+                    and data.get("qualified_name") == entry.qualified_name
+                    and data.get("line") == entry.line
+                    and data.get("statement") == entry.statement
+                    and data.get("tag") == entry.tag
+                ),
+                None,
+            )
+            if allowance is not None:
+                if allowance_facts is not None:
+                    allowance_facts.append(
+                        classified(
+                            item_id=stable_id("TYPE-IGNORE-ALLOWANCE", rule.id, item["id"]),
+                            evidence_class=EvidenceClass.FACT,
+                            area="type_architecture",
+                            kind="type_ignore_allowance",
+                            title=f"{allowance.qualified_name}:{allowance.line} has an exact "
+                            "type-ignore allowance",
+                            subjects=[allowance.qualified_name],
+                            evidence_ids=item["evidence_ids"],
+                            rule_ids=[rule.id],
+                            fact_ids=[item["id"]],
+                            provenance=list(rule.provenance),
+                            data={
+                                "qualified_name": allowance.qualified_name,
+                                "line": allowance.line,
+                                "statement": allowance.statement,
+                                "tag": allowance.tag,
+                            },
+                        )
+                    )
                 continue
             violations.append(
                 classified(
@@ -4427,6 +4465,7 @@ def _collect_rule_violations(
     forbidden_matches: Sequence[tuple[ForbiddenDependencyRule, RawRecord]],
     forbidden_rejected_ids: frozenset[str],
     boundary_violations: Sequence[RawRecord],
+    allowance_facts: list[RawRecord],
     assessment_facts: list[RawRecord] | None,
     assessment_parent: str | None,
     receipt_scope_complete: bool,
@@ -4436,7 +4475,9 @@ def _collect_rule_violations(
 ) -> list[RawRecord]:
     result = [
         *_dependency_violations(iter(forbidden_matches)),
-        *_construct_violations([*typing_signals, *constructs], contract.rules, source_modules),
+        *_construct_violations(
+            [*typing_signals, *constructs], contract.rules, source_modules, allowance_facts
+        ),
         *_external_dependency_violations(imports, contract.rules, source_modules),
         *_external_completeness_violations(
             imports, modules, contract.rules, profile.standard_library, source_modules
@@ -4560,6 +4601,7 @@ def rule_violations(
         forbidden_matches=forbidden_matches,
         forbidden_rejected_ids=forbidden_rejected_ids,
         boundary_violations=boundary_violations,
+        allowance_facts=allowance_facts,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
         receipt_scope_complete=(

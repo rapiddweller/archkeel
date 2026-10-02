@@ -208,6 +208,14 @@ def _maximal_contract() -> dict[str, object]:
     rules = {item["id"]: item for item in raw["rules"]}
     rules["DEP-STORE-NO-MONEY"]["allowed_sources"] = ["shop.store.codec"]
     rules["CONSTRUCT-NO-BROAD-EXCEPT"]["allowed_sources"] = ["shop.cli"]
+    rules["CONSTRUCT-NO-BROAD-EXCEPT"]["allowed_type_ignores"] = [
+        {
+            "qualified_name": "shop.cli.main.main",
+            "line": 1,
+            "statement": "client.execute_sql_script(query)",
+            "tag": "[attr-defined]",
+        }
+    ]
     rules["EXTERNAL-JSON-STORE"]["exact_sources"] = ["shop.store.codec"]
     rules["MODEL-TYPES-IN-ENTITIES"]["allowed_sources"] = ["shop.model"]
     rules["APP-TYPES-NOT-DICT"].update(
@@ -362,6 +370,8 @@ _NAMES_NO_MODULE = frozenset(
         ),
         "/rules/forbidden_dependency/target_symbol",
         "/rules/forbidden_construct/constructs/*",
+        "/rules/forbidden_construct/allowed_type_ignores/*/statement",
+        "/rules/forbidden_construct/allowed_type_ignores/*/tag",
         "/rules/external_dependency_scope/dependency",
         "/rules/no_component_cycles/level",
         "/rules/no_component_cycles/components/*",
@@ -448,6 +458,7 @@ def test_validate_holds_the_namespace_to_the_fields_it_held_before() -> None:
         "/components/*/namespace",
         "/rules/forbidden_construct/allowed_sources/*",
         "/rules/forbidden_construct/exact_sources/*",
+        "/rules/forbidden_construct/allowed_type_ignores/*/qualified_name",
         "/rules/root_layout/root",
         "/rules/root_layout/allowed_children/*",
         "/rules/boundary_types/allowed_positions/*/qualified_name",

@@ -247,4 +247,56 @@ _BROAD_EXCEPT_PREFIX = Variant(
     expected_codes=(),
 )
 
-VARIANTS: tuple[Variant, ...] = (*_CONSTRUCT_VARIANTS, _BROAD_EXCEPT_EXACT, _BROAD_EXCEPT_PREFIX)
+_SQL_CALL = HEADER + (
+    '"""Preserve the SQL client\'s native invocation."""\n\n'
+    "def execute_sql_script(client: object, query: str) -> None:\n"
+    "    client.execute_sql_script(query)  # type: ignore[attr-defined]\n"
+)
+_SQL_CONTRACT = contract_rule_field(
+    "CONSTRUCT-NO-DYNAMIC",
+    allowed_type_ignores=[
+        {
+            "qualified_name": "shop.model.probe_sql.execute_sql_script",
+            "line": 7,
+            "statement": "client.execute_sql_script(query)",
+            "tag": "[attr-defined]",
+        }
+    ],
+)
+_TYPE_IGNORE_EXACT = Variant(
+    id="class-a-type-ignore-exact",
+    section="class_a",
+    item="forbidden_construct:allowed_type_ignores",
+    summary="One SQL call's attr-defined suppression has an exact allowance (AD-133).",
+    files={"shop/model/probe_sql.py": _SQL_CALL, "architecture-contract.json": _SQL_CONTRACT},
+    expected_violations=(),
+    expected_codes=(),
+)
+_TYPE_IGNORE_NEIGHBORS = Variant(
+    id="class-a-type-ignore-neighbors",
+    section="class_a",
+    item="forbidden_construct:type_ignore_neighbors",
+    summary="The allowance leaves an identical second ignore, cast, getattr and Any forbidden.",
+    files={
+        "shop/model/probe_sql.py": _SQL_CALL
+        + (
+            "    client.execute_sql_script(query)  # type: ignore[attr-defined]\n"
+            "    cast(str, query)\n"
+            "    getattr(client, 'other')\n\n"
+            "from typing import Any, cast\n\n"
+            "def neighboring_function(value: Any) -> None:\n"
+            "    value = 1  # type: ignore[assignment]\n"
+        ),
+        "architecture-contract.json": _SQL_CONTRACT,
+    },
+    expected_violations=("CONSTRUCT-NO-ANY",) + ("CONSTRUCT-NO-DYNAMIC",) * 4,
+    expected_codes=("rule.violated",) * 5,
+)
+
+VARIANTS: tuple[Variant, ...] = (
+    *_CONSTRUCT_VARIANTS,
+    _BROAD_EXCEPT_EXACT,
+    _BROAD_EXCEPT_PREFIX,
+    _TYPE_IGNORE_EXACT,
+    _TYPE_IGNORE_NEIGHBORS,
+)

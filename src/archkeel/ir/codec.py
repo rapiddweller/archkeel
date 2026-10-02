@@ -98,6 +98,7 @@ from archkeel.ir.model import (
     SourceInfo,
     SymbolClassKind,
     SymbolPlacementRule,
+    TypeIgnoreAllowance,
     Verdict,
     contract_relative_path,
 )
@@ -864,6 +865,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
 def contract_bytes(contract: ArchitectureContract) -> bytes:
     """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
     fields = asdict(contract)
+    # An absent permission must preserve existing amendment digests.
+    for rule, encoded in zip(contract.rules, fields["rules"], strict=True):
+        if isinstance(rule, ForbiddenConstructRule) and not rule.allowed_type_ignores:
+            encoded_rule: dict[str, object] = encoded
+            encoded_rule.pop("allowed_type_ignores")
     schema = fields.pop("schema")
     document = {**({"$schema": schema} if schema is not None else {}), **fields}
     return (json.dumps(_without_none(document), indent=2, ensure_ascii=False) + "\n").encode()
@@ -1218,7 +1224,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "constructs", "rationale", "decided_by"},
-        {"allowed_sources", "exact_sources"},
+        {"allowed_sources", "exact_sources", "allowed_type_ignores"},
         label,
     )
     raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
@@ -1228,6 +1234,26 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         raise ValueError(f"{label}.constructs contains an unsupported construct") from exc
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
     exact = _contract_strings(item.get("exact_sources", []), f"{label}.exact_sources")
+    raw_ignores = item.get("allowed_type_ignores", [])
+    if not isinstance(raw_ignores, list):
+        raise ValueError(f"{label}.allowed_type_ignores must be an array")
+    ignores: list[TypeIgnoreAllowance] = []
+    for index, value in enumerate(raw_ignores):
+        entry_label = f"{label}.allowed_type_ignores[{index}]"
+        entry = _exact(value, {"qualified_name", "line", "statement", "tag"}, entry_label)
+        line = entry["line"]
+        if not isinstance(line, int) or isinstance(line, bool) or line < 1:
+            raise ValueError(f"{entry_label}.line must be a positive integer")
+        ignores.append(
+            TypeIgnoreAllowance(
+                _nonempty(entry["qualified_name"], f"{entry_label}.qualified_name"),
+                line,
+                _nonempty(entry["statement"], f"{entry_label}.statement"),
+                _nonempty(entry["tag"], f"{entry_label}.tag"),
+            )
+        )
+    if len(set(ignores)) != len(ignores):
+        raise ValueError(f"{label}.allowed_type_ignores must contain unique entries")
     return ForbiddenConstructRule(
         item_id,
         "forbidden_construct",
@@ -1238,6 +1264,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         _decided_by(item["decided_by"], f"{label}.decided_by"),
         allowed,
         exact,
+        tuple(ignores),
     )
 
 

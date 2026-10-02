@@ -93,6 +93,23 @@ itself, at the module, class or function scope it is written in, such as
 `exact_sources` entry only the scope it names (AD-49). The shop sample exempts exactly
 `shop.cli.main.main` from its broad-except rule, and the demo rows `class-a-broad-except-exact`
 and `class-a-broad-except-prefix` run one nested handler under each list: reported, then allowed.
+`allowed_type_ignores` permits one suppression without exempting other constructs (AD-133):
+
+```json
+{"qualified_name": "probe.operations.execute_sql_script", "line": 4,
+ "statement": "client.execute_sql_script(query)", "tag": "[attr-defined]"}
+```
+
+Each entry requires these four exact fields. `statement` is the attached AST statement rendered
+by `ast.unparse`; `tag` is the trimmed comment suffix after `type: ignore`. A standalone comment
+has no allowable statement. A sibling or compound header on the statement's first line also
+prevents a match; an unambiguous multiline call remains supported.
+Moving the line or changing the function, statement or tag leaves
+the suppression forbidden; an identical second ignore also fails. Legacy type-ignore owner
+selectors still use the module. A matched `type_ignore_allowance` fact cites the rule and its
+decision provenance in JSON and HTML. Adding or changing an allowance widens under `--against`.
+Unknown fields and duplicate entries are rejected.
+
 Supported constructs are `getattr`,
 `hasattr`, `cast`, `eval`, `exec`, `dynamic_import`, `type_ignore`, `any_annotation`,
 `placeholder_body`, `assert`, `broad_except`, `setattr`, `delattr`, `vars`, `dunder_dict` and

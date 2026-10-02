@@ -278,7 +278,11 @@ cycles between modules, which the component level cannot see (AD-98). Components
 permitted outbound edges under `requires`; `complete_requires` makes every absent pair
 forbidden. `forbidden_construct` and `external_dependency_scope` exempt by prefix in
 `allowed_sources` and by exact name in `exact_sources`; a package root such as `pkg` goes in
-`exact_sources`, because as a prefix it exempts the whole package (AD-49). Class B
+`exact_sources`, because as a prefix it exempts the whole package (AD-49).
+`forbidden_construct.allowed_type_ignores` permits one suppression by exact `qualified_name`,
+`line`, AST-rendered `statement` and comment `tag` (AD-133). Prefer it for one native boundary
+call; neighbors remain forbidden. Moving or changing it needs contract review; a changed
+permission widens under `--against`. Class B
 regression checks compare an accepted observation with a candidate.
 Class C declarations are recorded and reported. `public_api` is also checked for existence,
 membership in a non-empty literal `__all__` and resolvable types exposed by declared classes and

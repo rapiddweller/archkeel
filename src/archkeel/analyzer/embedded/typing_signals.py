@@ -63,13 +63,26 @@ def _annotation_signals(
     return items
 
 
-def _type_ignore_signals(module: ParsedModule, evidence: dict[str, RawEvidence]) -> list[RawRecord]:
+def _type_ignore_signals(
+    module: ParsedModule,
+    evidence: dict[str, RawEvidence],
+    statements: dict[int, tuple[str, ast.stmt]],
+) -> list[RawRecord]:
     items: list[RawRecord] = []
     comments = tokenize.generate_tokens(io.StringIO(module.source).readline)
     for token in comments:
         if token.type != tokenize.COMMENT or "type: ignore" not in token.string:
             continue
         line_number, column = token.start
+        context = statements.get(line_number)
+        prefix: str = module.lines[line_number - 1][:column]
+        start_prefix: str = (
+            module.lines[context[1].lineno - 1][: context[1].col_offset] if context else ""
+        )
+        comment: str = token.string
+        tag: str = comment.split("type: ignore", 1)[1]
+        # A preceding sibling or compound header makes this more than the selected statement.
+        attached = context is not None and bool(prefix.strip()) and not start_prefix.strip()
         fake = ast.Pass(
             lineno=line_number,
             col_offset=column,
@@ -86,7 +99,15 @@ def _type_ignore_signals(module: ParsedModule, evidence: dict[str, RawEvidence])
                 title=f"{module.rel_path}:{line_number} uses type: ignore",
                 subjects=[module.module],
                 evidence_ids=[evidence_id],
-                data={"owner": module.module, "signal": "type_ignore"},
+                data={
+                    # Preserve legacy owner selectors and baseline identities.
+                    "owner": module.module,
+                    "signal": "type_ignore",
+                    "qualified_name": context[0] if context else module.module,
+                    "line": line_number,
+                    "statement": ast.unparse(context[1]) if context and attached else "",
+                    "tag": tag.strip(),
+                },
             )
         )
     return items
@@ -207,12 +228,18 @@ def _walk_typing_signals(
     scope: str,
     evidence: dict[str, RawEvidence],
     items: list[RawRecord],
+    statements: dict[int, tuple[str, ast.stmt]],
 ) -> None:
     """Recurse through `node` carrying the enclosing scope, the way `symbols.py` builds a
     qualified name by tracking its class/function chain instead of a flat `ast.walk` that
     forgets which scope each node sits in the moment it is found.
     """
     for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.stmt) and not isinstance(
+            child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+        ):
+            for line in range(child.lineno, (child.end_lineno or child.lineno) + 1):
+                statements[line] = (scope, child)
         if isinstance(child, ast.AnnAssign):
             owner = _annassign_owner(scope, child.target)
             items.extend(
@@ -235,11 +262,13 @@ def _walk_typing_signals(
                     module, child, child.returns, owner=f"{owner}:return", evidence=evidence
                 )
             )
-            _walk_typing_signals(module, child, owner, evidence, items)
+            _walk_typing_signals(module, child, owner, evidence, items, statements)
         elif isinstance(child, ast.ClassDef):
-            _walk_typing_signals(module, child, f"{scope}.{child.name}", evidence, items)
+            _walk_typing_signals(
+                module, child, f"{scope}.{child.name}", evidence, items, statements
+            )
         else:
-            _walk_typing_signals(module, child, scope, evidence, items)
+            _walk_typing_signals(module, child, scope, evidence, items, statements)
 
 
 def collect_typing_signals(
@@ -251,8 +280,9 @@ def collect_typing_signals(
 ) -> list[RawRecord]:
     items: list[RawRecord] = []
     for module in modules:
-        _walk_typing_signals(module, module.tree, module.module, evidence, items)
-        items.extend(_type_ignore_signals(module, evidence))
+        statements: dict[int, tuple[str, ast.stmt]] = {}
+        _walk_typing_signals(module, module.tree, module.module, evidence, items, statements)
+        items.extend(_type_ignore_signals(module, evidence, statements))
     items.extend(_dynamic_call_signals(calls, evidence))
     items.extend(_boundary_annotation_signals(imports, symbols))
     return sorted(items, key=lambda item: item["id"])

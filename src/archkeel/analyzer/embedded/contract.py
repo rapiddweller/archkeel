@@ -100,6 +100,21 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "constructs": constructs,
             "allowed_sources": sorted(rule.allowed_sources),
             **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
+            **(
+                {
+                    "allowed_type_ignores": [
+                        {
+                            "qualified_name": item.qualified_name,
+                            "line": item.line,
+                            "statement": item.statement,
+                            "tag": item.tag,
+                        }
+                        for item in rule.allowed_type_ignores
+                    ]
+                }
+                if rule.allowed_type_ignores
+                else {}
+            ),
             "rationale": rule.rationale,
         }
     elif isinstance(rule, ExternalDependencyScopeRule):

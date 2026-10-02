@@ -214,18 +214,24 @@ def _findings(title: str, items: tuple[Record, ...], observation: Observation) -
     </section>"""
 
 
-def _boundary_type_allowances(observation: Observation) -> str:
+def _type_allowances(observation: Observation) -> str:
     items = tuple(
         item
         for item in observation.records("typing_signals") or ()
-        if item.kind == "boundary_type_allowance" and item.evidence_class == EvidenceClass.FACT
+        if item.kind in {"boundary_type_allowance", "type_ignore_allowance"}
+        and item.evidence_class == EvidenceClass.FACT
     )
     if not items:
         return ""
     rows = "".join(_record_row(item, observation) for item in items)
+    title = (
+        "Applied type allowances"
+        if any(item.kind == "type_ignore_allowance" for item in items)
+        else "Applied boundary type allowances"
+    )
     return f"""
     <section class="report-section">
-      <h2>Applied boundary type allowances · {len(items)}</h2>
+      <h2>{title} · {len(items)}</h2>
       <p>These facts document exceptions. Other violations and UNKNOWN remain
       independently reported.</p>
       <div class="table-wrap"><table class="boundary-type-allowances-table">
@@ -2672,7 +2678,7 @@ def render_html(
         result.report_filter.only_violations or result.report_filter.only_calls
     )
     allowances_html = (
-        _boundary_type_allowances(observation) if observation is not None and not focused else ""
+        _type_allowances(observation) if observation is not None and not focused else ""
     )
     unknowns_html = (
         _findings("Known unknowns", unknowns or (), observation)
