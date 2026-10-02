@@ -5,7 +5,7 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
 [![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
-[![MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 
 Archkeel checks code against your architecture rules. It shows forbidden imports,
 misplaced types, and gaps in the analysis, with source evidence you can review.
@@ -140,7 +140,7 @@ make browser-install
 make report-browser OUTPUT=test-artifacts/report-browser
 ```
 
-Archkeel checks its own [architecture contract](architecture-contract.json) and compares fresh
-observations with [fixtures/D-self](fixtures/D-self). See [CONTRIBUTING.md](CONTRIBUTING.md).
+Archkeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) and compares fresh
+observations with [fixtures/D-self](https://github.com/rapiddweller/archkeel/tree/main/fixtures/D-self). See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).
