@@ -18,7 +18,7 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.digest import package_digest
-from archkeel.ir.host_records import parse_records
+from archkeel.ir.host_records import InitialPRHeadEvidence, OrderingError, parse_records
 from archkeel.ir.lock import LOCK_PATH, AcceptedLock, LockError, verify_observation
 from archkeel.ir.measurements import Measurements, RatchetError
 from archkeel.ir.model import (
@@ -279,6 +279,9 @@ def run_check(
         if host_records_path is not None
         else host(root, expectation_sha=expectation_commit, candidate_sha=head, environ=environ)
     )
+    initial_pr = host_records if isinstance(host_records, InitialPRHeadEvidence) else None
+    if initial_pr is not None and initial_pr.collector_sha != baseline:
+        raise OrderingError("initial PR collector differs from the accepted baseline")
     ordering_failures = check_order(
         host_records, expectation_sha=expectation_commit, candidate_sha=head
     )
@@ -334,7 +337,13 @@ def run_check(
         declared_rules=declared,
         expectation_fulfilled="FAIL" if failures else "PASS",
         git_predicate="FAIL" if git_failures else "PASS",
-        host_source="supplied_records" if host_records_path is not None else "gitlab_mr_versions",
+        host_source=(
+            "github_initial_pr_head"
+            if initial_pr is not None
+            else "supplied_records"
+            if host_records_path is not None
+            else "gitlab_mr_versions"
+        ),
         host_order="FAIL" if ordering_failures else "PASS",
         coverage=candidate.coverage,
         python_version=candidate.python_version,
@@ -342,7 +351,12 @@ def run_check(
         failures=tuple(failures),
         delta=delta,
         provenance=CheckProvenance(
-            baseline, expectation_commit, head, sha256_bytes(lock_bytes), expected_digest
+            baseline,
+            expectation_commit,
+            head,
+            sha256_bytes(lock_bytes),
+            expected_digest,
+            initial_pr,
         ),
         unresolved_call_changes=call_changes,
         unresolved_call_note=call_note,

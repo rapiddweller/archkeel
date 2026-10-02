@@ -179,6 +179,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-140 | [Measure rule evidence without inventing passes](decisions/ad-140-measure-rule-evidence-without-inventing-passes.md) |
 | AD-141 | [GitHub events are bounded observations](decisions/ad-141-github-events-are-bounded-observations.md) |
 | AD-142 | [Opaque map values need exact decisions](decisions/ad-142-opaque-map-values-need-exact-decisions.md) |
+| AD-143 | [Initial PR head proves scoped order](decisions/ad-143-initial-pr-head-proves-scoped-order.md) |
 
 ## Allowed dependencies
 

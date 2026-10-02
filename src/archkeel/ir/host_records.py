@@ -24,6 +24,56 @@ class HostRecord:
     timestamp: str
 
 
+@dataclass(frozen=True, slots=True)
+class InitialPRHeadEvidence:
+    """Authenticated original PR head and a later head within that same PR."""
+
+    repository: str
+    repository_id: int
+    pull_request: int
+    pull_request_id: int
+    head_repository_id: int
+    initial_sha: str
+    head_sha: str
+    published_at: str
+    collector_sha: str
+    run_id: int
+    artifact_id: int
+    artifact_digest: str
+    event_digest: str
+    run_attempt: int = 1
+
+    def __post_init__(self) -> None:
+        if type(self.run_attempt) is not int or self.run_attempt != 1:
+            raise OrderingError("initial PR evidence requires the original run attempt")
+        if (
+            not isinstance(self.repository, str)
+            or not re.fullmatch(r"[\w.-]+/[\w.-]+", self.repository, re.ASCII)
+            or any(part in {".", ".."} for part in self.repository.split("/"))
+        ):
+            raise OrderingError("initial PR repository must be owner/name")
+        for value in (
+            self.repository_id,
+            self.pull_request,
+            self.pull_request_id,
+            self.head_repository_id,
+            self.run_id,
+            self.artifact_id,
+        ):
+            if type(value) is not int or value < 1:
+                raise OrderingError("initial PR provider IDs must be positive integers")
+        for name, sha in (
+            ("initial_sha", self.initial_sha),
+            ("head_sha", self.head_sha),
+            ("collector_sha", self.collector_sha),
+        ):
+            validate_sha(sha, name)
+        parse_timestamp(self.published_at)
+        for digest in (self.artifact_digest, self.event_digest):
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise OrderingError("initial PR evidence needs SHA-256 digests")
+
+
 def parse_timestamp(value: object) -> datetime:
     if not isinstance(value, str) or "T" not in value:
         raise OrderingError("timestamp must be a timezone-aware ISO timestamp")

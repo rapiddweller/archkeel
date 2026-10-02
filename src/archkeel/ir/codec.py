@@ -1813,6 +1813,10 @@ def _open_decision_payload(decision: OpenDecision) -> dict[str, RawJson]:
 
 def result_payload(result: RunResult) -> dict[str, RawJson]:
     payload = _raw_object(asdict(result))
+    if result.provenance is not None and result.provenance.initial_pr is None:
+        provenance = _raw_object(asdict(result.provenance))
+        del provenance["initial_pr"]
+        payload["provenance"] = provenance
     payload["diagnostics"] = [
         {
             key: value

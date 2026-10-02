@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 
 from archkeel.check.ordering import check_order
+from archkeel.ir import host_records
 from archkeel.ir.host_records import HostRecord, OrderingError, parse_records
 
 E = "e" * 40
@@ -69,3 +70,48 @@ def test_naive_timestamps_are_rejected() -> None:
         parse_records(
             [{"sha": E, "event": "expectation_published", "timestamp": "2026-01-01T10:00:00"}]
         )
+
+
+def initial_pr_head():
+    return host_records.InitialPRHeadEvidence(
+        repository="example/project",
+        repository_id=7,
+        pull_request=11,
+        pull_request_id=13,
+        head_repository_id=17,
+        initial_sha=E,
+        head_sha=H,
+        published_at="2026-01-01T10:00:00Z",
+        collector_sha="b" * 40,
+        run_id=19,
+        artifact_id=23,
+        artifact_digest="a" * 64,
+        event_digest="f" * 64,
+    )
+
+
+def test_initial_expectation_head_proves_scoped_order_without_a_candidate_timestamp() -> None:
+    proof = initial_pr_head()
+    assert check_order(proof, expectation_sha=E, candidate_sha=H) == ()
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"initial_sha": H},
+        {"head_sha": E},
+        {"head_sha": "a" * 40},
+        {"published_at": "2026-01-01T10:00:00"},
+        {"repository_id": True},
+        {"pull_request_id": 0},
+        {"run_id": -1},
+        {"collector_sha": "short"},
+        {"artifact_digest": "not a digest"},
+        {"event_digest": "not a digest"},
+    ],
+)
+def test_invalid_initial_head_proof_is_unknown(changes: dict) -> None:
+    from dataclasses import replace
+
+    with pytest.raises(OrderingError):
+        check_order(replace(initial_pr_head(), **changes), expectation_sha=E, candidate_sha=H)

@@ -2832,17 +2832,36 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     summary = check_summary(result)
     verdicts = "".join(_verdict_card(row) for row in summary.verdicts)
     host_order = result.host_order or "UNKNOWN"
+    host_label = (
+        "Original GitHub PR head"
+        if result.host_source == "github_initial_pr_head"
+        else result.host_source or "UNKNOWN"
+    )
     provenance = result.provenance
     accepted = provenance.baseline if provenance else "UNKNOWN"
     candidate = provenance.head if provenance else "UNKNOWN"
     failures = "".join(f"<li><code>{_text(item)}</code></li>" for item in result.failures)
     diagnostics = "".join(_diagnostic(item) for item in result.diagnostics)
+    initial_receipt = ""
+    if provenance is not None and provenance.initial_pr is not None:
+        proof = provenance.initial_pr
+        initial_receipt = (
+            f"<p>Original PR #{proof.pull_request} opened at expectation "
+            f"<code>{_text(proof.initial_sha)}</code> on {_text(proof.published_at)}. "
+            "Every candidate submission in this PR follows its initial expectation head.</p>"
+            f'<p><a href="https://github.com/{_text(proof.repository)}/actions/runs/'
+            f'{proof.run_id}/attempts/{proof.run_attempt}">Run {proof.run_id}, '
+            f'attempt {proof.run_attempt}</a>; <a href="https://github.com/'
+            f"{_text(proof.repository)}/actions/runs/{proof.run_id}/artifacts/"
+            f'{proof.artifact_id}">artifact {proof.artifact_id}</a>. '
+            f"Receipt worker <code>{_text(proof.collector_sha)}</code>.</p>"
+        )
     content = f"""
     <section class="report-heading">
       <span class="eyebrow">Candidate check</span><h1>{_text(repository)}</h1>
       <div class="report-meta"><span>Accepted <strong>{_text(accepted)}</strong></span>
         <span>Candidate <strong>{_text(candidate)}</strong></span>
-        <span>Host source <strong>{_text(result.host_source or "UNKNOWN")}</strong></span></div>
+        <span>Host source <strong>{_text(host_label)}</strong></span></div>
     </section>
     <section class="decision-banner" data-decision="{summary.decision.state}"
              aria-label="Decision: {summary.decision.label}">
@@ -2863,7 +2882,7 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
     <section class="report-section">
       <h2>Publication order evidence</h2><p>Status:
         <strong data-status="{badge(host_order).state}">
-        {_text(host_order)}</strong></p></section>
+        {_text(host_order)}</strong></p>{initial_receipt}</section>
     <section id="check-failures" class="report-section"><h2>Failures</h2>
       <ul class="failure-list">{failures or "<li>None.</li>"}</ul></section>
     <section id="check-changes" class="report-section">

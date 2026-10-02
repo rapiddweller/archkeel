@@ -10,10 +10,12 @@ import os
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 from archkeel.check.expectation import sha256_bytes
 from fixtures.reproduce_milestone1 import _git, _json, reproduce
+from tools.github_pr_report import CALLER, WORKER
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -85,10 +87,151 @@ def _incomparable(output: Path, source: Path, provenance: dict) -> dict:
     return result
 
 
+def _initial_pr_cases(output: Path, source: Path, provenance: dict, stub: Path) -> dict:
+    results = {}
+    for case in (
+        "opened-expectation",
+        "opened-candidate",
+        "reopened",
+        "wrong-run",
+        "tampered",
+        "incomparable",
+    ):
+        root = output / "incomparable" if case == "incomparable" else source
+        baseline = provenance["baseline"]
+        head = _git(root, "rev-parse", "HEAD")
+        expectation = _git(root, "rev-parse", "HEAD^")
+        fixture = output / f"simulated-{case}"
+        fixture.mkdir()
+        repository = {"id": 1, "full_name": "fixture/local"}
+        pr = {
+            "id": 11,
+            "number": 7,
+            "created_at": "2026-10-01T12:00:00Z",
+            "base": {"sha": baseline, "ref": "main", "repo": repository},
+            "head": {"sha": head, "ref": "candidate", "repo": repository},
+        }
+        original = copy.deepcopy(pr)
+        original["head"]["sha"] = head if case == "opened-candidate" else expectation
+        event = {
+            "action": "reopened" if case == "reopened" else "opened",
+            "number": 7,
+            "repository": repository,
+            "pull_request": original,
+        }
+        _json(fixture / "original-event.json", event)
+        artifact_path = fixture / "artifact.zip"
+        with zipfile.ZipFile(artifact_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.write(fixture / "original-event.json", "original-event.json")
+        run = {
+            "id": 14 if case == "wrong-run" else 13,
+            "run_attempt": 1,
+            "event": "pull_request_target",
+            "path": CALLER,
+            "head_sha": original["head"]["sha"],
+            "repository": repository,
+            "head_repository": repository,
+            "status": "completed",
+            "conclusion": "success",
+            "referenced_workflows": [
+                {
+                    "path": f"fixture/local/{WORKER}@{baseline}",
+                    "ref": "refs/heads/main",
+                    "sha": baseline,
+                }
+            ],
+        }
+        artifact = {
+            "id": 17,
+            "name": "initial-pr-event",
+            "expired": False,
+            "size_in_bytes": artifact_path.stat().st_size,
+            "digest": "sha256:"
+            + ("0" * 64 if case == "tampered" else sha256_bytes(artifact_path.read_bytes())),
+            "workflow_run": {
+                "id": 13,
+                "repository_id": 1,
+                "head_repository_id": 1,
+                "head_sha": original["head"]["sha"],
+            },
+        }
+        _json(fixture / "pr.json", pr)
+        _json(fixture / "run.json", run)
+        _json(
+            fixture / "jobs.json",
+            {
+                "total_count": 1,
+                "jobs": [
+                    {
+                        "id": 23,
+                        "run_id": 13,
+                        "run_attempt": 1,
+                        "head_sha": original["head"]["sha"],
+                        "status": "completed",
+                        "conclusion": "success",
+                    }
+                ],
+            },
+        )
+        _json(fixture / "artifacts.json", {"total_count": 1, "artifacts": [artifact]})
+        endpoint = "repos/fixture/local/actions/runs/13"
+        _json(
+            fixture / "responses.json",
+            {
+                "repos/fixture/local/pulls/7": "pr.json",
+                endpoint: "run.json",
+                endpoint + "/attempts/1": "run.json",
+                endpoint + "/attempts/1/jobs?per_page=100": "jobs.json",
+                endpoint + "/artifacts?per_page=100": "artifacts.json",
+                "repos/fixture/local/actions/artifacts/17/zip": "artifact.zip",
+            },
+        )
+        result_path = output / f"{case}.json"
+        run_cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "tools.github_pr_report",
+                "--root",
+                str(root),
+                "--repository",
+                "fixture/local",
+                "--pull-request",
+                "7",
+                "--base",
+                baseline,
+                "--head",
+                head,
+                "--initial-run",
+                "13",
+                "--expectation-commit",
+                expectation,
+                "--expected-digest",
+                sha256_bytes((root / "expectation.json").read_bytes()),
+                "--output",
+                str(result_path),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "PATH": f"{stub.parent}{os.pathsep}{os.environ.get('PATH', '')}",
+                "ARCHKEEL_SIMULATED_GITHUB": str(fixture),
+            },
+        )
+        assert run_cli.returncode == (0 if case == "opened-expectation" else 2), (
+            run_cli.stdout,
+            run_cli.stderr,
+        )
+        results[case] = json.loads(result_path.read_bytes())
+    return results
+
+
 def reproduce_github(output: Path) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    protocol = reproduce(output / "protocol")
+    protocol = reproduce(output / "protocol", initial_pr=True)
     source = output / "protocol/C"
     provenance = json.loads((output / "protocol/C-check.stdout.json").read_bytes())["provenance"]
     baseline, expectation, head = (provenance[key] for key in ("baseline", "expectation", "head"))
@@ -120,9 +263,11 @@ def reproduce_github(output: Path) -> dict:
     stub.parent.mkdir()
     stub.write_text(
         f"#!{sys.executable}\nimport os, pathlib, sys\n"
-        "name = 'pr.json' if '/pulls/' in sys.argv[-1] else 'events.json'\n"
         "root = pathlib.Path(os.environ['ARCHKEEL_SIMULATED_GITHUB'])\n"
-        "print((root / name).read_text(), end='')\n"
+        "mapping = root / 'responses.json'\n"
+        "name = __import__('json').loads(mapping.read_bytes())[sys.argv[-1]] if mapping.exists() "
+        "else ('pr.json' if '/pulls/' in sys.argv[-1] else 'events.json')\n"
+        "sys.stdout.buffer.write((root / name).read_bytes())\n"
     )
     stub.chmod(0o755)
     github = {}
@@ -177,10 +322,12 @@ def reproduce_github(output: Path) -> dict:
         )
         assert run.returncode == 2, (run.stdout, run.stderr)
         github[case] = json.loads(result_path.read_bytes())
+    incomparable = _incomparable(output, source, provenance)
     summary = {
         "protocol": protocol,
         "github": github,
-        "incomparable_analyzer": _incomparable(output, source, provenance),
+        "incomparable_analyzer": incomparable,
+        "initial_pr": _initial_pr_cases(output, source, provenance, stub),
     }
     _json(output / "results.json", summary)
     return summary
@@ -192,6 +339,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     reproduce_github(args.output)
     print(
-        "Synthetic GitHub observations stay UNKNOWN; local protocol A/B/C: 1/1/0. "
+        "Simulated opened(E) receipt: PASS; five causal controls: UNKNOWN; "
+        "bounded events: UNKNOWN; local protocol A/B/C: 1/1/0. "
         f"Evidence: {args.output.resolve()}"
     )

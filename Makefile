@@ -48,7 +48,10 @@ demo-github:
 github-pr-report:
 	@$(UV) run --locked python -m tools.github_pr_report \
 		--repository "$(REPOSITORY)" --pull-request "$(PULL_REQUEST)" \
-		--base "$(BASE)" --head "$(HEAD)" --output "$(OUTPUT)"
+		--base "$(BASE)" --head "$(HEAD)" --output "$(OUTPUT)" \
+		$(if $(ROOT),--root "$(ROOT)") $(if $(INITIAL_RUN),--initial-run "$(INITIAL_RUN)") \
+		$(if $(EXPECTATION_COMMIT),--expectation-commit "$(EXPECTATION_COMMIT)") \
+		$(if $(EXPECTED),--expected "$(EXPECTED)") $(if $(EXPECTED_DIGEST),--expected-digest "$(EXPECTED_DIGEST)")
 
 demo-onboarding:
 	@$(UV) run --locked python -m fixtures.reproduce_onboarding

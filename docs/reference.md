@@ -133,10 +133,35 @@ apparently complete page cannot establish absence of an earlier push. GitHub's
 The tool returns exit 2 with UNKNOWN order, no comparison or measurements, and no host-source
 certification. It never feeds partial events into `--host-records`. A missing or invalid accepted
 lock at the exact base is a separate diagnostic; the tool creates no replacement.
-CI uploads these artifacts without blocking PRs. Full GitHub protocol proof still needs an
-accepted main lock and a trusted source of complete first-publication evidence.
-`make demo-github OUTPUT=<directory>` combines real local Git protocol fixtures with explicitly
-simulated GitHub observations, including reversed, missing and ambiguous history.
+CI uploads these artifacts without blocking PRs.
+
+AD-143 adds a scoped causal mode: an authenticated original opened(E) receipt and
+authoritative H in the same PR prove E precedes every H submission. It emits
+`host_source: github_initial_pr_head` and receipt provenance, without inventing an H
+timestamp. The normal timestamp mode remains strict. Missing or untrusted receipt,
+baseline, producer origin or comparable digests stays UNKNOWN.
+
+Run the reader from an **approved immutable Archkeel checkout**, with its matching
+pinned checker. CE or another consumer owns the two collector YAMLs, not a vendored
+reader. Candidate-controlled PR CI cannot authenticate its own reader origin.
+The complete sole-job list and reviewed worker at B prove producer origin; run,
+attempt, jobs and artifact sidecars retain the evidence without claiming caller SHA.
+
+```bash
+make -C <approved-archkeel> github-pr-report ROOT=<consumer> REPOSITORY=owner/name \
+  PULL_REQUEST=7 BASE=<B> HEAD=<H> INITIAL_RUN=<opened-run-id> \
+  EXPECTATION_COMMIT=<E> EXPECTED=expectation.json EXPECTED_DIGEST=<sha256> OUTPUT=result.json
+```
+
+A real forward check still needs an approved CI-owned accepted main B and a retained
+authentic receipt. The collector executes no candidate code. Public repository
+activation is owner-managed: GitHub's [default event policy](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target)
+currently evaluates `pull_request_target` restrictions and starts enforcement on 2026-11-02.
+No repository or organization setting is changed by this tool.
+
+`make demo-github OUTPUT=<directory>` uses real local Git and simulated GitHub
+receipts: opened(E) passes; opened(H), reopened, wrong-run, tampered and incomparable
+controls stay UNKNOWN. Its existing reversed-timestamp protocol still fails.
 
 ## Results
 

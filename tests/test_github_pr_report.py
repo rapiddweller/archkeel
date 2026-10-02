@@ -51,6 +51,13 @@ def test_make_github_demo_keeps_protocol_proof_and_bounded_observations_separate
     for case, result in summary["github"].items():
         assert result["exit_code"] == 2 and result["host_order"] is None
         assert (output / f"{case}.check.html").is_file()
+    initial = summary["initial_pr"]
+    assert initial["opened-expectation"]["exit_code"] == 0
+    assert initial["opened-expectation"]["host_order"] == "PASS"
+    assert initial["opened-expectation"]["host_source"] == "github_initial_pr_head"
+    for case in ("opened-candidate", "reopened", "wrong-run", "tampered", "incomparable"):
+        assert initial[case]["exit_code"] == 2 and initial[case]["host_order"] is None
+    assert "Original GitHub PR head" in (output / "opened-expectation.check.html").read_text()
 
 
 def _pr() -> dict:
