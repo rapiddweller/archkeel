@@ -64,7 +64,7 @@ and [the reference](reference.md) for command details.
 
 ## Install as a plugin
 
-The CLI is still required. After the marketplace files reach the default branch:
+The CLI is required. In Codex:
 
 ```bash
 codex plugin marketplace add rapiddweller/archkeel
