@@ -199,11 +199,20 @@ def _forbidden_construct_widenings(
             frozenset(after.exact_sources),
             grows_widens=True,
         ),
+        *[
+            f"{subject}.allowed_type_ignores gained {item!r}"
+            for item in sorted(
+                set(after.allowed_type_ignores) - set(before.allowed_type_ignores),
+                key=lambda item: (item.qualified_name, item.line, item.statement, item.tag),
+            )
+        ],
         *_generic_field_widenings(
             subject,
             before,
             after,
-            handled=frozenset({"constructs", "allowed_sources", "exact_sources"}),
+            handled=frozenset(
+                {"constructs", "allowed_sources", "exact_sources", "allowed_type_ignores"}
+            ),
         ),
     ]
 

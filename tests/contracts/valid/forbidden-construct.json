@@ -19,7 +19,11 @@
       "constructs": ["eval", "exec", "dynamic_import"],
       "rationale": "Static source analysis remains complete for executable constructs.",
       "provenance": ["docs/architecture/sample.md"],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "allowed_type_ignores": [
+        {"qualified_name": "sample.core.execute_sql_script", "line": 4,
+         "statement": "client.execute_sql_script(query)", "tag": "[attr-defined]"}
+      ]
     }
   ]
 }

@@ -115,7 +115,21 @@
         "provenance": {"$ref": "#/$defs/provenance"},
         "decided_by": {"$ref": "#/$defs/decidedBy"},
         "allowed_sources": {"$ref": "#/$defs/strings"},
-        "exact_sources": {"$ref": "#/$defs/strings"}
+        "exact_sources": {"$ref": "#/$defs/strings"},
+        "allowed_type_ignores": {
+          "type": "array", "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "required": ["qualified_name", "line", "statement", "tag"],
+            "additionalProperties": false,
+            "properties": {
+              "qualified_name": {"$ref": "#/$defs/nonEmpty"},
+              "line": {"type": "integer", "minimum": 1},
+              "statement": {"$ref": "#/$defs/nonEmpty"},
+              "tag": {"$ref": "#/$defs/nonEmpty"}
+            }
+          }
+        }
       }
     },
     "completeRequires": {

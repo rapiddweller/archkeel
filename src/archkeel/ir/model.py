@@ -381,6 +381,16 @@ class ForbiddenConstructKind(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class TypeIgnoreAllowance:
+    """One suppression bound to its scope, source line, statement and exact tag."""
+
+    qualified_name: str
+    line: int
+    statement: str
+    tag: str
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenConstructRule:
     """`allowed_sources` match an owner scope by prefix, `exact_sources` only the scope named."""
 
@@ -393,6 +403,7 @@ class ForbiddenConstructRule:
     decided_by: Literal["architect", "agent"]
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
+    allowed_type_ignores: tuple[TypeIgnoreAllowance, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -767,6 +778,15 @@ def _rule_references(
                 False,
             )
             for item, allowance in enumerate(rule.allowed_positions)
+        ]
+    if isinstance(rule, ForbiddenConstructRule):
+        references += [
+            ModuleReference(
+                f"/rules/{index}/allowed_type_ignores/{item}/qualified_name",
+                allowance.qualified_name,
+                False,
+            )
+            for item, allowance in enumerate(rule.allowed_type_ignores)
         ]
     return references
 
