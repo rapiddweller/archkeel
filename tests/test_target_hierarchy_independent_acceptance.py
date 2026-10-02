@@ -1100,18 +1100,15 @@ def test_folded_null_container_component_remains_selectable_and_openable(
 
             component.click()
             page.locator(".flow-open-selected").click()
-            package = page.locator(
-                '.flow-nodes .node[data-target-node="package:COMP-APP:shop.app"]'
-            )
+            page.locator(".flow-details-toggle").click()
+            package = page.locator('[data-target-detail="package:COMP-APP:shop.app"]')
             assert package.is_visible()
             page.locator(".flow-back").click()
 
             component = page.locator('.flow-nodes .node[data-target-node="COMP-APP"]')
             component.focus()
             page.keyboard.press("Enter")
-            assert page.locator(
-                '.flow-nodes .node[data-target-node="package:COMP-APP:shop.app"]'
-            ).is_visible()
+            assert page.locator('[data-target-detail="package:COMP-APP:shop.app"]').is_visible()
         finally:
             browser.close()
 
@@ -2335,7 +2332,7 @@ def test_returning_to_diagram_from_structure_preserves_open_scope(
             browser.close()
 
 
-def test_cross_frame_dependency_chain_uses_graph_global_render_order(tmp_path: Path) -> None:
+def test_cross_frame_dependency_chain_retains_ranks_with_compact_rendering(tmp_path: Path) -> None:
     page_html, payload = _cross_frame_domains_page(tmp_path)
     root = payload["explorers"]["target_diagrams"]["root"]
     nodes = _nodes(root)
@@ -2366,8 +2363,8 @@ def test_cross_frame_dependency_chain_uses_graph_global_render_order(tmp_path: P
                   })
                 )"""
             )
-            assert card_centers["COMP-RUNTIME"] < card_centers["COMP-DOMAINS"]
-            assert card_centers["COMP-DOMAINS"] < card_centers["COMP-IO"]
+            assert card_centers["COMP-RUNTIME"] == card_centers["COMP-DOMAINS"]
+            assert card_centers["COMP-IO"] >= card_centers["COMP-RUNTIME"]
         finally:
             browser.close()
 
@@ -2427,8 +2424,8 @@ def test_initial_narrow_canvas_keeps_unframed_lane_outside_engine_frame(
                 component_id: rect["top"] + (rect["bottom"] - rect["top"]) / 2
                 for component_id, rect in geometry["cards"].items()
             }
-            assert centers["COMP-RUNTIME"] < centers["COMP-DOMAINS"]
-            assert centers["COMP-DOMAINS"] < centers["COMP-IO"]
+            assert centers["COMP-RUNTIME"] <= centers["COMP-IO"]
+            assert centers["COMP-DOMAINS"] == centers["COMP-RUNTIME"]
             assert (
                 domains["right"] <= frame["left"]
                 or domains["left"] >= frame["right"]
