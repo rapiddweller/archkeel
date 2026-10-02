@@ -5,6 +5,7 @@
 
 import copy
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -115,8 +116,13 @@ def validator() -> Draft202012Validator:
 def results(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict]:
     output = tmp_path_factory.mktemp("json-result-demos")
     demo = output / "check"
+    make_env = {**os.environ, "MAKELEVEL": "1", "MAKEFLAGS": "w"}
     run = subprocess.run(
-        ["make", "demo", f"OUTPUT={demo}"], cwd=ROOT, capture_output=True, text=True
+        ["make", "--no-print-directory", "demo", f"OUTPUT={demo}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=make_env,
     )
     assert run.returncode == 0, (run.stdout, run.stderr)
     payloads = {path.stem: json.loads(path.read_bytes()) for path in demo.glob("*.stdout.json")}
@@ -132,10 +138,17 @@ def results(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict]:
         ("dart-clean", 0),
     ):
         run = subprocess.run(
-            ["make", "demo-architecture", f"VARIANT={variant}", f"OUTPUT={output / variant}.json"],
+            [
+                "make",
+                "--no-print-directory",
+                "demo-architecture",
+                f"VARIANT={variant}",
+                f"OUTPUT={output / variant}.json",
+            ],
             cwd=ROOT,
             capture_output=True,
             text=True,
+            env=make_env,
         )
         assert run.returncode == expected, (run.stdout, run.stderr)
         for payload in (json.loads(line) for line in run.stdout.splitlines()):
