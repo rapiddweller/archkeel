@@ -10,6 +10,8 @@ symbol imports. Rebinding, member replacement or deletion, conditional replaceme
 and star imports cannot prove this leaf. A visible member write makes its shared import origin
 uncertain, including imported and simple assignment aliases. This conservatively includes
 nested scopes and every observed import candidate; later imports cannot erase a mutation.
+Declaring-class and generic parameter bindings also prevent a module import from proving an
+annotation. This uncertainty follows inherited fields/methods from their declaring scope.
 External effects are not executed. Other external/datetime types stay UNKNOWN; `object`
 remains a violation. No class is accepted from its spelling alone. Forward references and
 unproven re-export routes retain their existing limits.

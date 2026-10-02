@@ -139,3 +139,79 @@ def test_datetime_dto_leaf_requires_the_exact_unambiguous_stdlib_origin(
     if positions:
         if "import *" not in imports:
             assert positions[0].data.get("path") == "return.now"
+
+
+@pytest.mark.parametrize(
+    ("implementation", "entry"),
+    [
+        (
+            "from datetime import datetime\nclass Hidden: pass\n"
+            "class Namespace:\n    datetime = Hidden\n    now: datetime\n"
+            "def run() -> Namespace: ...\n",
+            "Namespace",
+        ),
+        (
+            "from datetime import datetime\nclass Hidden: pass\n"
+            "class Converter:\n    datetime = Hidden\n"
+            "    def convert(self, value: datetime) -> str: ...\n",
+            "Converter",
+        ),
+        (
+            "import datetime as clock\nclass Hidden: pass\n"
+            "class Namespace:\n    clock = Hidden\n    now: clock.datetime\n"
+            "def run() -> Namespace: ...\n",
+            "Namespace",
+        ),
+        (
+            "from __future__ import annotations\nfrom datetime import datetime\n"
+            "class Hidden: pass\nclass Namespace:\n    now: datetime\n"
+            "    datetime = Hidden\ndef run() -> Namespace: ...\n",
+            "Namespace",
+        ),
+        (
+            "from datetime import datetime\nclass Hidden: pass\n"
+            "class Namespace:\n    datetime = Hidden\n    now: 'datetime'\n"
+            "def run() -> Namespace: ...\n",
+            "Namespace",
+        ),
+        (
+            "from datetime import datetime\nclass Hidden: pass\n"
+            "class Converter:\n    datetime = Hidden\n"
+            "    def convert(self, value: 'datetime') -> str: ...\n",
+            "Converter",
+        ),
+    ],
+)
+def test_class_annotation_scope_cannot_certify_a_module_datetime_binding(
+    tmp_path: Path, implementation: str, entry: str
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=implementation,
+        declared=("sample.app.impl:run", f"sample.app.impl:{entry}"),
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    assert any(
+        item.kind == "boundary_type_position"
+        for item in result.observation.records("unknowns") or ()
+    )
+
+
+def test_class_datetime_uncertainty_retains_a_known_broad_union_member(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from datetime import datetime\nclass Hidden: pass\n"
+            "class Namespace:\n    datetime = Hidden\n    now: datetime | object\n"
+            "def run() -> Namespace: ...\n"
+        ),
+        declared=("sample.app.impl:run", "sample.app.impl:Namespace"),
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    assert result.observation.records("violations")
+    assert any(
+        item.kind == "boundary_type_position"
+        for item in result.observation.records("unknowns") or ()
+    )
