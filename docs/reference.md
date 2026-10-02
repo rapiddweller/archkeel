@@ -61,6 +61,10 @@ Ambiguous inherited candidates are tracked separately and do not count as proven
 An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 
+`datetime.datetime` is a scalar leaf only when its explicit import binding is proven. Aliases
+and single module-member annotations use the same proof. Shadowed bindings and arbitrary
+external classes retain UNKNOWN; `object` remains a violation (AD-132).
+
 For `boundary_types`, an imported entry from an ordinary module is followed only when one
 unchanged literal `__all__` explicitly exports its unique import binding (AD-109). Other or
 ambiguous export forms remain UNKNOWN rather than being inferred from an import alone. A named
