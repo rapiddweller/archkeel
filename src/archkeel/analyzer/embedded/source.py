@@ -156,19 +156,38 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     ):
         return frozenset()
     counts = Counter(_bound_names(nodes))
-    # ponytail: any member write makes its root uncertain; track members if false UNKNOWNs matter.
-    changed_members = {
+    # ponytail: visible writes invalidate shared imports; prove scopes if false UNKNOWNs grow.
+    all_nodes = list(ast.walk(module.tree))
+    changed_members: set[str] = {
         node.value.id
-        for node in nodes
+        for node in all_nodes
         if isinstance(node, ast.Attribute)
         and isinstance(node.ctx, ast.Store | ast.Del)
         and isinstance(node.value, ast.Name)
     }
+    aliases = {
+        (target.id, node.value.id)
+        for node in all_nodes
+        if isinstance(node, ast.Assign | ast.AnnAssign) and isinstance(node.value, ast.Name)
+        for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
+        if isinstance(target, ast.Name)
+    }
+    while (
+        additions := {value for name, value in aliases if name in changed_members} - changed_members
+    ):
+        changed_members |= additions
+    changed_origins = {
+        alias.target
+        for name, alias in module.aliases.items()
+        if name in changed_members and alias.kind == "module"
+    }
+    for name, alias in module.aliases.items():
+        imported_target: str = alias.target
+        origin = imported_target if alias.kind == "module" else imported_target.rpartition(".")[0]
+        if origin in changed_origins:
+            changed_members |= {name}
     global_names = {
-        name
-        for node in ast.walk(module.tree)
-        if isinstance(node, ast.Global)
-        for name in node.names
+        name for node in all_nodes if isinstance(node, ast.Global) for name in node.names
     }
     return frozenset(
         name
