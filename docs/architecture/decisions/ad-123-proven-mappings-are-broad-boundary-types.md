@@ -15,7 +15,7 @@ binding cannot be resolved remains UNKNOWN; a known bare local type can violate 
 Imports the analyzer cannot prove remain UNKNOWN.
 A known violation and an undecidable member can coexist; an exact allowance removes only the
 violation, never the UNKNOWN.
-`allowed_positions` uses an empty `field_path` for a direct signature position and a named
+`allowed_positions` uses an omitted or empty `field_path` for a direct signature position and a named
 path for a nested field. The direct selector matches the complete outer annotation;
 neither selector exempts sibling or member-type findings.
 Container depth is retained in each finding, so identical type text at the

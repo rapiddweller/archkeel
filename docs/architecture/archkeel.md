@@ -168,6 +168,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-129 | [Agent skills use native discovery](decisions/ad-129-agent-skills-use-native-discovery.md) |
 | AD-130 | [Review starts with findings and snapshot evidence](decisions/ad-130-review-starts-with-findings.md) |
 | AD-133 | [Type-ignore allowances bind one occurrence](decisions/ad-133-type-ignore-allowances-bind-one-occurrence.md) |
+| AD-134 | [Omitted boundary paths select the direct position](decisions/ad-134-omitted-boundary-path-selects-the-direct-position.md) |
 
 ## Allowed dependencies
 
