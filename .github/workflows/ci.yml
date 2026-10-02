@@ -68,6 +68,55 @@ jobs:
           path: test-artifacts/architecture/
           if-no-files-found: error
 
+  github-order-report:
+    name: Collect GitHub order evidence (report only)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Save bounded host observations and UNKNOWN report
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          make github-pr-report REPOSITORY="$REPOSITORY" PULL_REQUEST="$PULL_REQUEST"
+          BASE="$BASE" HEAD="$HEAD" OUTPUT=test-artifacts/github-order/result.json
+
+      - name: Verify report artifacts
+        run: |
+          uv run --locked python -m json.tool test-artifacts/github-order/result.json >/dev/null
+          test -s test-artifacts/github-order/result.check.html
+
+      - name: Upload publication observations and report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: github-order-report
+          path: test-artifacts/github-order/
+          if-no-files-found: error
+          retention-days: 7
+
   mermaid:
     runs-on: ubuntu-latest
     steps:

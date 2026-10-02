@@ -117,6 +117,27 @@ CI owns record authenticity, fetched remote refs, branch protection and lock sig
 the core checks SHA binding and order. A local replay does not prove host authenticity.
 The A/B/C fixtures use real local Git repositories and simulated host records and CI locks.
 
+GitHub PR CI adds a **report-only** job. `make github-pr-report REPOSITORY=owner/name
+PULL_REQUEST=7 BASE=<full-sha> HEAD=<full-sha> OUTPUT=result.json` uses configured `gh` on
+`github.com` to read the PR and its head repository's recent events. The API base/head must
+equal the immutable run inputs, and the base must target that repository's `main`.
+The output includes the existing check JSON and HTML, raw API sidecars and a `.github.json`
+binding with their SHA-256 digests. Push observations validate repository, event ID, full
+SHA-40 `head` and `before`, full `ref` and host `created_at`; duplicate IDs or invalid data are refused.
+
+These observations **cannot prove first publication**. The [Events API](https://docs.github.com/en/rest/activity/events)
+retains at most 300 events for 30 days and can lag 30 seconds to 6 hours. A missing event or
+apparently complete page cannot establish absence of an earlier push. GitHub's
+[`Commit.pushedDate`](https://docs.github.com/en/graphql/reference/commits) was removed on
+2023-07-01; author/committer dates and PR `updated_at` are not publication evidence.
+The tool returns exit 2 with UNKNOWN order, no comparison or measurements, and no host-source
+certification. It never feeds partial events into `--host-records`. A missing or invalid accepted
+lock at the exact base is a separate diagnostic; the tool creates no replacement.
+CI uploads these artifacts without blocking PRs. Full GitHub protocol proof still needs an
+accepted main lock and a trusted source of complete first-publication evidence.
+`make demo-github OUTPUT=<directory>` combines real local Git protocol fixtures with explicitly
+simulated GitHub observations, including reversed, missing and ambiguous history.
+
 ## Results
 
 `report` adds `rule_assessments`: one row per declared rule with status, violation and

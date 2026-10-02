@@ -176,6 +176,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-137 | [Inherited boundary findings show resolved types](decisions/ad-137-inherited-boundary-findings-show-resolved-types.md) |
 | AD-138 | [JSON results have a published schema](decisions/ad-138-json-results-have-a-published-schema.md) |
 | AD-140 | [Measure rule evidence without inventing passes](decisions/ad-140-measure-rule-evidence-without-inventing-passes.md) |
+| AD-141 | [GitHub events are bounded observations](decisions/ad-141-github-events-are-bounded-observations.md) |
 
 ## Allowed dependencies
 
