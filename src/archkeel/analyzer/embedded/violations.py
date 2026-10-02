@@ -1629,6 +1629,7 @@ class BindingIndex(dict[tuple[str, str], RecordData | _AmbiguousBinding]):
         super().__init__()
         self.owner_facade_type_states: dict[tuple[str, str, str], bool] = {}
         self.ownership_contracts: tuple[ArchitectureContract, ...] = ()
+        self.module_bindings: BindingIndex | None = None
 
 
 def _has_star_import(module: str, imports_by_binding: BindingIndex) -> bool:
@@ -1900,6 +1901,9 @@ def _boundary_type_verdict(
             scoped_classes[key] = classes_by_location[key]
         for name in uncertain_bindings:
             scoped_classes[module, name] = _AMBIGUOUS
+        scoped_classes.module_bindings = classes_by_location
+        if classes_by_location.module_bindings is not None:
+            scoped_classes.module_bindings = classes_by_location.module_bindings
         classes_by_location = scoped_classes
     if not annotation:
         return _Position(undecidable="missing_annotation")
@@ -2032,6 +2036,8 @@ def _type_alias_verdict(
     alias = symbol.get("alias")
     if resolved in aliases_seen or not isinstance(alias, str) or alias == annotation:
         return _Position(undecidable="other", resolved=reached)
+    if classes_by_location.module_bindings is not None:
+        classes_by_location = classes_by_location.module_bindings
     expanded = _boundary_type_verdict(
         alias,
         module,
@@ -2355,6 +2361,8 @@ def _declared_field_verdict(
     """Inspect all owned declared model fields, stopping recursive graphs by origin."""
     if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
         return _Position()
+    if classes_by_location.module_bindings is not None:
+        classes_by_location = classes_by_location.module_bindings
     binding_uncertainties: dict[str, list[str]] = (
         origin_symbol["annotation_binding_uncertainties"]
         if "annotation_binding_uncertainties" in origin_symbol

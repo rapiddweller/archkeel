@@ -215,3 +215,23 @@ def test_class_datetime_uncertainty_retains_a_known_broad_union_member(tmp_path:
         item.kind == "boundary_type_position"
         for item in result.observation.records("unknowns") or ()
     )
+
+
+@pytest.mark.parametrize("deferred", [False, True])
+def test_class_scope_does_not_hide_another_dtos_broad_field(tmp_path: Path, deferred: bool) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            ("from __future__ import annotations\n" if deferred else "")
+            + "class Hidden: pass\nclass Payload:\n    content: object\n"
+            "class Converter:\n    object = Hidden\n"
+            "    def convert(self, value: tuple[object, Payload]) -> str: ...\n"
+        ),
+        declared=("sample.app.impl:Converter", "sample.app.impl:Payload"),
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    assert any(
+        str(item.data.get("path", "")).endswith(".content")
+        for item in result.observation.records("violations") or ()
+    )
