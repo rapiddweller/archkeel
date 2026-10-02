@@ -91,6 +91,9 @@ and bare class arguments; substitutions inside supported method annotations such
 followed. It does not prove inherited fields, constructors, or the full MRO. Class-local rebinding,
 imports, deletes, repeated bindings, or class-body control flow keep the effective inherited
 surface UNKNOWN rather than producing a definitive finding.
+Proven inherited findings retain `T` or `list[T]` as their source annotation and show the
+walk's concrete origins in the title and `resolved_types`; IDs and fingerprints do not change
+(AD-137). This reports existing proof and does not extend inheritance resolution.
 An imported facade entry in an ordinary module is followed only when one unchanged literal
 `__all__` explicitly exports its unique import binding (AD-109); other export forms remain
 undecidable.

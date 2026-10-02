@@ -58,6 +58,9 @@ counts the `calls` section alone.
 methods of published classes, and proven direct inherited generic methods (AD-65, AD-121).
 `validate` reads these same dotted `module.Name` origins for unused-entry checks. Private
 methods and unpublished classes do not count. Ambiguous inherited candidates stay separate.
+Inherited boundary violations keep their raw `annotation` and stable identity; their title and
+`resolved_types` name the concrete `module:Name` origins already proven by the signature walk,
+including reached model fields (AD-137). Ambiguous substitutions remain UNKNOWN.
 An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 

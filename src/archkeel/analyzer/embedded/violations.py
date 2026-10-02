@@ -3690,6 +3690,9 @@ def _boundary_types_violations(
                         annotation,
                         verdict,
                         identity_suffix=method_id,
+                        resolved_types=tuple(
+                            f"{module}:{name}" for module, name in verdict.resolved
+                        ),
                     )
                     root_broad_count = _root_broad_count(records)
                     for record in records:
@@ -3743,10 +3746,12 @@ def _boundary_type_violation_records(
     verdict: _Position,
     *,
     identity_suffix: str = "",
+    resolved_types: tuple[str, ...] = (),
 ) -> list[RawRecord]:
     if verdict.violation is None:
         return []
     verb = "returns" if position == "return" else f"takes {position} as"
+    resolution_detail = f" (resolved types: {', '.join(resolved_types)})" if resolved_types else ""
     findings = sorted(
         set(
             verdict.violations or ((verdict.violation, verdict.path, verdict.nested_annotation, 0),)
@@ -3779,7 +3784,7 @@ def _boundary_type_violation_records(
                 evidence_class=EvidenceClass.VIOLATION,
                 area="type_architecture",
                 kind=rule.kind,
-                title=f"{qualname} {verb} {annotation} {field_detail}{reason}",
+                title=f"{qualname} {verb} {annotation} {field_detail}{reason}{resolution_detail}",
                 subjects=[qualname, facade_module],
                 evidence_ids=item["evidence_ids"],
                 rule_ids=[rule.id],
@@ -3791,6 +3796,7 @@ def _boundary_type_violation_records(
                     "position": position,
                     "annotation": annotation,
                     "reason": reason,
+                    **({"resolved_types": resolved_types} if resolved_types else {}),
                     **({"container_depth": depth} if depth else {}),
                     **({"path": path_data} if path_data else {}),
                     **({"nested_annotation": nested_annotation} if nested_annotation else {}),
