@@ -1,0 +1,86 @@
+{
+  "broad-neighbor": {
+    "candidate20512bf": {
+      "decided_pass_positions": null,
+      "decided_positions": null,
+      "declared_positions": null,
+      "unknown_by_cause": {},
+      "violation_records": 1
+    },
+    "previous084": {
+      "decided_pass_positions": null,
+      "decided_positions": 1,
+      "declared_positions": 2,
+      "unknown_by_cause": {
+        "external_type": 1
+      },
+      "violation_records": 1
+    },
+    "source": "from datetime import datetime\n\ndef convert(value: tuple[datetime, object]) -> str:\n    return str(value)\n",
+    "synthetic": true
+  },
+  "datetime": {
+    "candidate20512bf": {
+      "decided_pass_positions": null,
+      "decided_positions": null,
+      "declared_positions": null,
+      "unknown_by_cause": {},
+      "violation_records": 0
+    },
+    "previous084": {
+      "decided_pass_positions": null,
+      "decided_positions": 1,
+      "declared_positions": 2,
+      "unknown_by_cause": {
+        "external_type": 1
+      },
+      "violation_records": 0
+    },
+    "source": "from datetime import datetime\n\ndef convert(value: datetime) -> str:\n    return str(value)\n",
+    "synthetic": true
+  },
+  "external": {
+    "candidate20512bf": {
+      "decided_pass_positions": null,
+      "decided_positions": 1,
+      "declared_positions": 2,
+      "unknown_by_cause": {
+        "external_type": 1
+      },
+      "violation_records": 0
+    },
+    "previous084": {
+      "decided_pass_positions": null,
+      "decided_positions": 1,
+      "declared_positions": 2,
+      "unknown_by_cause": {
+        "external_type": 1
+      },
+      "violation_records": 0
+    },
+    "source": "from external import datetime\n\ndef convert(value: datetime) -> str:\n    return str(value)\n",
+    "synthetic": true
+  },
+  "shadowed": {
+    "candidate20512bf": {
+      "decided_pass_positions": null,
+      "decided_positions": 1,
+      "declared_positions": 2,
+      "unknown_by_cause": {
+        "ambiguous_binding": 1
+      },
+      "violation_records": 0
+    },
+    "previous084": {
+      "decided_pass_positions": null,
+      "decided_positions": 1,
+      "declared_positions": 2,
+      "unknown_by_cause": {
+        "external_type": 1
+      },
+      "violation_records": 0
+    },
+    "source": "from datetime import datetime\n\nclass Hidden: pass\n\nclass Converter:\n    datetime = Hidden\n    def convert(self, value: datetime) -> str:\n        return str(value)\n",
+    "synthetic": true
+  }
+}
