@@ -3163,28 +3163,9 @@ def _inherited_generic_facade_types(
             return [], [], []
         substitutions.append((parameter, resolved_origin))
 
-    substituted_imports = BindingIndex()
-    for key in imports_by_binding:
-        substituted_imports[key] = imports_by_binding[key]
-    substituted_imports.ownership_contracts = imports_by_binding.ownership_contracts
-    substituted_imports.owner_facade_type_states = dict(imports_by_binding.owner_facade_type_states)
-    substituted_classes = BindingIndex()
-    for key in classes_by_location:
-        substituted_classes[key] = classes_by_location[key]
-    for parameter, (origin_module, origin_name) in substitutions:
-        key = (base_module, parameter)
-        # The verified TypeVar binding is replaced for this one signature walk only.
-        if key in substituted_classes:
-            del substituted_classes[key]
-        dotted_origin = f"{origin_module}.{origin_name}"
-        substituted_imports[key] = {
-            "source_module": base_module,
-            "binding": parameter,
-            "target_module": origin_module,
-            "symbol": origin_name,
-            "origin_definition": dotted_origin,
-            "reexport_chain": [dotted_origin],
-        }
+    substituted_imports, substituted_classes = _substituted_type_bindings(
+        base_module, substitutions, imports_by_binding, classes_by_location
+    )
 
     overrides = set(data.get("class_members", ())) | {
         method["data"]["name"] for method in methods_by_parent.get(data["qualified_name"], ())
@@ -3281,6 +3262,38 @@ def _inherited_generic_facade_types(
                 candidates.add(f"{origin[0]}.{origin[1]}")
 
     return sorted(names), inherited_positions, sorted(candidates)
+
+
+def _substituted_type_bindings(
+    base_module: str,
+    substitutions: Sequence[tuple[str, tuple[str, str]]],
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+) -> tuple[BindingIndex, BindingIndex]:
+    substituted_imports = BindingIndex()
+    for key in imports_by_binding:
+        substituted_imports[key] = imports_by_binding[key]
+    substituted_imports.ownership_contracts = imports_by_binding.ownership_contracts
+    substituted_imports.owner_facade_type_states = dict(imports_by_binding.owner_facade_type_states)
+    substituted_classes = BindingIndex()
+    for key in classes_by_location:
+        substituted_classes[key] = classes_by_location[key]
+    for parameter, (origin_module, origin_name) in substitutions:
+        key = (base_module, parameter)
+        # The verified TypeVar binding is replaced for this one signature walk only.
+        if key in substituted_classes:
+            del substituted_classes[key]
+        dotted_origin = f"{origin_module}.{origin_name}"
+        substituted_imports[key] = {
+            "source_module": base_module,
+            "binding": parameter,
+            "target_module": origin_module,
+            "symbol": origin_name,
+            "origin_definition": dotted_origin,
+            "reexport_chain": [dotted_origin],
+        }
+
+    return substituted_imports, substituted_classes
 
 
 def _inherited_generic_candidate_types(
@@ -4159,22 +4172,181 @@ def _public_api_symbol(
     return None
 
 
-def _public_api_annotations(symbol: RawRecord) -> list[str]:
-    """AD-70's "externally visible signature": a declared function's parameter and return
-    annotations, or a declared class's own public attribute annotations (`fields`, added to
-    `symbols` for exactly this).
-    """
+def _public_api_positions(
+    symbol: RawRecord,
+    symbols: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports: dict[str, frozenset[str]],
+    imports: BindingIndex,
+    classes: BindingIndex,
+) -> tuple[list[_Position], list[tuple[RawRecord, str]]]:
+    """A public function's signature or a class's declared and inherited fields."""
     data = symbol["data"]
     if symbol["kind"] == "class":
-        return [field["annotation"] for field in data["fields"] if field["annotation"]]
+        return _public_api_field_positions(symbol, symbols, contract, exports, imports, classes)
     if symbol["kind"] != "function":
-        return []
+        return [], []
     annotations = [
         parameter["annotation"] for parameter in data["parameters"] if parameter["annotation"]
     ]
     if data["returns"]:
         annotations.append(data["returns"])
-    return annotations
+    return [
+        _boundary_type_verdict(annotation, data["module"], contract, exports, imports, classes)
+        for annotation in annotations
+    ], []
+
+
+def _public_api_field_positions(
+    symbol: RawRecord,
+    symbols: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports: dict[str, frozenset[str]],
+    imports: BindingIndex,
+    classes: BindingIndex,
+    *,
+    overrides: frozenset[str] = frozenset(),
+    visited: frozenset[tuple[str, str]] = frozenset(),
+) -> tuple[list[_Position], list[tuple[RawRecord, str]]]:
+    """Walk one proven base chain; sorted base records cannot prove multiple-base precedence."""
+    data = symbol["data"]
+    module = data["module"]
+    origin = (module, data["name"])
+    if origin in visited:
+        return [], [(symbol, "inheritance_cycle")]
+    fields = [field for field in data["fields"] if field["name"] not in overrides]
+    positions = [
+        _boundary_type_verdict(field["annotation"], module, contract, exports, imports, classes)
+        for field in fields
+        if field["annotation"]
+    ]
+    limits: list[tuple[RawRecord, str]] = [
+        (symbol, f"inherited_field:{reason}")
+        for reason in sorted(
+            {
+                position.undecidable
+                for position in positions
+                if visited
+                and position.undecidable is not None
+                and position.undecidable != "external_type"
+            }
+        )
+    ]
+    if data["class_body_control_flow"]:
+        return positions, [(symbol, "class_body_control_flow")]
+    base, reason = _public_api_base(symbol, symbols, contract, exports, imports, classes)
+    if reason is not None:
+        limits.append((symbol, reason))
+    if base is None:
+        return positions, limits
+    base_symbol, base_imports, base_classes = base
+    inherited, inherited_limits = _public_api_field_positions(
+        base_symbol,
+        symbols,
+        contract,
+        exports,
+        base_imports,
+        base_classes,
+        overrides=overrides
+        | frozenset(data["class_members"])
+        | frozenset(field["name"] for field in data["fields"]),
+        visited=visited | {origin},
+    )
+    return [*positions, *inherited], [*limits, *inherited_limits]
+
+
+def _public_api_base(
+    symbol: RawRecord,
+    symbols: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    exports: dict[str, frozenset[str]],
+    imports: BindingIndex,
+    classes: BindingIndex,
+) -> tuple[tuple[RawRecord, BindingIndex, BindingIndex] | None, str | None]:
+    data = symbol["data"]
+    module = data["module"]
+    bases: list[tuple[str, ast.expr, tuple[str, str]]] = []
+    for annotation in data["bases"]:
+        try:
+            expression = ast.parse(annotation, mode="eval").body
+        except SyntaxError:
+            return None, "unresolved_base"
+        base_name = ast.unparse(
+            expression.value if isinstance(expression, ast.Subscript) else expression
+        )
+        verdict = _boundary_type_verdict(
+            base_name, module, contract, exports, imports, classes, enter_fields=False
+        )
+        if len(verdict.resolved) == 1:
+            base_origin = verdict.resolved[0]
+            if ".".join(base_origin) in _FRAMEWORK_BASES:
+                continue
+            bases.append((base_name, expression, base_origin))
+        elif base_name == "object" and "object" in data["base_roots"]:
+            continue
+        else:
+            return None, verdict.undecidable or "unresolved_base"
+    if len(bases) > 1:
+        return None, "multiple_inheritance"
+    if not bases:
+        return None, None
+    base_name, expression, base_origin = bases[0]
+    base = _public_api_symbol(symbols, *base_origin, (), False)
+    if base is None or base["kind"] != "class":
+        return None, f"unresolved_base:{base_name}"
+    bindings = (imports, classes)
+    if isinstance(expression, ast.Subscript):
+        substituted = _public_api_generic_bindings(
+            base, expression, module, contract, exports, imports, classes
+        )
+        if substituted is None:
+            return None, f"unresolved_generic_base:{base_name}"
+        bindings = substituted
+    return (base, *bindings), None
+
+
+def _public_api_generic_bindings(
+    base: RawRecord,
+    expression: ast.Subscript,
+    module: str,
+    contract: ArchitectureContract,
+    exports: dict[str, frozenset[str]],
+    imports: BindingIndex,
+    classes: BindingIndex,
+) -> tuple[BindingIndex, BindingIndex] | None:
+    arguments = (
+        list(expression.slice.elts)
+        if isinstance(expression.slice, ast.Tuple)
+        else [expression.slice]
+    )
+    base_data = base["data"]
+    parameters = base_data["generic_parameters"] if "generic_parameters" in base_data else ()
+    if (
+        len(parameters) != len(arguments)
+        or not parameters
+        or set(parameters) & set(base["data"]["class_members"])
+    ):
+        return None
+    substitutions: list[tuple[str, tuple[str, str]]] = []
+    for parameter, argument in zip(parameters, arguments, strict=True):
+        if not isinstance(argument, ast.Name):
+            return None
+        verdict = _boundary_type_verdict(
+            argument.id, module, contract, exports, imports, classes, enter_fields=False
+        )
+        if len(verdict.resolved) == 1:
+            resolved = verdict.resolved[0]
+        elif (
+            verdict.undecidable is None
+            and argument.id in _BUILTIN_NAMES
+            and (module, argument.id) not in imports
+            and (module, argument.id) not in classes
+        ):
+            resolved = ("builtins", argument.id)
+        else:
+            return None
+        substitutions.append((parameter, resolved))
+    return _substituted_type_bindings(base["data"]["module"], substitutions, imports, classes)
 
 
 def public_api_exposed_types(
@@ -4183,6 +4355,8 @@ def public_api_exposed_types(
     imports: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     contract: ArchitectureContract,
+    *,
+    unknowns: list[RawRecord],
 ) -> dict[str, list[str]]:
     """Map public entries to exposed types not already declared, by origin (AD-70).
 
@@ -4221,18 +4395,24 @@ def public_api_exposed_types(
         )
         symbol = _public_api_symbol(symbols, module, name, position.resolved, ambiguous)
         if symbol is None:
+            if ambiguous:
+                candidates = [
+                    item
+                    for item in symbols
+                    if (item["data"]["module"], item["data"]["name"]) == (module, name)
+                ] + [
+                    item
+                    for item in imports
+                    if (item["data"]["source_module"], item["data"]["binding"]) == (module, name)
+                ]
+                unknowns.append(_public_api_limit(entry, "ambiguous_binding", candidates))
             continue
-        symbol_module = symbol["data"]["module"]
         resolved: set[str] = set()
-        for annotation in _public_api_annotations(symbol):
-            verdict = _boundary_type_verdict(
-                annotation,
-                symbol_module,
-                contract,
-                exports,
-                imports_by_binding,
-                classes_by_location,
-            )
+        positions, limits = _public_api_positions(
+            symbol, symbols, contract, exports, imports_by_binding, classes_by_location
+        )
+        unknowns.extend(_public_api_limit(entry, reason, [item]) for item, reason in limits)
+        for verdict in positions:
             resolved.update(
                 f"{origin_module}:{origin_name}"
                 for origin_module, origin_name in verdict.resolved
@@ -4241,6 +4421,20 @@ def public_api_exposed_types(
             )
         types[entry] = sorted(resolved)
     return types
+
+
+def _public_api_limit(entry: str, reason: str, records: Sequence[RawRecord]) -> RawRecord:
+    return classified(
+        item_id=stable_id("UNKNOWN-API-SURFACE", entry, reason, *(item["id"] for item in records)),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="api_surface",
+        kind="api_surface_limit",
+        title=f"Public API fields cannot be fully resolved: {reason}",
+        subjects=[entry],
+        evidence_ids=sorted({evidence for item in records for evidence in item["evidence_ids"]}),
+        fact_ids=[item["id"] for item in records],
+        data={"module": entry.partition(":")[0], "name": entry.partition(":")[2], "reason": reason},
+    )
 
 
 def _requires_covers(source: ContractComponent, target_label: str, target_module: str) -> bool:

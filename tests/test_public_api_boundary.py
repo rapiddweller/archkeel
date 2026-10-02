@@ -1,37 +1,25 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-70 states the invariant: "the external promise declares every type it hands out." A
-reviewer found it unenforced -- `test_violations.py::test_api_all_matches_the_names_reference_md_
-documents` pins today's three names and one `is` check, but nothing stops a future
-`load_violations` from returning an undeclared type, or a declared class from carrying an
-undeclared attribute type, without the test noticing.
+"""Public API closure includes resolved signature types and inherited public fields.
 
-`public_api_diagnostics` (archkeel.check.validation) is `declarations.public_api`'s only
-guard today, and it checks existence alone (AD-66/AD-71): a declared entry's module must have
-been scanned, and, when the module states `__all__`, the name must be in it. It never reads a
-declared function's parameters or return, or a declared class's public attributes -- exactly the
-gap `boundary_types` (AD-58/AD-63) already closes for a component's *internal* facade, asked here
-of the package's *external* one.
-
-These tests build a synthetic package the way `test_analyzer.py`'s own `boundary_types` tests do
-and pin the effect a generic guard must have -- an undeclared type reported -- rather than which
-function or rule kind ends up computing it, so they hold regardless of whether the guard turns
-out to be a new check or `boundary_types`'s own resolution machinery pointed at `public_api`.
+Unproven inheritance retains UNKNOWN with source evidence (AD-73, AD-131).
 """
 
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
-from test_analyzer import _observe
+from test_analyzer import _component, _observe
 
 from archkeel.analyzer.embedded.records import classified
 from archkeel.analyzer.embedded.violations import _public_api_symbol
 from archkeel.check.validation import public_api_diagnostics
-from archkeel.ir.codec import decode_json, parse_contract
+from archkeel.cli import main
+from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.model import Diagnostic, EvidenceClass
 
 
@@ -242,3 +230,204 @@ def test_public_api_accepts_non_callable_symbols_without_function_diagnostics(
     )
 
     assert _public_api_diagnostics(tmp_path) == ()
+
+
+@pytest.mark.parametrize("entry", ["sample.facade:Child", "sample.model:Child"])
+@pytest.mark.parametrize("base", ["Base", "Base[Hidden]"])
+def test_public_api_reports_inherited_fields_at_their_origin(
+    tmp_path: Path, entry: str, base: str
+) -> None:
+    _prepare(tmp_path, [entry], "from sample.model import Child\n__all__ = ['Child']\n")
+    generic = base != "Base"
+    (tmp_path / "sample/model.py").write_text(
+        "from typing import Generic, TypeVar\n"
+        "from pydantic import BaseModel\n"
+        "T = TypeVar('T')\n"
+        "class Hidden: pass\n"
+        f"class Base(BaseModel{', Generic[T]' if generic else ''}):\n"
+        f"    inherited: {'list[T]' if generic else 'Hidden'}\n"
+        "    _private: Hidden\n"
+        "    def implementation(self) -> Hidden: ...\n"
+        f"class Child({base}): pass\n"
+    )
+
+    diagnostics = _public_api_diagnostics(tmp_path)
+
+    assert [item.code for item in diagnostics] == ["api_surface.missing"]
+    assert "sample.model:Hidden" in diagnostics[0].remedy
+
+
+@pytest.mark.parametrize(
+    "override",
+    ["inherited: str", "inherited = 'safe'", "def inherited(self) -> str: ..."],
+)
+def test_public_api_inherited_fields_respect_subclass_overrides(
+    tmp_path: Path, override: str
+) -> None:
+    _prepare(
+        tmp_path,
+        ["sample.facade:Child"],
+        "class Hidden: pass\n"
+        "class Base:\n"
+        "    inherited: Hidden\n"
+        "class Middle(Base): pass\n"
+        "class Child(Middle):\n"
+        f"    {override}\n",
+    )
+
+    assert _public_api_diagnostics(tmp_path) == ()
+
+
+@pytest.mark.parametrize(
+    ("source", "entry"),
+    [
+        ("class Child(Missing): pass\n", "sample.facade:Child"),
+        ("class Base: pass\nclass Base: pass\nclass Child(Base): pass\n", "sample.facade:Child"),
+        (
+            "class First: pass\nclass Second: pass\nclass Child(First, Second): pass\n",
+            "sample.facade:Child",
+        ),
+        ("class Base(Child): pass\nclass Child(Base): pass\n", "sample.facade:Child"),
+        ("class Child: pass\nclass Child: pass\n", "sample.facade:Child"),
+        (
+            "from typing import Generic, TypeVar\nT = TypeVar('T')\n"
+            "class Hidden: pass\nclass Base(Generic[T]):\n    T = str\n    field: T\n"
+            "class Child(Base[Hidden]): pass\n",
+            "sample.facade:Child",
+        ),
+        ("class Base:\n    field: Missing\nclass Child(Base): pass\n", "sample.facade:Child"),
+        (
+            "class Base:\n    first: Missing\n    second: Missing\nclass Child(Base): pass\n",
+            "sample.facade:Child",
+        ),
+        (
+            "from sample.left import Child\nfrom sample.right import Child\n__all__ = ['Child']\n",
+            "sample.facade:Child",
+        ),
+    ],
+)
+def test_public_api_unproven_inheritance_or_entry_keeps_unknown(
+    tmp_path: Path, source: str, entry: str
+) -> None:
+    _prepare(tmp_path, [entry], source)
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+
+    limits = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "api_surface_limit" and entry in item.subjects
+    ]
+    assert limits, "unproven public fields must not certify API closure"
+    assert len({item.id for item in limits}) == len(limits)
+    assert limits[0].evidence_ids
+    assert limits[0].data.get("reason")
+
+
+def test_public_api_resolves_an_aliased_base_and_multilevel_generic_fields(tmp_path: Path) -> None:
+    _prepare(
+        tmp_path,
+        ["sample.facade:Child", "sample.model:Hidden"],
+        "from typing import Generic, TypeVar\n"
+        "from sample.model import Base as Parent, Hidden\n"
+        "T = TypeVar('T')\n"
+        "class Middle(Parent[T], Generic[T]): pass\n"
+        "class Child(Middle[Hidden]): pass\n",
+    )
+    (tmp_path / "sample/model.py").write_text(
+        "from typing import Generic, TypeVar\nT = TypeVar('T')\n"
+        "class Hidden: pass\nclass Noise: pass\n"
+        "class Base(Generic[T]):\n    field: list[T]\n    _private: Noise\n"
+        "    def implementation(self) -> Noise: ...\n"
+    )
+
+    assert _public_api_diagnostics(tmp_path) == ()
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert not [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "api_surface_limit"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("entries", "source", "exit_code", "status"),
+    [
+        (["sample:ChildPublic"], "class Child(Base): pass\n", 2, "UNKNOWN"),
+        (["sample.facade:Child"], "class Child(Base): pass\n", 2, "UNKNOWN"),
+        (["sample:Public"], "class Child(Base): pass\n", 2, "UNKNOWN"),
+        (["sample:Public", "sample.facade:Nested"], "class Child(Base): pass\n", 0, "PASS"),
+        (["sample:ChildPublic", "sample.facade:Nested"], "class Child(Base): pass\n", 0, "PASS"),
+        (["sample:ChildPublic"], "class Child(Missing): pass\n", 0, "UNKNOWN"),
+    ],
+)
+def test_public_api_inheritance_cli_and_report(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    entries: list[str],
+    source: str,
+    exit_code: int,
+    status: str,
+) -> None:
+    _prepare(
+        tmp_path,
+        entries,
+        "class Nested:\n    value: str\nclass Exported:\n    item: Nested\n"
+        "class Base:\n    inherited: Nested\n" + source,
+    )
+    (tmp_path / "sample/__init__.py").write_text(
+        "from .facade import Child as ChildPublic, Exported as Public\n"
+        "__all__ = ['ChildPublic', 'Public']\n"
+    )
+    contract = json.loads((tmp_path / "contract.json").read_text())
+    component = _component("sample", packages=["sample"], public=[])
+    component["provenance"] = ["probe.md"]
+    contract["components"] = [component]
+    contract["declarations"]["public_api_provenance"] = ["probe.md"]
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "probe.md").write_text(
+        "<!-- archkeel-component-graph -->\n```mermaid\nflowchart TD\n    sample\n```\n"
+    )
+    (tmp_path / "archkeel.toml").write_text(
+        '[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+    )
+    for args in (
+        ["git", "init", "-q", "-b", "main"],
+        ["git", "add", "."],
+        [
+            "git",
+            "-c",
+            "user.name=Demo",
+            "-c",
+            "user.email=demo@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+    ):
+        subprocess.run(args, cwd=tmp_path, check=True, capture_output=True)
+
+    assert main(["validate", "--root", str(tmp_path), "--json"]) == exit_code
+    validation = json.loads(capsys.readouterr().out)
+    assert validation["declared_rules"] == status, validation
+    assert [item["code"] for item in validation["diagnostics"]] == (
+        ["api_surface.missing"] if exit_code == 2 else []
+    )
+    output = tmp_path / "report.json"
+    assert main(["report", "--root", str(tmp_path), "--output", str(output), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["declared_rules"] == ("UNKNOWN" if "Missing" in source else "PASS"), report
+    observation = parse_observation(decode_canonical_model(json.loads(output.read_text())))
+    api = next(
+        item
+        for item in observation.records("declarations") or ()
+        if item.kind == "declared_public_api" and item.subjects == (entries[0],)
+    )
+    assert api.data.get("types") == (("sample.facade:Nested",) if exit_code == 2 else ())
+    html = output.with_name("report.report.html").read_text()
+    if "Missing" in source:
+        assert "unresolved_name" in html
+        assert "Public API fields cannot be fully resolved" in html

@@ -17,6 +17,12 @@ collision-free routing. Fit overview can shrink labels; 100% zoom and scrolling 
 Fullscreen has a browser-API path and a window fallback; headless tests do not prove every OS's
 native fullscreen behavior.
 
+## External API closure
+
+External API closure follows one proven local base chain, including generic field substitutions
+(AD-131). Multiple-base precedence, cycles, dynamic class bodies and unresolved inherited types
+retain API UNKNOWN with source evidence. Compound generic arguments are not substituted.
+
 ## Analyzer deadline
 
 The bundled analyzer has a 300-second deadline. Exceeding it returns exit 2 and

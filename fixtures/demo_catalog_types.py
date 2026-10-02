@@ -749,6 +749,53 @@ _INHERITED_GENERIC_AMBIGUOUS = Variant(
     expected_codes=("interface.usage_unknown",),
 )
 
+
+def _public_api_inherited_fields(*, declared: bool, unresolved: bool = False) -> dict[str, str]:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    contract["declarations"]["public_api"] = ["shop.model.public_api:Child"]
+    contract["declarations"]["public_api_provenance"] = ["docs/architecture/shop.md"]
+    if declared:
+        contract["declarations"]["public_api"].append("shop.model.public_api:Payload")
+    return {
+        "architecture-contract.json": json.dumps(contract, indent=2) + "\n",
+        "shop/model/public_api.py": HEADER + "class Payload:\n    value: str\n"
+        "class Base:\n    payload: Payload\n"
+        f"class Child({'Missing' if unresolved else 'Base'}): pass\n",
+    }
+
+
+_PUBLIC_API_INHERITED_MISSING = Variant(
+    id="public-api-inherited-missing",
+    section="validation",
+    item="public_api:inherited_field_missing",
+    summary="Child inherits Base.payload: Payload, which its API declaration omits (AD-131, #243).",
+    files=_public_api_inherited_fields(declared=False),
+    expected_violations=(),
+    expected_codes=("api_surface.missing",),
+)
+
+_PUBLIC_API_INHERITED_DECLARED = Variant(
+    id="public-api-inherited-declared",
+    section="clean",
+    item="public_api:inherited_field_declared",
+    summary="Declaring Child and the inherited Payload closes the public field exposure (AD-131).",
+    files=_public_api_inherited_fields(declared=True),
+    expected_violations=(),
+    expected_codes=(),
+)
+
+_PUBLIC_API_INHERITED_UNKNOWN = Variant(
+    id="public-api-inherited-unknown",
+    section="validation",
+    item="public_api:unresolved_inheritance",
+    summary="An unresolved Child base retains API UNKNOWN with source evidence (AD-131).",
+    files=_public_api_inherited_fields(declared=False, unresolved=True),
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("api_surface_limit", "shop.model.public_api:Child"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _SYMBOL_PLACEMENT,
     _BOUNDARY_TYPES,
@@ -772,4 +819,7 @@ VARIANTS: tuple[Variant, ...] = (
     _INHERITED_GENERIC_RETURN,
     _INHERITED_GENERIC_UNUSED,
     _INHERITED_GENERIC_AMBIGUOUS,
+    _PUBLIC_API_INHERITED_MISSING,
+    _PUBLIC_API_INHERITED_DECLARED,
+    _PUBLIC_API_INHERITED_UNKNOWN,
 )

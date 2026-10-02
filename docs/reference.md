@@ -419,8 +419,11 @@ For each promised name, validation requires the scanned module and, when present
 membership in its literal `__all__`; an empty `__all__` is not inspected. Without an inspected
 export list, a name with no scanned top-level class or function is `UNKNOWN`, not a pass. For an
 unambiguous class or function, every type the shared annotation walk can resolve in its parameters,
-return or own public fields must also be named in `public_api`. Builtins and external types are not
-package promises, and unresolved or ambiguous annotation bindings are not guessed.
+return or public fields must also be named in `public_api`. Fields include a proven local base
+chain, preserving overrides and bare named generic substitutions (AD-131). Private fields,
+implementation methods and known framework bases are excluded. Unresolved or ambiguous
+inheritance, multiple-base precedence and unsupported substitutions retain `api_surface_limit`
+UNKNOWN with source evidence. Builtins and external types are not package promises.
 It is one call because the two it replaced only ever composed, and the `Observation` between
 them was `ir`'s own model crossing the boundary this module exists to keep stable (AD-70); `ir`
 itself performs no I/O (AD-17), so the read lives in the facade, not in `ir.codec` as AD-54
