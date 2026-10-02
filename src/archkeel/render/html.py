@@ -1018,6 +1018,7 @@ def _target_component_node(
                 "details": [
                     {"label": "Exact module", "value": module},
                     {"label": "Owner", "value": record.title},
+                    {"label": "Responsibility", "value": "", "missing": True},
                     {"label": "Declared in", "value": ", ".join(record.provenance)},
                 ],
                 "children": [],

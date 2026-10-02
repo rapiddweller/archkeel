@@ -25,8 +25,25 @@ def _exact_target_nodes(payload: dict[str, Any], module: str) -> list[dict[str, 
     ]
 
 
+def _assert_module_responsibility_index(
+    page: Any, *, expected_total: str, filter_query: str, expected_entry: str
+) -> None:
+    page.locator('[data-flow-view="target"]').click()
+    _open_details(page)
+    responsibilities = page.locator(".flow-responsibilities")
+    responsibilities.locator("summary").click()
+    assert responsibilities.locator(".flow-responsibility-total").text_content() == expected_total
+    responsibilities.locator("input").fill(filter_query)
+    assert responsibilities.locator(".flow-responsibility-count").text_content() == "1 of 2 shown"
+    row = responsibilities.locator(".flow-responsibility-list button:visible")
+    assert row.count() == 1
+    assert "Module" in row.inner_text()
+    assert "sample.core" in row.inner_text()
+    assert expected_entry in row.inner_text()
+
+
 def test_source_free_exact_claim_is_a_childless_target_leaf(tmp_path: Path) -> None:
-    _, _, payload, actual = _report(
+    _, html, payload, actual = _report(
         tmp_path,
         _contract([_component("registry", [], exact_modules=["sample.core"])]),
         source_paths=[],
@@ -38,6 +55,10 @@ def test_source_free_exact_claim_is_a_childless_target_leaf(tmp_path: Path) -> N
     leaf = leaves[0]
     assert leaf["children"] == []
     assert not any(detail["label"] == "File" for detail in leaf["details"])
+    assert any(
+        detail["label"] == "Responsibility" and detail.get("missing") is True
+        for detail in leaf["details"]
+    )
     assert not any(
         node["kind"] == "package_scope" and node["label"] == "sample.core"
         for node in _walk(payload["explorers"]["target"])
@@ -51,13 +72,26 @@ def test_source_free_exact_claim_is_a_childless_target_leaf(tmp_path: Path) -> N
         edge["kind"] == "contains" and edge["target"] == leaf["id"] for edge in graph["edges"]
     )
 
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _browser_page(playwright_api, html)
+    try:
+        _assert_module_responsibility_index(
+            page,
+            expected_total="(1 declared · 1 missing)",
+            filter_query="sample.core",
+            expected_entry="No declared responsibility",
+        )
+    finally:
+        browser.close()
+        playwright.stop()
+
 
 def test_exact_leaf_reconciles_matching_explicit_module_declaration(tmp_path: Path) -> None:
     contract = _contract([_component("registry", [], exact_modules=["sample.core"])])
     contract["declarations"] = {
         "modules": [_module("sample/core/__init__.py", "Own the declared initializer.")]
     }
-    _, _, payload, _ = _report(tmp_path, contract)
+    _, html, payload, _ = _report(tmp_path, contract)
     target = list(_walk(payload["explorers"]["target"]))
     matching = [
         node
@@ -77,6 +111,22 @@ def test_exact_leaf_reconciles_matching_explicit_module_declaration(tmp_path: Pa
     details = {detail["label"]: detail["value"] for detail in leaf["details"]}
     assert details["File"] == "sample/core/__init__.py"
     assert details["Responsibility"] == "Own the declared initializer."
+    assert not next(
+        detail for detail in leaf["details"] if detail["label"] == "Responsibility"
+    ).get("missing", False)
+
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _browser_page(playwright_api, html)
+    try:
+        _assert_module_responsibility_index(
+            page,
+            expected_total="(2 declared · 0 missing)",
+            filter_query="Own the declared initializer.",
+            expected_entry="Own the declared initializer.",
+        )
+    finally:
+        browser.close()
+        playwright.stop()
 
 
 @pytest.mark.parametrize(

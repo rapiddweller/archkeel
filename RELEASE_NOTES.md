@@ -3,7 +3,8 @@
 - Components may own exact module names with `exact_modules` as well as recursive `packages`;
   ownership is unambiguous only when one component claims each observed module (AD-128, #211;
   analyzer 0.63.0).
-- Target shows exact names as individual module leaves, without inventing file paths.
+- Target shows exact names as individual module leaves, without inventing file paths;
+  missing responsibilities stay visible in Details and the summary.
 - Python rule receipts exempt only package initializers with no AST statements;
   docstrings and imports retain their ownership obligation (#232).
 - Complete Python scope coverage follows physical package paths, so dotted `.py`

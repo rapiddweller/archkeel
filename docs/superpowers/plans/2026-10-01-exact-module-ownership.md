@@ -49,6 +49,6 @@
 - [x] Independent Luna implementation adds the field and shared predicate, then audits every direct package-ownership consumer. Do not turn exact claims into prefixes or drop outside-parent declarations.
 - [x] Run focused tests; review diff for canonical-byte drift and formerly silent ownership paths. Independent QA extends negative cases without seeing implementer's proposed reasoning on its first pass.
 - [x] Run `UV_NO_CONFIG=true make check`, `make self-observation`, `make gate`, and `make report-browser`. Validate the CE task-root contract probe with the candidate without editing CE to obtain a pass.
-- [ ] Astra reviews the frozen diff and evidence. Controller commits only the coherent feature, then opens/updates the tooling PR with examples and honest limits.
+- [x] Astra reviews the frozen diff and evidence. Controller commits only the coherent feature, then opens/updates the tooling PR with examples and honest limits.
 
 Release follows merged CI and verified isolated package installation. Only then pin CE to the release and migrate explicit ownership; no CE completion claim follows from tooling alone.
