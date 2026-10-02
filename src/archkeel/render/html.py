@@ -2128,13 +2128,15 @@ def _explorer_scope_index(
 
 
 def _explorer_scoped_diff(
-    node: dict[str, object], categories: list[dict[str, object]]
+    node: dict[str, object], categories: list[dict[str, object]], declarations: tuple[Record, ...]
 ) -> dict[str, object]:
     scope, label, children = node["id"], node["label"], node["children"]
     if not isinstance(scope, str) or not isinstance(label, str) or not isinstance(children, list):
         raise TypeError("Diff scope must have a name and children")
     nested = [
-        _explorer_scoped_diff(child, categories) for child in children if isinstance(child, dict)
+        _explorer_scoped_diff(child, categories, declarations)
+        for child in children
+        if isinstance(child, dict)
     ]
     for category in categories:
         rows = category["children"]
@@ -2148,11 +2150,29 @@ def _explorer_scoped_diff(
             and any(isinstance(name, str) and in_scope(name, scope) for name in scopes)
         ]
         nested.append({**category, "id": f"{category['id']}:{scope}", "children": selected})
+    module_targets = tuple(
+        record
+        for record in declarations
+        if record.kind == "module_target" and record.data.get("qualified_name") == scope
+    )
+    identities = module_targets or tuple(
+        record
+        for record in declarations
+        if record.kind != "module_target" and scope in record.subjects
+    )
     return {
         "id": f"diff-scope:{scope}",
         "label": label,
-        "kind": "package_scope",
-        "details": [{"label": "Package scope", "value": scope}],
+        "kind": "module_target" if module_targets else "package_scope",
+        "details": [
+            {"label": "Package scope", "value": scope},
+            *({"label": "Target declaration ID", "value": record.id} for record in identities),
+            *(
+                {"label": "File", "value": path}
+                for record in module_targets
+                if isinstance(path := record.data.get("path"), str)
+            ),
+        ],
         "diff_scope": True,
         "children": nested,
     }
@@ -2162,6 +2182,12 @@ def _explorer_diff_tree(
     observation: Observation, modules: dict[str, str], categories: list[dict[str, object]]
 ) -> list[dict[str, object]]:
     scopes = set(modules)
+    declarations = tuple(
+        record
+        for record in observation.records("declarations") or ()
+        if record.kind
+        in {"component_responsibility", "inside_component_responsibility", "module_target"}
+    )
     for record in observation.records("declarations") or ():
         if record.kind in {"component_responsibility", "inside_component_responsibility"}:
             scopes.update(record.subjects)
@@ -2180,7 +2206,10 @@ def _explorer_diff_tree(
         _add_actual_module(tree, scope, "")
     return [
         *categories,
-        *(_explorer_scoped_diff(_finish_actual_node(tree[key]), categories) for key in tree),
+        *(
+            _explorer_scoped_diff(_finish_actual_node(tree[key]), categories, declarations)
+            for key in tree
+        ),
     ]
 
 

@@ -386,6 +386,7 @@ def _ce_nested_route_page(
     include_engine_owner: bool = False,
     include_root_compat_target: bool = False,
     include_scoped_diff_controls: bool = False,
+    include_overlapping_worker_owner: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     def component(
         component_id: str,
@@ -544,6 +545,10 @@ def _ce_nested_route_page(
                 "provenance": ["docs/architecture/ce.md"],
                 "decided_by": "architect",
             }
+        )
+    if include_overlapping_worker_owner:
+        generate_contract["components"].append(
+            component("GENERATE-OTHER-WORKERS", "other workers", f"{generate_path}.workers")
         )
     if include_worker_module_target:
         generate_contract["declarations"] = {

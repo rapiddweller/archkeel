@@ -11,6 +11,165 @@ from test_target_hierarchy_independent_acceptance import _ce_nested_route_page
 
 
 @pytest.mark.parametrize("width", [1600, 375])
+@pytest.mark.parametrize("back", ["button", "breadcrumb", "escape"])
+def test_nested_diff_keyboard_drill_recovers_logical_target_after_view_switch_and_back(
+    tmp_path: Path, width: int, back: str
+) -> None:
+    html, _ = _ce_nested_route_page(tmp_path, include_scoped_diff_controls=True)
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": 900})
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.set_content(html, wait_until="load")
+            page.locator('[data-flow-view="target"]').click()
+            for node_id in (
+                "COMP-RUNTIME",
+                "runtime:RUNTIME-TASKS",
+                "runtime:tasks:TASKS-GENERATE",
+                "runtime:tasks:generate:GENERATE-WORKERS",
+            ):
+                page.locator(f'.flow-nodes [data-target-node="{node_id}"]').dblclick()
+            target_path = page.locator(".flow-breadcrumb button").all_text_contents()
+            page.locator('[data-flow-view="actual"]').click()
+            page.locator('[data-flow-view="diff"]').click()
+            page.locator(
+                '[data-projection-id="diff-scope:datamimic_ce.engine.runtime.tasks.generate.workers.generate_worker"]'
+            ).focus()
+            page.keyboard.press("Enter")
+            page.locator('[data-flow-view="actual"]').click()
+            page.locator('[data-flow-view="diff"]').click()
+            if back == "button":
+                page.locator(".flow-back").click()
+            elif back == "breadcrumb":
+                page.locator(".flow-breadcrumb button").nth(-2).click()
+            else:
+                page.keyboard.press("Escape")
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(".flow-breadcrumb button").all_text_contents() == target_path
+            assert page.locator(".flow-projection-context:visible").count() == 0
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            assert errors == []
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("width", [1600, 375])
+@pytest.mark.parametrize("declared", [True, False])
+@pytest.mark.parametrize("action", ["select", "open"])
+def test_diff_module_counterparts_keep_exact_declaration_or_explain_absence(
+    tmp_path: Path, width: int, declared: bool, action: str
+) -> None:
+    html, payload = _ce_nested_route_page(
+        tmp_path, include_scoped_diff_controls=True, include_worker_module_target=True
+    )
+    scope = (
+        "datamimic_ce.engine.runtime.tasks.generate.workers"
+        if declared
+        else "datamimic_ce.engine.runtime.storage"
+    )
+    module = "generate_worker" if declared else "extra_0"
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": 900})
+            page.set_default_timeout(2_000)
+            page.set_content(html, wait_until="load")
+            page.locator('[data-flow-view="diff"]').click()
+            for end in range(1, len(scope.split(".")) + 1):
+                identifier = ".".join(scope.split(".")[:end])
+                page.locator(f'[data-projection-id="diff-scope:{identifier}"]').focus()
+                page.keyboard.press("Enter")
+            leaf = page.locator(f'[data-projection-id="diff-scope:{scope}.{module}"]')
+            leaf.click()
+            if action == "open":
+                page.locator(".flow-open-selected").click()
+            page.locator('[data-flow-view="target"]').click()
+            if declared:
+                target = next(
+                    node
+                    for node in _walk(payload["explorers"]["target"])
+                    if node["kind"] == "module_target"
+                    and any(
+                        item["label"] == "File" and item["value"].endswith("/generate_worker.py")
+                        for item in node["details"]
+                    )
+                )
+                assert (
+                    page.locator(f'[data-target-node="{target["id"]}"]:visible').get_attribute(
+                        "aria-pressed"
+                    )
+                    == "true"
+                )
+                assert page.locator(".flow-projection-context:visible").count() == 0
+            else:
+                assert (
+                    "No matching scope"
+                    in page.locator(".flow-projection-context:visible").inner_text()
+                )
+                assert page.locator("[data-target-node]:visible").count() == 0
+                assert page.get_by_role(
+                    "button", name=f"Open nearest scope: {scope}", exact=True
+                ).is_visible()
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("width", [1600, 375])
+def test_overlapping_diff_scope_owners_require_explicit_target_navigation(
+    tmp_path: Path, width: int
+) -> None:
+    html, payload = _ce_nested_route_page(
+        tmp_path, include_scoped_diff_controls=True, include_overlapping_worker_owner=True
+    )
+    playwright_api = pytest.importorskip("playwright.sync_api")
+    with playwright_api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": 900})
+            page.set_content(html, wait_until="load")
+            page.locator('[data-flow-view="diff"]').click()
+            scope = "datamimic_ce.engine.runtime.tasks.generate.workers"
+            for end in range(1, len(scope.split(".")) + 1):
+                identifier = ".".join(scope.split(".")[:end])
+                page.locator(f'[data-projection-id="diff-scope:{identifier}"]').focus()
+                page.keyboard.press("Enter")
+            source_path = page.locator(".flow-breadcrumb button").all_text_contents()[1:]
+            page.locator('[data-flow-view="target"]').click()
+            assert page.locator(".flow-breadcrumb button").all_text_contents() == [
+                "Target",
+                *source_path,
+            ]
+            assert (
+                "No matching scope" in page.locator(".flow-projection-context:visible").inner_text()
+            )
+            assert page.locator("[data-target-node]:visible").count() == 0
+            page.get_by_role("button", name="Open Target root", exact=True).click()
+            assert page.locator(".flow-breadcrumb button").all_text_contents() == ["Target"]
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            diff_node = next(
+                node
+                for node in _walk(payload["explorers"]["diff"])
+                if node["id"] == f"diff-scope:{scope}"
+            )
+            declaration_ids = {
+                item["value"]
+                for item in diff_node["details"]
+                if item["label"] == "Target declaration ID"
+            }
+            assert declaration_ids == {
+                "runtime:tasks:generate:GENERATE-WORKERS",
+                "runtime:tasks:generate:GENERATE-OTHER-WORKERS",
+            }
+        finally:
+            browser.close()
+
+
+@pytest.mark.parametrize("width", [1600, 375])
 @pytest.mark.parametrize("scope", ["workers", "policies"])
 def test_ce_sized_nested_diff_retains_scope_and_only_its_recorded_differences(
     tmp_path: Path, width: int, scope: str

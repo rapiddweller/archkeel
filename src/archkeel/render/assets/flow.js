@@ -1100,6 +1100,9 @@
       sourceNodes.splice(0, sourceNodes.length, ...sourceNodes.filter((node) => node.diff_scope));
     }
     if (!sourceNodes.length) return null;
+    if (["target", "diagram"].includes(to) && sourceNodes.at(-1)?.diff_scope
+        && sourceNodes.at(-1).details.filter((item) =>
+          item.label === "Target declaration ID").length > 1) return null;
 
     if (to === "diagram" && ["actual", "diff", "target"].includes(from)) {
       for (const source of [...sourceNodes].reverse()) {
@@ -1196,8 +1199,8 @@
           && !(exactIdentity && source === sourceNodes.at(-1));
         const context = targetEdge?.kind === "requires"
           ? `No matching scope for requires. Nearest scope: ${candidateKey}.`
-          : candidateKey === key && !selectionWithoutScope ? null
-          : `No matching scope for ${selectionWithoutScope ? sourceNodes.at(-1).label : key}. Nearest scope: ${candidateKey}.`;
+          : candidateKey === key && !selectionWithoutScope && source === sourceNodes.at(-1) ? null
+          : `No matching scope for ${selectionWithoutScope ? sourceNodes.at(-1).label : projectionKey(sourceNodes.at(-1))}. Nearest scope: ${candidateKey}.`;
         const scopePath = match.node.children?.length ? match.path : match.path.slice(0, -1);
         if (to === "target") {
           const targetPath = scopePath
@@ -1256,9 +1259,11 @@
 
   function selectSubject(node, view = viewMode) {
     if (!node) return;
-    invalidateOtherViewStates();
-    projectionContext = null;
-    projectionReturnContext = null;
+    if (view !== "diff" || node.kind !== "category") {
+      invalidateOtherViewStates();
+      projectionContext = null;
+      projectionReturnContext = null;
+    }
     selectedSubject = null;
     if (view === "diagram") {
       if (node.declared_component) {
@@ -4098,8 +4103,8 @@
     event.preventDefault();
     invalidateOtherViewStates();
     projectionSelection = id;
-    selectSubject(node);
     rememberNavigationState();
+    selectSubject(node);
     projectionPath.push(id);
     projectionSelection = null;
     render();
@@ -4115,8 +4120,8 @@
     event.preventDefault();
     invalidateOtherViewStates();
     projectionSelection = node.id;
-    selectSubject(node);
     rememberNavigationState();
+    selectSubject(node);
     projectionPath.push(node.id);
     projectionSelection = null;
     render();
