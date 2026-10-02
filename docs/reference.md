@@ -113,8 +113,9 @@ first H submission. Commit author dates are not evidence.
 
 `--host-records /trusted/records.json` replays records with exactly `sha`, `event`
 (`expectation_published` or `candidate_submitted`) and timezone-aware `timestamp`.
-CI owns record authenticity, fetched remote refs, branch protection and lock signing;
-the core checks SHA binding and order. A local replay does not prove host authenticity.
+CI supplies authenticated records, fetched refs and accepted locks; repository policy
+controls branch protection. The core checks SHA binding and order. A local replay does not
+prove host authenticity.
 The A/B/C fixtures use real local Git repositories and simulated host records and CI locks.
 
 GitHub PR CI adds a **report-only** job. `make github-pr-report REPOSITORY=owner/name
