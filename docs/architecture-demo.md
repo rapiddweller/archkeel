@@ -137,6 +137,8 @@ the conforming case.
 | class_a | boundary_types:ambiguous_contained_mappings | class-a-boundary-types-contained-mapping-siblings | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:contained_mapping_unknown_member | class-a-boundary-types-contained-mapping-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:exact_builtin_dict | class-a-boundary-types-builtin-dict-allowed | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:omitted_root_path | class-a-boundary-types-direct-default | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | boundary_types:direct_allowance_keeps_neighbors | class-a-boundary-types-direct-neighbors | validate/report run | APP-TYPES-NOT-DICT, APP-TYPES-NOT-DICT | rule.violated, rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:shadowed_dict_unknown | class-a-boundary-types-shadowed-dict-unknown | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:mixed_fail_unknown | class-a-boundary-types-mixed-evidence | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | boundary_types:declared_type | class-a-boundary-types-declared-type | validate/report run | APP-TYPES-NOT-DICT | rule.violated | architecture-contract.json, shop/app/discounts.py, shop/cli/main.py |

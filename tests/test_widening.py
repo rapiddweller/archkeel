@@ -854,16 +854,42 @@ def _boundary_allowance_contract(allowed_positions: list[dict[str, str]]) -> str
     return json.dumps(raw, indent=2) + "\n"
 
 
-def test_boundary_type_allowance_addition_needs_amendment(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "allowance",
+    [
+        _BOUNDARY_ALLOWANCE,
+        {
+            "qualified_name": "shop.app.orders.summarize",
+            "position": "return",
+            "annotation": "dict[str, str]",
+        },
+    ],
+    ids=["nested", "omitted-root"],
+)
+def test_boundary_type_allowance_addition_needs_amendment(
+    tmp_path: Path, allowance: dict[str, str]
+) -> None:
     root, base = _repo_at_two_revisions(tmp_path, {})
-    apply_overlay(
-        root, {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])}
-    )
+    apply_overlay(root, {"architecture-contract.json": _boundary_allowance_contract([allowance])})
 
     result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
 
     assert result.exit_code == 1
     assert result.failures
+
+
+def test_omitting_an_existing_empty_boundary_path_is_not_a_widening(tmp_path: Path) -> None:
+    allowance = {**_BOUNDARY_ALLOWANCE, "field_path": ""}
+    root, base = _repo_at_two_revisions(
+        tmp_path,
+        {"architecture-contract.json": _boundary_allowance_contract([allowance])},
+    )
+    del allowance["field_path"]
+    apply_overlay(root, {"architecture-contract.json": _boundary_allowance_contract([allowance])})
+
+    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
+
+    assert (result.exit_code, result.failures) == (0, ())
 
 
 def test_boundary_type_allowance_broadening_needs_amendment(tmp_path: Path) -> None:

@@ -424,7 +424,7 @@ An undecidable mapping member retains UNKNOWN alongside the known broad-map viol
 Mixed union or DTO findings likewise retain both known violations and UNKNOWNs.
 
 `allowed_positions` may exempt one finding by exact `qualified_name`, `position`,
-`field_path` and `annotation`. An empty `field_path` selects the parameter or return itself;
+`field_path` and `annotation`. An omitted or empty `field_path` selects the parameter or return itself;
 its `annotation` must match the complete signature annotation. A nonempty `field_path`
 names a nested field relative to that position and matches the offending leaf type.
 Neither selector hides an unresolved union or mapping member.

@@ -1457,14 +1457,14 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
     positions: list[BoundaryTypeAllowance] = []
     for index, value in enumerate(raw_positions):
         entry_label = f"{label}.allowed_positions[{index}]"
-        entry = _exact(
-            value, {"qualified_name", "position", "field_path", "annotation"}, entry_label
+        entry = _contract_fields(
+            value, {"qualified_name", "position", "annotation"}, {"field_path"}, entry_label
         )
         qualified_name = _nonempty(entry["qualified_name"], f"{entry_label}.qualified_name")
         position = _nonempty(entry["position"], f"{entry_label}.position")
         field_path = (
             ""
-            if entry["field_path"] == ""
+            if entry.get("field_path", "") == ""
             else _nonempty(entry["field_path"], f"{entry_label}.field_path")
         )
         annotation = _nonempty(entry["annotation"], f"{entry_label}.annotation")
