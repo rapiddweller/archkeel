@@ -280,6 +280,8 @@ forbidden. `forbidden_construct` and `external_dependency_scope` exempt by prefi
 `allowed_sources` and by exact name in `exact_sources`; a package root such as `pkg` goes in
 `exact_sources`, because as a prefix it exempts the whole package (AD-49). Class B
 regression checks compare an accepted observation with a candidate.
+Counts and unresolved-call share must each not increase; conflicting directions reject.
+Require comparable profiles and complete coverage; retain UNKNOWN and unmeasured `n/a`.
 Class C declarations are recorded and reported. `public_api` is also checked for existence,
 membership in a non-empty literal `__all__` and resolvable types exposed by declared classes and
 functions; an empty `__all__`, ambiguous bindings and unsupported annotation forms are not

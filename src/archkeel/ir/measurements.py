@@ -220,7 +220,12 @@ def compare_measurements(
     )
     before_unresolved = accepted.scalars.calls_unresolved
     after_unresolved = candidate.scalars.calls_unresolved
-    comparable = accepted.calls_total > 0 and candidate.calls_total > 0
+    comparable = (
+        accepted.calls_total > 0
+        and candidate.calls_total > 0
+        and before_unresolved is not None
+        and after_unresolved is not None
+    )
     ratio_failed = (
         before_unresolved is not None
         and after_unresolved is not None

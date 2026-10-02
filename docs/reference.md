@@ -467,8 +467,10 @@ Regression checks add these scalars to the existing record counts and fingerprin
 | No new undecided positions | `unknown_positions`: what the scan left undecided (AD-92) |
 | Coverage must pass | Scan failure records; any incomplete scan is unverifiable |
 
-The delta stores raw measurements for the accepted observation and candidate.
-Schema, scope, analyzer and contract must match.
+The delta keeps raw counts and fractions. Every measured ceiling must hold independently;
+conflicting count/share directions reject (AD-136). This is a conservative change limit,
+not an architecture score. Coverage must be complete; schema, scope, analyzer and contract
+must match. Existing UNKNOWNs remain UNKNOWN on a passing revision check.
 
 The Python measurement profile also carries `untyped_private_accesses`, the count of
 `private_attribute_access_limit` UNKNOWN records. Older measurement payloads without that
@@ -487,6 +489,7 @@ not change. Older measurement payloads without the scalar read as zero (AD-92).
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.
 Zero total means `resolution: n/a`; the absolute regression check still applies.
+A profile's unmeasured call count also leaves its share `n/a`, never PASS.
 Missing or inconsistent measurements produce `UNKNOWN`; regressions return failures.
 
 `check` also names the calls behind the count. `unresolved_call_changes` holds one row per
