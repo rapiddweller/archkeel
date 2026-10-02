@@ -9,7 +9,8 @@ type evidence. Issue #229 therefore uses the existing exact position decision:
 ```
 
 The default broad-type violation remains. Only the exact symbol, position,
-empty/omitted root path and literal `object` annotation match. Accepted input
+empty/omitted root path and `object` or `object | None` annotation match. The nullable
+shape covers CE CustomConverter's existing return; `object` never matches it. Accepted input
 opacity never permits its return, constructor context, masks or other methods.
 Unproven class/generic annotation bindings remain UNKNOWN; inherited methods use
 the declaring base scope. Bare mappings remain rejected.
@@ -19,7 +20,7 @@ evidence and owning decision provenance. Its title says type closure remains
 unproven; contract conformance does not certify a statically closed payload.
 Adding a position widens the contract and requires an amendment under `--against`.
 
-`tests/test_boundary_type_native_payloads.py` checks 15 inputs and three returns
+`tests/test_boundary_type_native_payloads.py` checks 15 inputs and three returns (one nullable)
 while 18 neighbors remain forbidden, plus malformed/changed selectors and
 UNKNOWNs. Native-payload/control catalog variants produce ordinary reports.
 The analyzer version rises to `0.64.0`; existing contract digests stay unchanged.

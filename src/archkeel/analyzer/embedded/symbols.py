@@ -489,12 +489,6 @@ def _symbol_data(
         shape, shape_nodes = _shape(node)
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
-    uncertainties = _annotation_binding_uncertainties(module, node, parent_node)
-    if uncertainties:
-        data["annotation_binding_uncertainties"] = uncertainties
-        data["annotation_scope"] = (
-            qualname if isinstance(node, ast.ClassDef) else parent or qualname
-        )
     return data
 
 
@@ -984,6 +978,12 @@ def collect_symbols(
     ) -> None:
         evidence_id = add_evidence(evidence, module, node)
         data = _symbol_data(module, node, qualname, parent, parent_node)
+        uncertainties = _annotation_binding_uncertainties(module, node, parent_node)
+        if uncertainties:
+            data["annotation_binding_uncertainties"] = uncertainties
+            data["annotation_scope"] = (
+                qualname if isinstance(node, ast.ClassDef) else parent or qualname
+            )
         if isinstance(node, ast.ClassDef):
             classes[qualname] = node
         line, _, column = location(node)

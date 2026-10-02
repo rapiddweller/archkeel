@@ -323,17 +323,20 @@ def test_alias_preserves_nested_violation_and_unknown_coordinates() -> None:
         ),
         rules=(),
     )
-    alias = {
-        ("sample", "RequestAlias"): {
-            "record_kind": "type_alias",
-            "alias": "Request",
-        },
-        ("sample", "Request"): {
-            "record_kind": "class",
-            "class_kind": "model",
-            "fields": [{"name": "payload", "annotation": "dict[str, str]"}],
-        },
-    }
+    alias = BindingIndex()
+    alias.update(
+        {
+            ("sample", "RequestAlias"): {
+                "record_kind": "type_alias",
+                "alias": "Request",
+            },
+            ("sample", "Request"): {
+                "record_kind": "class",
+                "class_kind": "model",
+                "fields": [{"name": "payload", "annotation": "dict[str, str]"}],
+            },
+        }
+    )
     violation = _boundary_type_verdict(
         "RequestAlias", "sample", contract, {}, BindingIndex(), alias
     )
@@ -356,24 +359,30 @@ def test_annotated_alias_cycle_is_unknown_and_wrapper_does_not_hide_violation() 
     imports = {
         (module, "Annotated"): {"target_module": "typing", "symbol": "Annotated"},
     }
-    cyclic_alias = {
-        (module, "Alias"): {
-            "record_kind": "type_alias",
-            "module": module,
-            "name": "Alias",
-            "alias": "Annotated[Alias, object()]",
+    cyclic_alias = BindingIndex()
+    cyclic_alias.update(
+        {
+            (module, "Alias"): {
+                "record_kind": "type_alias",
+                "module": module,
+                "name": "Alias",
+                "alias": "Annotated[Alias, object()]",
+            }
         }
-    }
+    )
     cycle = _boundary_type_verdict("Alias", module, None, {}, imports, cyclic_alias)
     assert cycle.undecidable == "other"
 
-    wrapped_union = {
-        (module, "Alias"): {
-            "record_kind": "type_alias",
-            "module": module,
-            "name": "Alias",
-            "alias": "Annotated[dict | Missing, object()]",
+    wrapped_union = BindingIndex()
+    wrapped_union.update(
+        {
+            (module, "Alias"): {
+                "record_kind": "type_alias",
+                "module": module,
+                "name": "Alias",
+                "alias": "Annotated[dict | Missing, object()]",
+            }
         }
-    }
+    )
     violation = _boundary_type_verdict("Alias", module, None, {}, imports, wrapped_union)
     assert violation.violation is not None and "instead of a typed model" in violation.violation

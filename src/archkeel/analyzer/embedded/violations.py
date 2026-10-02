@@ -1615,6 +1615,7 @@ class BindingIndex(dict[tuple[str, str], RecordData | _AmbiguousBinding]):
         super().__init__()
         self.owner_facade_type_states: dict[tuple[str, str, str], bool] = {}
         self.ownership_contracts: tuple[ArchitectureContract, ...] = ()
+        self.module_bindings: BindingIndex | None = None
 
 
 def _has_star_import(module: str, imports_by_binding: BindingIndex) -> bool:
@@ -1886,6 +1887,9 @@ def _boundary_type_verdict(
             scoped_classes[key] = classes_by_location[key]
         for name in uncertain_bindings:
             scoped_classes[module, name] = _AMBIGUOUS
+        scoped_classes.module_bindings = classes_by_location
+        if classes_by_location.module_bindings is not None:
+            scoped_classes.module_bindings = classes_by_location.module_bindings
         classes_by_location = scoped_classes
     if not annotation:
         return _Position(undecidable="missing_annotation")
@@ -2020,6 +2024,8 @@ def _type_alias_verdict(
     alias = symbol.get("alias")
     if resolved in aliases_seen or not isinstance(alias, str) or alias == annotation:
         return _Position(undecidable="other", resolved=reached)
+    if classes_by_location.module_bindings is not None:
+        classes_by_location = classes_by_location.module_bindings
     expanded = _boundary_type_verdict(
         alias,
         module,
@@ -2343,6 +2349,8 @@ def _declared_field_verdict(
     """Inspect all owned declared model fields, stopping recursive graphs by origin."""
     if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
         return _Position()
+    if classes_by_location.module_bindings is not None:
+        classes_by_location = classes_by_location.module_bindings
     binding_uncertainties: dict[str, list[str]] = (
         origin_symbol["annotation_binding_uncertainties"]
         if "annotation_binding_uncertainties" in origin_symbol
@@ -3354,9 +3362,18 @@ def _inherited_generic_candidate_types(
     return sorted(candidates)
 
 
+_OPAQUE_NATIVE_REASONS: Final = {
+    "object": _BROAD_BOUNDARY_REASON,
+    "object | None": f"holding object {_BROAD_BOUNDARY_REASON}",
+}
+
+
 def _root_broad_count(records: Sequence[RawRecord]) -> int:
     return sum(
-        record["data"]["reason"] == _BROAD_BOUNDARY_REASON
+        (
+            record["data"]["reason"] == _BROAD_BOUNDARY_REASON
+            or record["data"]["reason"] == _OPAQUE_NATIVE_REASONS.get(record["data"]["annotation"])
+        )
         and "container_depth" not in record["data"]
         for record in records
     )
@@ -3378,8 +3395,11 @@ def _boundary_type_allowance_fact(
         annotation = data.get("nested_annotation") if allowance.field_path else data["annotation"]
         direct_match = (
             not allowance.field_path
-            and data["reason"] == _BROAD_BOUNDARY_REASON
-            and ("nested_annotation" in data or annotation == "object")
+            and isinstance(annotation, str)
+            and (
+                (data["reason"] == _BROAD_BOUNDARY_REASON and "nested_annotation" in data)
+                or data["reason"] == _OPAQUE_NATIVE_REASONS.get(annotation)
+            )
             and data.get("container_depth", 0) == 0
             and root_broad_count == 1
         )
@@ -3435,7 +3455,7 @@ def _boundary_type_allowance_fact_record(
     is_contained: bool,
 ) -> RawRecord:
     data = record["data"]
-    opaque = not allowance.field_path and allowance.annotation == "object"
+    opaque = not allowance.field_path and allowance.annotation in _OPAQUE_NATIVE_REASONS
     allowance_scope = (
         "unique contained mapping " if is_contained else "nested " if allowance.field_path else ""
     )

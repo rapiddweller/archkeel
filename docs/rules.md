@@ -433,7 +433,8 @@ finding; it never covers a nested map or an undeclared member. Multiple
 top-level broad findings leave that allowance unused. A root `annotation` cannot be a bare
 `Dict`, `Mapping` or `MutableMapping`; the contract is rejected (AD-95). Other spellings of a
 bare mapping (`typing.Mapping`, an alias) never match.
-An exact root `object` allowance explicitly accepts an opaque native payload (AD-135).
+An exact root `object` or `object | None` allowance accepts an opaque native payload (AD-135).
+The complete annotation must match; a literal `object` decision never accepts a nullable return.
 It emits `accepted_opacity: true` with the owning decision's provenance; type closure remains
 unproven. Other parameters, returns, constructors, masks and UNKNOWNs remain checked.
 A previously inert empty-path allowance for a complete collection or union annotation can now

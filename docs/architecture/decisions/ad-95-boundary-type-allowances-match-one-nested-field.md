@@ -13,7 +13,7 @@ top-level broad finding, including one inside an optional union. Nested maps,
 undeclared members, and UNKNOWN evidence remain visible. If there are multiple
 top-level broad findings, the root allowance matches none. A root allowance cannot name a
 bare `Dict`, `Mapping` or `MutableMapping`: the parser and schema reject it.
-AD-135 permits an exact bare `object` payload as accepted opacity, with explicit provenance;
+AD-135 permits an exact `object` / `object | None` payload as accepted opacity, with explicit provenance;
 it does not prove type closure. Other bare mapping spellings never match a root allowance.
 
 The contract parser rejects malformed and duplicate entries. Adding an allowance widens the

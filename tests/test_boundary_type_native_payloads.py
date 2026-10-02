@@ -29,15 +29,17 @@ def _native_fixture(root: Path, *, allowed: bool) -> None:
     for index in range(15):
         name = f"Converter{index}"
         controls = (
-            "    def __init__(self, ctx: object) -> None: pass\n"
+            "    def __init__(self, ctx: object | None) -> None: pass\n"
             "    def mask(self, mask: object) -> object: return mask\n"
             "    def other(self, value: object) -> object: return value\n"
             if index == 0
             else ""
         )
         parameter = "value: object, mask: object" if index == 0 else "value: object"
+        returns = "object | None" if index == 2 else "object"
         classes.append(
-            f"class {name}:\n{controls}    def convert(self, {parameter}) -> object: return value\n"
+            f"class {name}:\n{controls}"
+            f"    def convert(self, {parameter}) -> {returns}: return value\n"
         )
         for position in ("value", "return") if index < 3 else ("value",):
             allowances.append(
@@ -45,6 +47,7 @@ def _native_fixture(root: Path, *, allowed: bool) -> None:
                     **_ALLOWANCE,
                     "qualified_name": f"sample.app.impl.{name}.convert",
                     "position": position,
+                    "annotation": returns if position == "return" else "object",
                 }
             )
     _write_app(
@@ -91,6 +94,99 @@ def test_native_payloads_remain_broad_without_a_decision(tmp_path: Path) -> None
 
     assert result.observation is not None
     assert len(trace_valid_violations(result.observation)) == 36
+
+
+def test_exact_nullable_native_return_keeps_neighboring_controls_forbidden(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Converter:\n"
+            "    def __init__(self, ctx: object | None) -> None: self.ctx = ctx\n"
+            "    def convert(self, value: object, mask: object | None) -> object | None:\n"
+            "        return value\n"
+            "    def other(self, value: str) -> object | None: return value\n"
+        ),
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=({**_ALLOWANCE, "position": "return", "annotation": "object | None"},),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert {
+        (item.data.get("qualified_name"), item.data.get("position")) for item in violations
+    } == {
+        ("sample.app.impl.Converter.__init__", "ctx"),
+        ("sample.app.impl.Converter.convert", "value"),
+        ("sample.app.impl.Converter.convert", "mask"),
+        ("sample.app.impl.Converter.other", "return"),
+    }
+    [fact] = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    assert fact.data.get("annotation") == "object | None"
+    assert fact.data.get("accepted_opacity") is True
+    assert fact.provenance == ("docs/architecture/sample.md",)
+    assert "type closure remains unproven" in fact.title
+
+
+@pytest.mark.parametrize("source", ["object = Missing\n", "class Hidden: pass\n"])
+def test_nullable_native_allowance_preserves_unproven_object_bindings(
+    tmp_path: Path, source: str
+) -> None:
+    binding = "    object = Hidden\n" if "class Hidden" in source else ""
+    _write_app(
+        tmp_path,
+        implementation=source
+        + "class Converter:\n"
+        + binding
+        + "    def convert(self, value: str) -> object | None: return value\n",
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=({**_ALLOWANCE, "position": "return", "annotation": "object | None"},),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert any(
+        item.kind == "boundary_type_position"
+        for item in result.observation.records("unknowns") or ()
+    )
+    assert not any(
+        item.kind == "boundary_type_allowance"
+        for item in result.observation.records("typing_signals") or ()
+    )
+
+
+@pytest.mark.parametrize("annotation", ["object | str", "object | Missing", "list[object]"])
+def test_native_allowance_does_not_accept_other_exact_opaque_shapes(
+    tmp_path: Path, annotation: str
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            f"class Converter:\n    def convert(self, value: str) -> {annotation}: return value\n"
+        ),
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=({**_ALLOWANCE, "position": "return", "annotation": annotation},),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert trace_valid_violations(result.observation)
+    assert not any(
+        item.kind == "boundary_type_allowance"
+        for item in result.observation.records("typing_signals") or ()
+    )
+    if annotation == "object | Missing":
+        assert any(
+            item.kind == "boundary_type_position"
+            for item in result.observation.records("unknowns") or ()
+        )
 
 
 @pytest.mark.parametrize("annotation", ["object | None", "list[object]", "dict[str, object]"])
@@ -477,3 +573,74 @@ def test_inherited_annotation_uses_its_declaring_base_scope(
         ]
         assert unknown.data.get("annotation_scope") == "sample.app.impl.Base"
         assert unknown.data.get("annotation_bindings") == ("object",)
+
+
+@pytest.mark.parametrize("annotation", ["Payload", "tuple[object, Payload]"])
+def test_class_scope_uncertainty_does_not_hide_an_independently_declared_dto_field(
+    tmp_path: Path, annotation: str
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Payload:\n    content: object\nclass Hidden: pass\nclass Converter:\n"
+            "    object = Hidden\n"
+            f"    def convert(self, value: {annotation}) -> str: return ''\n"
+        ),
+        declared=("sample.app.impl:Converter", "sample.app.impl:Payload"),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("path") == "value.content"
+    assert any(
+        item.kind == "boundary_type_position"
+        for item in result.observation.records("unknowns") or ()
+    ) is (annotation != "Payload")
+
+
+def test_a_reached_dto_applies_its_own_class_scope_uncertainty(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Hidden: pass\nclass Payload:\n    object = Hidden\n    content: object\n"
+            "class Converter:\n"
+            "    def convert(self, value: tuple[object, Payload]) -> str: return ''\n"
+        ),
+        declared=("sample.app.impl:Converter", "sample.app.impl:Payload"),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("path") is None
+    assert any(
+        item.kind == "boundary_type_position" and item.data.get("path") == "value.content"
+        for item in result.observation.records("unknowns") or ()
+    )
+
+
+def test_class_scope_uncertainty_does_not_hide_a_module_alias_body(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from typing import TypeAlias\nPayload: TypeAlias = object\n"
+            "class Hidden: pass\nclass Converter:\n    object = Hidden\n"
+            "    def convert(self, value: tuple[object, Payload]) -> str: return ''\n"
+        ),
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert len(trace_valid_violations(result.observation)) == 1
+    assert any(
+        item.kind == "boundary_type_position"
+        for item in result.observation.records("unknowns") or ()
+    )
