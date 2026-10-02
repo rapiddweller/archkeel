@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots browser-install report-browser plugin build smoke release-check
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots browser-install report-browser plugin build smoke release-check rule-yield
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -14,7 +14,7 @@ self-validate:
 test:
 	$(UV) run --locked python -m pytest -q
 
-LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
+LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
 	fixtures/reproduce_dart.py \
@@ -32,6 +32,11 @@ fixtures:
 
 self-observation:
 	$(UV) run --locked python -m fixtures.reproduce_self
+
+rule-yield:
+	@test -n "$(ROOT)" || { echo "ROOT is required"; exit 2; }
+	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
+	$(UV) run --locked python -m tools.rule_yield --root "$(ROOT)" --output "$(OUTPUT)"
 
 demo:
 	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary

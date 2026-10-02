@@ -1,0 +1,96 @@
+{
+  "ce": {
+    "base50e552b": {
+      "changed_violations": [],
+      "classification_scope": "No new violations; existing violations were not reclassified.",
+      "classifications": {
+        "disputed": 0,
+        "false_positive": 0,
+        "true_positive": 0
+      },
+      "coverage_equal": true,
+      "new_violations": [],
+      "removed_violations": [],
+      "unknown_records_after": 216,
+      "unknown_records_before": 216,
+      "unknown_records_changed": [],
+      "unknown_records_removed": [],
+      "violations_after": 102,
+      "violations_before": 102
+    },
+    "candidate20512bf": {
+      "changed_violations": [],
+      "classification_scope": "No new violations; existing violations were not reclassified.",
+      "classifications": {
+        "disputed": 0,
+        "false_positive": 0,
+        "true_positive": 0
+      },
+      "coverage_equal": true,
+      "new_violations": [],
+      "removed_violations": [],
+      "unknown_records_after": 204,
+      "unknown_records_before": 216,
+      "unknown_records_changed": [
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-87388729d7d545a7",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-e3a76ab2e81eef53",
+        "UNKNOWN-BOUNDARY-TYPES-e238f6c49f5c3de8",
+        "UNKNOWN-BOUNDARY-TYPES-f445331027bfe957"
+      ],
+      "unknown_records_removed": [
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-1450a29ae89aecf0",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-1d232584c43f9499",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-27a51e3411c64de1",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-369eac8ca9364937",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-4c3916f4fab5cb5e",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-5d68c38bf0465217",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-7922acf6b56e94b8",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-a276beb4f11e08bb",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-e409874eb74ac035",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-ecc410b16b35849a",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-ed16a802d8cc8a67",
+        "UNKNOWN-BOUNDARY-TYPE-POSITION-ff98aeaec2e7b2a8"
+      ],
+      "violations_after": 102,
+      "violations_before": 102
+    }
+  },
+  "ee": {
+    "base50e552b": {
+      "changed_violations": [],
+      "classification_scope": "No new violations; existing violations were not reclassified.",
+      "classifications": {
+        "disputed": 0,
+        "false_positive": 0,
+        "true_positive": 0
+      },
+      "coverage_equal": true,
+      "new_violations": [],
+      "removed_violations": [],
+      "unknown_records_after": 8,
+      "unknown_records_before": 8,
+      "unknown_records_changed": [],
+      "unknown_records_removed": [],
+      "violations_after": 88,
+      "violations_before": 88
+    },
+    "candidate20512bf": {
+      "changed_violations": [],
+      "classification_scope": "No new violations; existing violations were not reclassified.",
+      "classifications": {
+        "disputed": 0,
+        "false_positive": 0,
+        "true_positive": 0
+      },
+      "coverage_equal": true,
+      "new_violations": [],
+      "removed_violations": [],
+      "unknown_records_after": 8,
+      "unknown_records_before": 8,
+      "unknown_records_changed": [],
+      "unknown_records_removed": [],
+      "violations_after": 88,
+      "violations_before": 88
+    }
+  }
+}

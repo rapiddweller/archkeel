@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Optional pinned rule measurements preserve UNKNOWN and absent pass counts (AD-140, #218) | `make rule-yield`; `tests/test_rule_yield.py`; `docs/evidence/rule-yield/README.md` |
 | Report review starts with findings and limits; finding links and copyable packets retain snapshot evidence; absent comparison stays unavailable (AD-130, #236) | `tests/test_review_surface.py`; `make report-browser` |
 | Codex and Claude install the same native skill; Codex migrates its managed AGENTS block without changing user bytes; a skills-only bundle exports that source (AD-129, #236) | `tests/test_skill.py`; `tests/smoke_test.py`; `make plugin OUTPUT=<new directory>` |
 | Recursive packages and exact module claims share one unambiguous owner predicate; exact selectors survive nested evaluation, reports and source-free open-pair derivation (AD-128, #211) | `src/archkeel/ir/model.py`; `tests/test_exact_module_ownership.py`; `tests/test_exact_module_ownership_extensions.py`; `fixtures/demo_catalog_exact_ownership.py`; `docs/architecture/decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md` |
@@ -158,6 +159,9 @@ only when its row names repository evidence.
 | The external promise declares every type it hands out: `archkeel.api` is one call, `load_violations`, with `ViolationRow` and `ViolationFingerprint` declared beside it, so no `ir` type crosses the boundary undeclared (AD-70) | `src/archkeel/api.py`; `architecture-contract.json`; `tests/test_violations.py` |
 | A `public_api` entry naming a module that declares `__all__` is checked against it, so `archkeel.api:Typo` is `api_surface.missing` instead of passing on its module alone; a module declaring no `__all__` keeps AD-66's module-only reading (AD-71, #58) | `src/archkeel/check/validation.py`; `tests/test_validation.py` |
 ## Next
+
+- Complete #218 after the CE blocker release: declare EE boundaries and obtain a
+  complete decided-pass ledger before claiming decision yield.
 
 Run the [report review pilot](review-pilot.md) with real reviewers (#236). The fixtures and
 answer key are prepared; human effectiveness and the need for a separate explorer remain unproven.
