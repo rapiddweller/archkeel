@@ -8,7 +8,14 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 
-from archkeel.ir.model import ContractComponent, ContractPath, EvidenceClass, in_scope, stable_id
+from archkeel.ir.model import (
+    ContractComponent,
+    ContractPath,
+    EvidenceClass,
+    component_owns_module,
+    in_scope,
+    stable_id,
+)
 
 from .graph import condensation_ranks, strongly_connected_components, transitive_paths
 from .records import RawRecord, classified
@@ -358,9 +365,17 @@ def _declared_scope_record(
     coverage_complete: bool,
 ) -> tuple[RawRecord, list[str]]:
     """Build one component's DECLARED scope record and its matched module names."""
-    scopes = sorted(component.packages)
+    scope_selectors = tuple(
+        (kind, scope)
+        for kind, values in (
+            ("package", component.packages),
+            ("exact_module", component.exact_modules or ()),
+        )
+        for scope in values
+    )
+    scopes = sorted({scope for _, scope in scope_selectors})
     matched_names = sorted(
-        name for name in module_by_name if any(in_scope(name, scope) for scope in scopes)
+        name for name in module_by_name if component_owns_module(component, name)
     )
     matched_set = set(matched_names)
     outgoing_edges = sorted(
@@ -396,10 +411,13 @@ def _declared_scope_record(
                 {
                     "scope": scope,
                     "observed_module_count": sum(
-                        1 for name in matched_names if in_scope(name, scope)
+                        1
+                        for name in matched_names
+                        if (name == scope if kind == "exact_module" else in_scope(name, scope))
                     ),
+                    "kind": kind,
                 }
-                for scope in scopes
+                for kind, scope in scope_selectors
             ],
             "coverage_complete": coverage_complete,
             "module_count": len(matched_names) if coverage_complete else None,

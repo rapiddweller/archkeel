@@ -11,12 +11,13 @@ from dataclasses import dataclass
 from .measurements import NameBudgetKind
 from .model import (
     FUNCTION_KINDS,
+    ComponentOwnership,
     ContractDeclarations,
     InterfaceBudgetResult,
     Observation,
     Record,
     RecordData,
-    in_scope,
+    module_in_ownership,
 )
 
 _CLASS_KINDS = frozenset({"dataclass", "protocol", "enum"})
@@ -101,23 +102,35 @@ class InterfaceProfile:
     coupling: tuple[CouplingWidth, ...]
 
 
-def component_owners(observation: Observation) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """Return each declared component's label and owned packages (also used by AD-10 flow)."""
+def component_owners(
+    observation: Observation,
+) -> tuple[ComponentOwnership, ...]:
+    """Return component labels with recursive packages and exact modules."""
     # project_declarations writes each component's label as title and its packages as subjects.
     declarations = observation.records("declarations") or ()
-    return tuple(
-        (record.title, record.subjects)
-        for record in declarations
-        if record.kind == "component_responsibility"
-    )
+    components = []
+    for record in declarations:
+        if record.kind != "component_responsibility":
+            continue
+        exact_modules = record.data.get("exact_modules")
+        components.append(
+            (
+                record.title,
+                record.subjects,
+                tuple(item for item in exact_modules if isinstance(item, str))
+                if isinstance(exact_modules, tuple)
+                else (),
+            )
+        )
+    return tuple(components)
 
 
-def owner_of(module: str, components: tuple[tuple[str, tuple[str, ...]], ...]) -> str | None:
+def owner_of(module: str, components: tuple[ComponentOwnership, ...]) -> str | None:
     """Return the one component owning a module, or None if zero or many components claim it."""
     owners = [
         label
-        for label, packages in components
-        if any(in_scope(module, package) for package in packages)
+        for label, packages, exact_modules in components
+        if module_in_ownership(module, packages, exact_modules)
     ]
     return owners[0] if len(owners) == 1 else None
 

@@ -33,6 +33,7 @@ from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
+    ComponentOwnership,
     Diagnostic,
     EvidenceClass,
     Observation,
@@ -41,6 +42,7 @@ from archkeel.ir.model import (
     RuleAssessment,
     RunResult,
     in_scope,
+    module_in_ownership,
 )
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.structure import (
@@ -906,6 +908,14 @@ def _target_layout_node(
 
 def _target_component_details(record: Record, packages: list[str]) -> list[dict[str, object]]:
     details: list[dict[str, object]] = [{"label": "Packages", "value": ", ".join(packages)}]
+    exact_modules = record.data.get("exact_modules")
+    if isinstance(exact_modules, tuple) and exact_modules:
+        details.append(
+            {
+                "label": "Exact modules",
+                "value": ", ".join(item for item in exact_modules if isinstance(item, str)),
+            }
+        )
     namespace = record.data.get("namespace")
     if isinstance(namespace, str):
         details.append({"label": "Declared namespace", "value": namespace})
@@ -998,6 +1008,24 @@ def _target_component_node(
         }
         for package in packages
     )
+    exact_modules = record.data.get("exact_modules")
+    if isinstance(exact_modules, tuple):
+        nested.extend(
+            {
+                "id": f"exact-module:{record.id}:{module}",
+                "label": module,
+                "kind": "module_target",
+                "details": [
+                    {"label": "Exact module", "value": module},
+                    {"label": "Owner", "value": record.title},
+                    {"label": "Responsibility", "value": "", "missing": True},
+                    {"label": "Declared in", "value": ", ".join(record.provenance)},
+                ],
+                "children": [],
+            }
+            for module in exact_modules
+            if isinstance(module, str)
+        )
     nested.extend(
         _target_requirement_node(record, entry)
         for entry in _flow_requires(record)
@@ -1099,42 +1127,80 @@ def _target_roots(
 
 def _target_module_component(
     qualified_name: str, siblings: list[dict[str, object]], components: dict[str, Record]
-) -> tuple[dict[str, object], str] | None:
+) -> tuple[dict[str, object], str, bool] | None:
     current: dict[str, object] | None = None
     navigation_scope: str | None = None
+    navigation_exact = False
     while True:
         matches = []
         for node in siblings:
             if node["kind"] != "component":
                 continue
             record = components.get(str(node["id"]))
-            scopes = (
-                [package for package in record.subjects if in_scope(qualified_name, package)]
+            scopes: list[tuple[str, bool, int]] = (
+                [
+                    (package, False, package.count("."))
+                    for package in record.subjects
+                    if in_scope(qualified_name, package)
+                ]
                 if record is not None
                 else []
             )
+            exact = record.data.get("exact_modules") if record is not None else None
+            if isinstance(exact, tuple) and qualified_name in exact:
+                scopes.append((qualified_name, True, qualified_name.count(".")))
             if scopes:
-                matches.append((node, max(scopes, key=lambda scope: scope.count("."))))
+                matches.append((node, max(scopes, key=lambda scope: scope[2])))
         if len(matches) > 1:
             return None
         if not matches:
-            return (current, navigation_scope) if current is not None and navigation_scope else None
-        current, navigation_scope = matches[0]
+            return (
+                (current, navigation_scope, navigation_exact)
+                if current is not None and navigation_scope
+                else None
+            )
+        current, (navigation_scope, navigation_exact, _) = matches[0]
         children = current["children"]
         siblings = children if isinstance(children, list) else []
 
 
 def _target_module_node(
-    record: Record, *, navigation_scope: str | None, declared_scope: str | None = None
-) -> dict[str, object] | None:
+    record: Record,
+    *,
+    navigation_scope: str | None,
+    navigation_exact: bool = False,
+    declared_scope: str | None = None,
+    exact_component: dict[str, object] | None = None,
+) -> tuple[dict[str, object] | None, str | None]:
     path = record.data.get("path")
     if not isinstance(path, str):
-        return None
+        return None, None
+    qualified_name = record.data.get("qualified_name")
+    exact_leaf_id: str | None = None
+    if exact_component is not None and isinstance(qualified_name, str):
+        children = exact_component["children"]
+        placeholder_id = f"exact-module:{exact_component['id']}:{qualified_name}"
+        if isinstance(children, list) and any(child["id"] == placeholder_id for child in children):
+            exact_leaf_id = placeholder_id
     provenance = next((path for path in record.provenance if isinstance(path, str)), None)
-    details = [
-        {"label": "File", "value": path},
-        {"label": "Responsibility", "value": record.data.get("responsibility")},
-    ]
+    details: list[dict[str, object]] = []
+    if (
+        exact_leaf_id is not None
+        and isinstance(qualified_name, str)
+        and exact_component is not None
+    ):
+        details.extend(
+            [
+                {"label": "Exact module", "value": qualified_name},
+                {"label": "Owner", "value": exact_component["label"]},
+            ]
+        )
+    details.extend(
+        [
+            {"label": "File", "value": path},
+            {"label": "Responsibility", "value": record.data.get("responsibility")},
+        ]
+    )
     if provenance is not None:
         details.append({"label": "Declared in", "value": provenance})
     if declared_scope is not None:
@@ -1143,16 +1209,92 @@ def _target_module_node(
         details.append(
             {
                 "label": "Navigation",
-                "value": f"Grouped by declared package scope {navigation_scope}.",
+                "value": (
+                    f"Grouped by declared exact module {navigation_scope}."
+                    if navigation_exact
+                    else f"Grouped by declared package scope {navigation_scope}."
+                ),
             }
         )
-    return {
-        "id": record.id,
-        "label": posixpath.basename(path),
-        "kind": "module_target",
-        "details": details,
-        "children": [],
-    }
+    return (
+        {
+            "id": record.id,
+            "label": qualified_name if exact_leaf_id is not None else posixpath.basename(path),
+            "kind": "module_target",
+            "details": details,
+            "children": [],
+        },
+        exact_leaf_id,
+    )
+
+
+def _attach_target_module_node(
+    component: dict[str, object], node: dict[str, object], exact_leaf_id: str | None
+) -> None:
+    children = component["children"]
+    if not isinstance(children, list):
+        return
+    component["children"] = (
+        [*children, node]
+        if exact_leaf_id is None
+        else [node if child["id"] == exact_leaf_id else child for child in children]
+    )
+
+
+def _absent_component_targets(
+    record: Record, modules: dict[str, str], observed_paths: set[str]
+) -> list[dict[str, object]]:
+    missing_packages = [
+        package
+        for package in record.subjects
+        if not any(in_scope(name, package) for name in observed_paths)
+    ]
+    targets: list[dict[str, object]] = [
+        {
+            "id": f"absent:{record.id}:{package}",
+            "label": package,
+            "kind": "package_scope",
+            "details": [{"label": "Component", "value": record.title}],
+            "children": [],
+        }
+        for package in missing_packages
+    ]
+    exact_claims = record.data.get("exact_modules")
+    exact_claims = exact_claims if isinstance(exact_claims, tuple) else ()
+    missing_exact = [
+        module for module in exact_claims if isinstance(module, str) and module not in modules
+    ]
+    targets.extend(
+        {
+            "id": f"absent:{record.id}:exact:{module}",
+            "label": module,
+            "kind": "module",
+            "details": [
+                {"label": "Component", "value": record.title},
+                {"label": "Exact module", "value": module},
+            ],
+            "children": [],
+        }
+        for module in missing_exact
+    )
+    observed_scope = len(missing_packages) < len(record.subjects) or any(
+        module not in missing_exact for module in exact_claims if isinstance(module, str)
+    )
+    if not observed_scope:
+        targets.append(
+            {
+                "id": f"absent:{record.id}",
+                "label": record.title,
+                "kind": "component",
+                "details": [
+                    {"label": "Target declaration ID", "value": record.id},
+                    {"label": "Packages", "value": ", ".join(record.subjects)},
+                    {"label": "Exact modules", "value": ", ".join(missing_exact)},
+                ],
+                "children": [],
+            }
+        )
+    return targets
 
 
 def _absent_targets(
@@ -1186,34 +1328,7 @@ def _absent_targets(
             }
         )
     for record in components.values():
-        missing_packages = [
-            package
-            for package in record.subjects
-            if not any(in_scope(name, package) for name in observed_paths)
-        ]
-        for package in missing_packages:
-            absent_targets.append(
-                {
-                    "id": f"absent:{record.id}:{package}",
-                    "label": package,
-                    "kind": "package_scope",
-                    "details": [{"label": "Component", "value": record.title}],
-                    "children": [],
-                }
-            )
-        if missing_packages and len(missing_packages) == len(record.subjects):
-            absent_targets.append(
-                {
-                    "id": f"absent:{record.id}",
-                    "label": record.title,
-                    "kind": "component",
-                    "details": [
-                        {"label": "Target declaration ID", "value": record.id},
-                        {"label": "Packages", "value": ", ".join(record.subjects)},
-                    ],
-                    "children": [],
-                }
-            )
+        absent_targets.extend(_absent_component_targets(record, modules, observed_paths))
     for record in layouts:
         allowed = record.data.get("allowed_children")
         if not isinstance(allowed, tuple):
@@ -1238,22 +1353,53 @@ def _unmapped_targets(
     observation: Observation,
     flow: FlowData,
     modules: dict[str, str],
-    components: dict[str, Record],
     module_targets: list[Record],
 ) -> set[str]:
-    owned_package_paths = {package for record in components.values() for package in record.subjects}
-    initializer_targets = {
-        name
-        for name, file in modules.items()
-        if name in owned_package_paths and file[-11:] == "__init__.py"
-    }
     declared_files = {
         path for record in module_targets if isinstance((path := record.data.get("path")), str)
     }
-    unmapped = set(flow.unassigned_modules) - initializer_targets
+    root_components = component_owners(observation)
+    unmapped = set(flow.unassigned_modules) - _owned_initializer_targets(modules, root_components)
+    ambiguous = {
+        name
+        for name in flow.unassigned_modules
+        if _component_owner_count(name, root_components) > 1
+    }
     for level in inside_levels(observation):
-        unmapped |= set(level.unassigned) - initializer_targets
-    return {name for name in unmapped if modules.get(name) not in declared_files}
+        level_components = tuple(
+            (component.label, component.packages, component.exact_modules)
+            for component in level.components
+        )
+        unmapped |= set(level.unassigned) - _owned_initializer_targets(
+            modules, level_components, root_components
+        )
+        ambiguous.update(
+            name for name in level.unassigned if _component_owner_count(name, level_components) > 1
+        )
+    return {
+        name for name in unmapped if modules.get(name) not in declared_files or name in ambiguous
+    }
+
+
+def _owned_initializer_targets(
+    modules: dict[str, str],
+    components: tuple[ComponentOwnership, ...],
+    fallback: tuple[ComponentOwnership, ...] = (),
+) -> set[str]:
+    return {
+        name
+        for name, file in modules.items()
+        if file[-11:] == "__init__.py"
+        and (
+            _component_owner_count(name, components) == 1
+            or _component_owner_count(name, components) == 0
+            and _component_owner_count(name, fallback) == 1
+        )
+    }
+
+
+def _component_owner_count(name: str, components: tuple[ComponentOwnership, ...]) -> int:
+    return sum(module_in_ownership(name, packages, exact) for _, packages, exact in components)
 
 
 def _target_module_records(
@@ -1296,15 +1442,19 @@ def _target_module_projection(
             )
             if isinstance(parent_id, str) and declaring_component is None:
                 match = None
-            component, navigation_scope = match if match is not None else (None, None)
-            node = _target_module_node(
+            component, navigation_scope, navigation_exact = (
+                match if match is not None else (None, None, False)
+            )
+            node, exact_leaf_id = _target_module_node(
                 record,
                 navigation_scope=navigation_scope,
+                navigation_exact=navigation_exact,
                 declared_scope=(
                     parent_id
                     if isinstance(parent_id, str) and declaring_component is None
                     else None
                 ),
+                exact_component=component,
             )
             if node is None:
                 continue
@@ -1318,9 +1468,7 @@ def _target_module_projection(
                 else:
                     unresolved.append(node)
             else:
-                children = component["children"]
-                if isinstance(children, list):
-                    component["children"] = [*children, node]
+                _attach_target_module_node(component, node, exact_leaf_id)
         if unresolved:
             target_roots = [
                 *target_roots,
@@ -1389,7 +1537,7 @@ def _target_projection(
     return (
         target_roots,
         _absent_targets(observation, modules, components, layouts, module_targets),
-        _unmapped_targets(observation, flow, modules, components, module_targets),
+        _unmapped_targets(observation, flow, modules, module_targets),
     )
 
 
@@ -1421,10 +1569,16 @@ def _target_nested_graph(node: dict[str, object]) -> dict[str, object] | None:
     for child in children:
         if child["kind"] == "requires":
             continue
+        details = child.get("details")
+        exact_module = isinstance(details, list) and any(
+            isinstance(detail, dict) and detail.get("label") == "Exact module" for detail in details
+        )
         nodes.append(_graph_node(child))
         kind = (
             "owns_package"
             if child["kind"] == "package_scope"
+            else "contains"
+            if child["kind"] == "module_target" and exact_module
             else "navigation_grouping"
             if node["kind"] == "component" and child["kind"] == "module_target"
             else "allowed_child"
@@ -2355,7 +2509,7 @@ def _report_filters(
     assessments: tuple[RuleAssessment, ...] | None,
 ) -> str:
     kinds = sorted({item.kind for item in violations} | {item.kind for item in assessments or ()})
-    components = sorted({label for label, _ in component_owners(observation)})
+    components = sorted({label for label, _, _ in component_owners(observation)})
 
     def options(values: tuple[str, ...] | list[str]) -> str:
         return "".join(

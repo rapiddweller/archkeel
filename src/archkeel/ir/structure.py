@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
 from .interfaces import component_owners, owner_of
-from .model import ComparisonStatus, Observation, int_value, text_value
+from .model import ComparisonStatus, ComponentOwnership, Observation, int_value, text_value
 
 StructureLevel: TypeAlias = Literal["component", "package"]
 
@@ -173,7 +173,7 @@ class InsideSizes:
 
 
 def _component_edge_count(
-    observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
+    observation: Observation, components: tuple[ComponentOwnership, ...]
 ) -> int:
     """Count the ordered component pairs the observed module edges cross."""
     return len(

@@ -39,22 +39,31 @@ component lists its permitted outbound component edges under `requires`, and one
 `complete_requires` rule makes every absent pair forbidden. An observed crossing no entry covers
 is a violation. Contracts without that rule retain AD-15's pair-by-pair form: an undecided pair is
 `decision.open`, duplicate pair rules are `closed_world.duplicate`, and an observed pair also
-forbidden is `closed_world.observed_forbidden`. A complete scan and exact package assignment make
-either form deterministic; dynamic imports remain a blind spot.
+forbidden is `closed_world.observed_forbidden`. Ownership can use recursive `packages` and exact
+`exact_modules`; exactly one component must claim each observed module. A complete scan and exact
+module assignment make either form deterministic; dynamic imports remain a blind spot (AD-128).
+Exact-involved open pairs retain every package and exact selector in the report. Archkeel does not
+generate automatic rule suggestions for these pairs. An unqualified rule between uniquely declared
+package endpoints still decides a mixed package/exact pair; a submodule, exact-member or
+`target_symbol` rule remains partial. Exact-only pairs stay open under member rules unless an
+explicit `complete_requires` policy applies.
 
 `forbidden_dependency` fields are `source`, `target`, `include_type_checking`, optional
-`target_symbol` and optional `allowed_sources`. The analyzer matches import records by exact module
-prefix, except when `source` and `target` each name a declared component package exactly and
-`target_symbol` is absent: that rule decides the whole component pair (AD-15), so it also enforces
-every package of the source component against every package of the target, not only the named
-ones. `allowed_sources` here lists exact source modules; `forbidden_construct` and
+`target_symbol` and optional `allowed_sources`. When `source` and `target` each name a uniquely
+declared component package exactly and `target_symbol` is absent, one rule decides the whole
+ordered component pair (AD-15). Its ownership domain includes every package and exact module of
+both components; a cross-product of redundant rules is not required. A submodule endpoint or a
+`target_symbol` narrows enforcement and does not decide the whole pair. Exact-only components have
+no package endpoint for this shorthand; member rules leave their pair open, while `complete_requires`
+remains an explicit closed-world alternative. No exact module is promoted to a recursive package.
+
+`allowed_sources` here lists exact source modules; `forbidden_construct` and
 `external_dependency_scope` match their `allowed_sources` by prefix and take exact names as
-`exact_sources` (AD-49). Closed-world validation counts every
-observed import, including `TYPE_CHECKING` and allowed-source imports, so `allowed_sources` and
-`include_type_checking: false` only fit a rule scoped below a component pair, such as a submodule
-target or a `target_symbol`. A complete scan, fixed source bytes, analyzer digest and Python
-version make the result deterministic. Unresolved dynamic imports remain a blind spot. Importing
-`sample.cli` from `sample.core` is an example violation.
+`exact_sources` (AD-49). Pair-level `allowed_sources` or `include_type_checking: false` do not
+grant an allowed component edge or exempt an observed edge from closed-world validation. A
+`target_symbol` or submodule rule remains visibly partial. A complete scan, fixed source bytes,
+analyzer digest and Python version make the result deterministic. Unresolved dynamic imports remain
+a blind spot. Importing `sample.cli` from `sample.core` is an example violation.
 
 `allowed_dependency` fields are `source`, `target` and `rationale`: the architect's decision that a
 component pair may depend, recorded with its reason. It adds no report violation and is evaluated

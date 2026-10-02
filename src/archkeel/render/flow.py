@@ -12,7 +12,7 @@ from typing import Literal
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.levels import inside_levels
-from archkeel.ir.model import Observation, Record, RecordData, text_value
+from archkeel.ir.model import ComponentOwnership, Observation, Record, RecordData, text_value
 
 EdgeState = Literal["conforms", "violation", "undecided", "observed"]
 
@@ -116,7 +116,7 @@ def _public_interface(record: Record) -> tuple[str, ...] | None:
 
 
 def _modules_by_owner(
-    observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
+    observation: Observation, components: tuple[ComponentOwnership, ...]
 ) -> dict[str, list[str]]:
     grouped: dict[str, list[str]] = defaultdict(list)
     for module in observation.records("modules") or ():
@@ -148,7 +148,7 @@ def _unassigned_module_edges(
 
 
 def _component_edges(
-    observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
+    observation: Observation, components: tuple[ComponentOwnership, ...]
 ) -> dict[tuple[str, str], int]:
     """Sum import-site counts per observed module edge onto its owning component pair."""
     totals: dict[tuple[str, str], int] = defaultdict(int)
@@ -183,7 +183,7 @@ def _module_pair_rules(observation: Observation) -> dict[tuple[str, str], tuple[
 
 
 def _inner_edges(
-    observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
+    observation: Observation, components: tuple[ComponentOwnership, ...]
 ) -> dict[str, list[FlowInnerEdge]]:
     """Group the module edges that stay inside one component (AD-24), by that component."""
     grouped: dict[str, list[FlowInnerEdge]] = defaultdict(list)
@@ -311,7 +311,7 @@ def _modules_inside(observation: Observation) -> dict[str, FlowModule]:
 
 def _violated_pairs(
     violation: Record,
-    components: tuple[tuple[str, tuple[str, ...]], ...],
+    components: tuple[ComponentOwnership, ...],
     imports_by_id: dict[str, Record] | None = None,
 ) -> tuple[tuple[str, str], ...]:
     """Return the component pair(s) one violation implicates, or none for a single-subject rule."""
@@ -365,7 +365,9 @@ def _inside_views(observation: Observation) -> dict[str, FlowInside]:
             for record in observation.records("declarations") or ()
             if record.data.get("parent_id") == level.parent
         }
-        components = tuple((item.label, item.packages) for item in level.components)
+        components = tuple(
+            (item.label, item.packages, item.exact_modules) for item in level.components
+        )
         checked_sites: set[str] = set()
         for record in observation.records("scope_observations") or ():
             if (

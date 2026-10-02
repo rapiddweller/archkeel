@@ -1277,7 +1277,8 @@
     } else if (view === "actual" && node.kind === "group") {
       selectedSubject = { package: node.id };
     } else if (node.kind === "module_target") {
-      selectedSubject = { file: node.details?.find((item) => item.label === "File")?.value || node.label };
+      const file = node.details?.find((item) => item.label === "File")?.value;
+      selectedSubject = typeof file === "string" ? { file } : { id: node.id };
     } else if (view === "diff" && node.kind === "component") {
       selectedSubject = {
         id: node.details?.find((item) => item.label === "Target declaration ID")?.value || node.id,
@@ -1335,7 +1336,7 @@
       matches = targetComponentsForPackage(selectedSubject.package);
     } else if (selectedSubject?.id) {
       matches = targetNodesForId(selectedSubject.id)
-        .filter((node) => node.kind === "component");
+        .filter((node) => ["component", "module_target"].includes(node.kind));
     } else if (selectedSubject?.file) {
       matches = targetModulesForFile(selectedSubject.file);
     }

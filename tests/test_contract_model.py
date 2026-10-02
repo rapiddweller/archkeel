@@ -194,6 +194,7 @@ def _maximal_contract() -> dict[str, object]:
     """The shop contract with every rule kind and every optional field of every entry filled."""
     raw = json.loads((ROOT / "fixtures/F-architecture/architecture-contract.json").read_text())
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
+    app["exact_modules"] = ["shop.app.orders"]
     app["planned"] = ["shop.app.refunds"]
     app["inside"] = "shop/app/architecture-contract.json"
     app["requires"] = [

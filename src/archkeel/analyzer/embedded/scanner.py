@@ -19,6 +19,7 @@ from archkeel.ir.model import (
     EvidenceClass,
     InterfaceBoundaryRule,
     in_scope,
+    module_in_ownership,
     stable_id,
 )
 from archkeel.ir.profiles import PYTHON, Profile
@@ -402,11 +403,12 @@ def _inside_source_domain(
 ) -> tuple[ArchitectureContract, frozenset[str], list[RawRecord]]:
     """Clip child ownership claims to the parent's physical packages and report what was cut."""
     roots = parent.packages
+    exact_roots = parent.exact_modules or ()
     source_modules = frozenset(
         module["data"]["qualified_name"]
         for module in modules
         if module["data"]["qualified_name"] in available_modules
-        and any(in_scope(module["data"]["qualified_name"], root) for root in roots)
+        and module_in_ownership(module["data"]["qualified_name"], roots, exact_roots)
     )
     components = []
     failures = []
@@ -416,21 +418,34 @@ def _inside_source_domain(
             for package in component.packages
             if any(in_scope(package, root) for root in roots)
         )
+        exact_modules = tuple(
+            module
+            for module in component.exact_modules or ()
+            if module in exact_roots or any(in_scope(module, root) for root in roots)
+        )
         outside = sorted(set(component.packages) - set(packages))
-        if outside:
+        outside_exact = sorted(set(component.exact_modules or ()) - set(exact_modules))
+        if outside or outside_exact:
+            claims = [*outside, *outside_exact]
             failures.append(
                 classified(
                     item_id=stable_id("UNKNOWN-INSIDE-SOURCE-DOMAIN", parent_id, component.id),
                     evidence_class=EvidenceClass.UNKNOWN,
                     area="analysis_coverage",
                     kind="inside_source_domain_incomplete",
-                    title=(f"{component.label} claims {', '.join(outside)} outside {parent.label}"),
-                    subjects=[component.label, *outside],
+                    title=(f"{component.label} claims {', '.join(claims)} outside {parent.label}"),
+                    subjects=[component.label, *claims],
                     rule_ids=[rule.id for rule in declared.rules],
-                    data={"parent_id": parent_id, "packages": outside},
+                    data={
+                        "parent_id": parent_id,
+                        "packages": outside,
+                        "exact_modules": outside_exact,
+                    },
                 )
             )
-        components.append(replace(component, packages=packages))
+        components.append(
+            replace(component, packages=packages, exact_modules=exact_modules or None)
+        )
     return replace(declared, components=tuple(components)), source_modules, failures
 
 
@@ -488,6 +503,7 @@ def _evaluate_inside_contract(
         uncertain_reexport_origins=uncertain_reexport_origins,
         source_modules=source_modules,
         source_roots=parent.packages,
+        source_exact_modules=parent.exact_modules or (),
         assessment_facts=assessments,
         assessment_parent=parent.label,
         ancestor_contracts=ancestor_contracts,

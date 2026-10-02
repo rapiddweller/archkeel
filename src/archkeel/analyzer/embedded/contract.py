@@ -337,6 +337,11 @@ def project_inside_declarations(
             data={
                 "parent_id": parent,
                 "requires": _requires_entries(component),
+                **(
+                    {"exact_modules": list(component.exact_modules)}
+                    if component.exact_modules
+                    else {}
+                ),
                 "responsibilities": sorted(component.responsibilities),
                 **({"inside": component.inside} if component.inside else {}),
                 **({"namespace": component.namespace} if component.namespace else {}),
@@ -408,6 +413,11 @@ def project_declarations(
                         else {}
                     ),
                     "requires": _requires_entries(component),
+                    **(
+                        {"exact_modules": list(component.exact_modules)}
+                        if component.exact_modules
+                        else {}
+                    ),
                     "role": component.role.value,
                     **({"inside": component.inside} if component.inside else {}),
                     **({"namespace": component.namespace} if component.namespace else {}),

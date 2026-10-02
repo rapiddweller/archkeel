@@ -23,6 +23,8 @@ from .model import (
     RULE_KINDS,
     AllowedDependencyRule,
     ComparisonStatus,
+    ComponentOwnership,
+    ComponentOwnershipInput,
     ForbiddenDependencyRule,
     JsonValue,
     Observation,
@@ -33,8 +35,8 @@ from .model import (
     RuleAssessment,
     RuleAssessmentStatus,
     ViolationCounts,
+    declared_package_pair,
     in_scope,
-    package_owners,
 )
 from .references import unreferenced_symbols
 from .structure import oversized_insides
@@ -62,12 +64,12 @@ def _decides_this_level(record: Record) -> bool:
 
 
 def _decided_component_pairs(
-    observation: Observation, owners: dict[str, str]
+    observation: Observation, components: tuple[ComponentOwnership, ...]
 ) -> set[tuple[str, str]]:
     """Pairs a `forbidden_dependency` or `allowed_dependency` rule decides.
 
-    Exact package match only, like validation's own `_decided_pairs`: a rule scoped to a
-    submodule or a `target_symbol` narrows a rule, it does not decide the component pair.
+    A rule naming uniquely declared package selectors decides their whole pair, including
+    exact members. A submodule endpoint or `target_symbol` remains partial.
     """
     decided: set[tuple[str, str]] = set()
     for record in observation.records("declarations") or ():
@@ -77,15 +79,22 @@ def _decided_component_pairs(
         target_module = record.data.get("target")
         if not isinstance(source_module, str) or not isinstance(target_module, str):
             continue
-        source = owners.get(source_module)
-        target = owners.get(target_module)
-        if source is not None and target is not None:
-            decided.add((source, target))
+        target_symbol = record.data.get("target_symbol")
+        if target_symbol is not None and not isinstance(target_symbol, str):
+            continue
+        pair = declared_package_pair(
+            source_module,
+            target_module,
+            target_symbol,
+            components,
+        )
+        if pair is not None:
+            decided.add(pair)
     return decided
 
 
 def _component_import_sites(
-    observation: Observation, components: tuple[tuple[str, tuple[str, ...]], ...]
+    observation: Observation, components: tuple[ComponentOwnership, ...]
 ) -> _Counter[tuple[str, str]]:
     """Import-site counts per component pair, from the analyzer's own module-level edges."""
     sites: _Counter[tuple[str, str]] = _Counter()
@@ -104,6 +113,19 @@ def _component_import_sites(
         if source is not None and target is not None and source != target:
             sites[(source, target)] += count
     return sites
+
+
+def _ownership_with_exact_modules(
+    components: tuple[ComponentOwnershipInput, ...],
+) -> tuple[ComponentOwnership, ...]:
+    normalized: list[ComponentOwnership] = []
+    for component in components:
+        if len(component) == 2:
+            normalized.append((component[0], component[1], ()))
+        else:
+            label, packages, exact_modules = component
+            normalized.append((label, packages, exact_modules))
+    return tuple(normalized)
 
 
 def _open_decision(
@@ -141,6 +163,31 @@ def _open_decision(
     )
 
 
+def _exact_open_decision(
+    source: str,
+    target: str,
+    components: dict[str, ComponentOwnership],
+    import_sites: int,
+) -> OpenDecision:
+    source_packages, source_exact = components[source][1:]
+    target_packages, target_exact = components[target][1:]
+    return OpenDecision(
+        source,
+        target,
+        source_packages[0] if source_packages else None,
+        target_packages[0] if target_packages else None,
+        import_sites > 0,
+        import_sites,
+        None,
+        None,
+        source_packages,
+        target_packages,
+        source_exact,
+        target_exact,
+        "exact_ownership_suggestions_not_generated",
+    )
+
+
 def requires_declared(observation: Observation) -> bool:
     """True when a `complete_requires` rule decides every component pair by absence (AD-32)."""
     return any(
@@ -151,7 +198,7 @@ def requires_declared(observation: Observation) -> bool:
 
 def open_decisions(
     observation: Observation,
-    components: tuple[tuple[str, tuple[str, ...]], ...] | None = None,
+    components: tuple[ComponentOwnershipInput, ...] | None = None,
 ) -> tuple[OpenDecision, ...]:
     """Derive undecided component pairs, heaviest observed edges first (AD-15).
 
@@ -164,17 +211,26 @@ def open_decisions(
     """
     if requires_declared(observation):
         return ()
-    resolved = component_owners(observation) if components is None else components
-    owners = package_owners(resolved)
-    packages = dict(resolved)
-    labels = {label for label, _ in resolved}
+    resolved = (
+        component_owners(observation)
+        if components is None
+        else _ownership_with_exact_modules(components)
+    )
+    package_selectors = tuple((label, packages) for label, packages, _ in resolved if packages)
+    packages = dict(package_selectors)
+    labels = {label for label, _, _ in resolved}
     expected = {(source, target) for source in labels for target in labels if source != target}
-    decided = _decided_component_pairs(observation, owners)
+    decided = _decided_component_pairs(observation, resolved)
     sites = _component_import_sites(observation, resolved)
+    declarations = {label: component for component in resolved for label in (component[0],)}
     return tuple(
         sorted(
             (
-                _open_decision(source, target, packages, sites[(source, target)])
+                (
+                    _open_decision(source, target, packages, sites[(source, target)])
+                    if not declarations[source][2] and not declarations[target][2]
+                    else _exact_open_decision(source, target, declarations, sites[(source, target)])
+                )
                 for source, target in expected - decided
             ),
             key=lambda item: (-item.import_sites, item.source, item.target),

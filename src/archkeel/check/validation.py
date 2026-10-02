@@ -72,9 +72,12 @@ from archkeel.ir.model import (
     RecordData,
     RunResult,
     UnresolvedCallChange,
+    component_owns_module,
     contract_relative_path,
+    declared_package_pair,
     facade_covers,
     in_scope,
+    module_in_ownership,
     module_references,
     text_value,
 )
@@ -146,14 +149,6 @@ def _diagnostic(
     return Diagnostic("contract_invalid", subject, claim, remedy, pointer, code)
 
 
-def _package_owners(contract: ArchitectureContract) -> dict[str, str]:
-    return {
-        package: component.label
-        for component in contract.components
-        for package in component.packages
-    }
-
-
 def observed_component_edges(
     contract: ArchitectureContract, observation: Observation
 ) -> frozenset[tuple[str, str]]:
@@ -177,13 +172,20 @@ _DecisionRule = TypeVar("_DecisionRule", ForbiddenDependencyRule, AllowedDepende
 def _decided_pairs(
     contract: ArchitectureContract, rule_type: type[_DecisionRule]
 ) -> list[tuple[str, str]]:
-    """Return the component pairs one rule type decides, keyed by exact package ownership."""
-    owners = _package_owners(contract)
-    return [
-        (owners[rule.source], owners[rule.target])
-        for rule in contract.rules
-        if isinstance(rule, rule_type) and rule.source in owners and rule.target in owners
-    ]
+    """Return whole-pair rules whose endpoints name unique declared packages."""
+    components = tuple(
+        (component.label, component.packages, component.exact_modules or ())
+        for component in contract.components
+    )
+    pairs = []
+    for rule in contract.rules:
+        if not isinstance(rule, rule_type):
+            continue
+        target_symbol = rule.target_symbol if isinstance(rule, ForbiddenDependencyRule) else None
+        pair = declared_package_pair(rule.source, rule.target, target_symbol, components)
+        if pair is not None:
+            pairs.append(pair)
+    return pairs
 
 
 def target_component_edges(contract: ArchitectureContract) -> frozenset[tuple[str, str]]:
@@ -224,8 +226,14 @@ def _open_decision_diagnostics(observation: Observation) -> list[Diagnostic]:
             f"{decision.import_sites} import site(s) use this pair, and no rule decides it."
             if decision.observed
             else "No import uses this pair today, and no rule decides it.",
-            "Allow or forbid the pair: add an allowed_dependency or forbidden_dependency rule "
-            "with a rationale.",
+            (
+                "No automatic dependency-rule suggestion is provided for pairs involving exact "
+                "ownership. Decide its policy explicitly; when both components declare packages, "
+                "an unqualified package-endpoint rule still decides the whole pair."
+                if decision.options_unavailable_reason is not None
+                else "Allow or forbid the pair: add an allowed_dependency or forbidden_dependency "
+                "rule with a rationale."
+            ),
         )
         for decision in open_decisions(observation)
     ]
@@ -497,7 +505,9 @@ def _facade_covers_import(
 
 
 def _clip_contract(
-    contract: ArchitectureContract, packages: tuple[str, ...]
+    contract: ArchitectureContract,
+    packages: tuple[str, ...],
+    exact_modules: tuple[str, ...] = (),
 ) -> ArchitectureContract:
     """Keep component ownership inside its declared parent packages."""
     return replace(
@@ -510,6 +520,12 @@ def _clip_contract(
                     for package in component.packages
                     if any(in_scope(package, root) for root in packages)
                 ),
+                exact_modules=tuple(
+                    module
+                    for module in component.exact_modules or ()
+                    if module in exact_modules or any(in_scope(module, root) for root in packages)
+                )
+                or None,
             )
             for component in contract.components
         ),
@@ -940,9 +956,7 @@ def interface_diagnostics(
         facade_publishers: set[str] = set()
         for record in observation.records("symbols") or ():
             module = record.data.get("module")
-            if isinstance(module, str) and any(
-                in_scope(module, package) for package in component.packages
-            ):
+            if isinstance(module, str) and component_owns_module(component, module):
                 facade_publishers.add(module)
         facade_candidates = _inherited_facade_candidates(observation, frozenset(facade_publishers))
         if component.public is None:
@@ -1515,6 +1529,17 @@ def reference_diagnostics(
                             "Correct the package or include it in scan.roots.",
                         )
                     )
+            for exact_index, module in enumerate(component.exact_modules or ()):
+                if module not in modules:
+                    diagnostics.append(
+                        _diagnostic(
+                            "reference.package_unscanned",
+                            f"/components/{component_index}/exact_modules/{exact_index}",
+                            module,
+                            "The exact module has no scanned source file.",
+                            "Correct the exact module or include its file in scan.roots.",
+                        )
+                    )
     return _sorted(diagnostics)
 
 
@@ -1612,7 +1637,7 @@ def invalid_result(subject: str, error: Exception, pointer: str = "") -> RunResu
 
 
 def _forbidden_targets(
-    contract: ArchitectureContract, packages: tuple[str, ...]
+    contract: ArchitectureContract, component: ContractComponent
 ) -> list[tuple[str, str]]:
     """Each rule id and target the level above forbids a component, by any of its packages.
 
@@ -1623,7 +1648,7 @@ def _forbidden_targets(
         (rule.id, rule.target)
         for rule in contract.rules
         if isinstance(rule, ForbiddenDependencyRule)
-        and any(in_scope(rule.source, package) for package in packages)
+        and module_in_ownership(rule.source, component.packages, component.exact_modules or ())
     ]
 
 
@@ -1651,7 +1676,7 @@ def _inside_source_domain_diagnostics(
     pointer: str, component: ContractComponent, inner: ArchitectureContract
 ) -> list[Diagnostic]:
     """Reject nested physical claims outside the component holding the inside."""
-    return [
+    diagnostics = [
         _diagnostic(
             "contract.invalid",
             pointer,
@@ -1663,6 +1688,20 @@ def _inside_source_domain_diagnostics(
         for package in child.packages
         if not any(in_scope(package, parent) for parent in component.packages)
     ]
+    for child_index, child in enumerate(inner.components):
+        diagnostics.extend(
+            _diagnostic(
+                "contract.invalid",
+                f"{pointer}/components/{child_index}/exact_modules/{exact_index}",
+                module,
+                f"The inside claims {module}, outside {component.label}'s physical scope.",
+                "Keep exact modules within the parent packages or equal to a parent exact module.",
+            )
+            for exact_index, module in enumerate(child.exact_modules or ())
+            if module not in (component.exact_modules or ())
+            and not any(in_scope(module, parent) for parent in component.packages)
+        )
+    return diagnostics
 
 
 def _import_published_through_ancestors(
@@ -1679,14 +1718,22 @@ def _import_published_through_ancestors(
     while True:
         local_modules = available_by_owner.get(ancestor.parent_id, frozenset())
         if source_module in local_modules:
-            local_contract = _clip_contract(ancestor.contract, ancestor.parent.packages)
+            local_contract = _clip_contract(
+                ancestor.contract,
+                ancestor.parent.packages,
+                ancestor.parent.exact_modules or (),
+            )
             return (
                 local_contract.component_for(source_module) is not None
                 and local_contract.component_for(target_module) is not None
             )
         parent_mount = mounts_by_parent.get(ancestor.owner_id) if ancestor.owner_id else None
         parent_contract = (
-            _clip_contract(ancestor.parent_contract, parent_mount.parent.packages)
+            _clip_contract(
+                ancestor.parent_contract,
+                parent_mount.parent.packages,
+                parent_mount.parent.exact_modules or (),
+            )
             if parent_mount is not None
             else ancestor.parent_contract
         )
@@ -1816,7 +1863,7 @@ def _inside_interface_lifecycle_diagnostics(
 def _inside_parent_policy_diagnostics(mount: InsideContractMount) -> list[Diagnostic]:
     """Reject inside grants that contradict the parent component's rules."""
     parent = mount.parent
-    denied = _forbidden_targets(mount.parent_contract, parent.packages)
+    denied = _forbidden_targets(mount.parent_contract, parent)
     required = frozenset(entry.component for entry in parent.requires or ())
     diagnostics = []
     for rule in mount.contract.rules:
@@ -1889,10 +1936,10 @@ def inside_diagnostics(
         source_modules = frozenset(
             module
             for module in available
-            if any(in_scope(module, package) for package in parent.packages)
+            if module_in_ownership(module, parent.packages, parent.exact_modules or ())
         )
         available_by_owner[mount.parent_id] = source_modules
-        scoped = _clip_contract(inner, parent.packages)
+        scoped = _clip_contract(inner, parent.packages, parent.exact_modules or ())
         for diagnostic in reference_diagnostics(root, config, inner):
             diagnostics.append(replace(diagnostic, pointer=f"{pointer}{diagnostic.pointer or ''}"))
         diagnostics.extend(_inside_source_domain_diagnostics(pointer, parent, inner))
