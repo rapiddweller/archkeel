@@ -159,6 +159,9 @@ only when its row names repository evidence.
 | A `public_api` entry naming a module that declares `__all__` is checked against it, so `archkeel.api:Typo` is `api_surface.missing` instead of passing on its module alone; a module declaring no `__all__` keeps AD-66's module-only reading (AD-71, #58) | `src/archkeel/check/validation.py`; `tests/test_validation.py` |
 ## Next
 
+Run the [report review pilot](review-pilot.md) with real reviewers (#236). The fixtures and
+answer key are prepared; human effectiveness and the need for a separate explorer remain unproven.
+
 1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
    accepted baseline on `main`, which the M → B → E → H protocol does not provide for
    ordinary pull requests.
