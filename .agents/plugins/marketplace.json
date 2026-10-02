@@ -1,0 +1,9 @@
+{
+  "name": "archkeel",
+  "interface": { "displayName": "Archkeel" },
+  "plugins": [{
+    "name": "archkeel",
+    "source": { "source": "local", "path": "./" },
+    "category": "Developer Tools"
+  }]
+}

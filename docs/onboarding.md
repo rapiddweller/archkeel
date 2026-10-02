@@ -104,6 +104,67 @@ dependency rule; the code proposes, the architect decides. AD-16 documents auto 
 agent authors decisions and `decided_by` lets a later interview find them; that attribution is
 not human approval.
 
+## Native skill installation
+
+`archkeel skill install codex` writes `.agents/skills/archkeel/SKILL.md`;
+`archkeel skill install claude` writes `.claude/skills/archkeel/SKILL.md`.
+Both use the same packaged instructions. Reinstalling replaces the managed skill file.
+Codex removes only the legacy marked Archkeel section from `AGENTS.md`. Other bytes remain
+unchanged; malformed or duplicate markers fail before installation writes anything.
+Use `$archkeel` in Codex or `/archkeel` in Claude Code. Start a new session if needed for discovery.
+
+### Plugin bundle
+
+From a checkout, export that same skill for team distribution:
+
+```bash
+make plugin OUTPUT=build/archkeel-plugin    # destination must not exist
+```
+
+The bundle and adjacent `.zip` contain portable `plugin.json`, a Claude compatibility manifest,
+the skill, icon and license. Install the Archkeel CLI separately (`uv tool install archkeel`).
+For local Claude testing, run `claude --plugin-dir ./build/archkeel-plugin`
+and invoke `/archkeel:archkeel`.
+For Codex, import the bundle through your host's supported local plugin source; availability
+varies by surface. Native skill installation above is the direct repository setup path.
+
+The bundle is an export, not a published marketplace listing. It adds no MCP server or hooks.
+See the [Codex package format](https://developers.openai.com/plugins/build/plugins) and
+[Claude plugin reference](https://code.claude.com/docs/en/plugins-reference).
+
+### Repository marketplace and public directories
+
+After this change reaches the default branch, users can add this repository as a marketplace:
+
+```bash
+codex plugin marketplace add rapiddweller/archkeel
+codex plugin add archkeel@archkeel
+```
+
+In Claude Code, send these commands separately:
+
+```text
+/plugin marketplace add rapiddweller/archkeel
+/plugin install archkeel@archkeel
+```
+
+The catalogs live in `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json`.
+The repository skill and icon link to their existing sources; the exported ZIP contains real files.
+Git-backed Claude installs omit a fixed version so updates track the commit. For a public
+submission, set the release version in the exported manifest before uploading.
+
+To appear in public search, maintainers still need to submit and publish:
+
+- Codex: upload the ZIP through [OpenAI's plugin dashboard](https://platform.openai.com/plugins),
+  resolve validation findings, submit for review, then publish the approved version. Publisher
+  verification and submission permissions are required.
+- Claude: submit the GitHub plugin through [the directory portal](https://claude.ai/directory/manage).
+  The official `claude-plugins-official` marketplace uses a separate partner route.
+
+These steps are pending. Local manifest checks do not prove host activation or public listing.
+See [OpenAI submission](https://developers.openai.com/plugins/deploy/submission) and
+[Claude distribution](https://code.claude.com/docs/en/plugins/publish).
+
 ## Review the physical structure
 
 Review maintained source packages down to their leaves, even without an `inside` contract.

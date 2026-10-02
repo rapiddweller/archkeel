@@ -90,7 +90,7 @@ def main() -> None:
         assert version.returncode == 0 and version.stdout.startswith("archkeel "), version
         skill = cli("skill", "install", "codex", "--root", str(root), "--json")
         assert skill.returncode == 0, (skill.stdout, skill.stderr)
-        assert "archkeel init" in (root / "AGENTS.md").read_text()
+        assert "archkeel init" in (root / ".agents/skills/archkeel/SKILL.md").read_text()
         init = cli("init", "--root", str(root), "--force", "--json")
         assert init.returncode == 0, (init.stdout, init.stderr)
         drafted = cli("validate", "--root", str(root), "--json")

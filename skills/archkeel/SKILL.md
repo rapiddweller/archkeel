@@ -1,0 +1,1 @@
+../../src/archkeel/cli/assets/SKILL.md

@@ -3,6 +3,10 @@
 # SPDX-License-Identifier: MIT
 """Tests for installing the Archkeel coding-agent skill."""
 
+import json
+import subprocess
+import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -26,20 +30,11 @@ def test_claude_install_is_idempotent(tmp_path: Path) -> None:
     assert second.read_bytes() == before
 
 
-def test_codex_strips_frontmatter(tmp_path: Path) -> None:
+def test_codex_writes_native_skill_unchanged(tmp_path: Path) -> None:
     path = install_skill(tmp_path, "codex")
-    body = path.read_text(encoding="utf-8")
-    assert "name: archkeel" not in body
-    assert "description:" not in body
-    assert "# Archkeel" in body
-
-
-def test_codex_creates_agents_md_when_missing(tmp_path: Path) -> None:
-    path = install_skill(tmp_path, "codex")
-    assert path == tmp_path / "AGENTS.md"
-    text = path.read_text(encoding="utf-8")
-    assert text.startswith("<!-- archkeel:start -->\n")
-    assert text.rstrip("\n").endswith("<!-- archkeel:end -->")
+    assert path == tmp_path / ".agents" / "skills" / "archkeel" / "SKILL.md"
+    assert path.read_bytes() == ASSET.read_bytes()
+    assert not (tmp_path / "AGENTS.md").exists()
 
 
 def test_codex_preserves_surrounding_user_text(tmp_path: Path) -> None:
@@ -47,10 +42,10 @@ def test_codex_preserves_surrounding_user_text(tmp_path: Path) -> None:
     agents.write_text("Existing content untouched.\n\nMore notes.\n", encoding="utf-8")
     install_skill(tmp_path, "codex")
     text = agents.read_text(encoding="utf-8")
-    assert text.startswith("Existing content untouched.\n\nMore notes.\n\n<!-- archkeel:start -->")
+    assert text == "Existing content untouched.\n\nMore notes.\n"
 
 
-def test_codex_replaces_an_existing_section_in_place(tmp_path: Path) -> None:
+def test_codex_migrates_only_the_managed_section(tmp_path: Path) -> None:
     agents = tmp_path / "AGENTS.md"
     agents.write_text(
         "Before.\n\n<!-- archkeel:start -->\nstale body\n<!-- archkeel:end -->\n\nAfter.\n",
@@ -58,10 +53,15 @@ def test_codex_replaces_an_existing_section_in_place(tmp_path: Path) -> None:
     )
     install_skill(tmp_path, "codex")
     text = agents.read_text(encoding="utf-8")
-    assert text.startswith("Before.\n\n<!-- archkeel:start -->\n")
-    assert text.endswith("<!-- archkeel:end -->\n\nAfter.\n")
-    assert "stale body" not in text
-    assert "# Archkeel" in text
+    assert text == "Before.\n\n\n\nAfter.\n"
+    assert (tmp_path / ".agents/skills/archkeel/SKILL.md").read_bytes() == ASSET.read_bytes()
+
+
+def test_codex_preserves_crlf_outside_legacy_block(tmp_path: Path) -> None:
+    agents = tmp_path / "AGENTS.md"
+    agents.write_bytes(b"Before\r\n<!-- archkeel:start -->old<!-- archkeel:end -->\r\nAfter\r\n")
+    install_skill(tmp_path, "codex")
+    assert agents.read_bytes() == b"Before\r\n\r\nAfter\r\n"
 
 
 def test_codex_install_is_idempotent(tmp_path: Path) -> None:
@@ -74,24 +74,32 @@ def test_codex_install_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_codex_install_preserves_physical_review_threshold_guidance(tmp_path: Path) -> None:
-    body = ASSET.read_text(encoding="utf-8").split("---", 2)[2].lstrip("\n").rstrip("\n")
+    body = ASSET.read_text(encoding="utf-8")
     path = install_skill(tmp_path, "codex")
     installed = path.read_text(encoding="utf-8")
-    installed_body = installed.split("<!-- archkeel:start -->\n", 1)[1].split(
-        "\n<!-- archkeel:end -->", 1
-    )[0]
 
     assert "More than seven direct children triggers a review" in body
     assert "Five to seven understandable groups is a review heuristic" in body
     assert "do not hide the excess in `misc`, `utils`, single-child wrappers" in body
-    assert installed_body == body
+    assert installed == body
 
 
-def test_codex_raises_on_unmatched_start_marker(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "markers",
+    [
+        "<!-- archkeel:start -->\nbroken\n",
+        "<!-- archkeel:end -->\n",
+        "<!-- archkeel:end --><!-- archkeel:start -->",
+        "<!-- archkeel:start --><!-- archkeel:start --><!-- archkeel:end -->",
+    ],
+)
+def test_codex_rejects_malformed_markers_before_writing(tmp_path: Path, markers: str) -> None:
     agents = tmp_path / "AGENTS.md"
-    agents.write_text("<!-- archkeel:start -->\nbroken\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="archkeel:start"):
+    agents.write_text(markers, encoding="utf-8")
+    with pytest.raises(ValueError, match="marker"):
         install_skill(tmp_path, "codex")
+    assert agents.read_text(encoding="utf-8") == markers
+    assert not (tmp_path / ".agents").exists()
 
 
 def test_skill_covers_interview_and_auto_mode() -> None:
@@ -107,3 +115,44 @@ def test_skill_asks_why_on_a_deviation_from_its_recommendation() -> None:
     """AD-16: interview mode asks why before writing a rule against its own recommendation."""
     body = ASSET.read_text(encoding="utf-8")
     assert "ask why before writing the rule" in body
+
+
+def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path: Path) -> None:
+    target = tmp_path / "plugin"
+    command = [sys.executable, "-m", "tools.package_plugin", str(target)]
+    run = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    assert (target / "skills/archkeel/SKILL.md").read_bytes() == ASSET.read_bytes()
+    portable = json.loads((target / "plugin.json").read_text())
+    claude = json.loads((target / ".claude-plugin/plugin.json").read_text())
+    assert portable["name"] == claude["name"] == "archkeel"
+    assert portable["$schema"] == "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+    assert "mcpServers" not in portable and "hooks" not in portable
+    assert (ROOT / "skills/archkeel/SKILL.md").read_bytes() == ASSET.read_bytes()
+    marketplace = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text())
+    assert marketplace["plugins"] == [{"name": "archkeel", "source": "./"}]
+    codex_marketplace = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
+    assert codex_marketplace["plugins"][0]["source"] == {"source": "local", "path": "./"}
+    with zipfile.ZipFile(Path(str(target) + ".zip")) as bundle:
+        assert bundle.read("skills/archkeel/SKILL.md") == ASSET.read_bytes()
+        assert "assets/archkeel-mark.svg" in bundle.namelist()
+    sentinel = target / "user-notes.txt"
+    sentinel.write_text("Keep me")
+    rerun = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    assert rerun.returncode != 0
+    assert sentinel.read_text() == "Keep me"
+
+
+def test_plugin_export_preserves_an_existing_zip(tmp_path: Path) -> None:
+    target = tmp_path / "plugin.v1"
+    archive = Path(str(target) + ".zip")
+    archive.write_bytes(b"User file")
+    run = subprocess.run(
+        [sys.executable, "-m", "tools.package_plugin", str(target)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode != 0
+    assert archive.read_bytes() == b"User file"
+    assert not target.exists()
