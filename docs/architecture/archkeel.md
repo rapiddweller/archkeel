@@ -174,6 +174,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-135 | [Exact native payloads accept opacity](decisions/ad-135-exact-native-payloads-accept-opacity.md) |
 | AD-136 | [Regression checks hold independent ceilings](decisions/ad-136-regression-checks-hold-independent-ceilings.md) |
 | AD-137 | [Inherited boundary findings show resolved types](decisions/ad-137-inherited-boundary-findings-show-resolved-types.md) |
+| AD-138 | [JSON results have a published schema](decisions/ad-138-json-results-have-a-published-schema.md) |
 
 ## Allowed dependencies
 
