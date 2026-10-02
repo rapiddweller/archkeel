@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| GitHub PR CI saves immutable base/head bindings and bounded recent push observations with an UNKNOWN check report; first-publication proof remains unavailable (AD-141, #216 preparation) | `tools/github_pr_report.py`; `.github/workflows/ci.yml`; `tests/test_github_pr_report.py`; `make demo-github` |
 | Report review starts with findings and limits; finding links and copyable packets retain snapshot evidence; absent comparison stays unavailable (AD-130, #236) | `tests/test_review_surface.py`; `make report-browser` |
 | Codex and Claude install the same native skill; Codex migrates its managed AGENTS block without changing user bytes; a skills-only bundle exports that source (AD-129, #236) | `tests/test_skill.py`; `tests/smoke_test.py`; `make plugin OUTPUT=<new directory>` |
 | Recursive packages and exact module claims share one unambiguous owner predicate; exact selectors survive nested evaluation, reports and source-free open-pair derivation (AD-128, #211) | `src/archkeel/ir/model.py`; `tests/test_exact_module_ownership.py`; `tests/test_exact_module_ownership_extensions.py`; `fixtures/demo_catalog_exact_ownership.py`; `docs/architecture/decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md` |
@@ -162,9 +163,9 @@ only when its row names repository evidence.
 Run the [report review pilot](review-pilot.md) with real reviewers (#236). The fixtures and
 answer key are prepared; human effectiveness and the need for a separate explorer remain unproven.
 
-1. Compare the self-observation of a pull request with `main` in CI, report-only. It needs an
-   accepted baseline on `main`, which the M → B → E → H protocol does not provide for
-   ordinary pull requests.
+1. Compare the self-observation of a pull request with an accepted baseline on `main` in CI.
+   GitHub now saves bounded host observations report-only; #216 still needs the accepted main
+   lock and trusted complete first-publication evidence before the M → B → E → H proof can pass.
 2. Title each validation panel with its own code instead of `contract_invalid`, and group the
    panels by code with a count, so a first run does not present fifteen identical-looking boxes
    (AD-19). Evidence: one `validate` run on the shop sample with a removed decision prints 15
