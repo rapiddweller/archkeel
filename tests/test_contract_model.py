@@ -227,7 +227,13 @@ def _maximal_contract() -> dict[str, object]:
                 "position": "return",
                 "field_path": "items.payload",
                 "annotation": "dict[str, str]",
-            }
+            },
+            {
+                "qualified_name": "shop.app.orders.summarize",
+                "position": "return",
+                "annotation": "dict[str, object]",
+                "container_depth": 1,
+            },
         ],
     )
     raw["rules"] += [

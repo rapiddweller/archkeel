@@ -1301,6 +1301,7 @@ class _MappingOccurrence(NamedTuple):
     depth: int
     path: tuple[str, ...] = ()
     alias_free: bool = True
+    value_annotation: str | None = None
 
 
 # A container whose declared element type is the whole of what actually crosses the boundary
@@ -2102,7 +2103,11 @@ def _type_alias_verdict(
         violations=expanded.violations,
         mapping_occurrences=tuple(
             _MappingOccurrence(
-                occurrence.annotation, occurrence.depth, occurrence.path, alias_free=False
+                occurrence.annotation,
+                occurrence.depth,
+                occurrence.path,
+                alias_free=False,
+                value_annotation=occurrence.value_annotation,
             )
             for occurrence in expanded.mapping_occurrences
         ),
@@ -2381,13 +2386,14 @@ def _mapping_container_verdict(
             *((name, path, nested, depth + 1) for name, path, nested, depth in contents.violations),
         ),
         mapping_occurrences=(
-            _MappingOccurrence(annotation, 0),
+            _MappingOccurrence(annotation, 0, value_annotation=parameters[1]),
             *(
                 _MappingOccurrence(
                     occurrence.annotation,
                     occurrence.depth + 1,
                     occurrence.path,
                     occurrence.alias_free,
+                    occurrence.value_annotation,
                 )
                 for occurrence in contents.mapping_occurrences
             ),
@@ -2468,6 +2474,7 @@ def _field_position_verdict(
             occurrence.depth,
             (field_name, *occurrence.path),
             occurrence.alias_free,
+            occurrence.value_annotation,
         )
         for occurrence in verdict.mapping_occurrences
     )
@@ -2536,6 +2543,7 @@ def _collection_verdict(
                 occurrence.depth + 1,
                 occurrence.path,
                 occurrence.alias_free,
+                occurrence.value_annotation,
             )
             for occurrence in verdict.mapping_occurrences
         ),
@@ -3457,7 +3465,7 @@ def _boundary_type_allowance_fact(
     facade_module: str,
     record: RawRecord,
     root_broad_count: int,
-    mapping_occurrences: tuple[_MappingOccurrence, ...],
+    verdict: _Position,
 ) -> RawRecord | None:
     data = record["data"]
     path = data["path"] if "path" in data else None
@@ -3484,11 +3492,15 @@ def _boundary_type_allowance_fact(
             or allowance.annotation == "dict"
         ):
             continue
-        if allowance.field_path:
+        if allowance.container_depth is not None:
+            if not _opaque_mapping_value_allowance_matches(allowance, data, verdict):
+                continue
+            is_contained = True
+        elif allowance.field_path:
             is_contained = False
         else:
             if not direct_match and not _contained_mapping_allowance_matches(
-                allowance, data, mapping_occurrences
+                allowance, data, verdict.mapping_occurrences
             ):
                 continue
             is_contained = not direct_match
@@ -3496,6 +3508,30 @@ def _boundary_type_allowance_fact(
             rule, facade_module, record, allowance, is_contained
         )
     return None
+
+
+def _opaque_mapping_value_allowance_matches(
+    allowance: BoundaryTypeAllowance, data: RecordData, verdict: _Position
+) -> bool:
+    depth = allowance.container_depth
+    reason = f"holding object {_BROAD_BOUNDARY_REASON}"
+    if (
+        data["reason"] != reason
+        or data.get("nested_annotation") != "object"
+        or data.get("container_depth") != depth
+    ):
+        return False
+    mappings = tuple(
+        occurrence for occurrence in verdict.mapping_occurrences if not occurrence.path
+    )
+    return (
+        len(mappings) == 1
+        and mappings[0].alias_free
+        and mappings[0].value_annotation == "object"
+        and mappings[0].depth + 1 == depth
+        # Findings deduplicate; the selector must not accept two equal opaque occurrences.
+        and verdict.violations.count((reason, (), "object", depth)) == 1
+    )
 
 
 def _contained_mapping_allowance_matches(
@@ -3528,10 +3564,15 @@ def _boundary_type_allowance_fact_record(
     is_contained: bool,
 ) -> RawRecord:
     data = record["data"]
-    opaque = not allowance.field_path and allowance.annotation in _OPAQUE_NATIVE_REASONS
-    allowance_scope = (
-        "unique contained mapping " if is_contained else "nested " if allowance.field_path else ""
+    opaque = allowance.container_depth is not None or (
+        not allowance.field_path and allowance.annotation in _OPAQUE_NATIVE_REASONS
     )
+    if allowance.container_depth is not None:
+        allowance_scope = "opaque mapping value "
+    elif is_contained:
+        allowance_scope = "unique contained mapping "
+    else:
+        allowance_scope = "nested " if allowance.field_path else ""
     return classified(
         item_id=stable_id(
             "TYPE",
@@ -3541,6 +3582,7 @@ def _boundary_type_allowance_fact_record(
             allowance.position,
             allowance.field_path,
             allowance.annotation,
+            *((str(allowance.container_depth),) if allowance.container_depth is not None else ()),
         ),
         evidence_class=EvidenceClass.FACT,
         area="type_architecture",
@@ -3674,7 +3716,7 @@ def _boundary_types_violations(
                         facade_module,
                         record,
                         root_broad_count,
-                        verdict.mapping_occurrences,
+                        verdict,
                     )
                     if fact is None:
                         violations.append(record)
@@ -3713,7 +3755,7 @@ def _boundary_types_violations(
                             facade_module,
                             record,
                             root_broad_count,
-                            verdict.mapping_occurrences,
+                            verdict,
                         )
                         if fact is None:
                             violations.append(record)

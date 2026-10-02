@@ -291,11 +291,16 @@
               "qualified_name": {"$ref": "#/$defs/nonEmpty"},
               "position": {"$ref": "#/$defs/nonEmpty"},
               "field_path": {"anyOf": [{"const": ""}, {"$ref": "#/$defs/nonEmpty"}]},
+              "container_depth": {"type": "integer", "minimum": 1},
               "annotation": {
                 "$ref": "#/$defs/nonEmpty",
                 "not": {"const": "dict"}
               }
             },
+            "allOf": [{
+              "if": {"required": ["container_depth"]},
+              "then": {"properties": {"field_path": {"const": ""}}}
+            }],
             "if": {"properties": {"field_path": {"const": ""}}},
             "then": {
               "properties": {
