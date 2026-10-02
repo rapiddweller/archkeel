@@ -165,7 +165,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-126 | [Target ranking retains four unresolved stdlib calls](decisions/ad-126-target-ranking-call-budget.md) |
 | AD-127 | [A contained-map allowance needs one proven occurrence](decisions/ad-127-a-contained-map-allowance-needs-one-proven-occurrence.md) |
 | AD-128 | [Exact module ownership stays distinct from recursive packages](decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md) |
-| AD-129 | [Agent skills use native discovery](decisions/ad-129-agent-skills-use-native-discovery.md) |
+| AD-129 | [Agent skills use native discovery and compact exports](decisions/ad-129-agent-skills-use-native-discovery.md) |
 | AD-130 | [Review starts with findings and snapshot evidence](decisions/ad-130-review-starts-with-findings.md) |
 | AD-131 | [Public API closure includes inherited fields](decisions/ad-131-public-api-includes-inherited-fields.md) |
 | AD-132 | [Datetime is a proven boundary scalar leaf](decisions/ad-132-datetime-is-a-proven-boundary-scalar-leaf.md) |

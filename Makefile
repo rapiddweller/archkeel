@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots browser-install report-browser plugin build smoke release-check rule-yield
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -90,6 +90,12 @@ browser-install:
 plugin:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	$(UV) run --locked python -m tools.package_plugin "$(OUTPUT)"
+
+plugin-directory:
+	@mkdir -p build plugins/archkeel
+	@set -e; stage=$$(mktemp -d build/plugin.XXXXXX); \
+		$(MAKE) plugin OUTPUT="$$stage/archkeel" && \
+		cp -R "$$stage/archkeel/." plugins/archkeel/
 
 report-browser:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_actual_target_diff_acceptance.py tests/test_target_diagram_acceptance.py tests/test_target_readability.py tests/test_target_hierarchy_independent_acceptance.py tests/test_consistent_explorer_acceptance.py tests/test_compact_report_headers.py tests/test_frame_edge_semantics.py tests/test_exact_module_target_leaf.py

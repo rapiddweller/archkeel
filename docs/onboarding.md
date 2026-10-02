@@ -79,7 +79,7 @@ In Claude Code, run these separately, then use `/archkeel:archkeel`:
 ```
 
 Use `$archkeel:archkeel` in Codex; availability depends on the host. Both plugins reuse the skill.
-For local Claude testing, use `claude --plugin-dir .` from this checkout.
+For local Claude testing, use `claude --plugin-dir plugins/archkeel` from this checkout.
 
 ### Publish a release
 
@@ -87,8 +87,13 @@ For local Claude testing, use `claude --plugin-dir .` from this checkout.
 make plugin OUTPUT=build/archkeel-plugin    # use a new destination
 ```
 
-This exports the skill, manifests, icon, and license as real files and a ZIP. Git installs
-track commits; add a release version to the exported manifest before public submission.
+This exports the skill, manifests, icon, license and metadata-derived README as real files
+and a ZIP. Git installs track commits; add a release version to the exported manifest before
+public submission.
+`make plugin-directory` refreshes the committed compact folder. Claude's directory consumes
+a Git repository, folder and ref: select `plugins/archkeel` at an approved ref containing it.
+The older `0.8.5` tag lacks this folder; the root exceeds a
+[Claude component-file limit](https://claude.com/docs/plugins/pre-submission-checklist).
 Maintainers submit through [OpenAI's plugin dashboard](https://platform.openai.com/plugins)
 and [Claude's directory portal](https://claude.ai/directory/manage). Review and publication are
 separate steps; these catalogs alone do not create a public listing. The official Claude

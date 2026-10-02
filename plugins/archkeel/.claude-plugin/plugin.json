@@ -1,0 +1,7 @@
+{
+  "name": "archkeel",
+  "description": "Declare architecture boundaries and check coding-agent changes with Archkeel.",
+  "author": { "name": "Rapiddweller Asia Co., Ltd." },
+  "homepage": "https://github.com/rapiddweller/archkeel",
+  "license": "MIT"
+}
