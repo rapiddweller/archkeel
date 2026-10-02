@@ -11,10 +11,24 @@ Python: `<runtime>/bin/python tools/rule_yield.py --root <snapshot> --output <fi
 Keep the Python version, source and contract unchanged. The output binds their
 digests, package version and tool digest; `.architecture.json` preserves the raw scan.
 
-Each declared rule reports violation records and UNKNOWN by cause. A boundary
-position can carry both. Published position totals are retained where present;
-missing totals and decided passes are `null`, because the IR lacks a complete
-per-position pass/violation/UNKNOWN ledger. No subtraction invents passes.
+Each declared rule reports its existing aggregate assessment status, violation
+records and UNKNOWN by cause. Assessment PASS is never a positional pass count.
+Non-boundary per-predicate passes remain `null`.
+
+Version2 captures existing boundary producer verdicts and population receipts.
+Reconciled populations publish actual totals, including all-safe scopes without
+a limit record. A true position PASS requires neither violation nor undecidability;
+accepted broad/opaque allowances count separately. VIO, UNKNOWN and allowances
+can overlap; these counts must not be added as exclusive categories.
+Ledger identities retain scope, symbol, occurrence and inherited method origin.
+Receipt-only ambiguous facade positions remain UNKNOWN. Missing capture leaves
+pass counts `null`; no subtraction invents them. Missing/repeated receipts retain
+readable observed positions. The profiled scan must match plain canonical JSON bytes.
+
+Population reconciliation does not prove full scope closure. Unresolved routes,
+missing subjects and incomplete scans remain explicit. Unscoped API limits retain
+their actual module/subject in a separate global balance; they are not attributed
+to every boundary rule and do not erase proved position counts.
 
 Three normal scans supply a median. A separate profiled scan captures each existing
 evaluator's inputs. Independent warm `cProfile` replays retain those source facts
@@ -24,5 +38,5 @@ nor additive scan time. Capture overhead is reported separately.
 
 [Pinned CE/EE evidence](evidence/rule-yield/README.md) compares released 0.8.4 with
 one corrected candidate. This optional command adds no score or metric gate.
-Issue #218's full acceptance remains pending the CE blocker release, an explicit
-EE boundary contract and complete decided-pass evidence.
+Issue #218's full acceptance still needs an explicit EE boundary contract,
+unsupported per-predicate pass/runtime evidence and the post-release comparison.
