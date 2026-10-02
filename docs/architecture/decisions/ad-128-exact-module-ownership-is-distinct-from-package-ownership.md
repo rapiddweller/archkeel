@@ -8,6 +8,9 @@ coverage counts owning components rather than matching selectors.
 
 The exact identity remains separate from package prefixes through observations, nested contracts,
 Actual, Target and Diff. A missing exact name is missing work; a descendant does not satisfy it.
+Target shows each exact name as a selectable module leaf, even without source or a declared file.
+A matching file declaration enriches that same leaf; the report never invents its filename.
+Distinct declared file paths remain separate targets, even when their module names coincide.
 Recursive parents may contain recursive or exact child claims. Exact parents may contain only the
 same exact child claim. Existing interface, dependency, type, cycle and complete-assignment checks
 continue to use the same owner result.

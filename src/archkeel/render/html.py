@@ -1008,6 +1008,23 @@ def _target_component_node(
         }
         for package in packages
     )
+    exact_modules = record.data.get("exact_modules")
+    if isinstance(exact_modules, tuple):
+        nested.extend(
+            {
+                "id": f"exact-module:{record.id}:{module}",
+                "label": module,
+                "kind": "module_target",
+                "details": [
+                    {"label": "Exact module", "value": module},
+                    {"label": "Owner", "value": record.title},
+                    {"label": "Declared in", "value": ", ".join(record.provenance)},
+                ],
+                "children": [],
+            }
+            for module in exact_modules
+            if isinstance(module, str)
+        )
     nested.extend(
         _target_requirement_node(record, entry)
         for entry in _flow_requires(record)
@@ -1152,15 +1169,37 @@ def _target_module_node(
     navigation_scope: str | None,
     navigation_exact: bool = False,
     declared_scope: str | None = None,
-) -> dict[str, object] | None:
+    exact_component: dict[str, object] | None = None,
+) -> tuple[dict[str, object] | None, str | None]:
     path = record.data.get("path")
     if not isinstance(path, str):
-        return None
+        return None, None
+    qualified_name = record.data.get("qualified_name")
+    exact_leaf_id: str | None = None
+    if exact_component is not None and isinstance(qualified_name, str):
+        children = exact_component["children"]
+        placeholder_id = f"exact-module:{exact_component['id']}:{qualified_name}"
+        if isinstance(children, list) and any(child["id"] == placeholder_id for child in children):
+            exact_leaf_id = placeholder_id
     provenance = next((path for path in record.provenance if isinstance(path, str)), None)
-    details = [
-        {"label": "File", "value": path},
-        {"label": "Responsibility", "value": record.data.get("responsibility")},
-    ]
+    details: list[dict[str, object]] = []
+    if (
+        exact_leaf_id is not None
+        and isinstance(qualified_name, str)
+        and exact_component is not None
+    ):
+        details.extend(
+            [
+                {"label": "Exact module", "value": qualified_name},
+                {"label": "Owner", "value": exact_component["label"]},
+            ]
+        )
+    details.extend(
+        [
+            {"label": "File", "value": path},
+            {"label": "Responsibility", "value": record.data.get("responsibility")},
+        ]
+    )
     if provenance is not None:
         details.append({"label": "Declared in", "value": provenance})
     if declared_scope is not None:
@@ -1176,13 +1215,29 @@ def _target_module_node(
                 ),
             }
         )
-    return {
-        "id": record.id,
-        "label": posixpath.basename(path),
-        "kind": "module_target",
-        "details": details,
-        "children": [],
-    }
+    return (
+        {
+            "id": record.id,
+            "label": qualified_name if exact_leaf_id is not None else posixpath.basename(path),
+            "kind": "module_target",
+            "details": details,
+            "children": [],
+        },
+        exact_leaf_id,
+    )
+
+
+def _attach_target_module_node(
+    component: dict[str, object], node: dict[str, object], exact_leaf_id: str | None
+) -> None:
+    children = component["children"]
+    if not isinstance(children, list):
+        return
+    component["children"] = (
+        [*children, node]
+        if exact_leaf_id is None
+        else [node if child["id"] == exact_leaf_id else child for child in children]
+    )
 
 
 def _absent_component_targets(
@@ -1389,7 +1444,7 @@ def _target_module_projection(
             component, navigation_scope, navigation_exact = (
                 match if match is not None else (None, None, False)
             )
-            node = _target_module_node(
+            node, exact_leaf_id = _target_module_node(
                 record,
                 navigation_scope=navigation_scope,
                 navigation_exact=navigation_exact,
@@ -1398,6 +1453,7 @@ def _target_module_projection(
                     if isinstance(parent_id, str) and declaring_component is None
                     else None
                 ),
+                exact_component=component,
             )
             if node is None:
                 continue
@@ -1411,9 +1467,7 @@ def _target_module_projection(
                 else:
                     unresolved.append(node)
             else:
-                children = component["children"]
-                if isinstance(children, list):
-                    component["children"] = [*children, node]
+                _attach_target_module_node(component, node, exact_leaf_id)
         if unresolved:
             target_roots = [
                 *target_roots,
@@ -1514,10 +1568,16 @@ def _target_nested_graph(node: dict[str, object]) -> dict[str, object] | None:
     for child in children:
         if child["kind"] == "requires":
             continue
+        details = child.get("details")
+        exact_module = isinstance(details, list) and any(
+            isinstance(detail, dict) and detail.get("label") == "Exact module" for detail in details
+        )
         nodes.append(_graph_node(child))
         kind = (
             "owns_package"
             if child["kind"] == "package_scope"
+            else "contains"
+            if child["kind"] == "module_target" and exact_module
             else "navigation_grouping"
             if node["kind"] == "component" and child["kind"] == "module_target"
             else "allowed_child"
