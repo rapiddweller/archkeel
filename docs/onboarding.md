@@ -45,7 +45,7 @@ contracts, and record any deferred subtrees. A passed rule does not complete a d
 You can instead delegate decisions to the agent (**auto mode**). It uses documents first,
 confirmed principles next, then clearly labeled judgment, recording `decided_by: "agent"`.
 That records authorship, not human approval. Interview and auto mode are skill workflows,
-not CLI flags. The [installed skill](../src/archkeel/cli/assets/SKILL.md) contains the full rules.
+not CLI flags. The [skill](../skills/archkeel/SKILL.md) contains the full rules.
 
 ## Track existing violations
 
@@ -78,7 +78,7 @@ In Claude Code, run these separately, then use `/archkeel:archkeel`:
 /plugin install archkeel@archkeel
 ```
 
-Codex availability depends on the host. Both plugins reuse the same skill, with no server or hooks.
+Use `$archkeel:archkeel` in Codex; availability depends on the host. Both plugins reuse the skill.
 For local Claude testing, use `claude --plugin-dir .` from this checkout.
 
 ### Publish a release

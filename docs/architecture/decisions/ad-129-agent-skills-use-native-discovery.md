@@ -6,9 +6,10 @@ Install the canonical skill unchanged into `.agents/skills/archkeel/SKILL.md` fo
 and `.claude/skills/archkeel/SKILL.md` for Claude. Keep the CLI syntax and JSON path result.
 Migrate only the old managed Codex AGENTS block; validate markers before writing either file.
 
-Repository marketplaces expose that same skill through an internal link; no second instruction
-body is maintained. `make plugin OUTPUT=...` exports portable and Claude manifests, icon and
-skill to a directory and ZIP with real files. Both destinations must be new.
+Keep the canonical body as a real file at `skills/archkeel/SKILL.md`: Codex skips linked
+skill files. The CLI asset links to it; the sdist includes its target so wheel rebuilds work.
+`make plugin OUTPUT=...` exports manifests, icon and skill as real files to a directory and ZIP.
+Both destinations must be new.
 
 ## Why
 
@@ -26,4 +27,5 @@ release version added at submission. Manifest checks do not prove host activatio
 
 `tests/test_skill.py` checks native paths, canonical content, idempotency, byte preservation,
 malformed/duplicate markers and bundle overwrite rejection. `tests/smoke_test.py` checks
-native installation from both built distributions.
+native installation from both built distributions. Codex 0.153.2 and Claude Code 2.1.257
+load one namespaced skill from the repository; no personal plugin installation is needed.

@@ -69,7 +69,7 @@ packages = ["src/archkeel"]
 # cannot offer, so a shipped-but-skipped suite would only be a second, weaker "tests pass".
 # Distributors rebuild from the Git tag. README.md is the declared readme source, so the
 # tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
-only-include = ["src", "schema", "README.md"]
+only-include = ["src", "schema", "README.md", "skills"]
 
 [dependency-groups]
 # Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.

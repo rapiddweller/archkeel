@@ -118,6 +118,8 @@ def test_skill_asks_why_on_a_deviation_from_its_recommendation() -> None:
 
 
 def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path: Path) -> None:
+    # Codex's plugin loader skips linked SKILL.md files.
+    assert not (ROOT / "skills/archkeel/SKILL.md").is_symlink()
     target = tmp_path / "plugin"
     command = [sys.executable, "-m", "tools.package_plugin", str(target)]
     run = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)

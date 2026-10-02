@@ -20,7 +20,7 @@ def main() -> None:
     target.mkdir()
     skill = target / "skills/archkeel"
     skill.mkdir(parents=True)
-    shutil.copyfile(ROOT / "src/archkeel/cli/assets/SKILL.md", skill / "SKILL.md")
+    shutil.copyfile(ROOT / "skills/archkeel/SKILL.md", skill / "SKILL.md")
     shutil.copyfile(ROOT / "LICENSE", target / "LICENSE")
     shutil.copyfile(ROOT / "plugin.json", target / "plugin.json")
     claude = target / ".claude-plugin"
