@@ -1,0 +1,22 @@
+{
+  "accepted_commit": "462c90cc24f9372070a847209d0d4e5fd872b06f",
+  "approval_ref": "https://github.com/rapiddweller/archkeel/pull/265",
+  "checker_digest": "f4955500193f8079a1cd638a89c251a60084b280649b5dfa1cf1ac158c2af881",
+  "config_digest": "32269c5c5d95455c833e28b88c7c206d76669e782631fa34d38696611f2c206b",
+  "measurements": {
+    "calls_total": 9376,
+    "resolution": "measured",
+    "scalars": {
+      "calls_unresolved": 568,
+      "coverage_failures": 0,
+      "cycle_edges": 0,
+      "private_crossings": 0,
+      "typing_positions": 53,
+      "unknown_positions": 40,
+      "untyped_private_accesses": 0,
+      "violations": 0
+    }
+  },
+  "observation_digest": "5d09893bc856ad0d76b6e4f3826ec43412484bc01111638c3ebff688b5301474",
+  "schema_version": "1.0.0"
+}
