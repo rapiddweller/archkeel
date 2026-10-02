@@ -10,8 +10,11 @@ counts true passes only when violation and undecidability are both absent;
 accepted allowances count separately. A violation and UNKNOWN can share a position.
 Keep symbol/occurrence and inherited origin identities; add receipt-only ambiguity.
 Non-boundary or unreconciled positional passes remain `null`.
-Existing dependency/interface generators separately expose actual import verdicts.
+Existing dependency/interface generators and requires predicates expose import verdicts.
 Keep import IDs and scope; require generator completion and published evidence.
+Requires calls bind their existing import FACT receipts after the original filters.
+Observed passes never close an unowned facade scope or alter its UNKNOWN assessment.
+Per-rule import predicates are not unique repository import counts.
 An empty observed import population has zero passes, never an aggregate PASS count.
 Other supported evaluators decide one observed-scope conjunction. Bind the actual
 producer, published receipt, module facts, evidence, scope and original findings.

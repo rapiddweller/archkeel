@@ -15,12 +15,17 @@ Each declared rule reports its existing aggregate assessment status, violation
 records and UNKNOWN by cause. Assessment PASS is never a positional pass count.
 Missing producer proof keeps predicate counts `null`.
 
-Version 3 also captures existing forbidden-dependency and interface import verdicts.
+Version 3 also captures existing forbidden-dependency, interface and requires import verdicts.
 Their `import_ledger` labels the unit, scope and original import IDs. Passes count
 actual `allowed` yields; UNKNOWN and violations retain their actual verdicts.
 Generator completion, yield counts and published evidence must reconcile before
 counts appear. Empty evaluated populations have zero passes. Incomplete scans keep
 observed counts but cannot prove scope closure.
+Requires verdicts come from actual `_requires_covers` calls after the producer's
+scope and typing filters. Bind completion to its published `inside_rule_evaluation`
+import facts. Unowned nonblank facades can prevent a complete scope receipt while
+observed imports remain decided. Keep the canonical assessment UNKNOWN in that case.
+Counts belong to each predicate; summing rules does not count unique repository imports.
 
 Other evaluators use one `observed_scope` conjunction, labelled by `decision_unit`.
 The `scope_ledger` binds the actual producer call, published completion receipt,

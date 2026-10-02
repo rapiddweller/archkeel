@@ -4,8 +4,9 @@ Observed 2026-10-02 with Python 3.11.12, three sequential scans per runtime.
 [Measurements](measurements.json) contain every rule, UNKNOWN cause, digest and
 profiling overhead. [Classification](classification.json) compares raw findings.
 These artifacts measure the earlier #205 candidate, not current main. The
-[current command](../../rule-yield.md) captures boundary positions, actual import
-verdicts and receipt-bound observed-scope conjunctions; repeat it for each installation.
+[current command](../../rule-yield.md) captures boundary positions, actual dependency,
+interface/requires import verdicts and receipt-bound observed-scope conjunctions;
+repeat it for each installation.
 
 | Input | Pin |
 |---|---|

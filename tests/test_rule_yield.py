@@ -435,6 +435,13 @@ def test_scope_conjunctions_bind_actual_producer_receipts_and_scopes(tmp_path: P
             assert row["decision_unit"] is None
             assert row["scope_ledger"] is None
             continue
+        if row["id"] == "REQUIRES":
+            assert row["decision_unit"] == "import"
+            assert row["scope_ledger"] is None
+            assert row["import_ledger"]["capture_complete"] is True
+            assert row["import_ledger"]["population"] == 0
+            assert row["import_ledger"]["decided_passes"] == 0
+            continue
         assert row["decision_unit"] == "observed_scope"
         ledger = row["scope_ledger"]
         assert ledger["producer_bound"] is ledger["scope_complete"] is True
@@ -587,12 +594,14 @@ def test_repeated_local_labels_bind_each_full_inside_mount(
             json.dumps(
                 _inside(
                     [
-                        _child("left", f"{prefix}.left"),
+                        _child("left", f"{prefix}.left")
+                        | {"requires": [{"component": "right", "rationale": "Use its helper."}]},
                         _child("right", f"{prefix}.right", public=[f"{prefix}.right:helper"]),
                     ],
                     [
                         _rule("ASSIGN", "complete_assignment", source=prefix),
                         _rule("IMPORTS", "interface_boundary"),
+                        _rule("REQUIRES", "complete_requires"),
                     ],
                 )
             )
@@ -625,12 +634,16 @@ def test_repeated_local_labels_bind_each_full_inside_mount(
 
     metrics, _ = measure(tmp_path, repeats=1)
 
-    assert len(metrics["rules"]) == 4
+    assert len(metrics["rules"]) == 6
     for row in metrics["rules"]:
         ledger = (
             row["scope_ledger"] if row["kind"] == "complete_assignment" else row["import_ledger"]
         )
-        if loss is not None and row["id"] in {"app:shared:ASSIGN", "app:shared:IMPORTS"}:
+        if loss is not None and row["id"] in {
+            "app:shared:ASSIGN",
+            "app:shared:IMPORTS",
+            "app:shared:REQUIRES",
+        }:
             assert ledger["scope_complete"] is False
             assert ledger["population"] is None
             assert ledger["decided_passes"] is None
@@ -667,6 +680,161 @@ def test_import_passes_are_the_actual_yielded_verdicts(tmp_path: Path) -> None:
         assert {row["import_id"] for row in ledger["evaluations"]} <= import_ids
         assert all(row["source_module"] == "sample.client" for row in ledger["evaluations"])
     assert metrics["canonical_capture_matches"] is True
+
+
+def _requires_repo(root: Path) -> None:
+    _repo(root, "str")
+    contract = root / "contract.json"
+    raw = json.loads(contract.read_text())
+    raw["rules"] = []
+    raw["components"][0]["inside"] = "app.json"
+    contract.write_text(json.dumps(raw))
+    (root / "app.json").write_text(
+        json.dumps(
+            _inside(
+                [
+                    _child("impl", "sample.app.impl")
+                    | {"requires": [{"component": "target", "rationale": "Use its helper."}]},
+                    _child("target", "sample.app.target"),
+                    _child("blocked", "sample.app.blocked"),
+                ],
+                [
+                    _rule("REQUIRES", "complete_requires", include_type_checking=False),
+                    _rule("TYPED-REQUIRES", "complete_requires", include_type_checking=True),
+                ],
+            )
+        )
+    )
+    (root / "sample/app/impl.py").write_text(
+        "from .target import helper\nfrom .blocked import forbidden\n"
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n    from .blocked import forbidden as typing_forbidden\n"
+    )
+    (root / "sample/app/target.py").write_text("def helper() -> str: return 'yes'\n")
+    (root / "sample/app/blocked.py").write_text("def forbidden() -> str: return 'no'\n")
+    _repin(root)
+
+
+def test_requires_imports_use_actual_cover_verdicts_and_published_receipts(tmp_path: Path) -> None:
+    _requires_repo(tmp_path)
+
+    metrics, observation = measure(tmp_path, repeats=1)
+
+    receipts = {
+        row["id"]: row
+        for row in observation["scope_observations"]
+        if row["kind"] == "inside_rule_evaluation"
+    }
+    for row in metrics["rules"]:
+        assert row["decision_unit"] == "import"
+        assert row["scope_ledger"] is None
+        ledger = row["import_ledger"]
+        typed = row["id"] == "app:TYPED-REQUIRES"
+        assert ledger["capture_complete"] is ledger["scope_complete"] is True
+        assert ledger["population"] == (3 if typed else 2)
+        assert ledger["decided_passes"] == 1
+        assert ledger["violations"] == (2 if typed else 1)
+        assert ledger["unknowns"] == 0
+        assert ledger["scope"] == ledger["producer_scope"] == "app"
+        receipt = receipts[ledger["receipt_id"]]
+        assert receipt["fact_ids"] == sorted(item["import_id"] for item in ledger["evaluations"])
+        assert row["assessment_status"] == "FAIL"
+    assert metrics["canonical_capture_matches"] is True
+
+
+def test_requires_observed_passes_do_not_certify_unowned_facade_scope(tmp_path: Path) -> None:
+    _requires_repo(tmp_path)
+    (tmp_path / "sample/app/__init__.py").write_text("from .target import helper\n")
+    (tmp_path / "sample/app/impl.py").write_text("from .target import helper\n")
+    _repin(tmp_path)
+
+    metrics, observation = measure(tmp_path, repeats=1)
+
+    assert not [r for r in observation["scope_observations"] if r["kind"] == "rule_evaluation"]
+    for row in metrics["rules"]:
+        ledger = row["import_ledger"]
+        assert ledger["capture_complete"] is True
+        assert ledger["population"] == ledger["decided_passes"] == 1
+        assert ledger["violations"] == ledger["unknowns"] == 0
+        assert ledger["scope_complete"] is False
+        assert row["assessment_status"] == "UNKNOWN"
+        assert "No complete evaluator receipt" in row["assessment_reason"]
+
+
+@pytest.mark.parametrize(
+    "loss", ["cover", "completion", "receipt", "facts", "verdict", "publication"]
+)
+def test_unbound_requires_imports_keep_counts_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, loss: str
+) -> None:
+    _requires_repo(tmp_path)
+    capture = rule_yield._captured_analysis
+
+    def incomplete_capture(root: Path, arguments: dict) -> tuple[dict, list]:
+        model, calls = capture(root, arguments)
+        changed = []
+        for function, inputs, result in calls:
+            if function is rule_yield._requires_covers:
+                if loss == "cover":
+                    continue
+                if loss == "verdict":
+                    result = not result
+            if function is rule_yield.requires_violations:
+                if loss == "completion":
+                    continue
+                if loss in {"receipt", "facts", "publication"}:
+                    inputs = dict(inputs)
+                    inputs["receipts"] = (
+                        []
+                        if loss == "receipt"
+                        else [
+                            {**row, "fact_ids": []}
+                            if loss == "facts"
+                            else {**row, "id": "not-published"}
+                            for row in inputs["receipts"]
+                        ]
+                    )
+            changed.append((function, inputs, result))
+        return model, changed
+
+    monkeypatch.setattr(rule_yield, "_captured_analysis", incomplete_capture)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    for row in metrics["rules"]:
+        ledger = row["import_ledger"]
+        assert ledger["capture_complete"] is False
+        assert ledger["population"] is ledger["decided_passes"] is None
+
+
+def test_empty_requires_completion_has_zero_observed_import_passes(tmp_path: Path) -> None:
+    _requires_repo(tmp_path)
+    (tmp_path / "sample/app/impl.py").write_text("VALUE = 'no imports'\n")
+    _repin(tmp_path)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    for row in metrics["rules"]:
+        ledger = row["import_ledger"]
+        assert ledger["capture_complete"] is ledger["scope_complete"] is True
+        assert ledger["population"] == ledger["decided_passes"] == 0
+        assert ledger["receipt_id"] is None
+        assert row["assessment_status"] == "PASS"
+
+
+def test_incomplete_requires_scan_retains_actual_import_decisions(tmp_path: Path) -> None:
+    _requires_repo(tmp_path)
+    (tmp_path / "sample/app/broken.py").write_text("def broken(\n")
+    _repin(tmp_path)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    assert metrics["scan_exit_code"] == 2
+    for row in metrics["rules"]:
+        ledger = row["import_ledger"]
+        assert ledger["capture_complete"] is True
+        assert ledger["decided_passes"] == 1
+        assert ledger["scope_complete"] is False
 
 
 @pytest.mark.parametrize("loss", ["yield", "completion", "scope"])

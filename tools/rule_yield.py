@@ -31,9 +31,11 @@ from archkeel.analyzer.embedded.violations import (
     _boundary_type_violation_records,
     _forbidden_dependency_verdicts,
     _interface_verdicts,
+    _requires_covers,
     _rule_evaluation_receipt,
     _uncertain_facade_position_records,
     boundary_type_limits,
+    requires_violations,
     rule_violations,
 )
 from archkeel.check.ratchets import unknown_positions_by_rule
@@ -54,6 +56,8 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
             _uncertain_facade_position_records,
             _forbidden_dependency_verdicts,
             _interface_verdicts,
+            _requires_covers,
+            requires_violations,
             _rule_evaluation_receipt,
         )
     }
@@ -74,6 +78,20 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
             declared_scope = mount.f_locals["mount"].parent_id if mount is not None else "root"
             if function in (rule_violations, _rule_evaluation_receipt):
                 arguments["declared_scope"] = declared_scope
+            if function is requires_violations:
+                arguments["scope"] = declared_scope
+                arguments["producer_scope"] = arguments["assessment_parent"] or "root"
+                arguments["receipt_start"] = len(arguments["assessment_facts"] or ())
+            if function is _requires_covers:
+                evaluator = frame.f_back
+                if evaluator is None or evaluator.f_code is not requires_violations.__code__:
+                    return
+                arguments.update(
+                    rule=evaluator.f_locals["rule"],
+                    item=evaluator.f_locals["item"],
+                    scope=declared_scope,
+                    producer_scope=evaluator.f_locals["assessment_parent"] or "root",
+                )
             if function in (_forbidden_dependency_verdicts, _interface_verdicts):
                 evaluator = frame.f_back
                 while evaluator is not None and evaluator.f_code is not rule_violations.__code__:
@@ -98,6 +116,9 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
                     counts[result[0].id] += 1
             if function in (rule_violations, boundary_type_limits):
                 result = deepcopy(result)
+            if function is requires_violations:
+                start = arguments.pop("receipt_start")
+                arguments["receipts"] = deepcopy((arguments["assessment_facts"] or [])[start:])
             calls.append((function, arguments, result))
 
     previous = sys.getprofile()
@@ -112,7 +133,8 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
 def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
     ledgers = {}
     completions = {}
-    imports = {row["id"]: row["data"] for row in model["imports"]}
+    requires_proofs = {}
+    imports = {row["id"]: row for row in model["imports"]}
     scopes = {row["id"]: row["data"].get("parent_id", "root") for row in model["declarations"]}
     rejected = {
         (rule_id, fact_id)
@@ -127,16 +149,25 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
         for fact_id in row["fact_ids"]
     }
     for function, arguments, result in calls:
-        if function not in (_forbidden_dependency_verdicts, _interface_verdicts):
+        if function not in (
+            _forbidden_dependency_verdicts,
+            _interface_verdicts,
+            _requires_covers,
+            requires_violations,
+        ):
             continue
         rules = (
             arguments["rules"]
             if function is _forbidden_dependency_verdicts
+            else (arguments["rule"],)
+            if function is _requires_covers
             else arguments["contract"].rules
         )
         kind = (
             "forbidden_dependency"
             if function is _forbidden_dependency_verdicts
+            else "complete_requires"
+            if function in (_requires_covers, requires_violations)
             else "interface_boundary"
         )
         for rule in rules:
@@ -151,12 +182,26 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
                     "evaluations": [],
                 },
             )
+            if kind == "complete_requires":
+                ledger.setdefault("receipt_id", None)
             if result is None:
                 completions.setdefault(rule.id, []).append(
                     arguments["yield_counts"].get(rule.id, 0)
                 )
-        if result is not None:
-            rule, item, *_, verdict = result
+            if function is requires_violations:
+                receipts = [row for row in arguments["receipts"] if row["rule_ids"] == [rule.id]]
+                requires_proofs.setdefault(rule.id, []).append((arguments, result, receipts))
+                completions.setdefault(rule.id, []).append(
+                    len(receipts[0]["fact_ids"]) if len(receipts) == 1 else 0
+                )
+        if function is _requires_covers or (
+            function is not requires_violations and result is not None
+        ):
+            if function is _requires_covers:
+                rule, item = arguments["rule"], arguments["item"]
+                verdict = "allowed" if result else "violation"
+            else:
+                rule, item, *_, verdict = result
             ledgers[rule.id]["evaluations"].append(
                 {
                     "import_id": item["id"],
@@ -172,12 +217,48 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
         complete &= len({row["import_id"] for row in rows}) == len(rows)
         complete &= all(
             row["import_id"] in imports
-            and row["source_module"] == imports[row["import_id"]]["source_module"]
-            and row["target_module"] == imports[row["import_id"]]["target_module"]
+            and row["source_module"] == imports[row["import_id"]]["data"]["source_module"]
+            and row["target_module"] == imports[row["import_id"]]["data"]["target_module"]
             and (row["verdict"] == "violation") == ((identifier, row["import_id"]) in rejected)
             and (row["verdict"] == "undecided") == ((identifier, row["import_id"]) in undecided)
             for row in rows
         )
+        if identifier in requires_proofs:
+            proofs = requires_proofs[identifier]
+            complete &= len(proofs) == 1
+            if len(proofs) == 1:
+                arguments, result, receipts = proofs[0]
+                complete &= arguments.get("scope") == scopes.get(identifier)
+                complete &= arguments["producer_scope"] == ledger["producer_scope"]
+                published = [
+                    row
+                    for row in model["scope_observations"]
+                    if row["kind"] == "inside_rule_evaluation" and row["rule_ids"] == [identifier]
+                ]
+                complete &= receipts == published and len(receipts) == bool(rows)
+                complete &= _selected_records(result, identifier) == _selected_records(
+                    model["violations"], identifier
+                )
+                if len(receipts) == 1:
+                    receipt = receipts[0]
+                    complete &= (
+                        receipt["id"]
+                        == stable_id(
+                            "INSIDE-REQUIRES-EVALUATION", arguments["assessment_parent"], identifier
+                        )
+                        and receipt["data"]["parent_id"] == arguments["assessment_parent"]
+                        and receipt["fact_ids"] == sorted(row["import_id"] for row in rows)
+                        and receipt["evidence_ids"]
+                        == sorted(
+                            evidence
+                            for row in rows
+                            if row["import_id"] in imports
+                            for evidence in imports[row["import_id"]]["evidence_ids"]
+                        )
+                    )
+                ledger["receipt_id"] = (
+                    receipts[0]["id"] if complete and len(receipts) == 1 else None
+                )
         ledger.update(
             capture_complete=complete,
             population=len(rows) if complete else None,
@@ -201,6 +282,7 @@ def _scope_ledgers(model: dict, calls: list) -> dict[str, dict]:
     for rule in model["declarations"]:
         if rule["kind"] not in RULE_KINDS or rule["kind"] in {
             "allowed_dependency",
+            "complete_requires",
             "boundary_types",
             "forbidden_dependency",
             "interface_boundary",
