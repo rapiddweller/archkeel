@@ -1,7 +1,7 @@
 [project]
 name = "archkeel"
 dynamic = ["version", "readme"]
-description = "Deterministic architecture checks for coding agents"
+description = "Architecture checks for coding agents"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
