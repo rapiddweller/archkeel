@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Nested Diff retains scope and filters recorded differences; missing counterparts require explicit nearest-scope navigation (AD-144, #263) | `tests/test_diff_scope_acceptance.py`; `tests/test_actual_target_diff_acceptance.py`; `make report-browser` |
 | An explicit depth decision accepts one exact opaque map value separately from its outer map; duplicate occurrences and UNKNOWNs remain checked (AD-142, #253) | `tests/test_boundary_type_opaque_map_values.py`; `fixtures/demo_catalog_types.py`; `docs/rules.md` |
 | Exact native `object` / `object | None` positions accept opacity with decision provenance; controls and UNKNOWNs remain visible (AD-135, #229) | `tests/test_boundary_type_native_payloads.py`; `tests/test_widening.py`; native payload/control catalog variants |
 | Omitted boundary allowance paths select the exact direct position without changing nested selectors or canonical digests (AD-134, #207) | `tests/test_boundary_type_direct_defaults.py`; `tests/test_widening.py`; `fixtures/demo_catalog_types.py` |

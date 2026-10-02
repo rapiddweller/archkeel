@@ -917,6 +917,7 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             assert page.locator('.flow-nodes .node[data-target-node="COMP-STORE"]').is_visible()
 
             page.get_by_role("button", name="Diff").click()
+            page.locator("[data-projection-root]").click()
             if page.locator("[data-flow-details-toggle]").get_attribute("aria-expanded") != "true":
                 page.locator("[data-flow-details-toggle]").click()
             for category, entry in (
@@ -933,6 +934,7 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
             _open_projection_entry(page, '[data-projection-id="shop"]')
             assert page.locator('[data-projection-id="shop.orphan"]').is_visible()
             page.get_by_role("button", name="Diff").click()
+            page.locator("[data-projection-root]").click()
             _open_projection_entry(page, '[data-projection-id="diff:unmapped"]')
             assert page.locator('[data-projection-id="unmapped:shop.orphan"]').is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
