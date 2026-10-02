@@ -256,7 +256,41 @@ _INTERFACE_ANY_PRIVATE_ACCESS = Variant(
     ),
 )
 
+
+def _method_type_contract() -> str:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    app = next(item for item in contract["components"] if item["label"] == "app")
+    app["public"].extend(["shop.app.reports:Service", "shop.app.reports:Payload"])
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_METHOD_TYPE_VARIANTS = tuple(
+    Variant(
+        id=f"class-a-interface-{visibility}-method-type",
+        section="class_a",
+        item=f"interface_boundary:{visibility} method type",
+        summary=(
+            "A published class's public method returns its declared Payload type."
+            if visibility == "public"
+            else "A private method does not publish Payload; its public entry stays unused."
+        ),
+        files={
+            "architecture-contract.json": _method_type_contract(),
+            "shop/app/reports.py": HEADER
+            + "class Payload:\n    value: str\n\n"
+            + f"class Service:\n    def {method}(self) -> Payload:\n        return Payload()\n",
+            "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py").read_text()
+            + "\nfrom typing import TYPE_CHECKING\n"
+            + "if TYPE_CHECKING:\n    from shop.app.reports import Service\n",
+        },
+        expected_violations=(),
+        expected_codes=() if visibility == "public" else ("interface.unused",),
+    )
+    for visibility, method in (("public", "make"), ("private", "_make"))
+)
+
 VARIANTS: tuple[Variant, ...] = (
+    *_METHOD_TYPE_VARIANTS,
     _INTERFACE_UNDERSCORE,
     _INTERFACE_UNDECLARED_SYMBOL,
     _INTERFACE_WHOLE_MODULE,
