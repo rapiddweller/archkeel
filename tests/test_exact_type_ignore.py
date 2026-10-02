@@ -226,6 +226,83 @@ def test_nested_and_multiline_statement_owners_are_exact(
     )
 
 
+@pytest.mark.parametrize(
+    ("body", "line", "violations"),
+    [
+        (
+            "    client.other(query); client.execute_sql_script(query)"
+            "  # type: ignore[attr-defined]\n",
+            2,
+            1,
+        ),
+        (
+            "    client.execute_sql_script(query); client.other(query)"
+            "  # type: ignore[attr-defined]\n",
+            2,
+            1,
+        ),
+        (
+            "    if client.other(query): client.execute_sql_script(query)"
+            "  # type: ignore[attr-defined]\n",
+            2,
+            1,
+        ),
+        (
+            "    with client.other(query): client.execute_sql_script(query)"
+            "  # type: ignore[attr-defined]\n",
+            2,
+            1,
+        ),
+        (
+            "    client.other(query); client.execute_sql_script(\n"
+            "        query\n    )  # type: ignore[attr-defined]\n",
+            4,
+            1,
+        ),
+        (
+            "    if client.other(query): client.execute_sql_script(\n"
+            "        query\n    )  # type: ignore[attr-defined]\n",
+            4,
+            1,
+        ),
+        (
+            "    client.execute_sql_script(\n"
+            "        query\n    ); client.other(query)  # type: ignore[attr-defined]\n",
+            4,
+            1,
+        ),
+        (
+            "    if client.other(query):\n        client.execute_sql_script(\n"
+            "            query\n        )  # type: ignore[attr-defined]\n",
+            5,
+            0,
+        ),
+        (
+            "    client.execute_sql_script(\n        query\n    )  # type: ignore[attr-defined]\n",
+            4,
+            0,
+        ),
+    ],
+)
+def test_allowance_requires_a_unique_containing_statement(
+    tmp_path: Path, body: str, line: int, violations: int
+) -> None:
+    source = "def execute_sql_script(client, query):\n" + body
+    result = _observe_one_rule(
+        tmp_path,
+        {**RULE, "allowed_type_ignores": [{**ALLOWANCE, "line": line}]},
+        {"operations.py": source},
+    )
+    assert result.observation is not None
+    assert len(result.observation.records("violations") or ()) == violations
+    matches = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "type_ignore_allowance"
+    ]
+    assert len(matches) == (0 if violations else 1)
+
+
 @pytest.mark.parametrize("broad", ["second_occurrence", "changed_tag", "module", "prefix"])
 def test_against_cli_rejects_broader_suppression_permission(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], broad: str

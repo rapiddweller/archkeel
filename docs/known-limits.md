@@ -169,7 +169,8 @@ modules without `__all__`, so its contract pins pair budgets only.
   `pkg._member` remains outside this signal unless the expression is rooted in such a parameter.
 - `forbidden_construct` matches names as written; aliases and shadowed names are blind spots (AD-8).
 - Exact type-ignore allowances bind the source line, qualified scope, AST statement and comment
-  tag; a line shift needs contract review. Standalone comments cannot match (AD-133).
+  tag; a line shift needs contract review. Standalone comments and statements sharing their
+  first line with a sibling or compound header cannot match (AD-133).
 - `string_literal_compare` follows only a single, statically proven module/class binding to a
   `str` literal. Imported, conditional, dynamic or reassigned names stay unknown; Enum members,
   named constant sets (`x in NAMES`), dict-literal membership, `str.startswith` and dispatch

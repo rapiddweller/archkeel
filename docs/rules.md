@@ -102,7 +102,9 @@ and `class-a-broad-except-prefix` run one nested handler under each list: report
 
 Each entry requires these four exact fields. `statement` is the attached AST statement rendered
 by `ast.unparse`; `tag` is the trimmed comment suffix after `type: ignore`. A standalone comment
-has no allowable statement. Moving the line or changing the function, statement or tag leaves
+has no allowable statement. A sibling or compound header on the statement's first line also
+prevents a match; an unambiguous multiline call remains supported.
+Moving the line or changing the function, statement or tag leaves
 the suppression forbidden; an identical second ignore also fails. Legacy type-ignore owner
 selectors still use the module. A matched `type_ignore_allowance` fact cites the rule and its
 decision provenance in JSON and HTML. Adding or changing an allowance widens under `--against`.

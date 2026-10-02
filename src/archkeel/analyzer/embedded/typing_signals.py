@@ -76,10 +76,13 @@ def _type_ignore_signals(
         line_number, column = token.start
         context = statements.get(line_number)
         prefix: str = module.lines[line_number - 1][:column]
+        start_prefix: str = (
+            module.lines[context[1].lineno - 1][: context[1].col_offset] if context else ""
+        )
         comment: str = token.string
         tag: str = comment.split("type: ignore", 1)[1]
-        # A comment without a statement cannot be granted a statement-bound exception.
-        attached = context is not None and bool(prefix.strip())
+        # A preceding sibling or compound header makes this more than the selected statement.
+        attached = context is not None and bool(prefix.strip()) and not start_prefix.strip()
         fake = ast.Pass(
             lineno=line_number,
             col_offset=column,

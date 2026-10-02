@@ -10,8 +10,10 @@
 ```
 
 All four fields must match. The statement uses `ast.unparse`; the tag is the
-trimmed comment suffix after `type: ignore`. A standalone comment has no
-allowable statement. Unknown fields and duplicate entries are rejected.
+trimmed comment suffix after `type: ignore`. Standalone comments and statements
+sharing their first line with a sibling or compound header cannot match.
+An unambiguous multiline call can match. Unknown fields and duplicate entries
+are rejected.
 
 ## Why and limits
 
