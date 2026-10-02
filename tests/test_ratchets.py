@@ -22,7 +22,12 @@ from archkeel.check.expectation import (
 )
 from archkeel.check.ratchets import compare_ratchets, measure_python_ratchets
 from archkeel.ir.codec import parse_measurements, parse_observation
-from archkeel.ir.measurements import Measurements, RatchetError, RatchetScalars
+from archkeel.ir.measurements import (
+    Measurements,
+    RatchetError,
+    RatchetScalars,
+    compare_measurements,
+)
 
 
 def _calls(model: dict[str, Any], unresolved: int, total: int) -> None:
@@ -112,6 +117,8 @@ def test_applied_boundary_type_allowance_fact_is_not_typing_debt() -> None:
         (1, 5, 0, 0, ()),
         (0, 0, 0, 0, ()),
         (1, 10**20, 1, 10**20 - 1, ("unresolved_ratio",)),
+        (484, 2511, 466, 2395, ("unresolved_ratio",)),  # 5a07aed: count falls, share rises.
+        (474, 2309, 479, 2348, ("calls_unresolved",)),  # bbab17c: share falls, count rises.
     ],
 )
 def test_unresolved_count_and_ratio_are_independent_exact_ratchets(
@@ -127,6 +134,29 @@ def test_unresolved_count_and_ratio_are_independent_exact_ratchets(
     assert len(result.failures) == len(failures)
     for name in failures:
         assert any(f"regression check failed in {name}:" in failure for failure in result.failures)
+
+
+@pytest.mark.parametrize(("before", "after"), [(None, 1), (1, None), (None, None)])
+def test_an_unmeasured_call_count_cannot_produce_a_passing_ratio(
+    before: int | None, after: int | None
+) -> None:
+    def measured(count: int | None) -> Measurements:
+        return Measurements(RatchetScalars(0, 0, 0, 0, count, 0), 10, "measured")
+
+    rows = compare_measurements(measured(before), measured(after))
+    assert next(row for row in rows if row[0] == "unresolved_ratio")[3] == "n/a"
+
+
+def test_fewer_unresolved_calls_cannot_hide_a_new_unknown_position() -> None:
+    accepted, candidate = _snapshots()
+    _calls(accepted, 1, 2)
+    _calls(candidate, 0, 1)
+    candidate["unknowns"] = [
+        _record("new-unknown", kind="future_profile_limit", evidence_class="UNKNOWN")
+    ]
+
+    failures = _evaluate(_delta(accepted, candidate)).failures
+    assert "regression check failed in unknown_positions: 0->1" in failures
 
 
 def test_same_unknown_record_with_larger_unresolved_extent_fails() -> None:

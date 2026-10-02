@@ -26,7 +26,7 @@ only when its row names repository evidence.
 | An observed direct child API consumer counts as local use only through all crossed public ancestor boundaries (AD-120, #193) | `src/archkeel/check/validation.py`; `tests/test_inside_direct_parent_publication.py` |
 | Recursive facade checks reuse a local re-export index per boundary pass without changing ownership or UNKNOWN semantics (AD-119, #192) | `src/archkeel/analyzer/embedded/violations.py`; `tests/test_recursive_boundary_index_work.py` |
 | `report`, `check`, three independent verdicts and exit codes 0/1/2 | `bff87f4`; `tests/test_cli.py`; `tests/test_check_diagnostics.py` |
-| Regression checks compare raw counts and ratios with integer cross-multiplication | Fixture A; `tests/test_ratchets.py`; `make demo` |
+| Regression checks hold independent count/share ceilings with comparable complete evidence; unmeasured shares stay `n/a` (AD-136, #215) | Fixture A; historical `5a07aed`/`bbab17c`; `tests/test_ratchets.py`; `make demo` |
 | Precommitment order M → B → E → H from host records | Fixture B; `tests/test_ordering.py`; `make demo` |
 | A declared and fulfilled change passes | Fixture C; `make demo` |
 | Exit 2 carries diagnostics and invalid locks never become empty state | `tests/test_check_diagnostics.py`; `tests/test_report_diagnostics.py` |
@@ -203,11 +203,8 @@ answer key are prepared; human effectiveness and the need for a separate explore
   (AD-22). Six places still assume Python: the import in the CLI, the namespace pattern in the
   configuration, the `public` and dependency patterns in the schema, the construct enum and the
   runtime gate.
-- Decide the regression policy, implement `accept`, add a GitHub host adapter and consider
-  renaming the `ratchets` schema field to `regression_checks`. Evidence: `5a07aed` reduced
-  `calls_unresolved` from 484 to 466 while `unresolved_ratio` worsened from 19.28% to 19.46%
-  because well-resolved duplicate code was deleted; a ratio-only check would reject this
-  improvement. `bbab17c` showed the opposite case for an absolute-only check.
+- Implement `accept` and add the GitHub host adapter (#216); retain the `ratchets` field
+  for compatibility. AD-136 decides the conservative regression policy.
 - Act on the open onboarding findings in `docs/evidence/internal-service/README.md`: assign a
   package `__init__` exactly, check `requires-python` before scanning, and measure auto-mode
   agreement on a second repository.
