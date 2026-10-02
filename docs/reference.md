@@ -157,6 +157,28 @@ Every exit 2 includes a Diagnostic with `kind`, `subject`, `unknown_claim` and a
 one-line `remedy`. Partial analyzer observations retain their typed coverage and
 are persisted by `report`. Invalid locks are never replaced with empty state.
 IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen dataclasses.
+
+[`command-result.schema.json`](../schema/command-result.schema.json) describes the JSON
+stdout of `check`, `validate` and `report` (AD-138). It is included under `archkeel/schema`
+in installed packages. Its version is the `$id` suffix, currently `1.0.0`; command output
+gains no version field. Pin the CLI and schema together. Register the bundled
+`architecture-ir-common.schema.json`, `architecture-ir-python-decoded.schema.json` and
+`architecture-contract.schema.json` by
+their `$id` for offline Draft 2020-12 validation. This schema excludes argument-parser,
+`init` and `skill` results, and the separate canonical `architecture.json` artifact.
+`null` means unavailable or inapplicable; `[]` means a measured empty list. Missing required
+fields are invalid. Exit 2 requires diagnostic evidence and UNKNOWN verdicts. A report may
+exit 0 with FAIL or UNKNOWN declared rules; consumers must read the verdicts.
+[The small consumer fixture](../fixtures/consume_result.py) preserves that distinction.
+
+Compatibility uses semantic versions for this schema: optional properties that older
+consumers can ignore are additive (minor); removing or renaming a field, requiring a new
+field, changing its type/nullability or meaning, or extending an enum is breaking (major).
+Enum additions change what a consumer must handle. Corrections accepting the same payloads
+are patch changes. Consumers must ignore unknown result properties; separately versioned
+references retain their own constraints.
+Schema validation checks shape, not source authenticity, count arithmetic or conformance.
+
 `report` and `check --output` write `<output-stem>.report.html` and `<output-stem>.check.html`. The suffix separates commands; the stem separates runs.
 The `report` headline follows its verdicts, not the exit code alone: exit 0 with `declared_rules: FAIL` renders a FAIL headline, because `report` records violations without gating and `check` is the gate.
 The report's declared-facade section measures export counts, re-exports, names defined in each

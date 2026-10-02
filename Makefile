@@ -17,7 +17,7 @@ test:
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
-	fixtures/reproduce_dart.py \
+	fixtures/reproduce_dart.py fixtures/consume_result.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
 
 lint:
