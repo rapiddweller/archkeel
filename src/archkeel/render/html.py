@@ -2095,9 +2095,9 @@ def _explorer_scope_index(
         if record.kind in {"component_responsibility", "inside_component_responsibility"}
     }
     known_scopes = {
-        ".".join(name.split(".")[:end])
+        ".".join(re.split(r"\.", name)[:end])
         for name in modules
-        for end in range(1, len(name.split(".")) + 1)
+        for end in range(1, len(re.split(r"\.", name)) + 1)
     }
     ordered_modules = sorted(modules, key=len, reverse=True)
     scopes: dict[str, list[str]] = {}
@@ -2105,15 +2105,18 @@ def _explorer_scope_index(
         *(observation.records("violations") or ()),
         *(observation.records("unknowns") or ()),
     ):
-        matches = {name for key in record.evidence_ids if (name := evidence.get(key)) is not None}
+        matches = set(
+            name for key in record.evidence_ids if (name := evidence.get(key)) is not None
+        )
         for key in ("module", "source_module", "target_module", "source", "target"):
             value = record.data.get(key)
             if isinstance(value, str) and value in known_scopes:
                 matches.add(value)
         for subject in record.subjects:
             matches.update(components.get(subject, ()))
+            qualified_subject = re.split(":", subject, maxsplit=1)[0]
             module = next(
-                (name for name in ordered_modules if in_scope(subject.partition(":")[0], name)),
+                (name for name in ordered_modules if in_scope(qualified_subject, name)),
                 None,
             )
             if module is not None:
