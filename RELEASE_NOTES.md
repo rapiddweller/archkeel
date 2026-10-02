@@ -1,4 +1,4 @@
-# Unreleased
+# Archkeel 0.8.4 — Assign exact modules without claiming their children
 
 - Components may own exact module names with `exact_modules` as well as recursive `packages`;
   ownership is unambiguous only when one component claims each observed module (AD-128, #211;

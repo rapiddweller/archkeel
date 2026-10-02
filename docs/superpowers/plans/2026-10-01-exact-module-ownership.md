@@ -8,7 +8,7 @@
 
 **Tech Stack:** Existing dataclasses, JSON schema, pathlib, pytest and browser acceptance; no dependencies.
 
-**Spec:** `.superpowers/sdd/2026-10-01-exact-module-ownership/spec.md` (GitHub #211), to publish with the implemented feature as AD-128; Astra's full source audit remains in the CE artifact `test-artifacts/archkeel-exact-module-design-astra.md`.
+**Spec:** [AD-128](../../architecture/decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md) and [#211](https://github.com/rapiddweller/archkeel/issues/211).
 
 ## Global Constraints
 
@@ -44,11 +44,11 @@
 - Component observation records retain recursive packages in `subjects`, with nonempty exact claims in `data.exact_modules`. Reconstructed owners keep the two kinds separate.
 - Parent recursive claims admit contained child recursive/exact claims; parent exact claims admit only equal child exact claims.
 
-- [ ] Independent Luna QA first tests codec/default digests, unique ownership, exact-only components, two-depth scope clipping, missing/partial scans, sibling isolation, retained forbidden-import/cycle/type failures, observation reconstruction, source-free Target, amendments/rename, and existing Dart unsupported boundaries.
-- [ ] Run the new tests on the reviewed bugfix baseline. Verify failures are absent-feature failures, not test mistakes.
-- [ ] Independent Luna implementation adds the field and shared predicate, then audits every direct package-ownership consumer. Do not turn exact claims into prefixes or drop outside-parent declarations.
-- [ ] Run focused tests; review diff for canonical-byte drift and formerly silent ownership paths. Independent QA extends negative cases without seeing implementer's proposed reasoning on its first pass.
-- [ ] Run `UV_NO_CONFIG=true make check`, `make self-observation`, `make gate`, and `make report-browser`. Validate the CE task-root contract probe with the candidate without editing CE to obtain a pass.
+- [x] Independent Luna QA first tests codec/default digests, unique ownership, exact-only components, two-depth scope clipping, missing/partial scans, sibling isolation, retained forbidden-import/cycle/type failures, observation reconstruction, source-free Target, amendments/rename, and existing Dart unsupported boundaries.
+- [x] Run the new tests on the reviewed bugfix baseline. Verify failures are absent-feature failures, not test mistakes.
+- [x] Independent Luna implementation adds the field and shared predicate, then audits every direct package-ownership consumer. Do not turn exact claims into prefixes or drop outside-parent declarations.
+- [x] Run focused tests; review diff for canonical-byte drift and formerly silent ownership paths. Independent QA extends negative cases without seeing implementer's proposed reasoning on its first pass.
+- [x] Run `UV_NO_CONFIG=true make check`, `make self-observation`, `make gate`, and `make report-browser`. Validate the CE task-root contract probe with the candidate without editing CE to obtain a pass.
 - [ ] Astra reviews the frozen diff and evidence. Controller commits only the coherent feature, then opens/updates the tooling PR with examples and honest limits.
 
 Release follows merged CI and verified isolated package installation. Only then pin CE to the release and migrate explicit ownership; no CE completion claim follows from tooling alone.
