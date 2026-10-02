@@ -10,8 +10,20 @@ counts true passes only when violation and undecidability are both absent;
 accepted allowances count separately. A violation and UNKNOWN can share a position.
 Keep symbol/occurrence and inherited origin identities; add receipt-only ambiguity.
 Non-boundary or unreconciled positional passes remain `null`.
+Existing dependency/interface generators and requires predicates expose import verdicts.
+Keep import IDs and scope; require generator completion and published evidence.
+Requires calls bind their existing import FACT receipts after the original filters.
+Observed passes never close an unowned facade scope or alter its UNKNOWN assessment.
+Per-rule import predicates are not unique repository import counts.
+An empty observed import population has zero passes, never an aggregate PASS count.
+Other supported evaluators decide one observed-scope conjunction. Bind the actual
+producer, published receipt, module facts, evidence, scope and original findings.
+Complete safe scopes pass once; violations make the conjunction false while UNKNOWN
+causes stay visible. Missing proof keeps counts unavailable; partial scans never pass.
+Permissions remain declarations. Scope, type and import units are never summed.
 
-Capture original evaluator inputs in a separate profiled scan. Replay each rule
+Copy original evaluator inputs/results before private import proof is stripped.
+Capture them in a separate profiled scan. Replay each rule
 independently with the same source facts and scope. Publish its warm runtime only
 when findings match the original evaluation. Dependent proof can prevent replay;
 that runtime stays unavailable. Profiling overhead is explicit, never subtracted
@@ -25,8 +37,8 @@ This observational tool adds none of them. It supports Python only.
 
 The baseline and candidate retain source, policy and Python identity. The released
 0.8.4 analyzer and the chosen base have identical digests. EE's current contract
-has no boundary rules; no EE boundary yield is claimed. Post-release acceptance
-and unsupported per-predicate pass/runtime evidence remain open (#218). Population
+has no boundary rules; its boundary yield is N/A without changing policy. Full acceptance
+and missing producer/runtime evidence remain open (#218). Population
 reconciliation is distinct from scope closure: unresolved routes and unscoped API
 limits stay explicit. Global API limits are not blamed on every boundary rule.
 
