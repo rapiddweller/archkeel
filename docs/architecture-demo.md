@@ -154,6 +154,8 @@ the conforming case.
 | validation | public_api:inherited_field_missing | public-api-inherited-missing | validate/report run | - | api_surface.missing | architecture-contract.json, shop/model/public_api.py |
 | clean | public_api:inherited_field_declared | public-api-inherited-declared | validate/report run | - | - | architecture-contract.json, shop/model/public_api.py |
 | validation | public_api:unresolved_inheritance | public-api-inherited-unknown | validate/report run | - | - | architecture-contract.json, shop/model/public_api.py |
+| validation | public_api:class_alias_missing | public-api-alias-missing | validate/report run | - | api_surface.missing | architecture-contract.json, shop/model/public_api.py |
+| clean | public_api:class_alias_declared | public-api-alias-declared | validate/report run | - | - | architecture-contract.json, shop/model/public_api.py |
 | validation | requires.target:local | validation-requires-local-target | validate/report run | - | - | architecture-contract.json |
 | validation | requires.target:undeclared | validation-requires-target-unknown | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | component.label:duplicate | validation-component-label-duplicate | validate/report run | - | contract.invalid | architecture-contract.json |

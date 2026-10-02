@@ -4156,7 +4156,9 @@ def _public_api_symbol(
     """The one top-level symbol a `module:name` public_api entry resolves to, if any."""
     if ambiguous:
         return None
-    locations = ((module, name), *origins) if len(origins) == 1 else ((module, name),)
+    locations = ((module, name), *origins)
+    selected: RawRecord | None = None
+    class_alias = False
     for location in locations:
         candidates = [
             item
@@ -4168,8 +4170,22 @@ def _public_api_symbol(
         if len(candidates) > 1:
             return None
         if candidates:
-            return candidates[0]
-    return None
+            candidate = candidates[0]
+            if candidate["kind"] == "type_alias":
+                try:
+                    alias = ast.parse(candidate["data"]["alias"], mode="eval").body
+                except SyntaxError:
+                    return None
+                if not isinstance(alias, ast.Name):
+                    return None
+                class_alias = True
+                continue
+            if selected is not None and selected is not candidate:
+                return None
+            selected = candidate
+    if class_alias and (selected is None or selected["kind"] != "class"):
+        return None
+    return selected
 
 
 def _public_api_positions(
@@ -4379,6 +4395,7 @@ def public_api_exposed_types(
             exports,
             imports_by_binding,
             classes_by_location,
+            enter_fields=False,
         )
         for entry in public_api
         for declared_module, _, declared_name in [entry.partition(":")]
@@ -4395,17 +4412,22 @@ def public_api_exposed_types(
         )
         symbol = _public_api_symbol(symbols, module, name, position.resolved, ambiguous)
         if symbol is None:
-            if ambiguous:
-                candidates = [
-                    item
-                    for item in symbols
-                    if (item["data"]["module"], item["data"]["name"]) == (module, name)
-                ] + [
-                    item
-                    for item in imports
-                    if (item["data"]["source_module"], item["data"]["binding"]) == (module, name)
-                ]
-                unknowns.append(_public_api_limit(entry, "ambiguous_binding", candidates))
+            locations = {(module, name), *position.resolved}
+            candidates = [
+                item
+                for item in symbols
+                if (item["data"]["module"], item["data"]["name"]) in locations
+            ] + [
+                item
+                for item in imports
+                if (item["data"]["source_module"], item["data"]["binding"]) == (module, name)
+            ]
+            kinds = {item["kind"] for item in candidates}
+            if ambiguous or (
+                "type_alias" in kinds and (position.undecidable is not None or "class" in kinds)
+            ):
+                reason = position.undecidable or "unproven_class_alias"
+                unknowns.append(_public_api_limit(entry, reason, candidates))
             continue
         resolved: set[str] = set()
         positions, limits = _public_api_positions(

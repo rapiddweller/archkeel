@@ -4,7 +4,7 @@
 
 `public_api` includes the public fields a declared class inherits through one
 proven local base chain. Resolve each field in its defining module with the
-existing annotation resolver. Unambiguous re-exports retain their origin.
+existing annotation resolver. Unambiguous re-exports and bare class aliases retain their origin.
 Verified generic parameters use the existing binding substitution machinery.
 Subclass fields and class members override inherited fields.
 
@@ -27,9 +27,9 @@ an undeclared local type (#243). Direct fields already rejected that exposure.
 Do not reconstruct types in the checker or inspect implementation methods.
 Sorted base records cannot prove multiple-base precedence; retain UNKNOWN.
 Cycles, dynamic class bodies, unresolved inherited annotations and unsupported
-generic arguments also retain UNKNOWN. Generic substitution accepts bare named
-arguments; compound arguments need a separate proof. Runtime model behavior is
-not evaluated.
+generic arguments and unproven class aliases also retain UNKNOWN. Generic
+substitution accepts bare named arguments; compound arguments need a separate
+proof. Runtime model behavior is not evaluated.
 
 ## Verification
 

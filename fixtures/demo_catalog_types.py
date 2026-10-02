@@ -750,9 +750,13 @@ _INHERITED_GENERIC_AMBIGUOUS = Variant(
 )
 
 
-def _public_api_inherited_fields(*, declared: bool, unresolved: bool = False) -> dict[str, str]:
+def _public_api_inherited_fields(
+    *, declared: bool, unresolved: bool = False, aliased: bool = False
+) -> dict[str, str]:
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
-    contract["declarations"]["public_api"] = ["shop.model.public_api:Child"]
+    contract["declarations"]["public_api"] = [
+        f"shop.model.public_api:{'Alias' if aliased else 'Child'}"
+    ]
     contract["declarations"]["public_api_provenance"] = ["docs/architecture/shop.md"]
     if declared:
         contract["declarations"]["public_api"].append("shop.model.public_api:Payload")
@@ -760,7 +764,8 @@ def _public_api_inherited_fields(*, declared: bool, unresolved: bool = False) ->
         "architecture-contract.json": json.dumps(contract, indent=2) + "\n",
         "shop/model/public_api.py": HEADER + "class Payload:\n    value: str\n"
         "class Base:\n    payload: Payload\n"
-        f"class Child({'Missing' if unresolved else 'Base'}): pass\n",
+        f"class Child({'Missing' if unresolved else 'Base'}): pass\n"
+        + ("Alias = Child\n" if aliased else ""),
     }
 
 
@@ -796,6 +801,27 @@ _PUBLIC_API_INHERITED_UNKNOWN = Variant(
     expected_declared_rules="UNKNOWN",
 )
 
+
+_PUBLIC_API_ALIAS_MISSING = Variant(
+    id="public-api-alias-missing",
+    section="validation",
+    item="public_api:class_alias_missing",
+    summary="Publishing Alias = Child still exposes its inherited Payload (AD-131).",
+    files=_public_api_inherited_fields(declared=False, aliased=True),
+    expected_violations=(),
+    expected_codes=("api_surface.missing",),
+)
+
+_PUBLIC_API_ALIAS_DECLARED = Variant(
+    id="public-api-alias-declared",
+    section="clean",
+    item="public_api:class_alias_declared",
+    summary="Declaring Alias and Payload closes the inherited class alias exposure (AD-131).",
+    files=_public_api_inherited_fields(declared=True, aliased=True),
+    expected_violations=(),
+    expected_codes=(),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _SYMBOL_PLACEMENT,
     _BOUNDARY_TYPES,
@@ -822,4 +848,6 @@ VARIANTS: tuple[Variant, ...] = (
     _PUBLIC_API_INHERITED_MISSING,
     _PUBLIC_API_INHERITED_DECLARED,
     _PUBLIC_API_INHERITED_UNKNOWN,
+    _PUBLIC_API_ALIAS_MISSING,
+    _PUBLIC_API_ALIAS_DECLARED,
 )

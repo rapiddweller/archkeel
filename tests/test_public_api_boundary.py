@@ -218,6 +218,7 @@ def test_public_api_is_silent_for_a_builtin_and_a_declared_collection_element(
             "from typing import TypeAlias\n\nJsonObject: TypeAlias = dict[str, object]\n",
         ),
         ("MAX_SIZE", "MAX_SIZE = 10\n"),
+        ("Scalar", "Scalar = int\n"),
     ],
 )
 def test_public_api_accepts_non_callable_symbols_without_function_diagnostics(
@@ -230,6 +231,13 @@ def test_public_api_accepts_non_callable_symbols_without_function_diagnostics(
     )
 
     assert _public_api_diagnostics(tmp_path) == ()
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert not [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "api_surface_limit"
+    ]
 
 
 @pytest.mark.parametrize("entry", ["sample.facade:Child", "sample.model:Child"])
@@ -352,6 +360,56 @@ def test_public_api_resolves_an_aliased_base_and_multilevel_generic_fields(tmp_p
 
 
 @pytest.mark.parametrize(
+    "alias", ["Alias = Child", "Alias: TypeAlias = Child", "Middle = Child\nAlias = Middle"]
+)
+@pytest.mark.parametrize("declared", [False, True])
+def test_public_api_class_alias_keeps_inherited_fields(
+    tmp_path: Path, alias: str, declared: bool
+) -> None:
+    _prepare(
+        tmp_path,
+        ["sample.facade:Alias", *(["sample.facade:Hidden"] if declared else [])],
+        "from typing import TypeAlias\nclass Hidden: pass\n"
+        "class Base:\n    field: Hidden\nclass Child(Base): pass\n" + alias + "\n",
+    )
+    diagnostics = _public_api_diagnostics(tmp_path)
+    assert bool(diagnostics) is not declared
+    if not declared:
+        assert all("Hidden" in diagnostic.unknown_claim for diagnostic in diagnostics)
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert not [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "api_surface_limit"
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "Alias = Missing\n",
+        "Alias: TypeAlias = Other\nOther: TypeAlias = Alias\n",
+        "class Child: pass\nclass Child: pass\nAlias = Child\n",
+        "class Child: pass\nAlias = Child\nAlias = str\n",
+        "class Child: pass\nAlias: TypeAlias = list[Child]\n",
+    ],
+)
+def test_public_api_unproven_class_alias_retains_unknown(tmp_path: Path, source: str) -> None:
+    _prepare(tmp_path, ["sample.facade:Alias"], "from typing import TypeAlias\n" + source)
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    limits = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "api_surface_limit"
+    ]
+    assert len(limits) == 1
+    assert limits[0].subjects == ("sample.facade:Alias",)
+    assert limits[0].evidence_ids
+
+
+@pytest.mark.parametrize(
     ("entries", "source", "exit_code", "status"),
     [
         (["sample:ChildPublic"], "class Child(Base): pass\n", 2, "UNKNOWN"),
@@ -360,6 +418,21 @@ def test_public_api_resolves_an_aliased_base_and_multilevel_generic_fields(tmp_p
         (["sample:Public", "sample.facade:Nested"], "class Child(Base): pass\n", 0, "PASS"),
         (["sample:ChildPublic", "sample.facade:Nested"], "class Child(Base): pass\n", 0, "PASS"),
         (["sample:ChildPublic"], "class Child(Missing): pass\n", 0, "UNKNOWN"),
+        (["sample.facade:Alias"], "class Child(Base): pass\nAlias = Child\n", 2, "UNKNOWN"),
+        (
+            ["sample.facade:Alias", "sample.facade:Nested"],
+            "class Child(Base): pass\nAlias = Child\n",
+            0,
+            "PASS",
+        ),
+        (["sample.facade:Alias"], "class Child(Missing): pass\nAlias = Child\n", 0, "UNKNOWN"),
+        (["sample:AliasPublic"], "class Child(Base): pass\nAlias = Child\n", 2, "UNKNOWN"),
+        (
+            ["sample:AliasPublic", "sample.facade:Nested"],
+            "class Child(Base): pass\nAlias = Child\n",
+            0,
+            "PASS",
+        ),
     ],
 )
 def test_public_api_inheritance_cli_and_report(
@@ -378,7 +451,12 @@ def test_public_api_inheritance_cli_and_report(
     )
     (tmp_path / "sample/__init__.py").write_text(
         "from .facade import Child as ChildPublic, Exported as Public\n"
-        "__all__ = ['ChildPublic', 'Public']\n"
+        + (
+            "from .facade import Alias as AliasPublic\n"
+            "__all__ = ['ChildPublic', 'Public', 'AliasPublic']\n"
+            if "sample:AliasPublic" in entries
+            else "__all__ = ['ChildPublic', 'Public']\n"
+        )
     )
     contract = json.loads((tmp_path / "contract.json").read_text())
     component = _component("sample", packages=["sample"], public=[])
