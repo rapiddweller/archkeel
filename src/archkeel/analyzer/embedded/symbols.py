@@ -38,7 +38,9 @@ def _resolve_static_name(module: ParsedModule, node: ast.AST) -> str:
     return ".".join([binding.target, *parts[1:]])
 
 
-def _binding_may_exist_before(statements: Sequence[ast.stmt], stop: ast.AST, name: str) -> bool:
+def _binding_may_exist_before(
+    statements: Sequence[ast.stmt], stop: ast.AST | None, name: str
+) -> bool:
     for statement in statements:
         if statement is stop:
             return False
@@ -487,7 +489,80 @@ def _symbol_data(
         shape, shape_nodes = _shape(node)
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
+    uncertainties = _annotation_binding_uncertainties(module, node, parent_node)
+    if uncertainties:
+        data["annotation_binding_uncertainties"] = uncertainties
+        data["annotation_scope"] = (
+            qualname if isinstance(node, ast.ClassDef) else parent or qualname
+        )
     return data
+
+
+def _annotation_binding_uncertainties(
+    module: ParsedModule,
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    parent: ast.ClassDef | None,
+) -> dict[str, list[str]]:
+    """Keep class/generic lookup uncertainty instead of assuming the module binding wins."""
+    annotations: list[tuple[str, ast.expr | None, ast.stmt]]
+    scope: ast.ClassDef | None
+    if isinstance(node, ast.ClassDef):
+        scope = node
+        annotations = [
+            (child.target.id, child.annotation, child)
+            for child in node.body
+            if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name)
+        ]
+    else:
+        scope = parent
+        arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+        annotations = [(argument.arg, argument.annotation, node) for argument in arguments]
+        if node.args.vararg:
+            annotations.append((f"*{node.args.vararg.arg}", node.args.vararg.annotation, node))
+        if node.args.kwarg:
+            annotations.append((f"**{node.args.kwarg.arg}", node.args.kwarg.annotation, node))
+        annotations.append(("return", node.returns, node))
+    generic_names = {
+        value
+        for owner in (node, scope)
+        if owner is not None
+        for field, parameters in ast.iter_fields(owner)
+        if field == "type_params"
+        for parameter in parameters
+        for name, value in ast.iter_fields(parameter)
+        if name == "name"
+    }
+    deferred = any(
+        isinstance(child, ast.ImportFrom)
+        and child.module == "__future__"
+        and any(alias.name == "annotations" for alias in child.names)
+        for child in module.tree.body
+    )
+    uncertain: dict[str, list[str]] = {}
+    for position, annotation, statement in annotations:
+        if annotation is None:
+            continue
+        names = {child.id for child in ast.walk(annotation) if isinstance(child, ast.Name)}
+        shadowed = sorted(
+            name
+            for name in names
+            if name in generic_names
+            or (
+                scope is not None
+                and (
+                    _binding_may_exist_before(scope.body, None if deferred else statement, name)
+                    or (
+                        isinstance(statement, ast.AnnAssign)
+                        and statement.value is not None
+                        and isinstance(statement.target, ast.Name)
+                        and statement.target.id == name
+                    )
+                )
+            )
+        )
+        if shadowed:
+            uncertain[position] = shadowed
+    return uncertain
 
 
 def _bound_once_before(statements: Sequence[ast.stmt], stop: ast.AST, name: str) -> bool:

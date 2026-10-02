@@ -4,6 +4,7 @@
 """Issue #229: exact native payload decisions retain opaque neighboring controls."""
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -230,3 +231,249 @@ def test_native_decision_cannot_hide_unknown_fields(tmp_path: Path) -> None:
     assert list(VALIDATOR.iter_errors(raw))
     with pytest.raises(ValueError, match="fields mismatch"):
         parse_contract(raw)
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "object = Hidden",
+        "object = Missing",
+        "class object: pass",
+        "from decimal import Decimal as object",
+        "def object(self) -> None: pass",
+        "if True: object = Hidden",
+        "object = Hidden; del object",
+    ],
+)
+@pytest.mark.parametrize("deferred", [False, True])
+def test_class_local_object_bindings_cannot_accept_native_opacity(
+    tmp_path: Path, binding: str, deferred: bool
+) -> None:
+    implementation = (
+        ("from __future__ import annotations\n" if deferred else "")
+        + "class Hidden: pass\nclass Converter:\n    "
+        + binding
+        + "\n    def convert(self, value: object) -> str: return ''\n"
+    )
+    _write_app(
+        tmp_path,
+        implementation=implementation,
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [unknown] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert unknown.data.get("position") == "value"
+    assert unknown.data.get("annotation_bindings") == ("object",)
+    assert unknown.data.get("annotation_scope") == "sample.app.impl.Converter"
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+
+
+def test_shadowed_object_in_union_keeps_a_known_broad_mapping_neighbor(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Hidden: pass\nclass Converter:\n    object = Hidden\n"
+            "    def convert(self, value: object | dict[str, str]) -> str: return ''\n"
+        ),
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("nested_annotation") == "dict[str, str]"
+    assert any(
+        item.kind == "boundary_type_position"
+        for item in result.observation.records("unknowns") or ()
+    )
+
+
+@pytest.mark.parametrize("deferred", [False, True])
+def test_a_later_class_binding_only_blocks_deferred_annotations(
+    tmp_path: Path, deferred: bool
+) -> None:
+    source = (
+        ("from __future__ import annotations\n" if deferred else "")
+        + "class Hidden: pass\nclass Converter:\n"
+        "    def convert(self, value: object) -> str: return ''\n    object = Hidden\n"
+    )
+    _write_app(
+        tmp_path,
+        implementation=source,
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=(_ALLOWANCE,),
+    )
+    namespace: dict[str, object] = {}
+    exec(source, namespace)
+    if not deferred:
+        converter = namespace["Converter"]
+        assert isinstance(converter, type)
+        assert converter.convert.__annotations__["value"] is object
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    facts = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    assert len(facts) == (0 if deferred else 1)
+    assert (
+        any(
+            item.kind == "boundary_type_position"
+            for item in result.observation.records("unknowns") or ()
+        )
+        is deferred
+    )
+
+
+def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Hidden: pass\nclass Payload:\n    datetime = Hidden\n    now: datetime\n"
+        ),
+        declared=("sample.app.impl:Payload",),
+    )
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [payload] = [
+        item
+        for item in result.observation.records("symbols") or ()
+        if item.data.get("qualified_name") == "sample.app.impl.Payload"
+    ]
+    uncertainties = payload.data.get("annotation_binding_uncertainties")
+    assert uncertainties is not None
+    assert uncertainties.get("now") == ("datetime",)
+    assert payload.data.get("annotation_scope") == "sample.app.impl.Payload"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.parametrize("generic", ["class", "method"])
+def test_generic_object_parameter_cannot_be_a_native_builtin_payload(
+    tmp_path: Path, generic: str
+) -> None:
+    source = (
+        "class Converter[object]:\n    def convert(self, value: object) -> str: return ''\n"
+        if generic == "class"
+        else "class Converter:\n    def convert[object](self, value: object) -> str: return ''\n"
+    )
+    _write_app(
+        tmp_path,
+        implementation=source,
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert any(
+        item.kind == "boundary_type_position"
+        for item in result.observation.records("unknowns") or ()
+    )
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+
+
+def test_class_local_module_alias_is_recorded_at_its_annotation_head(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "import datetime as clock\nclass Hidden: datetime = str\nclass Converter:\n"
+            "    clock = Hidden\n"
+            "    def convert(self, value: clock.datetime) -> str: return ''\n"
+        ),
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [unknown] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert unknown.data.get("annotation_bindings") == ("clock",)
+    assert unknown.data.get("annotation_scope") == "sample.app.impl.Converter"
+
+
+def test_model_field_shadow_keeps_a_known_broad_neighbor(tmp_path: Path) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "class Hidden: pass\nclass Payload:\n    object = Hidden\n"
+            "    value: object\n    rows: dict[str, str]\n"
+            "class Converter:\n    def convert(self, value: Payload) -> str: return ''\n"
+        ),
+        declared=("sample.app.impl:Converter", "sample.app.impl:Payload"),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.data.get("path") == "value.rows"
+    assert any(
+        item.kind == "boundary_type_position" and item.data.get("path") == "value.value"
+        for item in result.observation.records("unknowns") or ()
+    )
+
+
+@pytest.mark.parametrize("shadow_in_base", [False, True])
+def test_inherited_annotation_uses_its_declaring_base_scope(
+    tmp_path: Path, shadow_in_base: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from typing import Generic, TypeVar\nT = TypeVar('T')\n"
+            "class Payload: pass\nclass Hidden: pass\nclass Base(Generic[T]):\n"
+            + ("    object = Hidden\n" if shadow_in_base else "")
+            + "    def convert(self, value: object) -> T: return value\n"
+            "class Converter(Base[Payload]):\n"
+            + ("    pass\n" if shadow_in_base else "    object = Hidden\n")
+        ),
+        declared=("sample.app.impl:Converter", "sample.app.impl:Payload"),
+        allowed_positions=(_ALLOWANCE,),
+    )
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    facts = [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    assert len(facts) == (0 if shadow_in_base else 1)
+    if shadow_in_base:
+        [unknown] = [
+            item
+            for item in result.observation.records("unknowns") or ()
+            if item.kind == "boundary_type_position" and item.data.get("position") == "value"
+        ]
+        assert unknown.data.get("annotation_scope") == "sample.app.impl.Base"
+        assert unknown.data.get("annotation_bindings") == ("object",)
