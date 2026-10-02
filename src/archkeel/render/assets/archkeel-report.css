@@ -510,6 +510,11 @@ code {
 .boundary-type-allowances-table td {
   overflow-wrap: anywhere;
 }
+@media screen and (max-width: 760px) {
+  .boundary-type-allowances-table {
+    min-width: 56rem;
+  }
+}
 
 .flow-toolbar[hidden],
 .flow-views[hidden],
