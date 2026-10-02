@@ -1,8 +1,11 @@
-# Pinned rule measurements (#218)
+# Historical version 1 rule measurements (#218)
 
 Observed 2026-10-02 with Python 3.11.12, three sequential scans per runtime.
 [Measurements](measurements.json) contain every rule, UNKNOWN cause, digest and
 profiling overhead. [Classification](classification.json) compares raw findings.
+These artifacts measure the earlier #205 candidate, not current main. The
+[version 2 command](../../rule-yield.md) now captures boundary population receipts,
+true passes and separate global API limits; repeat it for each pinned installation.
 
 | Input | Pin |
 |---|---|
@@ -24,7 +27,7 @@ CE retains 102 violations and identical coverage (492 parsed files).
 Total UNKNOWN records fall 216 → 204: twelve position records disappear; four
 retained records change their nested cause to unresolved `timedelta`.
 No new violation needs classification: true positive 0, false positive 0, disputed 0.
-Existing violations were not reclassified. Decided passes remain unavailable.
+Existing violations were not reclassified. Version 1 did not capture decided passes.
 
 EE retains 88 violations, eight non-boundary UNKNOWNs and identical coverage
 (1129 parsed files). Its 23 rules declare **no boundary_types policy**; this measures
@@ -44,4 +47,5 @@ Reproduce each pin with its isolated installation using the
 [measurement command](../../rule-yield.md). Compare `violations` in the raw companion
 observations by record ID and contents; review any added finding with its cited source.
 These local source snapshots and their provenance must be retained to repeat this run.
-Post-blocker release, explicit EE boundary policy and complete pass evidence remain pending.
+Post-blocker release, explicit EE boundary policy and unsupported predicate pass/runtime
+evidence remain pending.

@@ -111,6 +111,11 @@ def _boundary_ledgers(model: dict, calls: list) -> dict[str, dict]:
     allowance_links = {}
     additional_unknown_ids = set()
     violation_ids = {row["id"] for row in model["violations"]}
+    published_allowance_ids = {
+        row["id"]
+        for row in model["typing_signals"] or ()
+        if row["kind"] == "boundary_type_allowance"
+    }
     opaque_ids = {
         row["id"]
         for row in model["typing_signals"] or ()
@@ -118,7 +123,11 @@ def _boundary_ledgers(model: dict, calls: list) -> dict[str, dict]:
     }
     scopes = {row["id"]: row["data"].get("parent_id", "root") for row in model["declarations"]}
     for function, arguments, result in calls:
-        if function is _boundary_type_allowance_fact and result is not None:
+        if (
+            function is _boundary_type_allowance_fact
+            and result is not None
+            and result["id"] in published_allowance_ids
+        ):
             allowance_links[arguments["record"]["id"]] = result["id"]
         elif function is _boundary_rule_positions:
             receipts.setdefault(arguments["rule"].id, []).append(result)
@@ -250,21 +259,23 @@ def _boundary_ledgers(model: dict, calls: list) -> dict[str, dict]:
     return ledgers
 
 
+def _coverage_complete(coverage: dict) -> bool:
+    return (
+        coverage["status"] == "PASS"
+        and coverage["rules"] == "PASS"
+        and not coverage["failures"]
+        and coverage["files_discovered"] > 0
+        and coverage["files_discovered"] == coverage["files_read"] == coverage["files_parsed"]
+    )
+
+
 def _rule_measures(
     model: dict, runtimes: dict[str, dict], ledgers: dict | None = None
 ) -> list[dict]:
     rows = []
     # The subprocess bridge crosses this JSON boundary before the typed IR parser.
     observation = parse_observation(decode_json(json.dumps(model, sort_keys=True)))
-    complete = (
-        observation.coverage.status == "PASS"
-        and observation.coverage.rules == "PASS"
-        and not observation.coverage.failures
-        and observation.coverage.files_discovered > 0
-        and observation.coverage.files_discovered
-        == observation.coverage.files_read
-        == observation.coverage.files_parsed
-    )
+    complete = _coverage_complete(model["coverage"])
     api_limits = any(row["kind"] == "api_surface_limit" for row in model["unknowns"])
     assessments = {
         row.id: row
@@ -427,9 +438,8 @@ def measure(root: Path, *, repeats: int = 3) -> tuple[dict, dict]:
         "canonical_capture_matches": True,
         "runtime_method": "Independent warm cProfile replays; not additive or exclusive wall time.",
         "boundary_rules_measured": boundaries,
-        "global_api_scope_complete": not any(
-            row["kind"] == "api_surface_limit" for row in model["unknowns"]
-        ),
+        "global_api_scope_complete": _coverage_complete(model["coverage"])
+        and not any(row["kind"] == "api_surface_limit" for row in model["unknowns"]),
         "unscoped_api_unknowns": [
             row
             for row in model["unknowns"]

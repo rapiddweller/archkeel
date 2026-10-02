@@ -434,8 +434,9 @@ def test_incomplete_population_receipts_keep_readable_positions(
         assert position["allowance_ids"] == []
 
 
-def test_lost_allowance_capture_cannot_certify_the_ledger(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("loss", ["capture", "publication"])
+def test_lost_allowance_capture_or_publication_cannot_certify_the_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, loss: str
 ) -> None:
     _repo(tmp_path, "object")
     contract = tmp_path / "contract.json"
@@ -449,9 +450,15 @@ def test_lost_allowance_capture_cannot_certify_the_ledger(
 
     def incomplete_capture(root: Path, arguments: dict) -> tuple[dict, list]:
         model, calls = capture(root, arguments)
-        return model, [
-            call for call in calls if call[0] is not rule_yield._boundary_type_allowance_fact
-        ]
+        adjusted = []
+        for function, inputs, result in calls:
+            if function is rule_yield._boundary_type_allowance_fact:
+                if loss == "capture":
+                    continue
+                if result is not None:
+                    result = {**result, "id": "not-published"}
+            adjusted.append((function, inputs, result))
+        return model, adjusted
 
     monkeypatch.setattr(rule_yield, "_captured_analysis", incomplete_capture)
 
@@ -462,6 +469,24 @@ def test_lost_allowance_capture_cannot_certify_the_ledger(
     assert rule["population_reconciled"] is False
     assert rule["allowanced_positions"] is None
     assert rule["decided_pass_positions"] is None
+
+
+def test_incomplete_scan_cannot_claim_complete_global_api_scope(tmp_path: Path) -> None:
+    _repo(tmp_path, "str")
+    (tmp_path / "sample/app/broken.py").write_text("def broken(\n")
+    _repin(tmp_path)
+
+    metrics, observation = measure(tmp_path, repeats=1)
+
+    assert observation["coverage"]["status"] == "FAIL"
+    assert metrics["scan_exit_code"] == 2
+    assert metrics["unscoped_api_unknowns"] == []
+    assert metrics["global_api_scope_complete"] is False
+    [rule] = metrics["rules"]
+    assert rule["complete_scope"] is False
+    assert rule["assessment_status"] == "UNKNOWN"
+    assert rule["population_reconciled"] is True
+    assert rule["decided_pass_positions"] == 2
 
 
 def test_contract_path_steps_cross_the_real_json_wire_boundary(tmp_path: Path) -> None:

@@ -36,7 +36,7 @@ and scope, selecting one rule. Runtime is `null` if replay changes that rule's
 findings. Replay timings include profiling overhead; they are neither exclusive
 nor additive scan time. Capture overhead is reported separately.
 
-[Pinned CE/EE evidence](evidence/rule-yield/README.md) compares released 0.8.4 with
-one corrected candidate. This optional command adds no score or metric gate.
+[Historical version 1 CE/EE evidence](evidence/rule-yield/README.md) compares released
+0.8.4 with the earlier #205 candidate. This optional command adds no score or metric gate.
 Issue #218's full acceptance still needs an explicit EE boundary contract,
 unsupported per-predicate pass/runtime evidence and the post-release comparison.
