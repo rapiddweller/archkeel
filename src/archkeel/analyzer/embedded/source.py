@@ -156,6 +156,14 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     ):
         return frozenset()
     counts = Counter(_bound_names(nodes))
+    # ponytail: any member write makes its root uncertain; track members if false UNKNOWNs matter.
+    changed_members = {
+        node.value.id
+        for node in nodes
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.ctx, ast.Store | ast.Del)
+        and isinstance(node.value, ast.Name)
+    }
     global_names = {
         name
         for node in ast.walk(module.tree)
@@ -165,7 +173,7 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     return frozenset(
         name
         for name, count in direct.items()
-        if count == 1 and counts[name] == 1 and name not in global_names
+        if count == 1 and counts[name] == 1 and name not in global_names | changed_members
     )
 
 

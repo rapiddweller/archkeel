@@ -6,8 +6,8 @@ an explicit class import, its alias, or a single module member through the exist
 proof. Mappings reuse the same binding proof and remain broad boundary types (AD-123).
 
 An import must have one stable binding. Module imports now retain the same uniqueness fact as
-symbol imports. Rebinding, deletion, conditional replacement, shadowing and star imports cannot
-prove this leaf. Unknown external classes and other datetime types remain UNKNOWN; `object`
+symbol imports. Rebinding, member replacement or deletion, conditional replacement, shadowing and star imports
+cannot prove this leaf. Any module-level member write makes its root binding uncertain. Unknown external classes and other datetime types remain UNKNOWN; `object`
 remains a violation. No class is accepted from its spelling alone. Forward references and
 unproven re-export routes retain their existing limits.
 
