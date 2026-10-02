@@ -783,7 +783,7 @@ def public_api_diagnostics(
     AD-9's component `public` never covered, so there is no cross-component import to make an
     `interface.unused` twin possible here (see `_public_api_entry_diagnostics`). AD-70 adds a
     second, independent signal once an entry is known to exist: a declared function's parameter
-    and return types, and a declared class's own public attribute types, must themselves be
+    and return types, and a declared class's public attribute types, must themselves be
     named in `public_api` -- the generic form of the guard AD-58/AD-63 already hold a
     component's *internal* facade to, pointed here at the package's *external* one. The analyzer
     (`public_api_exposed_types`) resolves which types those are; this reads that answer rather

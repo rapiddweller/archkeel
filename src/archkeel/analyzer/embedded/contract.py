@@ -377,6 +377,8 @@ def project_declarations(
     imports: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     contract_path: str,
+    *,
+    unknowns: list[RawRecord],
 ) -> list[RawRecord]:
     """Project the contract into classified records consumed by JSON and HTML.
 
@@ -385,10 +387,10 @@ def project_declarations(
     here is a pure projection of `contract` and reads none of them.
     """
     declarations = contract.declarations or ContractDeclarations()
-    types_by_entry = public_api_exposed_types(
-        declarations.public_api, symbols, imports, modules, contract
-    )
     items: list[RawRecord] = []
+    types_by_entry = public_api_exposed_types(
+        declarations.public_api, symbols, imports, modules, contract, unknowns=unknowns
+    )
     items.extend(_module_target_records(contract_path, contract_path, declarations.modules))
     for capability in declarations.capabilities:
         items.append(

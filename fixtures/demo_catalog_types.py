@@ -849,6 +849,93 @@ _INHERITED_GENERIC_AMBIGUOUS = Variant(
     expected_codes=("interface.usage_unknown",),
 )
 
+
+def _public_api_inherited_fields(
+    *, declared: bool, unresolved: bool = False, aliased: bool = False
+) -> dict[str, str]:
+    contract = json.loads(
+        contract_component_field_appended("model", "public", "shop.model.public_api:Child")
+        if aliased
+        else (FIXTURE_DIR / "architecture-contract.json").read_text()
+    )
+    contract["declarations"]["public_api"] = [
+        f"shop.model.public_api:{'Alias' if aliased else 'Child'}"
+    ]
+    contract["declarations"]["public_api_provenance"] = ["docs/architecture/shop.md"]
+    if declared:
+        contract["declarations"]["public_api"].append("shop.model.public_api:Payload")
+    files = {
+        "architecture-contract.json": json.dumps(contract, indent=2) + "\n",
+        "shop/model/public_api.py": HEADER + "class Payload:\n    value: str\n"
+        "class Base:\n    payload: Payload\n"
+        f"class Child({'Missing' if unresolved else 'Base'}):"
+        + ("\n    own: Payload\n" if aliased else " pass\n")
+        + ("Alias = Child\n" if aliased else ""),
+    }
+    if aliased:
+        files["shop/app/orders.py"] = (FIXTURE_DIR / "shop/app/orders.py").read_text().replace(
+            "    from shop.store.sqlite import Connection",
+            "    from shop.store.sqlite import Connection\n"
+            "    from shop.model.public_api import Child",
+        ) + "\n\ndef _read_payload(payload: Child) -> str:\n    return payload.own.value\n"
+    return files
+
+
+_PUBLIC_API_INHERITED_MISSING = Variant(
+    id="public-api-inherited-missing",
+    section="validation",
+    item="public_api:inherited_field_missing",
+    summary="Child inherits Base.payload: Payload, which its API declaration omits (AD-131, #243).",
+    files=_public_api_inherited_fields(declared=False),
+    expected_violations=(),
+    expected_codes=("api_surface.missing",),
+)
+
+_PUBLIC_API_INHERITED_DECLARED = Variant(
+    id="public-api-inherited-declared",
+    section="clean",
+    item="public_api:inherited_field_declared",
+    summary="Declaring Child and the inherited Payload closes the public field exposure (AD-131).",
+    files=_public_api_inherited_fields(declared=True),
+    expected_violations=(),
+    expected_codes=(),
+)
+
+_PUBLIC_API_INHERITED_UNKNOWN = Variant(
+    id="public-api-inherited-unknown",
+    section="validation",
+    item="public_api:unresolved_inheritance",
+    summary="An unresolved Child base retains API UNKNOWN with source evidence (AD-131).",
+    files=_public_api_inherited_fields(declared=False, unresolved=True),
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("api_surface_limit", "shop.model.public_api:Child"),),
+    expected_declared_rules="UNKNOWN",
+)
+
+
+_PUBLIC_API_ALIAS_MISSING = Variant(
+    id="public-api-alias-missing",
+    section="validation",
+    item="public_api:class_alias_missing",
+    summary="Alias = Child exposes its own and inherited Payload even when Child is a "
+    "component facade (AD-131).",
+    files=_public_api_inherited_fields(declared=False, aliased=True),
+    expected_violations=(),
+    expected_codes=("api_surface.missing",),
+)
+
+_PUBLIC_API_ALIAS_DECLARED = Variant(
+    id="public-api-alias-declared",
+    section="clean",
+    item="public_api:class_alias_declared",
+    summary="Declaring Alias and Payload closes its fields; component.public alone cannot "
+    "do that (AD-131).",
+    files=_public_api_inherited_fields(declared=True, aliased=True),
+    expected_violations=(),
+    expected_codes=(),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _SYMBOL_PLACEMENT,
     _BOUNDARY_TYPES,
@@ -876,4 +963,9 @@ VARIANTS: tuple[Variant, ...] = (
     _INHERITED_GENERIC_RETURN,
     _INHERITED_GENERIC_UNUSED,
     _INHERITED_GENERIC_AMBIGUOUS,
+    _PUBLIC_API_INHERITED_MISSING,
+    _PUBLIC_API_INHERITED_DECLARED,
+    _PUBLIC_API_INHERITED_UNKNOWN,
+    _PUBLIC_API_ALIAS_MISSING,
+    _PUBLIC_API_ALIAS_DECLARED,
 )
