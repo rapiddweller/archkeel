@@ -78,7 +78,7 @@ def minimal_contract(path: str) -> dict:
     }
 
 
-def reproduce(output: Path) -> dict:
+def reproduce(output: Path, *, initial_pr: bool = False) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     commands = []
@@ -127,6 +127,14 @@ def reproduce(output: Path) -> dict:
             f'[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "{contract_path}"\n'
         )
         (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+        if initial_pr:
+            for path in (
+                ".github/workflows/github-opened.yml",
+                ".github/workflows/github-opened-receipt.yml",
+            ):
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(Path(__file__).parents[1] / path, target)
         _git(root, "add", ".")
         _git(root, "commit", "-q", "-m", "accepted code")
         accepted_commit = _git(root, "rev-parse", "HEAD")
@@ -250,7 +258,7 @@ def reproduce(output: Path) -> dict:
             [*args, "--host-records", str(host_path)], expected=code, label=case + "-check"
         )
         tracked = _git(root, "ls-files").splitlines()
-        assert len(tracked) < 10
+        assert len(tracked) - (2 if initial_pr else 0) < 10
         results[case] = {
             "exit_code": code,
             "tracked_files": len(tracked),

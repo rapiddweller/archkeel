@@ -12,6 +12,7 @@ from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Final, Literal, TypeAlias, get_args, get_type_hints
 
+from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
 SCHEMA_VERSION = "1.3.0"
@@ -1095,6 +1096,7 @@ class CheckProvenance:
     head: str
     accepted_digest: str
     expected_digest: str
+    initial_pr: InitialPRHeadEvidence | None = None
 
 
 @dataclass(frozen=True, slots=True)

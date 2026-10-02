@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from archkeel.ir.host_records import HostRecord
+from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
 from archkeel.ir.model import ObservationResult
 from archkeel.ir.profiles import Language
 
@@ -68,4 +68,4 @@ class Host(Protocol):
         expectation_sha: str,
         candidate_sha: str,
         environ: Mapping[str, str],
-    ) -> tuple[HostRecord, ...]: ...
+    ) -> tuple[HostRecord, ...] | InitialPRHeadEvidence: ...

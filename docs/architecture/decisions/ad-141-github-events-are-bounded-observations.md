@@ -32,7 +32,8 @@ complete `HostRecord` inputs. No host enum or alternate result model is added.
 GitHub Events retains at most 300 events for 30 days and can lag 30 seconds to
 6 hours. Even fewer events do not prove an earlier push absent. The collector
 cannot certify host order or compare an unavailable accepted baseline.
-Full #216 still needs an accepted main lock and a decided trusted collection source.
+AD-143 adds a scoped initial-head proof. Full #216 still needs an accepted main lock
+and an authentic original opened(E) receipt; complete global push history is unnecessary.
 
 ## Checks
 

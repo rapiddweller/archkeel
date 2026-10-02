@@ -14,7 +14,7 @@ only when its row names repository evidence.
 | External API closure checks inherited public fields through proven local base chains, with overrides and generic substitutions; unresolved inheritance retains UNKNOWN (AD-131, #243) | `tests/test_public_api_boundary.py`; `fixtures/demo_catalog_types.py`; `docs/architecture/decisions/ad-131-public-api-includes-inherited-fields.md` |
 | Proven `datetime.datetime` is a boundary scalar leaf; shadowed/external types retain UNKNOWN (AD-132, #205) | `tests/test_boundary_types_datetime.py`; datetime/external/object catalog demos |
 | Optional pinned rule measurements reconcile observed boundary positions; allowances and global API limits remain separate, unsupported predicate passes stay absent (AD-140, #218) | `make rule-yield`; `tests/test_rule_yield.py`; `docs/evidence/rule-yield/README.md` |
-| GitHub PR CI saves immutable base/head bindings and bounded recent push observations with an UNKNOWN check report; first-publication proof remains unavailable (AD-141, #216 preparation) | `tools/github_pr_report.py`; `.github/workflows/ci.yml`; `tests/test_github_pr_report.py`; `make demo-github` |
+| GitHub report-only evidence supports a typed initial PR head proof; bounded pushes stay UNKNOWN. Live accepted B and authenticated receipt remain pending (AD-141, AD-143, #216) | `tools/github_pr_report.py`; `tests/test_github_initial_pr.py`; `make demo-github` |
 | Report review starts with findings and limits; finding links and copyable packets retain snapshot evidence; absent comparison stays unavailable (AD-130, #236) | `tests/test_review_surface.py`; `make report-browser` |
 | Codex and Claude install the same native skill; Codex migrates its managed AGENTS block without changing user bytes; a skills-only bundle exports that source (AD-129, #236) | `tests/test_skill.py`; `tests/smoke_test.py`; `make plugin OUTPUT=<new directory>` |
 | Recursive packages and exact module claims share one unambiguous owner predicate; exact selectors survive nested evaluation, reports and source-free open-pair derivation (AD-128, #211) | `src/archkeel/ir/model.py`; `tests/test_exact_module_ownership.py`; `tests/test_exact_module_ownership_extensions.py`; `fixtures/demo_catalog_exact_ownership.py`; `docs/architecture/decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md` |
@@ -177,7 +177,7 @@ answer key are prepared; human effectiveness and the need for a separate explore
 
 1. Compare the self-observation of a pull request with an accepted baseline on `main` in CI.
    GitHub now saves bounded host observations report-only; #216 still needs the accepted main
-   lock and trusted complete first-publication evidence before the M → B → E → H proof can pass.
+   lock and an authentic original opened(E) receipt before the M → B → E → H proof can pass.
 2. Title each validation panel with its own code instead of `contract_invalid`, and group the
    panels by code with a count, so a first run does not present fifteen identical-looking boxes
    (AD-19). Evidence: one `validate` run on the shop sample with a removed decision prints 15

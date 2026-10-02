@@ -1,0 +1,13 @@
+name: Save initial PR receipt (report only)
+
+on:
+  pull_request_target:
+    types: [opened]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  receipt:
+    uses: ./.github/workflows/github-opened-receipt.yml
