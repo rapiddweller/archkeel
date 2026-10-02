@@ -4,8 +4,12 @@
 
 An optional `make rule-yield` tool measures clean pinned Python repositories.
 Reuse the existing scan and evaluators. Keep timings outside canonical IR.
-Report findings, UNKNOWN causes and available position totals; missing decided
-passes remain `null`. A violation and UNKNOWN can share one position.
+Report findings, UNKNOWN causes and existing aggregate assessment statuses.
+Capture boundary producer verdicts and population receipts. A reconciled ledger
+counts true passes only when violation and undecidability are both absent;
+accepted allowances count separately. A violation and UNKNOWN can share a position.
+Keep symbol/occurrence and inherited origin identities; add receipt-only ambiguity.
+Non-boundary or unreconciled positional passes remain `null`.
 
 Capture original evaluator inputs in a separate profiled scan. Replay each rule
 independently with the same source facts and scope. Publish its warm runtime only
@@ -22,7 +26,9 @@ This observational tool adds none of them. It supports Python only.
 The baseline and candidate retain source, policy and Python identity. The released
 0.8.4 analyzer and the chosen base have identical digests. EE's current contract
 has no boundary rules; no EE boundary yield is claimed. Post-release acceptance
-and a complete pass ledger remain open (#218).
+and unsupported per-predicate pass/runtime evidence remain open (#218). Population
+reconciliation is distinct from scope closure: unresolved routes and unscoped API
+limits stay explicit. Global API limits are not blamed on every boundary rule.
 
 ## Evidence
 

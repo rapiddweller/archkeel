@@ -23,12 +23,32 @@ from types import FrameType
 from typing import Any
 
 from archkeel.analyzer.embedded.report import analyze_snapshot
-from archkeel.analyzer.embedded.violations import boundary_type_limits, rule_violations
-from archkeel.ir.model import RULE_KINDS
+from archkeel.analyzer.embedded.violations import (
+    _boundary_rule_positions,
+    _boundary_type_allowance_fact,
+    _boundary_type_violation_records,
+    _uncertain_facade_position_records,
+    boundary_type_limits,
+    rule_violations,
+)
+from archkeel.check.ratchets import unknown_positions_by_rule
+from archkeel.ir.codec import decode_json, parse_observation
+from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.model import RULE_KINDS, stable_id
 
 
 def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, list]:
-    targets = {function.__code__: function for function in (rule_violations, boundary_type_limits)}
+    targets = {
+        function.__code__: function
+        for function in (
+            rule_violations,
+            boundary_type_limits,
+            _boundary_type_violation_records,
+            _boundary_type_allowance_fact,
+            _boundary_rule_positions,
+            _uncertain_facade_position_records,
+        )
+    }
     pending = {}
     calls = []
 
@@ -63,6 +83,8 @@ def _selected_records(result: Any, rule_id: str) -> list[dict]:
 def _replays(calls: list, repeats: int) -> dict[str, dict]:
     measurements = {}
     for function, arguments, observed in calls:
+        if function not in (rule_violations, boundary_type_limits):
+            continue
         contract = arguments["contract"]
         for rule in contract.rules:
             entry = measurements.setdefault(rule.id, {"seconds": 0.0, "matches": True})
@@ -82,8 +104,187 @@ def _replays(calls: list, repeats: int) -> dict[str, dict]:
     return measurements
 
 
-def _rule_measures(model: dict, runtimes: dict[str, dict]) -> list[dict]:
+def _boundary_ledgers(model: dict, calls: list) -> dict[str, dict]:
+    """Read producer verdicts and population receipts; never re-resolve an annotation."""
+    ledgers = {}
+    receipts = {}
+    allowance_links = {}
+    additional_unknown_ids = set()
+    violation_ids = {row["id"] for row in model["violations"]}
+    published_allowance_ids = {
+        row["id"]
+        for row in model["typing_signals"] or ()
+        if row["kind"] == "boundary_type_allowance"
+    }
+    opaque_ids = {
+        row["id"]
+        for row in model["typing_signals"] or ()
+        if row["kind"] == "boundary_type_allowance" and row["data"].get("accepted_opacity")
+    }
+    scopes = {row["id"]: row["data"].get("parent_id", "root") for row in model["declarations"]}
+    for function, arguments, result in calls:
+        if (
+            function is _boundary_type_allowance_fact
+            and result is not None
+            and result["id"] in published_allowance_ids
+        ):
+            allowance_links[arguments["record"]["id"]] = result["id"]
+        elif function is _boundary_rule_positions:
+            receipts.setdefault(arguments["rule"].id, []).append(result)
+        elif function is _uncertain_facade_position_records:
+            additional_unknown_ids.update(record["id"] for _, record in result)
+        elif function is _boundary_type_violation_records:
+            identifier = arguments["rule"].id
+            positions = ledgers.setdefault(identifier, {"positions": []})["positions"]
+            verdict = arguments["verdict"]
+            symbol = arguments["item"]["id"]
+            suffix = arguments["identity_suffix"]
+            occurrence = sum(
+                row["symbol_id"] == symbol
+                and row["identity_suffix"] == suffix
+                and row["qualified_name"] == arguments["qualname"]
+                and row["position"] == arguments["position"]
+                for row in positions
+            )
+            positions.append(
+                {
+                    "id": stable_id(
+                        "YIELD-POSITION",
+                        identifier,
+                        symbol,
+                        arguments["facade_module"],
+                        arguments["qualname"],
+                        arguments["position"],
+                        suffix,
+                        str(occurrence),
+                    ),
+                    "rule_id": identifier,
+                    "scope": scopes[identifier],
+                    "symbol_id": symbol,
+                    "identity_suffix": suffix,
+                    "occurrence": occurrence,
+                    "module": arguments["facade_module"],
+                    "qualified_name": arguments["qualname"],
+                    "position": arguments["position"],
+                    "annotation": arguments["annotation"],
+                    "raw_violation_reason": verdict.violation,
+                    "raw_undecidable_reason": verdict.undecidable,
+                    "produced_ids": [row["id"] for row in result],
+                    "unknown_ids": [],
+                    "unknown_causes": [verdict.undecidable] if verdict.undecidable else [],
+                }
+            )
+    for identifier in receipts:
+        ledgers.setdefault(identifier, {"positions": []})
+    for identifier, ledger in ledgers.items():
+        populations = receipts.get(identifier, [])
+        positions = ledger["positions"]
+        reconciled = len(populations) == 1
+        if not reconciled:
+            ledger["population_reconciled"] = False
+            continue
+        seen, undecidable, records = populations[0]
+        for record in records:
+            detail = record["data"]
+            candidates = [
+                row
+                for row in positions
+                if row["symbol_id"] in record["fact_ids"]
+                and all(
+                    row[key] == detail[key]
+                    for key in ("module", "qualified_name", "position", "annotation")
+                )
+            ]
+            if len(candidates) > 1:
+                reconciled = False
+                continue
+            if candidates:
+                [position] = candidates
+            else:
+                # Only the captured additional facade receipts intentionally bypass the producer.
+                reconciled &= record["id"] in additional_unknown_ids
+                position = {
+                    "id": record["id"],
+                    "rule_id": identifier,
+                    "scope": scopes[identifier],
+                    "symbol_id": record["fact_ids"][0],
+                    "identity_suffix": "",
+                    **{
+                        key: detail[key]
+                        for key in (
+                            "module",
+                            "qualified_name",
+                            "position",
+                            "annotation",
+                            "occurrence",
+                        )
+                    },
+                    "raw_violation_reason": None,
+                    "raw_undecidable_reason": detail["reason"],
+                    "produced_ids": [],
+                    "unknown_ids": [],
+                    "unknown_causes": [],
+                }
+                positions.append(position)
+            position["unknown_ids"].append(record["id"])
+            position["unknown_causes"] = [detail["reason"]]
+            position["receipt_occurrence"] = detail["occurrence"]
+        ledger["population_reconciled"] = (
+            reconciled
+            and len(positions) == seen
+            and sum(bool(row["unknown_ids"]) for row in positions) == len(undecidable)
+            and all(bool(row["unknown_causes"]) == bool(row["unknown_ids"]) for row in positions)
+        )
+        ledger["declared_positions"] = seen
+        ledger["decided_positions"] = seen - len(undecidable)
+    for ledger in ledgers.values():
+        positions = ledger["positions"]
+        for position in positions:
+            produced = position.pop("produced_ids")
+            ledger["population_reconciled"] &= all(
+                value in violation_ids or value in allowance_links for value in produced
+            )
+            position["violation_ids"] = [value for value in produced if value in violation_ids]
+            position["allowance_ids"] = [
+                allowance_links[value] for value in produced if value in allowance_links
+            ]
+            position["opaque_allowance_ids"] = [
+                value for value in position["allowance_ids"] if value in opaque_ids
+            ]
+            position["pass"] = (
+                position["raw_violation_reason"] is None
+                and position["raw_undecidable_reason"] is None
+                and not position["unknown_causes"]
+            )
+    return ledgers
+
+
+def _coverage_complete(coverage: dict) -> bool:
+    return (
+        coverage["status"] == "PASS"
+        and coverage["rules"] == "PASS"
+        and not coverage["failures"]
+        and coverage["files_discovered"] > 0
+        and coverage["files_discovered"] == coverage["files_read"] == coverage["files_parsed"]
+    )
+
+
+def _rule_measures(
+    model: dict, runtimes: dict[str, dict], ledgers: dict | None = None
+) -> list[dict]:
     rows = []
+    # The subprocess bridge crosses this JSON boundary before the typed IR parser.
+    observation = parse_observation(decode_json(json.dumps(model, sort_keys=True)))
+    complete = _coverage_complete(model["coverage"])
+    api_limits = any(row["kind"] == "api_surface_limit" for row in model["unknowns"])
+    assessments = {
+        row.id: row
+        for row in rule_assessments(
+            observation,
+            undecided_by_rule=unknown_positions_by_rule(observation),
+            complete=complete,
+        )
+    }
     for rule in model["declarations"]:
         if rule["kind"] not in RULE_KINDS:
             continue
@@ -100,20 +301,79 @@ def _rule_measures(model: dict, runtimes: dict[str, dict]) -> list[dict]:
             for cause, count in aggregate.items():
                 causes[cause] = max(causes[cause], count)
         runtime = runtimes.get(identifier)
-        gaps = ["No complete per-position pass/violation/UNKNOWN ledger is published."]
+        ledger = (ledgers or {}).get(identifier)
+        reconciled = ledger is not None and ledger.get("population_reconciled", False)
+        positions = ledger["positions"] if ledger is not None else []
+        scope_gaps = [
+            row["id"]
+            for row in model["unknowns"]
+            if (
+                identifier in row["rule_ids"]
+                and row["kind"] not in {"boundary_type_position", "boundary_type_limit"}
+            )
+        ]
+        gaps = (
+            []
+            if reconciled
+            else ["No reconciled per-position producer/population ledger is available."]
+        )
+        if rule["kind"] == "boundary_types" and scope_gaps:
+            gaps.append(
+                "Rule-attributed route/scope evidence prevents proving complete boundary scope."
+            )
+        if rule["kind"] == "boundary_types" and api_limits:
+            gaps.append(
+                "Global API scope remains unproven; API limits are not attributed to this rule."
+            )
         if runtime is None or not runtime["matches"]:
             gaps.append("Independent evaluator replay is absent or changes observed findings.")
         rows.append(
             {
                 "id": identifier,
                 "kind": rule["kind"],
+                "assessment_status": assessments[identifier].status,
+                "assessment_reason": assessments[identifier].reason,
+                "assessment_evaluation_proven": assessments[identifier].evaluation_proven,
                 "violation_records": sum(
                     identifier in row["rule_ids"] for row in model["violations"]
                 ),
                 "unknown_by_cause": dict(sorted(causes.items())),
-                "declared_positions": limits[0]["positions"] if len(limits) == 1 else None,
-                "decided_positions": limits[0]["decided"] if len(limits) == 1 else None,
-                "decided_pass_positions": None,
+                "declared_positions": ledger["declared_positions"]
+                if reconciled
+                else limits[0]["positions"]
+                if len(limits) == 1
+                else None,
+                "decided_positions": ledger["decided_positions"]
+                if reconciled
+                else limits[0]["decided"]
+                if len(limits) == 1
+                else None,
+                "decided_pass_positions": sum(row["pass"] for row in positions)
+                if reconciled
+                else None,
+                "population_reconciled": reconciled,
+                "complete_scope": reconciled and not scope_gaps and not api_limits and complete,
+                "positions": positions,
+                "violation_positions": sum(bool(row["violation_ids"]) for row in positions)
+                if reconciled
+                else None,
+                "unknown_positions": sum(bool(row["unknown_causes"]) for row in positions)
+                if reconciled
+                else None,
+                "violation_unknown_overlap": sum(
+                    bool(row["violation_ids"]) and bool(row["unknown_causes"]) for row in positions
+                )
+                if reconciled
+                else None,
+                "allowanced_positions": sum(bool(row["allowance_ids"]) for row in positions)
+                if reconciled
+                else None,
+                "opaque_allowanced_positions": sum(
+                    bool(row["opaque_allowance_ids"]) for row in positions
+                )
+                if reconciled
+                else None,
+                "scope_gap_ids": scope_gaps if rule["kind"] == "boundary_types" else [],
                 "allowance_records": sum(
                     identifier in row["rule_ids"] and row["kind"] == "boundary_type_allowance"
                     for row in model["typing_signals"] or ()
@@ -157,13 +417,13 @@ def measure(root: Path, *, repeats: int = 3) -> tuple[dict, dict]:
     start = time.perf_counter()
     captured, calls = _captured_analysis(root, arguments)
     captured_seconds = time.perf_counter() - start
-    if captured != model:
+    if json.dumps(captured, sort_keys=True) != json.dumps(model, sort_keys=True):
         raise ValueError("profiling changed the canonical observation")
-    rows = _rule_measures(model, _replays(calls, repeats))
+    rows = _rule_measures(model, _replays(calls, repeats), _boundary_ledgers(model, calls))
     boundaries = sum(row["kind"] == "boundary_types" for row in rows)
     model["python_version"] = platform.python_version()
     return {
-        "measurement_version": 1,
+        "measurement_version": 2,
         "tool_digest": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "package_version": importlib.metadata.version("archkeel"),
         "python_version": platform.python_version(),
@@ -175,8 +435,16 @@ def measure(root: Path, *, repeats: int = 3) -> tuple[dict, dict]:
         "scan_seconds": seconds,
         "scan_median_seconds": statistics.median(seconds),
         "capture_scan_seconds": captured_seconds,
+        "canonical_capture_matches": True,
         "runtime_method": "Independent warm cProfile replays; not additive or exclusive wall time.",
         "boundary_rules_measured": boundaries,
+        "global_api_scope_complete": _coverage_complete(model["coverage"])
+        and not any(row["kind"] == "api_surface_limit" for row in model["unknowns"]),
+        "unscoped_api_unknowns": [
+            row
+            for row in model["unknowns"]
+            if row["kind"] == "api_surface_limit" and not row["rule_ids"]
+        ],
         "rules": rows,
         "evidence_gaps": []
         if boundaries
