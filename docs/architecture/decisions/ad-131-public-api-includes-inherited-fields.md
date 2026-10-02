@@ -7,6 +7,7 @@ proven local base chain. Resolve each field in its defining module with the
 existing annotation resolver. Unambiguous re-exports and bare class aliases retain their origin.
 Verified generic parameters use the existing binding substitution machinery.
 Subclass fields and class members override inherited fields.
+Entry origins exclude expanded fields. `component.public` does not declare external API types.
 
 Private fields, implementation methods and known framework bases do not enlarge
 the declared type set. Pydantic payload fields follow the same walk.

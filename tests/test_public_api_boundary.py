@@ -46,6 +46,38 @@ def _public_api_diagnostics(tmp_path: Path) -> tuple[Diagnostic, ...]:
     return public_api_diagnostics(contract, result.observation)
 
 
+def _commit_public_api_fixture(tmp_path: Path, public: tuple[str, ...] = ()) -> None:
+    contract = json.loads((tmp_path / "contract.json").read_text())
+    component = _component("sample", packages=["sample"], public=list(public))
+    component["provenance"] = ["probe.md"]
+    contract["components"] = [component]
+    contract["declarations"]["public_api_provenance"] = ["probe.md"]
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "probe.md").write_text(
+        "<!-- archkeel-component-graph -->\n```mermaid\nflowchart TD\n    sample\n```\n"
+    )
+    (tmp_path / "archkeel.toml").write_text(
+        '[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+    )
+    for args in (
+        ["git", "init", "-q", "-b", "main"],
+        ["git", "add", "."],
+        [
+            "git",
+            "-c",
+            "user.name=Demo",
+            "-c",
+            "user.email=demo@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+    ):
+        subprocess.run(args, cwd=tmp_path, check=True, capture_output=True)
+
+
 def test_public_api_rejects_duplicate_functions_regardless_of_record_order() -> None:
     for symbol_module, origins in (
         ("sample.facade", ()),
@@ -409,6 +441,80 @@ def test_public_api_unproven_class_alias_retains_unknown(tmp_path: Path, source:
     assert limits[0].evidence_ids
 
 
+@pytest.mark.parametrize("entry", ["Child", "Alias"])
+@pytest.mark.parametrize("declared", [False, True])
+@pytest.mark.parametrize("component_public", [False, True])
+def test_public_api_component_facade_does_not_declare_exposed_fields(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    entry: str,
+    declared: bool,
+    component_public: bool,
+) -> None:
+    _prepare(
+        tmp_path,
+        [
+            f"sample.facade:{entry}",
+            *(["sample.facade:Hidden", "sample.facade:Own"] if declared else []),
+        ],
+        "class Hidden: pass\nclass Own: pass\nclass Base:\n    inherited: Hidden\n"
+        "class Child(Base):\n    own: Own\nAlias = Child\n",
+    )
+    contract = json.loads((tmp_path / "contract.json").read_text())
+    contract["components"] = [
+        _component(
+            "sample",
+            packages=["sample"],
+            public=["sample.facade:Child"] if component_public else [],
+        )
+    ]
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    api = next(
+        item
+        for item in result.observation.records("declarations") or ()
+        if item.kind == "declared_public_api" and item.subjects == (f"sample.facade:{entry}",)
+    )
+    assert api.data.get("types") == (
+        () if declared else ("sample.facade:Hidden", "sample.facade:Own")
+    )
+    diagnostics = _public_api_diagnostics(tmp_path)
+    assert bool(diagnostics) is not declared
+    if not declared:
+        assert any("Hidden" in diagnostic.unknown_claim for diagnostic in diagnostics)
+        assert any("Own" in diagnostic.unknown_claim for diagnostic in diagnostics)
+    assert not [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "api_surface_limit"
+    ]
+
+    _commit_public_api_fixture(tmp_path, ("sample.facade:Child",) if component_public else ())
+    assert main(["validate", "--root", str(tmp_path), "--json"]) == (0 if declared else 2)
+    validation = json.loads(capsys.readouterr().out)
+    assert [item["code"] for item in validation["diagnostics"]] == (
+        [] if declared else ["api_surface.missing"] * 2
+    )
+
+
+def test_public_api_member_ambiguity_does_not_hide_known_inherited_fields(tmp_path: Path) -> None:
+    _prepare(
+        tmp_path,
+        ["sample.facade:Child"],
+        "class Hidden: pass\nclass Own: pass\nclass Own: pass\n"
+        "class Base:\n    inherited: Hidden\nclass Child(Base):\n    own: Own\n",
+    )
+    contract = json.loads((tmp_path / "contract.json").read_text())
+    contract["components"] = [
+        _component("sample", packages=["sample"], public=["sample.facade:Child"])
+    ]
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    assert any(
+        "Hidden" in diagnostic.unknown_claim for diagnostic in _public_api_diagnostics(tmp_path)
+    )
+
+
 @pytest.mark.parametrize(
     ("entries", "source", "exit_code", "status"),
     [
@@ -458,35 +564,7 @@ def test_public_api_inheritance_cli_and_report(
             else "__all__ = ['ChildPublic', 'Public']\n"
         )
     )
-    contract = json.loads((tmp_path / "contract.json").read_text())
-    component = _component("sample", packages=["sample"], public=[])
-    component["provenance"] = ["probe.md"]
-    contract["components"] = [component]
-    contract["declarations"]["public_api_provenance"] = ["probe.md"]
-    (tmp_path / "contract.json").write_text(json.dumps(contract))
-    (tmp_path / "probe.md").write_text(
-        "<!-- archkeel-component-graph -->\n```mermaid\nflowchart TD\n    sample\n```\n"
-    )
-    (tmp_path / "archkeel.toml").write_text(
-        '[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
-    )
-    for args in (
-        ["git", "init", "-q", "-b", "main"],
-        ["git", "add", "."],
-        [
-            "git",
-            "-c",
-            "user.name=Demo",
-            "-c",
-            "user.email=demo@example.invalid",
-            "-c",
-            "commit.gpgsign=false",
-            "commit",
-            "-qm",
-            "fixture",
-        ],
-    ):
-        subprocess.run(args, cwd=tmp_path, check=True, capture_output=True)
+    _commit_public_api_fixture(tmp_path)
 
     assert main(["validate", "--root", str(tmp_path), "--json"]) == exit_code
     validation = json.loads(capsys.readouterr().out)

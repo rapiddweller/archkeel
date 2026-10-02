@@ -1243,11 +1243,15 @@ class _Position(NamedTuple):
     on every branch that resolves a name and left empty on every branch that does not -- one
     walk of the annotation feeding both readers instead of each re-deriving it (AD-69's own
     Limit, closed for good).
+
+    `named_origins` retains the bare name and alias chain, excluding expanded field types,
+    so publication entry identity cannot include a component facade's nested fields (AD-131).
     """
 
     violation: str | None = None
     undecidable: str | None = None
     resolved: tuple[tuple[str, str], ...] = ()
+    named_origins: tuple[tuple[str, str], ...] = ()
     path: tuple[str, ...] = ()
     nested_annotation: str | None = None
     violations: tuple[tuple[str, tuple[str, ...], str | None, int], ...] = ()
@@ -2011,7 +2015,7 @@ def _type_alias_verdict(
     reached: tuple[tuple[str, str], ...] = (resolved,)
     alias = symbol.get("alias")
     if resolved in aliases_seen or not isinstance(alias, str) or alias == annotation:
-        return _Position(undecidable="other", resolved=reached)
+        return _Position(undecidable="other", resolved=reached, named_origins=reached)
     expanded = _boundary_type_verdict(
         alias,
         module,
@@ -2028,6 +2032,7 @@ def _type_alias_verdict(
         violation=expanded.violation,
         undecidable=expanded.undecidable,
         resolved=tuple(sorted({*reached, *expanded.resolved})),
+        named_origins=tuple(sorted({*reached, *expanded.named_origins})),
         path=expanded.path,
         nested_annotation=expanded.nested_annotation,
         violations=expanded.violations,
@@ -2125,14 +2130,14 @@ def _named_type_verdict(
     if alias is not None:
         return alias
     if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "static_constant":
-        return _Position(undecidable="other", resolved=reached)
+        return _Position(undecidable="other", resolved=reached, named_origins=reached)
     if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "dynamic_binding":
-        return _Position(undecidable="other", resolved=reached)
+        return _Position(undecidable="other", resolved=reached, named_origins=reached)
     # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
     # `class_kind` (AD-30).
     class_kind = origin_symbol["class_kind"] if isinstance(origin_symbol, dict) else None
     if class_kind == "enum":
-        return _Position(resolved=reached)
+        return _Position(resolved=reached, named_origins=reached)
     return _owned_type_verdict(
         origin_symbol,
         origin_module,
@@ -2170,12 +2175,12 @@ def _owned_type_verdict(
             if component_owns_module(component, origin_module)
         ]
         if len(claims) > 1:
-            return _Position(undecidable="other", resolved=reached)
+            return _Position(undecidable="other", resolved=reached, named_origins=(resolved,))
         if claims:
             origin_component = claims[0]
             break
     if origin_component is None:
-        return _Position(undecidable="external_type", resolved=reached)
+        return _Position(undecidable="external_type", resolved=reached, named_origins=(resolved,))
     owner_facade_proof = imports_by_binding.owner_facade_type_states.get(
         (origin_component.id, origin_module, origin_name)
     )
@@ -2184,10 +2189,10 @@ def _owned_type_verdict(
         owner_facade_proof is False
         or (owner_facade_proof is True and not isinstance(origin_symbol, dict))
     ):
-        return _Position(undecidable="unresolved_name", resolved=reached)
+        return _Position(undecidable="unresolved_name", resolved=reached, named_origins=(resolved,))
     if directly_public or owner_facade_proof is True:
         if resolved in visited:
-            return _Position(resolved=reached)
+            return _Position(resolved=reached, named_origins=(resolved,))
         fields = _declared_field_verdict(
             origin_symbol,
             origin_module,
@@ -2203,14 +2208,19 @@ def _owned_type_verdict(
             violation=fields.violation,
             undecidable=fields.undecidable,
             resolved=reached,
+            named_origins=(resolved,),
             path=fields.path,
             nested_annotation=fields.nested_annotation,
             violations=fields.violations,
             mapping_occurrences=fields.mapping_occurrences,
         )
     if class_kind in _EXEMPT_CLASS_KINDS:
-        return _Position(resolved=reached)
-    return _Position(violation=f"which {origin_component.label} does not declare", resolved=reached)
+        return _Position(resolved=reached, named_origins=(resolved,))
+    return _Position(
+        violation=f"which {origin_component.label} does not declare",
+        resolved=reached,
+        named_origins=(resolved,),
+    )
 
 
 def _annotation_shape_verdict(
@@ -4293,8 +4303,8 @@ def _public_api_base(
         verdict = _boundary_type_verdict(
             base_name, module, contract, exports, imports, classes, enter_fields=False
         )
-        if len(verdict.resolved) == 1:
-            base_origin = verdict.resolved[0]
+        if len(verdict.named_origins) == 1:
+            base_origin = verdict.named_origins[0]
             if ".".join(base_origin) in _FRAMEWORK_BASES:
                 continue
             bases.append((base_name, expression, base_origin))
@@ -4350,8 +4360,8 @@ def _public_api_generic_bindings(
         verdict = _boundary_type_verdict(
             argument.id, module, contract, exports, imports, classes, enter_fields=False
         )
-        if len(verdict.resolved) == 1:
-            resolved = verdict.resolved[0]
+        if len(verdict.named_origins) == 1:
+            resolved = verdict.named_origins[0]
         elif (
             verdict.undecidable is None
             and argument.id in _BUILTIN_NAMES
@@ -4401,16 +4411,16 @@ def public_api_exposed_types(
         for declared_module, _, declared_name in [entry.partition(":")]
     }
     declared_origins = {
-        pair for position in declared_positions.values() for pair in position.resolved
+        pair for position in declared_positions.values() for pair in position.named_origins
     }
     types: dict[str, list[str]] = {}
     for entry in public_api:
         module, _, name = entry.partition(":")
         position = declared_positions[entry]
-        ambiguous = position.undecidable == "ambiguous_binding" or _binding_is_ambiguous(
-            (module, name), imports_by_binding, classes_by_location
-        )
-        symbol = _public_api_symbol(symbols, module, name, position.resolved, ambiguous)
+        ambiguous = (
+            position.undecidable == "ambiguous_binding" and not position.named_origins
+        ) or _binding_is_ambiguous((module, name), imports_by_binding, classes_by_location)
+        symbol = _public_api_symbol(symbols, module, name, position.named_origins, ambiguous)
         if symbol is None:
             locations = {(module, name), *position.resolved}
             candidates = [
