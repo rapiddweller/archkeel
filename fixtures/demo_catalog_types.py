@@ -268,6 +268,51 @@ _BUILTIN_DICT_ALLOWED = Variant(
     expected_declared_rules="UNKNOWN",
 )
 
+
+def _direct_position_contract(*, neighbors: bool = False) -> str:
+    contract = json.loads(_dict_allowance_contract())
+    rule = next(item for item in contract["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+    del rule["allowed_positions"][0]["field_path"]
+    if neighbors:
+        app = next(item for item in contract["components"] if item["label"] == "app")
+        app["public"].append("shop.app.reports:Request")
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_DIRECT_POSITION_ALLOWED = Variant(
+    id="class-a-boundary-types-direct-default",
+    section="class_a",
+    item="boundary_types:omitted_root_path",
+    summary="Omitting field_path selects the exact direct return (AD-134, #207).",
+    files={
+        **_BUILTIN_DICT_ALLOWED.files,
+        "architecture-contract.json": _direct_position_contract(),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="UNKNOWN",
+)
+
+_DIRECT_POSITION_NEIGHBORS = Variant(
+    id="class-a-boundary-types-direct-neighbors",
+    section="class_a",
+    item="boundary_types:direct_allowance_keeps_neighbors",
+    summary="The allowed return keeps broad inputs and nested fields visible (AD-134, #207).",
+    files={
+        "shop/app/reports.py": HEADER
+        + (
+            "class Request:\n"
+            "    payload: dict[str, str]\n\n"
+            "def snapshot(context: dict[str, str], request: Request) -> dict[str, str]:\n"
+            "    return {}\n"
+        ),
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
+        "architecture-contract.json": _direct_position_contract(neighbors=True),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT", "APP-TYPES-NOT-DICT"),
+    expected_codes=("rule.violated", "rule.violated"),
+)
+
 _SHADOWED_DICT_ALLOWED = Variant(
     id="class-a-boundary-types-shadowed-dict-unknown",
     section="class_a",
@@ -758,6 +803,8 @@ VARIANTS: tuple[Variant, ...] = (
     _CONTAINED_MAPPING_SIBLINGS,
     _CONTAINED_MAPPING_UNKNOWN,
     _BUILTIN_DICT_ALLOWED,
+    _DIRECT_POSITION_ALLOWED,
+    _DIRECT_POSITION_NEIGHBORS,
     _SHADOWED_DICT_ALLOWED,
     _BOUNDARY_TYPES_MIXED_EVIDENCE,
     _BOUNDARY_TYPES_DECLARED,
