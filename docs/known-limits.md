@@ -107,6 +107,8 @@ for the same reason: the contract declared something and nothing could decide it
 other `unknowns` kind does too, except the standing disclaimers `dynamic_call_limit`,
 `context_alias_limit` and `private_attribute_access_limit`, and the same count is the
 `unknown_positions` scalar.
+An exact native `object` payload may be accepted as opaque (AD-135). Its allowance fact
+records that decision and provenance; it supplies no proof of static type closure.
 Proven standard-library mappings are broad boundary findings (AD-123), but unproven or
 malformed subscripted mapping annotations remain UNKNOWN; a bare name not proven to be a
 standard-library mapping (`from mylib import Mapping`) is judged like any other external type.

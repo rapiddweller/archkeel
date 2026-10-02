@@ -299,7 +299,7 @@
             "if": {"properties": {"field_path": {"const": ""}}},
             "then": {
               "properties": {
-                "annotation": {"not": {"enum": ["Dict", "object", "Mapping", "MutableMapping"]}}
+                "annotation": {"not": {"enum": ["Dict", "Mapping", "MutableMapping"]}}
               }
             }
           }
