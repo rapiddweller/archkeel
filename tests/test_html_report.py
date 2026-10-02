@@ -452,7 +452,7 @@ def test_html_report_locates_a_cited_file_without_a_line(tmp_path: Path) -> None
     """AD-107: an empty initializer is cited as its file, never as a line 0 that does not exist."""
     page = _shop_sample_report(tmp_path, "class-a-root-layout-empty-package")
 
-    assert "<td><code>shop/extra/__init__.py</code></td>" in page
+    assert "<td><code>shop/extra/__init__.py</code>" in page
     assert "shop/extra/__init__.py:0" not in page
 
 

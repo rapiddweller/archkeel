@@ -144,6 +144,12 @@ unless the check has already classified them as a failure.
 
 ### Component dependencies
 
+- Verdicts, findings and analysis limits precede exploration. Section links provide direct access.
+  Finding links reveal collapsed or filtered records. Each finding retains all cited source evidence
+  and a copyable packet bound to the analyzed commit, source digest and contract. Native disclosure
+  and text selection work without JavaScript; clipboard failure falls back to selection.
+  Actual/Target Diff compares code with a contract; the check page compares accepted and candidate
+  states. An unavailable comparison must not claim that no changes occurred (AD-130).
 - The observed flow has three views at the same breadcrumb level: focused UML diagram to explain
   interfaces, physical structure map to find modules, and a connection-first review queue.
   The diagram starts with every group and connection at the current level. Selecting a focus

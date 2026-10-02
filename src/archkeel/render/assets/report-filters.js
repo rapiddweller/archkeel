@@ -39,3 +39,37 @@
   form.hidden = false;
   apply();
 })();
+(() => {
+  for (const button of document.querySelectorAll("[data-copy-review]")) {
+    button.hidden = false;
+    button.addEventListener("click", async () => {
+      const box = button.parentElement.querySelector("textarea");
+      const status = button.parentElement.querySelector("output");
+      box.focus();
+      box.select();
+      try {
+        await navigator.clipboard.writeText(box.value);
+        status.textContent = "Copied.";
+      } catch {
+        status.textContent = "Selected. Press Ctrl+C or Cmd+C to copy.";
+      }
+    });
+  }
+  const reveal = () => {
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+    const target = document.getElementById(id);
+    if (!target || !target.hasAttribute("data-finding-id")) return;
+    const filters = document.querySelector("[data-report-filters]");
+    if (filters) filters.reset();
+    for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+      if (parent.tagName === "DETAILS") parent.open = true;
+    }
+    requestAnimationFrame(() => {
+      target.scrollIntoView();
+      target.focus();
+    });
+  };
+  window.addEventListener("hashchange", reveal);
+  reveal();
+})();

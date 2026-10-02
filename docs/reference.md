@@ -384,6 +384,11 @@ measures no calls (AD-97), so `--only calls` on a Dart scan is exit 2
 `rule_unsupported_by_profile` rather than an empty list, and `check` leaves
 `unresolved_call_changes` `null` there.
 
+Findings include links and copyable evidence with all cited excerpts, the analyzed commit,
+source digest and contract binding. Links reveal collapsed records and reset local filters.
+Without JavaScript, expand the evidence and copy the text manually. Source locations refer
+to the analyzed snapshot, including its dirty-state digest, rather than the latest remote file.
+
 An unfiltered HTML page with violations also has a local `Violations only` control (AD-75). It
 keeps the verdicts, failures, known unknowns, violations and complete evidence access visible
 while hiding secondary report detail. The Component flow control narrows only graph edges at the

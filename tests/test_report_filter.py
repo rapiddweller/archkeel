@@ -216,8 +216,8 @@ def test_only_violations_hides_every_other_section(tmp_path: Path) -> None:
     assert 'data-report-filter="true"' in page
     assert "Filtered (only violations): 20 of 20 violation(s) shown." in page
     assert "Declared-rule violations" in page
-    assert "Component dependencies" not in page
-    assert "Cross-component imports" not in page
+    assert "<h2>Component dependencies" not in page
+    assert "<h2>Cross-component imports" not in page
     assert "Known unknowns" not in page
     assert "Size and coupling" not in page
     assert "Review claim" not in page

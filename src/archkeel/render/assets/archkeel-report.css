@@ -46,6 +46,43 @@ a {
   outline: 2px solid var(--ck-teal);
   outline-offset: 3px;
 }
+.review-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 16px 0 24px;
+}
+[data-finding-id]:target {
+  outline: 2px solid var(--ck-teal);
+  outline-offset: -2px;
+}
+.review-handoff {
+  margin-top: 8px;
+}
+.review-handoff textarea {
+  display: block;
+  width: 100%;
+  min-width: 240px;
+  height: 20rem;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--ck-border);
+  background: var(--ck-surface-raised);
+  color: var(--ck-text);
+  font: 12px/1.5 var(--ck-font-mono);
+  resize: vertical;
+}
+.review-handoff button {
+  padding: 8px 12px;
+  border: 1px solid var(--ck-border);
+  background: var(--ck-surface-raised);
+  color: var(--ck-text);
+  cursor: pointer;
+}
+.review-handoff output {
+  display: block;
+  margin-top: 8px;
+}
 .report-header {
   display: flex;
   align-items: center;
