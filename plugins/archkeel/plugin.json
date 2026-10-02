@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "archkeel",
+  "description": "Declare architecture boundaries and check coding-agent changes with Archkeel.",
+  "author": { "name": "Rapiddweller Asia Co., Ltd." },
+  "repository": "https://github.com/rapiddweller/archkeel",
+  "license": "MIT",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Archkeel",
+        "shortDescription": "Check architecture boundaries",
+        "longDescription": "Use the Archkeel CLI to inspect a repository, review architecture contracts, and check coding-agent changes. Python static analysis and the Dart import graph have explicit limits; missing evidence remains UNKNOWN. Requires the Archkeel CLI installed separately.",
+        "developerName": "Rapiddweller",
+        "category": "Developer Tools",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://github.com/rapiddweller/archkeel",
+        "defaultPrompt": ["Use Archkeel to review architecture boundaries in this repository."],
+        "composerIcon": "./assets/archkeel-mark.svg",
+        "logo": "./assets/archkeel-mark.svg",
+        "brandColor": "#C5F82A"
+      }
+    }
+  }
+}

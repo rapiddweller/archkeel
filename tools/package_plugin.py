@@ -4,6 +4,7 @@
 """Export a skills-only plugin from the same source the CLI installs."""
 
 import argparse
+import json
 import shutil
 from pathlib import Path
 
@@ -26,6 +27,13 @@ def main() -> None:
     claude = target / ".claude-plugin"
     claude.mkdir()
     shutil.copyfile(ROOT / ".claude-plugin/plugin.json", claude / "plugin.json")
+    metadata = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))
+    interface = metadata["extensions"]["com.openai"]["interface"]
+    (target / "README.md").write_text(
+        f"# {interface['displayName']}\n\n{metadata['description']}\n\n"
+        f"{interface['longDescription']}\n",
+        encoding="utf-8",
+    )
     assets = target / "assets"
     assets.mkdir()
     shutil.copyfile(
