@@ -82,5 +82,5 @@ def test_every_flowchart_and_graph_block_quotes_special_node_labels() -> None:
             for label in unsafe_node_labels(line):
                 failures.append(f"{path}:{start_line + offset}: {label}")
     assert failures == []
-    # Sanity check: the extraction actually found the file this check exists for.
-    assert "docs/onboarding.md" in seen_paths
+    # The architecture contract graph must be included in the scan.
+    assert "docs/architecture/archkeel.md" in seen_paths
