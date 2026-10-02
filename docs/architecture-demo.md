@@ -28,8 +28,9 @@ requirement cycles. Frames describe layout, not semantic ownership. Placement is
 `inferred`, `multiple`, `ambiguous` or `unmapped`; exact `public` and `requires.through` remain
 declaration details. A null dependency rank can mean a cycle or a dependent of one, so it does not
 name an SCC or change the architecture verdict. Browser acceptance checks 100% initial zoom, native
-scrolling, collapsed Details, and selection identity across Actual, Target and Diff. The CE preview
-was accepted on 1 October; the report does not certify CE completion.
+scrolling, collapsed Details, and selection identity across Actual, Target and Diff. Ranked
+components share width-aware rows; owner Details holds rule metadata. Target Fit keeps readable
+names and scrolls larger scopes (AD-139). The report does not certify CE completion.
 
 `make report-browser OUTPUT=<fresh-directory>` captures the current README views. The independent
 browser tests also cover a native dragged no-route case: selected Details exposes a separate layout

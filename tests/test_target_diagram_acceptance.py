@@ -897,12 +897,10 @@ def test_target_diagram_is_visible_and_drillable_without_filter_status(tmp_path:
                 )
             }
             assert {"api", "backend", "codec", "repository"} <= nested_labels
-            assert "package:COMP-STORE:shop.store" in {
-                node_id
-                for node_id in page.locator(".flow-nodes .node").evaluate_all(
-                    "nodes => nodes.map(node => node.getAttribute('data-target-node'))"
-                )
-            }
+            page.locator(".flow-details-toggle").click()
+            assert page.locator('[data-target-detail="package:COMP-STORE:shop.store"]').count() == 1
+            assert page.locator(".flow-nodes .target-node.package").count() == 0
+            page.locator(".flow-details-toggle").click()
             assert page.locator(".flow-breadcrumb").inner_text() == "Target\n/\nshop\n/\nstore"
             assert page.locator(".flow-edges .edge").count() > 0
             assert (
@@ -963,13 +961,14 @@ def test_target_physical_path_survives_actual_diff_round_trip(tmp_path: Path) ->
             page.locator(".flow-open-selected").click()
             _open_target_node(page, '[data-target-node="COMP-STORE"]')
             _open_target_node(page, '[data-target-node="store:COMP-STORE-BACKEND"]')
+            page.locator(".flow-details-toggle").click()
             page.locator(
-                '[data-target-node="package:store:COMP-STORE-BACKEND:shop.store.backend"]'
-            ).click()
+                '[data-target-detail="package:store:COMP-STORE-BACKEND:shop.store.backend"]'
+            ).press("Enter")
 
             breadcrumb = page.locator(".flow-breadcrumb").inner_text()
-            selection = page.locator(".target-node.selected").evaluate_all(
-                "nodes => nodes.map(node => node.dataset.targetNode)"
+            selection = page.locator('[data-target-detail][aria-pressed="true"]').evaluate_all(
+                "nodes => nodes.map(node => node.dataset.targetDetail)"
             )
             assert breadcrumb == "Target\n/\nshop\n/\nstore\n/\nbackend"
             assert selection == ["package:store:COMP-STORE-BACKEND:shop.store.backend"]
@@ -979,8 +978,8 @@ def test_target_physical_path_survives_actual_diff_round_trip(tmp_path: Path) ->
 
             assert page.locator(".flow-breadcrumb").inner_text() == breadcrumb
             assert (
-                page.locator(".target-node.selected").evaluate_all(
-                    "nodes => nodes.map(node => node.dataset.targetNode)"
+                page.locator('[data-target-detail][aria-pressed="true"]').evaluate_all(
+                    "nodes => nodes.map(node => node.dataset.targetDetail)"
                 )
                 == selection
             )
@@ -989,7 +988,9 @@ def test_target_physical_path_survives_actual_diff_round_trip(tmp_path: Path) ->
             browser.close()
 
 
-def test_target_dependency_order_crosses_physical_frames(tmp_path: Path) -> None:
+def test_target_ranked_components_remain_distinct_in_physical_frames(
+    tmp_path: Path,
+) -> None:
     page_html, payload = _target_diagram_page(tmp_path, cross_frame_chain=True)
     graph = payload["explorers"]["target_diagrams"]["root"]
     components = {node["id"]: node for node in graph["nodes"] if node["kind"] == "component"}
@@ -1019,8 +1020,16 @@ def test_target_dependency_order_crosses_physical_frames(tmp_path: Path) -> None
                 "nodes => Object.fromEntries(nodes.map(node => [node.dataset.targetNode, "
                 "Number(node.getAttribute('transform').match(/,([\\d.-]+)\\)/)[1])]))"
             )
-            assert y_positions["COMP-RUNTIME"] < y_positions["COMP-A-DOMAINS"]
-            assert y_positions["COMP-A-DOMAINS"] < y_positions["COMP-IO"]
+            assert y_positions["COMP-RUNTIME"] == 0
+            assert y_positions["COMP-IO"] >= 0
+            assert y_positions["COMP-A-DOMAINS"] == 0
+            x_positions = page.locator(
+                '[data-target-node="COMP-RUNTIME"], [data-target-node="COMP-IO"]'
+            ).evaluate_all(
+                "nodes => nodes.map(node => Number(node.getAttribute('transform')"
+                r".match(/translate\(([\d.-]+)/)[1]))"
+            )
+            assert len(set(x_positions)) == 2 or y_positions["COMP-IO"] > 0
         finally:
             browser.close()
 
@@ -1615,7 +1624,7 @@ def test_target_cycle_warning_clears_frameless_residual_cards(tmp_path: Path) ->
             browser.close()
 
 
-def test_target_acyclic_rank_coordinates_do_not_gain_caption_band(tmp_path: Path) -> None:
+def test_target_acyclic_ranks_share_a_row_without_a_cycle_caption(tmp_path: Path) -> None:
     page_html, payload = _target_diagram_page(tmp_path, cross_frame_chain=True)
     graph = payload["explorers"]["target_diagrams"]["root"]
     nodes = {node["id"]: node for node in graph["nodes"]}
@@ -1643,7 +1652,7 @@ def test_target_acyclic_rank_coordinates_do_not_gain_caption_band(tmp_path: Path
                   .getBBox().height})"""
             )
             assert positions["positions"]["COMP-A-DOMAINS"] == 0
-            assert positions["positions"]["COMP-IO"] == positions["cardHeight"] + 34
+            assert positions["positions"]["COMP-IO"] == 0
             assert page.locator(".target-cycle-warning").count() == 0
         finally:
             browser.close()

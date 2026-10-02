@@ -100,8 +100,9 @@ _TARGET_HIERARCHY_NOTE = (
     "`requires.through` remain declaration details. A null dependency rank can mean a cycle or a "
     "dependent of one, so it does not name an SCC or change the architecture verdict. Browser "
     "acceptance checks 100% initial zoom, native scrolling, collapsed Details, and selection "
-    "identity across Actual, Target and Diff. The CE preview was accepted on 1 October; the "
-    "report does not certify CE completion."
+    "identity across Actual, Target and Diff. Ranked components share width-aware rows; owner "
+    "Details holds rule metadata. Target Fit keeps readable names and scrolls larger scopes "
+    "(AD-139). The report does not certify CE completion."
 )
 _BROWSER_NOTE = (
     "`make report-browser OUTPUT=<fresh-directory>` captures the current README views. The "

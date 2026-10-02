@@ -359,7 +359,7 @@ def test_physical_side_detour_keeps_endpoint_normals_and_avoids_unrelated_cards(
         playwright.stop()
 
 
-def test_upward_target_edge_exits_side_before_engine_header(tmp_path: Path) -> None:
+def test_upward_target_edge_attaches_outward_and_clears_engine_header(tmp_path: Path) -> None:
     page_html, payload = _cross_frame_domains_page(tmp_path)
     _add_external_target_owners(payload)
     graph = payload["explorers"]["target_diagrams"]["root"]
@@ -374,6 +374,19 @@ def test_upward_target_edge_exits_side_before_engine_header(tmp_path: Path) -> N
             "target": "COMP-AUTHORING",
         }
     )
+    # Fill the engine row so the upward edge still exercises the header route.
+    fillers = [
+        {
+            "id": f"COMP-FILL-{index:02}",
+            "kind": "component",
+            "label": f"fill {index}",
+            "dependency_rank": 0,
+            "details": [],
+        }
+        for index in range(16)
+    ]
+    graph["nodes"].extend(fillers)
+    graph["containers"]["layout:LAYOUT-ENGINE"]["members"].extend(node["id"] for node in fillers)
     page_html = _replace_flow_payload(page_html, payload)
 
     playwright_api = pytest.importorskip("playwright.sync_api")
@@ -441,7 +454,7 @@ def test_upward_target_edge_exits_side_before_engine_header(tmp_path: Path) -> N
             "source": source_box,
             "target": target_box,
         }
-        assert route["sourceSide"] in {"left", "right"}, route
+        assert route["sourceSide"] in {"left", "right", "top"}, route
         assert route["sourceOutward"] >= route["step"] / 2, route
         assert not route["crossesHeader"], route
         assert route["d"] == route["hit"], route
