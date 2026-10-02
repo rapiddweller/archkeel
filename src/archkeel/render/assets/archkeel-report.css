@@ -1560,3 +1560,20 @@ code {
     background: transparent;
   }
 }
+
+.flow-inspector [data-target-detail] {
+  display: block;
+  width: 100%;
+  padding: .4rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--ck-teal);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.flow-inspector [data-target-detail]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

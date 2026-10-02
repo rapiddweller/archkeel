@@ -379,7 +379,7 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
                 " const matrix = path.getScreenCTM();"
                 " if (!length || !matrix) return null;"
                 " const edge = path.closest('[data-target-edge]');"
-                " for (let ratio = 0.2; ratio <= 0.8; ratio += 0.05) {"
+                " for (let ratio = 0.01; ratio <= 0.99; ratio += 0.01) {"
                 " const p = path.getPointAtLength(length * ratio);"
                 " const s = new DOMPoint(p.x, p.y).matrixTransform(matrix);"
                 " const under = document.elementFromPoint(s.x, s.y);"

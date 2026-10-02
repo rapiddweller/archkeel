@@ -270,15 +270,11 @@ def _check_target_navigation(page: Page, output: Path, width: int) -> None:
             page.keyboard.press("Enter")
             assert page.locator(".flow-inspector").get_by_text("Rationale").is_visible()
     assert page.locator(".flow-inspector").is_visible()
-    assert page.locator(".flow-edges .target-edge").count() > 0
-    line = page.locator(".flow-edges .target-edge .line").first
-    assert line.evaluate("element => getComputedStyle(element).stroke") != "none"
-    assert (
-        float(line.evaluate("element => getComputedStyle(element).strokeWidth.replace('px', '')"))
-        < 3
-    )
-    package_scope = page.locator('.flow-nodes .node[data-label="shop.store.backend.tasks.source"]')
+    package_scope = page.get_by_role("button", name="shop.store.backend.tasks.source", exact=True)
     assert package_scope.is_visible()
+    package_scope.press("Enter")
+    assert "shop.store.backend.tasks.source" in page.locator(".flow-inspector-content").inner_text()
+    assert page.locator(".flow-nodes .target-node.package").count() == 0
     page.screenshot(path=str(output / f"target-sources-{width}.png"), full_page=False)
     page.locator(".flow-details-toggle").click()
     page.keyboard.press("Escape")

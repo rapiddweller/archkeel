@@ -89,6 +89,19 @@
     setTargetDetails(!targetDetailsOpen);
   });
 
+  inspectorContent.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-target-detail]");
+    if (!button) return;
+    targetSelection = button.dataset.targetDetail;
+    selectSubject(targetNode(targetSelection));
+    render();
+    const heading = inspectorContent.querySelector("h2");
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus();
+    }
+  });
+
   // ponytail: pointer capture is best-effort. A browser can refuse it (no active pointer, an
   // already-captured element); the drag/pan state machine below tolerates that silently.
   function capturePointer(target, event) {
@@ -1572,7 +1585,7 @@
       const sy = sPos.y + CARD.h;
       const drop = sy + 56 + Math.abs(laneOffset) + (laneOffset < 0 ? LANE_GAP / 2 : 0);
       const dir = Math.sign(tx - sx) || 1;
-      const end = sy + 6;
+      const end = viewMode === "target" ? sy : sy + 6;
       const points = [[sx, sy], [sx, drop], [tx, drop], [tx, end]];
       const direct = {
         d: `M${sx},${sy} V${drop - 8} Q${sx},${drop} ${sx + dir * 8},${drop} H${tx - dir * 8} Q${tx},${drop} ${tx},${drop - 8} V${end}`,
@@ -1586,7 +1599,7 @@
     const dir = Math.sign(tx - sx);
     const vdir = Math.sign(endY - startY) || 1;
     const r = Math.min(10, Math.abs(tx - sx) / 2);
-    const end = targetAnchor ? endY : endY - vdir * 6;
+    const end = targetAnchor || viewMode === "target" ? endY : endY - vdir * 6;
     const frameSideLead = (frame, anchor) => [
       anchor.x + (anchor.x === frame.left ? -14 : 14), anchor.y,
     ];
@@ -1611,9 +1624,13 @@
   }
 
   function routeAroundHeaders(direct, points, sx, sy, tx, end, headers, edge, frames) {
-    if (!headers.length || routePointsClear(points, headers, 10)) return direct;
     const cards = Object.entries(positions).filter(([id, position]) =>
       !frames[id] && Number.isFinite(position.x) && Number.isFinite(position.y));
+    const obstacles = viewMode === "target" ? [...headers, ...cards
+      .filter(([id]) => id !== edge.source && id !== edge.target)
+      .map(([, position]) => ({left: position.x, right: position.x + CARD.w,
+        top: position.y, bottom: position.y + CARD.h}))] : headers;
+    if (!obstacles.length || routePointsClear(points, obstacles, 10)) return direct;
     const allLeft = Math.min(...[
       ...headers.map((header) => header.left),
       ...cards.map(([, position]) => position.x),
@@ -1870,6 +1887,19 @@
       ? `<p class="flow-projection-context">Context: ${esc(projectionContext)}</p>` : "";
     const children = (node?.children || DATA.explorers?.target || [])
       .filter((child) => ["component", "module_target"].includes(child.kind));
+    const detailOwner = ["package_scope", "root_layout", "requires"].includes(node?.kind)
+      ? projectionNodes(DATA.explorers?.target || [])
+        .find((entry) => entry.node.children?.some((child) => child.id === node.id))?.node
+      : node;
+    const metadata = [...new Map([
+      ...(detailOwner?.children || []),
+      ...(placement?.folded || []).map((frame) => targetNode(frame.id)).filter(Boolean),
+    ].filter((child) => ["package_scope", "root_layout", "requires"].includes(child.kind))
+      .map((child) => [child.id, child])).values()];
+    const contractDetails = metadata.length
+      ? `<h3>Contract details</h3><ul class="plain">${metadata.map((child) =>
+        `<li><button type="button" data-target-detail="${esc(child.id)}" aria-pressed="${String(targetSelection === child.id)}">${esc(child.label)}</button></li>`
+      ).join("")}</ul>` : "";
     const overview = children.length
       ? `<h3>Responsibilities at this level</h3><ul class="plain target-responsibility-overview">${children.map((child) => {
         const sentence = child.details?.find((detail) => detail.label === "Responsibility")?.value
@@ -1924,7 +1954,7 @@
           ? `<dt>Canonical scope</dt><dd><code>${esc(container.scope)}</code></dd>` : ""}</dl>`
         : container?.scope
           ? `<dl class="kv"><dt>Canonical scope</dt><dd><code>${esc(container.scope)}</code></dd></dl>`
-        : "<p>No additional details recorded.</p>"}${placementDetails}${context}${overview}${routeWarning}`;
+        : "<p>No additional details recorded.</p>"}${placementDetails}${context}${overview}${contractDetails}${routeWarning}`;
   }
 
   function targetCardMetrics(graphNodes) {
@@ -1985,16 +2015,11 @@
     physical.forEach((ids) => ids.sort());
 
     const rankNodes = graphNodes.filter((node) => node.kind === "component");
-    const visibleRanks = [...new Set(rankNodes
-      .map((node) => node.dependency_rank)
-      .filter((rank) => rank !== null))].sort((left, right) => left - right);
-    const rowByRank = new Map(visibleRanks.map((rank, index) => [rank, index]));
-    const residualRow = visibleRanks.length;
+    const residualRow = 1;
     const step = CARD.w + GAP;
     const availableColumns = Math.max(1, Math.floor((canvas.clientWidth - 64 + GAP) / step));
-    const maxColumns = targetPath.length > 0 ? Math.max(2, availableColumns) : availableColumns;
     const rowFor = (node) => node.kind === "component"
-      ? node.dependency_rank === null ? residualRow : rowByRank.get(node.dependency_rank)
+      ? node.dependency_rank === null ? residualRow : 0
       : residualRow + 1;
     const itemsFor = (id) => [
       ...(containers[id].members || []).filter((member) => byId.has(member)),
@@ -2009,6 +2034,9 @@
       && !containerMembers.has(node.id) && !rankNodes.includes(node),
     ).sort((left, right) => left.id.localeCompare(right.id));
     laneItems.set("@inventory", inventory.map((node) => node.id));
+    const totalItems = [...laneItems.values()].reduce((sum, items) => sum + items.length, 0);
+    const columnsByLane = new Map([...laneItems].map(([id, items]) =>
+      [id, Math.max(1, Math.ceil(availableColumns * items.length / Math.max(1, totalItems)))]));
     const groupedRows = new Map();
     for (const [lane, identifiers] of laneItems) {
       const grouped = new Map();
@@ -2017,7 +2045,9 @@
         if (!grouped.has(row)) grouped.set(row, []);
         grouped.get(row).push(identifier);
       });
-      for (const ids of grouped.values()) ids.sort();
+      for (const ids of grouped.values()) ids.sort((left, right) =>
+        (byId.get(left).dependency_rank ?? 0) - (byId.get(right).dependency_rank ?? 0)
+        || left.localeCompare(right));
       groupedRows.set(lane, grouped);
     }
     const laneOrder = [...laneItems.keys()];
@@ -2029,17 +2059,17 @@
     rankedRows.forEach((rankRow) => {
       let rowHeight = 0;
       for (const lane of laneOrder) {
-        const count = Math.ceil((groupedRows.get(lane).get(rankRow)?.length || 0) / maxColumns);
+        const count = Math.ceil((groupedRows.get(lane).get(rankRow)?.length || 0)
+          / columnsByLane.get(lane));
         rowHeight = Math.max(rowHeight, count);
       }
       rowStarts.set(rankRow, nextRow);
       rowHeights.set(rankRow, Math.max(1, rowHeight));
       nextRow += rowHeights.get(rankRow);
     });
-    const rowOffset = (row, ids) =>
-      targetPath.length > 0 && ids.length === 1 ? row % 2 : 0;
     const rowsFor = (id) => {
       const rows = new Map();
+      const maxColumns = columnsByLane.get(id);
       const grouped = groupedRows.get(id);
       [...grouped.keys()].sort((left, right) => left - right).forEach((rankRow) => {
         const ids = grouped.get(rankRow);
@@ -2069,8 +2099,7 @@
       + (row >= residualRowStart ? captionBand : 0);
     const laneWidth = (id) => {
       const rows = rowsFor(id);
-      const columns = Math.max(1, ...[...rows].map(([row, ids]) =>
-        ids.length + rowOffset(row, ids)));
+      const columns = Math.max(children.get(id).length ? 0 : 1, ...[...rows].map(([, ids]) => ids.length));
       const childWidths = children.get(id).map(laneWidth);
       const ownWidth = columns * step;
       return ownWidth + childWidths.reduce((sum, width) => sum + width + GAP, 0);
@@ -2082,12 +2111,11 @@
     const placeLane = (id, x, y = 0) => {
       const container = containers[id];
       const rows = rowsFor(id);
-      const rowWidth = Math.max(1, ...[...rows].map(([row, ids]) =>
-        ids.length + rowOffset(row, ids)));
+      const rowWidth = Math.max(children.get(id).length ? 0 : 1, ...[...rows].map(([, ids]) => ids.length));
       rows.forEach((items, row) => items.forEach((identifier, index) => {
         if (!placed.has(identifier)) {
           nextPositions[identifier] = {
-            x: x + (index + rowOffset(row, items)) * step,
+            x: x + index * step,
             y: y + rowY(row),
           };
         }
@@ -2133,13 +2161,12 @@
       placeLane(id, x, y);
       x += laneWidth(id) + GAP;
     }
-    let unplacedWidth = 1;
+    let unplacedWidth = 0;
     rowsFor("@unplaced").forEach((nodes, row) => {
-        const offset = rowOffset(row, nodes);
-        unplacedWidth = Math.max(unplacedWidth, nodes.length + offset);
+        unplacedWidth = Math.max(unplacedWidth, nodes.length);
         nodes.forEach((identifier, column) => {
           nextPositions[identifier] = {
-            x: x + (column + offset) * step,
+            x: x + column * step,
             y: y + rowY(row),
           };
           placed.add(identifier);
@@ -2147,10 +2174,9 @@
     });
     x += unplacedWidth * step;
     rowsFor("@inventory").forEach((nodes, row) => {
-      const offset = rowOffset(row, nodes);
       nodes.forEach((identifier, index) => {
         nextPositions[identifier] = {
-          x: x + (index + offset) * step,
+          x: x + index * step,
           y: y + rowY(row),
         };
       });
@@ -2202,7 +2228,9 @@
     const focusedEdge = document.activeElement.closest("[data-target-edge]")?.dataset.targetEdge;
     const current = targetNode(targetPath.at(-1));
     const graph = targetGraphFor(current);
-    const graphNodes = graph?.nodes || [];
+    const graphNodes = (graph?.nodes || []).filter((node) =>
+      !["package_scope", "requires", "root_layout"].includes(node.kind)
+      || graph.containers?.[node.id]);
     const cardMetrics = targetCardMetrics(graphNodes);
     const layout = targetLayout(graph, graphNodes);
     positions = layout.positions;
@@ -2291,7 +2319,8 @@
       nodeLayer.appendChild(group);
     });
 
-    const edges = graph?.edges || [];
+    const edges = (graph?.edges || []).filter((edge) =>
+      positions[edge.source] && positions[edge.target]);
     const lanes = groupBy(edges, laneKey);
     lanes.forEach((bucket) => bucket.sort((a, b) =>
       positions[a.source].x - positions[b.source].x || positions[a.target].x - positions[b.target].x));
@@ -2486,7 +2515,7 @@
     const scopeHint = document.createElement("span");
     scopeHint.className = "flow-legend-hint";
     scopeHint.dataset.scopeCount = `${graphNodes.length}/${graphNodes.length}`;
-    scopeHint.textContent = `${graphNodes.length} of ${graphNodes.length} items shown in this scope · scroll to see all`;
+    scopeHint.textContent = `${graphNodes.length} diagram items · contract metadata in owner details · scroll to see all`;
     legend.appendChild(scopeHint);
     inspector.hidden = !targetDetailsOpen;
     renderTargetInspector(graph);
@@ -3459,6 +3488,7 @@
       canvas.clientWidth / (bounds.width + 64),
       canvas.clientHeight / (bounds.height + 64),
     );
+    if (viewMode === "target") transform.k = Math.max(0.81, transform.k);
     diagramOrigin = null;
     sizeDiagram();
     canvas.scrollLeft = 0;
