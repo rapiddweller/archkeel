@@ -102,6 +102,8 @@ the conforming case.
 | class_a | allowed_dependency:duplicate | class-a-allowed-dependency-duplicate | validate/report run | - | closed_world.duplicate | architecture-contract.json |
 | class_a | decision:conflict | class-a-decision-conflict | validate/report run | DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT, DEP-STORE-NO-MODEL-CONFLICT | closed_world.observed_forbidden, decision.conflict, rule.violated, rule.violated, rule.violated | architecture-contract.json |
 | class_a | sibling_isolation:peer import | class-a-sibling-isolation | validate/report run | STORE-PEERS-ISOLATED | rule.violated | shop/store/architecture-contract.json, shop/store/sqlite.py |
+| class_a | interface_boundary:public method type | class-a-interface-public-method-type | validate/report run | - | - | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
+| class_a | interface_boundary:private method type | class-a-interface-private-method-type | validate/report run | - | interface.unused | architecture-contract.json, shop/app/reports.py, shop/cli/main.py |
 | class_a | interface_boundary:underscore | class-a-interface-boundary-underscore | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:undeclared symbol | class-a-interface-boundary-undeclared-symbol | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/cli/main.py |
 | class_a | interface_boundary:whole-module import | class-a-interface-boundary-whole-module | validate/report run | INTERFACE-BOUNDARY | rule.violated | shop/app/maintenance_report.py |

@@ -52,12 +52,12 @@ returns exit 2. Historical observations without runtime provenance remain readab
 The observation carries a `references` section beside `calls`: every use of a scanned symbol
 that is not a call, such as a function put into a table, passed as an argument or read as a
 property, with the symbols it resolves to (AD-26). Call metrics stay untouched, because coverage
-counts the `calls` section alone. A function record in the `symbols` section carries
-`facade_types` when the function is part of its component's declared `public` list and at least
-one of its parameter or return annotations resolves, and on a class for a proven direct inherited
-generic method signature (AD-121): the dotted `module.Name` origins that signature exposes,
-resolved by `boundary_types` (AD-63) and read back by `validate`'s unused-entry check (AD-65).
-Ambiguous inherited candidates are tracked separately and do not count as proven publication.
+counts the `calls` section alone.
+
+`facade_types` on symbol records names the resolved types in declared functions, public
+methods of published classes, and proven direct inherited generic methods (AD-65, AD-121).
+`validate` reads these same dotted `module.Name` origins for unused-entry checks. Private
+methods and unpublished classes do not count. Ambiguous inherited candidates stay separate.
 An observation written before a section existed no longer
 decodes and fails closed with the missing section named (AD-3).
 

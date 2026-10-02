@@ -24,5 +24,9 @@ The self-observation keeps its existing measured values (`unknown_positions: 48`
 The earlier AD-121 budget amendment for `alias.name.split` and `base_root` remains recorded in
 `ad-121-budget-amendment.json`; this inherited-generic proof adds no unresolved calls.
 
-Check: boundary-type and inherited-generic tests, `make self-observation`, and
+Public method return types also count as interface usage at each declared contract level;
+private methods and unpublished classes do not (#201). The interface demo includes both cases.
+
+Check: `tests/test_class_method_publication.py`, boundary-type and inherited-generic tests,
+`make self-observation`, and
 `archkeel validate --root . --baseline architecture-baseline.json`.
