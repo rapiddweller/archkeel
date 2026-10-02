@@ -9,6 +9,8 @@ import tomllib
 from collections.abc import Iterator
 from pathlib import Path
 
+from archkeel.ir.lock import LOCK_PATH
+
 ROOT = Path(__file__).parents[1]
 HEADER = "\n".join(
     (
@@ -233,7 +235,8 @@ def test_decision_index_matches_decision_files() -> None:
 def test_repository_root_holds_no_stray_file() -> None:
     """Generated output is invisible to every other guard: it is valid text at a plausible path."""
     tracked = frozenset(path.name for path in TRACKED if path.parent == ROOT)
-    assert sorted(tracked - ROOT_FILES) == []
+    # CI adds the accepted lock after source approval.
+    assert sorted(tracked - ROOT_FILES - {LOCK_PATH}) == []
     assert sorted(ROOT_FILES - tracked) == []
 
 
