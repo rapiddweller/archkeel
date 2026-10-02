@@ -3357,7 +3357,7 @@ def _boundary_type_allowance_fact(
         direct_match = (
             not allowance.field_path
             and data["reason"] == _BROAD_BOUNDARY_REASON
-            and "nested_annotation" in data
+            and ("nested_annotation" in data or annotation == "object")
             and data.get("container_depth", 0) == 0
             and root_broad_count == 1
         )
@@ -3413,6 +3413,7 @@ def _boundary_type_allowance_fact_record(
     is_contained: bool,
 ) -> RawRecord:
     data = record["data"]
+    opaque = not allowance.field_path and allowance.annotation == "object"
     allowance_scope = (
         "unique contained mapping " if is_contained else "nested " if allowance.field_path else ""
     )
@@ -3437,16 +3438,23 @@ def _boundary_type_allowance_fact_record(
                 if is_contained
                 else ""
             )
+            + (
+                f" at {allowance.position}; accepted opacity, type closure remains unproven"
+                if opaque
+                else ""
+            )
         ),
         subjects=[allowance.qualified_name, facade_module],
         evidence_ids=record["evidence_ids"],
         rule_ids=[rule.id],
         fact_ids=record["fact_ids"],
+        provenance=list(rule.provenance) if opaque else None,
         data={
             "qualified_name": allowance.qualified_name,
             "position": allowance.position,
             "field_path": allowance.field_path,
             "annotation": allowance.annotation,
+            **({"accepted_opacity": True} if opaque else {}),
             **(
                 {
                     "nested_annotation": data["nested_annotation"],

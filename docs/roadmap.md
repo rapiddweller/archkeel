@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Exact native `object` payload positions accept opacity with decision provenance; controls and UNKNOWNs remain visible (AD-135, #229) | `tests/test_boundary_type_native_payloads.py`; `tests/test_widening.py`; native payload/control catalog variants |
 | Omitted boundary allowance paths select the exact direct position without changing nested selectors or canonical digests (AD-134, #207) | `tests/test_boundary_type_direct_defaults.py`; `tests/test_widening.py`; `fixtures/demo_catalog_types.py` |
 | Report review starts with findings and limits; finding links and copyable packets retain snapshot evidence; absent comparison stays unavailable (AD-130, #236) | `tests/test_review_surface.py`; `make report-browser` |
 | Codex and Claude install the same native skill; Codex migrates its managed AGENTS block without changing user bytes; a skills-only bundle exports that source (AD-129, #236) | `tests/test_skill.py`; `tests/smoke_test.py`; `make plugin OUTPUT=<new directory>` |

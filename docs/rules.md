@@ -431,9 +431,11 @@ Neither selector hides an unresolved union or mapping member.
 A direct-map allowance applies only when the signature has one top-level broad-type
 finding; it never covers a nested map or an undeclared member. Multiple
 top-level broad findings leave that allowance unused. A root `annotation` cannot be a bare
-`Dict`, `object`, `Mapping` or `MutableMapping`; the contract is rejected (AD-95). The analyzer
-also applies a root allowance only to a parameterized mapping finding, so other spellings of a
-bare broad type (`typing.Mapping`, an alias) never match.
+`Dict`, `Mapping` or `MutableMapping`; the contract is rejected (AD-95). Other spellings of a
+bare mapping (`typing.Mapping`, an alias) never match.
+An exact root `object` allowance explicitly accepts an opaque native payload (AD-135).
+It emits `accepted_opacity: true` with the owning decision's provenance; type closure remains
+unproven. Other parameters, returns, constructors, masks and UNKNOWNs remain checked.
 A previously inert empty-path allowance for a complete collection or union annotation can now
 apply when its signature contains exactly one pathless parameterized mapping occurrence, at any
 depth. The mapping annotation and depth are recorded in its `FACT`. Identical siblings count

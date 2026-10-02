@@ -1437,9 +1437,8 @@ def _parse_symbol_placement(raw: RawJson, label: str) -> SymbolPlacementRule:
     )
 
 
-# A nested allowance may still name one of these (compatibility); a root one would exempt the
-# whole position, so the schema and the parser both refuse it.
-_BARE_BROAD_ANNOTATIONS: Final = frozenset({"Dict", "object", "Mapping", "MutableMapping"})
+# Bare mappings do not name their members; exact object payloads explicitly accept opacity.
+_BARE_BROAD_ANNOTATIONS: Final = frozenset({"Dict", "Mapping", "MutableMapping"})
 
 
 def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:

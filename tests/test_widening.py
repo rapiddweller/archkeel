@@ -863,8 +863,13 @@ def _boundary_allowance_contract(allowed_positions: list[dict[str, str]]) -> str
             "position": "return",
             "annotation": "dict[str, str]",
         },
+        {
+            "qualified_name": "shop.app.orders.summarize",
+            "position": "payload",
+            "annotation": "object",
+        },
     ],
-    ids=["nested", "omitted-root"],
+    ids=["nested", "omitted-root", "opaque-native-payload"],
 )
 def test_boundary_type_allowance_addition_needs_amendment(
     tmp_path: Path, allowance: dict[str, str]
