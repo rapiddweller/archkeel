@@ -178,6 +178,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-139 | [Target overview keeps readable names](decisions/ad-139-target-overview-keeps-readable-names.md) |
 | AD-140 | [Measure rule evidence without inventing passes](decisions/ad-140-measure-rule-evidence-without-inventing-passes.md) |
 | AD-141 | [GitHub events are bounded observations](decisions/ad-141-github-events-are-bounded-observations.md) |
+| AD-142 | [Opaque map values need exact decisions](decisions/ad-142-opaque-map-values-need-exact-decisions.md) |
 
 ## Allowed dependencies
 

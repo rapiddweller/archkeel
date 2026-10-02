@@ -149,6 +149,77 @@ _MAPPING_ALLOWED = Variant(
 )
 
 
+def _opaque_map_contract(*, values: bool) -> str:
+    contract = json.loads(_mapping_contract(allowed=False))
+    rule = next(item for item in contract["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+    rule["allowed_positions"] = [
+        {
+            "qualified_name": "shop.app.reports.snapshot",
+            "position": position,
+            "annotation": "dict[str, object]",
+            **({"container_depth": 1} if value else {}),
+        }
+        for position in ("context", "return")
+        for value in ((False, True) if values else (False,))
+    ]
+    rule["rationale"] = "Validate this raw map before model construction; preserve its identity."
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_RAW_MAP_SOURCE = HEADER + (
+    "from __future__ import annotations\n\n"
+    "def snapshot(context: dict[str, object]) -> dict[str, object]:\n"
+    "    if 'count' not in context: raise ValueError('count required')\n"
+    "    return context\n"
+)
+
+_OPAQUE_MAP_VALUES = Variant(
+    id="class-a-boundary-types-opaque-map-values",
+    section="class_a",
+    item="boundary_types:exact_opaque_map_values",
+    summary="Separate outer-map and depth-1 value decisions accept raw input/return opacity "
+    "with provenance; type closure remains unproven (AD-142).",
+    files={
+        "shop/app/reports.py": _RAW_MAP_SOURCE,
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS,
+        "architecture-contract.json": _opaque_map_contract(values=True),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="UNKNOWN",
+)
+
+_OPAQUE_MAP_VALUES_MISSING = Variant(
+    id="class-a-boundary-types-opaque-map-values-missing",
+    section="class_a",
+    item="boundary_types:outer_map_keeps_opaque_values",
+    summary="Two outer-map decisions leave both unnamed object values forbidden (AD-142).",
+    files={
+        **_OPAQUE_MAP_VALUES.files,
+        "architecture-contract.json": _opaque_map_contract(values=False),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT", "APP-TYPES-NOT-DICT"),
+    expected_codes=("rule.violated", "rule.violated"),
+)
+
+_OPAQUE_MAP_VALUES_UNKNOWN = Variant(
+    id="class-a-boundary-types-opaque-map-values-unknown",
+    section="class_a",
+    item="boundary_types:opaque_map_keeps_unknown",
+    summary="Accepted raw-map opacity leaves an unresolved neighboring parameter UNKNOWN (AD-142).",
+    files={
+        **_OPAQUE_MAP_VALUES.files,
+        "shop/app/reports.py": _RAW_MAP_SOURCE.replace(
+            "context: dict[str, object])", "context: dict[str, object], pending: Missing)"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("boundary_type_limit", "shop.app"),),
+    expected_declared_rules="UNKNOWN",
+)
+
+
 def _contained_mapping_contract(annotation: str) -> str:
     contract = json.loads(
         contract_component_field_appended(
@@ -1017,6 +1088,9 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES,
     _MAPPING_BROAD,
     _MAPPING_ALLOWED,
+    _OPAQUE_MAP_VALUES,
+    _OPAQUE_MAP_VALUES_MISSING,
+    _OPAQUE_MAP_VALUES_UNKNOWN,
     _CONTAINED_MAPPING,
     _CONTAINED_MAPPING_SIBLINGS,
     _CONTAINED_MAPPING_UNKNOWN,

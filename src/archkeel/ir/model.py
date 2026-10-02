@@ -526,12 +526,13 @@ class SymbolPlacementRule:
 
 @dataclass(frozen=True, slots=True)
 class BoundaryTypeAllowance:
-    """One exact boundary exception; an empty field path selects the signature position."""
+    """One exact signature, DTO field or opaque map-value exception."""
 
     qualified_name: str
     position: str
     field_path: str
     annotation: str
+    container_depth: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

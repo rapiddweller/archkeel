@@ -231,6 +231,11 @@ def _rule_declaration(rule: ArchitectureRule) -> RawRecord:
                             "position": item.position,
                             "field_path": item.field_path,
                             "annotation": item.annotation,
+                            **(
+                                {"container_depth": item.container_depth}
+                                if item.container_depth is not None
+                                else {}
+                            ),
                         }
                         for item in rule.allowed_positions
                     ]

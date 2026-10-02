@@ -1484,7 +1484,10 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
     for index, value in enumerate(raw_positions):
         entry_label = f"{label}.allowed_positions[{index}]"
         entry = _contract_fields(
-            value, {"qualified_name", "position", "annotation"}, {"field_path"}, entry_label
+            value,
+            {"qualified_name", "position", "annotation"},
+            {"field_path", "container_depth"},
+            entry_label,
         )
         qualified_name = _nonempty(entry["qualified_name"], f"{entry_label}.qualified_name")
         position = _nonempty(entry["position"], f"{entry_label}.position")
@@ -1494,11 +1497,21 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
             else _nonempty(entry["field_path"], f"{entry_label}.field_path")
         )
         annotation = _nonempty(entry["annotation"], f"{entry_label}.annotation")
+        depth: int | None = None
+        if "container_depth" in entry:
+            raw_depth = entry["container_depth"]
+            if isinstance(raw_depth, bool) or not isinstance(raw_depth, int) or raw_depth < 1:
+                raise ValueError(f"{entry_label}.container_depth must be a positive integer")
+            if field_path:
+                raise ValueError(f"{entry_label}.container_depth cannot select a DTO field")
+            depth = raw_depth
         if annotation == "dict":
             raise ValueError(f"{entry_label}.annotation cannot allow bare dict")
         if not field_path and annotation in _BARE_BROAD_ANNOTATIONS:
             raise ValueError(f"{entry_label}.annotation cannot allow bare {annotation} at the root")
-        positions.append(BoundaryTypeAllowance(qualified_name, position, field_path, annotation))
+        positions.append(
+            BoundaryTypeAllowance(qualified_name, position, field_path, annotation, depth)
+        )
     if len(set(positions)) != len(positions):
         raise ValueError(f"{label}.allowed_positions must contain unique entries")
     return BoundaryTypesRule(
