@@ -6,11 +6,22 @@
 import json
 import subprocess
 import sys
+from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
 def main() -> None:
+    schemas = files("archkeel").joinpath("schema")
+    result_schema = json.loads(schemas.joinpath("command-result.schema.json").read_text())
+    assert result_schema["$id"] == "urn:archkeel:command-result:1.0.0"
+    assert "expectation_fulfilled" in result_schema["required"]
+    for name in (
+        "architecture-ir-common.schema.json",
+        "architecture-ir-python-decoded.schema.json",
+        "architecture-contract.schema.json",
+    ):
+        assert json.loads(schemas.joinpath(name).read_text())["$id"]
     with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:
         root = Path(temporary)
         (root / "sample").mkdir()

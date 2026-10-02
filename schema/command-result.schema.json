@@ -1,0 +1,733 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:command-result:1.0.0",
+  "title": "Archkeel check, validate and report JSON results",
+  "$comment": "AD-138. Describes codec.result_payload without changing the wire format. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
+  "type": "object",
+  "required": [
+    "command",
+    "exit_code",
+    "observation_complete",
+    "declared_rules",
+    "expectation_fulfilled",
+    "diagnostics",
+    "coverage",
+    "observation",
+    "python_version",
+    "measurements",
+    "artifact",
+    "git_predicate",
+    "host_order",
+    "host_source",
+    "failures",
+    "baseline_new",
+    "baseline_resolved",
+    "delta",
+    "provenance",
+    "open_decisions",
+    "agent_decisions",
+    "claims",
+    "violations_by_rule",
+    "violations_by_component_pair",
+    "draft_sizes",
+    "report_filter",
+    "filtered_violations",
+    "unresolved_call_changes",
+    "unresolved_call_note",
+    "filtered_calls",
+    "rule_assessments",
+    "baseline_path",
+    "baseline_comparisons",
+    "interface_budgets",
+    "scan_roots",
+    "renames"
+  ],
+  "properties": {
+    "command": {"enum": ["check", "validate", "report"]},
+    "exit_code": {"enum": [0, 1, 2]},
+    "observation_complete": {"enum": ["PASS", "UNKNOWN"]},
+    "declared_rules": {"enum": ["PASS", "FAIL", "UNKNOWN"]},
+    "expectation_fulfilled": {"enum": ["PASS", "FAIL", "UNKNOWN", "n/a"]},
+    "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}},
+    "coverage": {
+      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/coverage"}, {"type": "null"}]
+    },
+    "observation": {"anyOf": [{"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0"}, {"type": "null"}]},
+    "python_version": {
+      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/python_version"}, {"type": "null"}]
+    },
+    "measurements": {"anyOf": [{"$ref": "#/$defs/measurements"}, {"type": "null"}]},
+    "artifact": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+    "git_predicate": {"anyOf": [{"enum": ["PASS", "FAIL"]}, {"type": "null"}]},
+    "host_order": {"anyOf": [{"enum": ["PASS", "FAIL"]}, {"type": "null"}]},
+    "host_source": {"anyOf": [{"enum": ["supplied_records", "gitlab_mr_versions"]}, {"type": "null"}]},
+    "failures": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "baseline_new": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+    "baseline_resolved": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+    "delta": {"anyOf": [{"$ref": "#/$defs/delta"}, {"type": "null"}]},
+    "provenance": {"anyOf": [{"$ref": "#/$defs/provenance"}, {"type": "null"}]},
+    "open_decisions": {"type": "array", "items": {"$ref": "#/$defs/openDecision"}},
+    "agent_decisions": {
+      "anyOf": [
+        {
+          "type": "array",
+          "prefixItems": [{"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 0}],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        {"type": "null"}
+      ]
+    },
+    "claims": {"anyOf": [{"$ref": "#/$defs/claims"}, {"type": "null"}]},
+    "violations_by_rule": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [{"type": "string", "minLength": 1}, {"type": "integer", "minimum": 0}],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        {"type": "null"}
+      ]
+    },
+    "violations_by_component_pair": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {"type": "string", "minLength": 1},
+              {"type": "string", "minLength": 1},
+              {"type": "integer", "minimum": 0}
+            ],
+            "items": false,
+            "minItems": 3,
+            "maxItems": 3
+          }
+        },
+        {"type": "null"}
+      ]
+    },
+    "draft_sizes": {"type": "null"},
+    "report_filter": {"anyOf": [{"$ref": "#/$defs/reportFilter"}, {"type": "null"}]},
+    "filtered_violations": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"},
+              {"properties": {"evidence_class": {"const": "VIOLATION"}}}
+            ]
+          }
+        },
+        {"type": "null"}
+      ]
+    },
+    "unresolved_call_changes": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/callChange"}}, {"type": "null"}]},
+    "unresolved_call_note": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+    "filtered_calls": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/call"}}, {"type": "null"}]},
+    "rule_assessments": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/assessment"}}, {"type": "null"}]},
+    "baseline_path": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+    "baseline_comparisons": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/baselineComparison"}}, {"type": "null"}]},
+    "interface_budgets": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/interfaceBudget"}}, {"type": "null"}]},
+    "scan_roots": {"anyOf": [{"type": "array", "items": {"type": "string", "minLength": 1}}, {"type": "null"}]},
+    "renames": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [{"type": "string", "minLength": 1}, {"type": "string", "minLength": 1}],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        {"type": "null"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"exit_code": {"const": 2}}},
+      "then": {
+        "properties": {
+          "diagnostics": {"minItems": 1},
+          "observation_complete": {"const": "UNKNOWN"},
+          "declared_rules": {"const": "UNKNOWN"},
+          "expectation_fulfilled": {"const": "UNKNOWN"},
+          "measurements": {"type": "null"},
+          "claims": {"type": "null"}
+        }
+      },
+      "else": {"properties": {"diagnostics": {"maxItems": 0}, "observation_complete": {"const": "PASS"}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "check"}}},
+      "then": {
+        "properties": {
+          "report_filter": {"type": "null"},
+          "filtered_violations": {"type": "null"},
+          "filtered_calls": {"type": "null"},
+          "rule_assessments": {"type": "null"},
+          "baseline_path": {"type": "null"},
+          "baseline_comparisons": {"type": "null"},
+          "baseline_new": {"type": "null"},
+          "baseline_resolved": {"type": "null"},
+          "interface_budgets": {"type": "null"},
+          "renames": {"type": "null"},
+          "agent_decisions": {"type": "null"},
+          "claims": {"type": "null"},
+          "violations_by_rule": {"type": "null"},
+          "violations_by_component_pair": {"type": "null"},
+          "artifact": {"type": "null"},
+          "open_decisions": {"maxItems": 0},
+          "expectation_fulfilled": {"enum": ["PASS", "FAIL", "UNKNOWN"]}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"exit_code": {"enum": [0, 1]}}},
+            "then": {
+              "properties": {
+                "git_predicate": {"not": {"type": "null"}},
+                "host_order": {"not": {"type": "null"}},
+                "host_source": {"not": {"type": "null"}},
+                "delta": {"not": {"type": "null"}},
+                "provenance": {"not": {"type": "null"}},
+                "coverage": {"not": {"type": "null"}},
+                "measurements": {"not": {"type": "null"}},
+                "observation": {"type": "null"}
+              }
+            },
+            "else": {
+              "properties": {
+                "git_predicate": {"type": "null"},
+                "host_order": {"type": "null"},
+                "host_source": {"type": "null"},
+                "delta": {"type": "null"},
+                "provenance": {"type": "null"}
+              }
+            }
+          },
+          {
+            "if": {"properties": {"exit_code": {"const": 0}}},
+            "then": {
+              "properties": {
+                "expectation_fulfilled": {"const": "PASS"},
+                "declared_rules": {"enum": ["PASS", "UNKNOWN"]},
+                "git_predicate": {"const": "PASS"},
+                "host_order": {"const": "PASS"},
+                "failures": {"maxItems": 0}
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "validate"}}},
+      "then": {
+        "properties": {
+          "git_predicate": {"type": "null"},
+          "host_order": {"type": "null"},
+          "host_source": {"type": "null"},
+          "delta": {"type": "null"},
+          "provenance": {"type": "null"},
+          "report_filter": {"type": "null"},
+          "filtered_violations": {"type": "null"},
+          "filtered_calls": {"type": "null"},
+          "rule_assessments": {"type": "null"},
+          "baseline_path": {"type": "null"},
+          "baseline_comparisons": {"type": "null"},
+          "observation": {"type": "null"},
+          "expectation_fulfilled": {"enum": ["n/a", "UNKNOWN"]}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"exit_code": {"enum": [0, 1]}}},
+            "then": {
+              "properties": {
+                "coverage": {"not": {"type": "null"}},
+                "measurements": {"not": {"type": "null"}},
+                "agent_decisions": {"not": {"type": "null"}},
+                "claims": {"not": {"type": "null"}},
+                "violations_by_rule": {"not": {"type": "null"}},
+                "violations_by_component_pair": {"not": {"type": "null"}},
+                "expectation_fulfilled": {"const": "n/a"}
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "report"}}},
+      "then": {
+        "properties": {
+          "git_predicate": {"type": "null"},
+          "host_order": {"type": "null"},
+          "host_source": {"type": "null"},
+          "delta": {"type": "null"},
+          "provenance": {"type": "null"},
+          "baseline_new": {"type": "null"},
+          "baseline_resolved": {"type": "null"},
+          "interface_budgets": {"type": "null"},
+          "renames": {"type": "null"},
+          "observation": {"type": "null"},
+          "unresolved_call_changes": {"type": "null"},
+          "unresolved_call_note": {"type": "null"},
+          "exit_code": {"enum": [0, 2]},
+          "expectation_fulfilled": {"enum": ["n/a", "UNKNOWN"]}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"exit_code": {"const": 0}}},
+            "then": {
+              "properties": {
+                "coverage": {"not": {"type": "null"}},
+                "measurements": {"not": {"type": "null"}},
+                "agent_decisions": {"not": {"type": "null"}},
+                "claims": {"not": {"type": "null"}},
+                "violations_by_rule": {"not": {"type": "null"}},
+                "violations_by_component_pair": {"not": {"type": "null"}},
+                "expectation_fulfilled": {"const": "n/a"},
+                "rule_assessments": {"type": "array"}
+              }
+            }
+          },
+          {
+            "if": {"properties": {"report_filter": {"type": "null"}}},
+            "then": {"properties": {"filtered_violations": {"type": "null"}, "filtered_calls": {"type": "null"}}}
+          },
+          {
+            "if": {"properties": {"report_filter": {"type": "object", "properties": {"only_calls": {"const": true}}}}},
+            "then": {"properties": {"filtered_violations": {"type": "null"}, "filtered_calls": {"type": "array"}}}
+          },
+          {
+            "if": {"properties": {"report_filter": {"type": "object", "properties": {"only_calls": {"const": false}}}}},
+            "then": {"properties": {"filtered_calls": {"type": "null"}, "filtered_violations": {"type": "array"}}}
+          }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "required": ["kind", "subject", "unknown_claim", "remedy"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "missing_tool",
+            "timeout",
+            "parse_error",
+            "scope_empty",
+            "rule_without_subjects",
+            "rule_unsupported_by_profile",
+            "runtime_mismatch",
+            "incomparable_runtime",
+            "contract_invalid",
+            "existing_files",
+            "filter_unknown"
+          ]
+        },
+        "subject": {"type": "string", "pattern": "\\S"},
+        "unknown_claim": {"type": "string", "pattern": "\\S"},
+        "remedy": {"type": "string", "pattern": "^(?=.*\\S)[^\\r\\n]+$"},
+        "pointer": {"type": "string", "pattern": "^(?:/.*)?$"},
+        "code": {
+          "enum": [
+            "decision.open",
+            "decision.conflict",
+            "closed_world.observed_forbidden",
+            "closed_world.duplicate",
+            "interface.undeclared",
+            "interface.unused",
+            "interface.usage_unknown",
+            "interface.missing",
+            "interface.planned_built",
+            "rationale.placeholder",
+            "rationale.repeated",
+            "graph.count",
+            "graph.drift",
+            "rule.violated",
+            "reference.namespace",
+            "reference.public_owner",
+            "reference.public_underscore",
+            "reference.provenance",
+            "reference.package_unscanned",
+            "api_surface.missing",
+            "contract.schema_version",
+            "contract.invalid",
+            "baseline.invalid",
+            "against.invalid",
+            "amendment.invalid",
+            "observation.incomplete",
+            "inside.public_mismatch",
+            "inside.forbidden_import",
+            "compatibility.invalid",
+            "budget.exceeded",
+            "budget.unknown"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "contract_invalid"}}},
+          "then": {"required": ["code"]},
+          "else": {"not": {"required": ["code"]}}
+        }
+      ]
+    },
+    "measurements": {
+      "type": "object",
+      "required": ["scalars", "calls_total", "resolution"],
+      "properties": {
+        "scalars": {
+          "type": "object",
+          "required": [
+            "violations",
+            "cycle_edges",
+            "private_crossings",
+            "typing_positions",
+            "calls_unresolved",
+            "coverage_failures",
+            "untyped_private_accesses",
+            "unknown_positions"
+          ],
+          "properties": {
+            "violations": {"type": "integer", "minimum": 0},
+            "cycle_edges": {"type": "integer", "minimum": 0},
+            "private_crossings": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+            "typing_positions": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+            "calls_unresolved": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+            "coverage_failures": {"const": 0},
+            "untyped_private_accesses": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+            "unknown_positions": {"type": "integer", "minimum": 0}
+          }
+        },
+        "calls_total": {"type": "integer", "minimum": 0},
+        "resolution": {"enum": ["measured", "n/a"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"calls_total": {"const": 0}}},
+          "then": {"properties": {"resolution": {"const": "n/a"}}},
+          "else": {"properties": {"resolution": {"const": "measured"}}}
+        }
+      ]
+    },
+    "claims": {
+      "type": "object",
+      "required": ["unreferenced_symbols", "oversized_components", "unread_bindings", "repeated_logic", "type_fanin"],
+      "properties": {
+        "unreferenced_symbols": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "oversized_components": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "unread_bindings": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "repeated_logic": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "type_fanin": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]}
+      }
+    },
+    "reportFilter": {
+      "type": "object",
+      "required": ["only_violations", "rule", "component", "only_calls"],
+      "properties": {
+        "only_violations": {"type": "boolean"},
+        "rule": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "component": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "only_calls": {"type": "boolean"}
+      }
+    },
+    "call": {
+      "type": "object",
+      "required": ["status", "caller", "expression", "reason", "component", "path", "line"],
+      "properties": {
+        "status": {"enum": ["unresolved", "partially_resolved"]},
+        "caller": {"type": "string", "minLength": 1},
+        "expression": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "component": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "path": {"type": "string", "minLength": 1},
+        "line": {"type": "integer", "minimum": 1}
+      }
+    },
+    "callChange": {
+      "type": "object",
+      "required": ["change", "caller", "expression", "reason", "component", "path", "lines", "before", "after"],
+      "properties": {
+        "change": {"enum": ["added", "removed"]},
+        "caller": {"type": "string", "minLength": 1},
+        "expression": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "component": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "path": {"type": "string", "minLength": 1},
+        "lines": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 1},
+        "before": {"type": "integer", "minimum": 0},
+        "after": {"type": "integer", "minimum": 0}
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "evaluation_proven",
+        "count",
+        "undecided",
+        "decided_by",
+        "rationale",
+        "provenance",
+        "reason",
+        "scope",
+        "components"
+      ],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "status": {"enum": ["PASS", "FAIL", "UNKNOWN", "DECLARATION"]},
+        "evaluation_proven": {"type": "boolean"},
+        "count": {"type": "integer", "minimum": 0},
+        "undecided": {"type": "integer", "minimum": 0},
+        "decided_by": {"type": "string"},
+        "rationale": {"type": "string"},
+        "provenance": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "reason": {"type": "string"},
+        "scope": {"type": "string"},
+        "components": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "baselineComparison": {
+      "type": "object",
+      "required": ["rules", "subjects", "known_count", "shared_count", "current_count", "new_count", "resolved_count", "status"],
+      "properties": {
+        "rules": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "subjects": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "known_count": {"type": "integer", "minimum": 0},
+        "shared_count": {"type": "integer", "minimum": 0},
+        "current_count": {"type": "integer", "minimum": 0},
+        "new_count": {"type": "integer", "minimum": 0},
+        "resolved_count": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["known", "new", "reduced", "resolved", "contracted", "unknown"]}
+      }
+    },
+    "interfaceBudget": {
+      "type": "object",
+      "required": [
+        "budget",
+        "subject",
+        "pointer",
+        "max_names",
+        "count",
+        "over_target",
+        "names",
+        "uncounted",
+        "new_names",
+        "removed_names"
+      ],
+      "properties": {
+        "budget": {"enum": ["facade_names", "coupling_names"]},
+        "subject": {"type": "string", "minLength": 1},
+        "pointer": {"type": "string", "minLength": 1},
+        "max_names": {"type": "integer", "minimum": 0},
+        "count": {"type": "integer", "minimum": 0},
+        "over_target": {"type": "integer", "minimum": 0},
+        "names": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "uncounted": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "new_names": {"anyOf": [{"type": "array", "items": {"type": "string", "minLength": 1}}, {"type": "null"}]},
+        "removed_names": {"anyOf": [{"type": "array", "items": {"type": "string", "minLength": 1}}, {"type": "null"}]}
+      }
+    },
+    "openDecision": {
+      "type": "object",
+      "required": ["source", "target", "observed", "import_sites", "options"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "observed": {"type": "boolean"},
+        "import_sites": {"type": "integer", "minimum": 0},
+        "source_package": {"type": "string", "minLength": 1},
+        "target_package": {"type": "string", "minLength": 1},
+        "source_packages": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "target_packages": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "source_exact_modules": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "target_exact_modules": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "options_unavailable_reason": {"type": "string", "minLength": 1},
+        "options": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "allowed_dependency": {"$ref": "urn:archkeel:architecture-contract:2.1.0#/$defs/allowedDependency"},
+            "forbidden_dependency": {"$ref": "urn:archkeel:architecture-contract:2.1.0#/$defs/forbiddenDependency"}
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["source_package", "target_package"],
+          "properties": {"options": {"required": ["allowed_dependency", "forbidden_dependency"]}},
+          "not": {"required": ["options_unavailable_reason"]}
+        },
+        {
+          "required": [
+            "source_packages",
+            "target_packages",
+            "source_exact_modules",
+            "target_exact_modules",
+            "options_unavailable_reason"
+          ],
+          "properties": {"options": {"maxProperties": 0}}
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["baseline", "expectation", "head", "accepted_digest", "expected_digest"],
+      "properties": {
+        "baseline": {"type": "string", "minLength": 1},
+        "expectation": {"type": "string", "minLength": 1},
+        "head": {"type": "string", "minLength": 1},
+        "accepted_digest": {"type": "string", "minLength": 1},
+        "expected_digest": {"type": "string", "minLength": 1}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["git_head", "source_digest", "coverage_status", "python_version"],
+      "properties": {
+        "git_head": {"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/source/properties/git_head"},
+        "source_digest": {"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/source/properties/source_digest"},
+        "coverage_status": {"enum": ["PASS", "FAIL"]},
+        "python_version": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "required": ["status", "before_count", "after_count", "added", "removed", "relocated", "changed"],
+      "properties": {
+        "status": {"enum": ["SUPPORTED", "UNKNOWN"]},
+        "before_count": {"type": "integer", "minimum": 0},
+        "after_count": {"type": "integer", "minimum": 0},
+        "added": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "removed": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "relocated": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "changed": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "projection": {
+      "type": "object",
+      "required": ["id", "evidence_class", "area", "kind", "title", "subjects", "data", "evidence"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "evidence_class": {"enum": ["FACT", "DECLARED_RULE", "VIOLATION", "HYPOTHESIS", "UNKNOWN"]},
+        "area": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "title": {"type": "string"},
+        "subjects": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "data": {"type": "object"},
+        "evidence": {"type": "array", "items": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/evidence"}}
+      }
+    },
+    "semanticChange": {
+      "type": "object",
+      "required": ["dimension", "change", "fingerprint", "before_count", "after_count", "before", "after"],
+      "properties": {
+        "dimension": {"type": "string", "minLength": 1},
+        "change": {"type": "string", "minLength": 1},
+        "fingerprint": {"type": "string", "minLength": 1},
+        "before_count": {"type": "integer", "minimum": 0},
+        "after_count": {"type": "integer", "minimum": 0},
+        "before": {"anyOf": [{"$ref": "#/$defs/projection"}, {"type": "null"}]},
+        "after": {"anyOf": [{"$ref": "#/$defs/projection"}, {"type": "null"}]},
+        "before_fingerprints": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "after_fingerprints": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "ratchets": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "baseline", "head"],
+          "properties": {
+            "status": {"const": "SUPPORTED"},
+            "baseline": {"$ref": "#/$defs/measurements"},
+            "head": {"$ref": "#/$defs/measurements"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["status", "reason"],
+          "properties": {"status": {"const": "UNKNOWN"}, "reason": {"type": "string", "minLength": 1}}
+        }
+      ]
+    },
+    "delta": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "analyzer",
+        "provenance",
+        "baseline",
+        "head",
+        "contract",
+        "coverage",
+        "dimensions",
+        "ratchets",
+        "semantic_changes",
+        "unknowns"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.3.0"},
+        "analyzer": {"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/analyzer"},
+        "provenance": {
+          "type": "object",
+          "required": ["checker_digest", "analyzer_digest", "contract_digest", "baseline_digest", "head_digest"],
+          "properties": {
+            "checker_digest": {"type": "string", "minLength": 1},
+            "analyzer_digest": {"type": "string", "minLength": 1},
+            "contract_digest": {"type": "string", "minLength": 1},
+            "baseline_digest": {"type": "string", "minLength": 1},
+            "head_digest": {"type": "string", "minLength": 1}
+          }
+        },
+        "baseline": {"$ref": "#/$defs/snapshot"},
+        "head": {"$ref": "#/$defs/snapshot"},
+        "contract": {"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/contract"},
+        "coverage": {
+          "type": "object",
+          "required": ["status", "baseline_status", "head_status", "supported_dimensions", "unknown_dimensions"],
+          "properties": {
+            "status": {"enum": ["PASS", "FAIL"]},
+            "baseline_status": {"enum": ["PASS", "FAIL"]},
+            "head_status": {"enum": ["PASS", "FAIL"]},
+            "supported_dimensions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+            "unknown_dimensions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "dimensions": {"type": "object", "additionalProperties": {"$ref": "#/$defs/dimension"}},
+        "ratchets": {"$ref": "#/$defs/ratchets"},
+        "semantic_changes": {"type": "array", "items": {"$ref": "#/$defs/semanticChange"}},
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "dimension", "reason", "evidence_class"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "dimension": {"type": "string", "minLength": 1},
+              "reason": {"type": "string", "minLength": 1},
+              "evidence_class": {"const": "UNKNOWN"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -167,6 +167,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-128 | [Exact module ownership stays distinct from recursive packages](decisions/ad-128-exact-module-ownership-is-distinct-from-package-ownership.md) |
 | AD-129 | [Agent skills use native discovery](decisions/ad-129-agent-skills-use-native-discovery.md) |
 | AD-130 | [Review starts with findings and snapshot evidence](decisions/ad-130-review-starts-with-findings.md) |
+| AD-138 | [JSON results have a published schema](decisions/ad-138-json-results-have-a-published-schema.md) |
 
 ## Allowed dependencies
 
