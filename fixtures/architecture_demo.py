@@ -35,6 +35,7 @@ from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dart import VARIANTS as _DART_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
+from fixtures.demo_catalog_exact_ownership import VARIANTS as _EXACT_OWNERSHIP_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
 from fixtures.demo_catalog_layout import VARIANTS as _LAYOUT_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
@@ -58,6 +59,7 @@ CATALOG: tuple[Variant, ...] = (
     *_CHECK_PROTOCOL_VARIANTS,
     *_CHECK_REGRESSION_VARIANTS,
     *_EVIDENCE_VARIANTS,
+    *_EXACT_OWNERSHIP_VARIANTS,
     *_DART_VARIANTS,
 )
 

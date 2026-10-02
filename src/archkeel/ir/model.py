@@ -16,6 +16,9 @@ from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
 SCHEMA_VERSION = "1.3.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
+ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
+PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
+ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 # AD-26's full vocabulary, for the one verdict that can also fail to decide (AD-67).
 RuleVerdict: TypeAlias = Literal["PASS", "FAIL", "UNKNOWN"]
 ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
@@ -182,6 +185,9 @@ class ContractComponent:
     # The physical package where this component is expected to live. `packages` remains
     # the ownership set; modules owned by this component outside `namespace` are violations.
     namespace: str | None = None
+    # Exact module ownership is separate from recursive package ownership. None preserves
+    # canonical bytes for contracts that do not declare exact modules.
+    exact_modules: tuple[str, ...] | None = None
 
 
 def facade_covers(
@@ -595,6 +601,16 @@ def in_scope(name: str, scope: str) -> bool:
     return name == scope or name.startswith(f"{scope}.")
 
 
+def module_in_ownership(module: str, packages: Iterable[str], exact_modules: Iterable[str]) -> bool:
+    """Apply recursive package and exact module ownership selectors together."""
+    return module in exact_modules or any(in_scope(module, package) for package in packages)
+
+
+def component_owns_module(component: ContractComponent, module: str) -> bool:
+    """Match one exact module or a descendant of one of the component's packages."""
+    return module_in_ownership(module, component.packages, component.exact_modules or ())
+
+
 def package_owners(components: Iterable[tuple[str, tuple[str, ...]]]) -> dict[str, str]:
     """Map each declared package to its owning component label, by exact match.
 
@@ -605,6 +621,22 @@ def package_owners(components: Iterable[tuple[str, tuple[str, ...]]]) -> dict[st
     and is unaffected by this mapping.
     """
     return {package: label for label, packages in components for package in packages}
+
+
+def declared_package_pair(
+    source: str,
+    target: str,
+    target_symbol: str | None,
+    components: tuple[ComponentOwnership, ...],
+) -> tuple[str, str] | None:
+    """Resolve an unqualified rule naming two uniquely declared package selectors."""
+    if target_symbol is not None:
+        return None
+    source_owners = {label for label, packages, _ in components if source in packages}
+    target_owners = {label for label, packages, _ in components if target in packages}
+    if len(source_owners) != 1 or len(target_owners) != 1:
+        return None
+    return next(iter(source_owners)), next(iter(target_owners))
 
 
 @dataclass(frozen=True, slots=True)
@@ -639,9 +671,7 @@ class ArchitectureContract:
     def component_for(self, module: str) -> ContractComponent | None:
         """Return the only component owning a module; overlapping ownership owns nothing."""
         owners = [
-            component
-            for component in self.components
-            if any(in_scope(module, package) for package in component.packages)
+            component for component in self.components if component_owns_module(component, module)
         ]
         return owners[0] if len(owners) == 1 else None
 
@@ -758,6 +788,7 @@ def module_references(
             f"/components/{index}",
             [
                 ("packages", component.packages, True),
+                ("exact_modules", component.exact_modules or (), True),
                 ("public", component.public or (), True),
                 ("planned", component.planned or (), True),
                 ("namespace", () if component.namespace is None else (component.namespace,), False),
@@ -1056,12 +1087,17 @@ class OpenDecision:
 
     source: str
     target: str
-    source_package: str
-    target_package: str
+    source_package: str | None
+    target_package: str | None
     observed: bool
     import_sites: int
-    forbidden_option: ForbiddenDependencyRule
-    allowed_option: AllowedDependencyRule
+    forbidden_option: ForbiddenDependencyRule | None
+    allowed_option: AllowedDependencyRule | None
+    source_packages: tuple[str, ...] = ()
+    target_packages: tuple[str, ...] = ()
+    source_exact_modules: tuple[str, ...] = ()
+    target_exact_modules: tuple[str, ...] = ()
+    options_unavailable_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

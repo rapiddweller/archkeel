@@ -396,7 +396,7 @@ def test_a_declared_inside_becomes_a_level_of_its_own(tmp_path: Path) -> None:
     assert records["core:COMP-A"].subjects == ("sample.core.a",)
     # The landmine AD-34 names: a shared kind would let two levels claim one module, and
     # `owner_of` answers None wherever two components claim the same one.
-    assert component_owners(result.observation) == (("core", ("sample.core",)),)
+    assert component_owners(result.observation) == (("core", ("sample.core",), ()),)
 
 
 def test_an_inside_that_leaves_the_repository_is_not_recorded(tmp_path: Path) -> None:

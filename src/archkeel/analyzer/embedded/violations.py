@@ -23,6 +23,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
+    ComponentOwnership,
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
@@ -35,8 +36,11 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
+    component_owns_module,
+    declared_package_pair,
     facade_covers,
     in_scope,
+    module_in_ownership,
     package_owners,
     stable_id,
 )
@@ -107,7 +111,7 @@ def _reexport_index(imports: Sequence[RawRecord]) -> ReexportIndex:
 def _forbidden_dependency_verdicts(
     imports: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
-    components: tuple[tuple[str, tuple[str, ...]], ...],
+    components: tuple[ComponentOwnership, ...],
     source_modules: frozenset[str] | None = None,
 ) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord, _Verdict]]:
     """Yield each (rule, import) pair whose modules a forbidden_dependency rule names.
@@ -116,30 +120,28 @@ def _forbidden_dependency_verdicts(
     naming that symbol, lets one naming another pass, and cannot decide one whose names the
     scan does not know.
     """
-    owners = package_owners(components)
-    packages_by_label = dict(components)
+    by_label = {label: (packages, exact) for label, packages, exact in components}
     for rule in rules:
         if not isinstance(rule, ForbiddenDependencyRule):
             continue
-        source_label = owners.get(rule.source)
-        target_label = owners.get(rule.target)
         # A rule whose source and target each name a declared component package exactly,
         # with no target_symbol, decides (ir.decisions) and so enforces the whole ordered
         # component pair: every package of the source component against every package of
         # the target. A rule scoped to a submodule or a target_symbol keeps module matching.
-        if rule.target_symbol is None and source_label is not None and target_label is not None:
-            sources = packages_by_label[source_label]
-            targets = packages_by_label[target_label]
+        pair = declared_package_pair(rule.source, rule.target, rule.target_symbol, components)
+        if pair is not None:
+            sources = by_label[pair[0]]
+            targets = by_label[pair[1]]
         else:
-            sources = (rule.source,)
-            targets = (rule.target,)
+            sources = ((rule.source,), ())
+            targets = ((rule.target,), ())
         allowed_sources = frozenset(rule.allowed_sources)
         for item in imports:
             if source_modules is not None and item["data"]["source_module"] not in source_modules:
                 continue
             data = item["data"]
-            if not any(in_scope(data["source_module"], package) for package in sources) or not any(
-                in_scope(data["target_module"], package) for package in targets
+            if not module_in_ownership(data["source_module"], *sources) or not module_in_ownership(
+                data["target_module"], *targets
             ):
                 continue
             if data["source_module"] in allowed_sources:
@@ -155,7 +157,7 @@ def _forbidden_dependency_verdicts(
 def _forbidden_dependency_matches(
     imports: Sequence[RawRecord],
     rules: Sequence[ArchitectureRule],
-    components: tuple[tuple[str, tuple[str, ...]], ...],
+    components: tuple[ComponentOwnership, ...],
     source_modules: frozenset[str] | None = None,
 ) -> Iterator[tuple[ForbiddenDependencyRule, RawRecord]]:
     """Yield each (rule, import) pair a forbidden_dependency rule rejects.
@@ -364,8 +366,11 @@ def _assignment_violations(
         for item in modules:
             module = item["data"]["qualified_name"]
             # The namespace container and blank files hold no code a component could own.
+            explicit_claims = sum(
+                component_owns_module(component, module) for component in contract.components
+            )
             if (
-                module == rule.source
+                (module == rule.source and explicit_claims == 0)
                 or module in blank
                 or not in_scope(module, rule.source)
                 or contract.component_for(module) is not None
@@ -591,19 +596,18 @@ def _module_cycle_violations(
         scope = (
             None
             if rule.components is None
-            else [
-                package
-                for component in contract.components
-                if component.label in rule.components
-                for package in component.packages
-            ]
+            else tuple(
+                component for component in contract.components if component.label in rule.components
+            )
         )
         selected = tuple(
             name
             for module in modules
             if (name := module["data"]["qualified_name"])
             and (source_modules is None or name in source_modules)
-            and (scope is None or any(in_scope(name, package) for package in scope))
+            and (
+                scope is None or any(component_owns_module(component, name) for component in scope)
+            )
         )
         if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
             assessment_facts.append(
@@ -622,7 +626,9 @@ def _module_cycle_violations(
             ):
                 continue
             if scope is not None and not any(
-                in_scope(member, package) for member in members for package in scope
+                component_owns_module(component, member)
+                for member in members
+                for component in scope
             ):
                 continue
             member_set = set(members)
@@ -833,7 +839,10 @@ def symbol_limits(
     (Dart without `show`) produces any. It is filed in `unknowns`, where `unknown_positions`
     turns it into the UNKNOWN verdict instead of a PASS nobody earned.
     """
-    components = tuple((component.label, component.packages) for component in contract.components)
+    components = tuple(
+        (component.label, component.packages, component.exact_modules or ())
+        for component in contract.components
+    )
     forbidden = list(
         _forbidden_dependency_verdicts(imports, contract.rules, components, source_modules)
     )
@@ -2158,7 +2167,7 @@ def _owned_type_verdict(
         claims = [
             component
             for component in level.components
-            if any(in_scope(origin_module, package) for package in component.packages)
+            if component_owns_module(component, origin_module)
         ]
         if len(claims) > 1:
             return _Position(undecidable="other", resolved=reached)
@@ -4368,7 +4377,7 @@ def _boundary_rule_results(
     imports: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
     contract: ArchitectureContract,
-    components: tuple[tuple[str, tuple[str, ...]], ...],
+    components: tuple[ComponentOwnership, ...],
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins,
     source_modules: frozenset[str] | None,
@@ -4493,6 +4502,7 @@ def rule_violations(
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     source_modules: frozenset[str] | None = None,
     source_roots: tuple[str, ...] = (),
+    source_exact_modules: tuple[str, ...] = (),
     assessment_facts: list[RawRecord] | None = None,
     assessment_parent: str | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
@@ -4500,7 +4510,10 @@ def rule_violations(
     cycle_namespace: str | None = None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     """Evaluate every declared contract rule and return the sorted violation records."""
-    components = tuple((component.label, component.packages) for component in contract.components)
+    components = tuple(
+        (component.label, component.packages, component.exact_modules or ())
+        for component in contract.components
+    )
     module_facts = [
         item
         for item in modules
@@ -4549,13 +4562,32 @@ def rule_violations(
         boundary_violations=boundary_violations,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
-        receipt_scope_complete=_scan_covers_packages(
-            (
-                *source_roots,
-                *(package for component in contract.components for package in component.packages),
+        receipt_scope_complete=(
+            not (
+                package_scopes := (
+                    *source_roots,
+                    *(
+                        package
+                        for component in contract.components
+                        for package in component.packages
+                    ),
+                )
+            )
+            or _scan_covers_packages(package_scopes, modules, profile, cycle_scan_roots)
+        )
+        and _scan_covers_exact_modules(
+            tuple(
+                module
+                for module in (
+                    *source_exact_modules,
+                    *(
+                        exact_module
+                        for component in contract.components
+                        for exact_module in component.exact_modules or ()
+                    ),
+                )
             ),
             modules,
-            profile,
             cycle_scan_roots,
         ),
         cycle_scope_complete=(
@@ -4614,7 +4646,7 @@ def _cycle_scan_coverage(
         sorted(
             component.label
             for component in contract.components
-            if _scan_covers_packages(component.packages, modules, profile, roots)
+            if _scan_covers_ownership(component, modules, profile, roots)
         )
     )
     namespace_complete = _scan_covers_packages((namespace,), modules, profile, roots)
@@ -4682,6 +4714,37 @@ def _scan_covers_packages(
         (paths := _package_paths(package, modules, profile))
         and all(any(_contains(root, path) for root in scan_roots) for path in paths)
         for package in packages
+    )
+
+
+def _scan_covers_ownership(
+    component: ContractComponent,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    roots: tuple[str, ...],
+) -> bool:
+    scan_roots = tuple(_relative_path(root) for root in roots)
+    return (
+        bool(scan_roots)
+        and (
+            not component.packages
+            or _scan_covers_packages(component.packages, modules, profile, roots)
+        )
+        and _scan_covers_exact_modules(component.exact_modules or (), modules, roots)
+    )
+
+
+def _scan_covers_exact_modules(
+    exact_modules: Sequence[str], modules: Sequence[RawRecord], roots: tuple[str, ...]
+) -> bool:
+    scan_roots = tuple(_relative_path(root) for root in roots)
+    return bool(scan_roots) and all(
+        any(
+            module["data"]["qualified_name"] == name
+            and any(_contains(root, _relative_path(module["data"]["file"])) for root in scan_roots)
+            for module in modules
+        )
+        for name in exact_modules
     )
 
 
@@ -4772,10 +4835,7 @@ def _inside_rule_scope_is_complete(
         (
             item,
             sum(
-                any(
-                    in_scope(item["data"]["qualified_name"], package)
-                    for package in component.packages
-                )
+                component_owns_module(component, item["data"]["qualified_name"])
                 for component in contract.components
             ),
         )
@@ -4796,14 +4856,16 @@ def _inside_rule_scope_is_complete(
 def _modules_for_rule_source(
     source: str, observed: Sequence[RawRecord], contract: ArchitectureContract
 ) -> tuple[RawRecord, ...]:
-    owners = package_owners(
-        tuple((component.label, component.packages) for component in contract.components)
+    ownership = tuple(
+        (component.label, component.packages, component.exact_modules or ())
+        for component in contract.components
     )
+    owners = package_owners(tuple((label, packages) for label, packages, _ in ownership))
     component = owners.get(source)
-    packages_by_label = {item.label: item.packages for item in contract.components}
-    selectors = packages_by_label[component] if component is not None else (source,)
+    ownership_by_label = {label: (packages, exact) for label, packages, exact in ownership}
+    packages, exact = ownership_by_label[component] if component is not None else ((source,), ())
     return tuple(
         item
         for item in observed
-        if any(in_scope(item["data"]["qualified_name"], selector) for selector in selectors)
+        if module_in_ownership(item["data"]["qualified_name"], packages, exact)
     )

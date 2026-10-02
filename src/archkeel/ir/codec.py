@@ -953,6 +953,22 @@ def _required_component(raw: RawJson, label: str) -> RequiredComponent:
     )
 
 
+def _component_names(
+    item: dict[str, RawJson], label: str
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    packages = _contract_strings(item["packages"], f"{label}.packages")
+    exact = (
+        _contract_strings(item["exact_modules"], f"{label}.exact_modules")
+        if "exact_modules" in item
+        else ()
+    )
+    if any(re.fullmatch(_PACKAGE_NAME.pattern, name) is None for name in exact):
+        raise ValueError(f"{label}.exact_modules must contain dotted identifiers")
+    if not packages and not exact:
+        raise ValueError(f"{label} must claim at least one package or exact module")
+    return packages, exact
+
+
 def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     item, item_id, provenance = _contract_record(
         raw,
@@ -965,6 +981,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
             "public",
             "requires",
             "namespace",
+            "exact_modules",
         },
         label,
     )
@@ -1004,7 +1021,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
     )
     inside = item.get("inside")
     decided_by = item.get("decided_by")
-    packages = _contract_strings(item["packages"], f"{label}.packages", required=True)
+    packages, exact_modules = _component_names(item, label)
     namespace_raw = item.get("namespace")
     namespace = (
         _nonempty(namespace_raw, f"{label}.namespace") if namespace_raw is not None else None
@@ -1030,6 +1047,7 @@ def _parse_component(raw: RawJson, label: str) -> ContractComponent:
         planned,
         _decided_by(decided_by, f"{label}.decided_by") if decided_by is not None else None,
         namespace,
+        exact_modules or None,
     )
 
 
@@ -1716,18 +1734,42 @@ def _rule_payload(rule: ArchitectureRule) -> dict[str, RawJson]:
 
 
 def _open_decision_payload(decision: OpenDecision) -> dict[str, RawJson]:
-    return {
+    payload: dict[str, RawJson] = {
         "source": decision.source,
         "target": decision.target,
-        "source_package": decision.source_package,
-        "target_package": decision.target_package,
         "observed": decision.observed,
         "import_sites": decision.import_sites,
-        "options": {
-            "allowed_dependency": _rule_payload(decision.allowed_option),
-            "forbidden_dependency": _rule_payload(decision.forbidden_option),
-        },
     }
+    if decision.options_unavailable_reason is None:
+        if (
+            decision.source_package is None
+            or decision.target_package is None
+            or decision.allowed_option is None
+            or decision.forbidden_option is None
+        ):
+            raise ValueError("package open decision is missing its package-rule options")
+        payload.update(
+            source_package=decision.source_package,
+            target_package=decision.target_package,
+            options={
+                "allowed_dependency": _rule_payload(decision.allowed_option),
+                "forbidden_dependency": _rule_payload(decision.forbidden_option),
+            },
+        )
+    else:
+        payload.update(
+            source_packages=list(decision.source_packages),
+            target_packages=list(decision.target_packages),
+            source_exact_modules=list(decision.source_exact_modules),
+            target_exact_modules=list(decision.target_exact_modules),
+            options={},
+            options_unavailable_reason=decision.options_unavailable_reason,
+        )
+        if decision.source_package is not None:
+            payload["source_package"] = decision.source_package
+        if decision.target_package is not None:
+            payload["target_package"] = decision.target_package
+    return payload
 
 
 def result_payload(result: RunResult) -> dict[str, RawJson]:

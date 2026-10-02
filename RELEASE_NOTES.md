@@ -1,10 +1,17 @@
 # Unreleased
 
+- Components may own exact module names with `exact_modules` as well as recursive `packages`;
+  ownership is unambiguous only when one component claims each observed module (AD-128, #211;
+  analyzer 0.63.0).
 - Python rule receipts exempt only package initializers with no AST statements;
   docstrings and imports retain their ownership obligation (#232).
 - Complete Python scope coverage follows physical package paths, so dotted `.py`
   filenames no longer make full scans UNKNOWN; partial scans remain UNKNOWN
   (#233, analyzer 0.62.0).
+
+# Archkeel 0.8.3 — Simplify README and report text
+
+- Simplified README and report wording; recaptured the report PNGs.
 
 # Archkeel 0.8.2 — Explore the hierarchy. Keep the evidence.
 

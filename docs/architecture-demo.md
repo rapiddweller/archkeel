@@ -269,6 +269,9 @@ the conforming case.
 | class_d | unreferenced_symbols:enum-member-reference | class-d-enum-member-reference | tested only | - | - | tests/test_references.py |
 | class_d | oversized_inside | class-d-oversized-inside | tested only | - | - | docs/rules.md |
 | class_d | type_fanin | class-d-type-fanin | tested only | - | - | docs/rules.md |
+| class_d | exact_module_ownership:package initializer | ownership-exact-module-positive | validate/report run | - | - | shop/store/architecture-contract.json |
+| class_d | exact_module_ownership:sibling import remains separate | ownership-exact-module-not-recursive | validate/report run | store:STORE-REQUIRES-COMPLETE | rule.violated | shop/store/architecture-contract.json, shop/store/backend/probe.py |
+| class_d | exact_module_ownership:competing owner | ownership-exact-module-ambiguous | validate/report run | ASSIGNMENT-COMPLETE, DEP-STORE-NO-APP | reference.public_owner | architecture-contract.json |
 | clean | dart:clean | dart-clean | validate/report run | - | - | G-dart: clean sample |
 | class_a | dart:forbidden_dependency | dart-forbidden-dart-io | validate/report run | DEP-DOMAIN-NO-DART-IO | rule.violated | G-dart: lib/domain/repository.dart |
 | class_a | dart:complete_requires | dart-complete-requires | validate/report run | REQUIRES-COMPLETE | graph.drift, rule.violated | G-dart: lib/data/http_order_repository.dart |

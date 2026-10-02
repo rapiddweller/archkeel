@@ -229,7 +229,7 @@ def declared_components(observation: Observation) -> frozenset[str]:
     sub-component's `inside_component_responsibility`), so a sub-component name is correctly
     unknown here rather than silently matching nothing.
     """
-    return frozenset(label for label, _ in component_owners(observation))
+    return frozenset(label for label, _, _ in component_owners(observation))
 
 
 def require_declared_filter(observation: Observation, report_filter: ReportFilter) -> None:

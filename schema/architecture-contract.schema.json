@@ -39,12 +39,17 @@
     "component": {
       "type": "object",
       "required": ["id", "label", "role", "packages", "responsibilities", "forbidden_responsibilities", "provenance"],
+      "anyOf": [
+        {"properties": {"packages": {"minItems": 1}}},
+        {"required": ["exact_modules"], "properties": {"exact_modules": {"minItems": 1}}}
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {"$ref": "#/$defs/nonEmpty"},
         "label": {"$ref": "#/$defs/nonEmpty"},
         "role": {"enum": ["component", "interface", "contract", "projection", "foundation"]},
-        "packages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "packages": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}},
+        "exact_modules": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"}},
         "namespace": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"},
         "responsibilities": {"$ref": "#/$defs/strings"},
         "forbidden_responsibilities": {"$ref": "#/$defs/strings"},

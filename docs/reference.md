@@ -121,6 +121,15 @@ module-cycle proof needs the whole
 namespace. Smaller scans, explicit `source_paths`, and Dart cannot prove that completeness,
 but observed violations still produce FAIL.
 
+Components own modules through recursive `packages` and optional exact dotted names in
+`exact_modules` (AD-128). Exact names may stand alone and never include descendants. Every observed
+module must have exactly one owning component; competing selectors do not have precedence.
+Omitted and empty `exact_modules` preserve legacy contract serialization and digests.
+Open pairs involving exact selectors retain every selector in JSON; Archkeel does not generate
+automatic rule suggestions for them. An unqualified rule between uniquely declared package
+endpoints still decides a mixed package/exact pair. Submodule and `target_symbol` rules remain
+partial; exact-only pairs stay open under member rules unless `complete_requires` applies.
+
 `report --baseline known-violations.json` optionally adds a read-only comparison. The path
 resolves inside `--root`; no baseline is discovered automatically or rewritten. Fingerprint
 counts identify known, new, reduced and resolved debt without inventing identity for repeated
