@@ -1,0 +1,19 @@
+{
+  "accepted_digest": "b8248cf68b42a75d83cf1fdc786e23acbea20b942309c239f9dba4ee0d8dd42f",
+  "analyzer_digest": "4b59e9580ed57536e7612bda0e03de294424933e4f0d61b0fc4cb28376841eeb",
+  "baseline_commit": "d41fffacae2acaf14d461cf26cdd40f934f5a12a",
+  "baseline_digest": "5d09893bc856ad0d76b6e4f3826ec43412484bc01111638c3ebff688b5301474",
+  "checker_digest": "f4955500193f8079a1cd638a89c251a60084b280649b5dfa1cf1ac158c2af881",
+  "contract_digest": "a41274681e4d7792d06e6e6f2c07fdedce1aafea6b24c37dd44dda20d4667459",
+  "evidence_class": "HYPOTHESIS",
+  "guardrails": {
+    "coverage_must_pass": true,
+    "no_new_cycles": true,
+    "no_new_private_crossings": true,
+    "no_new_typing_signals": true,
+    "no_new_unknowns": true,
+    "no_new_violations": true
+  },
+  "schema_version": "1.2.0",
+  "selected_changes": []
+}
