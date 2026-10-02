@@ -411,17 +411,17 @@ def _record_import_origins(
 ) -> None:
     for item in imports:
         data = item["data"]
+        source_binding_unique = data["source_module"] not in stable_bindings or (
+            data["binding"] in stable_bindings[data["source_module"]]
+        )
+        if data["source_module"] in stable_bindings:
+            data["source_binding_unique"] = source_binding_unique
         if not data["symbol"]:
             data["reexport_chain"] = []
             data["origin_definition"] = None
             data["symbol_visibility"] = None
             data["declared_in_all"] = False
             continue
-        source_binding_unique = data["source_module"] not in stable_bindings or (
-            data["binding"] in stable_bindings[data["source_module"]]
-        )
-        if data["source_module"] in stable_bindings:
-            data["source_binding_unique"] = source_binding_unique
         symbol: str = data["symbol"]
         current = f"{data['target_module']}.{symbol}"
         chain = [current]

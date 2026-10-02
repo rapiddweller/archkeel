@@ -1374,17 +1374,17 @@ _PROVEN_MAPPINGS: Final = frozenset(
 )
 
 
-def _proven_mapping_head(
+_PROVEN_SCALAR_LEAVES: Final = frozenset({("datetime", "datetime")})
+
+
+def _proven_type_head(
     head: ast.expr,
     module: str,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    origins: frozenset[tuple[str, str]],
 ) -> _Position | bool:
-    """Whether `head` is a mapping its imports prove, or why that stays undecidable (AD-123).
-
-    The one proof for a subscripted mapping and for a bare one, so `Mapping[str, str]` and
-    `Mapping` cannot be read differently. False leaves the head to the caller's own reading.
-    """
+    """Prove a known origin without trusting a shadowed or ambiguous binding."""
     if isinstance(head, ast.Name):
         binding, member = head.id, None
     elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
@@ -1402,23 +1402,26 @@ def _proven_mapping_head(
         and key not in imports_by_binding
         and key not in classes_by_location
     ):
-        mapping_module, mapping_name = "builtins", "dict"
+        origin_module, origin_name = "builtins", "dict"
     else:
         imported = imports_by_binding.get(key)
         if not isinstance(imported, dict):
             return False
         target, symbol = imported["target_module"], imported["symbol"]
         if member is None:
-            mapping_module, mapping_name = target, symbol
+            origin_module, origin_name = target, symbol
         else:
             # Import records cannot distinguish a dotted module from an alias to its root.
             if symbol is None and target == "collections.abc" and binding == "collections":
                 return _Position(undecidable="dotted_name")
-            mapping_module = f"{target}.{symbol}" if symbol else target
-            mapping_name = member
-    if (mapping_module, mapping_name) not in _PROVEN_MAPPINGS:
+            origin_module = f"{target}.{symbol}" if symbol else target
+            origin_name = member
+    if (origin_module, origin_name) not in origins:
         return False
-    if (mapping_module, mapping_name) in classes_by_location:
+    imported = imports_by_binding.get(key)
+    if isinstance(imported, dict) and imported.get("source_binding_unique") is False:
+        return _Position(undecidable="ambiguous_binding")
+    if (origin_module, origin_name) in classes_by_location:
         return _Position(undecidable="ambiguous_binding")
     return True
 
@@ -1435,7 +1438,9 @@ def _mapping_parameters(
         return None
     if not isinstance(expression, ast.Subscript):
         return None
-    proven = _proven_mapping_head(expression.value, module, imports_by_binding, classes_by_location)
+    proven = _proven_type_head(
+        expression.value, module, imports_by_binding, classes_by_location, _PROVEN_MAPPINGS
+    )
     if isinstance(proven, _Position):
         return proven
     if not proven:
@@ -1450,23 +1455,32 @@ def _mapping_parameters(
     return [ast.unparse(arg) for arg in expression.slice.elts]
 
 
-def _bare_mapping_verdict(
+def _bare_type_verdict(
     annotation: str,
     module: str,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
 ) -> _Position | None:
-    """An unsubscripted proven mapping is as broad as a subscripted one (AD-123)."""
+    """Bare mappings are broad; a proven stdlib scalar is a leaf (AD-123, AD-132)."""
     try:
         expression = ast.parse(annotation, mode="eval").body
     except SyntaxError:
         return None
     if not isinstance(expression, (ast.Name, ast.Attribute)):
         return None
-    proven = _proven_mapping_head(expression, module, imports_by_binding, classes_by_location)
+    proven = _proven_type_head(
+        expression, module, imports_by_binding, classes_by_location, _PROVEN_MAPPINGS
+    )
     if isinstance(proven, _Position):
         return proven
-    return _Position(violation=_BROAD_BOUNDARY_REASON) if proven else None
+    if proven:
+        return _Position(violation=_BROAD_BOUNDARY_REASON)
+    scalar = _proven_type_head(
+        expression, module, imports_by_binding, classes_by_location, _PROVEN_SCALAR_LEAVES
+    )
+    if isinstance(scalar, _Position):
+        return scalar
+    return _Position() if scalar else None
 
 
 def _typing_wrapper_inner(
@@ -1951,11 +1965,9 @@ def _boundary_type_verdict(
         return wrapped
     if _is_broad_boundary_type(annotation, module, imports_by_binding, classes_by_location):
         return _Position(violation=_BROAD_BOUNDARY_REASON)
-    bare_mapping = _bare_mapping_verdict(
-        annotation, module, imports_by_binding, classes_by_location
-    )
-    if bare_mapping is not None:
-        return bare_mapping
+    bare_type = _bare_type_verdict(annotation, module, imports_by_binding, classes_by_location)
+    if bare_type is not None:
+        return bare_type
     if annotation.startswith(("'", '"')):
         return _Position(undecidable="forward_reference")
     if not annotation.isidentifier():

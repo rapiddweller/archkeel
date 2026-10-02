@@ -118,6 +118,8 @@ other `unknowns` kind does too, except the standing disclaimers `dynamic_call_li
 `unknown_positions` scalar.
 An exact native `object` payload may be accepted as opaque (AD-135). Its allowance fact
 records that decision and provenance; it supplies no proof of static type closure.
+`datetime.datetime` is the only imported stdlib scalar leaf decided here (AD-132).
+Other external classes and uncertain bindings remain UNKNOWN.
 Proven standard-library mappings are broad boundary findings (AD-123), but unproven or
 malformed subscripted mapping annotations remain UNKNOWN; a bare name not proven to be a
 standard-library mapping (`from mylib import Mapping`) is judged like any other external type.

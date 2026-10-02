@@ -721,6 +721,56 @@ _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD = Variant(
     expected_codes=("rule.violated",),
 )
 
+
+def _datetime_payload(imports: str, annotation: str) -> dict[str, str]:
+    files = _owned_public_payload(annotation)
+    source = files["shop/app/payloads.py"]
+    source = source.replace(
+        "from dataclasses import dataclass", "from dataclasses import dataclass\n" + imports
+    )
+    source = source.replace("value:", "now:").replace("Payload(value=", "Payload(now=")
+    if imports == "from datetime import datetime":
+        source = source.replace('now="ready"', "now=datetime(2026, 1, 1)")
+    files["shop/app/payloads.py"] = source
+    files["shop/cli/main.py"] = files["shop/cli/main.py"].replace("payload.value", "payload.now")
+    return files
+
+
+_DATETIME_PAYLOAD = Variant(
+    id="class-a-boundary-types-datetime",
+    section="class_a",
+    item="boundary_types:datetime_leaf",
+    summary="An owned public DTO's proven datetime.datetime field is a scalar leaf (AD-132). "
+    "Other report UNKNOWNs remain visible.",
+    files=_datetime_payload("from datetime import datetime", "datetime"),
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="UNKNOWN",
+)
+
+_EXTERNAL_DATETIME_PAYLOAD = Variant(
+    id="class-a-boundary-types-datetime-external",
+    section="class_a",
+    item="boundary_types:external_datetime_unknown",
+    summary="Another class imported as datetime cannot use the stdlib leaf proof; "
+    "return.now stays UNKNOWN.",
+    files=_datetime_payload("from decimal import Decimal as datetime", "datetime"),
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("boundary_type_position", "shop.app.api.make"),),
+    expected_declared_rules="UNKNOWN",
+)
+
+_OBJECT_PAYLOAD = Variant(
+    id="class-a-boundary-types-object-field",
+    section="class_a",
+    item="boundary_types:broad_object_field",
+    summary="An owned public DTO's object field remains a boundary violation at return.now.",
+    files=_datetime_payload("", "object"),
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+)
+
 _REQUEST_MODEL_MODULE = HEADER + (
     '"""A request model with a broad directly declared field."""\n\n'
     "from __future__ import annotations\n\n"
@@ -985,6 +1035,9 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN,
     _BOUNDARY_TYPES_OWNED_PUBLIC_TYPE,
     _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD,
+    _DATETIME_PAYLOAD,
+    _EXTERNAL_DATETIME_PAYLOAD,
+    _OBJECT_PAYLOAD,
     _BOUNDARY_TYPES_MODEL_FIELD,
     _INHERITED_GENERIC_RETURN,
     _INHERITED_GENERIC_UNDECLARED_RETURN,
