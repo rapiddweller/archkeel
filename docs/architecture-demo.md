@@ -159,6 +159,11 @@ the conforming case.
 | class_a | interface_boundary:inherited_generic_return | class-a-inherited-generic-return | validate/report run | - | - | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
 | class_a | interface_boundary:irrelevant_generic_argument | class-a-inherited-generic-unused | validate/report run | - | interface.unused | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
 | class_a | interface_boundary:ambiguous_inherited_generic | class-a-inherited-generic-ambiguous | validate/report run | - | interface.usage_unknown | architecture-contract.json, shop/app/base/__init__.py, shop/app/base/impl.py, shop/app/payloads.py, shop/app/service.py, shop/cli/main.py |
+| validation | public_api:inherited_field_missing | public-api-inherited-missing | validate/report run | - | api_surface.missing | architecture-contract.json, shop/model/public_api.py |
+| clean | public_api:inherited_field_declared | public-api-inherited-declared | validate/report run | - | - | architecture-contract.json, shop/model/public_api.py |
+| validation | public_api:unresolved_inheritance | public-api-inherited-unknown | validate/report run | - | - | architecture-contract.json, shop/model/public_api.py |
+| validation | public_api:class_alias_missing | public-api-alias-missing | validate/report run | - | api_surface.missing | architecture-contract.json, shop/app/orders.py, shop/model/public_api.py |
+| clean | public_api:class_alias_declared | public-api-alias-declared | validate/report run | - | - | architecture-contract.json, shop/app/orders.py, shop/model/public_api.py |
 | validation | requires.target:local | validation-requires-local-target | validate/report run | - | - | architecture-contract.json |
 | validation | requires.target:undeclared | validation-requires-target-unknown | validate/report run | - | contract.invalid | architecture-contract.json |
 | validation | component.label:duplicate | validation-component-label-duplicate | validate/report run | - | contract.invalid | architecture-contract.json |

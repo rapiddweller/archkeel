@@ -328,9 +328,17 @@ def _declaration_records(
     keep that call a single line there.
     """
     records = [
-        *project_declarations(contract, scan.symbols, scan.imports, scan.modules, contract_path),
+        *project_declarations(
+            contract,
+            scan.symbols,
+            scan.imports,
+            scan.modules,
+            contract_path,
+            unknowns=scan.unknowns,
+        ),
         *inside_records,
     ]
+    scan.unknowns = sorted(scan.unknowns, key=lambda item: item["id"])
     roots, namespace = module_scope
     for record in records:
         data = record["data"]
