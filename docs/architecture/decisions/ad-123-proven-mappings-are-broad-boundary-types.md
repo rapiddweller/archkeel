@@ -25,7 +25,7 @@ Archkeel itself keeps three reviewed open maps: `FilesToWrite` accepts arbitrary
 paths and `run_check`/`Host` accept arbitrary environment names. Its own contract
 names each signature position exactly. The self-baseline drops from 48 to 40
 UNKNOWN positions; it gains no violation budget. A root allowance cannot name a bare `Dict`,
-`object`, `Mapping` or `MutableMapping` (AD-95).
+`Mapping` or `MutableMapping` (AD-95); exact opaque `object` payloads are separate (AD-135).
 
 This changes analyzer results, so `ANALYZER_VERSION` rises to `0.59.0`. The
 DATAMIMIC CE demographic override exposed the gap: its public type correctly

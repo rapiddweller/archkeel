@@ -110,7 +110,7 @@ def test_omitted_path_selector_mismatch_keeps_the_return(
     ]
 
 
-@pytest.mark.parametrize("annotation", ["dict", "Dict", "object", "Mapping", "MutableMapping"])
+@pytest.mark.parametrize("annotation", ["dict", "Dict", "Mapping", "MutableMapping"])
 def test_omitted_path_retains_bare_broad_type_rejection(annotation: str) -> None:
     raw = _contract(allowance={**_ALLOWANCE, "annotation": annotation})
 

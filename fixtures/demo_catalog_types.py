@@ -331,6 +331,61 @@ _SHADOWED_DICT_ALLOWED = Variant(
     expected_declared_rules="UNKNOWN",
 )
 
+
+def _native_payload_contract() -> str:
+    contract = json.loads(
+        contract_component_field_appended("app", "public", "shop.app.reports:Converter")
+    )
+    rule = next(item for item in contract["rules"] if item["id"] == "APP-TYPES-NOT-DICT")
+    rule["allowed_positions"] = [
+        {
+            "qualified_name": "shop.app.reports.Converter.convert",
+            "position": "value",
+            "annotation": "object",
+        }
+    ]
+    rule["rationale"] = "Accept the exact native payload as opaque; keep execution controls typed."
+    return json.dumps(contract, indent=2) + "\n"
+
+
+_NATIVE_PAYLOAD_ALLOWED = Variant(
+    id="class-a-boundary-types-native-payload",
+    section="class_a",
+    item="boundary_types:exact_native_payload",
+    summary="One exact object payload accepts opacity with its decision provenance (AD-135).",
+    files={
+        "shop/app/reports.py": HEADER
+        + "class Converter:\n    def convert(self, value: object) -> str: return str(value)\n",
+        "shop/cli/main.py": _CLI_IMPORTS_REPORTS.replace(
+            "from shop.app.reports import snapshot", "from shop.app.reports import Converter"
+        ),
+        "architecture-contract.json": _native_payload_contract(),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="UNKNOWN",
+)
+
+_NATIVE_PAYLOAD_NEIGHBORS = Variant(
+    id="class-a-boundary-types-native-controls",
+    section="class_a",
+    item="boundary_types:native_payload_keeps_controls",
+    summary="The accepted payload keeps returns, constructor context, masks and other methods "
+    "forbidden (AD-135).",
+    files={
+        **_NATIVE_PAYLOAD_ALLOWED.files,
+        "shop/app/reports.py": HEADER
+        + (
+            "class Converter:\n"
+            "    def __init__(self, ctx: object) -> None: self.ctx = ctx\n"
+            "    def convert(self, value: object, mask: object) -> object: return value\n"
+            "    def other(self, value: object) -> object: return value\n"
+        ),
+    },
+    expected_violations=("APP-TYPES-NOT-DICT",) * 5,
+    expected_codes=("rule.violated",) * 5,
+)
+
 _BOUNDARY_TYPES_MIXED_EVIDENCE = Variant(
     id="class-a-boundary-types-mixed-evidence",
     section="class_a",
@@ -806,6 +861,8 @@ VARIANTS: tuple[Variant, ...] = (
     _DIRECT_POSITION_ALLOWED,
     _DIRECT_POSITION_NEIGHBORS,
     _SHADOWED_DICT_ALLOWED,
+    _NATIVE_PAYLOAD_ALLOWED,
+    _NATIVE_PAYLOAD_NEIGHBORS,
     _BOUNDARY_TYPES_MIXED_EVIDENCE,
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,

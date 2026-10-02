@@ -1653,6 +1653,7 @@ class BindingIndex(dict[tuple[str, str], RecordData | _AmbiguousBinding]):
         super().__init__()
         self.owner_facade_type_states: dict[tuple[str, str, str], bool] = {}
         self.ownership_contracts: tuple[ArchitectureContract, ...] = ()
+        self.module_bindings: BindingIndex | None = None
 
 
 def _has_star_import(module: str, imports_by_binding: BindingIndex) -> bool:
@@ -1912,11 +1913,22 @@ def _boundary_type_verdict(
     enter_fields: bool = True,
     _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
     _require_static_constant: bool = False,
+    uncertain_bindings: Sequence[str] = (),
 ) -> _Position:
     """Read one annotation for boundary_types and facade_types (AD-58, AD-69).
     Broad or undeclared types violate; builtins, enums and declared types pass. Other shapes
     report why undecidable, with bounded collection and field descent (AD-67, AD-84).
     """
+    if uncertain_bindings:
+        scoped_classes = BindingIndex()
+        for key in classes_by_location:
+            scoped_classes[key] = classes_by_location[key]
+        for name in uncertain_bindings:
+            scoped_classes[module, name] = _AMBIGUOUS
+        scoped_classes.module_bindings = classes_by_location
+        if classes_by_location.module_bindings is not None:
+            scoped_classes.module_bindings = classes_by_location.module_bindings
+        classes_by_location = scoped_classes
     if not annotation:
         return _Position(undecidable="missing_annotation")
     wrapped = _typing_wrapper_verdict(
@@ -2050,6 +2062,8 @@ def _type_alias_verdict(
     alias = symbol.get("alias")
     if resolved in aliases_seen or not isinstance(alias, str) or alias == annotation:
         return _Position(undecidable="other", resolved=reached)
+    if classes_by_location.module_bindings is not None:
+        classes_by_location = classes_by_location.module_bindings
     expanded = _boundary_type_verdict(
         alias,
         module,
@@ -2373,6 +2387,13 @@ def _declared_field_verdict(
     """Inspect all owned declared model fields, stopping recursive graphs by origin."""
     if not isinstance(origin_symbol, dict) or not origin_symbol.get("fields"):
         return _Position()
+    if classes_by_location.module_bindings is not None:
+        classes_by_location = classes_by_location.module_bindings
+    binding_uncertainties: dict[str, list[str]] = (
+        origin_symbol["annotation_binding_uncertainties"]
+        if "annotation_binding_uncertainties" in origin_symbol
+        else {}
+    )
     field_verdicts: list[tuple[str, _Position]] = []
     for field in origin_symbol["fields"]:
         if not isinstance(field, dict) or not isinstance(field.get("name"), str):
@@ -2388,6 +2409,7 @@ def _declared_field_verdict(
             visited=visited,
             enter_fields=False,
             _aliases_seen=_aliases_seen,
+            uncertain_bindings=binding_uncertainties.get(field["name"], ()),
         )
         field_verdicts.append(
             (field["name"], _field_position_verdict(field["name"], annotation, verdict))
@@ -3236,6 +3258,11 @@ def _inherited_generic_facade_types(
     inherited_positions: list[tuple[str, str, str, str, _Position]] = []
     for method in methods_by_parent.get(base_qualified_name, ()):
         method_data = method["data"]
+        binding_uncertainties: dict[str, list[str]] = (
+            method_data["annotation_binding_uncertainties"]
+            if "annotation_binding_uncertainties" in method_data
+            else {}
+        )
         name = method_data["name"]
         if (
             name[:1] == "_"
@@ -3266,6 +3293,9 @@ def _inherited_generic_facade_types(
                 exports_by_module,
                 substituted_imports,
                 substituted_classes,
+                uncertain_bindings=(
+                    () if base_binding_uncertain else binding_uncertainties.get(position, ())
+                ),
             )
             if not base_binding_uncertain:
                 inherited_positions.append((name, method["id"], position, annotation, verdict))
@@ -3370,9 +3400,18 @@ def _inherited_generic_candidate_types(
     return sorted(candidates)
 
 
+_OPAQUE_NATIVE_REASONS: Final = {
+    "object": _BROAD_BOUNDARY_REASON,
+    "object | None": f"holding object {_BROAD_BOUNDARY_REASON}",
+}
+
+
 def _root_broad_count(records: Sequence[RawRecord]) -> int:
     return sum(
-        record["data"]["reason"] == _BROAD_BOUNDARY_REASON
+        (
+            record["data"]["reason"] == _BROAD_BOUNDARY_REASON
+            or record["data"]["reason"] == _OPAQUE_NATIVE_REASONS.get(record["data"]["annotation"])
+        )
         and "container_depth" not in record["data"]
         for record in records
     )
@@ -3394,8 +3433,11 @@ def _boundary_type_allowance_fact(
         annotation = data.get("nested_annotation") if allowance.field_path else data["annotation"]
         direct_match = (
             not allowance.field_path
-            and data["reason"] == _BROAD_BOUNDARY_REASON
-            and "nested_annotation" in data
+            and isinstance(annotation, str)
+            and (
+                (data["reason"] == _BROAD_BOUNDARY_REASON and "nested_annotation" in data)
+                or data["reason"] == _OPAQUE_NATIVE_REASONS.get(annotation)
+            )
             and data.get("container_depth", 0) == 0
             and root_broad_count == 1
         )
@@ -3451,6 +3493,7 @@ def _boundary_type_allowance_fact_record(
     is_contained: bool,
 ) -> RawRecord:
     data = record["data"]
+    opaque = not allowance.field_path and allowance.annotation in _OPAQUE_NATIVE_REASONS
     allowance_scope = (
         "unique contained mapping " if is_contained else "nested " if allowance.field_path else ""
     )
@@ -3475,16 +3518,23 @@ def _boundary_type_allowance_fact_record(
                 if is_contained
                 else ""
             )
+            + (
+                f" at {allowance.position}; accepted opacity, type closure remains unproven"
+                if opaque
+                else ""
+            )
         ),
         subjects=[allowance.qualified_name, facade_module],
         evidence_ids=record["evidence_ids"],
         rule_ids=[rule.id],
         fact_ids=record["fact_ids"],
+        provenance=list(rule.provenance) if opaque else None,
         data={
             "qualified_name": allowance.qualified_name,
             "position": allowance.position,
             "field_path": allowance.field_path,
             "annotation": allowance.annotation,
+            **({"accepted_opacity": True} if opaque else {}),
             **(
                 {
                     "nested_annotation": data["nested_annotation"],
@@ -3552,6 +3602,12 @@ def _boundary_types_violations(
             facade_module, qualname, positions, resolution_module, ambiguous_facade, _ = found
             if source_modules is not None and facade_module not in source_modules:
                 continue
+            data = item["data"]
+            binding_uncertainties: dict[str, list[str]] = (
+                data["annotation_binding_uncertainties"]
+                if "annotation_binding_uncertainties" in data
+                else {}
+            )
             for position, annotation in positions:
                 verdict = (
                     _Position(undecidable="ambiguous_facade")
@@ -3563,6 +3619,7 @@ def _boundary_types_violations(
                         exports_by_module,
                         imports_by_binding,
                         classes_by_location,
+                        uncertain_bindings=binding_uncertainties.get(position, ()),
                     )
                 )
                 evaluated[item["id"]] = item
@@ -4044,6 +4101,7 @@ def _boundary_rule_positions(
         parent = item["data"]["parent"]
         if item["kind"] == "method" and isinstance(parent, str):
             methods_by_parent[parent] = [*methods_by_parent[parent], item]
+    symbols_by_id = {item["id"]: item for item in ordered_symbols}
     seen = 0
     for item in ordered_symbols:
         found = _facade_positions(
@@ -4057,6 +4115,7 @@ def _boundary_rule_positions(
         callable_key = (module, qualified_name)
         occurrence = occurrences.get(callable_key, 0)
         occurrences[callable_key] = occurrence + 1
+        data = item["data"]
         details = _undecidable_declared_positions(
             module,
             qualified_name,
@@ -4068,6 +4127,10 @@ def _boundary_rule_positions(
             imports_by_binding,
             classes_by_location,
             occurrence,
+            data["annotation_binding_uncertainties"]
+            if "annotation_binding_uncertainties" in data
+            else {},
+            data["annotation_scope"] if "annotation_scope" in data else None,
         )
         seen += len(positions)
         undecidable_positions.extend(details)
@@ -4086,9 +4149,13 @@ def _boundary_rule_positions(
             )
             seen += len(inherited_positions)
             facade_qualname = qualified_name[: -len(".__inherited_methods__")]
-            for inherited_index, (method_name, _, position, annotation, verdict) in enumerate(
-                inherited_positions
-            ):
+            for inherited_index, (
+                method_name,
+                method_id,
+                position,
+                annotation,
+                verdict,
+            ) in enumerate(inherited_positions):
                 if verdict.undecidable is None:
                     continue
                 detail: dict[str, object] = {
@@ -4099,6 +4166,15 @@ def _boundary_rule_positions(
                     "reason": verdict.undecidable,
                     "occurrence": occurrence * 1000 + inherited_index,
                 }
+                method_data = symbols_by_id[method_id]["data"]
+                uncertainties = (
+                    method_data["annotation_binding_uncertainties"]
+                    if "annotation_binding_uncertainties" in method_data
+                    else {}
+                )
+                if position in uncertainties:
+                    detail["annotation_bindings"] = uncertainties[position]
+                    detail["annotation_scope"] = method_data["annotation_scope"]
                 undecidable_positions.append(detail)
                 positions_out.append(_boundary_type_position_record(rule, item, detail))
         selected = _selected_facade(module, qualified_name, resolution_module)
@@ -4128,7 +4204,11 @@ def _undecidable_declared_positions(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     occurrence: int,
+    binding_uncertainties: dict[str, list[str]] | None = None,
+    annotation_scope: str | None = None,
 ) -> list[dict[str, object]]:
+    if binding_uncertainties is None:
+        binding_uncertainties = {}
     details: list[dict[str, object]] = []
     for position, annotation in positions:
         verdict = (
@@ -4143,6 +4223,7 @@ def _undecidable_declared_positions(
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
+                uncertain_bindings=binding_uncertainties.get(position, ()),
             )
         )
         reason = verdict.undecidable
@@ -4156,6 +4237,9 @@ def _undecidable_declared_positions(
             "reason": reason,
             "occurrence": occurrence,
         }
+        if bindings := binding_uncertainties.get(position):
+            detail["annotation_bindings"] = bindings
+            detail["annotation_scope"] = annotation_scope
         if verdict.path:
             detail["path"] = ".".join((position, *verdict.path))
             detail["nested_annotation"] = verdict.nested_annotation or annotation

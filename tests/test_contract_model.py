@@ -156,7 +156,7 @@ def test_boundary_type_allowance_is_exact_and_round_trips() -> None:
         parse_contract(raw)
 
 
-@pytest.mark.parametrize("annotation", ("Dict", "object", "Mapping", "MutableMapping"))
+@pytest.mark.parametrize("annotation", ("Dict", "Mapping", "MutableMapping"))
 def test_root_boundary_allowance_cannot_name_a_bare_broad_type(annotation: str) -> None:
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
     raw["rules"] = [

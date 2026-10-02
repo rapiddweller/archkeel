@@ -12,9 +12,9 @@ return finding. It matches the complete signature annotation and exempts one
 top-level broad finding, including one inside an optional union. Nested maps,
 undeclared members, and UNKNOWN evidence remain visible. If there are multiple
 top-level broad findings, the root allowance matches none. A root allowance cannot name a
-bare `Dict`, `object`, `Mapping` or `MutableMapping`: it would exempt the whole position, so the
-parser and the schema reject it. The analyzer additionally applies a root allowance only to a
-parameterized mapping finding, so other spellings of a bare broad type never match.
+bare `Dict`, `Mapping` or `MutableMapping`: the parser and schema reject it.
+AD-135 permits an exact `object` / `object | None` payload as accepted opacity, with explicit provenance;
+it does not prove type closure. Other bare mapping spellings never match a root allowance.
 
 The contract parser rejects malformed and duplicate entries. Adding an allowance widens the
 contract and `--against` requires an amendment; removing one narrows it. A bare `dict` remains a
