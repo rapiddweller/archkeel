@@ -30,6 +30,8 @@ causes. Those causes and raw finding counts remain separate. Missing producer pr
 keeps counts unavailable; partial coverage prevents PASS. This does not measure
 per-child or AST-position decisions. Permissions remain declarations without counts.
 Scope, import and type units are never added.
+Both ledgers retain the canonical mount `scope` and local `producer_scope`, bound
+through the evaluator's actual inside mount. Repeated local labels stay distinct.
 
 Version2 captures existing boundary producer verdicts and population receipts.
 Reconciled populations publish actual totals, including all-safe scopes without

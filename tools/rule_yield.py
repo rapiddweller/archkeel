@@ -24,6 +24,7 @@ from types import FrameType
 from typing import Any
 
 from archkeel.analyzer.embedded.report import analyze_snapshot
+from archkeel.analyzer.embedded.scanner import _inside_rule_results
 from archkeel.analyzer.embedded.violations import (
     _boundary_rule_positions,
     _boundary_type_allowance_fact,
@@ -67,13 +68,20 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
         if event == "call":
             count = frame.f_code.co_argcount + frame.f_code.co_kwonlyargcount
             arguments = {name: frame.f_locals[name] for name in frame.f_code.co_varnames[:count]}
+            mount = frame.f_back
+            while mount is not None and mount.f_code is not _inside_rule_results.__code__:
+                mount = mount.f_back
+            declared_scope = mount.f_locals["mount"].parent_id if mount is not None else "root"
+            if function in (rule_violations, _rule_evaluation_receipt):
+                arguments["declared_scope"] = declared_scope
             if function in (_forbidden_dependency_verdicts, _interface_verdicts):
                 evaluator = frame.f_back
                 while evaluator is not None and evaluator.f_code is not rule_violations.__code__:
                     evaluator = evaluator.f_back
                 if evaluator is None:
                     return
-                arguments["scope"] = evaluator.f_locals["assessment_parent"] or "root"
+                arguments["scope"] = declared_scope
+                arguments["producer_scope"] = evaluator.f_locals["assessment_parent"] or "root"
             if function in (rule_violations, boundary_type_limits):
                 # The scanner strips private import proof before publishing its result.
                 arguments = deepcopy(arguments)
@@ -135,7 +143,13 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
             if rule.kind != kind:
                 continue
             ledger = ledgers.setdefault(
-                rule.id, {"unit": "import", "scope": arguments["scope"], "evaluations": []}
+                rule.id,
+                {
+                    "unit": "import",
+                    "scope": arguments.get("scope"),
+                    "producer_scope": arguments["producer_scope"],
+                    "evaluations": [],
+                },
             )
             if result is None:
                 completions.setdefault(rule.id, []).append(
@@ -208,7 +222,7 @@ def _scope_ledgers(model: dict, calls: list) -> dict[str, dict]:
             result
             for function, arguments, result in calls
             if function is rule_violations
-            and (arguments["assessment_parent"] or "root") == scope
+            and arguments.get("declared_scope") == scope
             and any(item.id == identifier for item in arguments["contract"].rules)
         ]
         violations = [row for row in model["violations"] if identifier in row["rule_ids"]]
@@ -219,10 +233,10 @@ def _scope_ledgers(model: dict, calls: list) -> dict[str, dict]:
             facts = arguments["evaluated"]
             bound = (
                 result == receipt
-                and arguments["scope"] == scope
-                and receipt["id"] == stable_id("RULE-EVALUATION", scope, identifier)
+                and arguments.get("declared_scope") == scope
+                and receipt["id"] == stable_id("RULE-EVALUATION", arguments["scope"], identifier)
                 and receipt["rule_ids"] == [identifier]
-                and receipt["data"]["scope"] == scope
+                and receipt["data"]["scope"] == arguments["scope"]
                 and receipt["fact_ids"] == sorted(row["id"] for row in facts)
                 and bool(facts)
                 and all(modules.get(row["id"]) == row for row in facts)
@@ -237,6 +251,7 @@ def _scope_ledgers(model: dict, calls: list) -> dict[str, dict]:
         ledgers[identifier] = {
             "unit": "observed_scope",
             "scope": scope,
+            "producer_scope": receipt["data"]["scope"] if receipt is not None else None,
             "producer_bound": bound,
             "receipt_id": receipt["id"] if receipt is not None else None,
             "fact_ids": receipt["fact_ids"] if receipt is not None else [],
@@ -254,6 +269,7 @@ def _replays(calls: list, repeats: int) -> dict[str, dict]:
         for rule in contract.rules:
             entry = measurements.setdefault(rule.id, {"seconds": 0.0, "matches": True})
             scoped = {**arguments, "contract": replace(contract, rules=(rule,))}
+            scoped.pop("declared_scope", None)
             if "assessment_facts" in scoped:
                 scoped["assessment_facts"] = []
             seconds = []

@@ -566,6 +566,82 @@ def test_a_false_scope_conjunction_retains_its_actual_unknown_causes(tmp_path: P
     assert row["unknown_by_cause"] == {"inside_source_domain_incomplete": 1}
 
 
+@pytest.mark.parametrize("loss", [None, "another_mount", "missing_mount"])
+def test_repeated_local_labels_bind_each_full_inside_mount(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, loss: str | None
+) -> None:
+    _repo(tmp_path, "str")
+    contract = tmp_path / "contract.json"
+    raw = json.loads(contract.read_text())
+    raw["rules"] = []
+    raw["components"] = []
+    for parent in ("app", "other"):
+        raw["components"].append(_component(parent, public=[]) | {"inside": f"{parent}.json"})
+        prefix = f"sample.{parent}.shared"
+        (tmp_path / f"{parent}.json").write_text(
+            json.dumps(
+                _inside([_child("shared", prefix) | {"inside": f"{parent}-shared.json"}], [])
+            )
+        )
+        (tmp_path / f"{parent}-shared.json").write_text(
+            json.dumps(
+                _inside(
+                    [
+                        _child("left", f"{prefix}.left"),
+                        _child("right", f"{prefix}.right", public=[f"{prefix}.right:helper"]),
+                    ],
+                    [
+                        _rule("ASSIGN", "complete_assignment", source=prefix),
+                        _rule("IMPORTS", "interface_boundary"),
+                    ],
+                )
+            )
+        )
+        package = tmp_path / "sample" / parent / "shared"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "left.py").write_text("from .right import helper\nVALUE = helper()\n")
+        (package / "right.py").write_text("def helper() -> str: return 'yes'\n")
+    contract.write_text(json.dumps(raw))
+    _repin(tmp_path)
+    capture = rule_yield._captured_analysis
+
+    def changed_capture(root: Path, arguments: dict) -> tuple[dict, list]:
+        model, calls = capture(root, arguments)
+        changed = []
+        for function, inputs, result in calls:
+            if loss is not None:
+                inputs = dict(inputs)
+                for key in ("declared_scope", "scope"):
+                    if inputs.get(key) == "app:shared":
+                        if loss == "missing_mount":
+                            del inputs[key]
+                        else:
+                            inputs[key] = "other:shared"
+            changed.append((function, inputs, result))
+        return model, changed
+
+    monkeypatch.setattr(rule_yield, "_captured_analysis", changed_capture)
+
+    metrics, _ = measure(tmp_path, repeats=1)
+
+    assert len(metrics["rules"]) == 4
+    for row in metrics["rules"]:
+        ledger = (
+            row["scope_ledger"] if row["kind"] == "complete_assignment" else row["import_ledger"]
+        )
+        if loss is not None and row["id"] in {"app:shared:ASSIGN", "app:shared:IMPORTS"}:
+            assert ledger["scope_complete"] is False
+            assert ledger["population"] is None
+            assert ledger["decided_passes"] is None
+            continue
+        assert ledger["scope"] in {"app:shared", "other:shared"}
+        assert ledger["producer_scope"] == "shared"
+        assert ledger["scope_complete"] is True
+        assert ledger["decided_passes"] == 1
+        assert row["replay_matches"] is True
+
+
 def test_import_passes_are_the_actual_yielded_verdicts(tmp_path: Path) -> None:
     _import_repo(tmp_path)
 
