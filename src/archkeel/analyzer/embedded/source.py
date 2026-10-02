@@ -156,16 +156,47 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     ):
         return frozenset()
     counts = Counter(_bound_names(nodes))
+    # ponytail: visible writes invalidate shared imports; prove scopes if false UNKNOWNs grow.
+    all_nodes = list(ast.walk(module.tree))
+    changed_members: set[str] = {
+        node.value.id
+        for node in all_nodes
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.ctx, ast.Store | ast.Del)
+        and isinstance(node.value, ast.Name)
+    }
+    aliases = {
+        (target.id, node.value.id)
+        for node in all_nodes
+        if isinstance(node, ast.Assign | ast.AnnAssign) and isinstance(node.value, ast.Name)
+        for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
+        if isinstance(target, ast.Name)
+    }
+    while (
+        additions := {value for name, value in aliases if name in changed_members} - changed_members
+    ):
+        changed_members |= additions
+    changed_origins: set[str] = set()
+    for node in all_nodes:
+        if isinstance(node, ast.Import):
+            for imported_alias in node.names:
+                imported_name: str = imported_alias.name
+                root = imported_name.split(".")[0]
+                binding = imported_alias.asname or root
+                if binding in changed_members:
+                    changed_origins |= {imported_name if imported_alias.asname else root}
+    for name, alias in module.aliases.items():
+        imported_target: str = alias.target
+        origin = imported_target if alias.kind == "module" else imported_target.rpartition(".")[0]
+        if origin in changed_origins:
+            changed_members |= {name}
     global_names = {
-        name
-        for node in ast.walk(module.tree)
-        if isinstance(node, ast.Global)
-        for name in node.names
+        name for node in all_nodes if isinstance(node, ast.Global) for name in node.names
     }
     return frozenset(
         name
         for name, count in direct.items()
-        if count == 1 and counts[name] == 1 and name not in global_names
+        if count == 1 and counts[name] == 1 and name not in global_names | changed_members
     )
 
 

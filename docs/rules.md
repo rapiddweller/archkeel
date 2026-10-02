@@ -365,6 +365,8 @@ below `source` takes and returns no bare `dict`/`object`, and no named type outs
 enum, a Pydantic model, or a type some component -- whichever one actually owns it -- already
 declares public: a target architecture where a component's own types are the only thing that
 crosses its boundary rules out a broad container, and an undeclared type, standing in for one.
+A proven `datetime.datetime` import is a scalar leaf, including aliases and a single module
+member. Shadowed or unproven imports retain UNKNOWN (AD-132).
 Only a function `component.public` itself covers is inspected -- a module-level entry makes every
 non-underscore name of that module a facade function, or its `__all__` when it declares one, and a
 `pkg.module:Name` entry makes exactly that one, the same reading `interface_boundary` gives

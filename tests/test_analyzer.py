@@ -1886,7 +1886,7 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
     `no violation == probably fine` while the rest of the tool reads PASS/VIOLATION/UNKNOWN
     (AD-26). The rule now names its own denominator the way `dynamic_call_limit` names the
     call graph's: how many positions it saw, how many it decided, and how many of each
-    undecidable kind it left. `str` and `int` decide; `datetime.datetime` is a dotted name and
+    undecidable kind it left. `str` and `int` decide; `datetime.timedelta` is a dotted name and
     `'Later'` a forward reference, and neither resolves to a `(module, name)` this rule can
     judge.
     """
@@ -1898,7 +1898,7 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
         "import datetime\n\n\n"
         "class Later:\n"
         "    pass\n\n\n"
-        "def mixed(name: str, when: datetime.datetime, note: 'Later', spare) -> int:\n"
+        "def mixed(name: str, when: datetime.timedelta, note: 'Later', spare) -> int:\n"
         "    return len(name) + len(str(when)) + len(str(note)) + len(str(spare))\n"
     )
     result = _observe(tmp_path)
@@ -1920,7 +1920,7 @@ def test_boundary_types_reports_a_position_it_could_not_decide(tmp_path: Path) -
             "module": "sample.app.facade",
             "qualified_name": "sample.app.facade.mixed",
             "position": "when",
-            "annotation": "datetime.datetime",
+            "annotation": "datetime.timedelta",
             "reason": "dotted_name",
             "occurrence": 0,
         },
@@ -1957,7 +1957,7 @@ def test_boundary_types_recursively_decides_nested_generic_and_union(tmp_path: P
     (tmp_path / "sample/app/facade.py").write_text(
         "import datetime\n\n\n"
         "def typed(values: list[tuple[str | int, ...]], "
-        "stamps: list[datetime.datetime | str]) -> str:\n"
+        "stamps: list[datetime.timedelta | str]) -> str:\n"
         "    return str((values, stamps))\n"
     )
 
@@ -1974,7 +1974,7 @@ def test_boundary_types_recursively_decides_nested_generic_and_union(tmp_path: P
             "module": "sample.app.facade",
             "qualified_name": "sample.app.facade.typed",
             "position": "stamps",
-            "annotation": "list[datetime.datetime | str]",
+            "annotation": "list[datetime.timedelta | str]",
             "reason": "dotted_name",
             "occurrence": 0,
         }
@@ -2169,7 +2169,7 @@ def test_boundary_type_limit_details_match_counts_and_are_stable(tmp_path: Path)
     (tmp_path / "sample/app/__init__.py").write_text("")
     (tmp_path / "sample/app/facade.py").write_text(
         "import datetime\n\n\n"
-        "def inspect(when: datetime.datetime, note: 'Later', missing, "
+        "def inspect(when: datetime.timedelta, note: 'Later', missing, "
         "names: list[str | int]) -> tuple[str, int]:\n"
         "    return (str(when), str(note))\n"
     )
@@ -2205,7 +2205,7 @@ def test_boundary_type_limit_keeps_each_unsupported_annotation_unknown_and_stabl
         "import datetime\n\n\n"
         "class Payload:\n    pass\n\n\n"
         "class Later:\n    pass\n\n\n"
-        "def lookup(first: datetime.datetime, second: 'Later', "
+        "def lookup(first: datetime.timedelta, second: 'Later', "
         "quoted: 'Payload | int', malformed: Payload & int) -> str:\n"
         "    return str(first)\n"
     )
@@ -2231,7 +2231,7 @@ def test_boundary_type_limit_keeps_each_unsupported_annotation_unknown_and_stabl
     )
     details = limit["data"]["undecidable_positions"]
     assert [(item["position"], item["annotation"], item["reason"]) for item in details] == [
-        ("first", "datetime.datetime", "dotted_name"),
+        ("first", "datetime.timedelta", "dotted_name"),
         ("second", "'Later'", "forward_reference"),
         ("quoted", "'Payload | int'", "forward_reference"),
         ("malformed", "Payload & int", "other"),
@@ -2256,7 +2256,7 @@ def test_boundary_type_walks_nested_union_for_violation_despite_unknown_sibling(
     (tmp_path / "sample/app/facade.py").write_text(
         "import datetime\n\n\n"
         "class Payload:\n    pass\n\n\n"
-        "def inspect(values: list[Payload | datetime.datetime]) -> str:\n"
+        "def inspect(values: list[Payload | datetime.timedelta]) -> str:\n"
         "    return str(values)\n"
     )
 
@@ -2264,7 +2264,7 @@ def test_boundary_type_walks_nested_union_for_violation_despite_unknown_sibling(
     assert result.observation is not None
     violations = trace_valid_violations(result.observation)
     assert [(item.data.get("position"), item.data.get("annotation")) for item in violations] == [
-        ("values", "list[Payload | datetime.datetime]")
+        ("values", "list[Payload | datetime.timedelta]")
     ]
 
 
@@ -2279,7 +2279,7 @@ def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
     facade.write_text(
         "import datetime\n\n\n"
         "class Later:\n    pass\n\n\n"
-        "def lookup(first: datetime.datetime, second: 'Later') -> str:\n"
+        "def lookup(first: datetime.timedelta, second: 'Later') -> str:\n"
         "    return str(first)\n"
     )
 
@@ -2318,7 +2318,7 @@ def test_boundary_type_position_records_stay_distinct_and_delta_removes_one(
         "first": (
             "sample.app.facade",
             "sample.app.facade.lookup",
-            "datetime.datetime",
+            "datetime.timedelta",
             "dotted_name",
         ),
         "second": (
@@ -2380,7 +2380,7 @@ def test_boundary_type_position_ids_survive_line_shifts_and_duplicate_definition
     (tmp_path / "sample/app").mkdir(parents=True)
     (tmp_path / "sample/app/__init__.py").write_text("")
     facade = tmp_path / "sample/app/facade.py"
-    first = "def lookup(stamp: datetime.datetime) -> str:\n    return str(stamp)\n"
+    first = "def lookup(stamp: datetime.timedelta) -> str:\n    return str(stamp)\n"
     second = "def lookup(stamp: 'Later') -> str:\n    return str(stamp)\n"
     facade.write_text("import datetime\n\n" + first + "\n" + second)
     before = _observe(tmp_path)
@@ -2473,7 +2473,7 @@ def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) 
     never inspected, so refactoring a parameter into a list silently dropped the check. A
     known collection holding a bare name is now the resolution `boundary_types` already runs,
     applied one level in; `tuple[str, ...]` decides clean on the builtin, and
-    `list[datetime.datetime]` stays undecidable because a dotted name still is.
+    `list[datetime.timedelta]` stays undecidable because a dotted name still is.
     """
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:broken"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
@@ -2485,7 +2485,7 @@ def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) 
         "    pass\n\n\n"
         "def broken(\n"
         "    payloads: list[Payload], names: tuple[str, ...], "
-        "stamps: list[datetime.datetime]\n"
+        "stamps: list[datetime.timedelta]\n"
         ") -> set[Payload]:\n"
         "    return {*payloads, *names, *stamps}\n"
     )
@@ -2506,7 +2506,7 @@ def test_boundary_types_decides_a_bare_name_inside_a_collection(tmp_path: Path) 
     data = limits[0].data
     assert (data.get("positions"), data.get("decided"), data.get("undecided")) == (4, 3, 1)
     # Entered, so the position is undecidable for its element's own reason, not for being a
-    # generic: `list[datetime.datetime]` is a dotted name the rule cannot resolve.
+    # generic: `list[datetime.timedelta]` is a dotted name the rule cannot resolve.
     assert (data.get("dotted_name"), data.get("generic")) == (1, 0)
 
 

@@ -16,7 +16,7 @@ from archkeel.analyzer.embedded.symbols import collect_symbols
 from archkeel.analyzer.embedded.violations import (
     _AMBIGUOUS,
     BindingIndex,
-    _bare_mapping_verdict,
+    _bare_type_verdict,
     _boundary_type_verdict,
     _typing_wrapper_inner,
     boundary_type_indexes,
@@ -166,23 +166,23 @@ def test_annotated_reads_only_its_type_argument() -> None:
 
 
 def test_bare_dict_is_broad_only_when_its_builtin_binding_is_unshadowed() -> None:
-    builtin = _bare_mapping_verdict("dict", "sample", BindingIndex(), BindingIndex())
+    builtin = _bare_type_verdict("dict", "sample", BindingIndex(), BindingIndex())
     assert builtin is not None and builtin.violation == "instead of a typed model"
 
     local_class = BindingIndex()
     local_class[("sample", "dict")] = {"record_kind": "class"}
-    assert _bare_mapping_verdict("dict", "sample", BindingIndex(), local_class) is None
+    assert _bare_type_verdict("dict", "sample", BindingIndex(), local_class) is None
 
     import_alias = BindingIndex()
     import_alias[("sample", "dict")] = {
         "target_module": "sample.types",
         "symbol": "Payload",
     }
-    assert _bare_mapping_verdict("dict", "sample", import_alias, BindingIndex()) is None
+    assert _bare_type_verdict("dict", "sample", import_alias, BindingIndex()) is None
 
     rebound = BindingIndex()
     rebound[("sample", "dict")] = {"record_kind": "dynamic_binding"}
-    ambiguous = _bare_mapping_verdict("dict", "sample", import_alias, rebound)
+    ambiguous = _bare_type_verdict("dict", "sample", import_alias, rebound)
     assert ambiguous is not None and ambiguous.undecidable == "ambiguous_binding"
 
 
