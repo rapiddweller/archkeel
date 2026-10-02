@@ -9,7 +9,8 @@ An import must have one stable binding. Module imports now retain the same uniqu
 symbol imports. Rebinding, member replacement or deletion, conditional replacement, shadowing
 and star imports cannot prove this leaf. A visible member write makes its shared import origin
 uncertain, including imported and simple assignment aliases. This conservatively includes
-nested scopes; external effects are not executed. Other external/datetime types stay UNKNOWN; `object`
+nested scopes and every observed import candidate; later imports cannot erase a mutation.
+External effects are not executed. Other external/datetime types stay UNKNOWN; `object`
 remains a violation. No class is accepted from its spelling alone. Forward references and
 unproven re-export routes retain their existing limits.
 

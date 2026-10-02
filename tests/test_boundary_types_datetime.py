@@ -42,6 +42,27 @@ from test_boundary_types_nested_dtos import _write_app
             False,
         ),
         (
+            "import datetime as clock\nimport datetime as other\nother.datetime = object\n"
+            "import decimal as other",
+            "clock.datetime",
+            True,
+            False,
+        ),
+        (
+            "import datetime as clock\nimport datetime as other\nother.datetime = object\n"
+            "if condition:\n    import decimal as other",
+            "clock.datetime",
+            True,
+            False,
+        ),
+        (
+            "import datetime as clock\nimport datetime as other\nother.datetime = object\n"
+            "def rebound():\n    import decimal as other",
+            "clock.datetime",
+            True,
+            False,
+        ),
+        (
             "import datetime as clock\nimport datetime as other\ndel other.datetime",
             "clock.datetime",
             True,

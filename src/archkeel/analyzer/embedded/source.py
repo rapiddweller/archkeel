@@ -176,11 +176,15 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
         additions := {value for name, value in aliases if name in changed_members} - changed_members
     ):
         changed_members |= additions
-    changed_origins = {
-        alias.target
-        for name, alias in module.aliases.items()
-        if name in changed_members and alias.kind == "module"
-    }
+    changed_origins: set[str] = set()
+    for node in all_nodes:
+        if isinstance(node, ast.Import):
+            for imported_alias in node.names:
+                imported_name: str = imported_alias.name
+                root = imported_name.split(".")[0]
+                binding = imported_alias.asname or root
+                if binding in changed_members:
+                    changed_origins |= {imported_name if imported_alias.asname else root}
     for name, alias in module.aliases.items():
         imported_target: str = alias.target
         origin = imported_target if alias.kind == "module" else imported_target.rpartition(".")[0]
