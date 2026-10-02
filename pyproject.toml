@@ -1,13 +1,13 @@
 [project]
 name = "archkeel"
 dynamic = ["version", "readme"]
-description = "Deterministic architecture checks for AI-assisted code changes"
+description = "Deterministic architecture checks for coding agents"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Rapiddweller Asia Co., Ltd." }]
 maintainers = [{ name = "Alexander Kell", email = "Alexander.Kell@rapiddweller.com" }]
-keywords = ["architecture", "static-analysis", "code-review", "ai-assisted", "cli"]
+keywords = ["architecture", "static-analysis", "code-review", "coding-agents", "harness-engineering", "cli"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

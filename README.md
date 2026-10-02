@@ -1,6 +1,6 @@
 # Archkeel
 
-**The agent declares before it submits. The check is deterministic.**
+**Deterministic architecture checks for coding agents.**
 
 <p>
   <img src="docs/assets/archkeel-hero.png" alt="Archkeel architecture gate and keel" width="600">
@@ -11,12 +11,19 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 [![PyPI version](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
 
-Archkeel checks architecture boundaries, scan coverage, and declared changes in
-AI-assisted code. It compares an accepted commit with a candidate, then checks
-the candidate against the configured contract and an expectation published
-before its first submission. Start with `archkeel report`; use `archkeel check`
-to gate a candidate. See the [reference](docs/reference.md) for the protocol and
-command details.
+Archkeel makes architecture boundaries executable in your agent harness. Declare which
+components may depend on each other, then check agent changes against that contract.
+Use it with Codex, Claude Code, or another coding agent through the same local CLI and CI gate.
+
+Start with `uvx archkeel report` to inspect a repository. Install the
+[agent skill](#onboard-your-project) to draft and review a contract. Use `archkeel validate`
+to check its rules, or `archkeel check` to compare an accepted commit with a candidate and
+an expectation published before submission. The agent declares before it submits.
+
+Python checks include static imports, calls and declared rules; the Dart profile checks the
+import graph. Missing evidence stays UNKNOWN. Archkeel complements tests and human review:
+a passing check does not prove runtime behavior or a good design. See the
+[reference](docs/reference.md) for checked scope and protocol details.
 
 It catches two failure modes that finding-only diffs miss:
 
