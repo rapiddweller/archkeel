@@ -2105,9 +2105,9 @@ def _explorer_scope_index(
         *(observation.records("violations") or ()),
         *(observation.records("unknowns") or ()),
     ):
-        matches = set(
+        matches: set[str] = {
             name for key in record.evidence_ids if (name := evidence.get(key)) is not None
-        )
+        }
         for key in ("module", "source_module", "target_module", "source", "target"):
             value = record.data.get(key)
             if isinstance(value, str) and value in known_scopes:
