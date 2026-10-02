@@ -1598,7 +1598,8 @@
     const my = (startY + endY) / 2 + laneOffset;
     const dir = Math.sign(tx - sx);
     const vdir = Math.sign(endY - startY) || 1;
-    const r = Math.min(10, Math.abs(tx - sx) / 2);
+    const r = Math.min(10, Math.abs(tx - sx) / 2, viewMode === "target"
+      ? Math.min(Math.abs(my - startY), Math.abs(endY - my)) / 2 : 10);
     const end = targetAnchor || viewMode === "target" ? endY : endY - vdir * 6;
     const frameSideLead = (frame, anchor) => [
       anchor.x + (anchor.x === frame.left ? -14 : 14), anchor.y,
@@ -1626,11 +1627,12 @@
   function routeAroundHeaders(direct, points, sx, sy, tx, end, headers, edge, frames) {
     const cards = Object.entries(positions).filter(([id, position]) =>
       !frames[id] && Number.isFinite(position.x) && Number.isFinite(position.y));
-    const obstacles = viewMode === "target" ? [...headers, ...cards
-      .filter(([id]) => id !== edge.source && id !== edge.target)
-      .map(([, position]) => ({left: position.x, right: position.x + CARD.w,
-        top: position.y, bottom: position.y + CARD.h}))] : headers;
-    if (!obstacles.length || routePointsClear(points, obstacles, 10)) return direct;
+    const cardBounds = cards.map(([, position]) => ({
+      left: position.x, right: position.x + CARD.w,
+      top: position.y, bottom: position.y + CARD.h,
+    }));
+    if (routePointsClear(points, headers, 10)
+        && (viewMode !== "target" || routePointsClear(points, cardBounds, 0))) return direct;
     const allLeft = Math.min(...[
       ...headers.map((header) => header.left),
       ...cards.map(([, position]) => position.x),
@@ -1646,8 +1648,10 @@
     ])];
     const sourceCard = frames[edge.source] ? null : positions[edge.source];
     const targetCard = frames[edge.target] ? null : positions[edge.target];
-    const sourceDirection = Math.sign(points[1]?.[1] - sy) || Math.sign(end - sy) || 1;
-    const endDirection = Math.sign(end - points.at(-2)?.[1]) || Math.sign(end - sy) || 1;
+    const sourceDirection = sourceCard ? Math.sign(sy - sourceCard.y - CARD.h / 2)
+      : Math.sign(points[1]?.[1] - sy) || Math.sign(end - sy) || 1;
+    const endDirection = targetCard ? Math.sign(targetCard.y + CARD.h / 2 - end)
+      : Math.sign(end - points.at(-2)?.[1]) || Math.sign(end - sy) || 1;
     const normalSource = frames[edge.source]
       ? { point: [sx, sy], lead: points[1], axis: "horizontal" }
       : { point: [sx, sy], lead: [sx, sy + sourceDirection * 14], axis: "vertical" };
