@@ -1096,6 +1096,9 @@
       const selected = flattened.find(({ node }) => node.id === sourceSelection)?.node;
       if (selected) sourceNodes.push(selected);
     }
+    if (from === "diff" && sourceNodes.some((node) => node.diff_scope)) {
+      sourceNodes.splice(0, sourceNodes.length, ...sourceNodes.filter((node) => node.diff_scope));
+    }
     if (!sourceNodes.length) return null;
 
     if (to === "diagram" && ["actual", "diff", "target"].includes(from)) {
@@ -1167,7 +1170,9 @@
       }
       for (const candidateKey of keys) {
         const exactIdentity = candidateKey === key && identityMatches.length > 0;
-        const matches = exactIdentity ? identityMatches
+        const scopeMatches = to === "diff" ? candidates.filter(({ node }) =>
+          node.diff_scope && projectionKey(node) === candidateKey) : [];
+        const matches = scopeMatches.length ? scopeMatches : exactIdentity ? identityMatches
           : candidates.filter(({ node }) => candidateKey && projectionKey(node) === candidateKey);
         if (!matches.length) continue;
         if (exactIdentity && matches.length !== 1) continue;
@@ -1190,9 +1195,9 @@
         const selectionWithoutScope = !projectionKey(sourceNodes.at(-1))
           && !(exactIdentity && source === sourceNodes.at(-1));
         const context = targetEdge?.kind === "requires"
-          ? `No matching scope for requires; showing nearest match ${candidateKey}.`
+          ? `No matching scope for requires. Nearest scope: ${candidateKey}.`
           : candidateKey === key && !selectionWithoutScope ? null
-          : `No matching scope for ${selectionWithoutScope ? sourceNodes.at(-1).label : key}; showing nearest match ${candidateKey}.`;
+          : `No matching scope for ${selectionWithoutScope ? sourceNodes.at(-1).label : key}. Nearest scope: ${candidateKey}.`;
         const scopePath = match.node.children?.length ? match.path : match.path.slice(0, -1);
         if (to === "target") {
           const targetPath = scopePath
@@ -1201,12 +1206,14 @@
           return {
             targetPath,
             targetSelection: match.node.children?.length ? null : match.node.id,
+            nearestLabel: candidateKey,
             context,
           };
         }
         return {
           path: scopePath.map((node) => node.id),
           selection: match.node.children?.length ? null : match.node.id,
+          nearestLabel: candidateKey,
           context,
         };
       }
@@ -2546,12 +2553,19 @@
     flowHeading.textContent = "Architecture explorer";
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === viewMode)));
     alternative.hidden = viewMode === "diagram" || viewMode === "target";
+    canvas.hidden = unavailableProjection();
     responsibilities.hidden = false;
     inspector.hidden = !targetDetailsOpen;
     updateOpenSelected();
     // Keep the shared toolbar's measured height stable while this Diagram-only status
     // is visually hidden in the other views.
     filterStatus.textContent = activeFilterSummary("diagram");
+    if (unavailableProjection()) {
+      alternative.hidden = false;
+      renderResponsibilities();
+      renderUnavailableProjection();
+      return;
+    }
     if (viewMode === "target") {
       renderResponsibilities();
       renderTargetDiagram();
@@ -3111,6 +3125,8 @@
         ? projectionContext : `Context: ${projectionContext}`)}</p>` : "";
     inspectorContent.innerHTML = selectedDetails || currentDetails || context
       || "<p>Select an entry to inspect its recorded details.</p>";
+    const emptyDiff = viewMode === "diff" && current?.diff_scope
+      && !entries.some((node) => node.kind === "category" && node.children?.length);
     alternative.innerHTML = `<div class="flow-projection">
       <nav class="flow-projection-breadcrumb" aria-label="${esc(viewMode)} path">
         <button type="button" data-projection-root>${esc(({ actual: "Actual", target: "Target", diff: "Diff" })[viewMode])}</button>
@@ -3119,7 +3135,33 @@
       <h2>${esc(title)}</h2>
       ${context}
       ${currentDetails}
+      ${emptyDiff ? "<p>No recorded differences in this scope; missing evidence remains UNKNOWN. Global analysis limits remain available at the Diff root.</p>" : ""}
       ${rows ? `<div class="flow-item-list">${rows}</div>` : "<p>No entries at this level.</p>"}</div>`;
+  }
+
+  function unavailableProjection() {
+    return ["actual", "target", "diff"].includes(viewMode)
+      && projectionContext && projectionReturnContext;
+  }
+
+  function projectionSourceLabels(source) {
+    return source.view === "diagram"
+      ? [source.subject?.id || source.subject?.file || source.subject?.package
+        || (opened?.insidePath || []).at(-1) || opened?.inside || opened?.component].filter(Boolean)
+      : [...source.path, source.selection].map((id) =>
+        projectionNodes(DATA.explorers[source.view] || [])
+          .find(({ node }) => node.id === id)?.node.label).filter(Boolean);
+  }
+
+  function renderUnavailableProjection() {
+    const nearest = projectionCounterpart(projectionReturnContext.view, viewMode, projectionReturnContext);
+    const content = `<h2>Scope unavailable</h2>
+      <p class="flow-projection-context">${esc(projectionContext)}</p>
+      <p>Location retained: ${esc(projectionSourceLabels(projectionReturnContext).join(" / "))}.</p>
+      ${nearest ? `<button type="button" data-projection-nearest>Open nearest scope: ${esc(nearest.nearestLabel)}</button>` : ""}
+      <button type="button" data-projection-root>Open ${esc(viewMode === "target" ? "Target" : viewMode === "actual" ? "Actual" : "Diff")} root</button>`;
+    alternative.innerHTML = `<div class="flow-projection">${content}</div>`;
+    inspectorContent.innerHTML = "<p>The selected scope has no unique counterpart in this view.</p>";
   }
 
   function renderAlternative() {
@@ -3625,6 +3667,24 @@
   }
 
   function updateNavigation() {
+    if (unavailableProjection()) {
+      backButton.hidden = false;
+      backButton.textContent = "Back to root";
+      breadcrumb.hidden = false;
+      breadcrumb.textContent = "";
+      const labels = [viewMode === "target" ? "Target" : viewMode === "actual" ? "Actual" : "Diff",
+        ...projectionSourceLabels(projectionReturnContext)];
+      labels.forEach((label, index) => {
+        if (index) breadcrumb.append(" / ");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.disabled = index > 0;
+        if (!index) button.addEventListener("click", clearUnavailableProjection);
+        breadcrumb.appendChild(button);
+      });
+      return;
+    }
     if (viewMode === "target") {
       backButton.hidden = !targetPath.length;
       backButton.textContent = `Back to ${targetPath.length > 1 ? targetNode(targetPath.at(-2))?.label : "Target"}`;
@@ -3843,7 +3903,9 @@
   }
 
   backButton.addEventListener("click", () => {
-    if (viewMode === "target" && targetPath.length) {
+    if (unavailableProjection()) {
+      clearUnavailableProjection();
+    } else if (viewMode === "target" && targetPath.length) {
       invalidateOtherViewStates();
       if (restoreNavigationState()) return;
       projectionContext = null;
@@ -3893,15 +3955,7 @@
     const source = savedContext && projectionContext ? savedContext : currentSource;
     const counterpart = projectionView && !returning
       ? projectionCounterpart(source.view, nextView, savedContext) : null;
-    const previous = projectionView
-      ? source.view === "diagram"
-        ? [source.subject?.id || source.subject?.file || source.subject?.package
-          || (opened?.insidePath || []).at(-1) || opened?.inside || opened?.component].filter(Boolean)
-        : [...source.path, source.selection]
-          .map((id) => projectionNodes(DATA.explorers[source.view] || [])
-            .find(({ node }) => node.id === id)?.node.label)
-          .filter(Boolean)
-      : [];
+    const previous = projectionView ? projectionSourceLabels(source) : [];
     projectionReturnContext = projectionView
       ? returning ? null : savedContext || source
       : null;
@@ -3910,12 +3964,13 @@
         ? `No matching scope in this view. Context: ${previous.join(" / ")}` : null)
       : null;
     viewMode = nextView;
-    projectionPath = nextView === "target" ? [] : returning?.path || counterpart?.path || [];
-    projectionSelection = nextView === "target" ? null : returning?.selection || counterpart?.selection || null;
+    const exact = counterpart?.context ? null : counterpart;
+    projectionPath = nextView === "target" ? [] : returning?.path || exact?.path || [];
+    projectionSelection = nextView === "target" ? null : returning?.selection || exact?.selection || null;
     targetPath = nextView === "target"
-      ? returning?.path || counterpart?.targetPath || [] : [];
+      ? returning?.path || exact?.targetPath || [] : [];
     targetSelection = nextView === "target"
-      ? returning?.selection || counterpart?.targetSelection || null : null;
+      ? returning?.selection || exact?.targetSelection || null : null;
     if (projectionView && nextView === "diagram" && !returning) {
       opened = counterpart?.diagramOpened || null;
       selected = counterpart?.diagramSelectionLabel
@@ -3961,6 +4016,20 @@
     render();
   });
   alternative.addEventListener("click", (event) => {
+    if (event.target.closest("[data-projection-nearest]")) {
+      const nearest = projectionCounterpart(projectionReturnContext.view, viewMode, projectionReturnContext);
+      if (!nearest) return;
+      invalidateOtherViewStates();
+      targetPath = nearest.targetPath || [];
+      targetSelection = nearest.targetSelection || null;
+      projectionPath = nearest.path || [];
+      projectionSelection = nearest.selection || null;
+      projectionContext = null;
+      projectionReturnContext = null;
+      selectedSubject = null;
+      render();
+      return;
+    }
     const projectionButton = event.target.closest("[data-projection-id]");
     if (projectionButton) {
       const id = projectionButton.dataset.projectionId;
@@ -3985,13 +4054,7 @@
       return;
     }
     if (event.target.closest("[data-projection-root]")) {
-      invalidateOtherViewStates();
-      projectionContext = null;
-      projectionReturnContext = null;
-      projectionPath = [];
-      projectionSelection = null;
-      selectedSubject = null;
-      render();
+      clearUnavailableProjection();
       return;
     }
     const cardButton = event.target.closest("[data-flow-card]");
@@ -4014,6 +4077,17 @@
       renderInspector(level().edges);
     }
   });
+  function clearUnavailableProjection() {
+    invalidateOtherViewStates();
+    projectionContext = null;
+    projectionReturnContext = null;
+    projectionPath = [];
+    projectionSelection = null;
+    targetPath = [];
+    targetSelection = null;
+    selectedSubject = null;
+    render();
+  }
   alternative.addEventListener("dblclick", (event) => {
     const button = event.target.closest("[data-projection-id]");
     if (!button) return;

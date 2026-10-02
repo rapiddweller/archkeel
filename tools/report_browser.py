@@ -542,6 +542,12 @@ def _check_module_target_reports(browser: Browser, reports: dict[str, Path], out
             )
             category_id = "absent" if name == "target-absent" else "observed-only-targets"
             if name == "target-absent":
+                assert page.locator(".flow-projection h2").text_content() == "missing"
+                page.locator('[data-projection-id="diff:absent:shop.app.missing"]').click()
+                _open_selected(page)
+                page.locator(".flow-projection [data-projection-id]").filter(
+                    has=page.get_by_text("shop/app/missing.py", exact=True)
+                ).click()
                 assert page.locator(".flow-projection h2").text_content() == category
                 _show_details(page)
                 assert (

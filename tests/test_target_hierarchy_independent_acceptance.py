@@ -385,6 +385,7 @@ def _ce_nested_route_page(
     include_overlapping_actual_modules: bool = False,
     include_engine_owner: bool = False,
     include_root_compat_target: bool = False,
+    include_scoped_diff_controls: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     def component(
         component_id: str,
@@ -531,6 +532,19 @@ def _ce_nested_route_page(
             )
         ],
     }
+    if include_scoped_diff_controls:
+        worker_scope = f"{generate_path}.workers"
+        generate_contract["components"][1]["public"] = [f"{worker_scope}:make"]
+        generate_contract["rules"].append(
+            {
+                "id": "WORKER-TYPES",
+                "kind": "boundary_types",
+                "source": worker_scope,
+                "rationale": "Keep worker inputs and results explicit.",
+                "provenance": ["docs/architecture/ce.md"],
+                "decided_by": "architect",
+            }
+        )
     if include_worker_module_target:
         generate_contract["declarations"] = {
             "modules": [
@@ -614,6 +628,27 @@ def _ce_nested_route_page(
     if include_root_compat_target:
         files["datamimic_ce/_compat.py"] = "VALUE = 1\n"
     files.update({f"{package.replace('.', '/')}/__init__.py": "" for package in packages})
+    if include_scoped_diff_controls:
+        files[f"{generate_path.replace('.', '/')}/workers/__init__.py"] = (
+            "from external import Value\n\ndef make(value: object) -> Value: return value\n"
+        )
+        files.update(
+            {
+                f"{generate_path.replace('.', '/')}/workers/{name}.py": "VALUE = 1\n"
+                for name in (
+                    "generate_worker",
+                    "multiprocessing_generate_worker",
+                    "ray_generate_worker",
+                )
+            }
+        )
+        files[f"{generate_path.replace('.', '/')}/policies/policy.py"] = "VALUE = 1\n"
+        files.update(
+            {
+                f"datamimic_ce/engine/runtime/storage/extra_{index}.py": "VALUE = 1\n"
+                for index in range(470)
+            }
+        )
     root = _prepare_repo(tmp_path, files)
     config = ScanConfig(("datamimic_ce",), "datamimic_ce", "architecture-contract.json", "0" * 64)
     result, architecture = run_report(root, config=config, analyzer=observe)

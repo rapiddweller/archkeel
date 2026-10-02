@@ -180,6 +180,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-141 | [GitHub events are bounded observations](decisions/ad-141-github-events-are-bounded-observations.md) |
 | AD-142 | [Opaque map values need exact decisions](decisions/ad-142-opaque-map-values-need-exact-decisions.md) |
 | AD-143 | [Initial PR head proves scoped order](decisions/ad-143-initial-pr-head-proves-scoped-order.md) |
+| AD-144 | [Diff retains navigation scope](decisions/ad-144-diff-retains-navigation-scope.md) |
 
 ## Allowed dependencies
 

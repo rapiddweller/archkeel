@@ -252,6 +252,7 @@ def test_selected_module_responsibility_uses_exact_path_across_views(tmp_path: P
             assert responsibility.get_by_text(
                 "Own <order> decisions & totals.", exact=True
             ).is_visible()
+            page.locator("[data-projection-root]").click()
             _open_projection_entry(page, '[data-projection-id="diff:absent"]')
             _open_projection_entry(page, f'[data-projection-id="{missing_id}"]')
             assert responsibility.get_by_text(
@@ -390,8 +391,11 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
             page.locator('[data-flow-view="actual"]').click()
             assert (
                 "No matching scope for requires"
-                in page.locator(".flow-projection-context").first.inner_text()
+                in page.locator(".flow-projection-context:visible").first.inner_text()
             )
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("requires repository")
+            assert page.locator("[data-projection-id]:visible").count() == 0
+            page.locator("[data-projection-nearest]").click()
             assert page.locator(".flow-breadcrumb").inner_text().endswith("store")
             page.locator(".flow-breadcrumb button").first.click()
             assert page.locator(".flow-breadcrumb").inner_text() == "Actual"
@@ -400,11 +404,12 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
             assert page.locator(".flow-breadcrumb").inner_text() == "Target"
             assert not page.locator(".target-edge.selected").count()
 
-            # A missing Target child maps to the nearest actual namespace ancestor.
+            # Diff records absence at the exact declared scope.
             page.locator('[data-flow-view="target"]').click()
             _open_target_node(page, '.target-node[data-target-node="layout:ROOT-LAYOUT"]')
             _open_target_node(page, '.target-node[data-target-node="physical:shop.missing"]')
             page.locator('[data-flow-view="diff"]').click()
+            _open_projection_entry(page, '[data-projection-id="diff:absent:shop.missing"]')
             assert page.locator(
                 '[data-projection-id="absent:ROOT-LAYOUT:shop.missing"]'
             ).is_visible()
@@ -420,7 +425,7 @@ def test_actual_target_switch_preserves_scope_or_names_missing_counterpart(tmp_p
 @pytest.mark.parametrize(
     "navigation", ["round_trip", "actual_round_trip", "diff_category", "diff_root"]
 )
-def test_unmatched_target_diff_round_trip_preserves_or_replaces_context(
+def test_absent_scope_round_trip_preserves_or_replaces_context(
     tmp_path: Path, navigation: str
 ) -> None:
     page_html, payload, _ = _acceptance_page(
@@ -435,23 +440,6 @@ def test_unmatched_target_diff_round_trip_preserves_or_replaces_context(
         if node["kind"] == "module_target" and node["label"] == "missing.py"
     )
 
-    def remove_node(nodes: list[dict[str, Any]], node_id: str) -> bool:
-        for index, node in enumerate(nodes):
-            if node["id"] in {node_id, f"absent:{node_id}"} or any(
-                detail["label"] == "Target declaration ID" and detail["value"] == node_id
-                for detail in node["details"]
-            ):
-                del nodes[index]
-                return True
-            if remove_node(node["children"], node_id):
-                return True
-        return False
-
-    assert remove_node(payload["explorers"]["diff"], target_module["id"])
-    start = page_html.index('id="flow-data"')
-    payload_start = page_html.index(">", start) + 1
-    payload_end = page_html.index("</script>", payload_start)
-    page_html = page_html[:payload_start] + json.dumps(payload) + page_html[payload_end:]
     playwright_api = pytest.importorskip("playwright.sync_api")
     with playwright_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -464,15 +452,11 @@ def test_unmatched_target_diff_round_trip_preserves_or_replaces_context(
             page.locator(".flow-responsibility-search").fill("missing.py")
             page.locator(".flow-responsibility-list button:visible").first.click()
             page.locator('[data-flow-view="diff"]').click()
-            absent_counterpart = page.locator(
-                '[data-projection-id="absent:ROOT-LAYOUT:shop.missing"]'
-            )
-            assert absent_counterpart.is_visible()
-            assert absent_counterpart.get_attribute("aria-pressed") == "true"
+            assert page.locator(".flow-projection h2:visible").inner_text() == "missing"
 
             if navigation == "actual_round_trip":
                 page.locator('[data-flow-view="actual"]').click()
-                context = page.locator(".flow-projection-context").first
+                context = page.locator(".flow-projection-context:visible").first
                 assert context.is_visible()
                 assert "No matching scope" in context.inner_text()
                 assert "shop.missing" in context.inner_text()
@@ -538,8 +522,11 @@ def test_ambiguous_target_package_uses_unique_ancestor_context(tmp_path: Path) -
             page.locator('[data-flow-view="target"]').click()
             assert (
                 "No matching scope for shop.app"
-                in page.locator(".flow-projection-context").first.inner_text()
+                in page.locator(".flow-projection-context:visible").first.inner_text()
             )
+            assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
+            assert page.locator(".target-node:visible").count() == 0
+            page.get_by_role("button", name="Open nearest scope: shop", exact=True).click()
             assert page.locator(".flow-breadcrumb").inner_text().endswith("shop")
             assert page_errors == []
         finally:
@@ -573,11 +560,16 @@ def test_selected_root_actual_leaf_names_missing_target_context(
             page.locator('[data-flow-view="actual"]').click()
             page.locator('[data-projection-id="standalone"]').click()
             page.locator('[data-flow-view="target"]').click()
-            assert page.locator(".flow-breadcrumb").inner_text() == "Target"
-            assert "standalone" in page.locator(".flow-projection-context").inner_text(timeout=1000)
+            assert page.locator(".flow-breadcrumb button").all_text_contents() == [
+                "Target",
+                "standalone",
+            ]
+            assert "standalone" in page.locator(".flow-projection-context:visible").inner_text(
+                timeout=1000
+            )
             if escape_at_root:
                 page.keyboard.press("Escape")
-                assert page.locator(".flow-projection-context").count() == 0
+                assert page.locator(".flow-projection-context:visible").count() == 0
                 assert page.locator(".flow-breadcrumb").inner_text() == "Target"
                 page.keyboard.press("Escape")
                 assert page.locator(".flow-breadcrumb").inner_text() == "Target"
@@ -606,7 +598,7 @@ def test_absent_multi_package_component_uses_declared_identity_across_views(tmp_
             page.locator("[data-flow-details-toggle]").click()
             assert page.locator(".flow-breadcrumb").inner_text().endswith("ghost")
             assert page.locator(".flow-inspector").get_by_role("heading", name="ghost").is_visible()
-            assert page.locator(".flow-projection-context").count() == 0
+            assert page.locator(".flow-projection-context:visible").count() == 0
             page.locator('[data-flow-view="diff"]').click()
             assert (
                 page.locator('[data-projection-id="absent:COMP-GHOST"]').get_attribute(
@@ -614,7 +606,7 @@ def test_absent_multi_package_component_uses_declared_identity_across_views(tmp_
                 )
                 == "true"
             )
-            assert page.locator(".flow-projection-context").count() == 0
+            assert page.locator(".flow-projection-context:visible").count() == 0
         finally:
             browser.close()
 
@@ -656,14 +648,16 @@ def test_explicit_target_navigation_clears_fallback_context(
                 _open_projection_entry(page, '[data-projection-id="diff:violations"]')
             page.locator('[data-flow-view="target"]').click()
             page.locator("[data-flow-details-toggle]").click()
-            assert page.locator(".flow-projection-context").first.is_visible()
+            assert page.locator(".flow-projection-context:visible").first.is_visible()
             if navigation == "card":
+                page.get_by_role("button", name="Open Target root", exact=True).click()
                 page.locator('.target-node[data-target-node="COMP-APP"]').click()
                 page.locator(".flow-open-selected").click()
                 assert (
                     page.locator(".flow-inspector").get_by_role("heading", name="app").is_visible()
                 )
             elif navigation == "edge":
+                page.get_by_role("button", name="Open nearest scope: shop", exact=True).click()
                 edge = page.locator('[data-target-edge="physical:shop.app"]')
                 edge.focus()
                 page.keyboard.press("Enter")
@@ -673,10 +667,12 @@ def test_explicit_target_navigation_clears_fallback_context(
                 page.locator(".flow-breadcrumb button").first.click()
                 assert page.locator(".flow-breadcrumb").inner_text() == "Target"
             elif navigation == "back":
+                page.get_by_role("button", name="Open nearest scope: shop.app", exact=True).click()
                 assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
                 page.locator(".flow-back").click()
                 assert page.locator(".flow-breadcrumb").inner_text() == "Target"
             elif navigation == "escape":
+                page.get_by_role("button", name="Open nearest scope: shop.app", exact=True).click()
                 assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
                 page.keyboard.press("Escape")
                 assert page.locator(".flow-breadcrumb").inner_text().endswith("app")
@@ -689,7 +685,7 @@ def test_explicit_target_navigation_clears_fallback_context(
                 assert (
                     page.locator(".flow-inspector").get_by_role("heading", name="app").is_visible()
                 )
-            assert page.locator(".flow-projection-context").count() == 0
+            assert page.locator(".flow-projection-context:visible").count() == 0
             if navigation == "edge":
                 page.locator('[data-flow-view="actual"]').click()
                 visible_path = page.locator(".flow-breadcrumb")

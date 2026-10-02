@@ -163,7 +163,9 @@ unless the check has already classified them as a failure.
   declared components, package scopes, physical layout, allowed children, and requirements; its
   edges are declarations, not import evidence or conformance claims. Diff retains violations,
   UNKNOWN evidence, unmapped modules, and declared targets absent from the observation. Folder
-  grouping does not silently drop entries; declared modules outside component ownership remain
+  grouping does not silently drop entries. Diff retains nested scope and filters recorded evidence;
+  empty scopes do not imply PASS. Missing counterparts offer explicit nearest-scope navigation
+  (AD-144). Declared modules outside component ownership remain
   visible under “Modules outside components”.
 - Diagram's optional physical frames require every actual module in a card to match the uniquely
   resolved declared namespace. Only populated frames and ancestors appear; they do not add

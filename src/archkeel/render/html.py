@@ -1292,6 +1292,7 @@ def _absent_component_targets(
             "id": f"absent:{record.id}:{package}",
             "label": package,
             "kind": "package_scope",
+            "scopes": [package],
             "details": [{"label": "Component", "value": record.title}],
             "children": [],
         }
@@ -1307,6 +1308,7 @@ def _absent_component_targets(
             "id": f"absent:{record.id}:exact:{module}",
             "label": module,
             "kind": "module",
+            "scopes": [module],
             "details": [
                 {"label": "Component", "value": record.title},
                 {"label": "Exact module", "value": module},
@@ -1324,6 +1326,7 @@ def _absent_component_targets(
                 "id": f"absent:{record.id}",
                 "label": record.title,
                 "kind": "component",
+                "scopes": [*record.subjects, *missing_exact],
                 "details": [
                     {"label": "Target declaration ID", "value": record.id},
                     {"label": "Packages", "value": ", ".join(record.subjects)},
@@ -1358,6 +1361,7 @@ def _absent_targets(
                 "id": f"absent:{record.id}",
                 "label": path,
                 "kind": "module_target",
+                "scopes": [record.data.get("qualified_name")],
                 "details": [
                     {"label": "File", "value": path},
                     {"label": "Responsibility", "value": record.data.get("responsibility")},
@@ -1379,6 +1383,7 @@ def _absent_targets(
                     "id": f"absent:{record.id}:{child}",
                     "label": child,
                     "kind": "physical_child",
+                    "scopes": [child],
                     "details": [{"label": "Expected below", "value": str(record.data.get("root"))}],
                     "children": [],
                 }
@@ -2025,12 +2030,15 @@ def _target_diagrams(target_roots: list[dict[str, object]]) -> dict[str, object]
     }
 
 
-def _explorer_violation_rows(observation: Observation) -> list[dict[str, object]]:
+def _explorer_violation_rows(
+    observation: Observation, scopes: dict[str, list[str]]
+) -> list[dict[str, object]]:
     violation_rows: list[dict[str, object]] = [
         {
             "id": record.id,
             "label": record.title,
             "kind": "violation",
+            "scopes": scopes[record.id],
             "details": [
                 {"label": "Rule", "value": ", ".join(record.rule_ids)},
                 *(
@@ -2056,12 +2064,15 @@ def _explorer_violation_rows(observation: Observation) -> list[dict[str, object]
     return violation_rows
 
 
-def _explorer_unknown_rows(observation: Observation) -> list[dict[str, object]]:
+def _explorer_unknown_rows(
+    observation: Observation, scopes: dict[str, list[str]]
+) -> list[dict[str, object]]:
     return [
         {
             "id": record.id,
             "label": record.title,
             "kind": "unknown",
+            "scopes": scopes[record.id],
             "details": [
                 {"label": "Kind", "value": record.kind},
                 {"label": "Rules", "value": ", ".join(record.rule_ids)},
@@ -2073,6 +2084,103 @@ def _explorer_unknown_rows(observation: Observation) -> list[dict[str, object]]:
     ]
 
 
+def _explorer_scope_index(
+    observation: Observation, modules: dict[str, str]
+) -> dict[str, list[str]]:
+    by_file = {file: name for name, file in modules.items()}
+    evidence = {item.id: by_file.get(item.file) for item in observation.evidence}
+    components = {
+        _component_scope_key(record): record.subjects
+        for record in observation.records("declarations") or ()
+        if record.kind in {"component_responsibility", "inside_component_responsibility"}
+    }
+    known_scopes = {
+        ".".join(name.split(".")[:end])
+        for name in modules
+        for end in range(1, len(name.split(".")) + 1)
+    }
+    ordered_modules = sorted(modules, key=len, reverse=True)
+    scopes: dict[str, list[str]] = {}
+    for record in (
+        *(observation.records("violations") or ()),
+        *(observation.records("unknowns") or ()),
+    ):
+        matches = {name for key in record.evidence_ids if (name := evidence.get(key)) is not None}
+        for key in ("module", "source_module", "target_module", "source", "target"):
+            value = record.data.get(key)
+            if isinstance(value, str) and value in known_scopes:
+                matches.add(value)
+        for subject in record.subjects:
+            matches.update(components.get(subject, ()))
+            module = next(
+                (name for name in ordered_modules if in_scope(subject.partition(":")[0], name)),
+                None,
+            )
+            if module is not None:
+                matches.add(module)
+            elif subject in known_scopes:
+                matches.add(subject)
+        scopes[record.id] = sorted(matches)
+    return scopes
+
+
+def _explorer_scoped_diff(
+    node: dict[str, object], categories: list[dict[str, object]]
+) -> dict[str, object]:
+    scope, label, children = node["id"], node["label"], node["children"]
+    if not isinstance(scope, str) or not isinstance(label, str) or not isinstance(children, list):
+        raise TypeError("Diff scope must have a name and children")
+    nested = [
+        _explorer_scoped_diff(child, categories) for child in children if isinstance(child, dict)
+    ]
+    for category in categories:
+        rows = category["children"]
+        if not isinstance(rows, list):
+            raise TypeError("Diff category children must be a list")
+        selected = [
+            row
+            for row in rows
+            if isinstance(row, dict)
+            and isinstance(scopes := row.get("scopes"), list)
+            and any(isinstance(name, str) and in_scope(name, scope) for name in scopes)
+        ]
+        nested.append({**category, "id": f"{category['id']}:{scope}", "children": selected})
+    return {
+        "id": f"diff-scope:{scope}",
+        "label": label,
+        "kind": "package_scope",
+        "details": [{"label": "Package scope", "value": scope}],
+        "diff_scope": True,
+        "children": nested,
+    }
+
+
+def _explorer_diff_tree(
+    observation: Observation, modules: dict[str, str], categories: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    scopes = set(modules)
+    for record in observation.records("declarations") or ():
+        if record.kind in {"component_responsibility", "inside_component_responsibility"}:
+            scopes.update(record.subjects)
+        elif record.kind == "module_target" and isinstance(
+            name := record.data.get("qualified_name"), str
+        ):
+            scopes.add(name)
+        elif record.kind == "root_layout":
+            if isinstance(root := record.data.get("root"), str):
+                scopes.add(root)
+            allowed = record.data.get("allowed_children")
+            if isinstance(allowed, tuple):
+                scopes.update(name for name in allowed if isinstance(name, str))
+    tree: dict[str, dict[str, object]] = {}
+    for scope in sorted(scopes):
+        _add_actual_module(tree, scope, "")
+    return [
+        *categories,
+        *(_explorer_scoped_diff(_finish_actual_node(tree[key]), categories) for key in tree),
+    ]
+
+
 def _explorer_diff(
     observation: Observation,
     modules: dict[str, str],
@@ -2080,18 +2188,23 @@ def _explorer_diff(
     unmapped: set[str],
     observed_only_targets: list[dict[str, object]],
 ) -> list[dict[str, object]]:
+    scopes = _explorer_scope_index(observation, modules)
     return [
         _explorer_group(
             "diff:violations",
             "Violations",
             "category",
-            sorted(_explorer_violation_rows(observation), key=lambda item: str(item["label"])),
+            sorted(
+                _explorer_violation_rows(observation, scopes), key=lambda item: str(item["label"])
+            ),
         ),
         _explorer_group(
             "diff:unknowns",
             "Unknown / unresolved evidence",
             "category",
-            sorted(_explorer_unknown_rows(observation), key=lambda item: str(item["label"])),
+            sorted(
+                _explorer_unknown_rows(observation, scopes), key=lambda item: str(item["label"])
+            ),
         ),
         _explorer_group(
             "diff:unmapped",
@@ -2102,6 +2215,7 @@ def _explorer_diff(
                     "id": f"unmapped:{name}",
                     "label": name,
                     "kind": "module",
+                    "scopes": [name],
                     "details": [{"label": "File", "value": modules.get(name, "Unknown file")}],
                     "children": [],
                 }
@@ -2146,6 +2260,7 @@ def _explorer_payload(observation: Observation, flow: FlowData) -> dict[str, obj
             "id": f"observed-only-target:{name}",
             "label": path,
             "kind": "observed_only_module_target",
+            "scopes": [name],
             "details": [
                 {"label": "File", "value": path},
                 {"label": "Module", "value": name},
@@ -2155,11 +2270,12 @@ def _explorer_payload(observation: Observation, flow: FlowData) -> dict[str, obj
         for name, path in sorted(modules.items())
         if module_targets and path not in declared_files
     ]
+    diff = _explorer_diff(observation, modules, absent, unmapped, observed_only_targets)
     return {
         "actual": [_finish_actual_node(actual_tree[key]) for key in actual_tree],
         "target": target,
         "target_diagrams": _target_diagrams(target),
-        "diff": _explorer_diff(observation, modules, absent, unmapped, observed_only_targets),
+        "diff": _explorer_diff_tree(observation, modules, diff),
     }
 
 
