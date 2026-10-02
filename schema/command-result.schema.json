@@ -711,7 +711,20 @@
             "unknown_dimensions": {"type": "array", "items": {"type": "string", "minLength": 1}}
           }
         },
-        "dimensions": {"type": "object", "additionalProperties": {"$ref": "#/$defs/dimension"}},
+        "dimensions": {
+          "type": "object",
+          "required": [
+            "violations",
+            "dependency_edges",
+            "cycles",
+            "api_crossings",
+            "private_crossings",
+            "typing_signals",
+            "unknowns",
+            "coverage"
+          ],
+          "additionalProperties": {"$ref": "#/$defs/dimension"}
+        },
         "ratchets": {"$ref": "#/$defs/ratchets"},
         "semantic_changes": {"type": "array", "items": {"$ref": "#/$defs/semanticChange"}},
         "unknowns": {

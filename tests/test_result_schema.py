@@ -16,6 +16,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
+from archkeel.check.delta import SUPPORTED_DIMENSIONS
 from archkeel.ir.model import DiagnosticCode, DiagnosticKind, RunResult
 from fixtures.architecture_demo import CATALOG, materialized_fixture
 
@@ -308,10 +309,23 @@ def test_source_and_delta_evidence_cannot_be_missing_or_malformed(validator, res
     assert not validator.is_valid(payload)
 
 
+@pytest.mark.parametrize("dimension", [*SUPPORTED_DIMENSIONS, None])
+def test_check_requires_every_supported_dimension_assessment(validator, results, dimension) -> None:
+    payload = copy.deepcopy(results["C-check.stdout"])
+    if dimension is None:
+        payload["delta"]["dimensions"] = {}
+    else:
+        del payload["delta"]["dimensions"][dimension]
+    assert not validator.is_valid(payload)
+
+
 def test_unknown_future_fields_are_additive(validator, results) -> None:
     payload = copy.deepcopy(results["clean-report"])
     payload["future_optional_field"] = {"detail": "ignored by an older consumer"}
     assert validator.is_valid(payload)
+    check = copy.deepcopy(results["C-check.stdout"])
+    check["delta"]["dimensions"]["future_dimension"] = check["delta"]["dimensions"]["violations"]
+    assert validator.is_valid(check)
 
 
 @pytest.mark.parametrize("field", ["diagnostics", "coverage", "delta", "provenance"])
