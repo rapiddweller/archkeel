@@ -40,9 +40,11 @@ null/UNKNOWN. Fresh results use `calls_total: null` with `resolution: n/a`.
 Older lock/delta zero sentinels remain readable as unmeasured. Reports show n/a
 and budgets refuse unavailable signals. See
 [the measurement contract](../reference.md#regression-checks).
-Local value aliases and relative package-directory targets retain compiler evidence,
-but their unproved runtime target stays null and coverage UNKNOWN. Explicit
-JavaScript runtime files are observed even when the compiler substitutes TypeScript.
+Local value aliases and directory package metadata retain compiler evidence,
+but their unproved runtime target stays null and coverage UNKNOWN. Explicit and
+extensionless CommonJS JavaScript runtime files are observed even when the
+compiler substitutes TypeScript. Node namespace assertions preserve loader
+identity; callback use and call/constructor argument escapes stay UNKNOWN.
 Full Dart type and construct analysis is also outside this decision.
 
 The npm package is locked and does not install dependencies during `report` or

@@ -136,5 +136,95 @@
     "source": "const mod=module; const key='require'; const {[key]: load} = mod; load.call(mod, './hidden.cjs');",
     "complete": false,
     "cycle": false
+  },
+  {
+    "name": "namespace-as-expression",
+    "source": "import * as mod from 'node:module'; const load=(mod as typeof mod).createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-non-null",
+    "source": "import * as mod from 'node:module'; const load=mod!.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-type-assertion",
+    "source": "import * as mod from 'node:module'; const load=(<typeof mod>mod).createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-satisfies-expression",
+    "source": "import * as mod from 'node:module'; const load=(mod satisfies typeof mod).createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "dynamic-then-namespace",
+    "source": "import('node:module').then(mod => { const load=mod.createRequire(import.meta.url); load('./hidden.cjs'); });",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "dynamic-then-alias",
+    "source": "const pending=import('node:module'); const consume=pending.then; consume(mod => { const load=mod.createRequire(import.meta.url); load('./hidden.cjs'); });",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "dynamic-computed-then",
+    "source": "const member='then'; import('node:module')[member](mod => { const load=mod.createRequire(import.meta.url); load('./hidden.cjs'); });",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "dynamic-namespace-call-argument",
+    "source": "const identity = value => value; const mod = identity(await import('node:module')) as typeof import('node:module'); const load=mod.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "static-namespace-call-argument",
+    "source": "import * as mod from 'node:module'; const identity = value => value; const load=identity(mod satisfies typeof mod).createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "namespace-constructor-argument",
+    "source": "import * as mod from 'node:module'; class Holder { constructor(value) { this.value = value; } } const load=new Holder(mod).value.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
   }
 ]

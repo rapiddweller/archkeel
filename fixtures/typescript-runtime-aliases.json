@@ -116,11 +116,13 @@
     "specifier": "./pkg",
     "source": "require('./pkg');",
     "files": {
-      "src/pkg/index.ts": "export const value=1;"
+      "src/pkg/index.ts": "export const value=1;",
+      "src/pkg/index.js": "throw Error('must not execute');"
     },
-    "runtime_path": "src/pkg/index.ts",
+    "runtime_path": "src/pkg/index.js",
     "observed_files": [
       "src/main.ts",
+      "src/pkg/index.js",
       "src/pkg/index.ts"
     ],
     "manifest": {},
@@ -136,13 +138,13 @@
       "src/pkg/types.ts": "export interface Value {value: string};",
       "src/pkg/runtime.cjs": "throw Error('must not execute');"
     },
-    "runtime_path": "src/pkg.ts",
+    "runtime_path": "src/pkg/runtime.cjs",
     "observed_files": [
       "src/main.ts",
       "src/pkg.ts"
     ],
     "manifest": {},
-    "complete": true
+    "complete": false
   },
   {
     "name": "directory-type-only",
@@ -189,19 +191,172 @@
       "src/pkg/types.ts": "export interface Value {value: string};",
       "src/pkg/runtime.cjs": "throw Error('must not execute');"
     },
-    "runtime_path": "src/pkg.ts",
+    "runtime_path": "src/pkg/runtime.cjs",
     "observed_files": [
       "src/pkg.ts",
       "src/pkg/types.ts",
       "src/z.ts"
     ],
     "manifest": {},
-    "complete": true,
+    "complete": false,
     "entry_path": "src/z.ts",
     "selected_files": [
       "src/z.ts",
       "src/pkg/types.ts"
     ],
     "cycle_source": "require('./z.js');"
+  },
+  {
+    "name": "extensionless-commonjs-substitution",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.js",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": true
+  },
+  {
+    "name": "extensionless-commonjs-js",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.js"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": true
+  },
+  {
+    "name": "extensionless-directory-substitution",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/pkg/index.ts": "export const value=1;",
+      "src/pkg/index.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/index.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/pkg/index.js",
+      "src/pkg/index.ts"
+    ],
+    "cycle_source": "require('../main.cjs');",
+    "manifest": {},
+    "complete": true
+  },
+  {
+    "name": "extensionless-exact-file-before-js",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime": "throw Error('must not execute');",
+      "src/runtime.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-json-before-node",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.json": "{}",
+      "src/runtime.node": "not a loadable binary"
+    },
+    "runtime_path": "src/runtime.json",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-native-node",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.node": "not a loadable binary"
+    },
+    "runtime_path": "src/runtime.node",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-js-before-json",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.js": "throw Error('must not execute');",
+      "src/runtime.json": "{}",
+      "src/runtime.node": "not a loadable binary"
+    },
+    "runtime_path": "src/runtime.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.js",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": true
   }
 ]
