@@ -207,6 +207,8 @@ often explains an earlier one; the index below keeps that order.
 
 | AD-148 | [Built-in collectors isolate imports and finish process cleanup](decisions/ad-148-built-in-collectors-isolate-imports-and-finish-process-cleanup.md) |
 
+| AD-149 | [Unproven require references retain UNKNOWN](decisions/ad-149-unproven-require-references-retain-unknown.md) |
+
 ## Allowed dependencies
 
 | Edge | Reason |

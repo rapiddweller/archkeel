@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Unproven TypeScript loader references retain coverage gaps (AD-149) | `packages/typescript-adapter/test/adapter.test.mjs`; `typescript-indirect-require` demo |
 | Built-in collectors isolate Python imports and clean their POSIX process group after every response (AD-148) | `tests/test_collector_safety_acceptance.py`; `tests/test_inheritance_proof_transport.py` |
 | Nested Diff retains scope and filters recorded differences; missing counterparts require explicit nearest-scope navigation (AD-144, #263) | `tests/test_diff_scope_acceptance.py`; `tests/test_actual_target_diff_acceptance.py`; `make report-browser` |
 | An explicit depth decision accepts one exact opaque map value separately from its outer map; duplicate occurrences and UNKNOWNs remain checked (AD-142, #253) | `tests/test_boundary_type_opaque_map_values.py`; `fixtures/demo_catalog_types.py`; `docs/rules.md` |
@@ -172,16 +173,18 @@ only when its row names repository evidence.
 ## In progress
 
 - Implement the approved replaceable language-adapter boundary: configured process,
-  validated source facts, Core-owned rules and active nested contracts (AD-22, #122).
-  Python/Dart parity, replacement acceptance, complete gates and independent review
-  remain open. TypeScript packaging and extension onboarding follow separately.
+  validated source facts, Core-owned rules, active nested contracts and the pinned
+  TypeScript npm package (AD-22, #122, #274–#276). The local Make gate and package
+  tests, local migration acceptance, package review and namespace review passed.
+  Exact-head cross-platform validation remains open. The extension target still
+  has seven UI-to-Platform type-import violations. The change has not merged or
+  been published.
 
 ## Next
 
-- Complete acceptance for the language-adapter migration, then implement the pinned
-  TypeScript npm adapter and extension onboarding (#274–#276).
-  Prove Python/Dart parity and replacement through configuration. Full Dart type
-  analysis is separate. See [the proposal](architecture/typescript-foundation-proposal.md).
+- Complete exact-head cross-platform CI and extension onboarding (#274–#276).
+  Full Dart type analysis is separate. See
+  [the proposal](architecture/typescript-foundation-proposal.md).
 - Complete #218 against published baselines with explicit per-rule decision units and
   supported runtimes. EE's absent boundary policy is N/A; do not invent one for measurement.
 

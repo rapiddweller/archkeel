@@ -1,0 +1,32 @@
+{
+  "name": "@archkeel/typescript-adapter",
+  "version": "1.0.0",
+  "description": "Pinned source-only TypeScript import collector for Archkeel",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "archkeel-typescript": "dist/entry.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".node-version"
+  ],
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+  },
+  "packageManager": "npm@11.16.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "verify": "npm run build && npm test",
+    "test:pack": "node test/pack.mjs"
+  },
+  "dependencies": {
+    "typescript": "5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.13.10"
+  }
+}
