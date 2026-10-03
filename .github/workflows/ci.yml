@@ -110,7 +110,7 @@ jobs:
           uv run --locked python -m pytest -q tests/test_collection_protocol.py
           tests/test_collection_process.py tests/test_source_trust_boundary.py
           tests/test_collector_safety_acceptance.py tests/test_windows_launcher_startup.py
-          tests/test_collector_interrupt.py
+          tests/test_collector_interrupt.py tests/test_collector_liveness_observer.py
 
   github-order-report:
     name: Collect GitHub order evidence (report only)

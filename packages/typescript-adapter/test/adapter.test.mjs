@@ -192,9 +192,9 @@ test("shared request fixtures and identity cases agree with the adapter", async 
   assert.equal(decodeRequest(valid).resolver.language, "typescript");
   const invalid = readFileSync(join(repository, "tests/fixtures/collection-protocol/invalid-request-policy.json"), "utf8");
   assert.throws(() => decodeRequest(invalid));
-  const identityPath = process.env.ARCHKEEL_IDENTITY_FIXTURE ?? join(repository, "fixtures/language-module-identities.json");
+  const identityPath = process.env.ARCHKEEL_IDENTITY_FIXTURE ?? join(repository, "fixtures/typescript-module-identities.json");
   const cases = JSON.parse(readFileSync(identityPath, "utf8"));
-  for (const example of cases.filter(item => item.language === "typescript")) assert.equal(moduleIdentity(example.namespace, example.path), example.module);
+  for (const example of cases) assert.equal(moduleIdentity(example.namespace, example.path), example.module);
   const paths = ["src/foo.ts", "src/foo.js", "src/foo.test.ts", "src/foo/test.ts", "src/foo/index.ts", "src/a_b.ts", "src/a-b.ts", "src/_x2e_.ts", "src/@scope/name.ts"];
   assert.equal(new Set(paths.map(path => moduleIdentity("app", path))).size, paths.length);
 });
