@@ -1,11 +1,11 @@
 # Language adapter target
 
-Status: approved; implementation in progress. The process boundary, Python/Dart
-collectors and Core evaluation split are present in the working tree. Active
+Status: approved. The process boundary, Python/Dart collectors, pinned TypeScript
+npm collector and Core evaluation split are implemented. Active
 contracts are `architecture-contract.json` plus
 `docs/architecture/contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
-target; they do not certify parity or completion. The current validation and full
-test suite still need to pass on the integrated change.
+target; they do not certify parity or completion. Every integrated change must
+pass the local gate, independent acceptance and required cross-platform CI.
 
 ## Boundary
 
@@ -61,8 +61,8 @@ packages/typescript-adapter/
 
 Python retains its specialist collectors. Shared graph algorithms live in
 `ir.graph`; dependency/scope aggregation and policy live in `check.evaluation`.
-Dart retains directive-only capability. TypeScript can start with four source
-files because the compiler owns its AST and resolver. Add another internal
+Dart retains directive-only capability. TypeScript uses four source files
+because the compiler owns its AST and resolver. Add another internal
 component only when responsibilities require it.
 
 ## Interfaces
@@ -114,14 +114,16 @@ A process boundary is not an operating-system sandbox.
 The active root contract retains the existing rules and mounts contracts for
 `analyzer`, `python`, `dart`, `check` and `ir` under `docs/architecture/contracts/`.
 This document records the target; active contracts do not certify parity or completion.
-The TypeScript npm package needs its own contract because the Python scanner cannot
-observe `.ts`.
+The TypeScript npm package has its own
+`packages/typescript-adapter/architecture-contract.json` because the Python
+scanner cannot observe `.ts`.
 
-The target and Node/npm adapter choice are approved. The process/facts/Core and
-Python/Dart migration is in implementation. Acceptance still requires Python/Dart
-parity, replacement by another configured executable, negative protocol/coverage
-cases and independent review. TypeScript packaging, revision identity and
-extension onboarding remain separate follow-up work.
+Acceptance requires Python/Dart parity, replacement by a configured executable,
+negative protocol/coverage cases and independent review. The TypeScript package
+has locked build and offline tarball checks; revision snapshots retain its source
+and resolver inputs ([AD-147](decisions/ad-147-revision-snapshots-preserve-language-inputs.md)).
+See [the TypeScript decision](typescript-foundation-proposal.md) for acceptance
+requirements. Package publication and extension onboarding are separate delivery work.
 
 Future HTTP/queue relationships are a separate interaction model: declared API
 contracts, source observations and runtime observations have distinct evidence.

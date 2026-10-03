@@ -1,8 +1,8 @@
 # TypeScript adapter decision
 
-Status: approved. The collector is integrated with the current Core protocol.
-Final independent acceptance and exact-head CI remain pending; no publication. Detailed architecture
-and contracts live in the [language-adapter target](language-adapter-target.md).
+Status: approved. The collector is integrated with the Core protocol.
+Detailed architecture and contracts live in the
+[language-adapter target](language-adapter-target.md). Publication is separate delivery work.
 
 ## Decision
 
@@ -36,9 +36,10 @@ and layout. Computed or shadowed imports, incomplete resolver inputs and
 unobserved closure cannot prove absence; affected results stay UNKNOWN. TypeScript
 does not measure symbols, references, bindings, types, constructs, calls, typing
 positions or private-use metrics. Their signals and coverage counts remain
-null/UNKNOWN. The legacy result keeps `calls_total: 0` with `resolution: n/a`;
-this sentinel does not prove zero calls. Reports show n/a and budgets refuse
-unavailable signals. See [the measurement contract](../reference.md#regression-checks).
+null/UNKNOWN. Fresh results use `calls_total: null` with `resolution: n/a`.
+Older lock/delta zero sentinels remain readable as unmeasured. Reports show n/a
+and budgets refuse unavailable signals. See
+[the measurement contract](../reference.md#regression-checks).
 Full Dart type and construct analysis is also outside this decision.
 
 The npm package is locked and does not install dependencies during `report` or
@@ -55,15 +56,16 @@ onboarding. Python and Dart use the same process port and retain their own parse
 resolver and local IR. Replacement acceptance must prove the configured executable
 can return valid and invalid facts while Core retains all policy decisions.
 
-LOCAL VERIFIED: 39 collector tests, 25 onboarding tests, strict TypeScript build and an isolated,
-locked offline tarball install. The actual Core decoder and runtime range checks
-are included. The extension target previously observed 78 files across five
-owners and seven hosts-to-Platform type-import violations.
+Acceptance requires the integrated local gate, independent review and exact-head
+Linux, native Windows and Node 22/24/26 CI. Package checks include a strict build,
+locked offline tarball install, actual Core decoding and runtime-range refusal
+(`packages/typescript-adapter/test/`). Source implementation does not prove publication.
 
-PENDING: the integrated gate, independent final review and exact-head Linux,
-native Windows and Node 22/24/26 CI. The package has not merged or been published.
-
-Local acceptance covers Python/Dart parity, replacement through configuration,
-malformed protocol and incomplete-coverage cases, deterministic revision-bound
-observations, and positive/negative fixtures for enabled rules. Exact-head CI is
-still required.
+Core acceptance requires Python/Dart parity. Checks cover
+[configured replacement](../../tests/test_collection_process.py),
+[collector facts](../../tests/test_language_collectors.py),
+[wire conformance](../../tests/test_collection_conformance.py),
+[negative protocol/coverage cases](../../tests/test_collection_boundary_regressions.py),
+[revision-bound inputs](../../tests/test_profile_comparison_commits.py) and
+[explicit onboarding](../../tests/test_typescript_onboarding.py). Enabled rules need positive
+and negative fixtures; unsupported capabilities retain null/UNKNOWN.

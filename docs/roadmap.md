@@ -172,13 +172,11 @@ only when its row names repository evidence.
 | A `public_api` entry naming a module that declares `__all__` is checked against it, so `archkeel.api:Typo` is `api_surface.missing` instead of passing on its module alone; a module declaring no `__all__` keeps AD-66's module-only reading (AD-71, #58) | `src/archkeel/check/validation.py`; `tests/test_validation.py` |
 ## In progress
 
-- Implement the approved replaceable language-adapter boundary: configured process,
-  validated source facts, Core-owned rules, active nested contracts and the pinned
-  TypeScript npm package (AD-22, #122, #274–#276). The local Make gate and package
-  tests, local migration acceptance, package review and namespace review passed.
-  Exact-head cross-platform validation remains open. The extension target still
-  has seven UI-to-Platform type-import violations. The change has not merged or
-  been published.
+- Complete acceptance of the implemented language-adapter boundary: configured
+  process, validated source facts, Core-owned rules, active nested contracts and
+  the pinned TypeScript npm collector (AD-22, #122, #274–#276). Required gates and
+  capability limits live in [the decision](architecture/typescript-foundation-proposal.md).
+  Exact-head cross-platform validation and package publication remain separate gates.
 
 ## Next
 

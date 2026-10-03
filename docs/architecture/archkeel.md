@@ -29,11 +29,11 @@ values in distinct internal groups.
 
 ### Language adapter boundary (AD-22)
 
-The approved process port and Python/Dart extraction are in progress, with active
-nested contracts under `contracts/`. The contracts describe ownership and interfaces;
-they do not prove semantic parity or complete behavior. Replacement-executable
-acceptance, integrated local gates and independent review remain open.
-TypeScript remains a separate pinned npm artifact described in
+The process port, Python/Dart collectors and Core evaluation split are implemented,
+with active nested contracts under `contracts/`. The contracts describe ownership
+and interfaces. Acceptance requires semantic parity, configured replacement,
+integrated local gates, independent review and cross-platform CI.
+TypeScript uses a separate pinned npm collector described in
 [the foundation proposal](typescript-foundation-proposal.md); it is not included
 in the Python source contract. See
 [AD-22](decisions/ad-22-the-analyzer-is-a-process-port-with-a-language-profile.md)
