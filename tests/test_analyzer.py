@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import ast
 import json
+import sys
 from hashlib import sha256
 from pathlib import Path
 from unittest.mock import patch
@@ -1402,7 +1403,8 @@ def test_receiver_typed_calls_resolve_or_name_why_not(
 
 
 def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_path: Path) -> None:
-    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.12"\n')
+    required = f">={sys.version_info.major}.{sys.version_info.minor + 1}"
+    (tmp_path / "pyproject.toml").write_text(f'[project]\nrequires-python = "{required}"\n')
     for name, source in (
         ("syntax.py", "def :\n"),
         ("indent.py", "  value = 1\n"),

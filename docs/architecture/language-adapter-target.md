@@ -3,7 +3,7 @@
 Status: approved; implementation in progress. The process boundary, Python/Dart
 collectors and Core evaluation split are present in the working tree. Active
 contracts are `architecture-contract.json` plus
-`contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
+`docs/architecture/contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
 target; they do not certify parity or completion. The current validation and full
 test suite still need to pass on the integrated change.
 
@@ -68,11 +68,11 @@ component only when responsibilities require it.
 | Owner | Interface | Invariant |
 |---|---|---|
 | `check.ports` | `SourceCollector.collect(request) -> SourceFacts \| CollectionError` | Core depends on this port; implementation is injected by CLI |
-| `ir.protocol` | `CollectionRequest(protocol_version, snapshot, scope, resolver)` | immutable revision inputs; no architecture contract, baseline or verdict |
-| `ir.protocol` | `CollectionResponse(protocol_version, facts) \| CollectionFailure` | exactly one versioned JSON message; diagnostics use stderr |
-| `ir.facts` | `SourceFacts(adapter, capabilities, inputs, files, modules, imports, sections, coverage)` | source claims carry identity and evidence; no policy decisions |
-| `ir.facts` | `Capabilities(fact_kinds, resolution_features)` | claims ability to collect facts, never authority to pass a rule |
-| `ir.facts` | `Coverage(selected_files, observed_files, resolution_inputs, gaps)` | resolution-only input is not a fully observed graph node |
+| `ir.protocol` | `CollectionRequest` | immutable revision inputs; no architecture contract, baseline or verdict |
+| `ir.protocol` | `CollectionResponse` / `CollectionError` | exactly one versioned JSON message; diagnostics use stderr |
+| `ir.facts` | `SourceFacts` | source claims carry identity and evidence; no policy decisions |
+| `ir.facts` | `Capabilities` | claims ability to collect facts, never authority to pass a rule |
+| `ir.facts` | `CollectionCoverage` | resolution-only input is not a fully observed graph node |
 | `ir.facts` | `ImportTarget = LocalTarget \| ExternalPackageTarget \| BuiltinTarget \| UnresolvedTarget` | `.cjs` runtime and `.d.cts` declaration remain distinct |
 | `ir.facts_codec` | `decode_request` / `encode_request` / `decode_response` / `encode_response` | typed envelopes; reject malformed versions, identities, references and coverage |
 | `check.observation` | `assemble_observation(facts, contract)` / `analyze_source_snapshot(...)` | ownership and evaluator receipts are Core-owned |
@@ -88,18 +88,16 @@ read these interfaces; adapters cannot read governance models or graph derivatio
 `profiles` owns capability and rule-availability policy; `measurements` reads its
 scalar vocabulary.
 
-Inside Python: `parse_sources(request) -> ParsedSources`,
-`resolve_project(parsed) -> ResolvedProject`, then independent
-`collect_<kind>(project) -> FactSection`. Inside Dart:
-`parse_directives(request) -> DirectiveModel`,
-`resolve_libraries(directives) -> ResolvedLibraries`. Each adapter's `collect`
-assembles `SourceFacts`; `entry.main` serves the protocol. These are the current
-type boundaries. The Python contract isolates collector peers.
+Python's `parse_sources` returns `ParsedSources`; specialist collectors read its
+`ParsedModule` entries and `build_symbol_index` supplies `SymbolIndex`. Dart's
+`read_header` returns `Header`; `read_dart_sources` assembles `DartSources` and
+`DartLibrary` entries. Each adapter's `collect` assembles `SourceFacts`;
+`entry.main` serves the protocol. The Python contract isolates collector peers.
 
 `SourceFacts` lives in `ir.facts`; the Core maps validated facts to the governance
 model in `ir.model`. File/module IDs include source
 space and repository-relative path. Adapter-local models never cross the port:
-Python `ParsedModule`/`ResolvedProject`, Dart directive model, TypeScript compiler
+Python `ParsedModule`/`SymbolIndex`, Dart `Header`/`DartSources`, TypeScript compiler
 `Program`/`SourceFile`. No universal AST or shared parser base class.
 
 The typed protocol and codecs in `ir` own the process wire contract. Collection
@@ -109,8 +107,8 @@ A process boundary is not an operating-system sandbox.
 ## Active contracts and delivery
 
 The active root contract retains the existing rules and mounts contracts for
-`analyzer`, `python`, `dart`, `check` and `ir` under `contracts/`. The target JSON
-files remain the approved design record. They do not certify parity or completion.
+`analyzer`, `python`, `dart`, `check` and `ir` under `docs/architecture/contracts/`.
+This document records the target; active contracts do not certify parity or completion.
 The TypeScript npm package needs its own contract because the Python scanner cannot
 observe `.ts`.
 

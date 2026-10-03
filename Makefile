@@ -19,7 +19,8 @@ collector-safety:
 		tests/test_collection_process.py tests/test_collection_runtime_gate.py \
 		tests/test_runtime.py tests/test_source_trust_boundary.py \
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
-		tests/test_collector_safety_acceptance.py tests/test_inheritance_proof_transport.py
+		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
+		tests/test_inheritance_proof_transport.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py \

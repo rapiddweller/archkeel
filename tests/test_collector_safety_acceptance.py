@@ -51,8 +51,11 @@ def _alive(pid: int) -> bool:
     except ProcessLookupError:
         return False
     if sys.platform.startswith("linux"):
-        stat = Path(f"/proc/{pid}/stat")
-        if stat.exists() and stat.read_text().split()[2] == "Z":
+        try:
+            stat = Path(f"/proc/{pid}/stat").read_text()
+        except (FileNotFoundError, ProcessLookupError):
+            return False
+        if stat.rsplit(")", 1)[1].split()[0] == "Z":
             return False
     return True
 
@@ -143,7 +146,10 @@ def test_collection_stops_owned_descendant_for_every_completion(
         if pid is None and pid_file.exists():
             pid = int(pid_file.read_text())
         if pid is not None and _alive(pid):
-            os.kill(pid, signal.SIGKILL)
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def _git_init(root: Path) -> None:

@@ -53,8 +53,11 @@ def _assert_process_exited(pid: int) -> None:
         except ProcessLookupError:
             return
         if sys.platform.startswith("linux"):
-            stat = Path(f"/proc/{pid}/stat")
-            if stat.exists() and stat.read_text().split()[2] == "Z":
+            try:
+                stat = Path(f"/proc/{pid}/stat").read_text()
+            except (FileNotFoundError, ProcessLookupError):
+                return
+            if stat.rsplit(")", 1)[1].split()[0] == "Z":
                 return
         time.sleep(0.02)
     pytest.fail(f"collector descendant {pid} remained alive after cleanup")
