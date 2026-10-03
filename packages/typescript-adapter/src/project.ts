@@ -31,10 +31,10 @@ export function loadProject(request: Request) {
     }
     if (!safe(path)) return undefined;
     try {
-      const content = readFileSync(path, "utf8");
+      const content = readFileSync(path);
       const rel = pathOf(path);
       if (rel !== undefined) inputs.set(rel, { path: rel, digest: digest(content), role: inputs.get(rel)?.role ?? "resolution" });
-      return content;
+      return content.toString("utf8");
     } catch { problems.add(`Unreadable resolver input: ${pathOf(path)}`); return undefined; }
   }
   const host: ts.ParseConfigHost & ts.ModuleResolutionHost = {

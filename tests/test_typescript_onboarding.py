@@ -93,12 +93,12 @@ def test_typescript_init_groups_untracked_physical_files_and_persists_settings(
     assert config.tsconfig == "config/project.json"
     assert config.collector_argv == ("node", str(ADAPTER))
     contract = parse_contract(decode_json((root / config.contract).read_bytes()))
-    feature = module_identity(config.namespace, "src/feature", "typescript")
+    feature = module_identity(config.namespace, "src/feature")
     assert any(
         item.packages == (feature,) and item.namespace == feature for item in contract.components
     )
     for file in ("src/main.ts", "src/name.test.ts", "workers/job.ts"):
-        module = module_identity(config.namespace, file, "typescript")
+        module = module_identity(config.namespace, file)
         assert any(
             item.exact_modules == (module,) and not item.packages for item in contract.components
         )
@@ -149,7 +149,7 @@ def test_typescript_init_supports_explicit_runtime_and_declaration_file_roots(
     assert config.roots == roots
     contract = parse_contract(decode_json((root / config.contract).read_bytes()))
     for source in roots[1:]:
-        expected = module_identity(config.namespace, source, "typescript")
+        expected = module_identity(config.namespace, source)
         assert any(component.exact_modules == (expected,) for component in contract.components)
     artifact = root / "report.json"
     assert main(["report", "--root", str(root), "--output", str(artifact), "--json"]) == 0
@@ -161,7 +161,7 @@ def test_typescript_init_supports_explicit_runtime_and_declaration_file_roots(
         *roots[1:],
     }
     assert any(
-        item.data.get("target_module") == module_identity(config.namespace, roots[1], "typescript")
+        item.data.get("target_module") == module_identity(config.namespace, roots[1])
         for item in observation.records("imports") or ()
     )
 

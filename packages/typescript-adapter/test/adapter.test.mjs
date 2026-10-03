@@ -561,3 +561,34 @@ test("external package import aliases cannot inherit declaration-provider identi
     assert.equal(report.declared_rules, external ? "UNKNOWN" : "PASS");
   }
 });
+
+test("resolution input and source digests bind exact source bytes", async t => {
+  const { createHash } = await import("node:crypto");
+  const root = fixture(t, { "src/main.ts": "", "src/value.ts": "export const value = 1;\n" });
+  const sourceBytes = [
+    Buffer.from("// marker \xff\nimport './value.js';\n", "binary"),
+    Buffer.from("// marker \xfe\nimport './value.js';\n", "binary"),
+  ];
+  assert.equal(sourceBytes[0].toString("utf8"), sourceBytes[1].toString("utf8"));
+  const outputs = sourceBytes.map(bytes => {
+    writeFileSync(join(root, "src/main.ts"), bytes);
+    return collect(request(root));
+  });
+  const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+  for (const output of outputs) {
+    assert.equal(output.facts.coverage.full_scope, true, JSON.stringify(output.facts.coverage.gaps));
+    assert.deepEqual(output.facts.files.map(file => file.rel_path), ["src/main.ts", "src/value.ts"]);
+    assert.ok(output.facts.imports.some(item => item.kind === "local" && item.file === "src/value.ts"));
+  }
+  assert.notEqual(outputs[0].facts.source.source_digest, outputs[1].facts.source.source_digest);
+  for (let index = 0; index < outputs.length; index++) {
+    const output = outputs[index];
+    assert.equal(output.facts.inputs.find(input => input.path === "src/main.ts").digest, digest(sourceBytes[index]));
+  }
+
+  const validBytes = Buffer.from("// marker café\nimport './value.js';\n", "utf8");
+  writeFileSync(join(root, "src/main.ts"), validBytes);
+  const valid = collect(request(root));
+  assert.equal(valid.facts.coverage.full_scope, true, JSON.stringify(valid.facts.coverage.gaps));
+  assert.equal(valid.facts.inputs.find(input => input.path === "src/main.ts").digest, digest(validBytes));
+});
