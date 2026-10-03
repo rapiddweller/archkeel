@@ -3,7 +3,12 @@
 # SPDX-License-Identifier: MIT
 import pytest
 
-from archkeel.ir.codec import observation_payload, parse_observation
+from archkeel.ir.codec import (
+    decode_canonical_model,
+    encode_canonical_model,
+    observation_payload,
+    parse_observation,
+)
 from archkeel.ir.model import EvidenceClass, Observation, RecordData
 
 
@@ -23,7 +28,7 @@ def raw_observation():
     }
     base = {
         "schema_version": "1.2.0",
-        "analyzer": {"name": "a", "version": "1", "code_digest": "unknown"},
+        "analyzer": {"name": "archkeel-python-analyzer", "version": "1", "code_digest": "unknown"},
         "source": {
             "git_head": "unknown",
             "dirty": "unknown",
@@ -97,3 +102,75 @@ def test_parse_rejects_invalid_coverage_rules():
     raw["coverage"]["rules"] = "UNKNOWN"
     with pytest.raises(ValueError, match="status/rules"):
         parse_observation(raw)
+
+
+def test_dart_profile_accepts_its_absent_sections_as_null():
+    raw = raw_observation()
+    raw["analyzer"]["name"] = "archkeel-dart-directives"
+    for section in ("symbols", "references", "bindings"):
+        raw[section] = None
+
+    observation = parse_observation(raw)
+
+    assert observation.records("symbols") is None
+    assert observation.records("references") is None
+    assert observation.records("bindings") is None
+
+
+def test_python_profile_rejects_a_null_required_section():
+    raw = raw_observation()
+    raw["symbols"] = None
+
+    with pytest.raises(ValueError, match="symbols.*array"):
+        parse_observation(raw)
+
+
+def test_unknown_analyzer_identity_is_rejected():
+    raw = raw_observation()
+    raw["analyzer"]["name"] = "third-party-observer"
+
+    with pytest.raises(ValueError, match="unsupported analyzer identity"):
+        parse_observation(raw)
+
+
+def test_dart_profile_rejects_a_null_section_it_does_not_declare_absent():
+    raw = raw_observation()
+    raw["analyzer"]["name"] = "archkeel-dart-directives"
+    for section in ("symbols", "references", "bindings"):
+        raw[section] = None
+    raw["calls"] = None
+
+    with pytest.raises(ValueError, match="calls.*array"):
+        parse_observation(raw)
+
+
+def test_python_profile_rejects_a_non_array_section():
+    raw = raw_observation()
+    raw["symbols"] = {}
+
+    with pytest.raises(ValueError, match="symbols.*array"):
+        parse_observation(raw)
+
+
+def test_canonical_encoder_rejects_null_for_python_required_section():
+    raw = raw_observation()
+    raw["symbols"] = None
+
+    with pytest.raises(ValueError, match="symbols.*array"):
+        encode_canonical_model(raw)
+
+
+def test_canonical_decoder_rejects_null_for_python_required_section():
+    encoded = encode_canonical_model(raw_observation())
+    encoded["symbols"] = None
+
+    with pytest.raises(ValueError, match="symbols.*array"):
+        decode_canonical_model(encoded)
+
+
+def test_canonical_decoder_rejects_unknown_analyzer_identity():
+    raw = raw_observation()
+    raw["analyzer"]["name"] = "third-party-observer"
+
+    with pytest.raises(ValueError, match="unsupported analyzer identity"):
+        decode_canonical_model(raw)

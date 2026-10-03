@@ -72,7 +72,11 @@ def _model(
     raw = {
         "schema_version": "1.3.0",
         "python_version": "3.11.12",
-        "analyzer": {"name": "observer", "version": "0.3.0", "code_digest": "a" * 64},
+        "analyzer": {
+            "name": "archkeel-python-analyzer",
+            "version": "0.3.0",
+            "code_digest": "a" * 64,
+        },
         "source": {
             "git_head": git_head,
             "dirty": False,
