@@ -200,7 +200,7 @@ def _typescript_components(
     labels: dict[str, str] = {}
     components: list[ContractComponent] = []
     for group, names in sorted(groups.items()):
-        selector = module_identity(namespace, group.as_posix(), "typescript")
+        selector = module_identity(namespace, group.as_posix())
         # Mermaid identifiers are lowercase; preserve case and path distinctions by escaping.
         label = re.sub(
             "[A-Z]",

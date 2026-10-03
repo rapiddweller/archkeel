@@ -44,7 +44,8 @@ where an artifact goes, not an input, and stay relative to the working directory
 
 The Python analyzer is bundled under `archkeel.analyzer`. `report` and `check`
 need no source checkout or private package. The analyzer runs in an isolated
-subprocess and returns a typed observation at the analyzer boundary.
+subprocess and returns validated source facts. Core applies architecture rules and builds
+the typed observation (AD-150).
 D-self verifies the bundled analyzer digest recorded in `fixtures/D-self/provenance.json`.
 
 Optional [`make rule-yield`](rule-yield.md) measures pinned rule findings and warm
@@ -59,6 +60,14 @@ The analyzer records `python_version` separately from its digest. Missing or inc
 use `parse_error` after a compatible runtime check. Git snapshots carry their own project metadata.
 Delta comparison requires the same known full Python version; otherwise `incomparable_runtime`
 returns exit 2. Historical observations without runtime provenance remain readable, not comparable.
+
+Dart observations identify the bundled directive parser and the actual Python interpreter that
+runs it. Comparison requires equal, known runtime and producer identities. No Dart SDK is used.
+Producer identity uses its name and source digest; a distribution version label is metadata.
+Different Dart file paths sharing one legacy module name leave target association UNKNOWN.
+Snapshots copy selected Git blobs byte for byte, including resolver metadata; `export-ignore`
+and `export-subst` cannot omit or rewrite them (AD-147). `make demo-snapshot-check` runs committed Python
+and Dart comment-only checks against local bare origins with supplied host records.
 
 The observation carries a `references` section beside `calls`: every use of a scanned symbol
 that is not a call, such as a function put into a table, passed as an argument or read as a
@@ -404,8 +413,8 @@ at that revision, under that revision's own contract, and reports `unresolved_ca
 passing run pays for no second scan. Removed rows and rows in files the revision's snapshot
 holds are always kept. An added row in a file the snapshot lacks is dropped when the file is
 outside Git's view of the working tree under the scan roots (`git ls-files --cached --others
---exclude-standard`: ignored, or inside a submodule) or when the revision tracks it but its
-archive left it out (its own `export-ignore`): such files exist on the working-tree side only.
+--exclude-standard`: ignored, or inside a submodule). Revision snapshots preserve tracked
+source blobs even when archive attributes would omit them (AD-147).
 `unresolved_call_note` says when rows were dropped, when nothing differs from the revision (the
 accepted value does not match its code), and when nothing could be compared: a revision that
 cannot be scanned, a Git listing with a non-UTF-8 file name, or call records that do not add up

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ import pytest
 
 from archkeel.analyzer.dart.directives import read_header
 from archkeel.analyzer.dart.lexer import DirectiveError
+from archkeel.analyzer.runtime import collector_provenance
 from archkeel.check.ports import ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.run import inspect_observation
@@ -86,6 +88,20 @@ def _imports(result: ObservationResult) -> set[tuple[str, str, str | None]]:
         for item in result.observation.records("imports") or ()
         if isinstance(symbol := item.data.get("symbol"), str | None)
     }
+
+
+def test_dart_observation_identifies_its_actual_python_parser_runtime(tmp_path: Path) -> None:
+    result = _observe(tmp_path, {"lib/main.dart": "void main() {}\n"})
+    assert result.exit_code == 0
+    model = result.observation
+    assert model is not None
+    assert model.runtime is not None
+    assert model.runtime.name == "python"
+    assert model.runtime.version == platform.python_version()
+    producer, runtime = collector_provenance("dart")
+    assert model.producer == producer
+    assert model.runtime == runtime
+    assert model.producer.name == "archkeel-dart-directives"
 
 
 def test_header_grammar_reads_every_directive_form() -> None:

@@ -1538,3 +1538,103 @@ def test_constructing_an_imported_generic_facade_retains_member_uncertainty(tmp_
         item.kind == "boundary_type_position" and item.data.get("reason") == "inherited_surface"
         for item in unknowns
     )
+
+
+@pytest.mark.parametrize(
+    ("client", "returns", "nested_public", "expected"),
+    [
+        ("VALUE = Child()\n", "T", "sample.core.domain:Child", "interface.usage_unknown"),
+        ("VALUE = Child()\n", "T", "sample.core.api:Child", "interface.usage_unknown"),
+        ("VALUE: Child\n", "T", "sample.core.api:Child", None),
+        ("VALUE = Child()\n", "int", "sample.core.api:Child", "interface.unused"),
+    ],
+    ids=["direct-inside", "uncertain-reexport", "proven-reexport", "unrelated-type-argument"],
+)
+def test_inherited_reexport_retains_result_candidates_at_each_scope(
+    tmp_path: Path, client: str, returns: str, nested_public: str, expected: str | None
+) -> None:
+    payload = "sample.core.models:Payload"
+    noise = "sample.core.models:Noise"
+    models = [payload, noise] if expected is not None else [payload]
+    _write_project(
+        tmp_path,
+        components=[
+            _component("core", packages=["sample.core"], public=["sample.core.api:Child", *models])
+            | {"inside": "core.json"},
+            _component("client", packages=["sample.client"])
+            | {"requires": [{"component": "core", "rationale": "Use the public service."}]},
+        ],
+        rules=[
+            _rule("ROOT-INTERFACE", "interface_boundary"),
+            _rule(
+                "CLIENT-CORE", "allowed_dependency", source="sample.client", target="sample.core"
+            ),
+            _rule(
+                "NO-REVERSE",
+                "forbidden_dependency",
+                source="sample.core",
+                target="sample.client",
+                include_type_checking=True,
+            ),
+        ],
+        insides={
+            "core.json": _inside(
+                [
+                    _child(
+                        "service",
+                        "sample.core",
+                        public=[nested_public, *models],
+                    )
+                    | {"provenance": ["docs/architecture/core.md"]}
+                ],
+                [
+                    _rule(
+                        "LOCAL-INTERFACE",
+                        "interface_boundary",
+                        provenance=["docs/architecture/core.md"],
+                    )
+                ],
+            )
+        },
+        files={
+            "sample/core/models.py": "class Payload: pass\nclass Noise: pass\n",
+            "sample/core/base.py": (
+                "from typing import Generic, TypeVar\n"
+                "T = TypeVar('T')\n"
+                "class Base(Generic[T]):\n"
+                f"    def generate(self) -> {returns}: ...\n"
+                f"    def generate_batch(self) -> list[{returns}]: ...\n"
+            ),
+            "sample/core/domain.py": (
+                "from sample.core.base import Base\n"
+                "from sample.core.models import Payload\n"
+                "class Child(Base[Payload]): pass\n"
+            ),
+            "sample/core/api.py": "from sample.core.domain import Child\n__all__ = ['Child']\n",
+            "sample/client.py": "from sample.core.api import Child\n" + client,
+            "docs/architecture/sample.md": (
+                f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n  client --> core\n```\n"
+            ),
+            "docs/architecture/core.md": (
+                f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n  service\n```\n"
+            ),
+        },
+    )
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    _commit_tree(tmp_path)
+
+    result, _ = run_validate(tmp_path, _scan_config(), observe, write_graph=True)
+
+    assert result.exit_code == (2 if expected is not None else 0), result.diagnostics
+    assert all(item.code.startswith("interface.") for item in result.diagnostics), (
+        result.diagnostics
+    )
+    for pointer in ("/components/0/public/1", "/components/0/inside/components/0/public/1"):
+        assert [
+            item.code
+            for item in result.diagnostics
+            if item.subject == payload and item.pointer == pointer
+        ] == ([expected] if expected is not None else []), result.diagnostics
+    assert [item.code for item in result.diagnostics if item.subject == noise] == (
+        ["interface.unused", "interface.unused"] if expected is not None else []
+    ), result.diagnostics

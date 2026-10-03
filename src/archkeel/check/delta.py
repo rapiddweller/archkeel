@@ -30,6 +30,7 @@ from archkeel.ir.model import (
     RecordData,
     SemanticChange,
     SnapshotSummary,
+    identity_is_known,
     stable_id,
 )
 from archkeel.ir.profiles import profile_for
@@ -410,7 +411,13 @@ def require_comparable_runtime(
                 "Reobserve both revisions with the same registered analyzer profile.",
             )
         )
-    if profile.analyzer == "archkeel-python-analyzer":
+    if (
+        profile.analyzer == "archkeel-python-analyzer"
+        and baseline.runtime is None
+        and head.runtime is None
+        and baseline.producer is None
+        and head.producer is None
+    ):
         comparable = (
             baseline.python_version is not None and baseline.python_version == head.python_version
         )
@@ -421,11 +428,28 @@ def require_comparable_runtime(
         recommendation = "Reobserve both revisions with the same compatible Python runtime."
         message = "AST observations from different or unknown Python runtimes cannot be compared."
     else:
-        comparable = baseline.runtime is not None and baseline.runtime == head.runtime
+        comparable = (
+            baseline.runtime is not None
+            and baseline.runtime == head.runtime
+            and all(
+                identity_is_known(value)
+                for value in (baseline.runtime.name, baseline.runtime.version)
+            )
+        )
         detail = f"runtime: {baseline.runtime or 'unknown'} -> {head.runtime or 'unknown'}"
         recommendation = "Reobserve both revisions with the same explicitly identified runtime."
         message = "Language observations without the same explicit runtime cannot be compared."
-        if baseline.producer is None or baseline.producer != head.producer:
+        if (
+            baseline.producer is None
+            or head.producer is None
+            or baseline.producer.name != head.producer.name
+            or baseline.producer.code_digest != head.producer.code_digest
+            or not all(
+                identity_is_known(value)
+                for producer in (baseline.producer, head.producer)
+                for value in (producer.name, producer.version, producer.code_digest)
+            )
+        ):
             comparable = False
             detail = f"producer: {baseline.producer or 'unknown'} -> {head.producer or 'unknown'}"
             message = (
@@ -458,10 +482,10 @@ def build_architecture_delta(
     require_comparable_runtime(baseline, head)
     analyzer_digest, contract_digest = head.analyzer.code_digest, head.contract.digest
     shared = (
-        analyzer_digest != "unknown"
-        and baseline.analyzer == head.analyzer
-        and baseline.producer == head.producer
-        and contract_digest != "unknown"
+        identity_is_known(analyzer_digest)
+        and baseline.analyzer.name == head.analyzer.name
+        and baseline.analyzer.code_digest == analyzer_digest
+        and identity_is_known(contract_digest)
         and baseline.contract.digest == contract_digest
         and baseline.schema_version == head.schema_version == SCHEMA_VERSION
         and bool(baseline.source.scope)

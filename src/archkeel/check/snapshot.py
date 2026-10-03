@@ -35,7 +35,7 @@ class SnapshotError(RuntimeError):
 
 @dataclass(frozen=True)
 class ArchivedSnapshot:
-    """One temporary Python-only snapshot and its resolved commit."""
+    """One temporary language snapshot and its resolved commit."""
 
     root: Path
     git_head: str
@@ -81,55 +81,6 @@ def _validated_roots(roots: tuple[str, ...]) -> tuple[PurePosixPath, ...]:
     return tuple(validated)
 
 
-def _python_pathspecs(roots: tuple[PurePosixPath, ...]) -> tuple[str, ...]:
-    return tuple(
-        ":(glob,top)**/*.py"
-        if path == PurePosixPath(".")
-        else f":(glob,top){path.as_posix()}/**/*.py"
-        for path in roots
-    )
-
-
-def _has_metadata(root: Path, git_head: str) -> bool:
-    return _has_file(root, git_head, _METADATA_PATH.as_posix())
-
-
-def _has_file(root: Path, git_head: str, path: str) -> bool:
-    try:
-        return (
-            subprocess.run(
-                ["git", "cat-file", "-e", f"{git_head}:{path}"],
-                cwd=root,
-                capture_output=True,
-            ).returncode
-            == 0
-        )
-    except OSError as exc:
-        raise SnapshotError(f"cannot inspect Git commit {git_head}") from exc
-
-
-def _typescript_pathspecs(root: Path, git_head: str, tsconfig: str | None) -> list[str]:
-    try:
-        completed = subprocess.run(
-            ["git", "ls-tree", "-r", "--name-only", "-z", git_head],
-            cwd=root,
-            check=True,
-            capture_output=True,
-        )
-        paths = [item.decode("utf-8") for item in completed.stdout.split(b"\x00") if item]
-    except (OSError, UnicodeDecodeError, subprocess.CalledProcessError) as exc:
-        raise SnapshotError(
-            f"cannot list TypeScript resolver inputs from Git commit {git_head}"
-        ) from exc
-    return [
-        f":(top,literal){path}"
-        for path in paths
-        if PurePosixPath(path).suffix in _TS_RESOLVER_SUFFIXES
-        or PurePosixPath(path).name in {"package.json", "tsconfig.json"}
-        or (tsconfig is not None and path == tsconfig)
-    ]
-
-
 def _git_archive_bytes(
     root: Path,
     git_head: str,
@@ -138,35 +89,73 @@ def _git_archive_bytes(
     language: str = "python",
     tsconfig: str | None = None,
 ) -> bytes:
-    if language == "python":
-        pathspecs = [*_python_pathspecs(roots)]
-        if _has_metadata(root, git_head):
-            pathspecs.append(_METADATA_PATH.as_posix())
-    elif language == "dart":
-        pathspecs = [
-            ":(glob,top)**/*.dart"
-            if path == PurePosixPath(".")
-            else f":(glob,top){path.as_posix()}/**/*.dart"
-            for path in roots
-        ]
-        if _has_file(root, git_head, _PUBSPEC_PATH.as_posix()):
-            pathspecs.append(_PUBSPEC_PATH.as_posix())
-    elif language == "typescript":
-        # Resolution can cross selected graph roots. Keep tracked resolver inputs from this
-        # exact commit; the collector emits graph nodes only from configured roots.
-        pathspecs = _typescript_pathspecs(root, git_head, tsconfig)
-    else:
+    """Build a tar from tree blobs; Git export attributes must not change evidence."""
+    if language not in _LANGUAGE_SUFFIXES:
         raise SnapshotError(f"unsupported snapshot language: {language}")
+    metadata_path = _METADATA_PATH if language == "python" else _PUBSPEC_PATH
     try:
         completed = subprocess.run(
-            ["git", "archive", "--format=tar", git_head, "--", *pathspecs],
+            ["git", "ls-tree", "-r", "-z", git_head],
             cwd=root,
             check=True,
             capture_output=True,
         )
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise SnapshotError(f"cannot archive Git commit {git_head}") from exc
-    return completed.stdout
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w") as stream:
+            for entry in completed.stdout.split(b"\0"):
+                if not entry:
+                    continue
+                metadata, raw_path = entry.split(b"\t", 1)
+                if language == "typescript" and not (
+                    raw_path.endswith(tuple(suffix.encode() for suffix in _TS_RESOLVER_SUFFIXES))
+                    or (tsconfig is not None and raw_path == tsconfig.encode())
+                ):
+                    continue
+                if (
+                    language != "typescript"
+                    and raw_path != metadata_path.as_posix().encode()
+                    and not (
+                        raw_path.endswith(
+                            tuple(suffix.encode() for suffix in _LANGUAGE_SUFFIXES[language])
+                        )
+                        and any(
+                            source_root == PurePosixPath(".")
+                            or raw_path.startswith(source_root.as_posix().encode() + b"/")
+                            for source_root in roots
+                        )
+                    )
+                ):
+                    continue
+                name = raw_path.decode("utf-8")
+                path = PurePosixPath(name)
+                scoped = path.suffix in _LANGUAGE_SUFFIXES[language] and any(
+                    path.is_relative_to(source_root) for source_root in roots
+                )
+                resolver = (
+                    path.suffix in _TS_RESOLVER_SUFFIXES or name == tsconfig
+                    if language == "typescript"
+                    else path == _PUBSPEC_PATH
+                    if language == "dart"
+                    else path == _METADATA_PATH
+                )
+                if not scoped and not resolver:
+                    continue
+                _safe_member_path(name)
+                mode, kind, oid = metadata.split()
+                if mode not in {b"100644", b"100755"} or kind != b"blob":
+                    raise SnapshotError(f"expected a regular Git blob: {name!r}")
+                payload = subprocess.run(
+                    ["git", "cat-file", "blob", oid.decode("ascii")],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                ).stdout
+                member = tarfile.TarInfo(name)
+                member.size = len(payload)
+                stream.addfile(member, io.BytesIO(payload))
+        return buffer.getvalue()
+    except (OSError, UnicodeDecodeError, subprocess.CalledProcessError, ValueError) as exc:
+        raise SnapshotError(f"cannot read snapshot blobs from Git commit {git_head}") from exc
 
 
 def _safe_member_path(name: str) -> PurePosixPath:

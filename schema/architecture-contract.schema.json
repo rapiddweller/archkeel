@@ -348,7 +348,7 @@
           "type": "array",
           "uniqueItems": true,
           "items": {"$ref": "#/$defs/moduleTarget"},
-          "description": "Exact Python files and their intended responsibilities in this contract level."
+          "description": "Exact source files and their intended responsibilities in this contract level."
         }
       }
     },
@@ -359,7 +359,7 @@
       "properties": {
         "path": {
           "type": "string",
-          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/)(?:[^/]+/)*[^/]+\\.py$"
+          "pattern": "^(?!/)(?![A-Za-z]:)(?![^\\u0000]*\\\\)(?![^\\u0000]*(?:^|/)\\.\\.?/)(?:[^/\\u0000]+/)*[^/\\u0000]+\\.(?:py|dart|ts|tsx|mts|cts|js|jsx|mjs|cjs)(?![\\s\\S])"
         },
         "responsibility": {"type": "string", "pattern": "^.*\\S.*$", "not": {"pattern": "[\\r\\n]"}}
       }
