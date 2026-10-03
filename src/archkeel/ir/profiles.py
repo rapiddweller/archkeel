@@ -90,16 +90,12 @@ DART: Final = Profile(
 )
 
 PROFILES: Final[dict[Language, Profile]] = {"python": PYTHON, "dart": DART}
-# Every section some profile may leave null; the codec accepts null for exactly these.
-OPTIONAL_SECTIONS: Final = frozenset(
-    section for profile in (PYTHON, DART) for section in profile.absent_sections
-)
+_ANALYZER_PROFILES: Final = {PYTHON_ANALYZER: PYTHON, DART_ANALYZER: DART}
 
 
 def profile_for(analyzer: str) -> Profile:
-    """The profile an observation was produced by.
-
-    Observations built before profiles existed, and hand-built ones, carry other analyzer
-    names; they are Python observations, measured as they always were.
-    """
-    return DART if analyzer == DART_ANALYZER else PYTHON
+    """Return the profile for a published analyzer identity."""
+    try:
+        return _ANALYZER_PROFILES[analyzer]
+    except KeyError as error:
+        raise ValueError(f"unsupported analyzer identity: {analyzer}") from error

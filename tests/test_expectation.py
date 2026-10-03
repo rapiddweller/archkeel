@@ -101,7 +101,11 @@ def _delta_payload() -> dict[str, object]:
     }
     return {
         "schema_version": "1.2.0",
-        "analyzer": {"name": "observer", "version": "0.3.0", "code_digest": ANALYZER_DIGEST},
+        "analyzer": {
+            "name": "archkeel-python-analyzer",
+            "version": "0.3.0",
+            "code_digest": ANALYZER_DIGEST,
+        },
         "baseline": {
             "git_head": "1" * 40,
             "source_digest": BASELINE_DIGEST,

@@ -131,7 +131,7 @@ def _observation(
 ) -> Observation:
     return Observation(
         schema_version="test",
-        analyzer=AnalyzerInfo(name="test", version="0", code_digest="0"),
+        analyzer=AnalyzerInfo(name="archkeel-python-analyzer", version="0", code_digest="0"),
         source=SourceInfo(git_head="0", dirty=False, source_digest="0", scope=()),
         contract=ContractInfo(
             schema_version="2.1.0", digest="0", path="architecture-contract.json"
