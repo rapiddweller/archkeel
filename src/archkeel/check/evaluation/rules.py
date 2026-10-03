@@ -231,8 +231,12 @@ def _construct_violations(
         if not isinstance(rule, ForbiddenConstructRule):
             continue
         for item in signals:
-            construct = _CONSTRUCT_SIGNALS.get(item["kind"])
             data = item["data"]
+            construct: ForbiddenConstructKind | None = (
+                ForbiddenConstructKind(data["construct"])
+                if "construct" in data
+                else _CONSTRUCT_SIGNALS.get(item["kind"])
+            )
             owner = data["owner"]
             scope = owner.split(":", 1)[0]
             belongs_to_source = source_modules is None or any(
