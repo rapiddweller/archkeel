@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:command-result:1.0.0",
+  "$id": "urn:archkeel:command-result:2.0.0",
   "title": "Archkeel check, validate and report JSON results",
-  "$comment": "AD-138. Describes codec.result_payload without changing the wire format. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
+  "$comment": "AD-138. Describes codec.result_payload; version 2 preserves null unmeasured call totals and accepts legacy zero sentinels. Register the bundled IR common, Python decoded and architecture contract schemas by their $id for offline validation. Shape validation does not prove source authenticity, arithmetic consistency or contract conformance.",
   "type": "object",
   "required": [
     "command",
@@ -418,14 +418,23 @@
             "unknown_positions": {"type": "integer", "minimum": 0}
           }
         },
-        "calls_total": {"type": "integer", "minimum": 0},
+        "calls_total": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
         "resolution": {"enum": ["measured", "n/a"]}
       },
       "allOf": [
         {
-          "if": {"properties": {"calls_total": {"const": 0}}},
+          "if": {"properties": {"calls_total": {"enum": [0, null]}}},
           "then": {"properties": {"resolution": {"const": "n/a"}}},
           "else": {"properties": {"resolution": {"const": "measured"}}}
+        },
+        {
+          "if": {"properties": {"scalars": {"properties": {"calls_unresolved": {"type": "null"}}}}},
+          "then": {"properties": {"calls_total": {"enum": [0, null]}}},
+          "else": {"properties": {"calls_total": {"type": "integer"}}}
+        },
+        {
+          "if": {"properties": {"calls_total": {"const": 0}}},
+          "then": {"properties": {"scalars": {"properties": {"calls_unresolved": {"enum": [0, null]}}}}}
         }
       ]
     },
@@ -784,7 +793,10 @@
         "then": {"properties": {"dimensions": {"additionalProperties": {"properties": {
           "before_count": {"type": "integer", "minimum": 0},
           "after_count": {"type": "integer", "minimum": 0}
-        }}}}}
+        }}}, "ratchets": {"properties": {
+          "baseline": {"properties": {"calls_total": {"type": "integer"}}},
+          "head": {"properties": {"calls_total": {"type": "integer"}}}
+        }}}}
       }]
     }
   }

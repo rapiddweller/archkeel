@@ -250,7 +250,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
     ):
         raise RatchetError("scan must be complete: discovered = read = parsed, without failures")
     calls_measured = "calls_unresolved" not in profile.unmeasured
-    total = coverage.calls_analyzed if calls_measured else 0
+    total = coverage.calls_analyzed if calls_measured else None
     if calls_measured and (
         total is None
         or coverage.calls_resolved is None
@@ -308,7 +308,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             ),
             unknown_positions=unknown_positions(observation),
         ),
-        calls_total=total or 0,
+        calls_total=total,
         resolution="measured" if total else "n/a",
     )
 

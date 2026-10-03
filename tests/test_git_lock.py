@@ -15,7 +15,7 @@ from archkeel.check.git import GitError, check_git_order
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.snapshot import SnapshotError
 from archkeel.ir.codec import canonical_report_bytes, parse_lock, parse_observation
-from archkeel.ir.lock import LockError, verify_observation
+from archkeel.ir.lock import LOCK_SCHEMA_VERSION, LockError, verify_observation
 
 
 def _git(root: Path, *args: str) -> str:
@@ -123,7 +123,7 @@ def _lock(model: dict[str, Any]) -> bytes:
     measurements = measure_python_ratchets(parse_observation(model))
     return json.dumps(
         {
-            "schema_version": "1.0.0",
+            "schema_version": LOCK_SCHEMA_VERSION,
             "accepted_commit": "a" * 40,
             "observation_digest": hashlib.sha256(canonical_report_bytes(model)).hexdigest(),
             "config_digest": "b" * 64,

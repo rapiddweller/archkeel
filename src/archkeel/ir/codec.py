@@ -26,7 +26,7 @@ from archkeel.ir.baseline import (
     canonical_fingerprint,
     violation_name,
 )
-from archkeel.ir.lock import AcceptedLock, LockError
+from archkeel.ir.lock import LOCK_SCHEMA_VERSION, AcceptedLock, LockError
 from archkeel.ir.measurements import (
     SCALARS,
     MeasurementBudget,
@@ -1678,7 +1678,7 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         _parse_dimension(name, raw_dimension, version=version)
         for name, raw_dimension in sorted(dimensions_raw.items())
     )
-    ratchets = _parse_ratchets(item["ratchets"])
+    ratchets = _parse_ratchets(item["ratchets"], nullable_calls=version == DELTA_SCHEMA_VERSION)
     semantic_changes_raw = item["semantic_changes"]
     unknowns_raw = item["unknowns"]
     if not isinstance(semantic_changes_raw, list) or not isinstance(unknowns_raw, list):
@@ -1775,15 +1775,17 @@ def _parse_dimension(name: str, raw: RawJson, *, version: str) -> DimensionDelta
     )
 
 
-def _parse_ratchets(raw: object) -> RatchetObservations:
+def _parse_ratchets(raw: object, *, nullable_calls: bool) -> RatchetObservations:
     ratchet_raw = _object(raw, "delta.ratchets")
     if ratchet_raw.get("status") == "SUPPORTED":
         if set(ratchet_raw) != {"status", "baseline", "head"}:
             raise ValueError("supported regression check fields mismatch")
         return RatchetObservations(
             "SUPPORTED",
-            parse_measurements(ratchet_raw["baseline"], "ratchets.baseline"),
-            parse_measurements(ratchet_raw["head"], "ratchets.head"),
+            parse_measurements(
+                ratchet_raw["baseline"], "ratchets.baseline", nullable_calls=nullable_calls
+            ),
+            parse_measurements(ratchet_raw["head"], "ratchets.head", nullable_calls=nullable_calls),
         )
     if ratchet_raw.get("status") == "UNKNOWN":
         if set(ratchet_raw) != {"status", "reason"}:
@@ -1924,7 +1926,7 @@ def _optional(scalars: dict[str, RawJson], key: str, label: str) -> int | None:
     return None if scalars.get(key, 0) is None else _measured(scalars, key, label)
 
 
-def parse_measurements(raw: object, label: str) -> Measurements:
+def parse_measurements(raw: object, label: str, *, nullable_calls: bool = True) -> Measurements:
     value = _object(raw, label)
     if set(value) != {"scalars", "calls_total", "resolution"}:
         raise RatchetError(f"{label} measurement fields mismatch")
@@ -1945,7 +1947,13 @@ def parse_measurements(raw: object, label: str) -> Measurements:
         untyped_private_accesses=_optional(scalars, "untyped_private_accesses", label),
         unknown_positions=_measured(scalars, "unknown_positions", label),
     )
-    total = count(value.get("calls_total"), f"{label}.calls_total")
+    raw_total = value.get("calls_total")
+    if raw_total is None and not nullable_calls:
+        raise RatchetError(f"{label}: null call totals require a nullable format")
+    total = None if raw_total is None else count(raw_total, f"{label}.calls_total")
+    # Older unmeasured payloads used zero; measured zero remains a count.
+    if total == 0 and counts.calls_unresolved is None:
+        total = None
     if total:
         if value.get("resolution") != "measured":
             raise RatchetError(f"{label}.resolution must be measured")
@@ -1970,7 +1978,7 @@ def parse_lock(payload: bytes) -> AcceptedLock:
             },
             "accepted lock",
         )
-        if raw["schema_version"] != "1.0.0":
+        if raw["schema_version"] not in {"1.0.0", LOCK_SCHEMA_VERSION}:
             raise ValueError("invalid accepted lock schema")
         digests: dict[str, str] = {}
         for key, size in (
@@ -1991,7 +1999,11 @@ def parse_lock(payload: bytes) -> AcceptedLock:
             digests["observation_digest"],
             digests["config_digest"],
             digests["checker_digest"],
-            parse_measurements(raw["measurements"], "accepted"),
+            parse_measurements(
+                raw["measurements"],
+                "accepted",
+                nullable_calls=raw["schema_version"] == LOCK_SCHEMA_VERSION,
+            ),
             approval_ref,
         )
     except (ValueError, TypeError, KeyError) as error:
