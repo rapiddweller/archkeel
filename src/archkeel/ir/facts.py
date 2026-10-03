@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, TypeAlias
 
+from .state_facts import StateFacts
+from .type_shapes import TypeShape
+
 RECORD_FIELDS = (
     "id",
     "evidence_class",
@@ -95,3 +98,116 @@ class SourceInfo:
     dirty: bool | Literal["unknown"]
     source_digest: str
     scope: tuple[str, ...]
+
+
+SourceSectionName: TypeAlias = Literal[
+    "symbols",
+    "imports",
+    "calls",
+    "references",
+    "bindings",
+    "typing_signals",
+    "constructs",
+    "unknowns",
+]
+SourceProfile: TypeAlias = Literal[
+    "archkeel-python-analyzer", "archkeel-dart-directives", "archkeel-typescript-imports"
+]
+
+
+@dataclass(frozen=True, slots=True)
+class Capabilities:
+    sections: tuple[SourceSectionName, ...]
+    resolution_features: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeInfo:
+    name: str
+    version: str
+
+
+@dataclass(frozen=True, slots=True)
+class ResolutionInput:
+    path: str
+    digest: str
+    role: Literal["selected", "resolution"]
+
+
+@dataclass(frozen=True, slots=True)
+class FileFact:
+    id: str
+    rel_path: str
+    module: str
+    package: str
+    all_exports: frozenset[str]
+    all_literal: bool
+    compatibility_logic_free: bool
+    stable_bindings: frozenset[str]
+    blank: bool
+    evidence_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class FactSection:
+    name: SourceSectionName
+    records: tuple[Record, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CollectionCoverage:
+    selected_files: tuple[str, ...]
+    files_read: int
+    files_parsed: int
+    full_scope: bool
+    gaps: tuple[Record, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LocalTarget:
+    import_id: str
+    module: str
+    file: str
+    runtime_file: str | None = None
+    declaration_file: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalPackageTarget:
+    import_id: str
+    package: str
+
+
+@dataclass(frozen=True, slots=True)
+class BuiltinTarget:
+    import_id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class UnresolvedTarget:
+    import_id: str
+    specifier: str
+    reason: str
+
+
+ImportTarget: TypeAlias = LocalTarget | ExternalPackageTarget | BuiltinTarget | UnresolvedTarget
+
+
+@dataclass(frozen=True, slots=True)
+class SourceFacts:
+    profile: SourceProfile
+    adapter: AnalyzerInfo
+    runtime: RuntimeInfo
+    source: SourceInfo
+    capabilities: Capabilities
+    inputs: tuple[ResolutionInput, ...]
+    files: tuple[FileFact, ...]
+    imports: tuple[ImportTarget, ...]
+    sections: tuple[FactSection, ...]
+    coverage: CollectionCoverage
+    evidence: tuple[Evidence, ...]
+    uncertain_reexports: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    type_shapes: tuple[tuple[str, TypeShape], ...] = ()
+    state: StateFacts = StateFacts((), ())
+    candidate_evidence: tuple[Evidence, ...] = ()

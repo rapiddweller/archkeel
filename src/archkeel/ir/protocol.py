@@ -6,6 +6,8 @@
 from dataclasses import dataclass
 from typing import Final, Literal, TypeAlias
 
+from .facts import SourceFacts
+
 PROTOCOL_VERSION: Final = "1.0.0"
 
 
@@ -47,3 +49,16 @@ class CollectionRequest:
     scope: SourceScope
     resolver: ResolverSettings
     protocol_version: str = PROTOCOL_VERSION
+
+
+@dataclass(frozen=True, slots=True)
+class CollectionResponse:
+    facts: SourceFacts
+    protocol_version: str = PROTOCOL_VERSION
+
+
+@dataclass(frozen=True, slots=True)
+class CollectionError:
+    kind: Literal["missing_tool", "timeout", "execution_error", "protocol_error"]
+    subject: str
+    message: str
