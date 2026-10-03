@@ -52,10 +52,10 @@
       ],
       "decided_by": "agent",
       "planned": [
-        "archkeel.analyzer.dart.directives:DirectiveModel",
-        "archkeel.analyzer.dart.directives:parse_directives",
-        "archkeel.analyzer.dart.resolve:ResolvedLibraries",
-        "archkeel.analyzer.dart.resolve:resolve_libraries"
+        "archkeel.analyzer.dart.directives:Header",
+        "archkeel.analyzer.dart.directives:read_header",
+        "archkeel.analyzer.dart.resolve:DartSources",
+        "archkeel.analyzer.dart.resolve:read_dart_sources"
       ],
       "public": []
     }
@@ -115,7 +115,7 @@
       },
       {
         "path": "src/archkeel/analyzer/dart/directives.py",
-        "responsibility": "Own the language-local DirectiveModel."
+        "responsibility": "Own Dart directive headers and library resolution."
       },
       {
         "path": "src/archkeel/analyzer/dart/resolve.py",

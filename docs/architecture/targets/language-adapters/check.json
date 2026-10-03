@@ -72,7 +72,7 @@
         }
       ],
       "planned": [
-        "archkeel.check.observation:assemble"
+        "archkeel.check.observation:assemble_observation"
       ],
       "public": []
     },
@@ -94,8 +94,7 @@
       ],
       "decided_by": "agent",
       "planned": [
-        "archkeel.check.evaluation.rules:evaluate",
-        "archkeel.check.evaluation.coverage:rule_availability"
+        "archkeel.check.evaluation.evaluate:evaluate_source"
       ],
       "public": []
     },

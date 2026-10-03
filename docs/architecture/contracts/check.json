@@ -107,7 +107,7 @@
       "requires": [
         {
           "component": "evaluation",
-          "rationale": "Use the evaluator’s public API type derivation when projecting declarations.",
+          "rationale": "Use the evaluator\u2019s public API type derivation when projecting declarations.",
           "decided_by": "agent"
         }
       ],
