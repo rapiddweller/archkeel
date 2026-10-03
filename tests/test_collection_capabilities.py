@@ -15,6 +15,7 @@ from archkeel.check.ratchets import unknown_positions_by_rule
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import decode_response, encode_response
 from archkeel.ir.protocol import CollectionResponse
+from archkeel.ir.trace import trace_valid_violations
 
 
 @pytest.mark.parametrize("status", ["partial", "unsupported", None])
@@ -104,3 +105,60 @@ def test_decided_construct_capability_allows_clean_rule(tmp_path: Path) -> None:
         )[0].status
         == "PASS"
     )
+
+
+@pytest.mark.parametrize("record_kind", ["assert_statement", "assert", "getattr_call"])
+def test_construct_identity_decides_rules_independently_of_record_kind(
+    tmp_path: Path, record_kind: str
+) -> None:
+    facts = _facts(tmp_path)
+    facts = replace(
+        facts,
+        sections=tuple(
+            replace(
+                section, records=tuple(replace(item, kind=record_kind) for item in section.records)
+            )
+            if section.name == "constructs"
+            else section
+            for section in facts.sections
+        ),
+    )
+    facts = decode_response(encode_response(CollectionResponse(facts))).facts
+    before = encode_response(CollectionResponse(facts))
+    contract = tmp_path / "contract.json"
+    contract.write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [],
+                "rules": [
+                    {
+                        "id": rule_id,
+                        "kind": "forbidden_construct",
+                        "source": "sample",
+                        "constructs": [construct],
+                        "rationale": "No dynamic constructs.",
+                        "provenance": ["architecture.md"],
+                        "decided_by": "architect",
+                    }
+                    for rule_id, construct in [("NO-ASSERT", "assert"), ("NO-GETATTR", "getattr")]
+                ],
+            }
+        )
+    )
+    observation, _ = assemble_observation(
+        facts, contract_root=tmp_path, contract_path=contract, roots=("src",), namespace="sample"
+    )
+    violations = trace_valid_violations(observation)
+    assert [item.rule_ids for item in violations] == [("NO-ASSERT",)]
+    assert [item.data.get("construct") for item in violations] == ["assert"]
+    constructs = observation.records("constructs") or ()
+    assert [(item.kind, item.data.get("construct")) for item in constructs] == [
+        (record_kind, "assert")
+    ]
+    assert violations[0].fact_ids == (constructs[0].id,)
+    assessments = rule_assessments(
+        observation, undecided_by_rule=unknown_positions_by_rule(observation), complete=True
+    )
+    assert [item.status for item in assessments] == ["FAIL", "PASS"]
+    assert encode_response(CollectionResponse(facts)) == before
