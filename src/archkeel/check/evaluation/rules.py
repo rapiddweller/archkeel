@@ -2744,21 +2744,34 @@ def _combine_position_verdicts(decided: list[tuple[str, _Position]]) -> _Positio
     return _Position(resolved=reached, mapping_occurrences=mapping_occurrences)
 
 
+def _ambiguous_method_group(methods: Sequence[RawRecord]) -> bool:
+    if len(methods) < 2:
+        return False
+    for method in methods:
+        data = method["data"]
+        if (
+            data.get("overloaded") is not True
+            or data.get("signature_decorators_proven") is not True
+        ):
+            return True
+    return False
+
+
 def _property_chains(symbols: Sequence[RawRecord]) -> frozenset[str]:
-    counts: dict[str, int] = defaultdict(int)
-    properties: set[str] = set()
+    grouped: dict[str, list[RawRecord]] = defaultdict(list)
     chains: set[str] = set()
     for item in symbols:
         if item["kind"] != "method" or not _is_public_method_name(item["data"]["name"]):
             continue
         data = item["data"]
         name = data["qualified_name"]
-        counts[name] += 1
-        if "property_binding" in data:
-            properties.add(name)
-            if data["property_binding"]["operation"] != "create":
-                chains.add(name)
-    return frozenset(chains | {name for name in properties if counts[name] > 1})
+        group: list[RawRecord] = grouped[name]
+        group.append(item)
+        if "property_binding" in data and data["property_binding"]["operation"] != "create":
+            chains.add(name)
+    return frozenset(
+        chains | {name for name, group in grouped.items() if _ambiguous_method_group(group)}
+    )
 
 
 def _declared_facade_positions(
@@ -2845,8 +2858,7 @@ def _declared_facade_inherited_positions(
 ) -> DeclaredFacade | None:
     base_roots = data["base_roots"] if "base_roots" in data else data["bases"]
     if not any(
-        f"{data['qualified_name']}.{name}" in property_chains
-        for name in data.get("property_members", ())
+        f"{data['qualified_name']}.{name}" in property_chains for name in data["class_members"]
     ) and not any(base not in _FRAMEWORK_BASES for base in base_roots):
         return None
     module, name = data["module"], data["name"]
@@ -3399,21 +3411,27 @@ def _apply_property_methods(
     }
     grouped: dict[str, list[RawRecord]] = defaultdict(list)
     for method in methods:
-        grouped[method["data"]["name"]].append(method)
+        declared: list[RawRecord] = grouped[method["data"]["name"]]
+        declared.append(method)
     for name, group in grouped.items():
         if name not in data.get("property_members", ()):
-            if any(item["data"].get("signature_decorators_proven") is not True for item in group):
+            if _ambiguous_method_group(group):
                 return None
+            for item in group:
+                method_data = item["data"]
+                if method_data.get("signature_decorators_proven") is not True:
+                    return None
             surface[name] = tuple(_BoundMethod(item, data, imports, classes) for item in group)
             continue
         if any("property_binding" not in item["data"] for item in group):
             return None
         local: dict[int, _PropertyMethods] = {}
         for method in sorted(group, key=lambda item: item["data"]["property_binding"]["line"]):
-            binding = method["data"]["property_binding"]
+            method_data = method["data"]
+            binding = method_data["property_binding"]
             bound = _BoundMethod(method, data, imports, classes)
             if binding["operation"] == "create":
-                if method["data"].get("signature_decorators_proven") is not True:
+                if method_data.get("signature_decorators_proven") is not True:
                     return None
                 selected = _PropertyMethods(bound)
             else:

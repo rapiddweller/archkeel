@@ -174,3 +174,74 @@ def test_property_proof_rejects_incoherent_method_and_owner(payload, change):
         setter["data"]["property_members"] = []
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize("replacement", ["typed", "setter", "fresh"])
+def test_missing_direct_property_proof_never_checks_stale_accessors(tmp_path, replacement):
+    source = _property(setter="int" if replacement == "typed" else "object")
+    source = source.split("class Child(Base):")[0].replace("class Base:", "class Child:")
+    if replacement == "setter":
+        source += "    @value.setter\n    def value(self, new_value: int) -> None: ...\n"
+    elif replacement == "fresh":
+        source += "    @property\n    def value(self) -> int: ...\n"
+    _, report, _ = _validate(tmp_path, source)
+    assert report.declared_rules == "PASS"
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    for record in _records(payload):
+        record["data"].pop("property_binding", None)
+        record["data"].pop("property_members", None)
+    stripped = decode_response(json.dumps(payload).encode()).facts
+    observation, _ = assemble_observation(
+        stripped,
+        contract_root=tmp_path,
+        contract_path=tmp_path / "contract.json",
+        roots=("sample",),
+        namespace="sample",
+    )
+    assert unknown_positions(observation) > 0
+    assert observation.records("violations") == ()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "class Child:\n    def value(self) -> int: ...\n",
+        "from dataclasses import dataclass\n@dataclass\nclass Child:\n"
+        "    @property\n    def value(self) -> int: ...\n",
+        "from typing import overload\nclass Child:\n"
+        "    @overload\n    def value(self, arg: int) -> int: ...\n"
+        "    @overload\n    def value(self, arg: str) -> str: ...\n"
+        "    def value(self, arg): ...\n",
+    ],
+    ids=["ordinary", "dataclass-lone-getter", "overload"],
+)
+def test_direct_signature_controls_do_not_require_property_chain_proof(tmp_path, source):
+    _, report, _ = _validate(tmp_path, source)
+    assert report.declared_rules == "PASS"
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    for record in _records(payload):
+        record["data"].pop("property_binding", None)
+        record["data"].pop("property_members", None)
+    observation, _ = assemble_observation(
+        decode_response(json.dumps(payload).encode()).facts,
+        contract_root=tmp_path,
+        contract_path=tmp_path / "contract.json",
+        roots=("sample",),
+        namespace="sample",
+    )
+    assert unknown_positions(observation) == 0
+    assert observation.records("violations") == ()

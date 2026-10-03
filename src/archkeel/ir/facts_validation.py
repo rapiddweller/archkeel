@@ -205,6 +205,7 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
         if binding is None:
             continue
         parent, name = record.data.get("parent"), record.data.get("name")
+        owner = classes.get(parent) if isinstance(parent, str) else None
         if (
             record.kind != "method"
             or record.data.get("symbol_category") != "method"
@@ -213,9 +214,9 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             or not isinstance(binding, RecordData)
             or not isinstance(parent, str)
             or not isinstance(name, str)
-            or parent not in classes
+            or owner is None
             or record.data.get("qualified_name") != f"{parent}.{name}"
-            or classes[parent].data.get("module") != record.data.get("module")
+            or owner.data.get("module") != record.data.get("module")
         ):
             raise ValueError("property binding needs its defining class and method")
         line, source_line = binding.get("line"), binding.get("source_line")
@@ -224,9 +225,15 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             raise ValueError("property order disagrees with method evidence")
         if binding.get("source") == "local":
             previous = max((position for position in group if position < line), default=0)
-            if previous != source_line or group[previous].data.get("property_binding") is None:
+            previous_record = group.get(previous)
+            if (
+                previous != source_line
+                or previous_record is None
+                or previous_record.data.get("property_binding") is None
+            ):
                 raise ValueError("property source must be the previous binding in its class")
-        members.setdefault(parent, set()).add(name)
+        member_names: set[str] = members.setdefault(parent, set())
+        member_names.add(name)
     for parent, record in classes.items():
         names = record.data.get("property_members", ())
         if not isinstance(names, tuple) or _unique(

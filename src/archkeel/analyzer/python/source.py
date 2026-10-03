@@ -642,7 +642,8 @@ def method_decorator_data(
                 method_kind = "static"
             elif resolved in {"classmethod", "builtins.classmethod"}:
                 method_kind = "class"
-    binding = property_bindings(module, parent).get(node) if parent is not None else None
+    properties = property_bindings(module, parent) if parent is not None else {}
+    binding = properties.get(node)
     return {
         "method_kind": method_kind,
         "signature_decorators_proven": signature_proven and descriptor_count <= 1,
