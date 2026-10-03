@@ -1,0 +1,650 @@
+[
+  {
+    "context_evidence": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.use.Outer.Same",
+          "evidence_ids": [
+            "EVD-9e23507e9880dcb6"
+          ],
+          "field": "field",
+          "path": "field",
+          "source": "sample.use.Outer.Same.mutate"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-9e23507e9880dcb6"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-165f6e2984ed14cf",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.use.Outer.Same",
+          "sample.use.Outer.Same.mutate"
+        ],
+        "title": "sample.use.Outer.Same.mutate writes field"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.z.Same",
+          "evidence_ids": [
+            "EVD-9bea0ea49643bbdf"
+          ],
+          "field": "value",
+          "path": "value",
+          "source": "sample.use.inner"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-9bea0ea49643bbdf"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-ae73fb70a1081d2e",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.use.inner",
+          "sample.z.Same"
+        ],
+        "title": "sample.use.inner writes value"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.z.Same",
+          "evidence_ids": [
+            "EVD-0424280266192a12"
+          ],
+          "source": "sample.use.inner",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-0424280266192a12"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-b20d0c601a61448b",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "sample.use.inner",
+          "sample.z.Same"
+        ],
+        "title": "sample.use.inner passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.z.Same",
+          "evidence_ids": [
+            "EVD-0424280266192a12"
+          ],
+          "source": "sample.use.outer",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-0424280266192a12"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-d29162a1a63e65c6",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "sample.use.outer",
+          "sample.z.Same"
+        ],
+        "title": "sample.use.outer passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "read",
+          "category": "reads",
+          "context": "sample.z.Same",
+          "evidence_ids": [
+            "EVD-ad0f4714beda5e19"
+          ],
+          "field": "value",
+          "path": "value",
+          "source": "sample.use.outer"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-ad0f4714beda5e19"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-da49b7138fe31bc6",
+        "kind": "context_read",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.use.outer",
+          "sample.z.Same"
+        ],
+        "title": "sample.use.outer reads value"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.z.Same",
+          "evidence_ids": [
+            "EVD-9bea0ea49643bbdf"
+          ],
+          "field": "value",
+          "path": "value",
+          "source": "sample.use.outer"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-9bea0ea49643bbdf"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-fa6f5fead46e265a",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.use.outer",
+          "sample.z.Same"
+        ],
+        "title": "sample.use.outer writes value"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "int",
+          "binding": "UNKNOWN",
+          "context": "sample.z.Same",
+          "evidence_ids": [
+            "EVD-c66f17110427a819"
+          ],
+          "mutability": "UNKNOWN",
+          "name": "z",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-c66f17110427a819"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-640a0b818d33d5e1",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.z.Same",
+          "z"
+        ],
+        "title": "sample.z.Same.z"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "int",
+          "binding": "UNKNOWN",
+          "context": "sample.a.Same",
+          "evidence_ids": [
+            "EVD-1ec06fe3f600dc8f"
+          ],
+          "mutability": "UNKNOWN",
+          "name": "a",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-1ec06fe3f600dc8f"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-76db97c5e88db55f",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "a",
+          "sample.a.Same"
+        ],
+        "title": "sample.a.Same.a"
+      }
+    ],
+    "contexts": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [],
+          "fields": [
+            "CONTEXT-FIELD-76db97c5e88db55f"
+          ],
+          "methods": [],
+          "passes": [],
+          "qualified_name": "sample.a.Same",
+          "reads": [],
+          "writes": []
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-3d8fc7a081a9a5b9"
+        ],
+        "fact_ids": [
+          "CONTEXT-FIELD-76db97c5e88db55f",
+          "SYM-bc1e3d06583d7335"
+        ],
+        "id": "CONTEXT-14f64dad555efb25",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.a.Same"
+        ],
+        "title": "sample.a.Same"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [],
+          "fields": [
+            "CONTEXT-FIELD-640a0b818d33d5e1"
+          ],
+          "methods": [],
+          "passes": [
+            "CONTEXT-ACCESS-b20d0c601a61448b",
+            "CONTEXT-ACCESS-d29162a1a63e65c6"
+          ],
+          "qualified_name": "sample.z.Same",
+          "reads": [
+            "CONTEXT-ACCESS-da49b7138fe31bc6"
+          ],
+          "writes": [
+            "CONTEXT-ACCESS-ae73fb70a1081d2e",
+            "CONTEXT-ACCESS-fa6f5fead46e265a"
+          ]
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-48aec7b8c65da03e"
+        ],
+        "fact_ids": [
+          "CONTEXT-ACCESS-ae73fb70a1081d2e",
+          "CONTEXT-ACCESS-b20d0c601a61448b",
+          "CONTEXT-ACCESS-d29162a1a63e65c6",
+          "CONTEXT-ACCESS-da49b7138fe31bc6",
+          "CONTEXT-ACCESS-fa6f5fead46e265a",
+          "CONTEXT-FIELD-640a0b818d33d5e1",
+          "SYM-694a28eb7ff8848e"
+        ],
+        "id": "CONTEXT-9ddd363d78e8211a",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.z.Same"
+        ],
+        "title": "sample.z.Same"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [],
+          "fields": [],
+          "methods": [
+            "sample.use.Outer.Same.mutate"
+          ],
+          "passes": [],
+          "qualified_name": "sample.use.Outer.Same",
+          "reads": [],
+          "writes": [
+            "CONTEXT-ACCESS-165f6e2984ed14cf"
+          ]
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-83869afd6672ce42"
+        ],
+        "fact_ids": [
+          "CONTEXT-ACCESS-165f6e2984ed14cf",
+          "SYM-64255b43820693a3"
+        ],
+        "id": "CONTEXT-b87be6f51c550c5c",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.use.Outer.Same"
+        ],
+        "title": "sample.use.Outer.Same"
+      }
+    ],
+    "evidence": [
+      {
+        "column": 8,
+        "end_line": 10,
+        "excerpt": "        consume(ctx, again=ctx)",
+        "file": "sample/use.py",
+        "id": "EVD-0424280266192a12",
+        "line": 10
+      },
+      {
+        "column": 4,
+        "end_line": 2,
+        "excerpt": "    a: int",
+        "file": "sample/a.py",
+        "id": "EVD-1ec06fe3f600dc8f",
+        "line": 2
+      },
+      {
+        "column": 12,
+        "end_line": 9,
+        "excerpt": "        del ctx.value",
+        "file": "sample/use.py",
+        "id": "EVD-9bea0ea49643bbdf",
+        "line": 9
+      },
+      {
+        "column": 12,
+        "end_line": 5,
+        "excerpt": "            ordinary.field = 2",
+        "file": "sample/use.py",
+        "id": "EVD-9e23507e9880dcb6",
+        "line": 5
+      },
+      {
+        "column": 11,
+        "end_line": 11,
+        "excerpt": "    return alias.value",
+        "file": "sample/use.py",
+        "id": "EVD-ad0f4714beda5e19",
+        "line": 11
+      },
+      {
+        "column": 4,
+        "end_line": 2,
+        "excerpt": "    z: int",
+        "file": "sample/z.py",
+        "id": "EVD-c66f17110427a819",
+        "line": 2
+      }
+    ]
+  },
+  {
+    "context_evidence": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.a.Same",
+          "evidence_ids": [
+            "EVD-0424280266192a12"
+          ],
+          "source": "sample.use.outer",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-0424280266192a12"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-0655f5a430278d61",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "sample.a.Same",
+          "sample.use.outer"
+        ],
+        "title": "sample.use.outer passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.a.Same",
+          "evidence_ids": [
+            "EVD-0424280266192a12"
+          ],
+          "source": "sample.use.inner",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-0424280266192a12"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-2aafcfc04598c802",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "sample.a.Same",
+          "sample.use.inner"
+        ],
+        "title": "sample.use.inner passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.a.Same",
+          "evidence_ids": [
+            "EVD-9bea0ea49643bbdf"
+          ],
+          "field": "value",
+          "path": "value",
+          "source": "sample.use.outer"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-9bea0ea49643bbdf"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-4420d60d98df19ad",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.a.Same",
+          "sample.use.outer"
+        ],
+        "title": "sample.use.outer writes value"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "read",
+          "category": "reads",
+          "context": "sample.a.Same",
+          "evidence_ids": [
+            "EVD-ad0f4714beda5e19"
+          ],
+          "field": "value",
+          "path": "value",
+          "source": "sample.use.outer"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-ad0f4714beda5e19"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-62334edea2dd1688",
+        "kind": "context_read",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.a.Same",
+          "sample.use.outer"
+        ],
+        "title": "sample.use.outer reads value"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.a.Same",
+          "evidence_ids": [
+            "EVD-9bea0ea49643bbdf"
+          ],
+          "field": "value",
+          "path": "value",
+          "source": "sample.use.inner"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-9bea0ea49643bbdf"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-b57aca5feb5ac9ce",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.a.Same",
+          "sample.use.inner"
+        ],
+        "title": "sample.use.inner writes value"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "int",
+          "binding": "UNKNOWN",
+          "context": "sample.a.Same",
+          "evidence_ids": [
+            "EVD-1ec06fe3f600dc8f"
+          ],
+          "mutability": "UNKNOWN",
+          "name": "a",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-1ec06fe3f600dc8f"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-76db97c5e88db55f",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "a",
+          "sample.a.Same"
+        ],
+        "title": "sample.a.Same.a"
+      }
+    ],
+    "contexts": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [],
+          "fields": [
+            "CONTEXT-FIELD-76db97c5e88db55f"
+          ],
+          "methods": [],
+          "passes": [
+            "CONTEXT-ACCESS-0655f5a430278d61",
+            "CONTEXT-ACCESS-2aafcfc04598c802"
+          ],
+          "qualified_name": "sample.a.Same",
+          "reads": [
+            "CONTEXT-ACCESS-62334edea2dd1688"
+          ],
+          "writes": [
+            "CONTEXT-ACCESS-4420d60d98df19ad",
+            "CONTEXT-ACCESS-b57aca5feb5ac9ce"
+          ]
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-3d8fc7a081a9a5b9"
+        ],
+        "fact_ids": [
+          "CONTEXT-ACCESS-0655f5a430278d61",
+          "CONTEXT-ACCESS-2aafcfc04598c802",
+          "CONTEXT-ACCESS-4420d60d98df19ad",
+          "CONTEXT-ACCESS-62334edea2dd1688",
+          "CONTEXT-ACCESS-b57aca5feb5ac9ce",
+          "CONTEXT-FIELD-76db97c5e88db55f",
+          "SYM-bc1e3d06583d7335"
+        ],
+        "id": "CONTEXT-14f64dad555efb25",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.a.Same"
+        ],
+        "title": "sample.a.Same"
+      }
+    ],
+    "evidence": [
+      {
+        "column": 8,
+        "end_line": 10,
+        "excerpt": "        consume(ctx, again=ctx)",
+        "file": "sample/use.py",
+        "id": "EVD-0424280266192a12",
+        "line": 10
+      },
+      {
+        "column": 4,
+        "end_line": 2,
+        "excerpt": "    a: int",
+        "file": "sample/a.py",
+        "id": "EVD-1ec06fe3f600dc8f",
+        "line": 2
+      },
+      {
+        "column": 12,
+        "end_line": 9,
+        "excerpt": "        del ctx.value",
+        "file": "sample/use.py",
+        "id": "EVD-9bea0ea49643bbdf",
+        "line": 9
+      },
+      {
+        "column": 11,
+        "end_line": 11,
+        "excerpt": "    return alias.value",
+        "file": "sample/use.py",
+        "id": "EVD-ad0f4714beda5e19",
+        "line": 11
+      }
+    ]
+  }
+]
