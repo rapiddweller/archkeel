@@ -7,6 +7,8 @@ header of every `*.dart` file under the scan roots (`embedded/dart_lexer.py`,
 `dart_directives.py`, `dart_libraries.py`) and builds the observation with the same shared
 functions the Python scan uses (`embedded/dart_scanner.py`). `ir/profiles.py` is the one table
 of what each profile decides; the analyzer gates on it and `check` measures from it.
+Config parsing narrows the three supported names to the shared `Language` alias; `check.ports`
+re-exports it for the CLI rather than defining a second type.
 
 | Case | Result |
 | --- | --- |
@@ -47,6 +49,14 @@ which names it uses is unknown, so a rule about names reports UNKNOWN (AD-92 cou
 The profile sees imports, not uses: a symbol reached through an import without `show` stays
 UNKNOWN until the source names it. Conditional imports count every alternative as an edge.
 `init` does not detect a Dart package; `--source` and `--namespace` are required.
+
+## Snapshot baseline control
+
+The reviewed original-source control reports 568 unresolved calls, 53 typing positions and 40
+unknown positions with both the old and current engine. The candidate reports 582, 55 and 40,
+with zero violations. The 14 additional unresolved calls are localized to snapshots (8), identity
+(4), report (1) and config (1); the two added typing positions come from object-codec input guards.
+The baseline records these measured values without increasing other budgets.
 
 ## Check
 
