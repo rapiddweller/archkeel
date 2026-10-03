@@ -13,10 +13,10 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import _prepare_repo
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import declared_components, declared_rule_ids, select_violations
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import DiagnosticError, ReportFilter

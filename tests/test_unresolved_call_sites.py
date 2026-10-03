@@ -17,12 +17,12 @@ from rich.console import Console
 from test_architecture_demo import CONFIG, _prepare_repo
 from test_measurement_budgets import _baseline, _contract_with_budgets
 
-from archkeel.analyzer import observe
 from archkeel.check import validation
 from archkeel.check.ratchets import calls_measured, unresolved_call_changes
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.measurements import MeasurementBudget
 from archkeel.ir.model import Observation, ObservationResult, RunResult, UnresolvedCallChange
 from archkeel.render.html import render_architecture_html

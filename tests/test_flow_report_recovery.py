@@ -298,8 +298,8 @@ def test_inside_import_site_evidence_is_scoped_to_its_parent_level(tmp_path: Pat
             child_package = package / child
             child_package.mkdir()
             (child_package / "__init__.py").write_text("")
-        (package / "a.py").write_text(f"import sample.{parent}.b\n")
-        (package / "b.py").write_text("")
+        (package / "a/__init__.py").write_text(f"import sample.{parent}.b\n")
+        (package / "b/__init__.py").write_text("")
 
     result = _observe(tmp_path)
     assert result.observation is not None
@@ -310,7 +310,7 @@ def test_inside_import_site_evidence_is_scoped_to_its_parent_level(tmp_path: Pat
         assert len(edges) == 1
         assert edges[0]["source"] == "a"
         assert edges[0]["target"] == "b"
-        assert edges[0]["sites"] == [f"sample/{parent}/a.py:1"]
+        assert edges[0]["sites"] == [f"sample/{parent}/a/__init__.py:1"]
 
 
 def test_symbol_use_edges_do_not_claim_import_site_counts() -> None:

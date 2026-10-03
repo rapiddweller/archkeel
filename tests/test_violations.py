@@ -12,11 +12,11 @@ import pytest
 from test_architecture_demo import _prepare_repo
 from test_codec import raw_observation
 
-from archkeel.analyzer import observe
 from archkeel.api import ViolationFingerprint as ApiViolationFingerprint
 from archkeel.api import ViolationRow, load_violations
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import ViolationFingerprint, observed_violations
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 from fixtures.architecture_demo import CATALOG

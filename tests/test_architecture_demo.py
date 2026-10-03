@@ -14,13 +14,13 @@ from typing import get_args, get_type_hints
 
 import pytest
 
-from archkeel.analyzer import observe
 from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.measurements import SCALARS, compare_measurements
 from archkeel.ir.model import (

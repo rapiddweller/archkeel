@@ -22,16 +22,16 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from pathlib import Path
 
-from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ports import Analyzer, ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.run import run_check
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes
 from archkeel.ir.digest import package_digest
 from archkeel.ir.host_records import HostRecord
-from archkeel.ir.lock import LOCK_PATH
+from archkeel.ir.lock import LOCK_PATH, LOCK_SCHEMA_VERSION
 from archkeel.ir.model import RunResult
 from fixtures.demo_catalog_support import (
     FIXTURE_DIR,
@@ -100,7 +100,7 @@ def build_and_run_check(
     accepted = accepted_result.observation
 
     lock = {
-        "schema_version": "1.0.0",
+        "schema_version": LOCK_SCHEMA_VERSION,
         "accepted_commit": accepted_commit,
         "observation_digest": sha256_bytes(canonical_report_bytes(accepted)),
         "config_digest": CONFIG.digest,

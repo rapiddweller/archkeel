@@ -14,9 +14,9 @@ import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 from test_target_diagram_acceptance import _target_diagram_page
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.render.html import render_html
 from fixtures.architecture_demo import CATALOG

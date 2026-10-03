@@ -228,14 +228,19 @@ def unknown_positions(observation: Observation) -> int:
 
 
 def _measured(
-    unmeasured: frozenset[UnmeasurableScalar], name: UnmeasurableScalar, value: int
+    unmeasured: frozenset[UnmeasurableScalar], name: UnmeasurableScalar, value: int | None
 ) -> int | None:
-    return None if name in unmeasured else value
+    if name in unmeasured:
+        return None
+    if value is None:
+        raise RatchetError(f"{name} is missing for a profile that measures it")
+    return value
 
 
 def measure_python_ratchets(observation: Observation) -> Measurements:
     """Project raw counts; analyzer percentages never participate in the policy."""
     coverage = observation.coverage
+    profile = profile_for(observation.analyzer.name)
     if (
         coverage.status != "PASS"
         or coverage.rules == "FAIL"
@@ -244,9 +249,14 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
         or len({coverage.files_discovered, coverage.files_read, coverage.files_parsed}) != 1
     ):
         raise RatchetError("scan must be complete: discovered = read = parsed, without failures")
-    total = coverage.calls_analyzed
-    if (
-        total
+    calls_measured = "calls_unresolved" not in profile.unmeasured
+    total = coverage.calls_analyzed if calls_measured else None
+    if calls_measured and (
+        total is None
+        or coverage.calls_resolved is None
+        or coverage.calls_partially_resolved is None
+        or coverage.calls_unresolved is None
+        or total
         != coverage.calls_resolved + coverage.calls_partially_resolved + coverage.calls_unresolved
     ):
         raise RatchetError("calls_analyzed must equal resolved + partially_resolved + unresolved")
@@ -254,14 +264,21 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
         _positions(cycle.data.get("internal_edges"), "cycle.internal_edges")
         for cycle in _records(observation, "cycles")
     )
-    typing_positions = 0
-    for signal in _records(observation, "typing_signals"):
-        if signal.kind == "boundary_type_allowance" and signal.evidence_class == EvidenceClass.FACT:
-            continue
-        if signal.kind == "missing_cross_package_annotation":
-            typing_positions += _positions(signal.data.get("positions"), "typing_signal.positions")
-        else:
-            typing_positions += 1
+    typing_positions: int | None = None
+    if "typing_positions" not in profile.unmeasured:
+        typing_positions = 0
+        for signal in _records(observation, "typing_signals"):
+            if (
+                signal.kind == "boundary_type_allowance"
+                and signal.evidence_class == EvidenceClass.FACT
+            ):
+                continue
+            if signal.kind == "missing_cross_package_annotation":
+                typing_positions += _positions(
+                    signal.data.get("positions"), "typing_signal.positions"
+                )
+            else:
+                typing_positions += 1
     imports = _records(observation, "imports")
     unknowns = _records(observation, "unknowns")
     for item in imports:
@@ -273,7 +290,7 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
         if not isinstance(source, str) or not source or not isinstance(target, str) or not target:
             raise RatchetError("import packages must be non-empty strings")
     # AD-97: a scalar the observing profile cannot see is null, so no comparison reads it as 0.
-    unmeasured = profile_for(observation.analyzer.name).unmeasured
+    unmeasured = profile.unmeasured
     return Measurements(
         scalars=RatchetScalars(
             violations=len(_records(observation, "violations")),

@@ -23,9 +23,8 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
-from archkeel.analyzer.embedded.report import analyze_snapshot
-from archkeel.analyzer.embedded.scanner import _inside_rule_results
-from archkeel.analyzer.embedded.violations import (
+from archkeel.check.evaluation.evaluate import _inside_rule_results
+from archkeel.check.evaluation.rules import (
     _boundary_rule_positions,
     _boundary_type_allowance_fact,
     _boundary_type_violation_records,
@@ -39,7 +38,8 @@ from archkeel.analyzer.embedded.violations import (
     rule_violations,
 )
 from archkeel.check.ratchets import unknown_positions_by_rule
-from archkeel.ir.codec import decode_json, parse_observation
+from archkeel.cli.observe import analyze_snapshot
+from archkeel.ir.codec import canonical_json_bytes, decode_json, parse_observation
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import RULE_KINDS, stable_id
 
@@ -102,6 +102,7 @@ def _captured_analysis(root: Path, arguments: dict[str, Any]) -> tuple[dict, lis
                 arguments["producer_scope"] = evaluator.f_locals["assessment_parent"] or "root"
             if function in (rule_violations, boundary_type_limits):
                 # The scanner strips private import proof before publishing its result.
+                arguments["type_shapes"] = dict(arguments["type_shapes"])
                 arguments = deepcopy(arguments)
             pending[id(frame)] = function, arguments
         elif event == "return":
@@ -314,14 +315,16 @@ def _scope_ledgers(model: dict, calls: list) -> dict[str, dict]:
             arguments, result = producers[0]
             facts = arguments["evaluated"]
             bound = (
-                result == receipt
+                json.loads(canonical_json_bytes(result)) == receipt
                 and arguments.get("declared_scope") == scope
                 and receipt["id"] == stable_id("RULE-EVALUATION", arguments["scope"], identifier)
                 and receipt["rule_ids"] == [identifier]
                 and receipt["data"]["scope"] == arguments["scope"]
                 and receipt["fact_ids"] == sorted(row["id"] for row in facts)
                 and bool(facts)
-                and all(modules.get(row["id"]) == row for row in facts)
+                and all(
+                    modules.get(row["id"]) == json.loads(canonical_json_bytes(row)) for row in facts
+                )
                 and receipt["evidence_ids"]
                 == sorted({evidence for row in facts for evidence in row["evidence_ids"]})
                 and sorted(

@@ -18,10 +18,10 @@ from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 from test_baseline import PROBE
 
-from archkeel.analyzer import observe
 from archkeel.check.git import MissingBlobError, read_blob
 from archkeel.check.validation import run_validate
 from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import baseline_bytes, decode_json, parse_amendment
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_measurement_budgets

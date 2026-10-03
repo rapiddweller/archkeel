@@ -18,11 +18,30 @@ core, writes artifacts and delegates HTML and terminal projection to `render`. C
 never select adapters or write presentation files.
 
 Third-party imports are confined by `external_dependency_scope` rules: `packaging` to the
-analyzer runtime gate, `rich` to `archkeel.render.terminal` and `rich_argparse` to `archkeel.cli`.
+`archkeel.check.runtime` gate, `rich` to `archkeel.render.terminal` and `rich_argparse` to `archkeel.cli`.
 
-The analyzer may import `archkeel.ir.model`, `archkeel.ir.codec`, the profile table and the
-published `archkeel.ir.identity:module_identity` function. This keeps raw AST
-records inside the analyzer and exposes typed `ObservationResult` values at its boundary.
+`analyzer` imports shared source facts, record builders, protocol and language fact
+values through the root contract's explicit IR whitelist. It does not import
+governance models or policy. `check` owns validation, observation assembly and
+evaluation; it has no dependency on `analyzer`. Python and Dart source modules live
+in separate nested contracts. `ir` keeps source facts, protocol and governance
+values in distinct internal groups.
+
+### Language adapter boundary (AD-22)
+
+The approved process port and Python/Dart extraction are in progress, with active
+nested contracts under `contracts/`. The contracts describe ownership and interfaces;
+they do not prove semantic parity or complete behavior. Replacement-executable
+acceptance, integrated local gates and independent review remain open.
+TypeScript remains a separate pinned npm artifact described in
+[the foundation proposal](typescript-foundation-proposal.md); it is not included
+in the Python source contract. See
+[AD-22](decisions/ad-22-the-analyzer-is-a-process-port-with-a-language-profile.md)
+and [the target](language-adapter-target.md).
+
+Future HTTP/queue interactions have distinct contract identities and declaration,
+source and runtime evidence. They are not imports; observers and rules remain
+outside the current implementation scope.
 
 Compatibility shims are declared at the contract top level, not inferred as a generic facade:
 `declarations.compat` owns the old module, target and lifetime (AD-87).
@@ -185,7 +204,9 @@ often explains an earlier one; the index below keeps that order.
 | AD-145 | [Local inherited methods use the existing base proof](decisions/ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
 | AD-146 | [Analyzer identity selects the observation profile](decisions/ad-146-analyzer-identity-selects-observation-profile.md) |
 | AD-147 | [Revision snapshots preserve language inputs](decisions/ad-147-revision-snapshots-preserve-language-inputs.md) |
+| AD-148 | [Source facts and Core evaluation have separate owners](decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md) |
 | AD-149 | [Uncertain publication retains inherited type candidates](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
+| AD-152 | [Validated construct identity controls rules](decisions/ad-152-validated-construct-identity-controls-rules.md) |
 
 ## Allowed dependencies
 
@@ -195,8 +216,9 @@ often explains an earlier one; the index below keeps that order.
 | `cli` → `analyzer` | Supply the concrete, replaceable source analyzer to report and check workflows; `cli` composes, it does not analyze. |
 | `cli` → `check` | Invoke deterministic and stable report and check services from the composition root. |
 | `cli` → `host` | Supply the concrete, replaceable host-record loader to checks; `cli` composes, it does not fetch. |
+| `cli` → `ir` | Serialize the typed observation through `ir.codec` for the legacy JSON compatibility result. |
 | `cli` → `render` | Project typed results through the replaceable render adapter, keeping `cli` a thin composition root. |
-| `analyzer` → `ir` | Publish observations through the common model and codec; share only the profile table and source identity function (AD-97, AD-147). |
+| `analyzer` → `ir` | Publish source facts through the protocol; Core owns observation and policy (AD-148). |
 | `check` → `ir` | Compare observations and return typed results without losing determinism or stability. |
 | `host` → `ir` | Construct validated host-record values through the stable evidence model, so `host` stays replaceable behind it. |
 | `render` → `ir` | Render typed evidence without importing policy implementations, so `render` stays replaceable behind the stable model. |
@@ -210,6 +232,7 @@ flowchart LR
     cli --> analyzer
     cli --> check
     cli --> host
+    cli --> ir
     cli --> render
     host --> ir
     render --> ir
@@ -229,6 +252,7 @@ flowchart LR
     cli --> analyzer
     cli --> check
     cli --> host
+    cli --> ir
     cli --> render
     host --> ir
     render --> ir

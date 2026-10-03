@@ -3,30 +3,30 @@
 # SPDX-License-Identifier: MIT
 import ast
 import json
-import subprocess
+import sys
 from hashlib import sha256
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from test_delta import _model, _record
 
-from archkeel.analyzer import observe
-from archkeel.analyzer.embedded.calls import collect_calls
-from archkeel.analyzer.embedded.constructs import collect_constructs
-from archkeel.analyzer.embedded.imports import all_is_one_literal, collect_imports
-from archkeel.analyzer.embedded.resolve import build_symbol_index
-from archkeel.analyzer.embedded.source import ParsedModule
-from archkeel.analyzer.embedded.symbols import collect_symbols
-from archkeel.analyzer.embedded.typing_signals import collect_typing_signals
-from archkeel.analyzer.embedded.violations import (
+from archkeel.analyzer.python.calls import collect_calls
+from archkeel.analyzer.python.constructs import collect_constructs
+from archkeel.analyzer.python.imports import all_is_one_literal, collect_imports
+from archkeel.analyzer.python.resolve import build_symbol_index
+from archkeel.analyzer.python.source import ParsedModule
+from archkeel.analyzer.python.symbols import collect_symbols
+from archkeel.analyzer.python.type_shapes import collect_type_shapes
+from archkeel.analyzer.python.typing_signals import collect_typing_signals
+from archkeel.check.delta import build_architecture_delta
+from archkeel.check.evaluation.rules import (
     _construct_violations,
     _union_parameters,
     requires_violations,
 )
-from archkeel.check.delta import build_architecture_delta
 from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import observed_violations
 from archkeel.ir.codec import (
     canonical_report_bytes,
@@ -50,17 +50,29 @@ from archkeel.ir.model import (
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
-EMBEDDED = ROOT / "src/archkeel/analyzer/embedded"
+RULES = ROOT / "src/archkeel/check/evaluation/rules.py"
 
 
-def test_analyzer_digest_covers_every_embedded_module() -> None:
-    # AD-1: the analyzer digest hashes top-level modules only.
-    nested = [
-        path.relative_to(EMBEDDED).as_posix()
-        for path in EMBEDDED.rglob("*.py")
-        if path.parent != EMBEDDED and "__pycache__" not in path.parts
-    ]
-    assert nested == []
+def test_collector_digest_tracks_only_its_language_and_shared_source() -> None:
+    from archkeel.analyzer.runtime import collector_provenance
+
+    python_before, _ = collector_provenance("python")
+    dart_before, _ = collector_provenance("dart")
+    original = Path.read_bytes
+
+    def changed_source(path: Path) -> bytes:
+        value = original(path)
+        return (
+            value + b"# digest probe\n"
+            if path == ROOT / "src/archkeel/analyzer/python/symbols.py"
+            else value
+        )
+
+    with patch.object(Path, "read_bytes", changed_source):
+        python_after, _ = collector_provenance("python")
+        dart_after, _ = collector_provenance("dart")
+    assert python_after.code_digest != python_before.code_digest
+    assert dart_after.code_digest == dart_before.code_digest
 
 
 def _prepare_source(tmp_path: Path) -> None:
@@ -85,36 +97,13 @@ def _observe(source: Path):
     )
 
 
-def test_observe_allows_the_full_analyzer_timeout_without_waiting(tmp_path: Path) -> None:
-    raw = _model(git_head="a" * 40)
-    response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 0}), "")
-    with patch("archkeel.analyzer.subprocess.run", return_value=response) as analyzer:
-        result = _observe(tmp_path)
-
-    assert analyzer.call_args.kwargs["timeout"] == 300
-    assert result.exit_code == 0
-    assert result.observation is not None
-    assert result.coverage is result.observation.coverage
-
-
-@pytest.mark.parametrize("exit_code", [2, True])
-def test_analyzer_failure_cannot_become_complete(tmp_path: Path, exit_code: object) -> None:
-    response = subprocess.CompletedProcess(
-        [], 0, json.dumps({"model": {}, "exit_code": exit_code}), ""
-    )
-    with patch("archkeel.analyzer.subprocess.run", return_value=response):
-        result = _observe(tmp_path)
-    assert result.exit_code == 2
-    assert result.diagnostics[0].kind == "parse_error"
-
-
 def test_source_symlink_escape_is_rejected_before_analyzer(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
     outside = tmp_path / "outside.py"
     outside.write_text("secret = 1\n")
     (source / "linked.py").symlink_to(outside)
-    with patch("archkeel.analyzer.subprocess.run") as analyzer:
+    with patch("archkeel.analyzer.process.ProcessCollector.collect") as analyzer:
         result = _observe(source)
         analyzer.assert_not_called()
     assert result.exit_code == 2
@@ -124,7 +113,7 @@ def test_source_symlink_escape_is_rejected_before_analyzer(tmp_path: Path) -> No
 
 def test_contract_1_1_has_migration_diagnostic(tmp_path: Path) -> None:
     (tmp_path / "contract.json").write_text('{"schema_version":"1.1.0","components":[],"rules":[]}')
-    with patch("archkeel.analyzer.subprocess.run") as analyzer:
+    with patch("archkeel.analyzer.process.ProcessCollector.collect") as analyzer:
         result = _observe(tmp_path)
         analyzer.assert_not_called()
     assert result.exit_code == 2
@@ -1010,49 +999,45 @@ def test_interface_boundary_rule_matches_the_declared_public_interface(
     assert len(violations) == expected_violations
 
 
-@pytest.mark.parametrize("cause", ["missing_tool", "timeout", "parse_error"])
+@pytest.mark.parametrize("cause", ["missing_tool", "timeout", "protocol_error"])
 def test_execution_failure_has_structured_diagnostic(tmp_path: Path, cause: str) -> None:
-    if cause == "missing_tool":
-        error: Exception = OSError("missing Python executable")
-    elif cause == "timeout":
-        error = subprocess.TimeoutExpired("analyzer", 300)
-    else:
-        error = ValueError("unused")
-    if cause in {"missing_tool", "timeout"}:
-        with patch("archkeel.analyzer.subprocess.run", side_effect=error):
-            result = _observe(tmp_path)
-    else:
-        with patch(
-            "archkeel.analyzer.subprocess.run",
-            return_value=subprocess.CompletedProcess([], 0, "not JSON", ""),
-        ):
-            result = _observe(tmp_path)
+    from archkeel.ir.protocol import CollectionError
+
+    error = CollectionError(cause, "collector", "Collector failed before producing source facts.")
+    with patch("archkeel.analyzer.process.ProcessCollector.collect", return_value=error):
+        result = _observe(tmp_path)
     assert result.exit_code == 2
     assert result.observation is None
     assert result.coverage is None
-    assert result.diagnostics[0].kind == cause
-    if cause == "timeout":
-        assert result.diagnostics[0].unknown_claim == (
-            "The analyzer did not complete within 300 seconds."
-        )
+    assert result.diagnostics[0].kind == ("parse_error" if cause == "protocol_error" else cause)
     assert all(isinstance(item, Diagnostic) for item in result.diagnostics)
 
 
 @pytest.mark.parametrize("cause", ["scope_empty", "rule_without_subjects"])
 def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause: str) -> None:
-    raw = _model(git_head="a" * 40)
-    coverage = raw["coverage"]
-    coverage["status"] = "FAIL"
-    if cause == "scope_empty":
-        coverage.update(files_discovered=0, files_read=0, files_parsed=0)
-    else:
-        failure = _record("unknown-rule", kind="rule-without-subjects", evidence_class="UNKNOWN")
-        failure["rule_ids"] = ["rule-zero"]
-        raw["unknowns"] = [failure]
-        coverage.update(rules="FAIL", failures=[failure])
-    response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 2}), "")
-    with patch("archkeel.analyzer.subprocess.run", return_value=response):
-        result = _observe(tmp_path)
+    if cause == "rule_without_subjects":
+        (tmp_path / "sample").mkdir()
+        (tmp_path / "sample/mod.py").write_text("value = 1\n")
+        (tmp_path / "contract.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "2.1.0",
+                    "components": [],
+                    "rules": [
+                        {
+                            "id": "rule-zero",
+                            "kind": "forbidden_construct",
+                            "source": "sample.missing",
+                            "constructs": ["broad_except"],
+                            "provenance": ["test"],
+                            "rationale": "No broad catches.",
+                            "decided_by": "architect",
+                        }
+                    ],
+                }
+            )
+        )
+    result = _observe(tmp_path)
     assert result.exit_code == 2
     assert isinstance(result.observation, Observation)
     assert isinstance(result.coverage, Coverage)
@@ -1060,7 +1045,7 @@ def test_partial_observation_and_coverage_survive_exit_two(tmp_path: Path, cause
     assert result.diagnostics[0].kind == cause
     if cause == "rule_without_subjects":
         assert result.diagnostics[0].subject == "rule-zero"
-        assert result.observation.records("unknowns")[0].id == "unknown-rule"
+        assert result.observation.records("unknowns")
 
 
 def _parsed_module(
@@ -1418,19 +1403,18 @@ def test_receiver_typed_calls_resolve_or_name_why_not(
 
 
 def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_path: Path) -> None:
-    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.12"\n')
-    raw = _model(git_head="a" * 40)
-    failures = [
-        _record(str(index), kind=kind, evidence_class="UNKNOWN")
-        for index, kind in enumerate(("SyntaxError", "IndentationError", "TabError"))
-    ]
-    raw["coverage"].update(status="FAIL", files_parsed=0, failures=failures)
-    response = subprocess.CompletedProcess([], 0, json.dumps({"model": raw, "exit_code": 2}), "")
-    with patch("archkeel.analyzer.subprocess.run", return_value=response):
-        result = _observe(tmp_path)
+    required = f">={sys.version_info.major}.{sys.version_info.minor + 1}"
+    (tmp_path / "pyproject.toml").write_text(f'[project]\nrequires-python = "{required}"\n')
+    for name, source in (
+        ("syntax.py", "def :\n"),
+        ("indent.py", "  value = 1\n"),
+        ("other.py", "class :\n"),
+    ):
+        (tmp_path / name).write_text(source)
+    result = _observe(tmp_path)
     assert result.exit_code == 2
     assert result.observation.coverage.failures
-    assert len(result.diagnostics) == len(failures)
+    assert len(result.diagnostics) == len(result.observation.coverage.failures)
     assert {item.kind for item in result.diagnostics} == {"runtime_mismatch"}
 
 
@@ -2118,8 +2102,18 @@ def test_boundary_types_keeps_unknown_alongside_nested_violation(tmp_path: Path)
 
 
 def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
-    assert _union_parameters("str |", "sample.app.facade", {}) is None
-    assert _union_parameters("'str | int'", "sample.app.facade", {}) is None
+    assert (
+        _union_parameters(
+            "str |", "sample.app.facade", {}, type_shapes=collect_type_shapes(["str |"])
+        )
+        is None
+    )
+    assert (
+        _union_parameters(
+            "'str | int'", "sample.app.facade", {}, type_shapes=collect_type_shapes(["'str | int'"])
+        )
+        is None
+    )
 
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
@@ -2852,7 +2846,7 @@ def test_boundary_types_and_facade_types_agree_across_annotation_shapes(tmp_path
 
 
 def _violations_source_ast() -> ast.Module:
-    return ast.parse((EMBEDDED / "violations.py").read_bytes())
+    return ast.parse(RULES.read_bytes())
 
 
 def _top_level_callers(tree: ast.Module, called_name: str) -> set[str]:

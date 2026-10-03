@@ -10,13 +10,13 @@ from pathlib import Path
 import pytest
 from test_analyzer import _component, _observe
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
     run_validate,
 )
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import load_inside_contract_tree, observation_payload, parse_contract
 from archkeel.ir.trace import trace_valid_violations
 

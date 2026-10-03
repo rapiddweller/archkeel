@@ -22,9 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import render_result, run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation, ObservationResult, Record, RunResult
 

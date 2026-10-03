@@ -68,6 +68,41 @@ jobs:
           path: test-artifacts/architecture/
           if-no-files-found: error
 
+  collector-safety-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11.12", "3.12.10"]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Make
+        run: choco install make --version=4.4.1 --yes --no-progress
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+          version: "0.12.13"
+
+      - name: Install supported runtimes and locked package
+        run: |
+          uv python install 3.11.12 3.12.10
+          uv sync --locked --python ${{ matrix.python }}
+
+      - name: Verify native collector safety
+        shell: bash
+        run: make collector-safety SHELL=bash
+
   github-order-report:
     name: Collect GitHub order evidence (report only)
     if: github.event_name == 'pull_request'

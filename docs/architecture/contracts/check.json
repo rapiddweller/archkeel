@@ -1,0 +1,295 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "TARGET-WORKFLOWS",
+      "label": "workflows",
+      "role": "component",
+      "packages": [
+        "archkeel.check.onboarding",
+        "archkeel.check.run",
+        "archkeel.check.report",
+        "archkeel.check.validation"
+      ],
+      "responsibilities": [
+        "Select immutable inputs, invoke the port and publish the result."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing and duplicate policy thresholds."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "inputs",
+          "rationale": "Read immutable repository and runtime inputs.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "observation",
+          "rationale": "Request a Core-owned observation of collected facts.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "regression",
+          "rationale": "Compare observations and enforce selected ceilings.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.check.onboarding:run_init",
+        "archkeel.check.run:run_check",
+        "archkeel.check.report",
+        "archkeel.check.validation:run_validate",
+        "archkeel.check.validation:invalid_result"
+      ]
+    },
+    {
+      "id": "TARGET-OBSERVATION",
+      "label": "observation",
+      "role": "component",
+      "packages": [
+        "archkeel.check.observation",
+        "archkeel.check.observe"
+      ],
+      "responsibilities": [
+        "Combine source facts and contract into canonical evidence."
+      ],
+      "forbidden_responsibilities": [
+        "Process or source-file I/O."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "inputs",
+          "rationale": "Use the declared source-collector and runtime ports.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "declarations",
+          "rationale": "Load and project the declared architecture contract.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "evaluation",
+          "rationale": "Apply Core-owned rules to validated source facts.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.check.observe:Observer",
+        "archkeel.check.observation:analyze_source_snapshot"
+      ]
+    },
+    {
+      "id": "TARGET-DECLARATIONS",
+      "label": "declarations",
+      "role": "component",
+      "packages": [
+        "archkeel.check.declarations"
+      ],
+      "responsibilities": [
+        "Load and project root and inside architecture contracts."
+      ],
+      "forbidden_responsibilities": [
+        "Source parsing and rule evaluation."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "evaluation",
+          "rationale": "Use the evaluator’s public API type derivation when projecting declarations.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.check.declarations:ContractError",
+        "archkeel.check.declarations:load_contract",
+        "archkeel.check.declarations:project_declarations",
+        "archkeel.check.declarations:project_inside_declarations"
+      ]
+    },
+    {
+      "id": "TARGET-EVALUATION",
+      "label": "evaluation",
+      "role": "component",
+      "packages": [
+        "archkeel.check.evaluation"
+      ],
+      "responsibilities": [
+        "Own architecture rules and evidence sufficiency in Core."
+      ],
+      "forbidden_responsibilities": [
+        "Source parsing, process execution and baseline persistence."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "public": [
+        "archkeel.check.evaluation.evaluate:ScanResult",
+        "archkeel.check.evaluation.evaluate:evaluate_source",
+        "archkeel.check.evaluation.rules:public_api_exposed_types"
+      ]
+    },
+    {
+      "id": "TARGET-REGRESSION",
+      "label": "regression",
+      "role": "component",
+      "packages": [
+        "archkeel.check.expectation",
+        "archkeel.check.delta",
+        "archkeel.check.ratchets"
+      ],
+      "responsibilities": [
+        "Compare recorded observations, expectations and ratchets."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing sources and running adapters."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "inputs",
+          "rationale": "Read recorded revision identities for comparability.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.check.delta:build_architecture_delta",
+        "archkeel.check.expectation:ArchitectureExpectation",
+        "archkeel.check.expectation:evaluate_expectation",
+        "archkeel.check.expectation:parse_expectation",
+        "archkeel.check.expectation:sha256_bytes",
+        "archkeel.check.ratchets:call_rows",
+        "archkeel.check.ratchets:calls_measured",
+        "archkeel.check.ratchets:measure_python_ratchets",
+        "archkeel.check.ratchets:unknown_positions_by_rule",
+        "archkeel.check.ratchets:unresolved_call_changes"
+      ]
+    },
+    {
+      "id": "TARGET-INPUTS",
+      "label": "inputs",
+      "role": "component",
+      "packages": [
+        "archkeel.check.ports",
+        "archkeel.check.snapshot",
+        "archkeel.check.git",
+        "archkeel.check.python_profile",
+        "archkeel.check.runtime",
+        "archkeel.check.ordering"
+      ],
+      "responsibilities": [
+        "Own typed ports, revision inputs and ordering."
+      ],
+      "forbidden_responsibilities": [
+        "Architecture verdicts."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "exact_modules": [
+        "archkeel.check"
+      ],
+      "public": [
+        "archkeel.check.git:GitError",
+        "archkeel.check.git:MissingBlobError",
+        "archkeel.check.git:changed_paths",
+        "archkeel.check.git:check_git_order",
+        "archkeel.check.git:git_bytes",
+        "archkeel.check.git:parents",
+        "archkeel.check.git:read_blob",
+        "archkeel.check.git:relative_path",
+        "archkeel.check.git:remote_tip",
+        "archkeel.check.git:tracked_paths",
+        "archkeel.check.git:working_tree_paths",
+        "archkeel.check.ordering:check_order",
+        "archkeel.check.ports:Analyzer",
+        "archkeel.check.ports:FilesToWrite",
+        "archkeel.check.ports:Host",
+        "archkeel.check.ports:ScanConfig",
+        "archkeel.check.snapshot:SnapshotError",
+        "archkeel.check.snapshot:materialize_git_snapshot",
+        "archkeel.check.snapshot:resolve_commit",
+        "archkeel.check.ports:SourceCollector",
+        "archkeel.check.ports:Language",
+        "archkeel.check.ports:ObservationResult",
+        "archkeel.check.python_profile:crossing_imports",
+        "archkeel.check.runtime:runtime_diagnostic"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.check"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/archkeel/check/observation.py",
+        "responsibility": "Assemble canonical observation from validated facts and contract."
+      },
+      {
+        "path": "src/archkeel/check/evaluation/rules.py",
+        "responsibility": "Evaluate ownership and architecture rules in Core."
+      },
+      {
+        "path": "src/archkeel/check/evaluation/coverage.py",
+        "responsibility": "Map actual evidence and profile capability to rule availability."
+      },
+      {
+        "path": "src/archkeel/check/evaluation/topology.py",
+        "responsibility": "Aggregate dependency and declared-scope evidence in Core."
+      }
+    ]
+  }
+}

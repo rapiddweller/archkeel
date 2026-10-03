@@ -1,59 +1,72 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compare the actual parser with the scanned project's declared Python range."""
+"""Source-derived provenance for language collectors."""
 
+import hashlib
+import importlib.metadata
+import platform
 import tomllib
 from pathlib import Path
+from typing import Literal
 
-from packaging.specifiers import SpecifierSet
-from packaging.version import Version
+from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo
 
-from archkeel.ir.model import Diagnostic
+Language = Literal["python", "dart"]
 
 
-def runtime_diagnostic(root: Path, python_version: str | None) -> Diagnostic | None:
-    subject = f"python {python_version or 'unknown'}; requires-python unavailable"
-    remedy = "Run Archkeel with a Python matching the target's requires-python."
+def collector_provenance(
+    language: Language, *, required: str | None = ">=3.11"
+) -> tuple[AnalyzerInfo, RuntimeInfo]:
+    """Identify the collector from its installed version and its actual source files."""
+    package = Path(__file__).parent
+    repository = package.parent
+    shared = repository / "ir"
+    sources = [
+        package / "runtime.py",
+        *sorted((package / language).rglob("*.py")),
+        *(
+            shared / name
+            for name in (
+                "facts.py",
+                "facts_codec.py",
+                "facts_validation.py",
+                "protocol.py",
+                "state_codec.py",
+                "state_facts.py",
+                "type_shapes.py",
+                "reexports.py",
+                "source_records.py",
+            )
+        ),
+    ]
+    digest = hashlib.sha256()
+    for path in sources:
+        digest.update(path.relative_to(repository).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
     try:
-        path: Path = root / "pyproject.toml"
-        if not path.resolve().is_relative_to(root.resolve()):
-            raise ValueError("pyproject.toml escapes the scanned root")
+        version = importlib.metadata.version("archkeel")
+    except importlib.metadata.PackageNotFoundError:
+        version = "0+unknown"
+    return (
+        AnalyzerInfo(
+            "archkeel-python-analyzer" if language == "python" else "archkeel-dart-directives",
+            version,
+            digest.hexdigest(),
+        ),
+        RuntimeInfo("python", platform.python_version(), required),
+    )
+
+
+def python_requirement(root: Path) -> str | None:
+    path = root / "pyproject.toml"
+    try:
+        if not path.resolve().is_relative_to(root):
+            return None
         project = tomllib.loads(path.read_text(encoding="utf-8")).get("project")
         required = project.get("requires-python") if isinstance(project, dict) else None
-        if not isinstance(required, str) or not required.strip():
-            raise ValueError("requires-python is missing")
-        specifiers = SpecifierSet(required)
-        subject = f"python {python_version or 'unknown'}; requires-python {required}"
-        # Only lower bounds name a concrete runtime; wildcard or exclusive bounds do not.
-        lower = max(
-            (Version(item.version) for item in specifiers if item.operator in {">=", "~="}),
-            default=None,
-        )
-        if lower is not None:
-            remedy = (
-                "Run Archkeel with a matching Python, for example: "
-                f"uvx --python {lower.major}.{lower.minor} archkeel <command>"
-            )
-        if python_version is not None:
-            actual = Version(python_version)
-            if specifiers.contains(actual):
-                return None
-            comparison = (
-                "<"
-                if any(
-                    item.operator in {">=", ">", "~="} and actual < Version(item.version)
-                    for item in specifiers
-                )
-                else "does not satisfy"
-            )
-            subject = f"python {python_version} {comparison} requires-python {required}"
-    except (OSError, ValueError) as error:
-        subject += f" ({error})"
-    return Diagnostic(
-        "runtime_mismatch",
-        subject,
-        "AST may differ from target runtime; parse errors may be parser limitations, "
-        "not source defects",
-        remedy,
-    )
+        return required if isinstance(required, str) and required.strip() else None
+    except (OSError, ValueError):
+        return None

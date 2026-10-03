@@ -11,13 +11,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
 
-from archkeel.analyzer import observe
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.run import observe_revision
 from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes
 from archkeel.ir.digest import package_digest
+from archkeel.ir.lock import LOCK_SCHEMA_VERSION
 from fixtures.reproduce_milestone1 import _git, _json
 
 
@@ -57,7 +58,7 @@ def run_snapshot_check(
     lock_bytes = _json(
         root / "architecture-accepted.json",
         {
-            "schema_version": "1.0.0",
+            "schema_version": LOCK_SCHEMA_VERSION,
             "accepted_commit": accepted_commit,
             "observation_digest": observation_digest,
             "config_digest": config.digest,

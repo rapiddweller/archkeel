@@ -16,7 +16,6 @@ import pytest
 from archkeel.check.delta import SUPPORTED_DIMENSIONS as DELTA_DIMENSIONS
 from archkeel.check.expectation import (
     EXPECTATION_SCHEMA_VERSION,
-    GUARDRAIL_DIMENSIONS,
     GUARDRAIL_KEYS,
     ExpectationError,
     evaluate_expectation,
@@ -88,7 +87,7 @@ def _delta_payload() -> dict[str, object]:
             "relocated": [],
             "changed": [],
         }
-        for dimension in GUARDRAIL_DIMENSIONS
+        for dimension in DELTA_DIMENSIONS
     }
     dimensions["violations"] = {
         "status": "SUPPORTED",
@@ -130,7 +129,7 @@ def _delta_payload() -> dict[str, object]:
             "status": "PASS",
             "baseline_status": "PASS",
             "head_status": "PASS",
-            "supported_dimensions": list(GUARDRAIL_DIMENSIONS),
+            "supported_dimensions": list(DELTA_DIMENSIONS),
             "unknown_dimensions": [],
         },
         "dimensions": dimensions,

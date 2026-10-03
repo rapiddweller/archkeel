@@ -22,9 +22,9 @@ from test_analyzer import _component, _observe
 from test_architecture_demo import CONFIG, _prepare_repo
 from test_dart_directives import dart_package, report_dart, rule
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.check.run import inspect_observation
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model
 from archkeel.ir.model import Evidence, Observation, Record, stable_id
 from archkeel.ir.trace import trace_valid_violations

@@ -26,7 +26,7 @@ from archkeel.ir.baseline import (
     canonical_fingerprint,
     violation_name,
 )
-from archkeel.ir.lock import AcceptedLock, LockError
+from archkeel.ir.lock import LOCK_SCHEMA_VERSION, AcceptedLock, LockError
 from archkeel.ir.measurements import (
     SCALARS,
     MeasurementBudget,
@@ -39,6 +39,7 @@ from archkeel.ir.measurements import (
 )
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
+    DELTA_SCHEMA_VERSION,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
     AllowedDependencyRule,
@@ -72,8 +73,6 @@ from archkeel.ir.model import (
     DeltaProvenance,
     DeltaUnknown,
     DimensionDelta,
-    Evidence,
-    EvidenceClass,
     ExternalDependencyScopeRule,
     FacadeBudget,
     ForbiddenConstructKind,
@@ -106,6 +105,16 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
+
+from .facts_codec import (
+    freeze_data as _data,
+)
+from .facts_codec import (
+    parse_evidence as parse_evidence,
+)
+from .facts_codec import (
+    parse_record as parse_record,
+)
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
@@ -203,71 +212,6 @@ def _percent(value: RawJson, label: str) -> float:
     return value
 
 
-def _data(raw: object, label: str = "data") -> RecordData:
-    value = _object(raw, label)
-    return RecordData(tuple((key, _value(item, f"{label}.{key}")) for key, item in value.items()))
-
-
-def _value(raw: object, label: str) -> JsonValue:
-    if raw is None or isinstance(raw, (str, bool, int, float)):
-        return raw
-    if isinstance(raw, list):
-        return tuple(_value(item, f"{label}[]") for item in raw)
-    if isinstance(raw, dict):
-        return _data(raw, label)
-    raise ValueError(f"{label} is not a JSON value")
-
-
-def parse_record(raw: object, label: str = "record") -> Record:
-    item = _object(raw, label)
-    if set(item) != _RECORD_KEYS:
-        raise ValueError(f"{label} fields mismatch")
-    try:
-        evidence_class = EvidenceClass(_string(item["evidence_class"], f"{label}.evidence_class"))
-    except ValueError as exc:
-        raise ValueError(f"{label}.evidence_class is invalid") from exc
-    rule_ids = _strings(item["rule_ids"], f"{label}.rule_ids")
-    # schema/architecture-ir-common.schema.json promises minItems: 1 here for VIOLATION but
-    # does not enforce it at runtime; a downstream count keyed on `rule_ids[0]` (AD-51, AD-54)
-    # would otherwise fail on a malformed file with an IndexError, not a named diagnosis.
-    if evidence_class == EvidenceClass.VIOLATION and not rule_ids:
-        raise ValueError(f"{label}.rule_ids must not be empty for a VIOLATION record")
-    return Record(
-        id=_string(item["id"], f"{label}.id"),
-        evidence_class=evidence_class,
-        area=_string(item["area"], f"{label}.area"),
-        kind=_string(item["kind"], f"{label}.kind"),
-        title=_string(item["title"], f"{label}.title"),
-        subjects=_strings(item["subjects"], f"{label}.subjects"),
-        evidence_ids=_strings(item["evidence_ids"], f"{label}.evidence_ids"),
-        rule_ids=rule_ids,
-        fact_ids=_strings(item["fact_ids"], f"{label}.fact_ids"),
-        provenance=_strings(item["provenance"], f"{label}.provenance"),
-        data=_data(item["data"], f"{label}.data"),
-    )
-
-
-def _position(raw: RawJson, label: str) -> int:
-    if not isinstance(raw, int) or isinstance(raw, bool):
-        raise ValueError(f"{label} positions must be integers")
-    return raw
-
-
-def parse_evidence(raw: object, label: str = "evidence") -> Evidence:
-    item = _object(raw, label)
-    if set(item) != _EVIDENCE_KEYS:
-        raise ValueError(f"{label} fields mismatch")
-    line, end_line, column = (_position(item[key], label) for key in ("line", "end_line", "column"))
-    return Evidence(
-        id=_string(item["id"], f"{label}.id"),
-        file=_string(item["file"], f"{label}.file"),
-        line=line,
-        end_line=end_line,
-        column=column,
-        excerpt=_string(item["excerpt"], f"{label}.excerpt"),
-    )
-
-
 def parse_observation(raw: object) -> Observation:
     item = _object(raw, "observation")
     optional = {"python_version", "runtime", "producer"}
@@ -290,7 +234,7 @@ def parse_observation(raw: object) -> Observation:
     dirty_value: bool | Literal["unknown"] = (
         True if dirty is True else False if dirty is False else "unknown"
     )
-    coverage_value = _parse_coverage(coverage)
+    coverage_value = _parse_coverage(coverage, profile)
     evidence_raw = item["evidence"]
     if not isinstance(evidence_raw, list):
         raise ValueError("coverage.failures and evidence must be arrays")
@@ -343,14 +287,19 @@ def _known_identity(raw: RawJson, label: str) -> str:
 
 
 def _parse_runtime(raw: RawJson) -> RuntimeInfo:
-    item = _exact(raw, {"name", "version"}, "runtime")
+    item = _object(raw, "runtime")
+    if set(item) - {"name", "version", "required"} or not {"name", "version"}.issubset(item):
+        raise ValueError("runtime fields mismatch")
     return RuntimeInfo(
         _known_identity(item["name"], "runtime.name"),
         _known_identity(item["version"], "runtime.version"),
+        _nonempty(item["required"], "runtime.required")
+        if item.get("required") is not None
+        else None,
     )
 
 
-def _parse_coverage(coverage: dict[str, RawJson]) -> Coverage:
+def _parse_coverage(coverage: dict[str, RawJson], profile: Profile) -> Coverage:
     if set(coverage) - _COVERAGE_KEYS or not _COVERAGE_REQUIRED_KEYS.issubset(coverage):
         raise ValueError("coverage fields mismatch")
     status = coverage["status"]
@@ -359,24 +308,54 @@ def _parse_coverage(coverage: dict[str, RawJson]) -> Coverage:
         raise ValueError("coverage status/rules invalid")
     if rules is not None and not _is_verdict(rules):
         raise ValueError("coverage status/rules invalid")
-    counts = (
+    file_counts = (
         "files_discovered",
         "files_read",
         "files_parsed",
+    )
+    call_counts = (
         "calls_analyzed",
         "calls_resolved",
         "calls_partially_resolved",
         "calls_unresolved",
     )
-    count_values = {k: _count(coverage[k], f"coverage.{k}") for k in counts}
+    count_values = {k: _count(coverage[k], f"coverage.{k}") for k in file_counts}
+    call_values = {
+        key: None if coverage[key] is None else _count(coverage[key], f"coverage.{key}")
+        for key in call_counts
+    }
+    call_percent = coverage["call_resolution_percent"]
+    if "calls_unresolved" not in profile.unmeasured:
+        if any(value is None for value in call_values.values()) or call_percent is None:
+            raise ValueError("coverage call measurements are required for this profile")
+    elif profile.analyzer == "archkeel-typescript-imports":
+        if any(value is not None for value in call_values.values()) or call_percent is not None:
+            raise ValueError("TypeScript call measurements must be null")
+    else:
+        # Dart snapshots written before AD-97 used numeric zeros. Read those while new
+        # observations use a fully null call group.
+        all_null = all(value is None for value in call_values.values()) and call_percent is None
+        all_numeric = (
+            all(value is not None for value in call_values.values()) and call_percent is not None
+        )
+        if not (all_null or all_numeric):
+            raise ValueError("Dart call measurements must be all null or legacy numeric")
     ast_coverage_percent = _percent(coverage["ast_coverage_percent"], "coverage")
-    call_resolution_percent = _percent(coverage["call_resolution_percent"], "coverage")
+    call_resolution_percent = (
+        _percent(call_percent, "coverage") if call_percent is not None else None
+    )
     failures_raw = coverage["failures"]
     if not isinstance(failures_raw, list):
         raise ValueError("coverage.failures and evidence must be arrays")
     return Coverage(
         status=status,
-        **count_values,
+        files_discovered=count_values["files_discovered"],
+        files_read=count_values["files_read"],
+        files_parsed=count_values["files_parsed"],
+        calls_analyzed=call_values["calls_analyzed"],
+        calls_resolved=call_values["calls_resolved"],
+        calls_partially_resolved=call_values["calls_partially_resolved"],
+        calls_unresolved=call_values["calls_unresolved"],
         ast_coverage_percent=ast_coverage_percent,
         call_resolution_percent=call_resolution_percent,
         failures=tuple(parse_record(v, "coverage.failures[]") for v in failures_raw),
@@ -435,6 +414,10 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         del result["python_version"]
     if observation.runtime is None:
         del result["runtime"]
+    elif observation.runtime.required is None:
+        runtime = result["runtime"]
+        if isinstance(runtime, dict):
+            del runtime["required"]
     if observation.producer is None:
         del result["producer"]
     del result["sections"]
@@ -452,10 +435,10 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     return result
 
 
-def canonical_json_bytes(model: dict[str, RawJson]) -> bytes:
+def canonical_json_bytes(model: Mapping[str, object]) -> bytes:
     """Serialize the canonical model without time, locale, or filesystem noise."""
     return (
-        json.dumps(model, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+        json.dumps(dict(model), ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode("utf-8")
 
 
@@ -622,8 +605,11 @@ def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:
     return canonical_json_bytes(encode_canonical_model(raw))
 
 
-def _measurement_payload(value: Measurements) -> dict[str, RawJson]:
-    return _raw_object(asdict(value))
+def _measurement_payload(value: Measurements, *, legacy_calls: bool = False) -> dict[str, RawJson]:
+    result = _raw_object(asdict(value))
+    if legacy_calls and value.calls_total is None:
+        result["calls_total"] = 0
+    return result
 
 
 def _coverage_payload(value: Coverage) -> dict[str, RawJson]:
@@ -647,6 +633,9 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
         if isinstance(snapshot, dict):
             if snapshot.get("runtime") is None:
                 del snapshot["runtime"]
+            runtime = snapshot.get("runtime")
+            if isinstance(runtime, dict) and runtime.get("required") is None:
+                del runtime["required"]
             if snapshot.get("producer") is None:
                 del snapshot["producer"]
     result["dimensions"] = {
@@ -668,10 +657,11 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
     if ratchets.status == "SUPPORTED":
         if ratchets.baseline is None or ratchets.head is None:
             raise ValueError("supported regression checks require both measurements")
+        legacy_calls = delta.schema_version in {"1.2.0", "1.3.0"}
         result["ratchets"] = {
             "status": "SUPPORTED",
-            "baseline": _measurement_payload(ratchets.baseline),
-            "head": _measurement_payload(ratchets.head),
+            "baseline": _measurement_payload(ratchets.baseline, legacy_calls=legacy_calls),
+            "head": _measurement_payload(ratchets.head, legacy_calls=legacy_calls),
         }
     else:
         if ratchets.reason is None:
@@ -1340,8 +1330,11 @@ def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDepend
         label,
     )
     dependency = _nonempty(item["dependency"], f"{label}.dependency")
-    if not dependency.isidentifier():
-        raise ValueError(f"{label}.dependency must be a top-level import name")
+    if (
+        not dependency.isidentifier()
+        and re.fullmatch(r"(?:@[a-z0-9_-]+/)?[a-z0-9][a-z0-9._-]*", dependency) is None
+    ):
+        raise ValueError(f"{label}.dependency must be an import name or package identity")
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
     exact = _contract_strings(item.get("exact_sources", []), f"{label}.exact_sources")
     if not allowed and not exact:
@@ -1680,12 +1673,16 @@ def parse_delta(raw: object) -> ArchitectureDelta:
         raise ValueError("delta coverage status invalid")
     if not _is_verdict(head_status):
         raise ValueError("delta coverage status invalid")
+    version = _string(item["schema_version"], "delta.schema_version")
+    if version not in {"1.2.0", "1.3.0", DELTA_SCHEMA_VERSION}:
+        raise ValueError("unsupported delta schema version")
+    profile_for(_string(analyzer["name"], "delta.analyzer.name"))
     dimensions_raw = _object(item["dimensions"], "delta.dimensions")
     dimensions = tuple(
-        _parse_dimension(name, raw_dimension)
+        _parse_dimension(name, raw_dimension, version=version)
         for name, raw_dimension in sorted(dimensions_raw.items())
     )
-    ratchets = _parse_ratchets(item["ratchets"])
+    ratchets = _parse_ratchets(item["ratchets"], nullable_calls=version == DELTA_SCHEMA_VERSION)
     semantic_changes_raw = item["semantic_changes"]
     unknowns_raw = item["unknowns"]
     if not isinstance(semantic_changes_raw, list) or not isinstance(unknowns_raw, list):
@@ -1752,7 +1749,7 @@ def _parse_snapshot_summary(raw: RawJson, label: str) -> SnapshotSummary:
     )
 
 
-def _parse_dimension(name: str, raw: RawJson) -> DimensionDelta:
+def _parse_dimension(name: str, raw: RawJson, *, version: str) -> DimensionDelta:
     label = f"dimensions.{name}"
     dimension = _exact(
         raw,
@@ -1765,8 +1762,16 @@ def _parse_dimension(name: str, raw: RawJson) -> DimensionDelta:
     return DimensionDelta(
         name,
         status,
-        _count(dimension["before_count"], f"{label}.before_count"),
-        _count(dimension["after_count"], f"{label}.after_count"),
+        None
+        if version == DELTA_SCHEMA_VERSION
+        and status == "UNKNOWN"
+        and dimension["before_count"] is None
+        else _count(dimension["before_count"], f"{label}.before_count"),
+        None
+        if version == DELTA_SCHEMA_VERSION
+        and status == "UNKNOWN"
+        and dimension["after_count"] is None
+        else _count(dimension["after_count"], f"{label}.after_count"),
         _strings(dimension["added"], f"{label}.added"),
         _strings(dimension["removed"], f"{label}.removed"),
         _strings(dimension["relocated"], f"{label}.relocated"),
@@ -1774,15 +1779,17 @@ def _parse_dimension(name: str, raw: RawJson) -> DimensionDelta:
     )
 
 
-def _parse_ratchets(raw: object) -> RatchetObservations:
+def _parse_ratchets(raw: object, *, nullable_calls: bool) -> RatchetObservations:
     ratchet_raw = _object(raw, "delta.ratchets")
     if ratchet_raw.get("status") == "SUPPORTED":
         if set(ratchet_raw) != {"status", "baseline", "head"}:
             raise ValueError("supported regression check fields mismatch")
         return RatchetObservations(
             "SUPPORTED",
-            parse_measurements(ratchet_raw["baseline"], "ratchets.baseline"),
-            parse_measurements(ratchet_raw["head"], "ratchets.head"),
+            parse_measurements(
+                ratchet_raw["baseline"], "ratchets.baseline", nullable_calls=nullable_calls
+            ),
+            parse_measurements(ratchet_raw["head"], "ratchets.head", nullable_calls=nullable_calls),
         )
     if ratchet_raw.get("status") == "UNKNOWN":
         if set(ratchet_raw) != {"status", "reason"}:
@@ -1923,7 +1930,7 @@ def _optional(scalars: dict[str, RawJson], key: str, label: str) -> int | None:
     return None if scalars.get(key, 0) is None else _measured(scalars, key, label)
 
 
-def parse_measurements(raw: object, label: str) -> Measurements:
+def parse_measurements(raw: object, label: str, *, nullable_calls: bool = True) -> Measurements:
     value = _object(raw, label)
     if set(value) != {"scalars", "calls_total", "resolution"}:
         raise RatchetError(f"{label} measurement fields mismatch")
@@ -1944,7 +1951,13 @@ def parse_measurements(raw: object, label: str) -> Measurements:
         untyped_private_accesses=_optional(scalars, "untyped_private_accesses", label),
         unknown_positions=_measured(scalars, "unknown_positions", label),
     )
-    total = count(value.get("calls_total"), f"{label}.calls_total")
+    raw_total = value.get("calls_total")
+    if raw_total is None and not nullable_calls:
+        raise RatchetError(f"{label}: null call totals require a nullable format")
+    total = None if raw_total is None else count(raw_total, f"{label}.calls_total")
+    # Older unmeasured payloads used zero; measured zero remains a count.
+    if total == 0 and counts.calls_unresolved is None:
+        total = None
     if total:
         if value.get("resolution") != "measured":
             raise RatchetError(f"{label}.resolution must be measured")
@@ -1969,7 +1982,7 @@ def parse_lock(payload: bytes) -> AcceptedLock:
             },
             "accepted lock",
         )
-        if raw["schema_version"] != "1.0.0":
+        if raw["schema_version"] not in {"1.0.0", LOCK_SCHEMA_VERSION}:
             raise ValueError("invalid accepted lock schema")
         digests: dict[str, str] = {}
         for key, size in (
@@ -1990,7 +2003,11 @@ def parse_lock(payload: bytes) -> AcceptedLock:
             digests["observation_digest"],
             digests["config_digest"],
             digests["checker_digest"],
-            parse_measurements(raw["measurements"], "accepted"),
+            parse_measurements(
+                raw["measurements"],
+                "accepted",
+                nullable_calls=raw["schema_version"] == LOCK_SCHEMA_VERSION,
+            ),
             approval_ref,
         )
     except (ValueError, TypeError, KeyError) as error:

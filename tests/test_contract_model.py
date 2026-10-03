@@ -36,10 +36,20 @@ def test_contract_parser_matches_structure_corpus(path: Path) -> None:
 
 @pytest.mark.parametrize(
     "path",
-    [*sorted((ROOT / "tests/contracts/valid").glob("*.json")), ROOT / "architecture-contract.json"],
+    [
+        *sorted((ROOT / "tests/contracts/valid").glob("*.json")),
+        *sorted((ROOT / "docs/architecture/contracts").glob("*.json")),
+        ROOT / "architecture-contract.json",
+    ],
 )
 def test_contract_encoding_round_trips_and_matches_the_schema(path: Path) -> None:
-    contract = parse_contract(json.loads(path.read_bytes()))
+    raw = json.loads(path.read_bytes())
+    reference = raw.get("$schema")
+    if reference is not None and not reference.startswith(("https://", "http://")):
+        linked = (path.parent / reference).resolve()
+        assert linked.is_relative_to(ROOT), (path, reference)
+        assert json.loads(linked.read_bytes()) == SCHEMA
+    contract = parse_contract(raw)
     encoded = json.loads(contract_bytes(contract))
     assert not list(VALIDATOR.iter_errors(encoded))
     assert parse_contract(encoded) == contract

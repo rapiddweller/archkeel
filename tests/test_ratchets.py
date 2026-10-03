@@ -141,7 +141,11 @@ def test_an_unmeasured_call_count_cannot_produce_a_passing_ratio(
     before: int | None, after: int | None
 ) -> None:
     def measured(count: int | None) -> Measurements:
-        return Measurements(RatchetScalars(0, 0, 0, 0, count, 0), 10, "measured")
+        return Measurements(
+            RatchetScalars(0, 0, 0, 0, count, 0),
+            None if count is None else 10,
+            "n/a" if count is None else "measured",
+        )
 
     rows = compare_measurements(measured(before), measured(after))
     assert next(row for row in rows if row[0] == "unresolved_ratio")[3] == "n/a"
@@ -178,6 +182,7 @@ def test_same_unknown_record_with_larger_unresolved_extent_fails() -> None:
     assert unknowns["added"] == []
     assert len(unknowns["changed"]) == 1
     assert _evaluate(delta).failures == (
+        f"guardrail changed unknowns fingerprint {unknowns['changed'][0]}",
         "regression check failed in calls_unresolved: 0->1",
         "regression check failed in unresolved_ratio: 0/2->1/1",
     )

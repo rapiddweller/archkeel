@@ -11,9 +11,9 @@ from test_analyzer import _component
 from test_inside_publication import _rule, _write_project
 from test_recursive_inside_independent_contracts import _commit_tree, _scan_config
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     decode_canonical_model,
     parse_observation,

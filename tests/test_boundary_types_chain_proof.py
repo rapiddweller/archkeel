@@ -10,7 +10,7 @@ import pytest
 from test_analyzer import _component
 from test_boundary_types_non_init_facades import _write_app
 
-from archkeel.analyzer import observe
+from archkeel.cli.observe import observe
 
 SAFE = "\ndef safe(value: str) -> str:\n    return value\n"
 EXPORT = '__all__ = ["constraints", "safe"]\n'

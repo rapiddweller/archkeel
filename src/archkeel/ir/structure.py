@@ -21,6 +21,7 @@ from typing import Literal, TypeAlias
 
 from .interfaces import component_owners, owner_of
 from .model import ComparisonStatus, ComponentOwnership, Observation, int_value, text_value
+from .profiles import profile_for
 
 StructureLevel: TypeAlias = Literal["component", "package"]
 
@@ -35,8 +36,8 @@ class StructureMetric:
     inner_edges: int
     fan_in: int
     fan_out: int
-    calls: int
-    unresolved: int
+    calls: int | None
+    unresolved: int | None
 
 
 def _module_names(observation: Observation) -> tuple[str, ...]:
@@ -64,7 +65,11 @@ def module_edges(observation: Observation) -> tuple[tuple[str, str, int], ...]:
     return tuple(edges)
 
 
-def _calls_by_module(observation: Observation) -> tuple[Counter[str], Counter[str]]:
+def _calls_by_module(
+    observation: Observation,
+) -> tuple[Counter[str] | None, Counter[str] | None]:
+    if "calls_unresolved" in profile_for(observation.analyzer.name).unmeasured:
+        return None, None
     total: Counter[str] = Counter()
     unresolved: Counter[str] = Counter()
     for record in observation.records("calls") or ():
@@ -81,19 +86,25 @@ def _aggregate(
     level: StructureLevel,
     scope_of: dict[str, str],
     edges: tuple[tuple[str, str, int], ...],
-    calls: Counter[str],
-    unresolved: Counter[str],
+    calls: Counter[str] | None,
+    unresolved: Counter[str] | None,
 ) -> tuple[StructureMetric, ...]:
     modules: Counter[str] = Counter()
     inner: Counter[str] = Counter()
     fan_in: Counter[str] = Counter()
     fan_out: Counter[str] = Counter()
-    call_count: Counter[str] = Counter()
-    unresolved_count: Counter[str] = Counter()
+    call_count: Counter[str] | None = Counter() if calls is not None else None
+    unresolved_count: Counter[str] | None = Counter() if unresolved is not None else None
     for module, scope in scope_of.items():
         modules[scope] += 1
-        call_count[scope] += calls[module]
-        unresolved_count[scope] += unresolved[module]
+        if (
+            call_count is not None
+            and unresolved_count is not None
+            and calls is not None
+            and unresolved is not None
+        ):
+            call_count[scope] += calls[module]
+            unresolved_count[scope] += unresolved[module]
     for source, target, _ in edges:
         source_scope = scope_of.get(source)
         target_scope = scope_of.get(target)
@@ -112,8 +123,8 @@ def _aggregate(
             inner_edges=inner[scope],
             fan_in=fan_in[scope],
             fan_out=fan_out[scope],
-            calls=call_count[scope],
-            unresolved=unresolved_count[scope],
+            calls=call_count[scope] if call_count is not None else None,
+            unresolved=unresolved_count[scope] if unresolved_count is not None else None,
         )
         for scope in sorted(modules)
     )

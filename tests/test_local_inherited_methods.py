@@ -11,11 +11,10 @@ from unittest.mock import patch
 import pytest
 from test_boundary_types_non_init_facades import _write_app
 
-from archkeel.analyzer import observe
-from archkeel.analyzer.embedded.report import analyze_snapshot
 from archkeel.check.ports import ScanConfig
 from archkeel.check.ratchets import unknown_positions, unknown_positions_by_rule
 from archkeel.check.report import run_report
+from archkeel.cli.observe import analyze_snapshot, observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation, RunResult
 from archkeel.ir.trace import trace_valid_violations

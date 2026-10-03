@@ -2,11 +2,9 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
-import os
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -16,24 +14,22 @@ FIXTURE = ROOT / "fixtures/E-runtime"
 
 
 def _interpreter(minor: int) -> str:
-    executable = (
-        sys.executable if sys.version_info[:2] == (3, minor) else shutil.which(f"python3.{minor}")
-    )
-    assert executable, f"Python 3.{minor} is required for the runtime fixture"
-    return executable
+    if sys.version_info[:2] == (3, minor):
+        return sys.executable
+    return subprocess.check_output(["uv", "python", "find", f"3.{minor}"], text=True).strip()
 
 
 def _runtime_command(minor: int) -> list[str]:
     executable = _interpreter(minor)
     if executable == sys.executable:
         return [executable]
-    dependencies = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["dependencies"]
     return [
         "uv",
         "run",
         "--isolated",
-        "--no-project",
-        *(argument for dependency in dependencies for argument in ("--with", dependency)),
+        "--project",
+        str(ROOT),
+        "--locked",
         "--python",
         executable,
         "python",
@@ -68,7 +64,6 @@ def _report(minor: int, root: Path) -> tuple[int, dict[str, object]]:
             str(root / "architecture.json"),
         ],
         cwd=ROOT,
-        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
         capture_output=True,
         text=True,
         timeout=60,

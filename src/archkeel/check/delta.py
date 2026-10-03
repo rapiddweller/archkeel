@@ -12,6 +12,7 @@ from typing import Final
 
 from archkeel.ir.codec import value_bytes
 from archkeel.ir.measurements import RatchetError
+from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureDelta,
@@ -33,7 +34,7 @@ from archkeel.ir.model import (
     identity_is_known,
     stable_id,
 )
-from archkeel.ir.profiles import profile_for
+from archkeel.ir.profiles import delta_dimension_applicable, profile_for
 
 from .python_profile import crossing_imports
 from .ratchets import measure_python_ratchets
@@ -41,7 +42,6 @@ from .ratchets import measure_python_ratchets
 # AD-43: the per-counter coverage records stopped being declarable semantic changes,
 # so a candidate that adds one file no longer forces an agent to name five mechanical
 # counter shifts; DeltaCoverage still carries one PASS/FAIL for the aggregate.
-DELTA_SCHEMA_VERSION: Final = "1.3.0"
 SUPPORTED_DIMENSIONS: Final = (
     "violations",
     "dependency_edges",
@@ -413,13 +413,21 @@ def require_comparable_runtime(
         )
     if (
         profile.analyzer == "archkeel-python-analyzer"
-        and baseline.runtime is None
-        and head.runtime is None
         and baseline.producer is None
         and head.producer is None
     ):
         comparable = (
-            baseline.python_version is not None and baseline.python_version == head.python_version
+            baseline.python_version is not None
+            and baseline.python_version == head.python_version
+            and (
+                (baseline.runtime is None and head.runtime is None)
+                or (
+                    baseline.runtime is not None
+                    and baseline.runtime == head.runtime
+                    and baseline.runtime.name == "python"
+                    and baseline.runtime.version == baseline.python_version
+                )
+            )
         )
         detail = (
             f"python_version: {baseline.python_version or 'unknown'} -> "
@@ -439,6 +447,16 @@ def require_comparable_runtime(
         detail = f"runtime: {baseline.runtime or 'unknown'} -> {head.runtime or 'unknown'}"
         recommendation = "Reobserve both revisions with the same explicitly identified runtime."
         message = "Language observations without the same explicit runtime cannot be compared."
+        if (
+            profile.analyzer == "archkeel-python-analyzer"
+            and baseline.runtime is not None
+            and baseline.runtime.name == "python"
+        ):
+            comparable = (
+                comparable
+                and baseline.python_version is not None
+                and baseline.python_version == head.python_version
+            )
         if (
             baseline.producer is None
             or head.producer is None
@@ -493,6 +511,7 @@ def build_architecture_delta(
         and sorted(baseline.source.scope) == sorted(head.source.scope)
     )
     coverage_complete = baseline.coverage.status == "PASS" and head.coverage.status == "PASS"
+    profile = profile_for(head.analyzer.name)
     try:
         if not shared:
             raise RatchetError(
@@ -515,6 +534,12 @@ def build_architecture_delta(
             )
         )
     for dimension in SUPPORTED_DIMENSIONS:
+        if not delta_dimension_applicable(profile, dimension):
+            dimensions.append(DimensionDelta(dimension, "UNKNOWN", None, None))
+            unknowns.append(
+                _unknown(dimension, f"{profile.analyzer} lacks complete {dimension} evidence")
+            )
+            continue
         before = (
             _delta_records(baseline, dimension) if available or dimension == "coverage" else None
         )
@@ -535,8 +560,8 @@ def build_architecture_delta(
                 DimensionDelta(
                     dimension,
                     "UNKNOWN",
-                    0 if before is None else len(before),
-                    0 if after is None else len(after),
+                    None if before is None else len(before),
+                    None if after is None else len(after),
                 )
             )
             continue
@@ -581,7 +606,15 @@ def build_architecture_delta(
         ),
         head.contract,
         DeltaCoverage(
-            "PASS" if not unknown_dimensions and coverage_complete and available else "FAIL",
+            "PASS"
+            if coverage_complete
+            and available
+            and all(
+                item.status == "SUPPORTED"
+                for item in dimensions
+                if delta_dimension_applicable(profile, item.name)
+            )
+            else "FAIL",
             baseline.coverage.status,
             head.coverage.status,
             tuple(item.name for item in dimensions if item.status == "SUPPORTED"),

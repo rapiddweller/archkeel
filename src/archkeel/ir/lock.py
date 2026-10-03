@@ -9,6 +9,7 @@ from .measurements import Measurements
 from .model import Diagnostic, DiagnosticError
 
 LOCK_PATH = "architecture-accepted.json"
+LOCK_SCHEMA_VERSION = "2.0.0"
 
 
 class LockError(DiagnosticError):
