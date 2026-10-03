@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:architecture-ir:common:1.2.0",
-  "title": "Shared ArchitectureIR record and source-evidence definitions",
+  "title": "Shared ArchitectureIR record, source-evidence and decoded observation definitions",
   "$comment": "DESIGN ARTIFACT. Derived from model.py RECORD_FIELDS/EVIDENCE_FIELDS/EvidenceClass. Cross-record references, ID uniqueness, evidence authenticity, canonical byte encoding and metric arithmetic require code.",
   "$ref": "#/$defs/record",
   "$defs": {
@@ -178,6 +178,984 @@
           },
           "excerpt": {
             "const": ""
+          }
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "analyzer",
+        "source",
+        "contract",
+        "coverage",
+        "metrics",
+        "declarations",
+        "scope_observations",
+        "packages",
+        "modules",
+        "symbols",
+        "imports",
+        "dependency_edges",
+        "transitive_paths",
+        "path_observations",
+        "cycles",
+        "calls",
+        "references",
+        "bindings",
+        "typing_signals",
+        "constructs",
+        "contexts",
+        "context_evidence",
+        "violations",
+        "unknowns",
+        "evidence"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.3.0"
+        },
+        "analyzer": {
+          "type": "object",
+          "required": [
+            "name",
+            "version",
+            "code_digest"
+          ],
+          "properties": {
+            "name": {
+              "enum": [
+                "archkeel-python-analyzer",
+                "archkeel-dart-directives"
+              ]
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "code_digest": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "git_head",
+            "dirty",
+            "source_digest",
+            "scope"
+          ],
+          "properties": {
+            "git_head": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|unknown)$"
+            },
+            "dirty": {
+              "type": [
+                "boolean",
+                "string"
+              ],
+              "enum": [
+                true,
+                false,
+                "unknown"
+              ]
+            },
+            "source_digest": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+            },
+            "scope": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "contract": {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "digest",
+            "path"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "coverage": {
+          "type": "object",
+          "required": [
+            "status",
+            "files_discovered",
+            "files_read",
+            "files_parsed",
+            "calls_analyzed",
+            "calls_resolved",
+            "calls_partially_resolved",
+            "calls_unresolved",
+            "ast_coverage_percent",
+            "call_resolution_percent",
+            "failures"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL"
+              ]
+            },
+            "files_discovered": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "files_read": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "files_parsed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "calls_analyzed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "calls_resolved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "calls_partially_resolved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "calls_unresolved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ast_coverage_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "call_resolution_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "failures": {
+              "type": "array",
+              "items": {
+                "allOf": [
+                  {
+                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                  },
+                  {
+                    "not": {
+                      "properties": {
+                        "evidence_class": {
+                          "const": "HYPOTHESIS"
+                        }
+                      },
+                      "required": [
+                        "evidence_class"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "rules": {
+              "enum": [
+                "PASS",
+                "FAIL"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "scope_observations": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "symbols": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "imports": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "allOf": [
+                  {
+                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                  },
+                  {
+                    "not": {
+                      "properties": {
+                        "evidence_class": {
+                          "const": "HYPOTHESIS"
+                        }
+                      },
+                      "required": [
+                        "evidence_class"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "source_module",
+                      "source_package",
+                      "target_module",
+                      "target_package",
+                      "binding",
+                      "symbol",
+                      "relative_level",
+                      "under_type_checking",
+                      "reexport",
+                      "reexport_chain",
+                      "origin_definition",
+                      "symbol_visibility",
+                      "declared_in_all",
+                      "symbols_known"
+                    ],
+                    "properties": {
+                      "source_module": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "source_package": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "target_module": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "target_package": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "binding": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "symbol": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "relative_level": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "under_type_checking": {
+                        "type": "boolean"
+                      },
+                      "reexport": {
+                        "type": "boolean"
+                      },
+                      "reexport_chain": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "origin_definition": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "symbol_visibility": {
+                        "enum": [
+                          "private",
+                          "public_name",
+                          null
+                        ]
+                      },
+                      "declared_in_all": {
+                        "type": "boolean"
+                      },
+                      "source_binding_unique": {
+                        "type": "boolean",
+                        "description": "True when this publisher binding has one module-scope binder; false means a competing binder prevents unique publication evidence."
+                      },
+                      "symbols_known": {
+                        "type": "boolean",
+                        "description": "False when the import names no symbol, so which names cross is unknown (a Dart import without show, AD-97)."
+                      },
+                      "reexport_candidates": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "source_member_binding_static": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "dependency_edges": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "transitive_paths": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "path_observations": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "cycles": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "calls": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "allOf": [
+                  {
+                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                  },
+                  {
+                    "not": {
+                      "properties": {
+                        "evidence_class": {
+                          "const": "HYPOTHESIS"
+                        }
+                      },
+                      "required": [
+                        "evidence_class"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "source_scope",
+                      "source_module",
+                      "expression",
+                      "status",
+                      "targets",
+                      "candidate_count",
+                      "candidates_truncated",
+                      "reason",
+                      "target_evidence_ids"
+                    ],
+                    "properties": {
+                      "source_scope": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "source_module": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "expression": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "enum": [
+                          "resolved",
+                          "partially_resolved",
+                          "unresolved"
+                        ]
+                      },
+                      "targets": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "candidate_count": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "candidates_truncated": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "target_evidence_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "typing_signals": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "constructs": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "contexts": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "context_evidence": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/evidence"
+          }
+        },
+        "python_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[ab][0-9]+|rc[0-9]+)?$",
+          "description": "Actual producer Python version. Historical observations may omit it; comparison requires a known equal version."
+        },
+        "bindings": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "allOf": [
+              {
+                "allOf": [
+                  {
+                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                  },
+                  {
+                    "not": {
+                      "properties": {
+                        "evidence_class": {
+                          "const": "HYPOTHESIS"
+                        }
+                      },
+                      "required": [
+                        "evidence_class"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "owner",
+                      "module",
+                      "name",
+                      "binding"
+                    ],
+                    "properties": {
+                      "owner": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "module": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "binding": {
+                        "enum": [
+                          "parameter",
+                          "local"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "references": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "allOf": [
+              {
+                "allOf": [
+                  {
+                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                  },
+                  {
+                    "not": {
+                      "properties": {
+                        "evidence_class": {
+                          "const": "HYPOTHESIS"
+                        }
+                      },
+                      "required": [
+                        "evidence_class"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "source_scope",
+                      "source_module",
+                      "expression",
+                      "status",
+                      "targets",
+                      "use"
+                    ],
+                    "properties": {
+                      "source_scope": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "source_module": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "expression": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "enum": [
+                          "resolved",
+                          "partially_resolved"
+                        ]
+                      },
+                      "targets": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "use": {
+                        "enum": [
+                          "value",
+                          "attribute"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "analyzer": {
+            "properties": {
+              "name": {
+                "const": "archkeel-dart-directives"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "symbols": {
+            "type": "null"
+          },
+          "references": {
+            "type": "null"
+          },
+          "bindings": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "symbols": {
+            "type": "array"
+          },
+          "references": {
+            "type": "array"
+          },
+          "bindings": {
+            "type": "array"
           }
         }
       }
