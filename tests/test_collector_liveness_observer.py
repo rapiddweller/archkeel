@@ -16,24 +16,29 @@ from archkeel.ir.protocol import CollectionError
 
 
 class _ProcStat:
-    def __init__(self, content: str | None) -> None:
+    def __init__(self, content: str | None, read_error: type[OSError]) -> None:
         self.content = content
+        self.read_error = read_error
 
     def exists(self) -> bool:
         return True
 
     def read_text(self) -> str:
         if self.content is None:
-            raise FileNotFoundError("process exited before stat read")
+            raise self.read_error("process exited before stat read")
         return self.content
 
 
-def _linux_stat(monkeypatch: pytest.MonkeyPatch, content: str | None) -> None:
+def _linux_stat(
+    monkeypatch: pytest.MonkeyPatch,
+    content: str | None,
+    read_error: type[OSError] = FileNotFoundError,
+) -> None:
     original_path: type[Path] = acceptance.Path
 
     def path(value: str) -> Path | _ProcStat:
         if str(value) == "/proc/424242/stat":
-            return _ProcStat(content)
+            return _ProcStat(content, read_error)
         return original_path(value)
 
     monkeypatch.setattr(acceptance, "Path", path)
@@ -52,6 +57,14 @@ def test_live_linux_process_states_remain_live(monkeypatch: pytest.MonkeyPatch, 
     _linux_stat(monkeypatch, f"424242 (command name with (parens)) {state} 1 2 3")
 
     assert acceptance._alive(424242) is True
+
+
+def test_proc_read_process_lookup_error_after_kill_zero_is_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _linux_stat(monkeypatch, None, ProcessLookupError)
+
+    assert acceptance._alive(424242) is False
 
 
 def test_linux_zombie_with_spaces_and_parentheses_is_stopped(
