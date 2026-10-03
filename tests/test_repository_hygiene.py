@@ -41,6 +41,15 @@ SOURCES = tuple(
 )
 LONG_FUNCTION_LINES = 80
 ALLOWED_LONG_FUNCTIONS = {
+    ("src/archkeel/check/evaluation/rules.py::_direct_generic_candidate_types"): (
+        "The inherited candidate walk preserves uncertainty without claiming signature closure."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_inherited_facade_types"): (
+        "One bounded chain walk keeps overrides and uncertainty on the same facade."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_public_api_base"): (
+        "One base proof keeps stable bindings, framework roots and generic substitutions together."
+    ),
     ("src/archkeel/analyzer/python/collect.py::collect"): (
         "One deterministic collector pass shares the parsed and resolved project."
     ),
@@ -67,9 +76,6 @@ ALLOWED_LONG_FUNCTIONS = {
     ),
     ("src/archkeel/check/evaluation/rules.py::_boundary_types_violations"): (
         "One position pass applies the same rule and allowance policy to every facade."
-    ),
-    ("src/archkeel/check/evaluation/rules.py::_inherited_generic_facade_types"): (
-        "One proof walk binds base TypeVars and checks inherited signature positions."
     ),
     ("src/archkeel/check/evaluation/rules.py::_scoped_facade_signature_types"): (
         "One nested pass ties inherited types to their contract mount and publisher."
