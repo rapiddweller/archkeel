@@ -3091,8 +3091,9 @@ def _claim_body(claim: SymbolReferences, observation: Observation) -> str:
       import inside the scan scope; {claim.exempt} were set aside as runtime dispatch or declared
       interface. A consumer outside the scan scope, such as a test, is invisible here, and {share},
       so these are candidates for review, never a verdict.</p>
+      <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Symbol</th><th>Kind</th><th>Visibility</th></tr>
-      </thead><tbody>{rows}</tbody></table>
+      </thead><tbody>{rows}</tbody></table></div>
 """
 
 
@@ -3116,8 +3117,9 @@ def _binding_claim_body(claim: BindingReads) -> str:
     return f"""
       <p>Code in these functions does not read the listed names ({len(claim.candidates)}). A
       parameter may still be required by an interface; review before removing it.</p>
+      <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Function</th><th>Name</th><th>Binding</th></tr>
-      </thead><tbody>{rows}</tbody></table>
+      </thead><tbody>{rows}</tbody></table></div>
 """
 
 
@@ -3148,8 +3150,9 @@ def _repetition_claim_body(claim: OwnedLogic) -> str:
       function inside it, names and literals aside. Only exact structural twins of at least
       {MINIMUM_SHAPE_NODES} nodes count, so a shape the language forces is not reported. What the
       repetition means is the architect's to decide, never a verdict.</p>
+      <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Outside</th><th>Repeats</th><th>Declared owner</th>
-      <th class="numeric">Nodes</th></tr></thead><tbody>{rows}</tbody></table>
+      <th class="numeric">Nodes</th></tr></thead><tbody>{rows}</tbody></table></div>
 """
 
 
@@ -3175,8 +3178,9 @@ def _fanin_claim_body(claim: TypeFanin) -> str:
       methods crossing a component boundary name a type passed across {MINIMUM_CROSSINGS} or
       more distinct component pairs. A broad context or a service locator shows up as a wide
       count here; what it means is the architect's to decide, never a verdict.</p>
+      <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Type</th>
-      <th class="numeric">Component pairs</th></tr></thead><tbody>{rows}</tbody></table>
+      <th class="numeric">Component pairs</th></tr></thead><tbody>{rows}</tbody></table></div>
 """
 
 
@@ -3200,8 +3204,9 @@ def _inside_claim_body(claim: InsideSizes) -> str:
       <p>{len(claim.candidates)} components hold more modules than the contract has components,
       or more edges among their modules than it has component edges. {scale} Naming a size is
       evidence; giving one of them a level of its own is a decision (AD-20, AD-33).</p>
+      <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Component</th><th>Modules</th>
-      <th>Edges inside</th></tr></thead><tbody>{rows}</tbody></table>
+      <th>Edges inside</th></tr></thead><tbody>{rows}</tbody></table></div>
 """
 
 
@@ -3243,9 +3248,10 @@ def _structure(observation: Observation) -> str:
       <p>Measured per component and per package: how many modules a scope holds, how many
       imports stay inside it, how many cross its edge, and how many of its calls the analyzer
       could not resolve. These numbers are shown, never gated on.</p>
+      <div class="table-wrap">
       <table class="data-table"><thead><tr><th>Scope</th><th>Level</th><th>Modules</th>
       <th>Inside</th><th>Incoming</th><th>Outgoing</th><th>Unresolved calls</th></tr></thead>
-      <tbody>{rows}</tbody></table>
+      <tbody>{rows}</tbody></table></div>
     </section>
 """
 

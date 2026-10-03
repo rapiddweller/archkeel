@@ -98,7 +98,7 @@ plugin-directory:
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
 report-browser:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_actual_target_diff_acceptance.py tests/test_diff_scope_acceptance.py tests/test_target_diagram_acceptance.py tests/test_target_readability.py tests/test_target_hierarchy_independent_acceptance.py tests/test_consistent_explorer_acceptance.py tests/test_compact_report_headers.py tests/test_frame_edge_semantics.py tests/test_exact_module_target_leaf.py
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -q tests/test_actual_target_diff_acceptance.py tests/test_diff_scope_acceptance.py tests/test_target_diagram_acceptance.py tests/test_target_readability.py tests/test_target_hierarchy_independent_acceptance.py tests/test_consistent_explorer_acceptance.py tests/test_compact_report_headers.py tests/test_frame_edge_semantics.py tests/test_exact_module_target_leaf.py tests/test_secondary_table_acceptance.py
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.
