@@ -162,3 +162,29 @@ def test_acceptance_fixture_cleanup_tolerates_exit_before_sigkill(
     acceptance.test_collection_stops_owned_descendant_for_every_completion(
         tmp_path, "malformed", "protocol_error"
     )
+
+
+def test_timeout_stops_descendant_started_after_100ms(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_factory = process_tests._collector
+
+    def delayed_collector(code: str, **limits: float | int):
+        return original_factory("import time; time.sleep(0.15)\n" + code, **limits)
+
+    monkeypatch.setattr(process_tests, "_collector", delayed_collector)
+
+    results: list[object] = []
+    original_collect = acceptance.ProcessCollector.collect
+
+    def record_result(self, request):
+        result = original_collect(self, request)
+        results.append(result)
+        return result
+
+    monkeypatch.setattr(acceptance.ProcessCollector, "collect", record_result)
+    process_tests.test_failure_terminates_collector_descendants(tmp_path, monkeypatch, "timeout")
+
+    assert len(results) == 1
+    assert isinstance(results[0], CollectionError)
+    assert results[0].kind == "timeout"
