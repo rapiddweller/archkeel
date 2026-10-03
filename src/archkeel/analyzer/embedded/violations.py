@@ -2981,18 +2981,19 @@ def facade_signature_types(
             if has_proven_facade and found is not None
             else []
         )
-        if has_proven_facade and item["kind"] == "class":
-            inherited_types, _, _ = _inherited_facade_types(
-                item,
-                symbols,
-                methods_by_parent,
-                contract,
-                exports_by_module,
-                imports_by_binding,
-                classes_by_location,
-                incoming_imports=imports,
-            )
-            names = sorted(set(names) | set(inherited_types))
+        if found is not None and item["kind"] == "class":
+            if has_proven_facade:
+                inherited_types, _, _ = _inherited_facade_types(
+                    item,
+                    symbols,
+                    methods_by_parent,
+                    contract,
+                    exports_by_module,
+                    imports_by_binding,
+                    classes_by_location,
+                    incoming_imports=imports,
+                )
+                names = sorted(set(names) | set(inherited_types))
             candidates = _inherited_generic_candidate_types(
                 item,
                 classes_by_qualified_name,
@@ -3002,7 +3003,7 @@ def facade_signature_types(
                 imports_by_binding,
                 classes_by_location,
             )
-            if candidates and found is not None:
+            if candidates:
                 raw_candidates = (
                     item["data"]["facade_type_candidates_by_publisher"]
                     if "facade_type_candidates_by_publisher" in item["data"]
@@ -3010,8 +3011,6 @@ def facade_signature_types(
                 )
                 by_publisher = dict(raw_candidates)
                 for publisher in found[4]:
-                    if publisher[3]:
-                        continue
                     by_publisher[publisher[0]] = sorted(
                         set(by_publisher[publisher[0]] if publisher[0] in by_publisher else ())
                         | set(candidates)
@@ -3067,31 +3066,35 @@ def _scoped_facade_signature_types(
             )
             if found is None:
                 continue
-            publishers = [
-                entry for entry in found[4] if not entry[3] and entry[0] in source_modules
-            ]
+            publishers = [entry for entry in found[4] if entry[0] in source_modules]
             if not publishers:
                 continue
-            names = _resolved_position_types(
-                found[3],
-                found[2],
-                contract,
-                exports_by_module,
-                imports_by_binding,
-                classes_by_location,
-            )
-            if item["kind"] == "class":
-                inherited_types, _, _ = _inherited_facade_types(
-                    item,
-                    symbols,
-                    methods_by_parent,
+            has_proven_facade = any(not entry[3] for entry in publishers)
+            names = (
+                _resolved_position_types(
+                    found[3],
+                    found[2],
                     contract,
                     exports_by_module,
                     imports_by_binding,
                     classes_by_location,
-                    incoming_imports=imports,
                 )
-                names = sorted(set(names) | set(inherited_types))
+                if has_proven_facade
+                else []
+            )
+            if item["kind"] == "class":
+                if has_proven_facade:
+                    inherited_types, _, _ = _inherited_facade_types(
+                        item,
+                        symbols,
+                        methods_by_parent,
+                        contract,
+                        exports_by_module,
+                        imports_by_binding,
+                        classes_by_location,
+                        incoming_imports=imports,
+                    )
+                    names = sorted(set(names) | set(inherited_types))
                 candidates = _inherited_generic_candidate_types(
                     item,
                     classes_by_qualified_name,
@@ -3127,7 +3130,10 @@ def _scoped_facade_signature_types(
             if not names:
                 continue
             for entry in publishers:
-                scoped_types[entry[0]] = sorted(set(scoped_types.get(entry[0], ())) | set(names))
+                if not entry[3]:
+                    scoped_types[entry[0]] = sorted(
+                        set(scoped_types.get(entry[0], ())) | set(names)
+                    )
         if scoped_types:
             by_mount[scope_id] = scoped_types
         if not by_mount:
