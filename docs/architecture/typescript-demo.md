@@ -57,3 +57,9 @@ Measurements checked independently:
 Additional acceptance covers import forms, path-identity collisions, production
 exclusions, runtime/declaration separation and non-execution of project plugins
 and scripts. These are source-analysis checks, not evidence of shop runtime behavior.
+
+The additional committed revision case uses a clean catalog overlay with explicit
+TypeScript and JavaScript runtime inputs. A JavaScript-only comment changes the
+source digest while the graph stays unchanged. The accepted lock uses schema 2.0.0;
+the check reads both committed snapshots despite a poisoned working tree and
+repeats identically. Host ordering and approval are simulated fixture evidence.

@@ -78,3 +78,7 @@ and negative fixtures; unsupported capabilities retain null/UNKNOWN. The shared
 [hidden-loader](../../fixtures/typescript-hidden-loaders.json) catalogs cover
 compiler substitution, unproved runtime targets and indirect loaders through
 [CLI acceptance](../../tests/test_typescript_init_acceptance.py).
+
+`make typescript-adapter` runs the package checks above.
+`make demo-typescript OUTPUT=build/typescript-demo` replays the 32-variant catalog
+and a committed revision check. See [the demo](typescript-demo.md).

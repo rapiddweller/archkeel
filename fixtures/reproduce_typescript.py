@@ -11,19 +11,28 @@ import os
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
+from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
-from archkeel.ir.codec import decode_canonical_model, parse_observation, result_bytes
+from archkeel.ir.codec import (
+    canonical_report_bytes,
+    decode_canonical_model,
+    parse_observation,
+    result_bytes,
+)
+from archkeel.ir.digest import package_digest
+from archkeel.ir.lock import LOCK_SCHEMA_VERSION
 from archkeel.ir.model import Observation, RunResult
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.demo_catalog_support import Variant, apply_overlay
-from fixtures.demo_catalog_typescript import VARIANTS
+from fixtures.demo_catalog_typescript import VARIANTS, appended
 
 ADAPTER = Path(__file__).resolve().parents[1] / "packages/typescript-adapter/dist/entry.js"
 
@@ -92,6 +101,147 @@ def run_variant(workspace: Path, variant: Variant, adapter: Path = ADAPTER) -> O
         (root / "architecture.json").write_bytes(artifact)
         observation = parse_observation(decode_canonical_model(json.loads(artifact)))
     return Outcome(variant, validated, report, observation)
+
+
+def git(root: Path, *args: str) -> str:
+    env = dict(
+        os.environ,
+        GIT_AUTHOR_DATE="2026-10-03T00:00:00Z",
+        GIT_COMMITTER_DATE="2026-10-03T00:00:00Z",
+    )
+    return subprocess.check_output(
+        ["git", "-c", "commit.gpgsign=false", *args],
+        cwd=root,
+        env=env,
+        stderr=subprocess.PIPE,
+        text=True,
+    ).strip()
+
+
+def json_file(path: Path, value: object) -> bytes:
+    payload = (json.dumps(value, sort_keys=True, indent=2) + "\n").encode()
+    path.write_bytes(payload)
+    return payload
+
+
+def command(root: Path, output: Path, label: str, *args: str) -> dict:
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("CI_")}
+    result = subprocess.run(
+        [sys.executable, "-m", "archkeel.cli", *args, "--root", str(root), "--json"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    (output / f"{label}.stdout.json").write_text(result.stdout)
+    (output / f"{label}.stderr").write_text(result.stderr)
+    assert result.stdout, (args, result.returncode, result.stderr)
+    payload = json.loads(result.stdout)
+    assert payload["exit_code"] == result.returncode
+    return payload
+
+
+def check_revisions(workspace: Path, output: Path, adapter: Path = ADAPTER) -> dict:
+    root = repository(
+        workspace,
+        replace(
+            VARIANTS[0],
+            id="typescript-revisions",
+            files={
+                "src/data/local.ts": appended("src/data/local.ts", "\nimport './runtime.js';\n"),
+                "src/data/runtime.ts": "export const value = 1;\n",
+                "src/data/runtime.js": (
+                    "throw Error('must not execute'); const fs = require('node:fs');\n"
+                ),
+            },
+        ),
+        adapter,
+    )
+    path = output / "accepted.json"
+    reported = command(root, output, "accepted-report", "report", "--output", str(path))
+    assert reported["declared_rules"] == "PASS", reported
+    assert reported["measurements"]["calls_total"] is None
+    assert reported["measurements"]["scalars"]["calls_unresolved"] is None
+    accepted = parse_observation(decode_canonical_model(json.loads(path.read_bytes())))
+    lock_bytes = json_file(
+        root / "architecture-accepted.json",
+        {
+            "schema_version": LOCK_SCHEMA_VERSION,
+            "accepted_commit": git(root, "rev-parse", "HEAD"),
+            "observation_digest": sha256_bytes(canonical_report_bytes(accepted)),
+            "config_digest": sha256_bytes((root / "archkeel.toml").read_bytes()),
+            "checker_digest": package_digest(),
+            "measurements": asdict(measure_python_ratchets(accepted)),
+            "approval_ref": "fixture-only:simulated-approval",
+        },
+    )
+    git(root, "add", "architecture-accepted.json")
+    git(root, "commit", "-qm", "accepted lock")
+    baseline = git(root, "rev-parse", "HEAD")
+    git(root, "update-ref", "refs/remotes/origin/main", baseline)
+    expected_bytes = json_file(
+        root / "expectation.json",
+        {
+            "schema_version": EXPECTATION_SCHEMA_VERSION,
+            "evidence_class": "HYPOTHESIS",
+            "accepted_digest": sha256_bytes(lock_bytes),
+            "baseline_commit": baseline,
+            "checker_digest": package_digest(),
+            "analyzer_digest": accepted.analyzer.code_digest,
+            "contract_digest": accepted.contract.digest,
+            "baseline_digest": sha256_bytes(canonical_report_bytes(accepted)),
+            "selected_changes": [],
+            "guardrails": dict.fromkeys(GUARDRAIL_KEYS, True),
+        },
+    )
+    git(root, "add", "expectation.json")
+    git(root, "commit", "-qm", "declare no architecture change")
+    expectation = git(root, "rev-parse", "HEAD")
+    runtime = root / "src/data/runtime.js"
+    runtime.write_text(runtime.read_text() + "// Runtime input changed; import graph unchanged.\n")
+    git(root, "add", "src/data/runtime.js")
+    git(root, "commit", "-qm", "change runtime input")
+    head = git(root, "rev-parse", "HEAD")
+    git(root, "update-ref", "refs/remotes/origin/candidate", head)
+    host = output / "host-records.json"
+    json_file(
+        host,
+        [
+            {
+                "sha": expectation,
+                "event": "expectation_published",
+                "timestamp": "2026-10-03T00:00:00Z",
+            },
+            {"sha": head, "event": "candidate_submitted", "timestamp": "2026-10-03T00:01:00Z"},
+        ],
+    )
+    args = (
+        "check",
+        "--baseline",
+        baseline,
+        "--expectation-commit",
+        expectation,
+        "--head",
+        head,
+        "--expected",
+        "expectation.json",
+        "--expected-digest",
+        sha256_bytes(expected_bytes),
+        "--branch",
+        "candidate",
+        "--accepted-branch",
+        "main",
+        "--host-records",
+        str(host),
+    )
+    # Deliberately poison the working tree: the check must use both committed snapshots.
+    runtime.write_text("import './not-in-either-revision.js';\n")
+    result = command(root, output, "revisions-check", *args, "--output", str(output / "check.json"))
+    assert result["exit_code"] == 0, result
+    assert result["delta"]["baseline"]["source_digest"] != result["delta"]["head"]["source_digest"]
+    repeat = command(root, output, "revisions-repeat", *args)
+    assert repeat == result
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -184,6 +334,8 @@ def main(argv: list[str] | None = None) -> int:
                         for name, value in result["measurements"]["scalars"].items()
                     )
                 )
+        checked = check_revisions(output, output, args.adapter)
+        print(f"typescript-revisions: {checked['expectation_fulfilled']} (simulated host ordering)")
         if args.output:
             print(f"Artifacts: {output.resolve()}")
     print("Symbol, call, typing and private-use semantics are unmeasured in this profile.")

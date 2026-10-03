@@ -12,7 +12,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-from archkeel.ir.codec import observation_payload
+from archkeel.ir.codec import decode_canonical_model, observation_payload, parse_observation
 from archkeel.ir.measurements import (
     SCALARS,
     Measurements,
@@ -31,7 +31,7 @@ from fixtures.demo_catalog_typescript import (
     UNMEASURED,
     VARIANTS,
 )
-from fixtures.reproduce_typescript import ADAPTER, Outcome, run_variant
+from fixtures.reproduce_typescript import ADAPTER, Outcome, check_revisions, run_variant
 
 
 def test_catalog_exhausts_rule_and_measurement_vocabulary() -> None:
@@ -428,3 +428,29 @@ def test_incomplete_scan_keeps_known_violations_and_unknown_evidence(
     } == {"COMPONENT-CYCLES", "DOMAIN-NO-DATA", "MODULE-CYCLES", "REQUIRES"}
     assert outcome.report.exit_code == 2
     assert outcome.report.measurements is None
+
+
+def test_committed_js_only_revision_check(tmp_path: Path) -> None:
+    output = tmp_path
+    checked = check_revisions(output, output)
+    assert checked["git_predicate"] == checked["host_order"] == "PASS"
+    assert checked["observation_complete"] == checked["expectation_fulfilled"] == "PASS"
+    assert checked["measurements"]["calls_total"] is None
+    assert checked["measurements"]["scalars"]["calls_unresolved"] is None
+    assert checked["measurements"]["scalars"]["typing_positions"] is None
+    assert checked["measurements"]["scalars"]["private_crossings"] is None
+    assert (
+        checked["delta"]["baseline"]["source_digest"] != checked["delta"]["head"]["source_digest"]
+    )
+    dimensions = {name: item["status"] for name, item in checked["delta"]["dimensions"].items()}
+    assert dimensions["dependency_edges"] == dimensions["cycles"] == "SUPPORTED"
+    assert dimensions["private_crossings"] == dimensions["typing_signals"] == "UNKNOWN"
+    accepted = parse_observation(
+        decode_canonical_model(json.loads((output / "accepted.json").read_bytes()))
+    )
+    assert accepted.coverage.calls_analyzed is None
+    assert accepted.records("constructs") is None
+    assert accepted.records("symbols") is None
+    assert json.loads((output / "revisions-check.stdout.json").read_bytes()) == json.loads(
+        (output / "revisions-repeat.stdout.json").read_bytes()
+    )

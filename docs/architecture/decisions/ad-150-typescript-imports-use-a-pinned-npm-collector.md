@@ -17,5 +17,6 @@ coverage; unread runtime bytes are not claimed in the digest. Type-only aliases
 retain compiler resolution. Unavailable call, type, construct and private-use
 measurements stay null.
 
-The package has its own source contract and a locked package verification Make
-entry point. CI and publication require separate proof. See [the decision](../typescript-foundation-proposal.md).
+The package has its own source contract. Locked package verification and the CLI
+rule/revision demo have Make entry points. CI and publication require separate
+proof. See [the decision](../typescript-foundation-proposal.md).

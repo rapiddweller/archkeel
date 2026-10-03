@@ -15,3 +15,4 @@ does not claim it.
 The adapter test covers indirect forms and a direct positive control.
 `fixtures/typescript-hidden-loaders.json` and the CLI init acceptance test prove
 that Core retains UNKNOWN and unavailable measurements instead of dependency absence.
+The `typescript-indirect-require` demo case also proves UNKNOWN and exit 2.
