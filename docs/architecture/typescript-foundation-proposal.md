@@ -12,6 +12,10 @@ in separate PRs. Preserve Python/Dart behavior and the existing extension gate.
 
 This is a design PR. TypeScript support is not implemented or advertised.
 
+The [language adapter target](language-adapter-target.md) defines concrete paths,
+internal IR ownership, proposed interfaces and separate ArchKeel draft contracts
+for owner approval before implementation.
+
 ## Decision requested
 
 **Recommended:** a Node analyzer using an exactly pinned TypeScript Compiler

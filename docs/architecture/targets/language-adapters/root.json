@@ -1,0 +1,322 @@
+{
+  "$schema": "../../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-API",
+      "label": "api",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.api"
+      ],
+      "namespace": "archkeel.api",
+      "requires": [
+        {
+          "component": "ir",
+          "through": [
+            "archkeel.ir.baseline",
+            "archkeel.ir.codec",
+            "archkeel.ir.model"
+          ],
+          "rationale": "Read one architecture.json report from disk and hand its bytes to ir's codec and baseline derivations; api decodes nothing itself."
+        }
+      ],
+      "responsibilities": [
+        "The declared external contract: the named surface a consumer outside this repository may import, and the one place that reads its bytes.",
+        "Quality goal: stable across every internal refactor of ir."
+      ],
+      "forbidden_responsibilities": [
+        "Decoding IR bytes into typed values, which ir.codec still owns."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-IR",
+      "label": "ir",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.ir"
+      ],
+      "namespace": "archkeel.ir",
+      "public": [
+        "archkeel.ir.baseline",
+        "archkeel.ir.bindings",
+        "archkeel.ir.codec",
+        "archkeel.ir.decisions",
+        "archkeel.ir.digest",
+        "archkeel.ir.duplication",
+        "archkeel.ir.host_records",
+        "archkeel.ir.interfaces",
+        "archkeel.ir.levels:inside_levels",
+        "archkeel.ir.lock",
+        "archkeel.ir.measurements",
+        "archkeel.ir.model",
+        "archkeel.ir.profiles",
+        "archkeel.ir.references",
+        "archkeel.ir.renames:Renamed",
+        "archkeel.ir.renames:module_layouts",
+        "archkeel.ir.renames:observed_names",
+        "archkeel.ir.renames:renames_since",
+        "archkeel.ir.structure",
+        "archkeel.ir.trace",
+        "archkeel.ir.type_fanin",
+        "archkeel.ir.widening"
+      ],
+      "responsibilities": [
+        "Own pure source-fact protocol, governance models and derivations."
+      ],
+      "forbidden_responsibilities": [
+        "Source parsing, process or filesystem I/O and workflow orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "inside": "docs/architecture/targets/language-adapters/ir.json",
+      "planned": [
+        "archkeel.ir.facts:SourceFacts",
+        "archkeel.ir.facts:Capabilities",
+        "archkeel.ir.facts:Coverage",
+        "archkeel.ir.facts:FactSection",
+        "archkeel.ir.facts:ImportTarget",
+        "archkeel.ir.protocol:CollectionRequest",
+        "archkeel.ir.protocol:CollectionResponse",
+        "archkeel.ir.facts_codec:decode_request",
+        "archkeel.ir.facts_codec:encode_request",
+        "archkeel.ir.facts_codec:decode_response",
+        "archkeel.ir.facts_codec:encode_response",
+        "archkeel.ir.graph:strongly_connected_components",
+        "archkeel.ir.graph:shortest_path",
+        "archkeel.ir.graph:transitive_paths",
+        "archkeel.ir.graph:condensation_ranks"
+      ]
+    },
+    {
+      "id": "COMP-CHECK",
+      "label": "check",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.check"
+      ],
+      "namespace": "archkeel.check",
+      "requires": [
+        {
+          "component": "ir",
+          "rationale": "Read source facts and publish governance evidence.",
+          "decided_by": "agent"
+        }
+      ],
+      "inside": "docs/architecture/targets/language-adapters/check.json",
+      "public": [
+        "archkeel.check.git:read_blob",
+        "archkeel.check.onboarding:run_init",
+        "archkeel.check.ports:Analyzer",
+        "archkeel.check.ports:FilesToWrite",
+        "archkeel.check.ports:Host",
+        "archkeel.check.ports:ScanConfig",
+        "archkeel.check.report",
+        "archkeel.check.run:run_check",
+        "archkeel.check.snapshot:resolve_commit",
+        "archkeel.check.validation:invalid_result",
+        "archkeel.check.validation:run_validate"
+      ],
+      "responsibilities": [
+        "Own observation assembly, rule evaluation, regression and workflows."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "planned": [
+        "archkeel.check.ports:SourceCollector",
+        "archkeel.check.observation:assemble"
+      ]
+    },
+    {
+      "id": "COMP-CLI",
+      "label": "cli",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.cli"
+      ],
+      "namespace": "archkeel.cli",
+      "requires": [
+        {
+          "component": "analyzer",
+          "rationale": "Supply the concrete source analyzer to report and check workflows."
+        },
+        {
+          "component": "check",
+          "rationale": "Invoke deterministic report and check services."
+        },
+        {
+          "component": "host",
+          "rationale": "Supply the concrete host-record loader to checks."
+        },
+        {
+          "component": "render",
+          "rationale": "Project typed results and write presentation artifacts."
+        }
+      ],
+      "responsibilities": [
+        "Command arguments and archkeel.toml configuration.",
+        "Quality goal: a thin composition root."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-HOST",
+      "label": "host",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.host"
+      ],
+      "namespace": "archkeel.host",
+      "requires": [
+        {
+          "component": "ir",
+          "rationale": "Construct validated host-record values."
+        }
+      ],
+      "public": [
+        "archkeel.host.gitlab"
+      ],
+      "responsibilities": [
+        "GitLab host records with SHA, event and timestamp.",
+        "Quality goal: replaceable."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-ANALYZER",
+      "label": "analyzer",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer"
+      ],
+      "namespace": "archkeel.analyzer",
+      "requires": [
+        {
+          "component": "ir",
+          "rationale": "Use only the shared source-fact protocol.",
+          "decided_by": "agent",
+          "through": [
+            "archkeel.ir.facts",
+            "archkeel.ir.protocol",
+            "archkeel.ir.facts_codec",
+            "archkeel.ir.profiles"
+          ]
+        }
+      ],
+      "inside": "docs/architecture/targets/language-adapters/analyzer.json",
+      "public": [],
+      "responsibilities": [
+        "Run a configured language process; publish validated source facts."
+      ],
+      "forbidden_responsibilities": [
+        "Rule evaluation, baselines, ownership, verdicts and imports of sibling language adapters."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "planned": [
+        "archkeel.analyzer:collect"
+      ]
+    },
+    {
+      "id": "COMP-RENDER",
+      "label": "render",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.render"
+      ],
+      "namespace": "archkeel.render",
+      "requires": [
+        {
+          "component": "ir",
+          "rationale": "Render typed evidence without importing policy implementations."
+        }
+      ],
+      "public": [
+        "archkeel.render.html",
+        "archkeel.render.summary:Badge",
+        "archkeel.render.summary:VerdictRow",
+        "archkeel.render.summary:check_summary",
+        "archkeel.render.summary:init_summary",
+        "archkeel.render.summary:Summary",
+        "archkeel.render.summary:report_summary",
+        "archkeel.render.terminal"
+      ],
+      "responsibilities": [
+        "Deterministic HTML and terminal projections of typed Archkeel evidence.",
+        "Quality goal: replaceable."
+      ],
+      "forbidden_responsibilities": [
+        "Architecture decisions and persistence."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ]
+}

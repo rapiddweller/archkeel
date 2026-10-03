@@ -1,0 +1,126 @@
+{
+  "$schema": "../../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "TARGET-ENTRY",
+      "label": "entry",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.dart.entry",
+        "archkeel.analyzer.dart.collect"
+      ],
+      "responsibilities": [
+        "Serve the protocol and collect the declared Dart profile."
+      ],
+      "forbidden_responsibilities": [
+        "Architecture policy."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "source",
+          "rationale": "Read directive IR and resolve library URIs.",
+          "decided_by": "agent"
+        }
+      ],
+      "planned": [
+        "archkeel.analyzer.dart.entry:main"
+      ],
+      "public": []
+    },
+    {
+      "id": "TARGET-SOURCE",
+      "label": "source",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.dart.lexer",
+        "archkeel.analyzer.dart.directives",
+        "archkeel.analyzer.dart.resolve"
+      ],
+      "responsibilities": [
+        "Own directive IR, lexer and URI resolution."
+      ],
+      "forbidden_responsibilities": [
+        "Full-Dart syntax claims and governance evaluation."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "planned": [
+        "archkeel.analyzer.dart.directives:DirectiveModel",
+        "archkeel.analyzer.dart.directives:parse_directives",
+        "archkeel.analyzer.dart.resolve:ResolvedLibraries",
+        "archkeel.analyzer.dart.resolve:resolve_libraries"
+      ],
+      "public": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.analyzer.dart"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/archkeel/analyzer/dart/entry.py",
+        "responsibility": "Serve the shared process protocol."
+      },
+      {
+        "path": "src/archkeel/analyzer/dart/collect.py",
+        "responsibility": "Gather directive facts with explicit coverage."
+      },
+      {
+        "path": "src/archkeel/analyzer/dart/lexer.py",
+        "responsibility": "Read Dart directive tokens."
+      },
+      {
+        "path": "src/archkeel/analyzer/dart/directives.py",
+        "responsibility": "Own the language-local DirectiveModel."
+      },
+      {
+        "path": "src/archkeel/analyzer/dart/resolve.py",
+        "responsibility": "Resolve Dart library and package URIs."
+      }
+    ]
+  }
+}
