@@ -957,12 +957,10 @@ def interface_diagnostics(
     diagnostics = []
     for index, component in enumerate(contract.components):
         records = imports_by_target.get(component.label, [])
-        facade_publishers: set[str] = set()
-        for record in observation.records("symbols") or ():
-            module = record.data.get("module")
-            if isinstance(module, str) and component_owns_module(component, module):
-                facade_publishers.add(module)
-        facade_candidates = _inherited_facade_candidates(observation, frozenset(facade_publishers))
+        facade_publishers = frozenset(
+            module for module in modules if component_owns_module(component, module)
+        )
+        facade_candidates = _inherited_facade_candidates(observation, facade_publishers)
         if component.public is None:
             if records:
                 diagnostics.append(

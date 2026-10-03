@@ -183,6 +183,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-144 | [Diff retains navigation scope](decisions/ad-144-diff-retains-navigation-scope.md) |
 | AD-145 | [Local inherited methods use the existing base proof](decisions/ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
 | AD-146 | [Analyzer identity selects the observation profile](decisions/ad-146-analyzer-identity-selects-observation-profile.md) |
+| AD-149 | [Uncertain publication retains inherited type candidates](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
 
 ## Allowed dependencies
 

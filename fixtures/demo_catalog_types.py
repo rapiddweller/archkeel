@@ -997,6 +997,39 @@ _INHERITED_GENERIC_AMBIGUOUS = Variant(
 )
 
 
+def _uncertain_inherited_reexport() -> dict[str, str]:
+    files = _inherited_generic_service("T")
+    contract = json.loads(files["architecture-contract.json"])
+    app = next(item for item in contract["components"] if item["label"] == "app")
+    app["public"] = [
+        "shop.app.facade:Child" if entry == "shop.app.service:Child" else entry
+        for entry in app["public"]
+    ]
+    files["architecture-contract.json"] = json.dumps(contract, indent=2) + "\n"
+    files["shop/app/facade.py"] = (
+        HEADER + "from shop.app.service import Child\n__all__ = ['Child']\n"
+    )
+    files["shop/cli/main.py"] = files["shop/cli/main.py"].replace(
+        "from shop.app.service import Child", "from shop.app.facade import Child"
+    )
+    files["shop/cli/inherited_consumer.py"] = (
+        HEADER + "from shop.app.facade import Child\nVALUE = Child()\n"
+    )
+    return files
+
+
+_INHERITED_GENERIC_REEXPORT_UNKNOWN = Variant(
+    id="class-a-inherited-generic-reexport-unknown",
+    section="class_a",
+    item="interface_boundary:uncertain_inherited_reexport",
+    summary="Constructing the re-exported service leaves its inherited Payload result uncertain. "
+    "Validation preserves that candidate as UNKNOWN, without calling it unused (AD-149).",
+    files=_uncertain_inherited_reexport(),
+    expected_violations=(),
+    expected_codes=("interface.usage_unknown",),
+)
+
+
 def _public_api_inherited_fields(
     *, declared: bool, unresolved: bool = False, aliased: bool = False
 ) -> dict[str, str]:
@@ -1168,6 +1201,7 @@ VARIANTS: tuple[Variant, ...] = (
     _INHERITED_GENERIC_UNDECLARED_BATCH,
     _INHERITED_GENERIC_UNUSED,
     _INHERITED_GENERIC_AMBIGUOUS,
+    _INHERITED_GENERIC_REEXPORT_UNKNOWN,
     _INHERITED_LOCAL_DECLARED,
     _INHERITED_LOCAL_BROAD,
     _INHERITED_LOCAL_UNKNOWN,
