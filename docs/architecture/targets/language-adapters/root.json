@@ -81,7 +81,7 @@
       "planned": [
         "archkeel.ir.facts:SourceFacts",
         "archkeel.ir.facts:Capabilities",
-        "archkeel.ir.facts:Coverage",
+        "archkeel.ir.facts:CollectionCoverage",
         "archkeel.ir.facts:FactSection",
         "archkeel.ir.facts:ImportTarget",
         "archkeel.ir.protocol:CollectionRequest",
@@ -136,7 +136,7 @@
       "decided_by": "agent",
       "planned": [
         "archkeel.check.ports:SourceCollector",
-        "archkeel.check.observation:assemble"
+        "archkeel.check.observation:assemble_observation"
       ]
     },
     {
@@ -239,7 +239,7 @@
       ],
       "decided_by": "agent",
       "planned": [
-        "archkeel.analyzer:collect"
+        "archkeel.analyzer.process:ProcessCollector"
       ]
     },
     {

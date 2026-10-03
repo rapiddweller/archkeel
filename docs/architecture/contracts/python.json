@@ -187,7 +187,7 @@
       },
       {
         "path": "src/archkeel/analyzer/python/resolve.py",
-        "responsibility": "Own ResolvedProject and Python name resolution."
+        "responsibility": "Own the symbol index and Python name resolution."
       },
       {
         "path": "src/archkeel/analyzer/python/receiver_types.py",
