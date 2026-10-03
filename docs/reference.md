@@ -608,6 +608,7 @@ the total to null. Schema 2.0.0 accepts that legacy pair; schema 1.0.0 cannot re
 totals. Total and unresolved count availability must agree; inconsistent pairs are invalid.
 Fresh accepted locks use 2.0.0. Lock 1.0.0 and Delta 1.2/1.3 retain integer totals on the wire;
 their legacy zero/null pairs still decode. The profile-aware Delta 1.4.0 carries null totals.
+Re-emitting a legacy delta retains its zero sentinel and version.
 With `U = calls_unresolved` and `T = calls_total`,
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.

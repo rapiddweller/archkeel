@@ -605,8 +605,11 @@ def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:
     return canonical_json_bytes(encode_canonical_model(raw))
 
 
-def _measurement_payload(value: Measurements) -> dict[str, RawJson]:
-    return _raw_object(asdict(value))
+def _measurement_payload(value: Measurements, *, legacy_calls: bool = False) -> dict[str, RawJson]:
+    result = _raw_object(asdict(value))
+    if legacy_calls and value.calls_total is None:
+        result["calls_total"] = 0
+    return result
 
 
 def _coverage_payload(value: Coverage) -> dict[str, RawJson]:
@@ -654,10 +657,11 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
     if ratchets.status == "SUPPORTED":
         if ratchets.baseline is None or ratchets.head is None:
             raise ValueError("supported regression checks require both measurements")
+        legacy_calls = delta.schema_version in {"1.2.0", "1.3.0"}
         result["ratchets"] = {
             "status": "SUPPORTED",
-            "baseline": _measurement_payload(ratchets.baseline),
-            "head": _measurement_payload(ratchets.head),
+            "baseline": _measurement_payload(ratchets.baseline, legacy_calls=legacy_calls),
+            "head": _measurement_payload(ratchets.head, legacy_calls=legacy_calls),
         }
     else:
         if ratchets.reason is None:

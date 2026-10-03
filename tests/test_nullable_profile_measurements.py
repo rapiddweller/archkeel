@@ -14,7 +14,14 @@ from test_delta import _model, _record
 
 from archkeel.check.observation import _metrics
 from archkeel.check.ratchets import RatchetError, measure_python_ratchets
-from archkeel.ir.codec import parse_delta, parse_lock, parse_measurements, parse_observation
+from archkeel.ir.codec import (
+    delta_payload,
+    parse_delta,
+    parse_lock,
+    parse_measurements,
+    parse_observation,
+    result_payload,
+)
 from archkeel.ir.lock import LockError, verify_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars, compare_measurements
 from archkeel.ir.model import RunResult
@@ -178,7 +185,12 @@ def test_only_profile_delta_version_accepts_fresh_null_call_totals(version: str)
     raw["schema_version"] = version
     for side in ("baseline", "head"):
         raw["ratchets"][side]["scalars"]["calls_unresolved"] = None
-    assert parse_delta(raw).ratchets.head.calls_total is None
+    parsed = parse_delta(raw)
+    assert parsed.ratchets.head.calls_total is None
+    emitted = delta_payload(parsed)
+    assert emitted["ratchets"]["head"]["calls_total"] == (None if version == "1.4.0" else 0)
+    assert parse_delta(emitted) == parsed
+    assert result_payload(RunResult("check", 0, delta=parsed))["delta"] == emitted
     for side in ("baseline", "head"):
         raw["ratchets"][side]["calls_total"] = None
     if version == "1.4.0":
