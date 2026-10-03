@@ -35,6 +35,11 @@ unresolved bases or arguments, rebinding, dynamic class bodies and unproven deco
 UNKNOWN. Framework-base exclusions stay unchanged. This does not execute Python or prove every
 CE inheritance surface.
 
+Stable, unshadowed imports of `abc.abstractmethod`, including from-import aliases, preserve
+visible method signatures (#288). It adds no descriptor, so one proven `staticmethod` or
+`classmethod` can still define the receiver. Custom, called, rebound or shadowed decorators
+remain unproven. Module-member escape routes retain their existing UNKNOWN bound.
+
 ## Alternatives
 
 Dropping every placeholder would hide inherited broad/private signatures. A second resolver or
@@ -46,6 +51,8 @@ full MRO engine would duplicate existing type knowledge and exceed the evidence 
 constructors, decorators, mutations, ambiguity, provenance and CLI/report/count agreement.
 Existing generic, publication and public-field tests remain controls. The local declared,
 broad-return and unresolved-ancestor demos expose the three outcomes.
+`tests/test_boundary_types_abstract_methods.py` checks full validation with file provenance,
+canonical positions/counts/assessments, typed overrides, inherited violations and UNKNOWN controls.
 
 Analyzer version becomes `0.66.0`; the import schema admits optional member-proof and candidate fields.
 Contract and IR format versions stay unchanged. CE improvement must
