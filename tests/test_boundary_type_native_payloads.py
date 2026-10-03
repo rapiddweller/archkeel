@@ -547,10 +547,10 @@ def test_inherited_annotation_uses_its_declaring_base_scope(
         implementation=(
             "from typing import Generic, TypeVar\nT = TypeVar('T')\n"
             "class Payload: pass\nclass Hidden: pass\nclass Base(Generic[T]):\n"
-            + ("    object = Hidden\n" if shadow_in_base else "")
+            + ("    object = 0\n" if shadow_in_base else "")
             + "    def convert(self, value: object) -> T: return value\n"
             "class Converter(Base[Payload]):\n"
-            + ("    pass\n" if shadow_in_base else "    object = Hidden\n")
+            + ("    pass\n" if shadow_in_base else "    object = 0\n")
         ),
         declared=("sample.app.impl:Converter", "sample.app.impl:Payload"),
         allowed_positions=(_ALLOWANCE,),
@@ -643,4 +643,33 @@ def test_class_scope_uncertainty_does_not_hide_a_module_alias_body(tmp_path: Pat
     assert any(
         item.kind == "boundary_type_position"
         for item in result.observation.records("unknowns") or ()
+    )
+
+
+@pytest.mark.parametrize("shadow_in_base", [False, True])
+def test_class_valued_member_assignment_retains_an_unproven_inherited_surface(
+    tmp_path: Path, shadow_in_base: bool
+) -> None:
+    _write_app(
+        tmp_path,
+        implementation=(
+            "from typing import Generic, TypeVar\nT = TypeVar('T')\n"
+            "class Payload: pass\nclass Hidden: pass\nclass Base(Generic[T]):\n"
+            + ("    object = Hidden\n" if shadow_in_base else "")
+            + "    def convert(self, value: object) -> T: return value\n"
+            "class Converter(Base[Payload]):\n"
+            + ("    pass\n" if shadow_in_base else "    object = Hidden\n")
+        ),
+        declared=("sample.app.impl:Converter", "sample.app.impl:Payload"),
+        allowed_positions=(_ALLOWANCE,),
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assert any(
+        row.kind == "boundary_type_position" and row.data.get("reason") == "inherited_surface"
+        for row in result.observation.records("unknowns") or ()
+    )
+    assert not any(
+        row.kind == "boundary_type_allowance"
+        for row in result.observation.records("typing_signals") or ()
     )

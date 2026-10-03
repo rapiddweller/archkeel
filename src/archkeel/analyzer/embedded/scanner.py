@@ -687,6 +687,7 @@ def scan_repository(
     unknowns = [
         *_analysis_limits(calls, declarations, namespace),
         *private_attribute_limits(parsed, evidence),
+        *symbol_limits(imports, contract, facade_exports),
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.

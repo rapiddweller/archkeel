@@ -7,19 +7,29 @@ from __future__ import annotations
 
 import ast
 import importlib.util
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 
 from archkeel.ir.model import EvidenceClass, in_scope, stable_id
 
-from .records import RawEvidence, RawRecord, classified
+from .records import RawEvidence, RawRecord, RecordData, classified
 from .source import (
+    FRAMEWORK_BASES,
+    NATIVE_DATACLASS_DECORATOR,
+    NATIVE_TYPED_DICT_BASE,
     AliasBinding,
     ParsedModule,
     add_evidence,
+    class_namespace_static,
     location,
+    member_binding_closure,
+    module_scope_bindings,
+    native_owner_creation_static,
     package_for,
+    resolve_static_name,
     stable_direct_module_bindings,
     unique_direct_module_bindings,
+    unproven_member_bindings,
 )
 
 
@@ -344,15 +354,283 @@ def resolve_reexports(
     stable_bindings: dict[str, frozenset[str]] = {
         module.module: stable_direct_module_bindings(module) for module in parsed
     }
+    escaped_bindings = {module.module: unproven_member_bindings(module) for module in parsed}
     alias_targets: dict[str, set[str]] = {}
     uncertain_bindings: set[str] = set()
     _collect_reexport_targets(imports, stable_bindings, alias_targets, uncertain_bindings)
     reexports = _proven_reexports(imports, alias_targets, uncertain_bindings)
-    _record_import_origins(imports, exports_by_module, stable_bindings, reexports)
-    return {
+    _record_import_origins(imports, exports_by_module, stable_bindings, escaped_bindings, reexports)
+    uncertain_origins = {
         binding: _terminal_reexport_origins(binding, alias_targets)
         for binding in uncertain_bindings
     }
+    for item in imports:
+        data = item["data"]
+        candidates: set[str] = set()
+        uncertain_route = [alias for alias in data["reexport_chain"] if alias in uncertain_origins]
+        for alias in uncertain_route:
+            candidates.update(uncertain_origins.get(alias, ()))
+        if uncertain_route:
+            data["reexport_candidates"] = sorted(candidates)
+    modules = {module.module: module for module in parsed}
+    escaped_bindings = _converge_member_escapes(imports, modules, stable_bindings, escaped_bindings)
+    _record_import_origins(imports, exports_by_module, stable_bindings, escaped_bindings, reexports)
+    return uncertain_origins
+
+
+def _converge_member_escapes(
+    imports: Sequence[RawRecord],
+    modules: dict[str, ParsedModule],
+    stable_bindings: dict[str, frozenset[str]],
+    escaped_bindings: dict[str, frozenset[str]],
+) -> dict[str, frozenset[str]]:
+    exposed_bindings, transferred_bindings = (
+        {
+            module.module: set(
+                unproven_member_bindings(
+                    module,
+                    owner_exposure_only=True,
+                    incoming=frozenset(),
+                    unsafe_providers=_unsafe_native_creation_providers(set(), modules),
+                    include_creation_uncertainty=include_creation,
+                )
+            )
+            for module in modules.values()
+        }
+        for include_creation in (True, False)
+    )
+    namespace_bindings = {
+        name: set(stable_bindings[name]) | {binding for _, binding in module_scope_bindings(module)}
+        for name, module in modules.items()
+    }
+    while True:
+        _saturate_unknown_owner_namespaces(
+            modules, namespace_bindings, exposed_bindings, transferred_bindings
+        )
+        exposed_before = {name: frozenset(values) for name, values in exposed_bindings.items()}
+        transferred_before = {
+            name: frozenset(values) for name, values in transferred_bindings.items()
+        }
+        escaped_origins = _escaped_import_origins(
+            imports, modules, escaped_bindings, stable_bindings, exposed_bindings
+        )
+        exposed_origins = _escaped_import_origins(
+            imports, modules, exposed_bindings, stable_bindings, exposed_bindings
+        )
+        unsafe_providers = _unsafe_native_creation_providers(exposed_origins, modules)
+        _propagate_member_escapes(
+            imports, modules, namespace_bindings, escaped_origins, escaped_bindings
+        )
+        for bindings in (exposed_bindings, transferred_bindings):
+            _propagate_member_escapes(
+                imports,
+                modules,
+                namespace_bindings,
+                _escaped_import_origins(imports, modules, bindings, stable_bindings, bindings),
+                bindings,
+                incoming_escapes=bindings,
+                unsafe_providers=unsafe_providers,
+            )
+        escaped = {module.module: unproven_member_bindings(module) for module in modules.values()}
+        exposed, transferred = (
+            {
+                module.module: unproven_member_bindings(
+                    module,
+                    owner_exposure_only=True,
+                    incoming=bindings[module.module],
+                    unsafe_providers=unsafe_providers,
+                    include_creation_uncertainty=include_creation,
+                )
+                for module in modules.values()
+            }
+            for include_creation, bindings in (
+                (True, exposed_bindings),
+                (False, transferred_bindings),
+            )
+        )
+        if (
+            escaped == escaped_bindings
+            and exposed == exposed_before
+            and transferred == transferred_before
+        ):
+            break
+        escaped_bindings = escaped
+        exposed_bindings = {name: set(values) for name, values in exposed.items()}
+        transferred_bindings = {name: set(values) for name, values in transferred.items()}
+    return escaped_bindings
+
+
+def _saturate_unknown_owner_namespaces(
+    modules: Mapping[str, ParsedModule],
+    namespace_bindings: Mapping[str, AbstractSet[str]],
+    exposed_bindings: dict[str, set[str]],
+    transferred_bindings: dict[str, set[str]],
+) -> None:
+    if any(
+        isinstance(owner, ast.ClassDef)
+        and owner.name in transferred_bindings[name]
+        and not class_namespace_static(module, owner)
+        for name, module in modules.items()
+        for owner in module.tree.body
+    ):
+        # An unproven destination can expose any namespace already in the scanned closure.
+        for name, bindings in namespace_bindings.items():
+            modules[name].incoming_member_escapes |= bindings
+            exposed_bindings[name] |= bindings
+            transferred_bindings[name] |= bindings
+
+
+def _unsafe_native_creation_providers(
+    exposed_origins: AbstractSet[str], modules: Mapping[str, ParsedModule]
+) -> set[str]:
+    providers: set[str] = set()
+    for native_origin in (NATIVE_DATACLASS_DECORATOR, NATIVE_TYPED_DICT_BASE):
+        origin: str = native_origin
+        providers.add(origin.rpartition(".")[0])
+    if any(not any(in_scope(origin, name) for name in modules) for origin in exposed_origins):
+        return providers
+    return providers & set(modules)
+
+
+def _escaped_import_origins(
+    imports: Sequence[RawRecord],
+    modules: Mapping[str, ParsedModule],
+    escaped_bindings: Mapping[str, AbstractSet[str]],
+    stable_bindings: Mapping[str, AbstractSet[str]],
+    exposed_bindings: Mapping[str, AbstractSet[str]],
+) -> set[str]:
+    escaped_origins: set[str] = set()
+    for item in imports:
+        data = item["data"]
+        source, binding = data["source_module"], data["binding"]
+        if binding not in escaped_bindings.get(source, ()):
+            continue
+        origins = (
+            {data["target_module"]}
+            if data["symbol"] in {None, "*"}
+            else {data["origin_definition"], *data.get("reexport_candidates", ())}
+        )
+        for origin in origins:
+            if not isinstance(origin, str):
+                continue
+            qualified_origin: str = origin
+            provider, _, _ = qualified_origin.rpartition(".")
+            # A stable name can still expose its native owner to a mutator.
+            escaped_origins.add(
+                provider
+                if provider
+                and provider not in modules
+                and (
+                    binding not in stable_bindings.get(source, ())
+                    or binding in exposed_bindings.get(source, ())
+                )
+                else origin
+            )
+    return escaped_origins
+
+
+def _propagate_member_escapes(
+    imports: Sequence[RawRecord],
+    modules: dict[str, ParsedModule],
+    namespace_bindings: dict[str, set[str]],
+    escaped_origins: set[str],
+    escaped_bindings: Mapping[str, AbstractSet[str]],
+    *,
+    incoming_escapes: dict[str, set[str]] | None = None,
+    unsafe_providers: AbstractSet[str] = frozenset(),
+) -> None:
+    incoming = (
+        incoming_escapes
+        if incoming_escapes is not None
+        else {name: module.incoming_member_escapes for name, module in modules.items()}
+    )
+    for item in imports:
+        data = item["data"]
+        targets: set[tuple[str, str]] = set()
+        if data["symbol"] is None:
+            origins = {data["target_module"]}
+            for name, bindings in namespace_bindings.items():
+                if in_scope(name, data["target_module"]):
+                    targets |= {(name, binding) for binding in bindings}
+        else:
+            origins = {data["origin_definition"], *data.get("reexport_candidates", ())}
+            for origin in origins:
+                if not isinstance(origin, str):
+                    continue
+                qualified_origin: str = origin
+                name, _, binding = qualified_origin.rpartition(".")
+                if name in modules:
+                    targets |= {(name, binding)}
+        source = data["source_module"]
+        if source in modules and any(
+            isinstance(origin, str)
+            and (
+                in_scope(origin, escaped) or (data["symbol"] is None and in_scope(escaped, origin))
+            )
+            for origin in origins
+            for escaped in escaped_origins
+        ):
+            incoming[source] |= {data["binding"]}
+        if source in modules and not targets:
+            incoming[source] |= _opaque_import_member_escapes(
+                data,
+                modules[source],
+                owner_exposure_only=incoming_escapes is not None,
+                unsafe_providers=unsafe_providers,
+            )
+        if source in modules and any(
+            binding in escaped_bindings[name] for name, binding in targets
+        ):
+            incoming[source] |= {data["binding"]}
+        if data["binding"] in escaped_bindings.get(source, ()):
+            for name, binding in targets:
+                incoming[name] |= {binding}
+
+
+def _opaque_import_member_escapes(
+    data: RecordData,
+    module: ParsedModule,
+    *,
+    owner_exposure_only: bool,
+    unsafe_providers: AbstractSet[str],
+) -> set[str]:
+    # An opaque callable import does not transfer owners; an unknown base receives its subclass.
+    escaped: set[str] = set()
+    framework = (
+        data["source_binding_unique"] is True
+        and data.get("origin_binding_unique") is True
+        and data["origin_definition"] in FRAMEWORK_BASES
+        and not data.get("reexport_candidate")
+    )
+    if owner_exposure_only and framework:
+        return escaped
+    if not owner_exposure_only and data["symbol"] is not None and not framework:
+        escaped |= {data["binding"]}
+    if data["symbol"] is None or owner_exposure_only:
+        base_bindings = (
+            member_binding_closure(
+                list(ast.walk(module.tree)), {data["binding"]}, member_surface=True
+            )
+            if owner_exposure_only
+            else {data["binding"]}
+        )
+        for owner in ast.walk(module.tree):
+            if not isinstance(owner, ast.ClassDef) or (
+                owner_exposure_only
+                and native_owner_creation_static(module, owner, unsafe_providers)
+            ):
+                continue
+            for base in owner.bases:
+                head = base.value if isinstance(base, ast.Subscript) else base
+                if any(
+                    isinstance(node, ast.Name) and node.id in base_bindings
+                    for node in ast.walk(head)
+                ) and not (
+                    data["source_binding_unique"] is True
+                    and resolve_static_name(module, head) in FRAMEWORK_BASES
+                ):
+                    escaped |= {owner.name}
+    return escaped
 
 
 def _collect_reexport_targets(
@@ -407,6 +685,7 @@ def _record_import_origins(
     imports: Sequence[RawRecord],
     exports_by_module: dict[str, set[str]],
     stable_bindings: dict[str, frozenset[str]],
+    escaped_bindings: dict[str, frozenset[str]],
     reexports: dict[str, str],
 ) -> None:
     for item in imports:
@@ -416,6 +695,9 @@ def _record_import_origins(
         )
         if data["source_module"] in stable_bindings:
             data["source_binding_unique"] = source_binding_unique
+            data["source_member_binding_static"] = (
+                data["binding"] not in escaped_bindings[data["source_module"]]
+            )
         if not data["symbol"]:
             data["reexport_chain"] = []
             data["origin_definition"] = None
@@ -437,6 +719,10 @@ def _record_import_origins(
         data["origin_binding_unique"] = (
             origin_module not in stable_bindings or origin_name in stable_bindings[origin_module]
         )
+        if origin_module in escaped_bindings:
+            data["origin_member_binding_static"] = (
+                origin_name not in escaped_bindings[origin_module]
+            )
         if data["reexport"] and (
             not source_binding_unique
             or (data.get("ordinary_module") and not data["origin_binding_unique"])
@@ -457,6 +743,8 @@ def strip_internal_reexport_facts(imports: Sequence[RawRecord]) -> None:
             del data["ordinary_module"]
         if "origin_binding_unique" in data:
             del data["origin_binding_unique"]
+        if "origin_member_binding_static" in data:
+            del data["origin_member_binding_static"]
         if "reexport_candidate" in data:
             del data["reexport_candidate"]
         if "module_level_import" in data:

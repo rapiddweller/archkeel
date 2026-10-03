@@ -548,7 +548,8 @@ _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION = Variant(
     id="class-a-forbidden-construct-inside-violation",
     section="class_a",
     item="forbidden_construct:inside_violation",
-    summary="The inside forbids eval in the repository, so its use is reported as an inside rule.",
+    summary="The inside reports forbidden eval; its dynamic namespace keeps publication "
+    "usage UNKNOWN.",
     files={
         "architecture-contract.json": contract_without_rule("CONSTRUCT-NO-DYNAMIC"),
         "shop/store/architecture-contract.json": inside_contract(
@@ -564,7 +565,7 @@ _INSIDE_FORBIDDEN_CONSTRUCT_VIOLATION = Variant(
         + "        return eval(source)\n",
     },
     expected_violations=("store:STORE-NO-EVAL",),
-    expected_codes=("rule.violated",),
+    expected_codes=("interface.usage_unknown", "rule.violated"),
 )
 
 

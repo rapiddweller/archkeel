@@ -216,7 +216,7 @@ def test_alias_only_class_export_uses_alias_in_finding(tmp_path: Path) -> None:
     assert violation.subjects[1] == "sample.app.api.Session.prepare_page"
 
 
-def test_exported_subclass_reports_inherited_surface_as_unknown(tmp_path: Path) -> None:
+def test_exported_subclass_reports_the_inherited_broad_parameter(tmp_path: Path) -> None:
     _write_app(
         tmp_path,
         public=["sample.app.api:ExportSession"],
@@ -234,15 +234,15 @@ def test_exported_subclass_reports_inherited_surface_as_unknown(tmp_path: Path) 
     result = _observe(tmp_path)
 
     assert result.observation is not None, result.diagnostics
-    unknowns = result.observation.records("unknowns") or ()
-    assert any(
+    [violation] = trace_valid_violations(result.observation)
+    assert violation.subjects[1] == "sample.app.api.ExportSession.prepare_page"
+    assert violation.data.get("position") == "page"
+    assert not any(
         item.kind == "boundary_type_position"
-        and item.data.get("position") == "inherited methods"
-        and item.data.get("reason") == "inherited_surface"
-        for item in unknowns
+        for item in result.observation.records("unknowns") or ()
     )
     result, _ = _reported_violations(tmp_path)
-    assert any(item.status == "UNKNOWN" for item in result.rule_assessments or ())
+    assert [item.status for item in result.rule_assessments or ()] == ["FAIL"]
 
 
 def test_parameterized_generic_root_is_not_an_inherited_surface(tmp_path: Path) -> None:
@@ -373,7 +373,7 @@ def test_variadic_method_parameter_is_checked_as_a_boundary_position(tmp_path: P
     )
 
 
-def test_locally_shadowed_object_base_keeps_inherited_surface_unknown(tmp_path: Path) -> None:
+def test_known_local_class_named_object_is_decided(tmp_path: Path) -> None:
     _write_app(
         tmp_path,
         public=["sample.app.api:Public"],
@@ -384,7 +384,7 @@ def test_locally_shadowed_object_base_keeps_inherited_surface_unknown(tmp_path: 
     result = _observe(tmp_path)
 
     assert result.observation is not None, result.diagnostics
-    assert any(
+    assert not any(
         item.kind == "boundary_type_position"
         and item.data.get("qualified_name") == "sample.app.api.Public.__inherited_methods__"
         and item.data.get("position") == "inherited methods"

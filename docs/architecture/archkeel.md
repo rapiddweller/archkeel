@@ -181,6 +181,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-142 | [Opaque map values need exact decisions](decisions/ad-142-opaque-map-values-need-exact-decisions.md) |
 | AD-143 | [Initial PR head proves scoped order](decisions/ad-143-initial-pr-head-proves-scoped-order.md) |
 | AD-144 | [Diff retains navigation scope](decisions/ad-144-diff-retains-navigation-scope.md) |
+| AD-145 | [Local inherited methods use the existing base proof](decisions/ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
 
 ## Allowed dependencies
 

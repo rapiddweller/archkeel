@@ -2878,14 +2878,14 @@ def test_only_one_function_resolves_an_annotations_named_type() -> None:
     """Annotation traversal stays centralized; proven generic identities use bare names.
 
     AD-69 records drift between boundary and facade annotation readers over `list[Type]`.
-    `_named_type_verdict` remains their shared resolver. `_inherited_generic_facade_types` has
+    `_named_type_verdict` remains their shared resolver. `_direct_generic_candidate_types` has
     a separate, narrower lookup because its inputs are proven bare base and argument names,
     not signature annotations to expand recursively.
     """
     callers = _top_level_callers(_violations_source_ast(), "resolve_named_type")
-    assert callers == {"_named_type_verdict", "_inherited_generic_facade_types"}, (
+    assert callers == {"_named_type_verdict", "_direct_generic_candidate_types"}, (
         f"resolve_named_type is called directly from {sorted(callers)}: annotation walkers "
-        "must share `_named_type_verdict`; `_inherited_generic_facade_types` is the separate "
+        "must share `_named_type_verdict`; `_direct_generic_candidate_types` is the separate "
         "bare-name identity lookup for a proven generic base and concrete arguments."
     )
 

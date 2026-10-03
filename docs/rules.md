@@ -384,9 +384,11 @@ the violation keeps the facade module and entry as its subject. For an ordinary 
 its unique import binding, whose terminal definition also has one unambiguous binding; an import
 alone does not prove it is a facade (AD-109). Multiple proven aliases to one exact origin do not
 duplicate a finding. Missing, ambiguous or unstable public alias routes remain UNKNOWN, even if
-another function in the facade can be checked. For exported classes, direct inherited generic
-method signatures are checked only under AD-121's bounded proof; class-body rebinding, imports,
-deletion, or control flow preserve `inherited_surface` UNKNOWN.
+another function in the facade can be checked. Exported classes expose effective public methods,
+constructors and special methods along one proven local base chain, with verified generic
+substitutions (AD-145). Signatures resolve in their defining module; subclass bindings override
+base members. Private helpers stay excluded. Unproven bases, multiple-base precedence, mutations,
+class transformations and unproven method decorators preserve `inherited_surface` UNKNOWN.
 A named type may be public through its owner's proven facade export; it need not expose its
 implementation module. Without a proven public route, a matching uncertain export is UNKNOWN.
 An export by another owner does not grant publication. Public model fields are still checked.

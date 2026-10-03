@@ -13,7 +13,9 @@ from archkeel.check.validation import interface_diagnostics
 from archkeel.ir.codec import parse_contract
 
 
-def _interface_result(tmp_path: Path, api: str, *, boundary_types: bool = False):
+def _interface_result(
+    tmp_path: Path, api: str, *, boundary_types: bool = False, construct: bool = True
+):
     components = [
         _component(
             "api",
@@ -33,7 +35,12 @@ def _interface_result(tmp_path: Path, api: str, *, boundary_types: bool = False)
         insides={},
         files={
             "sample/api.py": api,
-            "sample/client.py": "from sample.api import Child\nVALUE = Child()\n",
+            "sample/client.py": "from sample.api import Child\n"
+            + (
+                "VALUE = Child()\n"
+                if construct
+                else "def use(value: Child) -> Child: return value\n"
+            ),
         },
     )
     result = _observe(tmp_path)
@@ -52,7 +59,9 @@ def _interface_result(tmp_path: Path, api: str, *, boundary_types: bool = False)
     ],
     ids=["inherited-field", "inherited-constructor"],
 )
-def test_inherited_field_and_constructor_type_remain_unknown(tmp_path: Path, member: str) -> None:
+def test_inherited_field_is_candidate_but_constructor_type_is_published(
+    tmp_path: Path, member: str
+) -> None:
     diagnostics, observation = _interface_result(
         tmp_path,
         "from typing import Generic, TypeVar\n"
@@ -63,18 +72,24 @@ def test_inherited_field_and_constructor_type_remain_unknown(tmp_path: Path, mem
         f"    {member}\n"
         "class Child(Base[Payload]):\n"
         "    pass\n",
+        construct=False,
     )
 
-    assert [(item.code, item.subject) for item in diagnostics] == [
-        ("interface.usage_unknown", "sample.api:Payload"),
-        ("interface.unused", "sample.api:Noise"),
-    ]
+    constructor = member.startswith("def __init__")
+    assert [(item.code, item.subject) for item in diagnostics] == (
+        [("interface.unused", "sample.api:Noise")]
+        if constructor
+        else [
+            ("interface.usage_unknown", "sample.api:Payload"),
+            ("interface.unused", "sample.api:Noise"),
+        ]
+    )
     child = next(
         item
         for item in observation.records("symbols") or ()
         if item.data.get("qualified_name") == "sample.api.Child"
     )
-    assert "sample.api.Payload" not in child.data.get("facade_types", ())
+    assert ("sample.api.Payload" in child.data.get("facade_types", ())) is constructor
 
 
 def test_conditional_override_does_not_publish_base_generic_return(tmp_path: Path) -> None:
@@ -141,6 +156,7 @@ def test_annotation_only_override_does_not_hide_inherited_method(tmp_path: Path)
         "    def get(self) -> T: ...\n"
         "class Child(Base[Payload]):\n"
         "    get: object\n",
+        construct=False,
     )
 
     assert [(item.code, item.subject) for item in diagnostics] == [
@@ -420,6 +436,7 @@ def test_unused_second_generic_argument_stays_unused(tmp_path: Path) -> None:
         "    def get(self) -> T: ...\n"
         "class Child(Base[Payload, Noise]):\n"
         "    pass\n",
+        construct=False,
     )
 
     assert [(item.code, item.subject) for item in diagnostics] == [
@@ -432,3 +449,32 @@ def test_unused_second_generic_argument_stays_unused(tmp_path: Path) -> None:
     )
     assert "sample.api.Payload" in child.data.get("facade_types", ())
     assert "sample.api.Noise" not in child.data.get("facade_types", ())
+
+
+@pytest.mark.parametrize(
+    "member", ["def get(self) -> T: ...", "def __init__(self, payload: T) -> None: ..."]
+)
+def test_constructed_generic_facade_retains_candidate_publication(
+    tmp_path: Path, member: str
+) -> None:
+    diagnostics, observation = _interface_result(
+        tmp_path,
+        "from typing import Generic, TypeVar\nT = TypeVar('T')\n"
+        "class Payload: pass\nclass Noise: pass\nclass Base(Generic[T]):\n"
+        f"    {member}\nclass Child(Base[Payload]): pass\n",
+        boundary_types=True,
+    )
+    assert [(item.code, item.subject) for item in diagnostics] == [
+        ("interface.usage_unknown", "sample.api:Payload"),
+        ("interface.unused", "sample.api:Noise"),
+    ]
+    child = next(
+        item
+        for item in observation.records("symbols") or ()
+        if item.data.get("qualified_name") == "sample.api.Child"
+    )
+    assert "sample.api.Payload" not in child.data.get("facade_types", ())
+    assert any(
+        item.data.get("reason") == "inherited_surface"
+        for item in observation.records("unknowns") or ()
+    )

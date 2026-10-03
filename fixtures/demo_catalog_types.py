@@ -1028,6 +1028,56 @@ def _public_api_inherited_fields(
     return files
 
 
+def _local_inherited_service(return_type: str, *, unresolved: bool = False) -> dict[str, str]:
+    return {
+        **_inherited_generic_service("str", declared=False),
+        "shop/app/base/impl.py": HEADER
+        + f"class Base{'(Missing)' if unresolved else ''}:\n"
+        + f"    def convert(self, value: str) -> {return_type}:\n"
+        + (
+            "        return {value: value}\n" if return_type == "dict" else "        return value\n"
+        ),
+        "shop/app/service.py": HEADER + "from shop.app.base import Base\nclass Child(Base): pass\n",
+    }
+
+
+_INHERITED_LOCAL_DECLARED = Variant(
+    id="class-a-inherited-local-declared",
+    section="clean",
+    item="boundary_types:local_inherited_method",
+    summary="A proven local base's str signature is decided without an inherited-surface "
+    "placeholder; other positions keep aggregate UNKNOWN (AD-145).",
+    files=_local_inherited_service("str"),
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="UNKNOWN",
+)
+
+_INHERITED_LOCAL_BROAD = Variant(
+    id="class-a-inherited-local-broad",
+    section="class_a",
+    item="boundary_types:local_inherited_broad_return",
+    summary="The same local chain exposes an inherited dict return; the finding cites its "
+    "defining method (AD-145).",
+    files=_local_inherited_service("dict"),
+    expected_violations=("APP-TYPES-NOT-DICT",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+
+_INHERITED_LOCAL_UNKNOWN = Variant(
+    id="class-a-inherited-local-unknown",
+    section="validation",
+    item="boundary_types:incomplete_local_chain",
+    summary="An unresolved ancestor retains inherited-surface UNKNOWN; inherited signatures "
+    "are not certified (AD-145).",
+    files=_local_inherited_service("str", unresolved=True),
+    expected_violations=(),
+    expected_codes=(),
+    expected_declared_rules="UNKNOWN",
+)
+
+
 _PUBLIC_API_INHERITED_MISSING = Variant(
     id="public-api-inherited-missing",
     section="validation",
@@ -1118,6 +1168,9 @@ VARIANTS: tuple[Variant, ...] = (
     _INHERITED_GENERIC_UNDECLARED_BATCH,
     _INHERITED_GENERIC_UNUSED,
     _INHERITED_GENERIC_AMBIGUOUS,
+    _INHERITED_LOCAL_DECLARED,
+    _INHERITED_LOCAL_BROAD,
+    _INHERITED_LOCAL_UNKNOWN,
     _PUBLIC_API_INHERITED_MISSING,
     _PUBLIC_API_INHERITED_DECLARED,
     _PUBLIC_API_INHERITED_UNKNOWN,
