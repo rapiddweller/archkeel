@@ -239,3 +239,7 @@ def test_process_limit_stops_spawned_worker(tmp_path: Path, limit: str) -> None:
                 os.kill(int(pid_path.read_text()), signal.SIGTERM)
             except ProcessLookupError:
                 pass
+            except OSError as error:
+                # Windows may report an already-terminated PID as an invalid parameter.
+                if os.name != "nt" or error.winerror != 87:
+                    raise
