@@ -50,11 +50,11 @@
     "expectation_fulfilled": {"enum": ["PASS", "FAIL", "UNKNOWN", "n/a"]},
     "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}},
     "coverage": {
-      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/coverage"}, {"type": "null"}]
+      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"}, {"type": "null"}]
     },
-    "observation": {"anyOf": [{"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation"}, {"type": "null"}]},
+    "observation": {"anyOf": [{"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0"}, {"type": "null"}]},
     "python_version": {
-      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/python_version"}, {"type": "null"}]
+      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0#/properties/python_version"}, {"type": "null"}]
     },
     "measurements": {"anyOf": [{"$ref": "#/$defs/measurements"}, {"type": "null"}]},
     "artifact": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
@@ -631,12 +631,12 @@
       "type": "object",
       "required": ["git_head", "source_digest", "coverage_status", "python_version"],
       "properties": {
-        "git_head": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/source/properties/git_head"},
-        "source_digest": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/source/properties/source_digest"},
+        "git_head": {"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/source/properties/git_head"},
+        "source_digest": {"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/source/properties/source_digest"},
         "coverage_status": {"enum": ["PASS", "FAIL"]},
         "python_version": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
-        "runtime": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/runtime"},
-        "producer": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/producer"}
+        "runtime": {"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0#/properties/runtime"},
+        "producer": {"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0#/properties/producer"}
       }
     },
     "dimension": {
@@ -644,13 +644,20 @@
       "required": ["status", "before_count", "after_count", "added", "removed", "relocated", "changed"],
       "properties": {
         "status": {"enum": ["SUPPORTED", "UNKNOWN"]},
-        "before_count": {"type": "integer", "minimum": 0},
-        "after_count": {"type": "integer", "minimum": 0},
+        "before_count": {"type": ["integer", "null"], "minimum": 0},
+        "after_count": {"type": ["integer", "null"], "minimum": 0},
         "added": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "removed": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "relocated": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "changed": {"type": "array", "items": {"type": "string", "minLength": 1}}
-      }
+      },
+      "allOf": [{
+        "if": {"properties": {"status": {"const": "SUPPORTED"}}},
+        "then": {"properties": {
+          "before_count": {"type": "integer", "minimum": 0},
+          "after_count": {"type": "integer", "minimum": 0}
+        }}
+      }]
     },
     "projection": {
       "type": "object",
@@ -715,8 +722,8 @@
         "unknowns"
       ],
       "properties": {
-        "schema_version": {"const": "1.3.0"},
-        "analyzer": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/analyzer"},
+        "schema_version": {"enum": ["1.3.0", "1.4.0"]},
+        "analyzer": {"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0#/properties/analyzer"},
         "provenance": {
           "type": "object",
           "required": ["checker_digest", "analyzer_digest", "contract_digest", "baseline_digest", "head_digest"],
@@ -730,7 +737,7 @@
         },
         "baseline": {"$ref": "#/$defs/snapshot"},
         "head": {"$ref": "#/$defs/snapshot"},
-        "contract": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/contract"},
+        "contract": {"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0#/properties/contract"},
         "coverage": {
           "type": "object",
           "required": ["status", "baseline_status", "head_status", "supported_dimensions", "unknown_dimensions"],
@@ -771,7 +778,14 @@
             }
           }
         }
-      }
+      },
+      "allOf": [{
+        "if": {"properties": {"schema_version": {"const": "1.3.0"}}},
+        "then": {"properties": {"dimensions": {"additionalProperties": {"properties": {
+          "before_count": {"type": "integer", "minimum": 0},
+          "after_count": {"type": "integer", "minimum": 0}
+        }}}}}
+      }]
     }
   }
 }

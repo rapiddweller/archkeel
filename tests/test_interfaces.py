@@ -10,7 +10,7 @@ from typing import Any
 
 from test_delta import _model
 
-from archkeel.analyzer import observe
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import parse_observation
 from archkeel.ir.interfaces import (
     InterfaceEdge,

@@ -12,8 +12,8 @@ from typing import Any
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.render.html import render_html
 from fixtures.architecture_demo import CATALOG

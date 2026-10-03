@@ -19,11 +19,11 @@ from test_exact_module_ownership import (
     _walk,
 )
 
-from archkeel.analyzer import observe
 from archkeel.check.validation import (
     closed_world_diagnostics,
     target_component_edges,
 )
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     canonical_report_bytes,
     decode_canonical_model,

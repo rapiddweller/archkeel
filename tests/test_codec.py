@@ -110,7 +110,8 @@ def test_parse_rejects_unknown_top_level_field():
         parse_observation(raw)
 
 
-def test_language_observation_additive_runtime_and_producer_round_trip():
+@pytest.mark.parametrize("required", [None, ">=22.13,<23 || >=24,<25 || >=26"])
+def test_language_observation_additive_runtime_and_producer_round_trip(required: str | None):
     raw = raw_observation()
     raw["analyzer"] = {
         "name": "archkeel-typescript-imports",
@@ -119,8 +120,18 @@ def test_language_observation_additive_runtime_and_producer_round_trip():
     }
     for section in ("symbols", "references", "bindings", "calls", "typing_signals", "constructs"):
         raw[section] = None
+    for key in (
+        "calls_analyzed",
+        "calls_resolved",
+        "calls_partially_resolved",
+        "calls_unresolved",
+        "call_resolution_percent",
+    ):
+        raw["coverage"][key] = None
     raw.pop("python_version", None)
     raw["runtime"] = {"name": "node", "version": "22.13.0"}
+    if required is not None:
+        raw["runtime"]["required"] = required
     raw["producer"] = {"name": "custom-ts-parser", "version": "1.2.0", "code_digest": "b" * 64}
 
     observation = parse_observation(raw)

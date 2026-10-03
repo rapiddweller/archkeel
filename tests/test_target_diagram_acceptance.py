@@ -14,9 +14,9 @@ import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 from test_exact_module_ownership import _component, _contract, _rule
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import EvidenceClass, Record, RecordData
 from archkeel.render.html import _target_diagrams, _target_roots, render_html

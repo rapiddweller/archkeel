@@ -11,11 +11,12 @@ from pathlib import Path
 import pytest
 from test_analyzer import _component
 
-from archkeel.analyzer import observe
-from archkeel.analyzer.embedded.imports import collect_imports, resolve_reexports
-from archkeel.analyzer.embedded.records import RawRecord
-from archkeel.analyzer.embedded.source import parse_sources
+from archkeel.analyzer.python.imports import collect_imports
+from archkeel.analyzer.python.source import parse_sources, stable_direct_module_bindings
+from archkeel.cli.observe import observe
+from archkeel.ir.facts_codec import RawRecord
 from archkeel.ir.model import Observation
+from archkeel.ir.reexports import resolve_reexports
 from archkeel.ir.trace import trace_valid_violations
 
 
@@ -220,7 +221,7 @@ def _union_alias_reexports(
     uncertain = resolve_reexports(
         imports,
         {module.module: module.all_exports for module in parsed.modules},
-        parsed.modules,
+        {module.module: stable_direct_module_bindings(module) for module in parsed.modules},
     )
     api_import = next(
         item

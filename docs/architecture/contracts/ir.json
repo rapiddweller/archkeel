@@ -1,0 +1,274 @@
+{
+  "$schema": "../../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "TARGET-FACTS",
+      "label": "facts",
+      "role": "component",
+      "packages": [
+        "archkeel.ir.facts",
+        "archkeel.ir.state_facts",
+        "archkeel.ir.type_shapes",
+        "archkeel.ir.reexports",
+        "archkeel.ir.identity",
+        "archkeel.ir.source_records"
+      ],
+      "responsibilities": [
+        "Own immutable source facts, language identity, source record builders and their typed values."
+      ],
+      "forbidden_responsibilities": [
+        "Language ASTs, protocol envelopes, I/O and architecture verdicts."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "public": [
+        "archkeel.ir.facts",
+        "archkeel.ir.state_facts",
+        "archkeel.ir.type_shapes",
+        "archkeel.ir.reexports",
+        "archkeel.ir.source_records",
+        "archkeel.ir.identity:module_identity"
+      ]
+    },
+    {
+      "id": "TARGET-PROTOCOL",
+      "label": "protocol",
+      "role": "component",
+      "packages": [
+        "archkeel.ir.protocol"
+      ],
+      "responsibilities": [
+        "Own typed process request/response envelopes."
+      ],
+      "forbidden_responsibilities": [
+        "Policy and I/O."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Envelopes carry shared source values.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.ir.protocol"
+      ]
+    },
+    {
+      "id": "TARGET-FACTS-CODEC",
+      "label": "facts-codec",
+      "role": "component",
+      "packages": [
+        "archkeel.ir.facts_codec",
+        "archkeel.ir.facts_validation",
+        "archkeel.ir.state_codec"
+      ],
+      "responsibilities": [
+        "Validate and serialize process messages."
+      ],
+      "forbidden_responsibilities": [
+        "Policy and I/O."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Validate source values.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "protocol",
+          "rationale": "Decode typed envelopes.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.ir.facts_codec",
+        "archkeel.ir.facts_validation:validate_source_facts"
+      ]
+    },
+    {
+      "id": "TARGET-PROFILES",
+      "label": "profiles",
+      "role": "component",
+      "packages": [
+        "archkeel.ir.profiles"
+      ],
+      "responsibilities": [
+        "Own per-language capability and rule-availability policy."
+      ],
+      "forbidden_responsibilities": [
+        "Source parsing and metric evaluation."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Use one source-fact vocabulary.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.ir.profiles:Profile",
+        "archkeel.ir.profiles:Language",
+        "archkeel.ir.profiles:DeclarationField",
+        "archkeel.ir.profiles:profile_for",
+        "archkeel.ir.profiles:PROFILES",
+        "archkeel.ir.profiles:UnmeasurableScalar"
+      ]
+    },
+    {
+      "id": "TARGET-GOVERNANCE",
+      "label": "governance",
+      "role": "component",
+      "packages": [
+        "archkeel.ir.baseline",
+        "archkeel.ir.bindings",
+        "archkeel.ir.codec",
+        "archkeel.ir.decisions",
+        "archkeel.ir.digest",
+        "archkeel.ir.duplication",
+        "archkeel.ir.graph",
+        "archkeel.ir.host_records",
+        "archkeel.ir.interfaces",
+        "archkeel.ir.levels",
+        "archkeel.ir.lock",
+        "archkeel.ir.measurements",
+        "archkeel.ir.model",
+        "archkeel.ir.references",
+        "archkeel.ir.renames",
+        "archkeel.ir.structure",
+        "archkeel.ir.trace",
+        "archkeel.ir.type_fanin",
+        "archkeel.ir.widening"
+      ],
+      "responsibilities": [
+        "Own governance models, codecs, policy metrics and pure derivations."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing, process I/O and workflow orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "exact_modules": [
+        "archkeel.ir"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Compose source facts into governance models.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "profiles",
+          "rationale": "Validate source sections against a known profile.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "facts-codec",
+          "rationale": "Decode validated source sections.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.ir.baseline",
+        "archkeel.ir.bindings",
+        "archkeel.ir.codec",
+        "archkeel.ir.decisions",
+        "archkeel.ir.digest",
+        "archkeel.ir.duplication",
+        "archkeel.ir.graph",
+        "archkeel.ir.host_records",
+        "archkeel.ir.interfaces",
+        "archkeel.ir.levels",
+        "archkeel.ir.lock",
+        "archkeel.ir.measurements",
+        "archkeel.ir.model",
+        "archkeel.ir.references",
+        "archkeel.ir.renames",
+        "archkeel.ir.structure",
+        "archkeel.ir.trace",
+        "archkeel.ir.type_fanin",
+        "archkeel.ir.widening"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.ir"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/archkeel/ir/facts.py",
+        "responsibility": "Define shared source facts, identifiers, evidence, capabilities and coverage."
+      },
+      {
+        "path": "src/archkeel/ir/source_records.py",
+        "responsibility": "Build typed source-fact records and their evidence without policy."
+      },
+      {
+        "path": "src/archkeel/ir/protocol.py",
+        "responsibility": "Define request and response envelopes."
+      },
+      {
+        "path": "src/archkeel/ir/facts_codec.py",
+        "responsibility": "Pure validation and serialization of the process boundary."
+      },
+      {
+        "path": "src/archkeel/ir/graph.py",
+        "responsibility": "Shared pure SCC, path and rank algorithms."
+      }
+    ]
+  }
+}

@@ -6,12 +6,18 @@ Exact rules behind the [README](../README.md). Code is the source of truth; this
 
 [schema/archkeel.schema.json](../schema/archkeel.schema.json) defines `archkeel.toml`.
 Only `[scan]` with required `roots`, `namespace` and `contract` is accepted, plus the optional
-`language`: `"python"` (the default when absent, so an existing file keeps its digest) or
-`"dart"` or `"typescript"`. TypeScript accepts `tsconfig` (default `"tsconfig.json"`).
-`collector_argv` names an explicit collector command. For Dart, `namespace` is the pubspec
-`name` and `roots` is normally `["lib"]`; a
-`pubspec.yaml` whose `name:` differs from `namespace` is `parse_error` (AD-97).
-Paths are relative to the repository root. Scan roots are directories, not globs.
+`language`: `"python"` (the default when absent, so an existing file keeps its digest), `"dart"`,
+or `"typescript"`. For Dart, `namespace` is the pubspec `name` and `roots` is normally `["lib"]`; a
+`pubspec.yaml` whose `name:` differs from `namespace` is `parse_error` (AD-97). TypeScript roots
+may be files or directories; Python and Dart roots are directories. Roots are repository-relative
+and cannot overlap or use glob syntax.
+
+`tsconfig` is valid only for TypeScript. If omitted, the parser selects `tsconfig.json`; runtime
+loading checks that the file exists inside the repository. `collector_argv` optionally overrides
+the collector command as a non-empty array of non-empty argument strings. Arguments stay separate
+and no shell parses them. On Windows, use an executable plus script path instead of a `.cmd` shim.
+Runtime loading checks that roots and `tsconfig` exist and stay inside the repository.
+
 The architecture schemas live once under `schema/`; builds include them as package data.
 
 `report` and `validate` read `archkeel.toml` at `--root`, or the file `--config` names relative
@@ -48,8 +54,11 @@ evaluator replays. Missing pass evidence remains unavailable; timings are outsid
 including `Final`; imported, dynamic, conditional and reassigned names remain unknown, and Enum
 members are excluded (AD-80).
 
-The analyzer records `python_version` separately from its digest. Missing or incompatible
-`pyproject.toml` runtime requirements produce `runtime_mismatch`; AST parse errors only
+Collectors emit `runtime: {name, version, required}`. Core checks the actual runtime
+against comparator ranges such as `>=3.11,<4`; `||` separates alternatives. Missing,
+malformed or incompatible requirements produce `runtime_mismatch`. Python reads
+`requires-python`; the bundled Dart directive parser runs on Python, not a Dart SDK.
+`python_version` remains a compatibility field. AST parse errors only
 use `parse_error` after a compatible runtime check. Git snapshots carry their own project metadata.
 Delta comparison requires the same known full Python version; otherwise `incomparable_runtime`
 returns exit 2. Historical observations without runtime provenance remain readable, not comparable.
@@ -61,6 +70,12 @@ Different Dart file paths sharing one legacy module name leave target associatio
 Snapshots copy selected Git blobs byte for byte, including resolver metadata; `export-ignore`
 and `export-subst` cannot omit or rewrite them (AD-147). `make demo-snapshot-check` runs committed Python
 and Dart comment-only checks against local bare origins with supplied host records.
+
+
+`capabilities.constructs` lists `{name, status}` entries: `decided`, `partial` or
+`unsupported`. A declared unsupported or absent construct returns exit 2. Partial
+support adds counted rule UNKNOWNs even when no construct candidate was collected.
+The analyzer digest hashes code; distribution versions remain labels.
 
 The observation carries a `references` section beside `calls`: every use of a scanned symbol
 that is not a call, such as a function put into a table, passed as an argument or read as a
@@ -88,7 +103,7 @@ type may be published through its owner's proven facade export. An uncertain rou
 of publication, and another component's export does not make that type public for its owner.
 
 The checker hashes its installed Python package separately from the analyzer digest.
-Delta schema 1.3.0 and expectation schema 1.2.0 bind `checker_digest`;
+Delta schema 1.4.0 and expectation schema 1.2.0 bind `checker_digest`;
 the evaluator verifies the running package.
 Underscore-private imports belong to the Python decoded-IR profile in `check/python_profile.py`.
 
@@ -222,7 +237,8 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 stdout of `check`, `validate` and `report` (AD-138). It is included under `archkeel/schema`
 in installed packages. Its version is the `$id` suffix, currently `1.0.0`; command output
 gains no version field. Pin the CLI and schema together. Register the bundled
-`architecture-ir-common.schema.json`, `architecture-ir-python-decoded.schema.json` and
+`architecture-ir-common.schema.json`, `architecture-ir-decoded.schema.json`,
+`architecture-ir-python-decoded.schema.json` and
 `architecture-contract.schema.json` by
 their `$id` for offline Draft 2020-12 validation. This schema excludes argument-parser,
 `init` and `skill` results, and the separate canonical `architecture.json` artifact.
@@ -563,6 +579,15 @@ The delta keeps raw counts and fractions. Every measured ceiling must hold indep
 conflicting count/share directions reject (AD-136). This is a conservative change limit,
 not an architecture score. Coverage must be complete; schema, scope, analyzer and contract
 must match. Existing UNKNOWNs remain UNKNOWN on a passing revision check.
+
+Delta 1.4 coverage PASS covers every dimension the active profile measures.
+Dart and TypeScript leave API, private and typing comparisons UNKNOWN with null counts.
+Those dimensions cannot be selected in an expectation. Missing supported evidence still
+refuses the comparison. Delta 1.3 remains readable; limited profiles must be reobserved
+before using scoped comparison.
+Equal empty or unknown analyzer/contract identities cannot establish coverage.
+Selecting a changed source UNKNOWN cannot waive its mandatory regression guardrail.
+Moving existing UNKNOWN evidence without changing its meaning remains selectable.
 
 The Python measurement profile also carries `untyped_private_accesses`, the count of
 `private_attribute_access_limit` UNKNOWN records. Older measurement payloads without that

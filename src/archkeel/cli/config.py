@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Final
 
 from archkeel.check.git import read_blob
-from archkeel.check.ports import ScanConfig
+from archkeel.check.ports import Language, ScanConfig
 
 CONFIG_PATH: Final = "archkeel.toml"
 
@@ -58,8 +58,14 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
             "collector_argv are optional"
         )
     # AD-97: absent means Python, so an existing archkeel.toml keeps its bytes and its digest.
-    language = scan.get("language", "python")
-    if language != "python" and language != "dart" and language != "typescript":
+    language_value = scan.get("language", "python")
+    if language_value == "python":
+        language: Language = "python"
+    elif language_value == "dart":
+        language = "dart"
+    elif language_value == "typescript":
+        language = "typescript"
+    else:
         raise ConfigError('scan.language must be "python", "dart", or "typescript"')
     tsconfig_raw = scan.get("tsconfig")
     if tsconfig_raw is not None and language != "typescript":
@@ -141,8 +147,9 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
     config = parse_config(payload, path)
     for relative in config.roots:
         target = _contained(repository, relative, field="scan.roots")
-        if not target.is_dir():
-            raise ConfigError(f"scan root is not a directory: {relative}")
+        if not target.is_dir() and not (config.language == "typescript" and target.is_file()):
+            expected = "directory or file" if config.language == "typescript" else "directory"
+            raise ConfigError(f"scan root is not a {expected}: {relative}")
     contract = _contained(repository, config.contract, field="scan.contract")
     if not contract.is_file():
         raise ConfigError(f"scan contract is not a file: {config.contract}")

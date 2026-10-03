@@ -11,7 +11,6 @@ from typing import get_args, get_origin, get_type_hints
 
 import pytest
 
-from archkeel.analyzer import observe
 from archkeel.check.onboarding import (
     CONFIG_PATH,
     CONTRACT_PATH,
@@ -22,6 +21,7 @@ from archkeel.check.onboarding import (
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.decisions import DOCUMENT_PATH, open_decisions
 from archkeel.ir.model import (
@@ -172,9 +172,7 @@ def test_init_drafts_component_sizes_and_names_the_largest(
         row = next(line for line in document.splitlines() if line.startswith(f"| `{label}` |"))
         assert f"| {sizes[label]['modules']} | {sizes[label]['inner_edges']} |" in row
 
-    # `analyzer` is Archkeel's own densest top-level package by a wide margin (AD-33).
-    assert sizes["analyzer"]["modules"] > sizes["ir"]["modules"]
-    assert sizes["analyzer"]["modules"] > sizes["cli"]["modules"]
+    assert sizes["check"]["modules"] > sizes["cli"]["modules"]
 
 
 def test_init_graph_with_private_component_validates_without_graph_drift(

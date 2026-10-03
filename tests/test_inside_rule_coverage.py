@@ -11,10 +11,10 @@ import pytest
 from test_analyzer import _component, _inside_component, _observe
 from test_architecture_demo import FIXTURE_DIR, _prepare_repo
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import inside_diagnostics
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 from archkeel.ir.model import Observation
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes

@@ -22,12 +22,12 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from pathlib import Path
 
-from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ports import Analyzer, ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.run import run_check
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes
 from archkeel.ir.digest import package_digest
 from archkeel.ir.host_records import HostRecord

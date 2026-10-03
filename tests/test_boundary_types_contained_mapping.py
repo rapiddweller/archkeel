@@ -14,10 +14,10 @@ import pytest
 from test_analyzer import _observe
 from test_boundary_types_nested_dtos import _type_unknowns, _write_app
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import inspect_observation
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     decode_canonical_model,
     observation_payload,

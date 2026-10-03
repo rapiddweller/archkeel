@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import inside_diagnostics, run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import declaration_paths, parse_contract
 
 _DECLARATIONS: dict[str, list[object]] = {

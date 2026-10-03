@@ -30,10 +30,10 @@ from test_dart_directives import (
     rule,
 )
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import render_result, run_report
 from archkeel.check.validation import inside_diagnostics, run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 from archkeel.ir.model import Observation, Record
 
@@ -413,8 +413,8 @@ def test_unmeasured_scalars_are_null_and_measured_ones_are_counts(tmp_path: Path
         assert type(scalars[name]) is int, name
     coverage = payload["coverage"]
     assert isinstance(coverage, dict)
-    assert coverage["calls_analyzed"] == 0
-    assert coverage["calls_unresolved"] == 0
+    assert coverage["calls_analyzed"] is None
+    assert coverage["calls_unresolved"] is None
 
 
 def test_claims_without_their_signal_are_unknown_not_zero(tmp_path: Path) -> None:

@@ -41,11 +41,18 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.structure import oversized_insides
 
-# AD-97 shares profile data; AD-147 shares source identity without opening its helpers.
+# Adapters share source facts, record builders, protocol and language-specific fact values.
+# Governance models, metrics and rule policy stay behind the Core boundary.
 ANALYZER_PUBLIC_IR = frozenset(
-    {"archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles", "archkeel.ir.identity"}
+    {
+        "archkeel.ir.facts",
+        "archkeel.ir.facts_codec",
+        "archkeel.ir.protocol",
+        "archkeel.ir.state_facts",
+        "archkeel.ir.type_shapes",
+        "archkeel.ir.reexports",
+    }
 )
-
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
 STALE = "fixtures/D-self is stale: run `make self-observation` and commit the result on its own"
@@ -71,8 +78,29 @@ def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
     baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
 
     assert public in check["public"] and public in foundation["public"]
-    assert coupling["max_names"] == 10
+    # AD-148 adds the typed observation seam and its two shared type names.
+    assert coupling["max_names"] == 14
     assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
+
+
+def test_cli_check_measure_counts_named_shared_type_reexports(
+    self_observation: Observation,
+) -> None:
+    """AD-148: shared types stay named members of the Core seam, not an open module grant."""
+    profile = interface_profile(self_observation)
+    width = next(
+        item for item in profile.coupling if item.source == "cli" and item.target == "check"
+    )
+    check = next(item for item in _contract().components if item.label == "check")
+
+    assert {
+        "archkeel.check.ports:Language",
+        "archkeel.check.ports:ObservationResult",
+    } <= set(width.names)
+    assert len(width.names) == 14
+    assert width.uncounted == ()
+    assert "archkeel.check.ports" not in (check.public or ())
+    assert "archkeel.check.observe" not in (check.public or ())
 
 
 def _architecture_documents() -> tuple[tuple[str, str], ...]:
@@ -269,20 +297,63 @@ def test_self_public_guard_rejects_unsupported_surface(
 
 
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
-    """AD-45: `analyzer` declares an inside too, the same shape `check`'s (AD-34) already
-    carries. Both parents are named because a second declared inside is one more entry in the
-    same map, not a new derivation; a stale count here would mean a sub-component silently
-    stopped owning a module it used to."""
+    """AD-148: the process host and each language adapter own the modules they observe."""
     levels = {level.parent: level for level in inside_levels(self_observation)}
-    assert set(levels) == {"analyzer", "check"}
+    assert set(levels) == {"analyzer", "analyzer:dart", "analyzer:python", "check", "ir"}
     analyzer = levels["analyzer"]
-    assert [(item.label, len(item.modules)) for item in analyzer.components] == [
-        ("collectors", 10),
-        ("dart", 3),
-        ("foundation", 5),
-        ("orchestration", 6),
-    ]
-    assert analyzer.unassigned == ("archkeel.analyzer", "archkeel.analyzer.embedded")
+    modules_by_component = {item.label: set(item.modules) for item in analyzer.components}
+    assert set(modules_by_component) == {"dart", "process", "python"}
+    assert modules_by_component["process"] == {
+        "archkeel.analyzer",
+        "archkeel.analyzer.process",
+        "archkeel.analyzer.runtime",
+        "archkeel.analyzer.windows_job",
+    }
+    assert modules_by_component["python"] == {
+        "archkeel.analyzer.python",
+        "archkeel.analyzer.python.bindings",
+        "archkeel.analyzer.python.calls",
+        "archkeel.analyzer.python.collect",
+        "archkeel.analyzer.python.constructs",
+        "archkeel.analyzer.python.entry",
+        "archkeel.analyzer.python.imports",
+        "archkeel.analyzer.python.private_attributes",
+        "archkeel.analyzer.python.receiver_types",
+        "archkeel.analyzer.python.references",
+        "archkeel.analyzer.python.resolve",
+        "archkeel.analyzer.python.source",
+        "archkeel.analyzer.python.state",
+        "archkeel.analyzer.python.symbols",
+        "archkeel.analyzer.python.type_shapes",
+        "archkeel.analyzer.python.typing_signals",
+    }
+    assert modules_by_component["dart"] == {
+        "archkeel.analyzer.dart",
+        "archkeel.analyzer.dart.collect",
+        "archkeel.analyzer.dart.directives",
+        "archkeel.analyzer.dart.entry",
+        "archkeel.analyzer.dart.lexer",
+        "archkeel.analyzer.dart.resolve",
+    }
+    assert analyzer.unassigned == ()
+    assert levels["analyzer:python"].unassigned == ()
+    assert levels["analyzer:dart"].unassigned == ()
+    assert levels["ir"].unassigned == ()
+    assert all(
+        ".embedded" not in module for modules in modules_by_component.values() for module in modules
+    )
+
+
+def test_process_public_interface_names_the_collector_class_only() -> None:
+    contract = _contract()
+    analyzer = next(item for item in contract.components if item.label == "analyzer")
+    assert analyzer.public is not None
+    assert "archkeel.analyzer.process:ProcessCollector" in analyzer.public
+    assert "archkeel.analyzer.process" not in analyzer.public
+    nested = json.loads((ROOT / "docs/architecture/contracts/analyzer.json").read_text())
+    process = next(item for item in nested["components"] if item["label"] == "process")
+    assert "archkeel.analyzer.process:ProcessCollector" in process["public"]
+    assert "archkeel.analyzer.process" not in process["public"]
 
 
 def test_self_oversized_components_claim_still_counts_analyzer(

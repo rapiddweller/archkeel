@@ -1,0 +1,135 @@
+{
+  "$schema": "../../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "TARGET-PROCESS",
+      "label": "process",
+      "role": "component",
+      "packages": [],
+      "responsibilities": [
+        "Execute the configured collector, validate its protocol response, and record runtime provenance."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing sources, importing language collectors, or deciding architecture policy."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "exact_modules": [
+        "archkeel.analyzer",
+        "archkeel.analyzer.process",
+        "archkeel.analyzer.runtime",
+        "archkeel.analyzer.windows_job"
+      ],
+      "planned": [],
+      "public": [
+        "archkeel.analyzer.process:ProcessCollector",
+        "archkeel.analyzer.runtime:collector_provenance",
+        "archkeel.analyzer.runtime:python_requirement"
+      ]
+    },
+    {
+      "id": "TARGET-PYTHON",
+      "label": "python",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.python"
+      ],
+      "responsibilities": [
+        "Own Python parsing, resolution and source-fact collection."
+      ],
+      "forbidden_responsibilities": [
+        "Governance policy and sibling adapter imports."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "inside": "docs/architecture/contracts/python.json",
+      "planned": [],
+      "public": [],
+      "requires": [
+        {
+          "component": "process",
+          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter."
+        }
+      ]
+    },
+    {
+      "id": "TARGET-DART",
+      "label": "dart",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.dart"
+      ],
+      "responsibilities": [
+        "Own Dart directive parsing, URI resolution and source-fact collection."
+      ],
+      "forbidden_responsibilities": [
+        "Unsupported full-Dart claims, governance policy and sibling adapter imports."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "inside": "docs/architecture/contracts/dart.json",
+      "planned": [],
+      "public": [],
+      "requires": [
+        {
+          "component": "process",
+          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter."
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.analyzer"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/archkeel/analyzer/process.py",
+        "responsibility": "Execute the request/response port and validate limits."
+      }
+    ]
+  }
+}

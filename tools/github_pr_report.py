@@ -16,12 +16,12 @@ import zlib
 from dataclasses import replace
 from pathlib import Path
 
-from archkeel.analyzer import observe
 from archkeel.check.expectation import sha256_bytes
 from archkeel.check.git import git_bytes, read_blob
 from archkeel.check.report import render_result, unknown_result
 from archkeel.check.run import run_check
 from archkeel.cli.config import load_check_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_json, parse_lock
 from archkeel.ir.host_records import (
     InitialPRHeadEvidence,

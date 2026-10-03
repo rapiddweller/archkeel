@@ -1,0 +1,1342 @@
+[
+  {
+    "context_evidence": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-266fb151747fd314"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-266fb151747fd314"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-05719186c6aadd63",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use writes counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-9bf07607147a1a56"
+          ],
+          "source": "sample.use",
+          "target": "inner"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-9bf07607147a1a56"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-20d64e70a474c8d9",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "inner",
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use passes inner"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "read",
+          "category": "reads",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-5e5dabb16c625b6e"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.Bag.total"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-5e5dabb16c625b6e"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-3a510b9127eb6e8d",
+        "kind": "context_read",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.Bag.total"
+        ],
+        "title": "sample.Bag.total reads counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "mutation",
+          "category": "writes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-70f15377e0e06581"
+          ],
+          "field": "entries",
+          "path": "entries",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-70f15377e0e06581"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-40e9a3a0e6a9ab00",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use writes entries"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "mutation",
+          "category": "writes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-00a57d70a2ad6711"
+          ],
+          "field": "entries",
+          "path": "entries",
+          "source": "sample.Bag.change"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-00a57d70a2ad6711"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-49fa97e1a55521ce",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.Bag.change"
+        ],
+        "title": "sample.Bag.change writes entries"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-98b17316d3ae3421"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.Bag.total"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-98b17316d3ae3421"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-5fe2696536b74a30",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.Bag.total"
+        ],
+        "title": "sample.Bag.total writes counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-05d065ee99537fc2"
+          ],
+          "source": "sample.use",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-05d065ee99537fc2"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-605e3df1276c8d61",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.StatusState",
+          "evidence_ids": [
+            "EVD-05d065ee99537fc2"
+          ],
+          "source": "sample.use",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-05d065ee99537fc2"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-7d27fbc047107757",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "sample.StatusState",
+          "sample.use"
+        ],
+        "title": "sample.use passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "read",
+          "category": "reads",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-fa36381a8be6a790"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.inner"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-fa36381a8be6a790"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-88dd97c46566ff2d",
+        "kind": "context_read",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.inner"
+        ],
+        "title": "sample.inner reads counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-2e704c8a781acc38"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-2e704c8a781acc38"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-971dcbfeece3bf85",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use writes counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "call_id": "CALL-848b4bcb50fe1c81",
+          "category": "constructed_by",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-cc004ccc74e46d8c"
+          ],
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-cc004ccc74e46d8c"
+        ],
+        "fact_ids": [
+          "CALL-848b4bcb50fe1c81"
+        ],
+        "id": "CONTEXT-ACCESS-ae56c88eb1a18f3b",
+        "kind": "context_construction",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use constructed by sample.Bag"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-335d68c546f4a193"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.Bag.__init__"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-335d68c546f4a193"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-b04a1f19d1425c73",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.Bag.__init__"
+        ],
+        "title": "sample.Bag.__init__ writes counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "call_id": "CALL-241491ae942b1673",
+          "category": "constructed_by",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-cd26ab0378e1d3d6"
+          ],
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-cd26ab0378e1d3d6"
+        ],
+        "fact_ids": [
+          "CALL-241491ae942b1673"
+        ],
+        "id": "CONTEXT-ACCESS-b87f4292a89068a8",
+        "kind": "context_construction",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use constructed by sample.Bag"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "read",
+          "category": "reads",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-fa36381a8be6a790"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-fa36381a8be6a790"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-c3e228b8b069dd4f",
+        "kind": "context_read",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use reads counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.Bag",
+          "target_module": "typing"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-2bd6053bb740b148",
+          "IMP-38183b5d2ea1d4d5"
+        ],
+        "id": "CONTEXT-DEP-3b884022c4e78332",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "typing"
+        ],
+        "title": "sample.Bag depends on typing"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.Bag",
+          "target_module": "dataclasses"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-973a5f3039e76066"
+        ],
+        "id": "CONTEXT-DEP-5b4116d7d7aab702",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "dataclasses",
+          "sample.Bag"
+        ],
+        "title": "sample.Bag depends on dataclasses"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.StatusState",
+          "target_module": "typing"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-2bd6053bb740b148",
+          "IMP-38183b5d2ea1d4d5"
+        ],
+        "id": "CONTEXT-DEP-6034edf4a50e6d6f",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.StatusState",
+          "typing"
+        ],
+        "title": "sample.StatusState depends on typing"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.StatusState",
+          "target_module": "dataclasses"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-973a5f3039e76066"
+        ],
+        "id": "CONTEXT-DEP-852dfaaea5363b62",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "dataclasses",
+          "sample.StatusState"
+        ],
+        "title": "sample.StatusState depends on dataclasses"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "Final[list[str]]",
+          "binding": "non_reassignable",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-c49767d6e8bcbed8"
+          ],
+          "mutability": "mutable",
+          "name": "entries",
+          "referent_mutability": "mutable_container"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-c49767d6e8bcbed8"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-40c025d69145e261",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "entries",
+          "sample.Bag"
+        ],
+        "title": "sample.Bag.entries"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "int",
+          "binding": "UNKNOWN",
+          "context": "sample.Bag",
+          "evidence_ids": [
+            "EVD-335d68c546f4a193"
+          ],
+          "mutability": "mutable",
+          "name": "counter",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-335d68c546f4a193"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-552019f745259373",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "counter",
+          "sample.Bag"
+        ],
+        "title": "sample.Bag.counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": null,
+          "binding": "UNKNOWN",
+          "context": "sample.Bag",
+          "evidence_ids": [],
+          "mutability": "UNKNOWN",
+          "name": "total",
+          "property_assignment": "available",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-6ca0e193bdd70824",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag",
+          "total"
+        ],
+        "title": "sample.Bag.total"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "str",
+          "binding": "UNKNOWN",
+          "context": "sample.StatusState",
+          "evidence_ids": [
+            "EVD-5061ef9d54d6e3ba"
+          ],
+          "mutability": "UNKNOWN",
+          "name": "state",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-5061ef9d54d6e3ba"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-c8429f60daf5f7f9",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.StatusState",
+          "state"
+        ],
+        "title": "sample.StatusState.state"
+      }
+    ],
+    "contexts": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "local_domain_state_candidate",
+          "context_class_label": "LOCAL / DOMAIN STATE CANDIDATE",
+          "declared_root": false,
+          "dependencies": [
+            "CONTEXT-DEP-6034edf4a50e6d6f",
+            "CONTEXT-DEP-852dfaaea5363b62"
+          ],
+          "fields": [
+            "CONTEXT-FIELD-c8429f60daf5f7f9"
+          ],
+          "methods": [],
+          "passes": [
+            "CONTEXT-ACCESS-7d27fbc047107757"
+          ],
+          "qualified_name": "sample.StatusState",
+          "reads": [],
+          "writes": []
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-5cbb9c155e129ee1"
+        ],
+        "fact_ids": [
+          "CONTEXT-ACCESS-7d27fbc047107757",
+          "CONTEXT-DEP-6034edf4a50e6d6f",
+          "CONTEXT-DEP-852dfaaea5363b62",
+          "CONTEXT-FIELD-c8429f60daf5f7f9",
+          "SYM-9511bcbe5e9c5496"
+        ],
+        "id": "CONTEXT-8cce70e58bac0b3f",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.StatusState"
+        ],
+        "title": "sample.StatusState"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [],
+          "fields": [],
+          "methods": [],
+          "passes": [],
+          "qualified_name": "missing.Root",
+          "reads": [],
+          "writes": []
+        },
+        "evidence_class": "UNKNOWN",
+        "evidence_ids": [],
+        "fact_ids": [],
+        "id": "CONTEXT-948de7c21dbde871",
+        "kind": "declared_context_not_observed",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "missing.Root"
+        ],
+        "title": "missing.Root"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [
+            "CONTEXT-ACCESS-ae56c88eb1a18f3b",
+            "CONTEXT-ACCESS-b87f4292a89068a8"
+          ],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [
+            "CONTEXT-DEP-3b884022c4e78332",
+            "CONTEXT-DEP-5b4116d7d7aab702"
+          ],
+          "fields": [
+            "CONTEXT-FIELD-40c025d69145e261",
+            "CONTEXT-FIELD-552019f745259373",
+            "CONTEXT-FIELD-6ca0e193bdd70824"
+          ],
+          "methods": [
+            "sample.Bag.__init__",
+            "sample.Bag.change",
+            "sample.Bag.total",
+            "sample.Bag.total"
+          ],
+          "passes": [
+            "CONTEXT-ACCESS-20d64e70a474c8d9",
+            "CONTEXT-ACCESS-605e3df1276c8d61"
+          ],
+          "qualified_name": "sample.Bag",
+          "reads": [
+            "CONTEXT-ACCESS-3a510b9127eb6e8d",
+            "CONTEXT-ACCESS-88dd97c46566ff2d",
+            "CONTEXT-ACCESS-c3e228b8b069dd4f"
+          ],
+          "writes": [
+            "CONTEXT-ACCESS-05719186c6aadd63",
+            "CONTEXT-ACCESS-40e9a3a0e6a9ab00",
+            "CONTEXT-ACCESS-49fa97e1a55521ce",
+            "CONTEXT-ACCESS-5fe2696536b74a30",
+            "CONTEXT-ACCESS-971dcbfeece3bf85",
+            "CONTEXT-ACCESS-b04a1f19d1425c73"
+          ]
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-8ce69c4a84b6cb52"
+        ],
+        "fact_ids": [
+          "CONTEXT-ACCESS-05719186c6aadd63",
+          "CONTEXT-ACCESS-20d64e70a474c8d9",
+          "CONTEXT-ACCESS-3a510b9127eb6e8d",
+          "CONTEXT-ACCESS-40e9a3a0e6a9ab00",
+          "CONTEXT-ACCESS-49fa97e1a55521ce",
+          "CONTEXT-ACCESS-5fe2696536b74a30",
+          "CONTEXT-ACCESS-605e3df1276c8d61",
+          "CONTEXT-ACCESS-88dd97c46566ff2d",
+          "CONTEXT-ACCESS-971dcbfeece3bf85",
+          "CONTEXT-ACCESS-ae56c88eb1a18f3b",
+          "CONTEXT-ACCESS-b04a1f19d1425c73",
+          "CONTEXT-ACCESS-b87f4292a89068a8",
+          "CONTEXT-ACCESS-c3e228b8b069dd4f",
+          "CONTEXT-DEP-3b884022c4e78332",
+          "CONTEXT-DEP-5b4116d7d7aab702",
+          "CONTEXT-FIELD-40c025d69145e261",
+          "CONTEXT-FIELD-552019f745259373",
+          "CONTEXT-FIELD-6ca0e193bdd70824",
+          "SYM-c8647267b51581c1"
+        ],
+        "id": "CONTEXT-d5201e42991c963f",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Bag"
+        ],
+        "title": "sample.Bag"
+      }
+    ],
+    "evidence": [
+      {
+        "column": 4,
+        "end_line": 29,
+        "excerpt": "    typed.counter = 1",
+        "file": "sample.py",
+        "id": "EVD-266fb151747fd314",
+        "line": 29
+      },
+      {
+        "column": 4,
+        "end_line": 30,
+        "excerpt": "    both.counter = 2",
+        "file": "sample.py",
+        "id": "EVD-2e704c8a781acc38",
+        "line": 30
+      },
+      {
+        "column": 8,
+        "end_line": 7,
+        "excerpt": "        self.counter: int = 0",
+        "file": "sample.py",
+        "id": "EVD-335d68c546f4a193",
+        "line": 7
+      },
+      {
+        "column": 4,
+        "end_line": 19,
+        "excerpt": "    state: str",
+        "file": "sample.py",
+        "id": "EVD-5061ef9d54d6e3ba",
+        "line": 19
+      },
+      {
+        "column": 15,
+        "end_line": 10,
+        "excerpt": "        return self.counter",
+        "file": "sample.py",
+        "id": "EVD-5e5dabb16c625b6e",
+        "line": 10
+      },
+      {
+        "column": 8,
+        "end_line": 13,
+        "excerpt": "        self.counter = value",
+        "file": "sample.py",
+        "id": "EVD-98b17316d3ae3421",
+        "line": 13
+      },
+      {
+        "column": 4,
+        "end_line": 5,
+        "excerpt": "    entries: Final[list[str]]",
+        "file": "sample.py",
+        "id": "EVD-c49767d6e8bcbed8",
+        "line": 5
+      },
+      {
+        "column": 15,
+        "end_line": 33,
+        "excerpt": "        return value.counter",
+        "file": "sample.py",
+        "id": "EVD-fa36381a8be6a790",
+        "line": 33
+      }
+    ]
+  },
+  {
+    "context_evidence": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "read",
+          "category": "reads",
+          "context": "other.Bag",
+          "evidence_ids": [
+            "EVD-fa36381a8be6a790"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.inner"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-fa36381a8be6a790"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-5833eb3ce51a6629",
+        "kind": "context_read",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "other.Bag",
+          "sample.inner"
+        ],
+        "title": "sample.inner reads counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "mutation",
+          "category": "writes",
+          "context": "other.Bag",
+          "evidence_ids": [
+            "EVD-70f15377e0e06581"
+          ],
+          "field": "entries",
+          "path": "entries",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-70f15377e0e06581"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-7b3c012fa2e3a3a0",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "other.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use writes entries"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "sample.StatusState",
+          "evidence_ids": [
+            "EVD-05d065ee99537fc2"
+          ],
+          "source": "sample.use",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-05d065ee99537fc2"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-7d27fbc047107757",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "sample.StatusState",
+          "sample.use"
+        ],
+        "title": "sample.use passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "other.Bag",
+          "evidence_ids": [
+            "EVD-9bf07607147a1a56"
+          ],
+          "source": "sample.use",
+          "target": "inner"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-9bf07607147a1a56"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-802f4d9927727afe",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "inner",
+          "other.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use passes inner"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "read",
+          "category": "reads",
+          "context": "other.Bag",
+          "evidence_ids": [
+            "EVD-fa36381a8be6a790"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-fa36381a8be6a790"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-89c77c4df3897d01",
+        "kind": "context_read",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "other.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use reads counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "other.Bag",
+          "evidence_ids": [
+            "EVD-2e704c8a781acc38"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-2e704c8a781acc38"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-ad84bb8b94c2a0c2",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "other.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use writes counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "access": "write",
+          "category": "writes",
+          "context": "other.Bag",
+          "evidence_ids": [
+            "EVD-266fb151747fd314"
+          ],
+          "field": "counter",
+          "path": "counter",
+          "source": "sample.use"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-266fb151747fd314"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-b1029c4c9e2bdc03",
+        "kind": "context_write",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "other.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use writes counter"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "category": "passes",
+          "context": "other.Bag",
+          "evidence_ids": [
+            "EVD-05d065ee99537fc2"
+          ],
+          "source": "sample.use",
+          "target": "consume"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-05d065ee99537fc2"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-ACCESS-d7d71608293f3e9b",
+        "kind": "context_pass",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "consume",
+          "other.Bag",
+          "sample.use"
+        ],
+        "title": "sample.use passes consume"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.Unselected",
+          "target_module": "dataclasses"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-973a5f3039e76066"
+        ],
+        "id": "CONTEXT-DEP-1481a334fb60d359",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "dataclasses",
+          "sample.Unselected"
+        ],
+        "title": "sample.Unselected depends on dataclasses"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.Unselected",
+          "target_module": "typing"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-2bd6053bb740b148",
+          "IMP-38183b5d2ea1d4d5"
+        ],
+        "id": "CONTEXT-DEP-17e619ded706902f",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Unselected",
+          "typing"
+        ],
+        "title": "sample.Unselected depends on typing"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.StatusState",
+          "target_module": "typing"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-2bd6053bb740b148",
+          "IMP-38183b5d2ea1d4d5"
+        ],
+        "id": "CONTEXT-DEP-6034edf4a50e6d6f",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.StatusState",
+          "typing"
+        ],
+        "title": "sample.StatusState depends on typing"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "context": "sample.StatusState",
+          "target_module": "dataclasses"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [],
+        "fact_ids": [
+          "IMP-973a5f3039e76066"
+        ],
+        "id": "CONTEXT-DEP-852dfaaea5363b62",
+        "kind": "context_dependency",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "dataclasses",
+          "sample.StatusState"
+        ],
+        "title": "sample.StatusState depends on dataclasses"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "int",
+          "binding": "UNKNOWN",
+          "context": "sample.Unselected",
+          "evidence_ids": [
+            "EVD-64167fea41b7f333"
+          ],
+          "mutability": "UNKNOWN",
+          "name": "hidden",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-64167fea41b7f333"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-afaaaecd5a686c81",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "hidden",
+          "sample.Unselected"
+        ],
+        "title": "sample.Unselected.hidden"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "annotation": "str",
+          "binding": "UNKNOWN",
+          "context": "sample.StatusState",
+          "evidence_ids": [
+            "EVD-5061ef9d54d6e3ba"
+          ],
+          "mutability": "UNKNOWN",
+          "name": "state",
+          "referent_mutability": "UNKNOWN"
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-5061ef9d54d6e3ba"
+        ],
+        "fact_ids": [],
+        "id": "CONTEXT-FIELD-c8429f60daf5f7f9",
+        "kind": "context_field",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.StatusState",
+          "state"
+        ],
+        "title": "sample.StatusState.state"
+      }
+    ],
+    "contexts": [
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [],
+          "fields": [],
+          "methods": [],
+          "passes": [
+            "CONTEXT-ACCESS-802f4d9927727afe",
+            "CONTEXT-ACCESS-d7d71608293f3e9b"
+          ],
+          "qualified_name": "other.Bag",
+          "reads": [
+            "CONTEXT-ACCESS-5833eb3ce51a6629",
+            "CONTEXT-ACCESS-89c77c4df3897d01"
+          ],
+          "writes": [
+            "CONTEXT-ACCESS-7b3c012fa2e3a3a0",
+            "CONTEXT-ACCESS-ad84bb8b94c2a0c2",
+            "CONTEXT-ACCESS-b1029c4c9e2bdc03"
+          ]
+        },
+        "evidence_class": "UNKNOWN",
+        "evidence_ids": [],
+        "fact_ids": [
+          "CONTEXT-ACCESS-5833eb3ce51a6629",
+          "CONTEXT-ACCESS-7b3c012fa2e3a3a0",
+          "CONTEXT-ACCESS-802f4d9927727afe",
+          "CONTEXT-ACCESS-89c77c4df3897d01",
+          "CONTEXT-ACCESS-ad84bb8b94c2a0c2",
+          "CONTEXT-ACCESS-b1029c4c9e2bdc03",
+          "CONTEXT-ACCESS-d7d71608293f3e9b"
+        ],
+        "id": "CONTEXT-2bade6dd6e48aaea",
+        "kind": "declared_context_not_observed",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "other.Bag"
+        ],
+        "title": "other.Bag"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "local_domain_state_candidate",
+          "context_class_label": "LOCAL / DOMAIN STATE CANDIDATE",
+          "declared_root": false,
+          "dependencies": [
+            "CONTEXT-DEP-6034edf4a50e6d6f",
+            "CONTEXT-DEP-852dfaaea5363b62"
+          ],
+          "fields": [
+            "CONTEXT-FIELD-c8429f60daf5f7f9"
+          ],
+          "methods": [],
+          "passes": [
+            "CONTEXT-ACCESS-7d27fbc047107757"
+          ],
+          "qualified_name": "sample.StatusState",
+          "reads": [],
+          "writes": []
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-5cbb9c155e129ee1"
+        ],
+        "fact_ids": [
+          "CONTEXT-ACCESS-7d27fbc047107757",
+          "CONTEXT-DEP-6034edf4a50e6d6f",
+          "CONTEXT-DEP-852dfaaea5363b62",
+          "CONTEXT-FIELD-c8429f60daf5f7f9",
+          "SYM-9511bcbe5e9c5496"
+        ],
+        "id": "CONTEXT-8cce70e58bac0b3f",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.StatusState"
+        ],
+        "title": "sample.StatusState"
+      },
+      {
+        "area": "contexts_state",
+        "data": {
+          "constructed_by": [],
+          "context_class": "declared_root",
+          "context_class_label": "DECLARED ROOT",
+          "declared_root": true,
+          "dependencies": [
+            "CONTEXT-DEP-1481a334fb60d359",
+            "CONTEXT-DEP-17e619ded706902f"
+          ],
+          "fields": [
+            "CONTEXT-FIELD-afaaaecd5a686c81"
+          ],
+          "methods": [],
+          "passes": [],
+          "qualified_name": "sample.Unselected",
+          "reads": [],
+          "writes": []
+        },
+        "evidence_class": "FACT",
+        "evidence_ids": [
+          "EVD-cfe1aaa407a80698"
+        ],
+        "fact_ids": [
+          "CONTEXT-DEP-1481a334fb60d359",
+          "CONTEXT-DEP-17e619ded706902f",
+          "CONTEXT-FIELD-afaaaecd5a686c81",
+          "SYM-d28ff201947f3cfb"
+        ],
+        "id": "CONTEXT-cb74713b07333656",
+        "kind": "context_topology",
+        "provenance": [],
+        "rule_ids": [],
+        "subjects": [
+          "sample.Unselected"
+        ],
+        "title": "sample.Unselected"
+      }
+    ],
+    "evidence": [
+      {
+        "column": 4,
+        "end_line": 29,
+        "excerpt": "    typed.counter = 1",
+        "file": "sample.py",
+        "id": "EVD-266fb151747fd314",
+        "line": 29
+      },
+      {
+        "column": 4,
+        "end_line": 30,
+        "excerpt": "    both.counter = 2",
+        "file": "sample.py",
+        "id": "EVD-2e704c8a781acc38",
+        "line": 30
+      },
+      {
+        "column": 4,
+        "end_line": 19,
+        "excerpt": "    state: str",
+        "file": "sample.py",
+        "id": "EVD-5061ef9d54d6e3ba",
+        "line": 19
+      },
+      {
+        "column": 4,
+        "end_line": 17,
+        "excerpt": "    hidden: int",
+        "file": "sample.py",
+        "id": "EVD-64167fea41b7f333",
+        "line": 17
+      },
+      {
+        "column": 15,
+        "end_line": 33,
+        "excerpt": "        return value.counter",
+        "file": "sample.py",
+        "id": "EVD-fa36381a8be6a790",
+        "line": 33
+      }
+    ]
+  }
+]

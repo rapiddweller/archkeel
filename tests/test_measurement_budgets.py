@@ -10,8 +10,8 @@ from pathlib import Path
 from test_architecture_demo import CONFIG, _prepare_repo
 from test_baseline import REFUSED
 
-from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     baseline_bytes,
     decode_json,

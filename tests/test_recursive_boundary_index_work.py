@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 from test_recursive_inside_independent_contracts import _write_three_levels
 
-import archkeel.analyzer.embedded.violations as boundary_violations
-from archkeel.analyzer.embedded.report import analyze_snapshot
+import archkeel.check.evaluation.rules as boundary_violations
+from archkeel.cli.observe import analyze_snapshot
 
 
 def test_recursive_boundary_indexes_do_not_scale_with_public_function_count(

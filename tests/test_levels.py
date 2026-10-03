@@ -22,37 +22,34 @@ def _self_observation():
 
 def test_the_inside_of_check_carries_its_sub_components_and_their_edges() -> None:
     levels = {level.parent: level for level in inside_levels(_self_observation())}
-    # AD-45 opened `analyzer` too; this test keeps reading `check`'s level by name.
-    assert sorted(levels) == ["analyzer", "check"]
+    assert sorted(levels) == ["analyzer", "analyzer:dart", "analyzer:python", "check", "ir"]
     level = levels["check"]
     assert [(item.label, len(item.modules)) for item in level.components] == [
-        ("entry", 4),
-        ("foundation", 5),
-        ("policy", 3),
+        ("declarations", 1),
+        ("evaluation", 6),
+        ("inputs", 7),
+        ("observation", 2),
+        ("regression", 3),
+        ("workflows", 4),
     ]
     assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
-        # 25, not 23, since run_init and run_validate import ports:FilesToWrite (AD-68); 28
-        # since validate observes the `--against` revision's snapshot and asks Git which files
-        # its archive leaves out (AD-100); 29 since validate tells a missing contract blob from
-        # an unreadable one (AD-104).
-        ("entry", "foundation", 29),
-        # validate now reads the existing ratchet profile for selected measurement budgets;
-        # check and validate also import unresolved_call_changes, report call_rows, and report and
-        # check ask calls_measured whether the profile measures calls at all; report also imports
-        # unknown_positions_by_rule for per-rule UNKNOWN counts, now shared by the aggregate
-        # verdict (AD-100, AD-97, AD-117, AD-124).
-        ("entry", "policy", 14),
-        ("policy", "foundation", 2),
+        ("declarations", "evaluation", 1),
+        ("observation", "declarations", 5),
+        ("observation", "evaluation", 2),
+        ("observation", "inputs", 3),
+        ("regression", "inputs", 2),
+        ("workflows", "inputs", 29),
+        ("workflows", "regression", 14),
     ]
 
 
 def test_a_module_no_sub_component_owns_is_carried_not_dropped() -> None:
-    """The package __init__ belongs to no layer; a module that vanished between two levels
-    would be the one thing this tool exists to prevent."""
+    """Every observed check module stays owned by one declared sub-component."""
     level = next(item for item in inside_levels(_self_observation()) if item.parent == "check")
-    assert level.unassigned == ("archkeel.check",)
-    owned = {name for item in level.components for name in item.modules}
-    assert "archkeel.check" not in owned
+    assert level.unassigned == ()
+    modules_by_component = {item.label: item.modules for item in level.components}
+    assert "archkeel.check" in modules_by_component["inputs"]
+    assert sum("archkeel.check" in modules for modules in modules_by_component.values()) == 1
 
 
 def _declaration(identifier: str, kind: str, title: str, subjects: list[str], **data: Any):

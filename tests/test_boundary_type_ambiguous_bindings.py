@@ -34,10 +34,10 @@ from pathlib import Path
 
 from test_analyzer import _component, _observe
 
-from archkeel.analyzer.embedded.records import RawRecord
-from archkeel.analyzer.embedded.source import ParsedModule
-from archkeel.analyzer.embedded.symbols import collect_symbols
-from archkeel.analyzer.embedded.violations import boundary_type_indexes
+from archkeel.analyzer.python.source import ParsedModule
+from archkeel.analyzer.python.symbols import collect_symbols
+from archkeel.check.evaluation.rules import boundary_type_indexes
+from archkeel.ir.facts_codec import RawRecord
 from archkeel.ir.trace import trace_valid_violations
 
 

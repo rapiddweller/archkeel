@@ -5,8 +5,8 @@
 
 from pathlib import Path
 
-from archkeel.analyzer import observe
 from archkeel.check.ratchets import measure_python_ratchets
+from archkeel.cli.observe import observe
 
 
 def _observe(tmp_path: Path, source: str):
