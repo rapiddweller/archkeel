@@ -35,7 +35,10 @@ The adapter measures the proven import graph, ownership, external scopes, cycles
 and layout. Computed or shadowed imports, incomplete resolver inputs and
 unobserved closure cannot prove absence; affected results stay UNKNOWN. TypeScript
 does not measure symbols, references, bindings, types, constructs, calls, typing
-positions or private-use metrics. Those values stay null/unknown, never zero.
+positions or private-use metrics. Their signals and coverage counts remain
+null/UNKNOWN. The legacy result keeps `calls_total: 0` with `resolution: n/a`;
+this sentinel does not prove zero calls. Reports show n/a and budgets refuse
+unavailable signals. See [the measurement contract](../reference.md#regression-checks).
 Full Dart type and construct analysis is also outside this decision.
 
 The npm package is locked and does not install dependencies during `report` or
