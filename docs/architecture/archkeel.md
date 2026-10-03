@@ -20,8 +20,22 @@ never select adapters or write presentation files.
 Third-party imports are confined by `external_dependency_scope` rules: `packaging` to the
 analyzer runtime gate, `rich` to `archkeel.render.terminal` and `rich_argparse` to `archkeel.cli`.
 
-The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`. This keeps raw AST
-records inside the analyzer and exposes typed `ObservationResult` values at its boundary.
+The analyzer may import `archkeel.ir.model`, `archkeel.ir.codec` and the shared
+`archkeel.ir.profiles` table. It exposes typed `ObservationResult` values today.
+
+### Language boundary target (AD-22)
+
+The shipped Python/Dart bridge is fixed, and its scanners still contain rule
+evaluation. Before adding TypeScript, establish one configured executable port:
+language adapters own parsing/resolution/facts; the Core owns policy and verdicts.
+Keep ASTs out of the Core and prove Python/Dart parity plus actual replacement.
+This is pending work, not a description of completed separation. See
+[AD-22](decisions/ad-22-the-analyzer-is-a-process-port-with-a-language-profile.md)
+and [the proposal](typescript-foundation-proposal.md).
+
+Future HTTP/queue interactions have distinct contract identities and declaration,
+source and runtime evidence. They are not imports; observers and rules remain
+outside the current implementation scope.
 
 Compatibility shims are declared at the contract top level, not inferred as a generic facade:
 `declarations.compat` owns the old module, target and lifetime (AD-87).

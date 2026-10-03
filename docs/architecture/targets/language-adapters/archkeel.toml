@@ -1,0 +1,4 @@
+[scan]
+roots = ["src/archkeel"]
+namespace = "archkeel"
+contract = "docs/architecture/targets/language-adapters/root.json"

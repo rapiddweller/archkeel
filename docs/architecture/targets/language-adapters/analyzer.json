@@ -1,0 +1,124 @@
+{
+  "$schema": "../../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "TARGET-PROCESS",
+      "label": "process",
+      "role": "component",
+      "packages": [],
+      "responsibilities": [
+        "Invoke the configured executable, enforce limits and validate its response."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing sources and deciding architecture policy."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "exact_modules": [
+        "archkeel.analyzer",
+        "archkeel.analyzer.process",
+        "archkeel.analyzer.runtime"
+      ],
+      "planned": [
+        "archkeel.analyzer:collect"
+      ],
+      "public": []
+    },
+    {
+      "id": "TARGET-PYTHON",
+      "label": "python",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.python"
+      ],
+      "responsibilities": [
+        "Own Python parsing, resolution and source-fact collection."
+      ],
+      "forbidden_responsibilities": [
+        "Governance policy and sibling adapter imports."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "inside": "docs/architecture/targets/language-adapters/python.json",
+      "planned": [
+        "archkeel.analyzer.python.entry:main"
+      ],
+      "public": []
+    },
+    {
+      "id": "TARGET-DART",
+      "label": "dart",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.dart"
+      ],
+      "responsibilities": [
+        "Own Dart directive parsing, URI resolution and source-fact collection."
+      ],
+      "forbidden_responsibilities": [
+        "Unsupported full-Dart claims, governance policy and sibling adapter imports."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "inside": "docs/architecture/targets/language-adapters/dart.json",
+      "planned": [
+        "archkeel.analyzer.dart.entry:main"
+      ],
+      "public": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.analyzer"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/archkeel/analyzer/process.py",
+        "responsibility": "Execute the request/response port and validate limits."
+      }
+    ]
+  }
+}
