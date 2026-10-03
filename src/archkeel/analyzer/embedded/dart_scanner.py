@@ -95,6 +95,7 @@ def _rule_failures(
             contract=contract,
             exports_by_module=facade_exports,
             sdk_libraries=DART.sdk_libraries,
+            type_shapes={},
         ),
         *profile_failures(contract, DART),
     ]
@@ -130,6 +131,7 @@ def _inside_results(
         evidence={item["id"]: item for item in sources.evidence},
         cycle_scan_roots=roots if not sources.failures else (),
         cycle_namespace=namespace,
+        type_shapes={},
     )
     return results[:5]
 
@@ -188,6 +190,7 @@ def _rule_results(
         assessment_parent="root",
         cycle_scan_roots=roots if not sources.failures else (),
         cycle_namespace=namespace,
+        type_shapes={},
     )
     inside = _inside_results(
         inside_contracts,
@@ -281,4 +284,5 @@ def scan_dart_repository(
         context_evidence=[],
         violations=violations,
         unknowns=sorted(unknowns, key=lambda item: item["id"]),
+        type_shapes={},
     )

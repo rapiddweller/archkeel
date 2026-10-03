@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import ast
 import builtins
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
@@ -45,6 +44,18 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.profiles import DeclarationField, Profile
+from archkeel.ir.type_shapes import (
+    LiteralKind,
+    TypeApplication,
+    TypeLiteral,
+    TypeMember,
+    TypeName,
+    TypeShape,
+    TypeShapeIndex,
+    TypeUnion,
+    TypeUnpack,
+    UnresolvedType,
+)
 
 from .graph import strongly_connected_components
 from .records import RawEvidence, RawRecord, RecordData, classified
@@ -950,6 +961,8 @@ def _boundary_type_subject_modules(
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
     source_modules: frozenset[str] | None = None,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> frozenset[str]:
     """Modules carrying at least one function `rule` actually inspects (issue #56).
 
@@ -991,6 +1004,7 @@ def _boundary_type_subject_modules(
             scanned_modules,
             stable_bindings_by_module,
             source_modules,
+            type_shapes=type_shapes,
         )
         if "module" in record["data"]
         and isinstance((module := record["data"]["module"]), str)
@@ -1013,6 +1027,7 @@ def rule_subject_failures(
     rules: Sequence[ArchitectureRule],
     module_names: set[str],
     *,
+    type_shapes: TypeShapeIndex,
     target_module_names: set[str] | None = None,
     symbols: Sequence[RawRecord] = (),
     imports: Sequence[RawRecord] = (),
@@ -1050,6 +1065,7 @@ def rule_subject_failures(
                 module_names,
                 stable_bindings_by_module or {},
                 source_modules,
+                type_shapes=type_shapes,
             )
             source_subjects = source_subjects | planned_subjects
             facade_scoped = True
@@ -1379,17 +1395,17 @@ _PROVEN_SCALAR_LEAVES: Final = frozenset({("datetime", "datetime")})
 
 
 def _proven_type_head(
-    head: ast.expr,
+    head: TypeShape,
     module: str,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     origins: frozenset[tuple[str, str]],
 ) -> _Position | bool:
     """Prove a known origin without trusting a shadowed or ambiguous binding."""
-    if isinstance(head, ast.Name):
-        binding, member = head.id, None
-    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
-        binding, member = head.value.id, head.attr
+    if isinstance(head, TypeName):
+        binding, member = head.name, None
+    elif isinstance(head, TypeMember) and isinstance(head.owner, TypeName):
+        binding, member = head.owner.name, head.member
     else:
         return False
     key = (module, binding)
@@ -1432,28 +1448,28 @@ def _mapping_parameters(
     module: str,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[str] | _Position | None:
-    try:
-        expression = ast.parse(annotation, mode="eval").body
-    except SyntaxError:
-        return None
-    if not isinstance(expression, ast.Subscript):
+    expression = type_shapes.get(annotation)
+    if not isinstance(expression, TypeApplication):
         return None
     proven = _proven_type_head(
-        expression.value, module, imports_by_binding, classes_by_location, _PROVEN_MAPPINGS
+        expression.head, module, imports_by_binding, classes_by_location, _PROVEN_MAPPINGS
     )
     if isinstance(proven, _Position):
         return proven
     if not proven:
         return None
-    if not isinstance(expression.slice, ast.Tuple) or len(expression.slice.elts) != 2:
+    if not expression.tuple_arguments or len(expression.arguments) != 2:
         return _Position(undecidable="generic")
     if any(
-        isinstance(arg, ast.Starred) or (isinstance(arg, ast.Constant) and arg.value is Ellipsis)
-        for arg in expression.slice.elts
+        isinstance(arg, TypeUnpack)
+        or (isinstance(arg, TypeLiteral) and arg.kind is LiteralKind.ELLIPSIS)
+        for arg in expression.arguments
     ):
         return _Position(undecidable="generic")
-    return [ast.unparse(arg) for arg in expression.slice.elts]
+    return [arg.text for arg in expression.arguments]
 
 
 def _bare_type_verdict(
@@ -1461,13 +1477,12 @@ def _bare_type_verdict(
     module: str,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> _Position | None:
     """Bare mappings are broad; a proven stdlib scalar is a leaf (AD-123, AD-132)."""
-    try:
-        expression = ast.parse(annotation, mode="eval").body
-    except SyntaxError:
-        return None
-    if not isinstance(expression, (ast.Name, ast.Attribute)):
+    expression = type_shapes.get(annotation)
+    if not isinstance(expression, (TypeName, TypeMember)):
         return None
     proven = _proven_type_head(
         expression, module, imports_by_binding, classes_by_location, _PROVEN_MAPPINGS
@@ -1490,20 +1505,19 @@ def _typing_wrapper_inner(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     wrapper: str,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> str | tuple[str, ...] | None:
     """Return the type argument for a statically bound typing wrapper."""
-    try:
-        expression = ast.parse(annotation, mode="eval").body
-    except SyntaxError:
-        return None
-    if not isinstance(expression, ast.Subscript):
+    expression = type_shapes.get(annotation)
+    if not isinstance(expression, TypeApplication):
         return None
     expected_modules = (
         ("typing", "typing_extensions") if wrapper in ("Required", "NotRequired") else ("typing",)
     )
-    head = expression.value
-    if isinstance(head, ast.Name):
-        key = (module, head.id)
+    head = expression.head
+    if isinstance(head, TypeName):
+        key = (module, head.name)
         if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
             return None
         imported = imports_by_binding.get(key)
@@ -1511,13 +1525,13 @@ def _typing_wrapper_inner(
             return None
         if imported["symbol"] != wrapper:
             return None
-    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
-        key = (module, head.value.id)
+    elif isinstance(head, TypeMember) and isinstance(head.owner, TypeName):
+        key = (module, head.owner.name)
         if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
             return None
         imported = imports_by_binding.get(key)
         if (
-            head.attr != wrapper
+            head.member != wrapper
             or not isinstance(imported, dict)
             or imported["target_module"] not in expected_modules
             or imported["symbol"] is not None
@@ -1525,31 +1539,30 @@ def _typing_wrapper_inner(
             return None
     else:
         return None
-    parameters = (
-        list(expression.slice.elts)
-        if isinstance(expression.slice, ast.Tuple)
-        else [expression.slice]
-    )
+    parameters = expression.arguments
     if (
         wrapper in ("Required", "NotRequired")
-        and not isinstance(expression.slice, ast.Tuple)
+        and not expression.tuple_arguments
         and len(parameters) == 1
     ):
-        return ast.unparse(parameters[0])
+        return parameters[0].text
     if wrapper == "Annotated" and len(parameters) >= 2:
-        return ast.unparse(parameters[0])
+        return parameters[0].text
     if wrapper == "Literal" and parameters:
         names: list[str] = []
         for value in parameters:
-            if isinstance(value, ast.Constant) and isinstance(
-                value.value, (str, int, bool, type(None))
-            ):
+            if isinstance(value, TypeLiteral) and value.kind in {
+                LiteralKind.STRING,
+                LiteralKind.INTEGER,
+                LiteralKind.BOOLEAN,
+                LiteralKind.NONE,
+            }:
                 continue
-            if isinstance(value, ast.Name):
-                names.append(value.id)
+            if isinstance(value, TypeName):
+                names.append(value.name)
                 continue
-            if isinstance(value, ast.Attribute):
-                names.append(ast.unparse(value))
+            if isinstance(value, TypeMember):
+                names.append(value.text)
                 continue
             return None
         return tuple(names)
@@ -1607,22 +1620,17 @@ def _unresolvable_shape(annotation: str) -> str:
 
 
 def _union_parameters(
-    annotation: str,
-    module: str,
-    imports_by_binding: BindingIndex,
+    annotation: str, module: str, imports_by_binding: BindingIndex, *, type_shapes: TypeShapeIndex
 ) -> list[str] | None:
     """Return members only for syntactically valid standard union annotations."""
-    try:
-        expression = ast.parse(annotation, mode="eval").body
-    except SyntaxError:
+    expression = type_shapes.get(annotation)
+    if isinstance(expression, TypeUnion):
+        return [expression.left.text, expression.right.text]
+    if not isinstance(expression, TypeApplication):
         return None
-    if isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr):
-        return [ast.unparse(expression.left), ast.unparse(expression.right)]
-    if not isinstance(expression, ast.Subscript):
-        return None
-    head = expression.value
-    if isinstance(head, ast.Name):
-        name = head.id
+    head = expression.head
+    if isinstance(head, TypeName):
+        name = head.name
         imported = imports_by_binding.get((module, name))
         if (
             not isinstance(imported, dict)
@@ -1631,22 +1639,18 @@ def _union_parameters(
         ):
             return None
         name = imported["symbol"]
-    elif isinstance(head, ast.Attribute) and isinstance(head.value, ast.Name):
-        if not _typing_module_binding(module, head.value.id, imports_by_binding):
+    elif isinstance(head, TypeMember) and isinstance(head.owner, TypeName):
+        if not _typing_module_binding(module, head.owner.name, imports_by_binding):
             return None
-        name = head.attr
+        name = head.member
     else:
         return None
     if name not in {"Union", "Optional"}:
         return None
-    members = (
-        list(expression.slice.elts)
-        if isinstance(expression.slice, ast.Tuple)
-        else [expression.slice]
-    )
+    members = expression.arguments
     if name == "Optional":
-        return [ast.unparse(members[0]), "None"] if len(members) == 1 else None
-    return [ast.unparse(member) for member in members] if len(members) >= 2 else None
+        return [members[0].text, "None"] if len(members) == 1 else None
+    return [member.text for member in members] if len(members) >= 2 else None
 
 
 class _AmbiguousBinding:
@@ -1862,6 +1866,7 @@ def _typing_wrapper_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     enter_collections: bool,
     enter_fields: bool,
     visited: frozenset[tuple[str, str]],
@@ -1869,7 +1874,12 @@ def _typing_wrapper_verdict(
 ) -> _Position | None:
     for wrapper in ("Required", "NotRequired", "Annotated", "Literal"):
         inner = _typing_wrapper_inner(
-            annotation, module, imports_by_binding, classes_by_location, wrapper
+            annotation,
+            module,
+            imports_by_binding,
+            classes_by_location,
+            wrapper,
+            type_shapes=type_shapes,
         )
         if wrapper == "Literal":
             if isinstance(inner, tuple):
@@ -1885,6 +1895,7 @@ def _typing_wrapper_verdict(
                             classes_by_location,
                             visited=visited,
                             aliases_seen=aliases_seen,
+                            type_shapes=type_shapes,
                         )
                         or _boundary_type_verdict(
                             name,
@@ -1898,6 +1909,7 @@ def _typing_wrapper_verdict(
                             enter_fields=enter_fields,
                             _aliases_seen=aliases_seen,
                             _require_static_constant=True,
+                            type_shapes=type_shapes,
                         ),
                     )
                     for name in inner
@@ -1915,6 +1927,7 @@ def _typing_wrapper_verdict(
                 visited=visited,
                 enter_fields=enter_fields,
                 _aliases_seen=aliases_seen,
+                type_shapes=type_shapes,
             )
     return None
 
@@ -1927,6 +1940,7 @@ def _boundary_type_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     enter_collections: bool = True,
     visited: frozenset[tuple[str, str]] = frozenset(),
     enter_fields: bool = True,
@@ -1961,12 +1975,15 @@ def _boundary_type_verdict(
         enter_fields=enter_fields,
         visited=visited,
         aliases_seen=_aliases_seen,
+        type_shapes=type_shapes,
     )
     if wrapped is not None:
         return wrapped
     if _is_broad_boundary_type(annotation, module, imports_by_binding, classes_by_location):
         return _Position(violation=_BROAD_BOUNDARY_REASON)
-    bare_type = _bare_type_verdict(annotation, module, imports_by_binding, classes_by_location)
+    bare_type = _bare_type_verdict(
+        annotation, module, imports_by_binding, classes_by_location, type_shapes=type_shapes
+    )
     if bare_type is not None:
         return bare_type
     if annotation.startswith(("'", '"')):
@@ -1983,6 +2000,7 @@ def _boundary_type_verdict(
             visited=visited,
             enter_fields=enter_fields,
             _aliases_seen=_aliases_seen,
+            type_shapes=type_shapes,
         )
     return _named_type_verdict(
         annotation,
@@ -1996,6 +2014,7 @@ def _boundary_type_verdict(
         visited=visited,
         aliases_seen=_aliases_seen,
         require_static_constant=_require_static_constant,
+        type_shapes=type_shapes,
     )
 
 
@@ -2007,17 +2026,15 @@ def _enum_member_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position | None:
-    try:
-        expression = ast.parse(annotation, mode="eval").body
-    except SyntaxError:
-        return None
-    if not isinstance(expression, ast.Attribute) or not isinstance(expression.value, ast.Name):
+    expression = type_shapes.get(annotation)
+    if not isinstance(expression, TypeMember) or not isinstance(expression.owner, TypeName):
         return None
     base = _boundary_type_verdict(
-        expression.value.id,
+        expression.owner.name,
         module,
         contract,
         exports_by_module,
@@ -2026,6 +2043,7 @@ def _enum_member_verdict(
         visited=visited,
         enter_fields=False,
         _aliases_seen=aliases_seen,
+        type_shapes=type_shapes,
     )
     if base.violation is not None or base.undecidable is not None:
         return None
@@ -2044,16 +2062,13 @@ def _enum_member_verdict(
         alias = symbol.get("alias")
         if not isinstance(alias, str):
             return None
-        try:
-            alias_expression = ast.parse(alias, mode="eval").body
-        except SyntaxError:
-            return None
-        if not isinstance(alias_expression, ast.Name):
+        alias_expression = type_shapes.get(alias)
+        if not isinstance(alias_expression, TypeName):
             return None
     if enum_origin is None:
         return None
     enum = classes_by_location.get(enum_origin)
-    if not isinstance(enum, dict) or expression.attr not in enum.get("enum_members", ()):
+    if not isinstance(enum, dict) or expression.member not in enum.get("enum_members", ()):
         return None
     return _Position(resolved=(enum_origin,))
 
@@ -2068,6 +2083,7 @@ def _type_alias_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     enter_collections: bool,
     enter_fields: bool,
     visited: frozenset[tuple[str, str]],
@@ -2092,6 +2108,7 @@ def _type_alias_verdict(
         enter_fields=enter_fields,
         visited=visited,
         _aliases_seen=aliases_seen | {resolved},
+        type_shapes=type_shapes,
     )
     return _Position(
         violation=expanded.violation,
@@ -2153,6 +2170,7 @@ def _named_type_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     enter_collections: bool,
     enter_fields: bool,
     visited: frozenset[tuple[str, str]],
@@ -2195,6 +2213,7 @@ def _named_type_verdict(
         enter_fields=enter_fields,
         visited=visited,
         aliases_seen=aliases_seen,
+        type_shapes=type_shapes,
     )
     if alias is not None:
         return alias
@@ -2219,6 +2238,7 @@ def _named_type_verdict(
         classes_by_location,
         visited,
         aliases_seen,
+        type_shapes=type_shapes,
     )
 
 
@@ -2234,6 +2254,8 @@ def _owned_type_verdict(
     classes_by_location: BindingIndex,
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> _Position:
     resolved = (origin_module, origin_name)
     origin_component = None
@@ -2271,6 +2293,7 @@ def _owned_type_verdict(
             classes_by_location,
             visited=visited | {resolved},
             _aliases_seen=aliases_seen,
+            type_shapes=type_shapes,
         )
         reached = tuple(sorted({*reached, *fields.resolved}))
         return _Position(
@@ -2300,13 +2323,16 @@ def _annotation_shape_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     enter_collections: bool,
     visited: frozenset[tuple[str, str]],
     enter_fields: bool,
     _aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
     """Resolve standard unions and collections recursively; leave other shapes UNKNOWN."""
-    mapping = _mapping_parameters(annotation, module, imports_by_binding, classes_by_location)
+    mapping = _mapping_parameters(
+        annotation, module, imports_by_binding, classes_by_location, type_shapes=type_shapes
+    )
     if isinstance(mapping, _Position):
         return mapping
     if mapping is not None:
@@ -2321,8 +2347,9 @@ def _annotation_shape_verdict(
             visited,
             enter_fields,
             _aliases_seen,
+            type_shapes=type_shapes,
         )
-    union = _union_parameters(annotation, module, imports_by_binding)
+    union = _union_parameters(annotation, module, imports_by_binding, type_shapes=type_shapes)
     if union is not None:
         return _combined_annotation_verdict(
             union,
@@ -2334,6 +2361,7 @@ def _annotation_shape_verdict(
             visited=visited,
             enter_fields=enter_fields,
             _aliases_seen=_aliases_seen,
+            type_shapes=type_shapes,
         )
     if enter_collections:
         entered = _collection_verdict(
@@ -2346,6 +2374,7 @@ def _annotation_shape_verdict(
             visited=visited,
             enter_fields=enter_fields,
             _aliases_seen=_aliases_seen,
+            type_shapes=type_shapes,
         )
         if entered is not None:
             return entered
@@ -2363,6 +2392,8 @@ def _mapping_container_verdict(
     visited: frozenset[tuple[str, str]],
     enter_fields: bool,
     aliases_seen: frozenset[tuple[str, str]],
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> _Position:
     contents = _combined_annotation_verdict(
         parameters,
@@ -2374,6 +2405,7 @@ def _mapping_container_verdict(
         visited=visited,
         enter_fields=enter_fields,
         _aliases_seen=aliases_seen,
+        type_shapes=type_shapes,
     )
     return _Position(
         violation=_BROAD_BOUNDARY_REASON,
@@ -2409,6 +2441,7 @@ def _declared_field_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     visited: frozenset[tuple[str, str]],
     _aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
@@ -2438,6 +2471,7 @@ def _declared_field_verdict(
             enter_fields=False,
             _aliases_seen=_aliases_seen,
             uncertain_bindings=binding_uncertainties.get(field["name"], ()),
+            type_shapes=type_shapes,
         )
         field_verdicts.append(
             (field["name"], _field_position_verdict(field["name"], annotation, verdict))
@@ -2497,6 +2531,7 @@ def _collection_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     visited: frozenset[tuple[str, str]] = frozenset(),
     enter_fields: bool = True,
     _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
@@ -2527,6 +2562,7 @@ def _collection_verdict(
         visited=visited,
         enter_fields=enter_fields,
         _aliases_seen=_aliases_seen,
+        type_shapes=type_shapes,
     )
     return _Position(
         violation=verdict.violation,
@@ -2558,6 +2594,7 @@ def _combined_annotation_verdict(
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     visited: frozenset[tuple[str, str]],
     enter_fields: bool,
     _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
@@ -2578,6 +2615,7 @@ def _combined_annotation_verdict(
                 visited=visited,
                 enter_fields=enter_fields,
                 _aliases_seen=_aliases_seen,
+                type_shapes=type_shapes,
             ),
         )
         for parameter in parameters
@@ -2900,6 +2938,7 @@ def facade_signature_types(
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     *,
+    type_shapes: TypeShapeIndex,
     source_modules: frozenset[str] | None = None,
     scope_id: str | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
@@ -2956,6 +2995,7 @@ def facade_signature_types(
             reexports,
             classes_by_qualified_name,
             methods_by_parent,
+            type_shapes=type_shapes,
         )
     recorded: list[RawRecord] = []
     for item in symbols:
@@ -2971,6 +3011,7 @@ def facade_signature_types(
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
+                type_shapes=type_shapes,
             )
             if has_proven_facade and found is not None
             else []
@@ -2984,6 +3025,7 @@ def facade_signature_types(
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
+                type_shapes=type_shapes,
             )
             names = sorted(set(names) | set(inherited_types))
             candidates = _inherited_generic_candidate_types(
@@ -2994,6 +3036,7 @@ def facade_signature_types(
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
+                type_shapes=type_shapes,
             )
             if candidates and found is not None:
                 raw_candidates = (
@@ -3033,6 +3076,8 @@ def _scoped_facade_signature_types(
     reexports: ReexportIndex,
     classes_by_qualified_name: dict[str, RawRecord],
     methods_by_parent: dict[str, list[RawRecord]],
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[RawRecord]:
     """Attach nested facade type evidence to its mount and physical publisher module."""
     owners = (contract, *ancestor_contracts)
@@ -3072,6 +3117,7 @@ def _scoped_facade_signature_types(
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
+                type_shapes=type_shapes,
             )
             if item["kind"] == "class":
                 inherited_types, _, _ = _inherited_generic_facade_types(
@@ -3082,6 +3128,7 @@ def _scoped_facade_signature_types(
                     exports_by_module,
                     imports_by_binding,
                     classes_by_location,
+                    type_shapes=type_shapes,
                 )
                 names = sorted(set(names) | set(inherited_types))
                 candidates = _inherited_generic_candidate_types(
@@ -3092,6 +3139,7 @@ def _scoped_facade_signature_types(
                     exports_by_module,
                     imports_by_binding,
                     classes_by_location,
+                    type_shapes=type_shapes,
                 )
                 if candidates:
                     raw_candidates = (
@@ -3141,6 +3189,8 @@ def _resolved_position_types(
     exports_by_module: dict[str, frozenset[str]],
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[str]:
     """The distinct types one function's annotated positions resolve to, dotted and sorted.
 
@@ -3162,6 +3212,7 @@ def _resolved_position_types(
             exports_by_module,
             imports_by_binding,
             classes_by_location,
+            type_shapes=type_shapes,
         ).resolved
     }
     return sorted(names)
@@ -3175,6 +3226,8 @@ def _inherited_generic_facade_types(
     exports_by_module: dict[str, frozenset[str]],
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> tuple[list[str], list[tuple[str, str, str, str, _Position]], list[str]]:
     """Resolve direct public methods from one proven generic base on a facade class.
 
@@ -3307,6 +3360,7 @@ def _inherited_generic_facade_types(
                 uncertain_bindings=(
                     () if base_binding_uncertain else binding_uncertainties.get(position, ())
                 ),
+                type_shapes=type_shapes,
             )
             if not base_binding_uncertain:
                 inherited_positions.append((name, method["id"], position, annotation, verdict))
@@ -3350,6 +3404,7 @@ def _inherited_generic_facade_types(
             exports_by_module,
             substituted_imports,
             substituted_classes,
+            type_shapes=type_shapes,
         )
         for origin in verdict.resolved:
             symbol = substituted_classes.get(origin)
@@ -3402,6 +3457,8 @@ def _inherited_generic_candidate_types(
     exports_by_module: dict[str, frozenset[str]],
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[str]:
     """Collect signature types from each independently resolvable ambiguous direct base."""
     data = item["data"]
@@ -3438,6 +3495,7 @@ def _inherited_generic_candidate_types(
             exports_by_module,
             imports_by_binding,
             classes_by_location,
+            type_shapes=type_shapes,
         )
         candidates.update(signature_candidates)
     return sorted(candidates)
@@ -3633,6 +3691,7 @@ def _boundary_types_violations(
     source_modules: frozenset[str] | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
     *,
+    type_shapes: TypeShapeIndex,
     assessment_facts: list[RawRecord] | None = None,
     assessment_scope: str = "root",
     unsupported_rules: frozenset[str] = frozenset(),
@@ -3697,6 +3756,7 @@ def _boundary_types_violations(
                         imports_by_binding,
                         classes_by_location,
                         uncertain_bindings=binding_uncertainties.get(position, ()),
+                        type_shapes=type_shapes,
                     )
                 )
                 evaluated[item["id"]] = item
@@ -3731,6 +3791,7 @@ def _boundary_types_violations(
                     exports_by_module,
                     imports_by_binding,
                     classes_by_location,
+                    type_shapes=type_shapes,
                 )
                 for method_name, method_id, position, annotation, verdict in inherited_positions:
                     facade_qualname = qualname[: -len(".__inherited_methods__")]
@@ -3979,6 +4040,8 @@ def _unresolved_public_alias_routes(
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
     source_modules: frozenset[str] | None = None,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[RawRecord]:
     records: dict[str, RawRecord] = {}
     symbols_by_binding: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
@@ -4017,6 +4080,7 @@ def _unresolved_public_alias_routes(
             imports_by_binding,
             scanned_modules,
             stable_bindings_by_module,
+            type_shapes=type_shapes,
         ):
             continue
         qualified_name = f"{module}.{binding}"
@@ -4047,6 +4111,8 @@ def _public_alias_route_has_unproven_hop(
     imports_by_binding: dict[tuple[str, str], list[RawRecord]],
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> bool:
     """A public alias is known only while each traversed binding has one proven definition."""
     if not route:
@@ -4080,13 +4146,9 @@ def _public_alias_route_has_unproven_hop(
                 if "alias" not in definition_data:
                     return True
                 alias_expression_text: str = definition_data["alias"]
-                try:
-                    expression = ast.parse(alias_expression_text, mode="eval").body
-                except SyntaxError:
-                    return True
+                expression = type_shapes.get(alias_expression_text)
                 return not (
-                    (isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr))
-                    or isinstance(expression, ast.Subscript)
+                    (isinstance(expression, TypeUnion)) or isinstance(expression, TypeApplication)
                 )
             return category not in {"function", "class", "static_constant"}
         if len(bindings) != 1:
@@ -4108,6 +4170,8 @@ def boundary_type_limits(
     stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
     source_modules: frozenset[str] | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[RawRecord]:
     """Record undecidable facade positions as a non-gating UNKNOWN, preserving AD-67."""
     rules = [rule for rule in contract.rules if isinstance(rule, BoundaryTypesRule)]
@@ -4138,6 +4202,7 @@ def boundary_type_limits(
             classes_by_location,
             uncertain_reexport_origins,
             source_modules,
+            type_shapes=type_shapes,
         )
         positions_out.extend(rule_positions)
         limit = _boundary_type_limit_record(rule, seen, undecidable_positions)
@@ -4154,6 +4219,7 @@ def boundary_type_limits(
                 scanned_modules,
                 stable_bindings_by_module or {},
                 source_modules,
+                type_shapes=type_shapes,
             )
         )
     return sorted([*positions_out, *limits], key=lambda item: item["id"])
@@ -4169,6 +4235,8 @@ def _boundary_rule_positions(
     classes_by_location: BindingIndex,
     uncertain_reexport_origins: UncertainReexportOrigins,
     source_modules: frozenset[str] | None,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> tuple[int, list[dict[str, object]], list[RawRecord]]:
     undecidable_positions: list[dict[str, object]] = []
     positions_out: list[RawRecord] = []
@@ -4214,6 +4282,7 @@ def _boundary_rule_positions(
             if "annotation_binding_uncertainties" in data
             else {},
             data["annotation_scope"] if "annotation_scope" in data else None,
+            type_shapes=type_shapes,
         )
         seen += len(positions)
         undecidable_positions.extend(details)
@@ -4229,6 +4298,7 @@ def _boundary_rule_positions(
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
+                type_shapes=type_shapes,
             )
             seen += len(inherited_positions)
             facade_qualname = qualified_name[: -len(".__inherited_methods__")]
@@ -4289,6 +4359,8 @@ def _undecidable_declared_positions(
     occurrence: int,
     binding_uncertainties: dict[str, list[str]] | None = None,
     annotation_scope: str | None = None,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[dict[str, object]]:
     if binding_uncertainties is None:
         binding_uncertainties = {}
@@ -4307,6 +4379,7 @@ def _undecidable_declared_positions(
                 imports_by_binding,
                 classes_by_location,
                 uncertain_bindings=binding_uncertainties.get(position, ()),
+                type_shapes=type_shapes,
             )
         )
         reason = verdict.undecidable
@@ -4344,6 +4417,8 @@ def _public_api_symbol(
     name: str,
     origins: tuple[tuple[str, str], ...],
     ambiguous: bool,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> RawRecord | None:
     """The one top-level symbol a `module:name` public_api entry resolves to, if any."""
     if ambiguous:
@@ -4364,11 +4439,8 @@ def _public_api_symbol(
         if candidates:
             candidate = candidates[0]
             if candidate["kind"] == "type_alias":
-                try:
-                    alias = ast.parse(candidate["data"]["alias"], mode="eval").body
-                except SyntaxError:
-                    return None
-                if not isinstance(alias, ast.Name):
+                alias = type_shapes.get(candidate["data"]["alias"])
+                if not isinstance(alias, TypeName):
                     return None
                 class_alias = True
                 continue
@@ -4387,11 +4459,15 @@ def _public_api_positions(
     exports: dict[str, frozenset[str]],
     imports: BindingIndex,
     classes: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> tuple[list[_Position], list[tuple[RawRecord, str]]]:
     """A public function's signature or a class's declared and inherited fields."""
     data = symbol["data"]
     if symbol["kind"] == "class":
-        return _public_api_field_positions(symbol, symbols, contract, exports, imports, classes)
+        return _public_api_field_positions(
+            symbol, symbols, contract, exports, imports, classes, type_shapes=type_shapes
+        )
     if symbol["kind"] != "function":
         return [], []
     annotations = [
@@ -4400,7 +4476,9 @@ def _public_api_positions(
     if data["returns"]:
         annotations.append(data["returns"])
     return [
-        _boundary_type_verdict(annotation, data["module"], contract, exports, imports, classes)
+        _boundary_type_verdict(
+            annotation, data["module"], contract, exports, imports, classes, type_shapes=type_shapes
+        )
         for annotation in annotations
     ], []
 
@@ -4413,6 +4491,7 @@ def _public_api_field_positions(
     imports: BindingIndex,
     classes: BindingIndex,
     *,
+    type_shapes: TypeShapeIndex,
     overrides: frozenset[str] = frozenset(),
     visited: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[list[_Position], list[tuple[RawRecord, str]]]:
@@ -4424,7 +4503,15 @@ def _public_api_field_positions(
         return [], [(symbol, "inheritance_cycle")]
     fields = [field for field in data["fields"] if field["name"] not in overrides]
     positions = [
-        _boundary_type_verdict(field["annotation"], module, contract, exports, imports, classes)
+        _boundary_type_verdict(
+            field["annotation"],
+            module,
+            contract,
+            exports,
+            imports,
+            classes,
+            type_shapes=type_shapes,
+        )
         for field in fields
         if field["annotation"]
     ]
@@ -4442,7 +4529,9 @@ def _public_api_field_positions(
     ]
     if data["class_body_control_flow"]:
         return positions, [(symbol, "class_body_control_flow")]
-    base, reason = _public_api_base(symbol, symbols, contract, exports, imports, classes)
+    base, reason = _public_api_base(
+        symbol, symbols, contract, exports, imports, classes, type_shapes=type_shapes
+    )
     if reason is not None:
         limits.append((symbol, reason))
     if base is None:
@@ -4459,6 +4548,7 @@ def _public_api_field_positions(
         | frozenset(data["class_members"])
         | frozenset(field["name"] for field in data["fields"]),
         visited=visited | {origin},
+        type_shapes=type_shapes,
     )
     return [*positions, *inherited], [*limits, *inherited_limits]
 
@@ -4470,20 +4560,30 @@ def _public_api_base(
     exports: dict[str, frozenset[str]],
     imports: BindingIndex,
     classes: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> tuple[tuple[RawRecord, BindingIndex, BindingIndex] | None, str | None]:
     data = symbol["data"]
     module = data["module"]
-    bases: list[tuple[str, ast.expr, tuple[str, str]]] = []
+    bases: list[tuple[str, TypeShape, tuple[str, str]]] = []
     for annotation in data["bases"]:
-        try:
-            expression = ast.parse(annotation, mode="eval").body
-        except SyntaxError:
+        expression = type_shapes.get(annotation)
+        if expression is None or (
+            isinstance(expression, UnresolvedType) and not expression.valid_syntax
+        ):
             return None, "unresolved_base"
-        base_name = ast.unparse(
-            expression.value if isinstance(expression, ast.Subscript) else expression
-        )
+        base_name = (
+            expression.head if isinstance(expression, TypeApplication) else expression
+        ).text
         verdict = _boundary_type_verdict(
-            base_name, module, contract, exports, imports, classes, enter_fields=False
+            base_name,
+            module,
+            contract,
+            exports,
+            imports,
+            classes,
+            enter_fields=False,
+            type_shapes=type_shapes,
         )
         if len(verdict.named_origins) == 1:
             base_origin = verdict.named_origins[0]
@@ -4499,13 +4599,13 @@ def _public_api_base(
     if not bases:
         return None, None
     base_name, expression, base_origin = bases[0]
-    base = _public_api_symbol(symbols, *base_origin, (), False)
+    base = _public_api_symbol(symbols, *base_origin, (), False, type_shapes=type_shapes)
     if base is None or base["kind"] != "class":
         return None, f"unresolved_base:{base_name}"
     bindings = (imports, classes)
-    if isinstance(expression, ast.Subscript):
+    if isinstance(expression, TypeApplication):
         substituted = _public_api_generic_bindings(
-            base, expression, module, contract, exports, imports, classes
+            base, expression, module, contract, exports, imports, classes, type_shapes=type_shapes
         )
         if substituted is None:
             return None, f"unresolved_generic_base:{base_name}"
@@ -4515,18 +4615,16 @@ def _public_api_base(
 
 def _public_api_generic_bindings(
     base: RawRecord,
-    expression: ast.Subscript,
+    expression: TypeApplication,
     module: str,
     contract: ArchitectureContract,
     exports: dict[str, frozenset[str]],
     imports: BindingIndex,
     classes: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> tuple[BindingIndex, BindingIndex] | None:
-    arguments = (
-        list(expression.slice.elts)
-        if isinstance(expression.slice, ast.Tuple)
-        else [expression.slice]
-    )
+    arguments = expression.arguments
     base_data = base["data"]
     parameters = base_data["generic_parameters"] if "generic_parameters" in base_data else ()
     if (
@@ -4537,20 +4635,27 @@ def _public_api_generic_bindings(
         return None
     substitutions: list[tuple[str, tuple[str, str]]] = []
     for parameter, argument in zip(parameters, arguments, strict=True):
-        if not isinstance(argument, ast.Name):
+        if not isinstance(argument, TypeName):
             return None
         verdict = _boundary_type_verdict(
-            argument.id, module, contract, exports, imports, classes, enter_fields=False
+            argument.name,
+            module,
+            contract,
+            exports,
+            imports,
+            classes,
+            enter_fields=False,
+            type_shapes=type_shapes,
         )
         if len(verdict.named_origins) == 1:
             resolved = verdict.named_origins[0]
         elif (
             verdict.undecidable is None
-            and argument.id in _BUILTIN_NAMES
-            and (module, argument.id) not in imports
-            and (module, argument.id) not in classes
+            and argument.name in _BUILTIN_NAMES
+            and (module, argument.name) not in imports
+            and (module, argument.name) not in classes
         ):
-            resolved = ("builtins", argument.id)
+            resolved = ("builtins", argument.name)
         else:
             return None
         substitutions.append((parameter, resolved))
@@ -4564,6 +4669,7 @@ def public_api_exposed_types(
     modules: Sequence[RawRecord],
     contract: ArchitectureContract,
     *,
+    type_shapes: TypeShapeIndex,
     unknowns: list[RawRecord],
 ) -> dict[str, list[str]]:
     """Map public entries to exposed types not already declared, by origin (AD-70).
@@ -4588,6 +4694,7 @@ def public_api_exposed_types(
             imports_by_binding,
             classes_by_location,
             enter_fields=False,
+            type_shapes=type_shapes,
         )
         for entry in public_api
         for declared_module, _, declared_name in [entry.partition(":")]
@@ -4602,7 +4709,9 @@ def public_api_exposed_types(
         ambiguous = (
             position.undecidable == "ambiguous_binding" and not position.named_origins
         ) or _binding_is_ambiguous((module, name), imports_by_binding, classes_by_location)
-        symbol = _public_api_symbol(symbols, module, name, position.named_origins, ambiguous)
+        symbol = _public_api_symbol(
+            symbols, module, name, position.named_origins, ambiguous, type_shapes=type_shapes
+        )
         if symbol is None:
             locations = {(module, name), *position.resolved}
             candidates = [
@@ -4623,7 +4732,13 @@ def public_api_exposed_types(
             continue
         resolved: set[str] = set()
         positions, limits = _public_api_positions(
-            symbol, symbols, contract, exports, imports_by_binding, classes_by_location
+            symbol,
+            symbols,
+            contract,
+            exports,
+            imports_by_binding,
+            classes_by_location,
+            type_shapes=type_shapes,
         )
         unknowns.extend(_public_api_limit(entry, reason, [item]) for item, reason in limits)
         for verdict in positions:
@@ -4793,6 +4908,8 @@ def _boundary_rule_results(
     profile: Profile,
     assessment_facts: list[RawRecord] | None,
     scope: str,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> tuple[
     list[tuple[ForbiddenDependencyRule, RawRecord]],
     frozenset[str],
@@ -4813,6 +4930,7 @@ def _boundary_rule_results(
         assessment_facts=assessment_facts,
         assessment_scope=scope,
         unsupported_rules=profile.unsupported_rules,
+        type_shapes=type_shapes,
     )
     return matches, frozenset(item["id"] for _, item in matches), violations, allowances
 
@@ -4899,6 +5017,7 @@ def _collect_rule_violations(
 
 def rule_violations(
     *,
+    type_shapes: TypeShapeIndex,
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
@@ -4949,6 +5068,7 @@ def rule_violations(
             profile,
             assessment_facts,
             assessment_parent or "root",
+            type_shapes=type_shapes,
         )
     )
     cycle_namespace_complete, cycle_graph_components = _cycle_scan_coverage(

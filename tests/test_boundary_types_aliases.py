@@ -21,7 +21,20 @@ from archkeel.analyzer.embedded.violations import (
     _typing_wrapper_inner,
     boundary_type_indexes,
 )
+from archkeel.analyzer.python.type_shapes import collect_type_shapes
 from archkeel.ir.model import ArchitectureContract, ComponentRole, ContractComponent
+from archkeel.ir.type_shapes import TypeShapeIndex
+
+
+def _shape_facts(annotation: str, bindings: BindingIndex) -> TypeShapeIndex:
+    expressions = [annotation]
+    for binding in bindings.values():
+        if not isinstance(binding, dict):
+            continue
+        if "alias" in binding:
+            expressions.append(binding["alias"])
+        expressions.extend(field["annotation"] for field in binding.get("fields", ()))
+    return collect_type_shapes(expressions)
 
 
 def _module(source: str) -> ParsedModule:
@@ -127,7 +140,15 @@ def test_pep695_builtin_aliases_are_unknown_not_builtin_proof(
     imports, bindings = boundary_type_indexes(symbols, [])
 
     [binding] = [item for item in symbols if item["data"].get("name") in {"dict", "int"}]
-    verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, bindings)
+    verdict = _boundary_type_verdict(
+        annotation,
+        "sample",
+        None,
+        {},
+        imports,
+        bindings,
+        type_shapes=_shape_facts(annotation, bindings),
+    )
     assert binding["data"].get("record_kind") == record_kind
     assert verdict.violation is None
     assert verdict.undecidable is not None
@@ -149,7 +170,15 @@ def test_parameterized_pep695_aliases_are_unknown_without_a_type_parameter_resol
     imports, bindings = boundary_type_indexes(symbols, [])
 
     [binding] = symbols
-    verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, bindings)
+    verdict = _boundary_type_verdict(
+        annotation,
+        "sample",
+        None,
+        {},
+        imports,
+        bindings,
+        type_shapes=_shape_facts(annotation, bindings),
+    )
     assert binding["data"].get("record_kind") == "dynamic_binding"
     assert verdict.violation is None
     assert verdict.undecidable is not None
@@ -159,30 +188,53 @@ def test_annotated_reads_only_its_type_argument() -> None:
     imports = {("sample", "Annotated"): {"target_module": "typing", "symbol": "Annotated"}}
     assert (
         _typing_wrapper_inner(
-            "Annotated[dict, MustNotExecute()]", "sample", imports, {}, "Annotated"
+            "Annotated[dict, MustNotExecute()]",
+            "sample",
+            imports,
+            {},
+            "Annotated",
+            type_shapes=collect_type_shapes(["Annotated[dict, MustNotExecute()]"]),
         )
         == "dict"
     )
 
 
 def test_bare_dict_is_broad_only_when_its_builtin_binding_is_unshadowed() -> None:
-    builtin = _bare_type_verdict("dict", "sample", BindingIndex(), BindingIndex())
+    builtin = _bare_type_verdict(
+        "dict", "sample", BindingIndex(), BindingIndex(), type_shapes=collect_type_shapes(["dict"])
+    )
     assert builtin is not None and builtin.violation == "instead of a typed model"
 
     local_class = BindingIndex()
     local_class[("sample", "dict")] = {"record_kind": "class"}
-    assert _bare_type_verdict("dict", "sample", BindingIndex(), local_class) is None
+    assert (
+        _bare_type_verdict(
+            "dict", "sample", BindingIndex(), local_class, type_shapes=collect_type_shapes(["dict"])
+        )
+        is None
+    )
 
     import_alias = BindingIndex()
     import_alias[("sample", "dict")] = {
         "target_module": "sample.types",
         "symbol": "Payload",
     }
-    assert _bare_type_verdict("dict", "sample", import_alias, BindingIndex()) is None
+    assert (
+        _bare_type_verdict(
+            "dict",
+            "sample",
+            import_alias,
+            BindingIndex(),
+            type_shapes=collect_type_shapes(["dict"]),
+        )
+        is None
+    )
 
     rebound = BindingIndex()
     rebound[("sample", "dict")] = {"record_kind": "dynamic_binding"}
-    ambiguous = _bare_type_verdict("dict", "sample", import_alias, rebound)
+    ambiguous = _bare_type_verdict(
+        "dict", "sample", import_alias, rebound, type_shapes=collect_type_shapes(["dict"])
+    )
     assert ambiguous is not None and ambiguous.undecidable == "ambiguous_binding"
 
 
@@ -212,19 +264,55 @@ def test_required_wrappers_resolve_only_proven_typing_imports() -> None:
         "te.NotRequired[int]",
         "NR[int]",
     ):
-        verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, {})
+        verdict = _boundary_type_verdict(
+            annotation, "sample", None, {}, imports, {}, type_shapes=_shape_facts(annotation, {})
+        )
         assert verdict.violation is None and verdict.undecidable is None
 
-    broad = _boundary_type_verdict("Required[dict]", "sample", None, {}, imports, {})
+    broad = _boundary_type_verdict(
+        "Required[dict]",
+        "sample",
+        None,
+        {},
+        imports,
+        {},
+        type_shapes=_shape_facts("Required[dict]", {}),
+    )
     assert broad.violation == "instead of a typed model"
-    any_type = _boundary_type_verdict("Required[Any]", "sample", None, {}, imports, {})
+    any_type = _boundary_type_verdict(
+        "Required[Any]",
+        "sample",
+        None,
+        {},
+        imports,
+        {},
+        type_shapes=_shape_facts("Required[Any]", {}),
+    )
     assert any_type.violation is None and any_type.undecidable is not None
-    unresolved = _boundary_type_verdict("Required[Missing]", "sample", None, {}, imports, {})
+    unresolved = _boundary_type_verdict(
+        "Required[Missing]",
+        "sample",
+        None,
+        {},
+        imports,
+        {},
+        type_shapes=_shape_facts("Required[Missing]", {}),
+    )
     assert unresolved.violation is None and unresolved.undecidable is not None
-    malformed = _boundary_type_verdict("Required[int, str]", "sample", None, {}, imports, {})
+    malformed = _boundary_type_verdict(
+        "Required[int, str]",
+        "sample",
+        None,
+        {},
+        imports,
+        {},
+        type_shapes=_shape_facts("Required[int, str]", {}),
+    )
     assert malformed.violation is None and malformed.undecidable is not None
     for annotation in ("Required[int,]", "NotRequired[(int,)]"):
-        tuple_slice = _boundary_type_verdict(annotation, "sample", None, {}, imports, {})
+        tuple_slice = _boundary_type_verdict(
+            annotation, "sample", None, {}, imports, {}, type_shapes=_shape_facts(annotation, {})
+        )
         assert tuple_slice.violation is None and tuple_slice.undecidable is not None
 
 
@@ -236,7 +324,15 @@ def test_required_lookalike_local_name_is_not_trusted() -> None:
         }
     }
     local = {("sample", "Required"): {"record_kind": "static_constant"}}
-    verdict = _boundary_type_verdict("Required[int]", "sample", None, {}, imports, local)
+    verdict = _boundary_type_verdict(
+        "Required[int]",
+        "sample",
+        None,
+        {},
+        imports,
+        local,
+        type_shapes=_shape_facts("Required[int]", local),
+    )
     assert verdict.violation is None and verdict.undecidable is not None
 
 
@@ -248,28 +344,64 @@ def test_literal_accepts_a_statically_recorded_constant() -> None:
             "constant": "ready",
         }
     }
-    assert _typing_wrapper_inner("Literal[STATUS]", "sample", imports, constants, "Literal") == (
-        "STATUS",
-    )
+    assert _typing_wrapper_inner(
+        "Literal[STATUS]",
+        "sample",
+        imports,
+        constants,
+        "Literal",
+        type_shapes=collect_type_shapes(["Literal[STATUS]"]),
+    ) == ("STATUS",)
 
 
 def test_literal_does_not_guess_an_enum_member_or_dynamic_constant() -> None:
     imports = {("sample", "Literal"): {"target_module": "typing", "symbol": "Literal"}}
-    assert _typing_wrapper_inner("Literal[State.READY]", "sample", imports, {}, "Literal") == (
-        "State.READY",
+    assert _typing_wrapper_inner(
+        "Literal[State.READY]",
+        "sample",
+        imports,
+        {},
+        "Literal",
+        type_shapes=collect_type_shapes(["Literal[State.READY]"]),
+    ) == ("State.READY",)
+    member = _boundary_type_verdict(
+        "Literal[State.READY]",
+        "sample",
+        None,
+        {},
+        imports,
+        {},
+        type_shapes=_shape_facts("Literal[State.READY]", {}),
     )
-    member = _boundary_type_verdict("Literal[State.READY]", "sample", None, {}, imports, {})
     assert member.violation is None and member.undecidable is not None
-    unknown = _boundary_type_verdict("Literal[STATUS]", "sample", None, {}, imports, {})
+    unknown = _boundary_type_verdict(
+        "Literal[STATUS]",
+        "sample",
+        None,
+        {},
+        imports,
+        {},
+        type_shapes=_shape_facts("Literal[STATUS]", {}),
+    )
     assert unknown.undecidable == "other"
-    builtin = _boundary_type_verdict("Literal[str]", "sample", None, {}, imports, {})
+    builtin = _boundary_type_verdict(
+        "Literal[str]",
+        "sample",
+        None,
+        {},
+        imports,
+        {},
+        type_shapes=_shape_facts("Literal[str]", {}),
+    )
     assert builtin.undecidable == "other"
 
 
 def test_literal_rejects_unsupported_static_expression_shapes_as_unknown() -> None:
     imports = {("sample", "Literal"): {"target_module": "typing", "symbol": "Literal"}}
     for annotation in ("Literal[-1]", "Literal[b'payload']"):
-        verdict = _boundary_type_verdict(annotation, "sample", None, {}, imports, {})
+        verdict = _boundary_type_verdict(
+            annotation, "sample", None, {}, imports, {}, type_shapes=_shape_facts(annotation, {})
+        )
         assert verdict.violation is None and verdict.undecidable is not None
 
 
@@ -277,7 +409,14 @@ def test_ambiguous_typing_wrapper_binding_stays_unknown() -> None:
     imports = {("sample", "Annotated"): {"target_module": "typing", "symbol": "Annotated"}}
     local = {("sample", "Annotated"): {"record_kind": "static_constant"}}
     assert (
-        _typing_wrapper_inner("Annotated[dict, metadata]", "sample", imports, local, "Annotated")
+        _typing_wrapper_inner(
+            "Annotated[dict, metadata]",
+            "sample",
+            imports,
+            local,
+            "Annotated",
+            type_shapes=collect_type_shapes(["Annotated[dict, metadata]"]),
+        )
         is None
     )
 
@@ -291,7 +430,15 @@ def test_rebound_typing_dict_is_unknown_not_a_broad_type_violation() -> None:
             "name": "Dict",
         }
     }
-    verdict = _boundary_type_verdict("Dict[str, str]", "sample", None, {}, imports, rebinding)
+    verdict = _boundary_type_verdict(
+        "Dict[str, str]",
+        "sample",
+        None,
+        {},
+        imports,
+        rebinding,
+        type_shapes=_shape_facts("Dict[str, str]", rebinding),
+    )
     assert verdict.violation is None and verdict.undecidable == "ambiguous_binding"
 
 
@@ -302,7 +449,9 @@ def test_static_constant_is_not_a_type_alias() -> None:
             "constant": "ready",
         }
     }
-    verdict = _boundary_type_verdict("READY", "sample", None, {}, {}, constants)
+    verdict = _boundary_type_verdict(
+        "READY", "sample", None, {}, {}, constants, type_shapes=_shape_facts("READY", constants)
+    )
     assert verdict.violation is None and verdict.undecidable == "other"
 
 
@@ -338,7 +487,13 @@ def test_alias_preserves_nested_violation_and_unknown_coordinates() -> None:
         }
     )
     violation = _boundary_type_verdict(
-        "RequestAlias", "sample", contract, {}, BindingIndex(), alias
+        "RequestAlias",
+        "sample",
+        contract,
+        {},
+        BindingIndex(),
+        alias,
+        type_shapes=_shape_facts("RequestAlias", alias),
     )
     assert violation.violation == "instead of a typed model"
     assert violation.path == ("payload",)
@@ -348,7 +503,15 @@ def test_alias_preserves_nested_violation_and_unknown_coordinates() -> None:
     )
 
     alias[("sample", "Request")]["fields"] = [{"name": "payload", "annotation": "Unresolved"}]
-    unknown = _boundary_type_verdict("RequestAlias", "sample", contract, {}, BindingIndex(), alias)
+    unknown = _boundary_type_verdict(
+        "RequestAlias",
+        "sample",
+        contract,
+        {},
+        BindingIndex(),
+        alias,
+        type_shapes=_shape_facts("RequestAlias", alias),
+    )
     assert unknown.undecidable == "unresolved_name"
     assert unknown.path == ("payload",)
     assert unknown.nested_annotation == "Unresolved"
@@ -370,7 +533,15 @@ def test_annotated_alias_cycle_is_unknown_and_wrapper_does_not_hide_violation() 
             }
         }
     )
-    cycle = _boundary_type_verdict("Alias", module, None, {}, imports, cyclic_alias)
+    cycle = _boundary_type_verdict(
+        "Alias",
+        module,
+        None,
+        {},
+        imports,
+        cyclic_alias,
+        type_shapes=_shape_facts("Alias", cyclic_alias),
+    )
     assert cycle.undecidable == "other"
 
     wrapped_union = BindingIndex()
@@ -384,5 +555,13 @@ def test_annotated_alias_cycle_is_unknown_and_wrapper_does_not_hide_violation() 
             }
         }
     )
-    violation = _boundary_type_verdict("Alias", module, None, {}, imports, wrapped_union)
+    violation = _boundary_type_verdict(
+        "Alias",
+        module,
+        None,
+        {},
+        imports,
+        wrapped_union,
+        type_shapes=_shape_facts("Alias", wrapped_union),
+    )
     assert violation.violation is not None and "instead of a typed model" in violation.violation

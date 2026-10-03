@@ -335,6 +335,7 @@ def _declaration_records(
             scan.modules,
             contract_path,
             unknowns=scan.unknowns,
+            type_shapes=scan.type_shapes,
         ),
         *inside_records,
     ]

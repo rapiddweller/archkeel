@@ -38,6 +38,7 @@ from archkeel.ir.model import (
     SymbolPlacementRule,
     stable_id,
 )
+from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .records import RawRecord, RecordData, classified
 from .violations import public_api_exposed_types
@@ -383,6 +384,7 @@ def project_declarations(
     modules: Sequence[RawRecord],
     contract_path: str,
     *,
+    type_shapes: TypeShapeIndex,
     unknowns: list[RawRecord],
 ) -> list[RawRecord]:
     """Project the contract into classified records consumed by JSON and HTML.
@@ -394,7 +396,13 @@ def project_declarations(
     declarations = contract.declarations or ContractDeclarations()
     items: list[RawRecord] = []
     types_by_entry = public_api_exposed_types(
-        declarations.public_api, symbols, imports, modules, contract, unknowns=unknowns
+        declarations.public_api,
+        symbols,
+        imports,
+        modules,
+        contract,
+        unknowns=unknowns,
+        type_shapes=type_shapes,
     )
     items.extend(_module_target_records(contract_path, contract_path, declarations.modules))
     for capability in declarations.capabilities:

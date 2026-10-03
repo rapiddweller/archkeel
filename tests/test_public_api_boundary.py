@@ -17,6 +17,7 @@ from test_analyzer import _component, _observe
 
 from archkeel.analyzer.embedded.records import classified
 from archkeel.analyzer.embedded.violations import _public_api_symbol
+from archkeel.analyzer.python.type_shapes import collect_type_shapes, symbol_type_expressions
 from archkeel.check.validation import public_api_diagnostics
 from archkeel.cli import main
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
@@ -100,8 +101,22 @@ def test_public_api_rejects_duplicate_functions_regardless_of_record_order() -> 
             data={"module": symbol_module, "name": "probe", "parent": None, "returns": "str"},
         )
         assert (
-            _public_api_symbol([hidden, scalar], "sample.facade", "probe", origins, False)
-            is _public_api_symbol([scalar, hidden], "sample.facade", "probe", origins, False)
+            _public_api_symbol(
+                [hidden, scalar],
+                "sample.facade",
+                "probe",
+                origins,
+                False,
+                type_shapes=collect_type_shapes(symbol_type_expressions([hidden, scalar])),
+            )
+            is _public_api_symbol(
+                [scalar, hidden],
+                "sample.facade",
+                "probe",
+                origins,
+                False,
+                type_shapes=collect_type_shapes(symbol_type_expressions([scalar, hidden])),
+            )
             is None
         )
 

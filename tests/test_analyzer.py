@@ -24,6 +24,7 @@ from archkeel.analyzer.embedded.violations import (
     _union_parameters,
     requires_violations,
 )
+from archkeel.analyzer.python.type_shapes import collect_type_shapes
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
@@ -2118,8 +2119,18 @@ def test_boundary_types_keeps_unknown_alongside_nested_violation(tmp_path: Path)
 
 
 def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
-    assert _union_parameters("str |", "sample.app.facade", {}) is None
-    assert _union_parameters("'str | int'", "sample.app.facade", {}) is None
+    assert (
+        _union_parameters(
+            "str |", "sample.app.facade", {}, type_shapes=collect_type_shapes(["str |"])
+        )
+        is None
+    )
+    assert (
+        _union_parameters(
+            "'str | int'", "sample.app.facade", {}, type_shapes=collect_type_shapes(["'str | int'"])
+        )
+        is None
+    )
 
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))

@@ -11,6 +11,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, TypeAlias
 
+from archkeel.analyzer.python.type_shapes import collect_type_shapes, symbol_type_expressions
 from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -23,6 +24,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.profiles import PYTHON, Profile
+from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .bindings import collect_bindings
 from .calls import collect_calls
@@ -70,6 +72,7 @@ CoveragePayload: TypeAlias = dict[str, Any]
 @dataclass
 class ScanResult:
     source_digest: str
+    type_shapes: TypeShapeIndex
     coverage: CoveragePayload
     evidence: list[RawEvidence]
     scope_observations: list[RawRecord]
@@ -242,6 +245,8 @@ def _mount_facade_signature_types(
     exports_by_module: dict[str, frozenset[str]],
     uncertain_reexport_origins: dict[str, frozenset[str]],
     owner_levels: Sequence[ArchitectureContract],
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[RawRecord]:
     if not any(isinstance(rule, InterfaceBoundaryRule) for rule in scoped.rules):
         return list(symbols)
@@ -254,12 +259,14 @@ def _mount_facade_signature_types(
         source_modules=source_modules,
         scope_id=mount.parent_id,
         ancestor_contracts=owner_levels,
+        type_shapes=type_shapes,
     )
 
 
 def _inside_rule_results(
     inside_contracts: Sequence[InsideContractMount],
     *,
+    type_shapes: TypeShapeIndex,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
@@ -319,6 +326,7 @@ def _inside_rule_results(
             assessments=assessments,
             cycle_scan_roots=cycle_scan_roots,
             cycle_namespace=cycle_namespace,
+            type_shapes=type_shapes,
         )
         symbols = _mount_facade_signature_types(
             symbols,
@@ -329,6 +337,7 @@ def _inside_rule_results(
             exports_by_module,
             uncertain_reexport_origins,
             owner_levels,
+            type_shapes=type_shapes,
         )
         violations.extend(results[0])
         unknowns.extend(results[1])
@@ -454,6 +463,7 @@ def _evaluate_inside_contract(
     scoped: ArchitectureContract,
     source_modules: frozenset[str],
     *,
+    type_shapes: TypeShapeIndex,
     ancestor_contracts: Sequence[ArchitectureContract],
     imports: Sequence[RawRecord],
     typing_signals: Sequence[RawRecord],
@@ -486,6 +496,7 @@ def _evaluate_inside_contract(
         stable_bindings_by_module=stable_bindings_by_module,
         sdk_libraries=profile.sdk_libraries,
         source_modules=source_modules,
+        type_shapes=type_shapes,
     )
     failures.extend(profile_failures(scoped, profile))
     violations, allowance_facts = rule_violations(
@@ -509,6 +520,7 @@ def _evaluate_inside_contract(
         ancestor_contracts=ancestor_contracts,
         cycle_scan_roots=cycle_scan_roots,
         cycle_namespace=cycle_namespace,
+        type_shapes=type_shapes,
     )
     unknowns = boundary_type_limits(
         symbols,
@@ -521,6 +533,7 @@ def _evaluate_inside_contract(
         stable_bindings_by_module,
         source_modules,
         ancestor_contracts,
+        type_shapes=type_shapes,
     )
     unknowns.extend(symbol_limits(imports, scoped, exports_by_module, source_modules))
     return violations, unknowns, failures, allowance_facts
@@ -559,6 +572,7 @@ def scan_repository(
     uncertain_reexport_origins = resolve_reexports(imports, module_all_exports, parsed)
 
     symbols, symbol_nodes, symbol_owners = collect_symbols(parsed, evidence)
+    type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
     calls = collect_calls(parsed, symbol_index, evidence)
     references = collect_references(parsed, symbol_index, evidence)
@@ -600,7 +614,12 @@ def scan_repository(
     # so the resolution boundary_types already runs is recorded on the facade function itself
     # and travels to validate's unused-entry check in the observation, not in a second copy.
     symbols = facade_signature_types(
-        symbols, imports, contract, facade_exports, uncertain_reexport_origins
+        symbols,
+        imports,
+        contract,
+        facade_exports,
+        uncertain_reexport_origins,
+        type_shapes=type_shapes,
     )
     rule_failures = rule_subject_failures(
         contract.rules,
@@ -611,6 +630,7 @@ def scan_repository(
         exports_by_module=facade_exports,
         uncertain_reexport_origins=uncertain_reexport_origins,
         stable_bindings_by_module=stable_bindings_by_module,
+        type_shapes=type_shapes,
     )
     scope_observations = component_scope_observations(
         components=contract.components,
@@ -647,6 +667,7 @@ def scan_repository(
         assessment_parent="root",
         cycle_scan_roots=roots if source_paths is None and not failures else (),
         cycle_namespace=namespace,
+        type_shapes=type_shapes,
     )
     (
         inside_violations,
@@ -674,6 +695,7 @@ def scan_repository(
         evidence=evidence,
         cycle_scan_roots=roots if source_paths is None and not failures else (),
         cycle_namespace=namespace,
+        type_shapes=type_shapes,
     )
     violations = sorted([*violations, *inside_violations], key=lambda item: item["id"])
     rule_failures = sorted([*rule_failures, *inside_failures], key=lambda item: item["id"])
@@ -699,6 +721,7 @@ def scan_repository(
             uncertain_reexport_origins,
             module_names,
             stable_bindings_by_module,
+            type_shapes=type_shapes,
         ),
         *api_surface_limits(
             declarations,
@@ -723,6 +746,7 @@ def scan_repository(
 
     strip_internal_reexport_facts(imports)
     return ScanResult(
+        type_shapes=type_shapes,
         source_digest=parsed_sources.source_digest,
         coverage=coverage,
         evidence=sorted(evidence.values(), key=lambda item: item["id"]),
