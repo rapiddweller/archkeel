@@ -53,7 +53,7 @@ UNKNOWN until the source names it. Conditional imports count every alternative a
 ## Snapshot baseline control
 
 The reviewed original-source control reports 568 unresolved calls, 53 typing positions and 40
-unknown positions with both the old and current engine. The candidate reports 582, 55 and 40,
+unknown positions with both the old and current engine. The candidate reports 581, 55 and 40,
 with zero violations. The 14 additional unresolved calls are localized to snapshots (8), identity
 (4), report (1) and config (1); the two added typing positions come from object-codec input guards.
 The baseline records these measured values without increasing other budgets.
