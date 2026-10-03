@@ -180,7 +180,7 @@ test("explicit runtime JS survives compiler source substitution and changes the 
       [`src/leaf.${runtime}`]: "throw new Error('must not execute'); import('./missing.js');",
     }, { compilerOptions: { module: "NodeNext", moduleResolution: "NodeNext", noEmit: true }, files: ["src/main.mts"], include: [] });
     const resolved = ts.resolveModuleName(`./leaf.${runtime}`, join(root, "src/main.mts"), { module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext }, ts.sys).resolvedModule;
-    assert.equal(resolved.resolvedFileName, join(root, `src/leaf.${source}`));
+    assert.equal(resolve(resolved.resolvedFileName), resolve(root, `src/leaf.${source}`));
     const output = collect(request(root));
     assert.equal(output.facts.coverage.full_scope, false);
     assert.ok(output.facts.files.some(item => item.rel_path === `src/leaf.${runtime}`));
@@ -201,7 +201,7 @@ test("type-only node aliases use compiler closure while runtime imports stay bui
     "src/local.ts": "import './missing.js'; export type Value = string;",
   }, { compilerOptions: { module: "ESNext", moduleResolution: "Bundler", baseUrl: ".", paths: { "node:fs": ["src/local.ts"] } }, files: ["src/main.ts"], include: [] });
   const options = { module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, baseUrl: root, paths: { "node:fs": ["src/local.ts"] } };
-  assert.equal(ts.resolveModuleName("node:fs", join(root, "src/main.ts"), options, ts.sys).resolvedModule.resolvedFileName, join(root, "src/local.ts"));
+  assert.equal(resolve(ts.resolveModuleName("node:fs", join(root, "src/main.ts"), options, ts.sys).resolvedModule.resolvedFileName), resolve(root, "src/local.ts"));
   const output = collect(request(root));
   assert.equal(output.facts.coverage.full_scope, false);
   assert.deepEqual(output.facts.imports.slice(0, 2).map(item => [item.kind, item.file ?? item.name]), [["local", "src/local.ts"], ["builtin", "node:fs"]]);
