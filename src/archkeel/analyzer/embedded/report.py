@@ -21,7 +21,7 @@ from archkeel.ir.model import (
     contract_relative_path,
     stable_id,
 )
-from archkeel.ir.profiles import PROFILES, Language
+from archkeel.ir.profiles import PROFILES, Language, Profile
 
 from .contract import (
     load_contract,
@@ -470,6 +470,63 @@ def _record_inside_failures(scan: ScanResult, failures: list[RawRecord]) -> None
     scan.coverage["rules"] = "FAIL"
 
 
+def _snapshot_model(
+    profile: Profile,
+    scan: ScanResult,
+    contract: ArchitectureContract,
+    *,
+    contract_digest: str,
+    contract_reference: str,
+    declarations: list[RawRecord],
+    git_head: str,
+    dirty: bool | str,
+    roots: tuple[str, ...],
+) -> dict[str, Any]:
+    model = {
+        "schema_version": SCHEMA_VERSION,
+        "analyzer": {
+            "name": profile.analyzer,
+            "version": ANALYZER_VERSION,
+            "code_digest": analyzer_code_digest(),
+        },
+        "source": {
+            "git_head": git_head,
+            "dirty": dirty,
+            "source_digest": scan.source_digest,
+            "scope": [f"{source}/**/*{profile.source_suffix}" for source in roots],
+        },
+        "contract": {
+            "schema_version": contract.schema_version,
+            "digest": contract_digest,
+            "path": contract_reference,
+        },
+        "coverage": scan.coverage,
+        "metrics": _metrics(scan, contract),
+        "declarations": declarations,
+        "scope_observations": scan.scope_observations,
+        "packages": scan.packages,
+        "modules": scan.modules,
+        "symbols": scan.symbols,
+        "imports": scan.imports,
+        "dependency_edges": scan.dependency_edges,
+        "transitive_paths": scan.transitive_paths,
+        "path_observations": scan.path_observations,
+        "cycles": scan.cycles,
+        "calls": scan.calls,
+        "references": scan.references,
+        "bindings": scan.bindings,
+        "typing_signals": scan.typing_signals,
+        "constructs": scan.constructs,
+        "contexts": scan.contexts,
+        "context_evidence": scan.context_evidence,
+        "violations": scan.violations,
+        "unknowns": scan.unknowns,
+        "evidence": scan.evidence,
+    }
+    # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
+    return {**model, **{section: None for section in profile.absent_sections}}
+
+
 def analyze_snapshot(
     source_root: Path,
     *,
@@ -507,48 +564,15 @@ def analyze_snapshot(
     declarations = _declaration_records(
         contract, scan, inside_records, contract_reference, scope, language
     )
-    model: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "analyzer": {
-            "name": profile.analyzer,
-            "version": ANALYZER_VERSION,
-            "code_digest": analyzer_code_digest(),
-        },
-        "source": {
-            "git_head": git_head,
-            "dirty": dirty,
-            "source_digest": scan.source_digest,
-            "scope": [f"{source}/**/*{profile.source_suffix}" for source in roots],
-        },
-        "contract": {
-            "schema_version": contract.schema_version,
-            "digest": full_contract_digest,
-            "path": contract_reference,
-        },
-        "coverage": scan.coverage,
-        "metrics": _metrics(scan, contract),
-        "declarations": declarations,
-        "scope_observations": scan.scope_observations,
-        "packages": scan.packages,
-        "modules": scan.modules,
-        "symbols": scan.symbols,
-        "imports": scan.imports,
-        "dependency_edges": scan.dependency_edges,
-        "transitive_paths": scan.transitive_paths,
-        "path_observations": scan.path_observations,
-        "cycles": scan.cycles,
-        "calls": scan.calls,
-        "references": scan.references,
-        "bindings": scan.bindings,
-        "typing_signals": scan.typing_signals,
-        "constructs": scan.constructs,
-        "contexts": scan.contexts,
-        "context_evidence": scan.context_evidence,
-        "violations": scan.violations,
-        "unknowns": scan.unknowns,
-        "evidence": scan.evidence,
-    }
-    # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
-    for section in profile.absent_sections:
-        model[section] = None
+    model = _snapshot_model(
+        profile,
+        scan,
+        contract,
+        contract_digest=full_contract_digest,
+        contract_reference=contract_reference,
+        declarations=declarations,
+        git_head=git_head,
+        dirty=dirty,
+        roots=roots,
+    )
     return model, 0 if scan.coverage["status"] == "PASS" else 2
