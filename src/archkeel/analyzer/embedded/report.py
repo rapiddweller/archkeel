@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from archkeel.ir.codec import (
@@ -13,6 +13,7 @@ from archkeel.ir.codec import (
     InsideContractMount,
     load_inside_contract_tree,
 )
+from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureContract,
@@ -322,6 +323,7 @@ def _declaration_records(
     inside_records: list[RawRecord],
     contract_path: str,
     module_scope: tuple[tuple[str, ...], str],
+    language: Language,
 ) -> list[RawRecord]:
     """`project_declarations` needs `scan`'s own `symbols`/`imports`/`modules` to resolve
     `declared_public_api`'s `types` (AD-70); kept out of `analyze_snapshot`'s own body only to
@@ -348,13 +350,34 @@ def _declaration_records(
         path = data["path"]
         if not isinstance(path, str):
             continue
-        qualified_name = _declared_module_name(path, roots, namespace)
+        qualified_name = _declared_module_name(path, roots, namespace, language)
         if qualified_name is not None:
             record["data"] = {**record["data"], "qualified_name": qualified_name}
     return records
 
 
-def _declared_module_name(path: str, roots: tuple[str, ...], namespace: str) -> str | None:
+def _declared_module_name(
+    path: str, roots: tuple[str, ...], namespace: str, language: Language = "python"
+) -> str | None:
+    if language == "typescript":
+        source_path = PurePosixPath(path)
+        if not any(source_path.is_relative_to(PurePosixPath(root)) for root in roots):
+            return None
+        if PurePosixPath(path).suffix not in {
+            ".ts",
+            ".tsx",
+            ".mts",
+            ".cts",
+            ".js",
+            ".jsx",
+            ".mjs",
+            ".cjs",
+        }:
+            return None
+        try:
+            return module_identity(namespace, path, language)
+        except ValueError:
+            return None
     target = Path(path).parts
     namespace_parts = tuple(namespace.split("."))
     anchors: list[tuple[str, ...]] = []
@@ -482,7 +505,9 @@ def analyze_snapshot(
     if git_head == "unknown" or dirty == "unknown":
         _add_git_failure(scan, git_head, dirty)
     scope = roots, namespace
-    declarations = _declaration_records(contract, scan, inside_records, contract_reference, scope)
+    declarations = _declaration_records(
+        contract, scan, inside_records, contract_reference, scope, language
+    )
     model: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {

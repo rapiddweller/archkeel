@@ -36,6 +36,9 @@ from .facts import (
     RecordData as RecordData,
 )
 from .facts import (
+    RuntimeInfo as RuntimeInfo,
+)
+from .facts import (
     SourceInfo as SourceInfo,
 )
 from .facts import (
@@ -826,6 +829,8 @@ class Observation:
     sections: tuple[Section, ...]
     evidence: tuple[Evidence, ...]
     python_version: str | None = None
+    runtime: RuntimeInfo | None = None
+    producer: AnalyzerInfo | None = None
 
     def records(self, section: str) -> tuple[Record, ...] | None:
         return next((item.records for item in self.sections if item.name == section), None)
@@ -984,6 +989,8 @@ class SnapshotSummary:
     source_digest: str
     coverage_status: Verdict
     python_version: str | None = None
+    runtime: RuntimeInfo | None = None
+    producer: AnalyzerInfo | None = None
 
 
 @dataclass(frozen=True, slots=True)

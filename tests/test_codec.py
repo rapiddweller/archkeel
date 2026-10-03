@@ -97,6 +97,32 @@ def test_parse_rejects_unknown_top_level_field():
         parse_observation(raw)
 
 
+def test_language_observation_additive_runtime_and_producer_round_trip():
+    raw = raw_observation()
+    raw["analyzer"] = {
+        "name": "archkeel-typescript-imports",
+        "version": "5.9.3",
+        "code_digest": "a" * 64,
+    }
+    for section in ("symbols", "references", "bindings", "calls", "typing_signals", "constructs"):
+        raw[section] = None
+    raw.pop("python_version", None)
+    raw["runtime"] = {"name": "node", "version": "22.13.0"}
+    raw["producer"] = {"name": "custom-ts-parser", "version": "1.2.0", "code_digest": "b" * 64}
+
+    observation = parse_observation(raw)
+
+    payload = observation_payload(observation)
+    assert payload["runtime"] == raw["runtime"]
+    assert payload["producer"] == raw["producer"]
+
+
+def test_old_python_observation_keeps_legacy_wire_fields():
+    raw = raw_observation()
+    observation = parse_observation(raw)
+    assert set(observation_payload(observation)) == set(raw)
+
+
 def test_parse_rejects_invalid_coverage_rules():
     raw = raw_observation()
     raw["coverage"]["rules"] = "UNKNOWN"
