@@ -45,8 +45,7 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "minLength": 1
+          "const": "archkeel-python-analyzer"
         },
         "version": {
           "type": "string",
@@ -322,11 +321,7 @@
       }
     },
     "symbols": {
-      "$comment": "null: the analyzer profile does not observe this signal (AD-97).",
-      "type": [
-        "array",
-        "null"
-      ],
+      "type": "array",
       "items": {
         "allOf": [
           {
@@ -787,11 +782,7 @@
       "description": "Actual producer Python version. Historical observations may omit it; comparison requires a known equal version."
     },
     "bindings": {
-      "$comment": "null: the analyzer profile does not observe this signal (AD-97).",
-      "type": [
-        "array",
-        "null"
-      ],
+      "type": "array",
       "items": {
         "allOf": [
           {
@@ -850,11 +841,7 @@
       }
     },
     "references": {
-      "$comment": "null: the analyzer profile does not observe this signal (AD-97).",
-      "type": [
-        "array",
-        "null"
-      ],
+      "type": "array",
       "items": {
         "allOf": [
           {

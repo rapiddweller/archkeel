@@ -13,13 +13,13 @@ from archkeel.ir.codec import canonical_json_bytes, delta_payload, parse_observa
 
 
 # AD-43 raised DELTA_SCHEMA_VERSION, and #88 and #122 each added a measured scalar, so these golden
-# digests move with the canonical payload; the import records they cover are untouched.
+# digests move with the canonical payload, including the official analyzer identity.
 @pytest.mark.parametrize(
     ("before_n", "after_n", "digest"),
     [
-        (3, 1, "f89702ead17067ccc7a6de54c498a664368574798dcc4e47c7f72b0372954403"),
-        (1, 3, "c479ce7acf98167eeb55fe31b903795d428970481182da0e93d31483369c55f4"),
-        (2, 2, "c6c00b47ef42ee99d812e03de03a430cb491fb31ed7af01c2fe954044af29825"),
+        (3, 1, "a08315203a38cdb703ab42f7ece3d1a96afa1593ce8967728706290c397ca20f"),
+        (1, 3, "9fdd8f01ce396c67cccecc1ab3fa06456fb69ea766367381048e1f9ead222a3c"),
+        (2, 2, "9acee0f124c1584391a4d49d9ee289a3d2614cc583205698d979cbb8258d72b2"),
     ],
 )
 def test_typed_delta_preserves_original_canonical_bytes(
