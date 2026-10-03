@@ -507,6 +507,7 @@ def method_decorator_data(
             "builtins.property",
             "typing.overload",
             "typing_extensions.overload",
+            "abc.abstractmethod",
         }
     )
     for decorator in node.decorator_list:
@@ -516,7 +517,11 @@ def method_decorator_data(
         signature_proven = signature_proven and proven
         if proven:
             resolved = resolve_static_name(module, decorator)
-            if resolved not in {"typing.overload", "typing_extensions.overload"}:
+            if resolved not in {
+                "typing.overload",
+                "typing_extensions.overload",
+                "abc.abstractmethod",
+            }:
                 descriptor_count += 1
             if resolved in {"staticmethod", "builtins.staticmethod"}:
                 method_kind = "static"
