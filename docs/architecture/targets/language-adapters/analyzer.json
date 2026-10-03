@@ -23,7 +23,7 @@
         "archkeel.analyzer.runtime"
       ],
       "planned": [
-        "archkeel.analyzer:collect"
+        "archkeel.analyzer.process:ProcessCollector"
       ],
       "public": []
     },

@@ -22,7 +22,7 @@
       "planned": [
         "archkeel.ir.facts:SourceFacts",
         "archkeel.ir.facts:Capabilities",
-        "archkeel.ir.facts:Coverage",
+        "archkeel.ir.facts:CollectionCoverage",
         "archkeel.ir.facts:FactSection",
         "archkeel.ir.facts:ImportTarget"
       ],

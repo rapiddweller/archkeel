@@ -3,7 +3,7 @@
 Status: approved; implementation present. The process boundary, Python/Dart
 collectors and Core evaluation split are implemented. Active
 contracts are `architecture-contract.json` plus
-`contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
+`docs/architecture/contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
 target. Acceptance evidence is recorded in the separate Core, TypeScript package
 and demo pull requests.
 
@@ -68,14 +68,14 @@ component only when responsibilities require it.
 | Owner | Interface | Invariant |
 |---|---|---|
 | `check.ports` | `SourceCollector.collect(request) -> SourceFacts \| CollectionError` | Core depends on this port; implementation is injected by CLI |
-| `ir.protocol` | `CollectionRequest(protocol_version, snapshot, scope, resolver)` | immutable revision inputs; no architecture contract, baseline or verdict |
+| `ir.protocol` | `CollectionRequest(snapshot, scope, resolver, protocol_version)` | immutable revision inputs; no architecture contract, baseline or verdict |
 | `ir.protocol` | `CollectionResponse(facts, protocol_version)`; local `CollectionError(kind, subject, message)` | stdout carries one response; stderr carries diagnostics; the process host reports collection errors |
 | `ir.facts` | `SourceFacts`: profile, adapter/runtime/source identity, capabilities, inputs, files, imports, sections, coverage and evidence | source claims carry identity and evidence; no policy decisions |
 | `ir.facts` | `Capabilities(sections, resolution_features)` | claims ability to collect facts, never authority to pass a rule |
 | `ir.facts` | `CollectionCoverage(selected_files, files_read, files_parsed, full_scope, gaps)`; `SourceFacts.inputs` | resolution-only input is not a fully observed graph node |
 | `ir.facts` | `ImportTarget = LocalTarget \| ExternalPackageTarget \| BuiltinTarget \| UnresolvedTarget` | `.cjs` runtime and `.d.cts` declaration remain distinct |
 | `ir.facts_codec` | `decode_request` / `encode_request` / `decode_response` / `encode_response` | typed envelopes; reject malformed versions, identities, references and coverage |
-| `check.observation` | `assemble_observation(facts, contract)` / `analyze_source_snapshot(...)` | ownership and evaluator receipts are Core-owned |
+| `check.observation` | `assemble_observation(...)` / `analyze_source_snapshot(...)` | ownership and evaluator receipts are Core-owned |
 | `check.evaluation.evaluate` | `ScanResult` / `evaluate_source(...)` | unsupported or incomplete evidence remains UNKNOWN |
 | `check.evaluation.rules` | `public_api_exposed_types(...)` | declaration projection uses the same Core type evidence |
 | `check.declarations` | `ContractError`, `load_contract`, `project_declarations`, `project_inside_declarations` | root and nested contracts share one validated projection |
@@ -97,8 +97,8 @@ containing `DartLibrary` values. Each adapter's `collect(request)` assembles
 collector peers.
 
 `SourceFacts` lives in `ir.facts`; the Core maps validated facts to the governance
-model in `ir.model`. File/module IDs include source
-space and repository-relative path. Adapter-local models never cross the port:
+model in `ir.model`. A collection request identifies the language, snapshot and
+namespace. File facts bind relative source paths to module names. Adapter-local models never cross the port:
 Python `ParsedModule`/`ParsedSources`, Dart `Header`/`DartSources`, TypeScript compiler
 `Program`/`SourceFile`. No universal AST or shared parser base class.
 
@@ -109,7 +109,7 @@ A process boundary is not an operating-system sandbox.
 ## Active contracts and delivery
 
 The active root contract retains the existing rules and mounts contracts for
-`analyzer`, `python`, `dart`, `check` and `ir` under `contracts/`. The target JSON
+`analyzer`, `python`, `dart`, `check` and `ir` under `docs/architecture/contracts/`. The target JSON
 files remain the approved design record. They do not certify parity or completion.
 The TypeScript npm package needs its own contract because the Python scanner cannot
 observe `.ts`.

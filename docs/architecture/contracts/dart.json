@@ -113,7 +113,7 @@
       },
       {
         "path": "src/archkeel/analyzer/dart/directives.py",
-        "responsibility": "Own the language-local DirectiveModel."
+        "responsibility": "Own Dart directive headers and library resolution."
       },
       {
         "path": "src/archkeel/analyzer/dart/resolve.py",
