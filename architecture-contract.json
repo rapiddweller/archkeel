@@ -391,7 +391,7 @@
         "max_names": 14,
         "provenance": [
           "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md",
-          "docs/architecture/decisions/ad-147-source-facts-and-core-evaluation-have-separate-owners.md"
+          "docs/architecture/decisions/ad-150-source-facts-and-core-evaluation-have-separate-owners.md"
         ]
       },
       {

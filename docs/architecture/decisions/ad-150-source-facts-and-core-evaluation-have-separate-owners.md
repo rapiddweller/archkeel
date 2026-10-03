@@ -19,8 +19,8 @@ compose the collector, preserve the snapshot entry point and type its result.
 Exact names define this seam; whole-module grants would make its width unknown.
 
 The self-baseline changes from the reviewed snapshot baseline: unresolved calls
-581 to 657, typing positions 55 to 58, UNKNOWN positions 40 to 42. Independent controls
-produce identical findings with both engines on the original baseline source.
+597 to 674, typing positions 53 to 59, UNKNOWN positions 40 to 42. Independent tests
+retain upstream snapshot and inheritance findings, including UNKNOWN cases.
 The new code adds process and protocol boundaries; recursive JSON and compatibility
 reexports still have explicit static limits. A redundant process-module publication
 was removed before recording the new counts. Violations, cycles and private-use
