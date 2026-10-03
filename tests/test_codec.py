@@ -2,14 +2,27 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import pytest
+from test_expectation import _delta_payload
 
 from archkeel.ir.codec import (
     decode_canonical_model,
+    delta_payload,
     encode_canonical_model,
     observation_payload,
+    parse_delta,
     parse_observation,
 )
 from archkeel.ir.model import EvidenceClass, Observation, RecordData
+
+
+def test_nullable_snapshot_python_alias_roundtrips():
+    raw = _delta_payload()
+    raw["baseline"]["python_version"] = None
+    raw["head"]["python_version"] = None
+    parsed = parse_delta(raw)
+    assert parsed.baseline.python_version is None
+    assert parsed.head.python_version is None
+    assert parse_delta(delta_payload(parsed)) == parsed
 
 
 def raw_observation():
@@ -95,6 +108,86 @@ def test_parse_rejects_unknown_top_level_field():
     raw["extra"] = True
     with pytest.raises(ValueError, match="fields mismatch"):
         parse_observation(raw)
+
+
+def test_language_observation_additive_runtime_and_producer_round_trip():
+    raw = raw_observation()
+    raw["analyzer"] = {
+        "name": "archkeel-typescript-imports",
+        "version": "5.9.3",
+        "code_digest": "a" * 64,
+    }
+    for section in ("symbols", "references", "bindings", "calls", "typing_signals", "constructs"):
+        raw[section] = None
+    raw.pop("python_version", None)
+    raw["runtime"] = {"name": "node", "version": "22.13.0"}
+    raw["producer"] = {"name": "custom-ts-parser", "version": "1.2.0", "code_digest": "b" * 64}
+
+    observation = parse_observation(raw)
+
+    payload = observation_payload(observation)
+    assert payload["runtime"] == raw["runtime"]
+    assert payload["producer"] == raw["producer"]
+
+
+def test_old_python_observation_keeps_legacy_wire_fields():
+    raw = raw_observation()
+    observation = parse_observation(raw)
+    assert set(observation_payload(observation)) == set(raw)
+
+
+@pytest.mark.parametrize("field", ["name", "version", "code_digest"])
+@pytest.mark.parametrize("missing", ["", " ", "unknown", "UNKNOWN"])
+def test_explicit_incomplete_producer_is_rejected(field, missing):
+    raw = raw_observation()
+    raw["producer"] = {"name": "parser", "version": "1.0", "code_digest": "b" * 64}
+    raw["producer"][field] = missing
+    with pytest.raises(ValueError, match="producer"):
+        parse_observation(raw)
+
+
+@pytest.mark.parametrize("field", ["name", "version"])
+@pytest.mark.parametrize("missing", ["", " ", "unknown", "UNKNOWN"])
+def test_explicit_incomplete_runtime_is_rejected(field, missing):
+    raw = raw_observation()
+    raw["runtime"] = {"name": "cpython", "version": "3.11.12"}
+    raw["runtime"][field] = missing
+    with pytest.raises(ValueError, match="runtime"):
+        parse_observation(raw)
+
+
+@pytest.mark.parametrize("snapshot", [False, True])
+@pytest.mark.parametrize("section", ["runtime", "producer"])
+@pytest.mark.parametrize("value", [None, True, 3, [], object(), {object(): "invalid"}])
+def test_provenance_boundaries_reject_non_json_shapes(snapshot, section, value):
+    raw = _delta_payload() if snapshot else raw_observation()
+    owner = raw["baseline"] if snapshot else raw
+    owner[section] = value
+    with pytest.raises(ValueError, match=section):
+        (parse_delta if snapshot else parse_observation)(raw)
+
+
+@pytest.mark.parametrize("snapshot", [False, True])
+@pytest.mark.parametrize(
+    ("section", "field"),
+    [
+        ("runtime", "name"),
+        ("runtime", "version"),
+        ("producer", "name"),
+        ("producer", "version"),
+        ("producer", "code_digest"),
+    ],
+)
+def test_provenance_boundaries_reject_non_json_field_values(snapshot, section, field):
+    raw = _delta_payload() if snapshot else raw_observation()
+    owner = raw["baseline"] if snapshot else raw
+    value: dict[str, object] = {"name": "python", "version": "3.11.12"}
+    if section == "producer":
+        value["code_digest"] = "b" * 64
+    value[field] = object()
+    owner[section] = value
+    with pytest.raises(ValueError, match=section):
+        (parse_delta if snapshot else parse_observation)(raw)
 
 
 def test_parse_rejects_invalid_coverage_rules():

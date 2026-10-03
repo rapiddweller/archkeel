@@ -154,7 +154,11 @@ def evaluate_expectation(
     delta_model: ArchitectureDelta, expectation: ArchitectureExpectation
 ) -> ExpectationResult:
     """Compare the typed delta with a validated declaration."""
-    require_comparable_runtime(delta_model.baseline.python_version, delta_model.head.python_version)
+    require_comparable_runtime(
+        delta_model.baseline,
+        delta_model.head,
+        analyzer_name=delta_model.analyzer.name,
+    )
     _require_matching_provenance(delta_model.provenance, expectation)
     if delta_model.coverage.status != "PASS":
         raise ExpectationError("delta coverage status must be PASS")

@@ -40,6 +40,7 @@
         "archkeel.ir.duplication",
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
+        "archkeel.ir.identity:module_identity",
         "archkeel.ir.levels:inside_levels",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
@@ -163,8 +164,8 @@
       "requires": [
         {
           "component": "ir",
-          "through": ["archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles"],
-          "rationale": "The analyzer records signals and publishes them through the common model and codec only; every claim, measurement, level or decision built from those records belongs to the reader, so the two never depend on each other (AD-4). The profile table is the one exception, because it is data both sides must read identically: the analyzer refuses what its profile cannot decide and the reader leaves unmeasured what the profile never measured (AD-97).",
+          "through": ["archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles", "archkeel.ir.identity"],
+          "rationale": "The analyzer publishes raw signals through the common model and codec; claims and decisions stay with the reader (AD-4). Both share the profile table and source identity function so they interpret capabilities and paths identically (AD-97, AD-147).",
           "decided_by": "agent"
         }
       ],

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from archkeel.ir.codec import (
@@ -13,6 +13,7 @@ from archkeel.ir.codec import (
     InsideContractMount,
     load_inside_contract_tree,
 )
+from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureContract,
@@ -316,12 +317,53 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
     )
 
 
+def _dart_target_names(
+    records: list[RawRecord], scan: ScanResult, roots: tuple[str, ...], namespace: str
+) -> dict[str, str]:
+    paths_by_name: dict[str, set[str]] = {}
+    names: dict[str, str] = {}
+    for record in scan.modules:
+        name, path = record["data"].get("qualified_name"), record["data"].get("file")
+        if isinstance(name, str) and isinstance(path, str):
+            paths_by_name.setdefault(name, set()).add(path)
+    for record in records:
+        path = record["data"].get("path")
+        if record["kind"] != "module_target" or not isinstance(path, str):
+            continue
+        name = _declared_module_name(path, roots, namespace, "dart")
+        if name is not None:
+            names[record["id"]] = name
+            paths_by_name.setdefault(name, set()).add(path)
+    for record in records:
+        name = names.get(record["id"])
+        if name is None or len(paths_by_name[name]) == 1:
+            continue
+        paths = sorted(paths_by_name[name])
+        del names[record["id"]]
+        scan.unknowns.append(
+            classified(
+                item_id=stable_id("UNKNOWN-MODULE-TARGET", record["id"]),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="module_targets",
+                kind="module_target_identity_ambiguity",
+                title=(
+                    f"different source paths share Dart module identity {name}: {', '.join(paths)}"
+                ),
+                subjects=paths,
+                provenance=record["provenance"],
+                data={"qualified_name": name, "paths": paths},
+            )
+        )
+    return names
+
+
 def _declaration_records(
     contract: ArchitectureContract,
     scan: ScanResult,
     inside_records: list[RawRecord],
     contract_path: str,
     module_scope: tuple[tuple[str, ...], str],
+    language: Language,
 ) -> list[RawRecord]:
     """`project_declarations` needs `scan`'s own `symbols`/`imports`/`modules` to resolve
     `declared_public_api`'s `types` (AD-70); kept out of `analyze_snapshot`'s own body only to
@@ -338,8 +380,8 @@ def _declaration_records(
         ),
         *inside_records,
     ]
-    scan.unknowns = sorted(scan.unknowns, key=lambda item: item["id"])
     roots, namespace = module_scope
+    dart_names = _dart_target_names(records, scan, roots, namespace) if language == "dart" else {}
     for record in records:
         data = record["data"]
         if record["kind"] != "module_target" or "path" not in data:
@@ -347,13 +389,51 @@ def _declaration_records(
         path = data["path"]
         if not isinstance(path, str):
             continue
-        qualified_name = _declared_module_name(path, roots, namespace)
+        qualified_name = (
+            dart_names.get(record["id"])
+            if language == "dart"
+            else _declared_module_name(path, roots, namespace, language)
+        )
         if qualified_name is not None:
             record["data"] = {**record["data"], "qualified_name": qualified_name}
+    scan.unknowns = sorted(scan.unknowns, key=lambda item: item["id"])
     return records
 
 
-def _declared_module_name(path: str, roots: tuple[str, ...], namespace: str) -> str | None:
+def _declared_module_name(
+    path: str, roots: tuple[str, ...], namespace: str, language: Language = "python"
+) -> str | None:
+    if language == "dart":
+        from .dart_libraries import dotted
+
+        source_path = PurePosixPath(path)
+        if source_path.suffix != ".dart":
+            return None
+        names = [
+            dotted(source_path.relative_to(PurePosixPath(root)).as_posix())
+            for root in roots
+            if source_path.is_relative_to(PurePosixPath(root))
+        ]
+        return f"{namespace}.{names[0]}" if len(names) == 1 and names[0] is not None else None
+    if language == "typescript":
+        source_path = PurePosixPath(path)
+        if not any(source_path.is_relative_to(PurePosixPath(root)) for root in roots):
+            return None
+        if PurePosixPath(path).suffix not in {
+            ".ts",
+            ".tsx",
+            ".mts",
+            ".cts",
+            ".js",
+            ".jsx",
+            ".mjs",
+            ".cjs",
+        }:
+            return None
+        try:
+            return module_identity(namespace, path)
+        except ValueError:
+            return None
     target = Path(path).parts
     namespace_parts = tuple(namespace.split("."))
     anchors: list[tuple[str, ...]] = []
@@ -447,6 +527,39 @@ def _record_inside_failures(scan: ScanResult, failures: list[RawRecord]) -> None
     scan.coverage["rules"] = "FAIL"
 
 
+def _snapshot_metadata(
+    scan: ScanResult,
+    contract: ArchitectureContract,
+    *,
+    contract_digest: str,
+    contract_reference: str,
+    git_head: str,
+    dirty: bool | str,
+    roots: tuple[str, ...],
+    language: Language,
+) -> dict[str, dict[str, str | bool | list[str]]]:
+    """Bind source, contract and analyzer identity to the selected scan profile."""
+    profile = PROFILES[language]
+    return {
+        "analyzer": {
+            "name": profile.analyzer,
+            "version": ANALYZER_VERSION,
+            "code_digest": analyzer_code_digest(),
+        },
+        "source": {
+            "git_head": git_head,
+            "dirty": dirty,
+            "source_digest": scan.source_digest,
+            "scope": [f"{source}/**/*{profile.source_suffix}" for source in roots],
+        },
+        "contract": {
+            "schema_version": contract.schema_version,
+            "digest": contract_digest,
+            "path": contract_reference,
+        },
+    }
+
+
 def analyze_snapshot(
     source_root: Path,
     *,
@@ -481,25 +594,21 @@ def analyze_snapshot(
     if git_head == "unknown" or dirty == "unknown":
         _add_git_failure(scan, git_head, dirty)
     scope = roots, namespace
-    declarations = _declaration_records(contract, scan, inside_records, contract_reference, scope)
+    declarations = _declaration_records(
+        contract, scan, inside_records, contract_reference, scope, language
+    )
     model: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "analyzer": {
-            "name": profile.analyzer,
-            "version": ANALYZER_VERSION,
-            "code_digest": analyzer_code_digest(),
-        },
-        "source": {
-            "git_head": git_head,
-            "dirty": dirty,
-            "source_digest": scan.source_digest,
-            "scope": [f"{source}/**/*{profile.source_suffix}" for source in roots],
-        },
-        "contract": {
-            "schema_version": contract.schema_version,
-            "digest": full_contract_digest,
-            "path": contract_reference,
-        },
+        **_snapshot_metadata(
+            scan,
+            contract,
+            contract_digest=full_contract_digest,
+            contract_reference=contract_reference,
+            git_head=git_head,
+            dirty=dirty,
+            roots=roots,
+            language=language,
+        ),
         "coverage": scan.coverage,
         "metrics": _metrics(scan, contract),
         "declarations": declarations,

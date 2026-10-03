@@ -20,7 +20,8 @@ never select adapters or write presentation files.
 Third-party imports are confined by `external_dependency_scope` rules: `packaging` to the
 analyzer runtime gate, `rich` to `archkeel.render.terminal` and `rich_argparse` to `archkeel.cli`.
 
-The analyzer may import only `archkeel.ir.model` and `archkeel.ir.codec`. This keeps raw AST
+The analyzer may import `archkeel.ir.model`, `archkeel.ir.codec`, the profile table and the
+published `archkeel.ir.identity:module_identity` function. This keeps raw AST
 records inside the analyzer and exposes typed `ObservationResult` values at its boundary.
 
 Compatibility shims are declared at the contract top level, not inferred as a generic facade:
@@ -183,6 +184,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-144 | [Diff retains navigation scope](decisions/ad-144-diff-retains-navigation-scope.md) |
 | AD-145 | [Local inherited methods use the existing base proof](decisions/ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
 | AD-146 | [Analyzer identity selects the observation profile](decisions/ad-146-analyzer-identity-selects-observation-profile.md) |
+| AD-147 | [Revision snapshots preserve language inputs](decisions/ad-147-revision-snapshots-preserve-language-inputs.md) |
 | AD-149 | [Uncertain publication retains inherited type candidates](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
 
 ## Allowed dependencies
@@ -194,7 +196,7 @@ often explains an earlier one; the index below keeps that order.
 | `cli` → `check` | Invoke deterministic and stable report and check services from the composition root. |
 | `cli` → `host` | Supply the concrete, replaceable host-record loader to checks; `cli` composes, it does not fetch. |
 | `cli` → `render` | Project typed results through the replaceable render adapter, keeping `cli` a thin composition root. |
-| `analyzer` → `ir` | Publish observations through the common model and codec boundary, so `analyzer` stays isolated behind its digest. |
+| `analyzer` → `ir` | Publish observations through the common model and codec; share only the profile table and source identity function (AD-97, AD-147). |
 | `check` → `ir` | Compare observations and return typed results without losing determinism or stability. |
 | `host` → `ir` | Construct validated host-record values through the stable evidence model, so `host` stays replaceable behind it. |
 | `render` → `ir` | Render typed evidence without importing policy implementations, so `render` stays replaceable behind the stable model. |
