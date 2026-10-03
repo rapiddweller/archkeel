@@ -20,6 +20,17 @@ export type Target =
   | { kind: "unresolved"; import_id: string; specifier: string; reason: string };
 export const digest = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
 export const id = (prefix: string, ...parts: (string | number)[]): string => `${prefix}-${digest(parts.join("\x1f")).slice(0, 16)}`;
+export function nodeRequirement(value: unknown): string {
+  if (typeof value !== "string" || !value) throw Error("Missing Node engines policy");
+  return value.split(" || ").map(range => {
+    // Only the manifest's caret-major and minimum-version forms are supported.
+    const matched = /^(\^|>=)(([1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/.exec(range);
+    if (!matched || !matched[2] || !matched[3]) throw Error("Unsupported Node engines policy");
+    const major = Number(matched[3]);
+    if (!Number.isSafeInteger(major + 1)) throw Error("Invalid Node engines major");
+    return matched[1] === "^" ? `>=${matched[2]},<${major + 1}` : `>=${matched[2]}`;
+  }).join(" || ");
+}
 export function moduleIdentity(namespace: string, path: string): string {
   return [namespace, ...path.split("/").map(segment => Array.from(segment).map((char, index) =>
     /^[A-Za-z0-9]$/.test(char) && !(index === 0 && /^[0-9]$/.test(char)) ? char : `_x${char.codePointAt(0)?.toString(16)}_`).join(""))].join(".");
