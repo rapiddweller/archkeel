@@ -20,7 +20,7 @@ evidence stays `UNKNOWN`, with its reason measured. `PASS` means no violation wa
 the positions the rule decided; decided coverage and UNKNOWN counts remain separate (AD-90).
 
 Each published analyzer identity selects exactly one profile in `src/archkeel/ir/profiles.py`;
-unknown identities are rejected (AD-145). Each profile declares which rule kinds it decides,
+unknown identities are rejected (AD-146). Each profile declares which rule kinds it decides,
 which it decides partly and which it cannot decide, and which scalars it does not measure. The
 Python profile decides and measures everything. The Dart profile (`language = "dart"`) decides the
 import-graph rules, `no_component_cycles` with `level: "module"` and `components` included, because
