@@ -54,7 +54,9 @@ src/archkeel/check/
   observation.py, observe.py             facts + contract -> canonical observation
   evaluation/                            Core-owned policy and evidence sufficiency
   snapshot.py, git.py, ...                revision inputs / existing workflows
-packages/typescript-adapter/             approved, not implemented
+packages/typescript-adapter/
+  src/{entry,project,collect,protocol}.ts  pinned compiler and source facts
+  test/                                  collector and offline package acceptance
 ```
 
 Python retains its specialist collectors. Shared graph algorithms live in

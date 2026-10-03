@@ -206,6 +206,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-147 | [Revision snapshots preserve language inputs](decisions/ad-147-revision-snapshots-preserve-language-inputs.md) |
 | AD-148 | [Source facts and Core evaluation have separate owners](decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md) |
 | AD-149 | [Uncertain publication retains inherited type candidates](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
+| AD-151 | [Unproven require references retain UNKNOWN](decisions/ad-151-unproven-require-references-retain-unknown.md) |
 | AD-152 | [Validated construct identity controls rules](decisions/ad-152-validated-construct-identity-controls-rules.md) |
 
 ## Allowed dependencies
