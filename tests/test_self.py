@@ -36,9 +36,16 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.structure import oversized_insides
 
-# AD-4: the analyzer's public IR API is exactly these two modules.
-# AD-97 adds the profile table, the one piece of data analyzer and reader must share.
-ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles"})
+# AD-4: the analyzer reads and writes the shared IR through these declared modules.
+# AD-97 adds profile data; source identity uses one exact pure helper.
+ANALYZER_PUBLIC_IR = frozenset(
+    {
+        "archkeel.ir.model",
+        "archkeel.ir.codec",
+        "archkeel.ir.profiles",
+        "archkeel.ir.identity",
+    }
+)
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
@@ -51,6 +58,7 @@ def _contract() -> ArchitectureContract:
 
 def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
     public = "archkeel.check.snapshot:resolve_commit"
+    language = "archkeel.check.ports:Language"
     contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
     check = next(component for component in contract["components"] if component["label"] == "check")
     inside = json.loads((ROOT / "src/archkeel/check/architecture-contract.json").read_bytes())
@@ -65,8 +73,29 @@ def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
     baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
 
     assert public in check["public"] and public in foundation["public"]
-    assert coupling["max_names"] == 10
+    assert language in check["public"] and language in foundation["public"]
+    assert coupling["max_names"] == 11
     assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
+    assert language in baseline["budgets"]["coupling_names"]["cli -> check"]
+
+
+def test_analyzer_uses_only_the_published_module_identity_helper() -> None:
+    contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
+    ir = next(component for component in contract["components"] if component["label"] == "ir")
+    analyzer = next(
+        component for component in contract["components"] if component["label"] == "analyzer"
+    )
+    published_identity_names = [
+        name for name in ir["public"] if name.startswith("archkeel.ir.identity")
+    ]
+    identity_modules = next(
+        requirement["through"]
+        for requirement in analyzer["requires"]
+        if requirement["component"] == "ir"
+    )
+
+    assert published_identity_names == ["archkeel.ir.identity:module_identity"]
+    assert "archkeel.ir.identity" in identity_modules
 
 
 def _architecture_documents() -> tuple[tuple[str, str], ...]:
@@ -177,6 +206,8 @@ def test_self_contract_covers_modules_and_analyzer_interface(
         assert isinstance(source, str) and isinstance(target, str)
         if in_scope(source, "archkeel.analyzer") and in_scope(target, "archkeel.ir"):
             assert target in ANALYZER_PUBLIC_IR, (source, target)
+            if target == "archkeel.ir.identity":
+                assert record.data.get("symbol") == "module_identity", (source, target)
 
 
 def test_self_facades_record_the_declared_types_they_expose(self_observation: Observation) -> None:
@@ -227,8 +258,19 @@ def test_self_contract_public_matches_drafted_proposal(self_observation: Observa
     }
     for component in contract.components:
         entries = set(component.public or ())
-        assert set(proposed.get(component.label) or ()) <= entries, component.label
-        extra = entries - set(proposed.get(component.label) or ())
+        proposed_entries = set(proposed.get(component.label) or ())
+        if component.label == "ir" and "archkeel.ir.identity" in proposed_entries:
+            # The analyzer needs module_identity, not every current or future identity helper.
+            proposed_entries.remove("archkeel.ir.identity")
+            proposed_entries.add("archkeel.ir.identity:module_identity")
+        if component.label == "check" and "archkeel.check.ports" in proposed_entries:
+            # The CLI imports the two typed ports explicitly; do not publish the whole module.
+            proposed_entries.remove("archkeel.check.ports")
+            proposed_entries.update(
+                {"archkeel.check.ports:Language", "archkeel.check.ports:ScanConfig"}
+            )
+        assert proposed_entries <= entries, component.label
+        extra = entries - proposed_entries
         assert {item.replace(":", ".") for item in extra} <= exposed, (component.label, extra)
 
 

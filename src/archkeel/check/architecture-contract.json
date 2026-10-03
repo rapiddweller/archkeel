@@ -86,6 +86,7 @@
         "archkeel.check.ports:Analyzer",
         "archkeel.check.ports:FilesToWrite",
         "archkeel.check.ports:Host",
+        "archkeel.check.ports:Language",
         "archkeel.check.ports:ScanConfig",
         "archkeel.check.snapshot:resolve_commit"
       ],
