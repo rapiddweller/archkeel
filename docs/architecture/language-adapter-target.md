@@ -1,12 +1,11 @@
 # Language adapter target
 
-Status: approved; package and namespace review passed, exact-head validation is
-pending. The process boundary,
-Python/Dart collectors, Core evaluation split and TypeScript npm package are in
-the working tree. Active Python contracts are `architecture-contract.json` plus
-`contracts/{analyzer,python,dart,check,ir}.json`. The npm package has its own
-contract because the Python scanner cannot inspect TypeScript. These contracts
-define the target; they do not certify parity or completion.
+Status: approved; implementation present. The process boundary, Python/Dart
+collectors and Core evaluation split are implemented. Active
+contracts are `architecture-contract.json` plus
+`contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
+target. Acceptance evidence is recorded in the separate Core, TypeScript package
+and demo pull requests.
 
 ## Boundary
 
@@ -56,13 +55,13 @@ src/archkeel/check/
   evaluation/                            Core-owned policy and evidence sufficiency
   snapshot.py, git.py, ...                revision inputs / existing workflows
 packages/typescript-adapter/
-  src/{entry,project,collect,protocol}.ts
-  test/{adapter,pack}.mjs                  pinned npm package and package tests
+  src/{entry,project,collect,protocol}.ts  pinned compiler and source facts
+  test/                                  collector and offline package acceptance
 ```
 
 Python retains its specialist collectors. Shared graph algorithms live in
 `ir.graph`; dependency/scope aggregation and policy live in `check.evaluation`.
-Dart retains directive-only capability. The TypeScript package uses four source
+Dart retains directive-only capability. TypeScript can start with four source
 files because the compiler owns its AST and resolver. Add another internal
 component only when responsibilities require it.
 
@@ -72,10 +71,10 @@ component only when responsibilities require it.
 |---|---|---|
 | `check.ports` | `SourceCollector.collect(request) -> SourceFacts \| CollectionError` | Core depends on this port; implementation is injected by CLI |
 | `ir.protocol` | `CollectionRequest(protocol_version, snapshot, scope, resolver)` | immutable revision inputs; no architecture contract, baseline or verdict |
-| `ir.protocol` | `CollectionResponse(protocol_version, facts) \| CollectionFailure` | exactly one versioned JSON message; diagnostics use stderr |
-| `ir.facts` | `SourceFacts(adapter, capabilities, inputs, files, modules, imports, sections, coverage)` | source claims carry identity and evidence; no policy decisions |
-| `ir.facts` | `Capabilities(fact_kinds, resolution_features)` | claims ability to collect facts, never authority to pass a rule |
-| `ir.facts` | `Coverage(selected_files, observed_files, resolution_inputs, gaps)` | resolution-only input is not a fully observed graph node |
+| `ir.protocol` | `CollectionResponse(facts, protocol_version)`; local `CollectionError(kind, subject, message)` | stdout carries one response; stderr carries diagnostics; the process host reports collection errors |
+| `ir.facts` | `SourceFacts`: profile, adapter/runtime/source identity, capabilities, inputs, files, imports, sections, coverage and evidence | source claims carry identity and evidence; no policy decisions |
+| `ir.facts` | `Capabilities(sections, resolution_features)` | claims ability to collect facts, never authority to pass a rule |
+| `ir.facts` | `CollectionCoverage(selected_files, files_read, files_parsed, full_scope, gaps)`; `SourceFacts.inputs` | resolution-only input is not a fully observed graph node |
 | `ir.facts` | `ImportTarget = LocalTarget \| ExternalPackageTarget \| BuiltinTarget \| UnresolvedTarget` | `.cjs` runtime and `.d.cts` declaration remain distinct |
 | `ir.facts_codec` | `decode_request` / `encode_request` / `decode_response` / `encode_response` | typed envelopes; reject malformed versions, identities, references and coverage |
 | `check.observation` | `assemble_observation(facts, contract)` / `analyze_source_snapshot(...)` | ownership and evaluator receipts are Core-owned |
@@ -91,18 +90,18 @@ read these interfaces; adapters cannot read governance models or graph derivatio
 `profiles` owns capability and rule-availability policy; `measurements` reads its
 scalar vocabulary.
 
-Inside Python: `parse_sources(request) -> ParsedSources`,
-`resolve_project(parsed) -> ResolvedProject`, then independent
-`collect_<kind>(project) -> FactSection`. Inside Dart:
-`parse_directives(request) -> DirectiveModel`,
-`resolve_libraries(directives) -> ResolvedLibraries`. Each adapter's `collect`
-assembles `SourceFacts`; `entry.main` serves the protocol. These are the current
-type boundaries. The Python contract isolates collector peers.
+Inside Python, `source.parse_sources(paths, root=..., namespace=...)` returns
+`ParsedSources` containing `ParsedModule` values. Resolution uses `SymbolIndex`;
+specialist collectors build the source records. Inside Dart,
+`directives.read_header` returns `Header`, and `resolve` builds `DartSources`
+containing `DartLibrary` values. Each adapter's `collect(request)` assembles
+`SourceFacts`; `entry.main` serves the protocol. The Python contract isolates
+collector peers.
 
 `SourceFacts` lives in `ir.facts`; the Core maps validated facts to the governance
 model in `ir.model`. File/module IDs include source
 space and repository-relative path. Adapter-local models never cross the port:
-Python `ParsedModule`/`ResolvedProject`, Dart directive model, TypeScript compiler
+Python `ParsedModule`/`ParsedSources`, Dart `Header`/`DartSources`, TypeScript compiler
 `Program`/`SourceFile`. No universal AST or shared parser base class.
 
 The typed protocol and codecs in `ir` own the process wire contract. Collection
@@ -117,19 +116,11 @@ files remain the approved design record. They do not certify parity or completio
 The TypeScript npm package needs its own contract because the Python scanner cannot
 observe `.ts`.
 
-## Current status
-
-The local Make gate completed with 3,053 passed and 179 skipped; two APFS fixture
-tests were explicitly deselected. The final npm tarball passed 36 package tests.
-The extension scan initialized 78 files across five owners and found seven
-UI-to-Platform type-import violations against the proposed target. The Core
-namespace guard rejects selected modules or packages outside the configured
-namespace and accepts dotted descendants with adapter-owned names; its QA run
-passed 15 tests. Independent npm acceptance and namespace review passed.
-
-These are local results, not CI or release evidence. Node 22/24, native Windows
-and exact-head full Linux CI remain pending. The change has not merged or been
-published; delivery gates remain open.
+The target and Node/npm adapter choice are approved. Acceptance covers Python/Dart
+compatibility, replacement by another configured executable, negative
+protocol/coverage cases and independent review. TypeScript packaging and demo
+evidence remain separate pull requests; extension onboarding uses the collector
+artifact explicitly.
 
 Future HTTP/queue relationships are a separate interaction model: declared API
 contracts, source observations and runtime observations have distinct evidence.

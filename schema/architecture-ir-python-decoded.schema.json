@@ -3,5 +3,14 @@
   "$id": "urn:archkeel:architecture-ir:python-decoded:1.3.0",
   "title": "Existing Python ArchitectureIR 1.3.0, decoded observation profile",
   "$comment": "DESIGN ARTIFACT, not a product implementation. Top-level fields come from report.analyze_snapshot; coverage comes from scanner.scan_repository. Generic record data remains open where no per-kind schema is declared. Decode architecture-ir-columnar-v1 before validating. Do not silently use this legacy profile as the new accepted-run contract.",
-  "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation"
+  "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation",
+  "properties": {
+    "analyzer": {
+      "properties": {
+        "name": {
+          "const": "archkeel-python-analyzer"
+        }
+      }
+    }
+  }
 }
