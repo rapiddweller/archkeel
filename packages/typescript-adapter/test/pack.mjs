@@ -25,7 +25,7 @@ try {
   const consumer = join(temp, "consumer");
   mkdirSync(consumer);
   writeFileSync(join(consumer, "package.json"), JSON.stringify({ private: true, dependencies: { "@archkeel/typescript-adapter": `file:${join(temp, packed.filename)}` } }));
-  run(process.execPath, [npmEntry, "install", "--package-lock-only", "--ignore-scripts", "--offline", "--no-audit"], consumer);
+  run(process.execPath, [npmEntry, "install", "--package-lock-only", "--ignore-scripts", "--no-audit"], consumer);
   run(process.execPath, [npmEntry, "ci", "--ignore-scripts", "--offline", "--no-audit"], consumer);
   const fixture = join(temp, "fixture");
   mkdirSync(join(fixture, "src"), { recursive: true });
