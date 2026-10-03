@@ -1,8 +1,10 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "archkeel",
+  "version": "0.8.5",
   "description": "Declare architecture boundaries and check coding-agent changes with Archkeel.",
-  "author": { "name": "Rapiddweller Asia Co., Ltd." },
+  "author": { "name": "Rapiddweller Asia Co., Ltd.", "email": "info@rapiddweller.com" },
+  "homepage": "https://archkeel.com",
   "repository": "https://github.com/rapiddweller/archkeel",
   "license": "MIT",
   "extensions": {
@@ -14,11 +16,14 @@
         "developerName": "Rapiddweller",
         "category": "Developer Tools",
         "capabilities": ["Read", "Write"],
-        "websiteURL": "https://github.com/rapiddweller/archkeel",
+        "websiteURL": "https://archkeel.com",
+        "supportURL": "https://rapiddweller.com/contact/",
+        "privacyPolicyURL": "https://rapiddweller.com/privacy-policy/",
+        "termsOfServiceURL": "https://github.com/rapiddweller/archkeel/blob/main/LICENSE",
         "defaultPrompt": ["Use Archkeel to review architecture boundaries in this repository."],
         "composerIcon": "./assets/archkeel-mark.svg",
         "logo": "./assets/archkeel-mark.svg",
-        "brandColor": "#C5F82A"
+        "brandColor": "#7FA51A"
       }
     }
   }
