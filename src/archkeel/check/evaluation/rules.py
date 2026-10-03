@@ -2800,7 +2800,10 @@ def _declared_facade_positions(
             reexports,
             property_chains,
         )
-    if data.get("qualified_name") in property_chains:
+    if data.get("qualified_name") in property_chains and not (
+        data.get("source_final_method_binding") is True
+        and data.get("signature_decorators_proven") is True
+    ):
         return None
     if data.get("overloaded") is True and data.get("overload_signature") is not True:
         return None

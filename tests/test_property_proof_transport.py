@@ -127,6 +127,74 @@ def test_removing_creation_signature_proof_cannot_certify_a_property(payload, tm
     assert unknown_positions(observation) > 0
 
 
+def test_property_accessor_cannot_claim_a_final_plain_method_binding(payload):
+    _setter(payload)["data"]["source_final_method_binding"] = True
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_repeated_class_names_do_not_create_final_binding_proof(tmp_path):
+    source = (
+        "class Child:\n    def value(self) -> int: ...\n"
+        "class Child:\n    def value(self) -> int: ...\n"
+    )
+    _, report, observation = _validate(tmp_path, source)
+    assert report.declared_rules == "UNKNOWN"
+    assert observation.records("violations") == ()
+
+
+@pytest.mark.parametrize("replacement", ["ordinary", "property"])
+def test_replaced_plain_method_does_not_leak_its_broad_signature(tmp_path, replacement):
+    source = (
+        "class Child:\n    def value(self) -> int: ...\n"
+        "    def value(self, arg: object) -> object: ...\n"
+        + ("    @property\n" if replacement == "property" else "")
+        + "    def value(self) -> int: ...\n"
+    )
+    _, _, observation = _validate(tmp_path, source)
+    assert observation.records("violations") == ()
+
+
+def test_final_plain_method_requires_its_own_source_proof(tmp_path):
+    source = (
+        "class Child:\n    def value(self) -> int: ...\n"
+        "    def value(self, arg: object) -> object: ...\n"
+    )
+    _, _, observation = _validate(tmp_path, source)
+    assert {item.data.get("position") for item in observation.records("violations")} == {
+        "arg",
+        "return",
+    }
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    earlier = next(
+        record
+        for record in _records(payload)
+        if record["kind"] == "method" and record["data"]["returns"] == "int"
+    )
+    earlier["data"]["source_final_method_binding"] = True
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+    earlier["data"]["source_final_method_binding"] = False
+    for record in _records(payload):
+        record["data"].pop("source_final_method_binding", None)
+    observation, _ = assemble_observation(
+        decode_response(json.dumps(payload).encode()).facts,
+        contract_root=tmp_path,
+        contract_path=tmp_path / "contract.json",
+        roots=("sample",),
+        namespace="sample",
+    )
+    assert unknown_positions(observation) > 0
+    assert observation.records("violations") == ()
+
+
 def test_property_facts_round_trip_and_remain_immutable(payload, tmp_path):
     assert not list(Draft202012Validator(SCHEMA).iter_errors(payload))
     _records(payload).reverse()

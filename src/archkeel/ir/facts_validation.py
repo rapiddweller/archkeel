@@ -104,6 +104,7 @@ _PROOF_FLAGS = frozenset(
         "class_header_static",
         "class_body_control_flow",
         "signature_decorators_proven",
+        "source_final_method_binding",
         "overload_signature",
         "overloaded",
     }
@@ -202,6 +203,24 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
         if record.data.get("property_members") is not None and record.kind != "class":
             raise ValueError("property members need a class owner")
         binding = record.data.get("property_binding")
+        if record.data.get("source_final_method_binding") is True:
+            parent, name = record.data.get("parent"), record.data.get("name")
+            owner = classes.get(parent) if isinstance(parent, str) else None
+            group = (
+                ordered.get((parent, name), {})
+                if isinstance(parent, str) and isinstance(name, str)
+                else {}
+            )
+            if (
+                record.kind != "method"
+                or owner is None
+                or record.data.get("qualified_name") != f"{parent}.{name}"
+                or owner.data.get("module") != record.data.get("module")
+                or record.data.get("decorators") != ()
+                or binding is not None
+                or group.get(max(group, default=0)) != record
+            ):
+                raise ValueError("final method binding needs its last undecorated definition")
         if binding is None:
             continue
         parent, name = record.data.get("parent"), record.data.get("name")

@@ -44,6 +44,8 @@ Standard property creation and getter/setter replacement carry ordered source-bi
 proof (#290). Core selects the effective accessors through the same proven base chain,
 then checks their signatures in their defining scopes. A copied getter retains its setter;
 a fresh property replaces it. Missing proof, custom descriptors and mutations stay UNKNOWN.
+An explicit final undecorated binding retains its direct signature findings despite earlier
+repeated names. This does not certify an otherwise uncertain class surface.
 
 ## Alternatives
 

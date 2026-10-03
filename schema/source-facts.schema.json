@@ -87,6 +87,9 @@
             "signature_decorators_proven": {
               "type": "boolean"
             },
+            "source_final_method_binding": {
+              "type": "boolean"
+            },
             "overload_signature": {
               "type": "boolean"
             },

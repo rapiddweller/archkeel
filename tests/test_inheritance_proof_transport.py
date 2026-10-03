@@ -29,6 +29,7 @@ def _schema_errors(payload):
         "class_header_static",
         "class_body_control_flow",
         "signature_decorators_proven",
+        "source_final_method_binding",
         "overloaded",
         "overload_signature",
     ],

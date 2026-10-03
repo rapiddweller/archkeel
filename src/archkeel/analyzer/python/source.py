@@ -647,6 +647,11 @@ def method_decorator_data(
     return {
         "method_kind": method_kind,
         "signature_decorators_proven": signature_proven and descriptor_count <= 1,
+        "source_final_method_binding": not node.decorator_list
+        and parent is not None
+        and parent.name in stable_direct_module_bindings(module)
+        and binding_may_exist_before(parent.body, node, node.name)
+        and not binding_may_exist_before(tuple(reversed(parent.body)), node, node.name),
         **({"property_binding": binding} if binding is not None else {}),
     }
 
