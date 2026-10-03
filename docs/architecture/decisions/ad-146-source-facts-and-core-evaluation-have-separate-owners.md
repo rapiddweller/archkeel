@@ -26,3 +26,8 @@ reexports still have explicit static limits. A redundant process-module publicat
 was removed before recording the new counts. Violations, cycles and private-use
 debt remain zero. This baseline records the reviewed implementation; it does not
 claim that UNKNOWN evidence is resolved.
+
+Reports preserve producer metadata for every language, including Python. Code digests
+come from the Core and collector source bytes, not the installed package version. The
+optional producer field keeps older Python reports valid while new reports identify
+the producer and its source digest.

@@ -337,6 +337,29 @@
           }
         }
       ]
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "code_digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code_digest": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

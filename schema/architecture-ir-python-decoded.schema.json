@@ -917,6 +917,9 @@
           }
         ]
       }
+    },
+    "producer": {
+      "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/producer"
     }
   },
   "additionalProperties": false
