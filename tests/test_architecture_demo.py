@@ -719,6 +719,59 @@ def test_variant_produces_the_catalogued_findings(
         assert declared_rules == variant.expected_declared_rules
 
 
+def test_dynamic_namespace_publication_keeps_candidate_usage_unknown(tmp_path: Path) -> None:
+    variant = next(
+        item for item in CATALOG if item.id == "class-a-forbidden-construct-inside-violation"
+    )
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    config = load_config(root, variant.config)
+    validation, _ = run_validate(root, config, observe)
+    assert "interface.unused" not in {item.code for item in validation.diagnostics}
+    assert "interface.usage_unknown" in {item.code for item in validation.diagnostics}
+
+    report, architecture = run_report(root, config=config, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    assert {item.rule_ids[0] for item in trace_valid_violations(observation)} == {
+        "store:STORE-NO-EVAL"
+    }
+    assessment = next(
+        item for item in report.rule_assessments or () if item.id == "INTERFACE-BOUNDARY"
+    )
+    assert assessment.status == "UNKNOWN"
+    assert any(
+        item.kind == "interface_symbol_limit" for item in observation.records("unknowns") or ()
+    )
+
+
+@pytest.mark.parametrize("name", ["OrderRepository", "_OrderRepository"])
+def test_cyclic_publication_stays_unknown_without_weakening_private_imports(
+    tmp_path: Path, name: str
+) -> None:
+    files = {
+        "shop/store/__init__.py": f"from .api import {name}\n__all__ = ['{name}']\n",
+        "shop/store/api.py": f"from shop.store import {name}\n__all__ = ['{name}']\n",
+        "shop/app/orders.py": (FIXTURE_DIR / "shop/app/orders.py")
+        .read_text()
+        .replace("from shop.store import OrderRepository", f"from shop.store import {name}"),
+    }
+    root = _prepare_repo(tmp_path, files)
+    report, architecture = run_report(root, config=load_config(root), analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    imports = [
+        item
+        for item in observation.records("imports") or ()
+        if item.data.get("source_module") == "shop.app.orders" and item.data.get("symbol") == name
+    ]
+    [imported] = imports
+    assert imported.data.get("reexport_candidates") == ()
+    interface = next(
+        item for item in report.rule_assessments or () if item.id == "INTERFACE-BOUNDARY"
+    )
+    assert interface.status == ("FAIL" if name.startswith("_") else "UNKNOWN")
+
+
 def test_unproven_ordinary_reexport_stays_unknown_in_cli_json(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

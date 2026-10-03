@@ -7,6 +7,7 @@ import json
 import tomllib
 from pathlib import Path
 
+import pytest
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
@@ -80,3 +81,44 @@ def test_ir_schemas_accept_the_parsed_self_observation() -> None:
     )
     parse_observation(observation)
     assert not list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
+    for imported in observation["imports"]:
+        imported["data"].pop("source_member_binding_static", None)
+        imported["data"].pop("reexport_candidates", None)
+    assert not list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "accepted"),
+    [
+        ("source_member_binding_static", True, True),
+        ("source_member_binding_static", False, True),
+        ("source_member_binding_static", None, False),
+        ("source_member_binding_static", 0, False),
+        ("source_member_binding_static", 1, False),
+        ("source_member_binding_static", "false", False),
+        ("reexport_candidates", [], True),
+        ("reexport_candidates", ["archkeel.ir.model.Record"], True),
+        ("reexport_candidates", None, False),
+        ("reexport_candidates", [None], False),
+        ("reexport_candidates", [0], False),
+        ("reexport_candidates", [True], False),
+        ("reexport_candidates", [""], False),
+        ("reexport_candidates", "archkeel.ir.model.Record", False),
+    ],
+)
+def test_import_proof_metadata_schema(field: str, value: object, accepted: bool) -> None:
+    common = _schema("architecture-ir-common.schema.json")
+    profile = _schema("architecture-ir-python-decoded.schema.json")
+    registry = Registry().with_resource(common["$id"], Resource.from_contents(common))
+    observation = decode_canonical_model(
+        json.loads((ROOT / "fixtures/D-self/architecture.json").read_bytes())
+    )
+    imported = next(
+        item for item in observation["imports"] if "source_member_binding_static" in item["data"]
+    )
+    imported["data"][field] = value
+    errors = list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
+    assert (not errors) == accepted
+    if not accepted:
+        assert len(errors) == 1
+        assert field in errors[0].absolute_path

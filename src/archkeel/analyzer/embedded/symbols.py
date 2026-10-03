@@ -17,127 +17,33 @@ from archkeel.ir.model import EvidenceClass, stable_id
 
 from .records import RawEvidence, RawRecord, RecordData, classified
 from .source import (
+    DATACLASS_DECORATORS,
     ParsedModule,
     add_evidence,
     annotation_text,
+    class_header_static,
     decorator_names,
+    is_static_type_alias_value,
     location,
     module_scope_bindings,
     stable_direct_module_bindings,
+    unproven_class_body,
+    unproven_member_bindings,
+)
+from .source import (
+    binding_may_exist_before as _binding_may_exist_before,
+)
+from .source import (
+    is_proven_decorator as _is_proven_decorator,
+)
+from .source import (
+    method_decorator_data as _method_decorator_data,
+)
+from .source import (
+    resolve_static_name as _resolve_static_name,
 )
 
 _BUILTIN_NAMES = frozenset(dir(builtins))
-
-
-def _resolve_static_name(module: ParsedModule, node: ast.AST) -> str:
-    text = annotation_text(node) or ""
-    parts = text.split(".")
-    binding = module.aliases.get(parts[0]) if parts else None
-    if binding is None:
-        return text
-    return ".".join([binding.target, *parts[1:]])
-
-
-def _binding_may_exist_before(
-    statements: Sequence[ast.stmt], stop: ast.AST | None, name: str
-) -> bool:
-    for statement in statements:
-        if statement is stop:
-            return False
-        pending: list[ast.AST] = [statement]
-        while pending:
-            current = pending.pop()
-            if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef):
-                if current.name == name:
-                    return True
-                pending.extend(current.decorator_list)
-                pending.extend(current.args.defaults)
-                pending.extend(value for value in current.args.kw_defaults if value is not None)
-                pending.extend(
-                    argument.annotation
-                    for argument in [
-                        *current.args.posonlyargs,
-                        *current.args.args,
-                        *current.args.kwonlyargs,
-                    ]
-                    if argument.annotation is not None
-                )
-                if current.args.vararg and current.args.vararg.annotation:
-                    pending.append(current.args.vararg.annotation)
-                if current.args.kwarg and current.args.kwarg.annotation:
-                    pending.append(current.args.kwarg.annotation)
-                if current.returns:
-                    pending.append(current.returns)
-                continue
-            if isinstance(current, ast.ClassDef):
-                if current.name == name:
-                    return True
-                if any(
-                    isinstance(child, ast.Global) and name in child.names
-                    for child in ast.walk(current)
-                ):
-                    return True
-                pending.extend(current.decorator_list)
-                pending.extend(current.bases)
-                pending.extend(keyword.value for keyword in current.keywords)
-                continue
-            elif isinstance(current, ast.Lambda):
-                pending.extend(current.args.defaults)
-                pending.extend(value for value in current.args.kw_defaults if value is not None)
-                continue
-            if (
-                isinstance(current, ast.Name)
-                and current.id == name
-                and isinstance(current.ctx, ast.Store | ast.Del)
-            ):
-                return True
-            if isinstance(current, ast.Import) and any(
-                (alias.asname or alias.name.split(".")[0]) == name for alias in current.names
-            ):
-                return True
-            if isinstance(current, ast.ImportFrom) and any(
-                alias.name != "*" and (alias.asname or alias.name) == name
-                for alias in current.names
-            ):
-                return True
-            if isinstance(current, ast.ImportFrom) and any(
-                alias.name == "*" for alias in current.names
-            ):
-                return True
-            if isinstance(current, ast.ExceptHandler) and current.name == name:
-                return True
-            if isinstance(current, ast.MatchAs) and current.name == name:
-                return True
-            if isinstance(current, ast.MatchStar) and current.name == name:
-                return True
-            if isinstance(current, ast.MatchMapping) and current.rest == name:
-                return True
-            pending.extend(ast.iter_child_nodes(current))
-    return False
-
-
-def _is_static_type_alias_value(module: ParsedModule, node: ast.expr) -> bool:
-    if isinstance(node, ast.Name):
-        return True
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return True
-    if isinstance(node, ast.Subscript):
-        head = _resolve_static_name(module, node.value)
-        return head in {
-            "typing.Annotated",
-            "typing.Literal",
-            "typing.Optional",
-            "typing.Union",
-            "typing_extensions.Annotated",
-            "typing_extensions.Literal",
-            "typing_extensions.TypeAliasType",
-            "dict",
-            "list",
-            "set",
-            "tuple",
-            "frozenset",
-        }
-    return False
 
 
 def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordData:
@@ -166,37 +72,6 @@ def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> RecordD
         "returns": annotation_text(node.returns),
         "async": isinstance(node, ast.AsyncFunctionDef),
     }
-
-
-def _is_proven_overload(
-    module: ParsedModule,
-    decorator: ast.expr,
-    method: ast.FunctionDef | ast.AsyncFunctionDef,
-    parent: ast.ClassDef | None,
-) -> bool:
-    target = decorator.func if isinstance(decorator, ast.Call) else decorator
-    if _resolve_static_name(module, target) not in {
-        "typing.overload",
-        "typing_extensions.overload",
-    }:
-        return False
-    root = (
-        target.id
-        if isinstance(target, ast.Name)
-        else (
-            target.value.id
-            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
-            else None
-        )
-    )
-    if (
-        root is None
-        or root not in module.aliases
-        or root not in stable_direct_module_bindings(module)
-        or not _binding_may_exist_before(module.tree.body, parent or method, root)
-    ):
-        return False
-    return parent is None or not _binding_may_exist_before(parent.body, method, root)
 
 
 def _class_field_annotations(node: ast.ClassDef) -> list[RecordData]:
@@ -246,119 +121,6 @@ def _class_member_names(node: ast.ClassDef) -> list[str]:
     return sorted(names - deleted)
 
 
-def _class_definition_expressions(node: ast.ClassDef) -> list[ast.expr]:
-    expressions = [*node.decorator_list, *node.bases, *(kw.value for kw in node.keywords)]
-    for child in node.body:
-        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
-            expressions.extend(child.decorator_list)
-            expressions.extend(child.args.defaults)
-            expressions.extend(value for value in child.args.kw_defaults if value is not None)
-            expressions.extend(
-                arg.annotation
-                for arg in [*child.args.posonlyargs, *child.args.args, *child.args.kwonlyargs]
-                if arg.annotation is not None
-            )
-            if child.args.vararg and child.args.vararg.annotation:
-                expressions.append(child.args.vararg.annotation)
-            if child.args.kwarg and child.args.kwarg.annotation:
-                expressions.append(child.args.kwarg.annotation)
-            if child.returns:
-                expressions.append(child.returns)
-        elif isinstance(child, ast.ClassDef):
-            expressions.extend(child.decorator_list)
-            expressions.extend(child.bases)
-            expressions.extend(kw.value for kw in child.keywords)
-        elif isinstance(child, ast.AnnAssign):
-            expressions.append(child.annotation)
-    return expressions
-
-
-def _class_statement_bindings(
-    child: ast.stmt,
-) -> tuple[list[str], bool, bool] | None:
-    if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-        is_function = isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
-        return [child.name], is_function, is_function and "overload" in decorator_names(child)
-    if isinstance(child, ast.AnnAssign):
-        names = (
-            [name.id for name in ast.walk(child.target) if isinstance(name, ast.Name)]
-            if child.value is not None
-            else []
-        )
-        return names, False, False
-    if isinstance(child, ast.Assign):
-        names = [
-            name.id
-            for target in child.targets
-            for name in ast.walk(target)
-            if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)
-        ]
-        return names, False, False
-    if isinstance(child, ast.Import):
-        if any(alias.asname is None and "." in alias.name for alias in child.names):
-            return None
-        return [alias.asname or alias.name for alias in child.names], False, False
-    if isinstance(child, ast.ImportFrom):
-        if any(alias.name == "*" for alias in child.names):
-            return None
-        return [alias.asname or alias.name for alias in child.names], False, False
-    if isinstance(child, ast.Delete) or any(
-        isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store | ast.Del)
-        for item in ast.walk(child)
-    ):
-        return None
-    return [], False, False
-
-
-def _class_has_rebound_members(node: ast.ClassDef) -> bool:
-    """Flag repeated direct bindings whose final class member is not proven here."""
-    if any(
-        isinstance(item, ast.NamedExpr)
-        for expr in _class_definition_expressions(node)
-        for item in ast.walk(expr)
-    ):
-        return True
-    bindings: dict[str, tuple[int, int, int, bool, bool]] = {}
-    for child in node.body:
-        if (
-            isinstance(child, ast.Assign | ast.AnnAssign)
-            and child.value is not None
-            and any(isinstance(item, ast.NamedExpr) for item in ast.walk(child.value))
-        ):
-            return True
-        statement_bindings = _class_statement_bindings(child)
-        if statement_bindings is None:
-            return True
-        names, is_function, overloaded = statement_bindings
-        for name in names:
-            count, overload_count, implementation_count, _, all_functions = (
-                bindings[name] if name in bindings else (0, 0, 0, False, True)
-            )
-            bindings[name] = (
-                count + 1,
-                overload_count + int(overloaded),
-                implementation_count + int(not overloaded),
-                overloaded,
-                all_functions and is_function,
-            )
-    return any(
-        count > 1
-        and not (
-            all_functions
-            and overload_count == count - 1
-            and implementation_count == 1
-            and not last_overload
-        )
-        for (
-            count,
-            overload_count,
-            implementation_count,
-            last_overload,
-            all_functions,
-        ) in bindings.values()
-    )
-
-
 def _shape(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[str, int]:
     """Digest the body's node types in walk order, dropping every name and literal value.
 
@@ -383,7 +145,7 @@ def _class_is_frozen(
         if not isinstance(decorator, ast.Call):
             continue
         name = _resolve_static_name(module, decorator.func)
-        if name in {"dataclasses.dataclass", "pydantic.dataclasses.dataclass"} and any(
+        if name in DATACLASS_DECORATORS and any(
             keyword.arg == "frozen"
             and isinstance(keyword.value, ast.Constant)
             and keyword.value.value is True
@@ -443,24 +205,10 @@ def _symbol_data(
                 "symbol_category": "class",
                 "fields": _class_field_annotations(node),
                 "class_members": _class_member_names(node),
-                "class_body_control_flow": any(
-                    isinstance(
-                        child,
-                        (
-                            ast.If,
-                            ast.For,
-                            ast.AsyncFor,
-                            ast.While,
-                            ast.With,
-                            ast.AsyncWith,
-                            ast.Try,
-                            ast.TryStar,
-                            ast.Match,
-                        ),
-                    )
-                    for child in node.body
-                )
-                or _class_has_rebound_members(node),
+                "source_binding_unique": node.name in stable_direct_module_bindings(module),
+                "source_member_binding_static": node.name not in unproven_member_bindings(module),
+                "class_header_static": class_header_static(node),
+                "class_body_control_flow": unproven_class_body(module, node),
                 **({"generic_parameters": generic_parameters} if generic_parameters else {}),
                 **({"generic_bases": generic_bases} if generic_bases else {}),
             }
@@ -468,24 +216,18 @@ def _symbol_data(
     else:
         data.update(_function_signature(node))
         data["symbol_category"] = "method" if parent else "function"
-        decorator_targets = [
-            _resolve_static_name(
-                module, decorator.func if isinstance(decorator, ast.Call) else decorator
-            )
-            for decorator in node.decorator_list
-        ]
         data["overload_signature"] = any(
-            _is_proven_overload(module, decorator, node, parent_node)
+            _is_proven_decorator(
+                module,
+                decorator,
+                node,
+                parent_node,
+                frozenset({"typing.overload", "typing_extensions.overload"}),
+            )
             for decorator in node.decorator_list
         )
         if parent:
-            method_kind = "instance"
-            for resolved in decorator_targets:
-                if resolved in {"staticmethod", "builtins.staticmethod"}:
-                    method_kind = "static"
-                elif resolved in {"classmethod", "builtins.classmethod"}:
-                    method_kind = "class"
-            data["method_kind"] = method_kind
+            data.update(_method_decorator_data(module, node, parent_node))
         shape, shape_nodes = _shape(node)
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
@@ -755,7 +497,7 @@ def _resolve_class_kinds(
                     owners[qualname],
                     decorator.func if isinstance(decorator, ast.Call) else decorator,
                 )
-                in {"dataclasses.dataclass", "pydantic.dataclasses.dataclass"}
+                in DATACLASS_DECORATORS
                 for decorator in node.decorator_list
             ):
                 candidates.add("dataclass")
@@ -833,6 +575,14 @@ def _assignment_symbol(
             "name": name,
             "parent": None,
             "visibility": "private" if name.startswith("_") else "public_name",
+            **(
+                {
+                    "source_binding_unique": name in stable_direct_module_bindings(module),
+                    "source_member_binding_static": name not in unproven_member_bindings(module),
+                }
+                if kind == "type_alias"
+                else {}
+            ),
             **details,
         },
     )
@@ -922,7 +672,7 @@ def _module_assignment_symbols(
             and isinstance(node.targets[0], ast.Name)
             and name == node.targets[0].id
             and name[:1].isupper()
-            and _is_static_type_alias_value(module, node.value)
+            and is_static_type_alias_value(module, node.value)
         ):
             symbols.append(
                 _assignment_symbol(

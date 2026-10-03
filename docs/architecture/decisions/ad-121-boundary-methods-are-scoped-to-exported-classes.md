@@ -8,18 +8,13 @@ never receivers. Framework-root exemptions require a proven, unshadowed binding.
 bases are classified by their AST root, so `Generic[T]` stays a framework marker while `Base[T]`
 remains a custom base.
 
-One bounded inherited proof is allowed: a single resolvable direct generic base, explicitly
-declared `Generic` TypeVars, and concrete bare class arguments. The analyzer substitutes those
-TypeVars in the base's direct public method signatures only. Inherited fields and constructors
-remain candidate usage evidence, not proven facade publication. It does not infer the full MRO.
-Class-local TypeVar rebinding, repeated bindings, imports, deletes, or class-body control flow make
-the effective surface uncertain; affected inherited methods are not emitted as definitive type
-positions. The existing `inherited_surface` UNKNOWN remains. Annotation-only subclass names do
-not override inherited methods; assignment, import, and deletion are accounted for when deciding
-whether a method is shadowed.
+AD-145 extends the original direct generic-base proof to one proven local chain, including
+constructor inputs and special methods. Inherited fields remain candidate usage evidence.
+Unproven MROs, mutations and decorators retain UNKNOWN. Annotation-only subclass names do not
+override inherited methods; assignments, imports and deletions affect the binding proof.
 
 Analyzer profile `0.58.0` identifies the inherited-generic metadata and bounded method proof.
-The self-observation keeps its existing measured values (`unknown_positions: 48`,
+The original self-observation recorded (`unknown_positions: 48`,
 `calls_unresolved: 572`, `typing_positions: 53`); uncertain inherited surfaces remain UNKNOWN.
 The earlier AD-121 budget amendment for `alias.name.split` and `base_root` remains recorded in
 `ad-121-budget-amendment.json`; this inherited-generic proof adds no unresolved calls.

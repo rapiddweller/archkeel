@@ -633,15 +633,19 @@ def _public_entry_diagnostics(
     for item, entry in enumerate(component.public or ()):
         if _entry_used(entry, records, facade_types):
             continue
-        if _entry_reached_by(entry, facade_candidates):
+        if _entry_reached_by(entry, facade_candidates) or any(
+            _entry_reached_by(entry, candidates if isinstance(candidates, tuple) else ())
+            for data in records
+            for candidates in (data.get("reexport_candidates"),)
+        ):
             diagnostics.append(
                 _diagnostic(
                     "interface.usage_unknown",
                     f"{pointer_root}/{index}/public/{item}",
                     entry,
-                    "An ambiguous inherited facade signature may expose this public entry.",
-                    "Resolve inherited generic bases before classifying this entry as used "
-                    "or unused.",
+                    "An unproven publication or inherited signature may expose this public entry.",
+                    "Resolve the publication route or inherited bases before classifying "
+                    "this entry as used or unused.",
                 )
             )
             continue

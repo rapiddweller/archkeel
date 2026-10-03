@@ -946,7 +946,7 @@ def _generic_facade_diagnostics(
         files={
             "sample/models.py": ("class Payload: pass\nclass Noise: pass\nclass Unrelated: pass\n"),
             "sample/api.py": api,
-            "sample/client.py": "from sample.api import Child\nVALUE = Child()\n",
+            "sample/client.py": "from sample.api import Child\nVALUE: Child\n",
             **(extra_files or {}),
         },
     )
@@ -980,7 +980,7 @@ def test_inherited_generic_return_reaches_the_concrete_model(tmp_path: Path) -> 
     assert "sample.models.Payload" in facade_types
     assert "sample.models:Noise" in unused
     assert "sample.models.Noise" not in facade_types
-    assert any(
+    assert not any(
         item.kind == "boundary_type_position"
         and item.data.get("position") == "inherited methods"
         and item.data.get("qualified_name") == "sample.api.Child.__inherited_methods__"
@@ -1060,7 +1060,7 @@ def test_reexported_generic_base_substitutes_only_the_used_typevar(tmp_path: Pat
     assert "sample.models.Noise" not in facade_types
     assert "sample.models:Payload" not in unused
     assert "sample.models:Noise" in unused
-    assert any(
+    assert not any(
         item.kind == "boundary_type_position" and item.data.get("position") == "inherited methods"
         for item in unknowns
     )
@@ -1090,7 +1090,7 @@ def test_generic_override_and_private_method_do_not_publish_base_type(
 
     assert "sample.models:Payload" in unused
     assert "sample.models.Payload" not in facade_types
-    assert any(
+    assert not any(
         item.kind == "boundary_type_position"
         and item.data.get("position") == "inherited methods"
         and item.data.get("qualified_name") == "sample.api.Child.__inherited_methods__"
@@ -1209,7 +1209,7 @@ def test_inherited_overload_findings_keep_distinct_ids(tmp_path: Path) -> None:
                 "class Child(Base[Payload]):\n"
                 "    pass\n"
             ),
-            "sample/client.py": "from sample.api import Child\nVALUE = Child()\n",
+            "sample/client.py": "from sample.api import Child\nVALUE: Child\n",
         },
     )
     result = _observe(tmp_path)
@@ -1223,16 +1223,10 @@ def test_inherited_overload_findings_keep_distinct_ids(tmp_path: Path) -> None:
     assert len(violations) == 4
     assert len({item.id for item in violations}) == 4
     assert {item.data.get("position") for item in violations} == {"payload", "return"}
-    [limit] = [
-        item
+    assert not any(
+        item.kind in {"boundary_type_position", "boundary_type_limit"}
         for item in result.observation.records("unknowns") or ()
-        if item.kind == "boundary_type_limit"
-    ]
-    assert (
-        limit.data.get("positions"),
-        limit.data.get("decided"),
-        limit.data.get("undecided"),
-    ) == (5, 4, 1)
+    )
 
 
 @pytest.mark.parametrize(
@@ -1243,7 +1237,7 @@ def test_inherited_overload_findings_keep_distinct_ids(tmp_path: Path) -> None:
     ],
     ids=["inherited-field", "inherited-constructor"],
 )
-def test_inherited_fields_and_constructor_parameters_block_unused_without_publication(
+def test_inherited_fields_are_candidates_but_constructor_parameters_are_published(
     tmp_path: Path, base_body: str, child_body: str
 ) -> None:
     unused, facade_types, unknowns, usage_unknown = _generic_facade_diagnostics(
@@ -1258,12 +1252,13 @@ def test_inherited_fields_and_constructor_parameters_block_unused_without_public
     )
 
     assert "sample.models:Payload" not in unused
-    assert {item.subject for item in usage_unknown} == {"sample.models:Payload"}
-    assert "sample.models.Payload" not in facade_types
-    assert any(
-        item.kind == "boundary_type_position"
-        and item.data.get("position") == "inherited methods"
-        and item.data.get("reason") == "inherited_surface"
+    constructor = base_body.startswith("def __init__")
+    assert {item.subject for item in usage_unknown} == (
+        set() if constructor else {"sample.models:Payload"}
+    )
+    assert ("sample.models.Payload" in facade_types) is constructor
+    assert not any(
+        item.kind == "boundary_type_position" and item.data.get("reason") == "inherited_surface"
         for item in unknowns
     )
 
@@ -1460,7 +1455,7 @@ def test_nested_inherited_generic_return_reaches_the_mounted_model(tmp_path: Pat
                 "class Child(Base[Payload]):\n"
                 "    pass\n"
             ),
-            "sample/core/client.py": "from sample.core.api import Child\nVALUE = Child()\n",
+            "sample/core/client.py": "from sample.core.api import Child\nVALUE: Child\n",
         },
     )
 
@@ -1511,7 +1506,7 @@ def test_undeclared_model_returned_by_inherited_generic_is_a_boundary_violation(
                 "class Child(Base[Extra]):\n"
                 "    pass\n"
             ),
-            "sample/client.py": "from sample.api import Child\nVALUE = Child().get()\n",
+            "sample/client.py": "from sample.api import Child\nVALUE: Child\n",
         },
     )
 
@@ -1526,3 +1521,20 @@ def test_undeclared_model_returned_by_inherited_generic_is_a_boundary_violation(
     assert len(violations) == 1
     assert violations[0].data.get("qualified_name") == "sample.api.Child.get"
     assert "__inherited_methods__" not in str(violations[0].data.get("qualified_name"))
+
+
+def test_constructing_an_imported_generic_facade_retains_member_uncertainty(tmp_path: Path) -> None:
+    unused, facade_types, unknowns, usage_unknown = _generic_facade_diagnostics(
+        tmp_path,
+        "from typing import Generic, TypeVar\nfrom sample.models import Payload\n"
+        "T = TypeVar('T')\nclass Base(Generic[T]):\n    def get(self) -> T: ...\n"
+        "class Child(Base[Payload]): pass\n",
+        extra_files={"sample/client.py": "from sample.api import Child\nVALUE = Child()\n"},
+    )
+    assert "sample.models.Payload" not in facade_types
+    assert "sample.models:Payload" not in unused
+    assert {item.subject for item in usage_unknown} == {"sample.models:Payload"}
+    assert any(
+        item.kind == "boundary_type_position" and item.data.get("reason") == "inherited_surface"
+        for item in unknowns
+    )
