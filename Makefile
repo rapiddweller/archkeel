@@ -11,8 +11,12 @@ release-check: check build smoke
 self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
-test:
+test: typescript-adapter
 	$(UV) run --locked python -m pytest -q
+
+.PHONY: typescript-adapter
+typescript-adapter:
+	$(MAKE) -C packages/typescript-adapter install pack
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py \
