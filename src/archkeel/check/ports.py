@@ -10,7 +10,7 @@ from typing import Protocol
 
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
 from archkeel.ir.model import ObservationResult
-from archkeel.ir.profiles import Language
+from archkeel.ir.profiles import Language as Language
 
 
 @dataclass(frozen=True, slots=True)
