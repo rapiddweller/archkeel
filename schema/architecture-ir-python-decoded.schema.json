@@ -434,6 +434,13 @@
                       "minLength": 1
                     }
                   },
+                  "reexport_candidates": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
                   "origin_definition": {
                     "type": [
                       "string",
@@ -453,6 +460,9 @@
                   "source_binding_unique": {
                     "type": "boolean",
                     "description": "True when this publisher binding has one module-scope binder; false means a competing binder prevents unique publication evidence."
+                  },
+                  "source_member_binding_static": {
+                    "type": "boolean"
                   },
                   "symbols_known": {
                     "type": "boolean",

@@ -47,5 +47,6 @@ constructors, decorators, mutations, ambiguity, provenance and CLI/report/count 
 Existing generic, publication and public-field tests remain controls. The local declared,
 broad-return and unresolved-ancestor demos expose the three outcomes.
 
-Analyzer version becomes `0.66.0`; contract and IR schemas stay unchanged. CE improvement must
+Analyzer version becomes `0.66.0`; the import schema admits optional member-proof and candidate fields.
+Contract and IR format versions stay unchanged. CE improvement must
 be measured on its unchanged pinned source with this exact analyzer, not inferred from tests.
