@@ -53,7 +53,7 @@ def _alive(pid: int) -> bool:
     if sys.platform.startswith("linux"):
         try:
             stat = Path(f"/proc/{pid}/stat").read_text()
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
             return False
         if stat.rsplit(")", 1)[1].split()[0] == "Z":
             return False
