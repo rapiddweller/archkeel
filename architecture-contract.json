@@ -81,7 +81,9 @@
         "archkeel.ir.profiles:DeclarationField",
         "archkeel.ir.profiles:profile_for",
         "archkeel.ir.profiles:PROFILES",
-        "archkeel.ir.profiles:UnmeasurableScalar"
+        "archkeel.ir.profiles:UnmeasurableScalar",
+        "archkeel.ir.source_records:FRAMEWORK_BASES",
+        "archkeel.ir.source_records:is_public_method_name"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
