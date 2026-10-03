@@ -85,14 +85,10 @@ class ProcessCollector:
                 workers: list[Thread] = []
                 try:
                     stdout, stderr = self._exchange(process, payload, workers)
-                except BaseException as error:
+                finally:
                     cleanup_error = _cleanup_exchange(process, workers)
                     if cleanup_error is not None:
-                        raise cleanup_error from error
-                    raise
-                cleanup_error = _cleanup_exchange(process, workers)
-                if cleanup_error is not None:
-                    raise cleanup_error
+                        raise cleanup_error
                 if process.returncode:
                     message = stderr.decode("utf-8", errors="replace").strip()
                     return CollectionError(
