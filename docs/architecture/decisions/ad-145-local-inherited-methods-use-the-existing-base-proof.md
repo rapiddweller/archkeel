@@ -40,6 +40,11 @@ visible method signatures (#288). It adds no descriptor, so one proven `staticme
 `classmethod` can still define the receiver. Custom, called, rebound or shadowed decorators
 remain unproven. Module-member escape routes retain their existing UNKNOWN bound.
 
+Standard property creation and getter/setter replacement carry ordered source-binding
+proof (#290). Core selects the effective accessors through the same proven base chain,
+then checks their signatures in their defining scopes. A copied getter retains its setter;
+a fresh property replaces it. Missing proof, custom descriptors and mutations stay UNKNOWN.
+
 ## Alternatives
 
 Dropping every placeholder would hide inherited broad/private signatures. A second resolver or
