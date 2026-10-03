@@ -174,12 +174,13 @@ only when its row names repository evidence.
 - Implement the approved replaceable language-adapter boundary: configured process,
   validated source facts, Core-owned rules and active nested contracts (AD-22, #122).
   Python/Dart parity, replacement acceptance, complete gates and independent review
-  remain open. TypeScript packaging and extension onboarding follow separately.
+  remain open. The pinned TypeScript package is implemented locally (AD-150, #276);
+  cross-platform CI and publication remain open.
 
 ## Next
 
-- Complete acceptance for the language-adapter migration, then implement the pinned
-  TypeScript npm adapter and extension onboarding (#274–#276).
+- Complete acceptance for the language-adapter migration and TypeScript package,
+  then extension onboarding (#274–#276).
   Prove Python/Dart parity and replacement through configuration. Full Dart type
   analysis is separate. See [the proposal](architecture/typescript-foundation-proposal.md).
 - Complete #218 against published baselines with explicit per-rule decision units and

@@ -1,6 +1,6 @@
 # Language adapter target
 
-Status: approved; implementation in progress. The process boundary, Python/Dart
+Status: approved; implementation in progress. The process boundary, Python/Dart/TypeScript
 collectors and Core evaluation split are present in the working tree. Active
 contracts are `architecture-contract.json` plus
 `docs/architecture/contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
@@ -54,12 +54,14 @@ src/archkeel/check/
   observation.py, observe.py             facts + contract -> canonical observation
   evaluation/                            Core-owned policy and evidence sufficiency
   snapshot.py, git.py, ...                revision inputs / existing workflows
-packages/typescript-adapter/             approved, not implemented
+packages/typescript-adapter/
+  src/{entry,project,collect,protocol}.ts  pinned npm source collector
+  test/{adapter.test,pack}.mjs            compiler and package acceptance
 ```
 
 Python retains its specialist collectors. Shared graph algorithms live in
 `ir.graph`; dependency/scope aggregation and policy live in `check.evaluation`.
-Dart retains directive-only capability. TypeScript can start with four source
+Dart retains directive-only capability. TypeScript uses four source
 files because the compiler owns its AST and resolver. Add another internal
 component only when responsibilities require it.
 
@@ -118,8 +120,7 @@ observe `.ts`.
 The target and Node/npm adapter choice are approved. The process/facts/Core and
 Python/Dart migration is in implementation. Acceptance still requires Python/Dart
 parity, replacement by another configured executable, negative protocol/coverage
-cases and independent review. TypeScript packaging, revision identity and
-extension onboarding remain separate follow-up work.
+cases and independent review. The TypeScript package is implemented locally; cross-platform CI, publication and extension onboarding remain open.
 
 Future HTTP/queue relationships are a separate interaction model: declared API
 contracts, source observations and runtime observations have distinct evidence.

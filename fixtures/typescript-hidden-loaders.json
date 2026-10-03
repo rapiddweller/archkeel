@@ -1,0 +1,140 @@
+[
+  {
+    "name": "literal-require",
+    "source": "require('./hidden.cjs');",
+    "complete": true,
+    "cycle": true
+  },
+  {
+    "name": "identifier-import",
+    "source": "import * as value from './hidden.cjs';",
+    "complete": true,
+    "cycle": true
+  },
+  {
+    "name": "ordinary-quoted-property",
+    "source": "const { 'createRequire': value } = {createRequire: () => 1}; value();",
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-node-property",
+    "source": "const { isBuiltin: builtin } = await import('node:module'); builtin('node:fs');",
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "module-binding-require",
+    "source": "const { require: load } = (module); load.call(module, './hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-binding-'require'",
+    "source": "const { 'require': load } = (module); load.call(module, './hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-binding-['require']",
+    "source": "const { ['require']: load } = (module); load.call(module, './hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-dynamic-createRequire",
+    "source": "const { createRequire: factory } = (await import('module')); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-dynamic-'createRequire'",
+    "source": "const { 'createRequire': factory } = (await import('module')); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-dynamic-['createRequire']",
+    "source": "const { ['createRequire']: factory } = (await import('module')); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-namespace-alias",
+    "source": "const original = (await import('module')); const alias = original; const load=alias.createRequire(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-static-namespace",
+    "source": "import * as mod from 'module'; const { ['createRequire']: factory } = (mod); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "module-require-namespace",
+    "source": "const mod = (require('module')); const { ['createRequire']: factory } = mod; const load=factory(__filename); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node:module-dynamic-createRequire",
+    "source": "const { createRequire: factory } = (await import('node:module')); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node:module-dynamic-'createRequire'",
+    "source": "const { 'createRequire': factory } = (await import('node:module')); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node:module-dynamic-['createRequire']",
+    "source": "const { ['createRequire']: factory } = (await import('node:module')); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node:module-namespace-alias",
+    "source": "const original = (await import('node:module')); const alias = original; const load=alias.createRequire(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node:module-static-namespace",
+    "source": "import * as mod from 'node:module'; const { ['createRequire']: factory } = (mod); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "node:module-require-namespace",
+    "source": "const mod = (require('node:module')); const { ['createRequire']: factory } = mod; const load=factory(__filename); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "dynamic-unaliased-factory",
+    "source": "const {createRequire}=await import('node:module'); const load=createRequire(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "dynamic-computed-factory-key",
+    "source": "const key='createRequire'; const {[key]: factory}=await import('node:module'); const load=factory(import.meta.url); load('./hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "dynamic-computed-require-key",
+    "source": "const key='require'; const {[key]: load} = (module); load.call(module, './hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "aliased-computed-require-key",
+    "source": "const mod=module; const key='require'; const {[key]: load} = mod; load.call(mod, './hidden.cjs');",
+    "complete": false,
+    "cycle": false
+  }
+]
