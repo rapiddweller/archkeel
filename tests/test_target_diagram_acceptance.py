@@ -329,6 +329,7 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
             data={
                 "namespace": "app.declared",
                 "public": ("app.declared.api",),
+                "planned": ("app.declared.future:collect",),
                 "requires": (
                     {
                         "component": "provider",
@@ -339,6 +340,18 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
                 ),
             },
             provenance=("docs/architecture/declared.md",),
+        ),
+        _declaration_record(
+            "COMP-PLANNED-INSIDE",
+            "inside_component_responsibility",
+            "future adapter",
+            subjects=("app.declared.future",),
+            data={
+                "parent_id": "declared",
+                "public": (),
+                "planned": ("app.declared.future:main",),
+            },
+            provenance=("docs/architecture/declared-inside.json",),
         ),
         _declaration_record(
             "COMP-EMPTY",
@@ -391,6 +404,17 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
     }
     assert declared_details["Packages"] == "app.declared"
     assert declared_details["Public interface"] == "app.declared.api"
+    assert declared_details["Planned interface (not public)"] == "app.declared.future:collect"
+    inside_details = {
+        detail["label"]: detail["value"]
+        for detail in next(
+            node
+            for node in first["nested"]["COMP-DECLARED"]["nodes"]
+            if node["id"] == "COMP-PLANNED-INSIDE"
+        )["details"]
+    }
+    assert inside_details["Public interface"] == "Explicitly empty"
+    assert inside_details["Planned interface (not public)"] == "app.declared.future:main"
     requirement = next(
         edge["details"] for edge in first["root"]["edges"] if edge["source"] == "COMP-DECLARED"
     )
@@ -426,6 +450,65 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
     }
     assert null_details["Public interface"] == "Not declared"
     assert absent_details["Public interface"] == "Not declared"
+
+
+def test_planned_interfaces_survive_contract_observation_and_html_projection(
+    tmp_path: Path,
+) -> None:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    app = next(item for item in contract["components"] if item["id"] == "COMP-APP")
+    app["planned"] = ["shop.app.future:collect"]
+    cli = next(item for item in contract["components"] if item["id"] == "COMP-CLI")
+    cli["planned"] = []
+
+    nested = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    store_api = next(item for item in nested["components"] if item["id"] == "COMP-STORE-API")
+    store_api["planned"] = ["shop.store.sqlite:future_cleanup"]
+    backend = next(item for item in nested["components"] if item["id"] == "COMP-STORE-BACKEND")
+    backend["planned"] = []
+
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "architecture-contract.json": json.dumps(contract),
+            "shop/store/architecture-contract.json": json.dumps(nested),
+            "shop/app/future.py": "def collect():\n    return ()\n",
+        },
+    )
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    declarations = {record.id: record for record in observation.records("declarations") or ()}
+    assert declarations["COMP-APP"].data.get("planned") == ("shop.app.future:collect",)
+    assert declarations["COMP-CLI"].data.get("planned") == ()
+    assert declarations["COMP-RENDER"].data.get("planned") is None
+    inside_api = next(
+        record
+        for record in declarations.values()
+        if record.kind == "inside_component_responsibility" and record.title == "api"
+    )
+    assert inside_api.data.get("planned") == ("shop.store.sqlite:future_cleanup",)
+    assert inside_api.data.get("parent_id") == "store"
+    assert inside_api.provenance == ("docs/architecture/shop.md",)
+
+    page = render_html(
+        result, observation, repository="shop", architecture_href="architecture.json"
+    ).decode()
+    marker = page.index('id="flow-data"')
+    payload = json.loads(page[page.index(">", marker) + 1 : page.index("</script>", marker)])
+    target_nodes = {node["id"]: node for node in _walk(payload["explorers"]["target"])}
+    root_details = {item["label"]: item["value"] for item in target_nodes["COMP-APP"]["details"]}
+    assert root_details["Planned interface (not public)"] == "shop.app.future:collect"
+    cli_details = {item["label"]: item["value"] for item in target_nodes["COMP-CLI"]["details"]}
+    assert cli_details["Planned interface (not public)"] == "Explicitly empty"
+    render_details = {
+        item["label"]: item["value"] for item in target_nodes["COMP-RENDER"]["details"]
+    }
+    assert render_details["Planned interface (not public)"] == "Not declared"
+    inside_details = {
+        item["label"]: item["value"] for item in target_nodes[inside_api.id]["details"]
+    }
+    assert inside_details["Planned interface (not public)"] == "shop.store.sqlite:future_cleanup"
 
 
 def test_target_graph_containers_are_local_and_single_component_frames_fold() -> None:
