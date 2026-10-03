@@ -109,7 +109,8 @@
       "src/pkg/runtime.cjs"
     ],
     "manifest": {},
-    "complete": true
+    "complete": true,
+    "metadata_observed": false
   },
   {
     "name": "directory-index",
@@ -122,11 +123,10 @@
     "runtime_path": "src/pkg/index.js",
     "observed_files": [
       "src/main.ts",
-      "src/pkg/index.js",
       "src/pkg/index.ts"
     ],
     "manifest": {},
-    "complete": true
+    "complete": false
   },
   {
     "name": "relative-file-before-directory",
@@ -144,7 +144,8 @@
       "src/pkg.ts"
     ],
     "manifest": {},
-    "complete": false
+    "complete": false,
+    "metadata_observed": false
   },
   {
     "name": "directory-type-only",
@@ -221,12 +222,74 @@
     "runtime_path": "src/runtime.js",
     "observed_files": [
       "src/main.cts",
-      "src/runtime.js",
       "src/runtime.ts"
     ],
     "cycle_source": "require('./main.cjs');",
     "manifest": {},
-    "complete": true
+    "complete": false
+  },
+  {
+    "name": "commonjs-typescript-target",
+    "specifier": "./runtime.ts",
+    "source": "require('./runtime.ts');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;"
+    },
+    "runtime_path": "src/runtime.ts",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "commonjs-trailing-slash-directory",
+    "specifier": "./pkg/",
+    "source": "require('./pkg/');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/pkg.js": "throw Error('must not execute');",
+      "src/pkg/index.ts": "export const value=1;",
+      "src/pkg/index.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/index.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/pkg/index.ts"
+    ],
+    "cycle_source": "require('../main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "commonjs-dotted-stem-substitution",
+    "specifier": "./runtime.local",
+    "source": "require('./runtime.local');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.local.ts": "export const value=1;",
+      "src/runtime.local.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime.local.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.local.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
   },
   {
     "name": "extensionless-commonjs-js",
@@ -246,7 +309,7 @@
     ],
     "cycle_source": "require('./main.cjs');",
     "manifest": {},
-    "complete": true
+    "complete": false
   },
   {
     "name": "extensionless-directory-substitution",
@@ -263,12 +326,11 @@
     "runtime_path": "src/pkg/index.js",
     "observed_files": [
       "src/main.cts",
-      "src/pkg/index.js",
       "src/pkg/index.ts"
     ],
     "cycle_source": "require('../main.cjs');",
     "manifest": {},
-    "complete": true
+    "complete": false
   },
   {
     "name": "extensionless-exact-file-before-js",
@@ -352,11 +414,10 @@
     "runtime_path": "src/runtime.js",
     "observed_files": [
       "src/main.cts",
-      "src/runtime.js",
       "src/runtime.ts"
     ],
     "cycle_source": "require('./main.cjs');",
     "manifest": {},
-    "complete": true
+    "complete": false
   }
 ]

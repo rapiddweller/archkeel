@@ -711,24 +711,28 @@ for (const example of runtimeAliases) test(`explicit runtime alias closure: ${ex
   const first = collect(request(root)).facts;
   const complete = example.complete ?? example.name === "relative";
   const runtimePath = example.runtime_path ?? "src/runtime.js";
+  const observedFiles = example.observed_files ?? (complete ? ["src/main.ts", "src/runtime.js", "src/runtime.ts"] : ["src/main.ts", "src/runtime.ts"]);
   assert.equal(first.coverage.full_scope, complete);
-  assert.deepEqual(first.files.map(file => file.rel_path), example.observed_files ?? (complete ? ["src/main.ts", "src/runtime.js", "src/runtime.ts"] : ["src/main.ts", "src/runtime.ts"]));
+  assert.deepEqual(first.files.map(file => file.rel_path), observedFiles);
   assert.equal(first.imports.find(item => item.kind === "local").runtime_file, example.type_only ? "src/pkg/types.ts" : complete ? runtimePath : null);
-  assert.equal(first.inputs.some(input => input.path === runtimePath), complete && !example.type_only);
+  assert.equal(first.inputs.some(input => input.path === runtimePath), observedFiles.includes(runtimePath));
   if (example.runtime) assert.ok(!first.inputs.some(input => input.path === `src/${example.runtime}`));
   writeFileSync(join(root, runtimePath), "throw Error('still must not execute');");
   const changed = collect(request(root)).facts;
   assert.equal(changed.coverage.full_scope, complete);
-  if (complete && !example.type_only) assert.notEqual(first.source.source_digest, changed.source.source_digest);
+  if (observedFiles.includes(runtimePath)) assert.notEqual(first.source.source_digest, changed.source.source_digest);
   else assert.equal(first.source.source_digest, changed.source.source_digest);
   writeFileSync(join(root, runtimePath), example.files ? "require('./missing.cjs');" : "import './missing.js';");
   const hidden = collect(request(root)).facts;
   assert.equal(hidden.coverage.full_scope, example.type_only ?? false);
   if (!example.type_only) assert.ok(hidden.coverage.gaps.length > 0);
   if (example.files?.["src/pkg/package.json"]) {
+    const metadataObserved = example.metadata_observed ?? true;
+    assert.equal(first.inputs.some(input => input.path === "src/pkg/package.json"), metadataObserved);
     writeFileSync(join(root, "src/pkg/package.json"), example.files["src/pkg/package.json"] + " ");
     const metadata = collect(request(root)).facts;
-    if (!complete || example.type_only) assert.notEqual(hidden.source.source_digest, metadata.source.source_digest);
+    if (metadataObserved) assert.notEqual(hidden.source.source_digest, metadata.source.source_digest);
+    else assert.equal(hidden.source.source_digest, metadata.source.source_digest);
   }
 });
 

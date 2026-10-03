@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { isBuiltin } from "node:module";
-import { dirname, extname, isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import ts from "typescript";
 import { loadProject } from "./project.js";
 import { digest, id, moduleIdentity, nodeRequirement, type Evidence, type Request, type SourceRecord, type Target } from "./protocol.js";
@@ -71,27 +71,11 @@ export function collect(request: Request) {
       && resolutionInputs.has(resolve(lookup, "package.json"));
     const declaration = declarationExtension.test(path) ? rel : null;
     let runtime = declaration ? null : rel;
-    const commonJSLookup = relativeSpecifier && mode === ts.ModuleKind.CommonJS && !extname(specifier);
+    const explicitRuntime = relativeSpecifier && /\.(?:cjs|mjs|js)$/.test(specifier);
+    const commonJSLookup = relativeSpecifier && mode === ts.ModuleKind.CommonJS && !explicitRuntime;
     if (!typeOnly) {
       // Compiler substitution does not prove the file Node loads.
-      let runtimePath = relativeSpecifier && /\.(?:cjs|mjs|js)$/.test(specifier) ? lookup : undefined;
-      if (commonJSLookup) {
-        runtime = null;
-        const file = [lookup, `${lookup}.js`, `${lookup}.json`, `${lookup}.node`].find(project.host.fileExists);
-        if (file && file === `${lookup}.js`) runtimePath = file;
-        else if (file) gap(`CommonJS runtime file is not observed: ${project.pathOf(file)}`);
-        else if (project.host.directoryExists?.(lookup)) {
-          const metadata = resolve(lookup, "package.json");
-          if (project.host.fileExists(metadata)) {
-            project.readFile(metadata);
-            gap(`Local directory runtime metadata is not proven: ${specifier}`);
-          } else {
-            const index = ["index.js", "index.json", "index.node"].map(name => resolve(lookup, name)).find(project.host.fileExists);
-            if (index === resolve(lookup, "index.js")) runtimePath = index;
-            else gap(`CommonJS directory runtime is not observed: ${specifier}`);
-          }
-        } else gap(`CommonJS runtime target is unavailable: ${specifier}`);
-      }
+      const runtimePath = explicitRuntime ? lookup : undefined;
       if (runtimePath && project.host.fileExists(runtimePath)) {
         const realRuntime = project.host.realpath?.(runtimePath) ?? runtimePath;
         if (project.options.preserveSymlinks && realRuntime !== runtimePath) return unresolved(`preserveSymlinks lookup context is not observed: ${specifier}`);
@@ -99,9 +83,10 @@ export function collect(request: Request) {
       } else if (declaration) gap(`Runtime implementation unavailable for declaration: ${rel}`);
     }
     observe(path);
-    if (!typeOnly && (!relativeSpecifier || (directoryPackage && !commonJSLookup))) {
+    if (!typeOnly && (!relativeSpecifier || directoryPackage || commonJSLookup)) {
       runtime = null;
-      gap(directoryPackage ? `Local directory runtime metadata is not proven: ${specifier}` : `Local alias runtime conditions are not proven: ${specifier}`, [], moduleIdentity(request.scope.namespace, project.pathOf(source.fileName) ?? "unknown"));
+      gap(commonJSLookup ? `CommonJS runtime target is not proven: ${specifier}`
+        : directoryPackage ? `Local directory runtime metadata is not proven: ${specifier}` : `Local alias runtime conditions are not proven: ${specifier}`, [], moduleIdentity(request.scope.namespace, project.pathOf(source.fileName) ?? "unknown"));
     }
     const file = !typeOnly && runtime ? runtime : rel;
     return { kind: "local", import_id: importId, module: moduleIdentity(request.scope.namespace, file), file, runtime_file: runtime, declaration_file: declaration };
