@@ -82,6 +82,18 @@ def test_failure_terminates_collector_descendants(tmp_path, monkeypatch, failure
     if failure in ("timeout", "parent_exits"):
         limits["timeout_seconds"] = 0.1
     collector = _collector(code, **limits)
+    if failure in ("timeout", "parent_exits"):
+        original_exchange = ProcessCollector._exchange
+
+        def exchange_after_descendant_start(self, process, payload, workers):
+            deadline = time.monotonic() + 2
+            while not pid_file.is_file():
+                if time.monotonic() >= deadline:
+                    pytest.fail("collector fixture did not publish child.pid within 2 seconds")
+                time.sleep(0.01)
+            return original_exchange(self, process, payload, workers)
+
+        monkeypatch.setattr(ProcessCollector, "_exchange", exchange_after_descendant_start)
     if failure == "io_error":
 
         def fail_exchange(self, process, payload, workers):
