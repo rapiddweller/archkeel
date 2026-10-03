@@ -141,6 +141,7 @@ jobs:
         run: uv sync --locked
 
       - name: Verify packaged TypeScript collector
+        shell: bash
         working-directory: packages/typescript-adapter
         run: |
           npm ci --ignore-scripts
