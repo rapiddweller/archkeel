@@ -24,6 +24,9 @@ def main() -> None:
         language=request["language"],
     )
     model["python_version"] = platform.python_version()
+    if request["language"] == "dart":
+        model["runtime"] = {"name": "python", "version": platform.python_version()}
+        model["producer"] = model["analyzer"]
     json.dump({"model": model, "exit_code": code}, sys.stdout, sort_keys=True)
 
 

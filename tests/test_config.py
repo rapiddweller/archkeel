@@ -161,3 +161,92 @@ def test_check_config_rejects_changed_or_symlink_candidate(tmp_path: Path, symli
     head = _git(root, "rev-parse", "HEAD")
     with pytest.raises(GitError if symlink else ConfigError):
         load_check_config(root, baseline, head)
+
+
+def test_typescript_config_defaults_to_tsconfig_and_keeps_argv_optional() -> None:
+    payload = (
+        b'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
+        b'contract = "architecture-contract.json"\nlanguage = "typescript"\n'
+    )
+
+    config = parse_config(payload)
+
+    assert config.language == "typescript"
+    assert config.tsconfig == "tsconfig.json"
+    assert config.collector_argv is None
+
+
+def test_scan_collector_argv_is_an_argument_tuple_for_every_language() -> None:
+    payload = (
+        b'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
+        b'contract = "architecture-contract.json"\n'
+        b'collector_argv = ["node", "adapter.js", "--flag", "one value"]\n'
+    )
+
+    assert parse_config(payload).collector_argv == ("node", "adapter.js", "--flag", "one value")
+
+
+def test_non_typescript_config_rejects_tsconfig() -> None:
+    payload = (
+        b'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
+        b'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n'
+    )
+
+    with pytest.raises(ConfigError, match="typescript"):
+        parse_config(payload)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        b'tsconfig = "../tsconfig.json"\n',
+        b'tsconfig = "/repo/tsconfig.json"\n',
+        b'tsconfig = ""\n',
+        b'collector_argv = "node adapter.js"\n',
+        b"collector_argv = []\n",
+        b'collector_argv = ["node", ""]\n',
+        b'collector_argv = ["node\\u0000"]\n',
+    ],
+)
+def test_typescript_config_rejects_unsafe_paths_and_invalid_argv(extra: bytes) -> None:
+    payload = (
+        b'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
+        b'contract = "architecture-contract.json"\nlanguage = "typescript"\n' + extra
+    )
+
+    with pytest.raises(ConfigError):
+        parse_config(payload)
+
+
+def test_load_typescript_config_requires_contained_tsconfig(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "architecture-contract.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "archkeel.toml").write_bytes(
+        b'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
+        b'contract = "architecture-contract.json"\nlanguage = "typescript"\n'
+        b'tsconfig = "config/tsconfig.json"\n'
+    )
+
+    with pytest.raises(ConfigError, match="tsconfig"):
+        load_config(tmp_path)
+
+
+@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+def test_scan_language_is_narrowed_to_a_supported_profile(language: str) -> None:
+    payload = (
+        f'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
+        f'contract = "architecture-contract.json"\nlanguage = "{language}"\n'
+    ).encode()
+
+    assert parse_config(payload).language == language
+
+
+@pytest.mark.parametrize("language", ['"rust"', "1", "true", '["python"]'])
+def test_scan_rejects_a_language_outside_its_profile_alias(language: str) -> None:
+    payload = (
+        '[scan]\nroots = ["src"]\nnamespace = "sample"\n'
+        f'contract = "architecture-contract.json"\nlanguage = {language}\n'
+    ).encode()
+
+    with pytest.raises(ConfigError, match="scan.language"):
+        parse_config(payload)

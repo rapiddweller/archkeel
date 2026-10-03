@@ -30,8 +30,10 @@ from archkeel.ir.model import (
     RecordData,
     SemanticChange,
     SnapshotSummary,
+    identity_is_known,
     stable_id,
 )
+from archkeel.ir.profiles import profile_for
 
 from .python_profile import crossing_imports
 from .ratchets import measure_python_ratchets
@@ -387,14 +389,83 @@ def _unknown(dimension: str, reason: str) -> DeltaUnknown:
     return DeltaUnknown(stable_id("UNKNOWN-DELTA", dimension, reason), dimension, reason)
 
 
-def require_comparable_runtime(baseline: str | None, head: str | None) -> None:
-    if baseline is None or head is None or baseline != head:
+def require_comparable_runtime(
+    baseline: Observation | SnapshotSummary,
+    head: Observation | SnapshotSummary,
+    *,
+    analyzer_name: str | None = None,
+) -> None:
+    baseline_profile = (
+        baseline.analyzer.name if isinstance(baseline, Observation) else analyzer_name
+    )
+    head_profile = head.analyzer.name if isinstance(head, Observation) else analyzer_name
+    if baseline_profile is None or head_profile is None:
+        raise ValueError("snapshot runtime comparison requires a registered analyzer profile")
+    profile = profile_for(baseline_profile)
+    if profile.analyzer != profile_for(head_profile).analyzer:
         raise DiagnosticError(
             Diagnostic(
                 "incomparable_runtime",
-                f"python_version: {baseline or 'unknown'} -> {head or 'unknown'}",
-                "AST observations from different or unknown Python runtimes cannot be compared.",
-                "Reobserve both revisions with the same compatible Python runtime.",
+                f"analyzer profile: {baseline_profile} -> {head_profile}",
+                "Observations from different language profiles cannot be compared.",
+                "Reobserve both revisions with the same registered analyzer profile.",
+            )
+        )
+    if (
+        profile.analyzer == "archkeel-python-analyzer"
+        and baseline.runtime is None
+        and head.runtime is None
+        and baseline.producer is None
+        and head.producer is None
+    ):
+        comparable = (
+            baseline.python_version is not None and baseline.python_version == head.python_version
+        )
+        detail = (
+            f"python_version: {baseline.python_version or 'unknown'} -> "
+            f"{head.python_version or 'unknown'}"
+        )
+        recommendation = "Reobserve both revisions with the same compatible Python runtime."
+        message = "AST observations from different or unknown Python runtimes cannot be compared."
+    else:
+        comparable = (
+            baseline.runtime is not None
+            and baseline.runtime == head.runtime
+            and all(
+                identity_is_known(value)
+                for value in (baseline.runtime.name, baseline.runtime.version)
+            )
+        )
+        detail = f"runtime: {baseline.runtime or 'unknown'} -> {head.runtime or 'unknown'}"
+        recommendation = "Reobserve both revisions with the same explicitly identified runtime."
+        message = "Language observations without the same explicit runtime cannot be compared."
+        if (
+            baseline.producer is None
+            or head.producer is None
+            or baseline.producer.name != head.producer.name
+            or baseline.producer.code_digest != head.producer.code_digest
+            or not all(
+                identity_is_known(value)
+                for producer in (baseline.producer, head.producer)
+                for value in (producer.name, producer.version, producer.code_digest)
+            )
+        ):
+            comparable = False
+            detail = f"producer: {baseline.producer or 'unknown'} -> {head.producer or 'unknown'}"
+            message = (
+                "Observations produced by different or unknown compiler/parser identities "
+                "cannot be compared."
+            )
+            recommendation = (
+                "Reobserve both revisions with the same registered producer identity and version."
+            )
+    if not comparable:
+        raise DiagnosticError(
+            Diagnostic(
+                "incomparable_runtime",
+                detail,
+                message,
+                recommendation,
             )
         )
 
@@ -408,12 +479,13 @@ def build_architecture_delta(
     checker_digest: str,
 ) -> ArchitectureDelta:
     """Build a deterministic, fail-closed semantic comparison of two snapshots."""
-    require_comparable_runtime(baseline.python_version, head.python_version)
+    require_comparable_runtime(baseline, head)
     analyzer_digest, contract_digest = head.analyzer.code_digest, head.contract.digest
     shared = (
-        analyzer_digest != "unknown"
-        and baseline.analyzer == head.analyzer
-        and contract_digest != "unknown"
+        identity_is_known(analyzer_digest)
+        and baseline.analyzer.name == head.analyzer.name
+        and baseline.analyzer.code_digest == analyzer_digest
+        and identity_is_known(contract_digest)
         and baseline.contract.digest == contract_digest
         and baseline.schema_version == head.schema_version == SCHEMA_VERSION
         and bool(baseline.source.scope)
@@ -496,12 +568,16 @@ def build_architecture_delta(
             baseline.source.source_digest,
             baseline.coverage.status,
             baseline.python_version,
+            baseline.runtime,
+            baseline.producer,
         ),
         SnapshotSummary(
             head.source.git_head,
             head.source.source_digest,
             head.coverage.status,
             head.python_version,
+            head.runtime,
+            head.producer,
         ),
         head.contract,
         DeltaCoverage(

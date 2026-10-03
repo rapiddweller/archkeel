@@ -634,7 +634,9 @@
         "git_head": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/source/properties/git_head"},
         "source_digest": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/source/properties/source_digest"},
         "coverage_status": {"enum": ["PASS", "FAIL"]},
-        "python_version": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+        "python_version": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "runtime": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/runtime"},
+        "producer": {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/observation/properties/producer"}
       }
     },
     "dimension": {

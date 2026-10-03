@@ -125,6 +125,17 @@ class AnalyzerInfo:
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeInfo:
+    name: str
+    version: str
+
+
+def identity_is_known(value: str) -> bool:
+    """Equality of missing provenance cannot establish comparable observations."""
+    return bool(value.strip()) and value.strip().casefold() != "unknown"
+
+
+@dataclass(frozen=True, slots=True)
 class SourceInfo:
     git_head: str
     dirty: bool | Literal["unknown"]
@@ -884,6 +895,8 @@ class Observation:
     sections: tuple[Section, ...]
     evidence: tuple[Evidence, ...]
     python_version: str | None = None
+    runtime: RuntimeInfo | None = None
+    producer: AnalyzerInfo | None = None
 
     def records(self, section: str) -> tuple[Record, ...] | None:
         return next((item.records for item in self.sections if item.name == section), None)
@@ -1042,6 +1055,8 @@ class SnapshotSummary:
     source_digest: str
     coverage_status: Verdict
     python_version: str | None = None
+    runtime: RuntimeInfo | None = None
+    producer: AnalyzerInfo | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -7,7 +7,9 @@ Exact rules behind the [README](../README.md). Code is the source of truth; this
 [schema/archkeel.schema.json](../schema/archkeel.schema.json) defines `archkeel.toml`.
 Only `[scan]` with required `roots`, `namespace` and `contract` is accepted, plus the optional
 `language`: `"python"` (the default when absent, so an existing file keeps its digest) or
-`"dart"`. For Dart, `namespace` is the pubspec `name` and `roots` is normally `["lib"]`; a
+`"dart"` or `"typescript"`. TypeScript accepts `tsconfig` (default `"tsconfig.json"`).
+`collector_argv` names an explicit collector command. For Dart, `namespace` is the pubspec
+`name` and `roots` is normally `["lib"]`; a
 `pubspec.yaml` whose `name:` differs from `namespace` is `parse_error` (AD-97).
 Paths are relative to the repository root. Scan roots are directories, not globs.
 The architecture schemas live once under `schema/`; builds include them as package data.
@@ -51,6 +53,14 @@ The analyzer records `python_version` separately from its digest. Missing or inc
 use `parse_error` after a compatible runtime check. Git snapshots carry their own project metadata.
 Delta comparison requires the same known full Python version; otherwise `incomparable_runtime`
 returns exit 2. Historical observations without runtime provenance remain readable, not comparable.
+
+Dart observations identify the bundled directive parser and the actual Python interpreter that
+runs it. Comparison requires equal, known runtime and producer identities. No Dart SDK is used.
+Producer identity uses its name and source digest; a distribution version label is metadata.
+Different Dart file paths sharing one legacy module name leave target association UNKNOWN.
+Snapshots copy selected Git blobs byte for byte, including resolver metadata; `export-ignore`
+and `export-subst` cannot omit or rewrite them (AD-147). `make demo-snapshot-check` runs committed Python
+and Dart comment-only checks against local bare origins with supplied host records.
 
 The observation carries a `references` section beside `calls`: every use of a scanned symbol
 that is not a call, such as a function put into a table, passed as an argument or read as a
@@ -395,8 +405,8 @@ at that revision, under that revision's own contract, and reports `unresolved_ca
 passing run pays for no second scan. Removed rows and rows in files the revision's snapshot
 holds are always kept. An added row in a file the snapshot lacks is dropped when the file is
 outside Git's view of the working tree under the scan roots (`git ls-files --cached --others
---exclude-standard`: ignored, or inside a submodule) or when the revision tracks it but its
-archive left it out (its own `export-ignore`): such files exist on the working-tree side only.
+--exclude-standard`: ignored, or inside a submodule). Revision snapshots preserve tracked
+source blobs even when archive attributes would omit them (AD-147).
 `unresolved_call_note` says when rows were dropped, when nothing differs from the revision (the
 accepted value does not match its code), and when nothing could be compared: a revision that
 cannot be scanned, a Git listing with a non-UTF-8 file name, or call records that do not add up

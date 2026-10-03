@@ -227,7 +227,8 @@
             "name": {
               "enum": [
                 "archkeel-python-analyzer",
-                "archkeel-dart-directives"
+                "archkeel-dart-directives",
+                "archkeel-typescript-imports"
               ]
             },
             "version": {
@@ -746,7 +747,10 @@
           }
         },
         "calls": {
-          "type": "array",
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "allOf": [
               {
@@ -835,7 +839,10 @@
           }
         },
         "typing_signals": {
-          "type": "array",
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "allOf": [
               {
@@ -857,7 +864,10 @@
           }
         },
         "constructs": {
-          "type": "array",
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "allOf": [
               {
@@ -1119,6 +1129,42 @@
               }
             ]
           }
+        },
+        "runtime": {
+          "type": "object",
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/knownIdentity"
+            },
+            "version": {
+              "$ref": "#/$defs/knownIdentity"
+            }
+          },
+          "additionalProperties": false
+        },
+        "producer": {
+          "type": "object",
+          "required": [
+            "name",
+            "version",
+            "code_digest"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/knownIdentity"
+            },
+            "version": {
+              "$ref": "#/$defs/knownIdentity"
+            },
+            "code_digest": {
+              "$ref": "#/$defs/knownIdentity"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false,
@@ -1127,7 +1173,10 @@
           "analyzer": {
             "properties": {
               "name": {
-                "const": "archkeel-dart-directives"
+                "enum": [
+                  "archkeel-dart-directives",
+                  "archkeel-typescript-imports"
+                ]
               }
             }
           }
@@ -1158,7 +1207,52 @@
             "type": "array"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "analyzer": {
+                "properties": {
+                  "name": {
+                    "const": "archkeel-typescript-imports"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "calls": {
+                "type": "null"
+              },
+              "typing_signals": {
+                "type": "null"
+              },
+              "constructs": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "calls": {
+                "type": "array"
+              },
+              "typing_signals": {
+                "type": "array"
+              },
+              "constructs": {
+                "type": "array"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "knownIdentity": {
+      "type": "string",
+      "pattern": "^(?!\\s*$)(?!\\s*[Uu][Nn][Kk][Nn][Oo][Ww][Nn]\\s*$)[\\s\\S]+$"
     }
   }
 }

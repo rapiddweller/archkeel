@@ -12,7 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.check.onboarding import draft_contract
+from archkeel.check.onboarding import (
+    _crossing_targets,
+    draft_contract,
+    interface_entries,
+    module_all_exports,
+)
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
@@ -36,9 +41,10 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.structure import oversized_insides
 
-# AD-4: the analyzer's public IR API is exactly these two modules.
-# AD-97 adds the profile table, the one piece of data analyzer and reader must share.
-ANALYZER_PUBLIC_IR = frozenset({"archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles"})
+# AD-97 shares profile data; AD-147 shares source identity without opening its helpers.
+ANALYZER_PUBLIC_IR = frozenset(
+    {"archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles", "archkeel.ir.identity"}
+)
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/D-self"
@@ -206,30 +212,60 @@ def test_self_facades_record_the_declared_types_they_expose(self_observation: Ob
     assert scoped == {"archkeel.analyzer", "archkeel.check", "archkeel.render"}
 
 
-def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
-    """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard).
-
-    AD-65 gave an entry a second way of being reached, and `_drafted_public` proposes only the
-    first: it reads inbound crossing imports, so a type no consumer imports but a declared
-    facade signature exposes is never proposed. AD-68 declares three of those. The guard keeps
-    its teeth by checking both readings instead of one: nothing the drafter proposes may be
-    edited away, and every extra entry has to be a type the observation records some facade
-    signature as exposing, which is not something a hand edit can invent.
-    """
-    contract = _contract()
-    drafted, _, _ = draft_contract(self_observation, "archkeel")
+def _assert_public_surface(contract: ArchitectureContract, observation: Observation) -> None:
+    drafted, _, _ = draft_contract(observation, "archkeel")
     proposed = {component.label: component.public for component in drafted.components}
+    all_exports = module_all_exports(observation.records("modules") or ())
+    required: dict[str, set[str]] = {}
+    for module, (label, whole_module, names) in _crossing_targets(observation, contract).items():
+        required.setdefault(label, set()).update(
+            interface_entries(module, names, whole_module, all_exports.get(module, False), set())
+        )
     exposed = {
         item
-        for record in self_observation.records("symbols") or ()
+        for record in observation.records("symbols") or ()
         for item in (record.data.get("facade_types") or ())
         if isinstance(item, str)
     }
     for component in contract.components:
         entries = set(component.public or ())
-        assert set(proposed.get(component.label) or ()) <= entries, component.label
-        extra = entries - set(proposed.get(component.label) or ())
+        needed = required.get(component.label, set())
+        for entry in needed:
+            assert entry in entries or (":" in entry and entry.partition(":")[0] in entries), (
+                component.label,
+                entry,
+            )
+        extra = entries - set(proposed.get(component.label) or ()) - needed
         assert {item.replace(":", ".") for item in extra} <= exposed, (component.label, extra)
+
+
+def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
+    """Named exports may narrow the draft's half-use heuristic without dropping actual uses."""
+    _assert_public_surface(_contract(), self_observation)
+
+
+@pytest.mark.parametrize("remove_used", [True, False], ids=["missing-used", "unexposed-extra"])
+def test_self_public_guard_rejects_unsupported_surface(
+    self_observation: Observation, remove_used: bool
+) -> None:
+    contract = _contract()
+    public = "archkeel.ir.identity:module_identity"
+    modified = replace(
+        contract,
+        components=tuple(
+            replace(
+                component,
+                public=tuple(entry for entry in component.public or () if entry != public)
+                if remove_used
+                else (*(component.public or ()), "archkeel.ir.identity:_segments"),
+            )
+            if component.label == "ir"
+            else component
+            for component in contract.components
+        ),
+    )
+    with pytest.raises(AssertionError):
+        _assert_public_surface(modified, self_observation)
 
 
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
