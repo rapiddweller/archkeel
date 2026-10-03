@@ -101,16 +101,23 @@ class RatchetScalars:
 @dataclass(frozen=True, slots=True)
 class Measurements:
     scalars: RatchetScalars
-    calls_total: int
+    calls_total: int | None
     resolution: Literal["measured", "n/a"]
 
     def __post_init__(self) -> None:
-        count(self.calls_total, "calls_total")
+        if self.calls_total is not None:
+            count(self.calls_total, "calls_total")
+        unresolved = self.scalars.calls_unresolved
+        if (self.calls_total is None) != (unresolved is None):
+            raise RatchetError("call count availability must agree")
         expected = "measured" if self.calls_total else "n/a"
         if self.resolution != expected:
             raise RatchetError(f"resolution must be {expected}")
-        unresolved = self.scalars.calls_unresolved
-        if unresolved is not None and unresolved > self.calls_total:
+        if (
+            unresolved is not None
+            and self.calls_total is not None
+            and unresolved > self.calls_total
+        ):
             raise RatchetError("calls_unresolved must not exceed calls_total")
         if self.scalars.coverage_failures:
             raise RatchetError("scan must be complete without coverage failures")
@@ -216,23 +223,26 @@ def compare_measurements(
     )
     before_unresolved = accepted.scalars.calls_unresolved
     after_unresolved = candidate.scalars.calls_unresolved
-    comparable = (
-        accepted.calls_total > 0
-        and candidate.calls_total > 0
+    before_total = accepted.calls_total
+    after_total = candidate.calls_total
+    ratio_status = "n/a"
+    if (
+        before_total is not None
+        and after_total is not None
+        and before_total > 0
+        and after_total > 0
         and before_unresolved is not None
         and after_unresolved is not None
-    )
-    ratio_failed = (
-        before_unresolved is not None
-        and after_unresolved is not None
-        and after_unresolved * accepted.calls_total > before_unresolved * candidate.calls_total
-    )
+    ):
+        ratio_status = (
+            "FAIL" if after_unresolved * before_total > before_unresolved * after_total else "PASS"
+        )
     return comparisons + (
         (
             "unresolved_ratio",
-            f"{_shown(before_unresolved)}/{accepted.calls_total}",
-            f"{_shown(after_unresolved)}/{candidate.calls_total}",
-            "FAIL" if comparable and ratio_failed else "PASS" if comparable else "n/a",
+            f"{_shown(before_unresolved)}/{_shown(before_total)}",
+            f"{_shown(after_unresolved)}/{_shown(after_total)}",
+            ratio_status,
         ),
     )
 

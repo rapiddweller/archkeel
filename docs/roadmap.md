@@ -52,7 +52,7 @@ only when its row names repository evidence.
 | The component contract is closed and its graph matches observed imports | `tests/test_self.py`; `docs/architecture/archkeel.md`; `make check` |
 | PASS, FAIL and NOT CHECKED check results have distinct HTML evidence | `tests/test_html_report.py`; `tests/test_demo.py`; `make demo` |
 | Contract 2.0 has one typed model, JSON Schema and deterministic validation | `schema/architecture-contract.schema.json`; `tests/test_contract_model.py`; `tests/test_validation.py` |
-| Check, validate and report JSON results have a packaged schema for verdicts, nullable mode fields and evidence, tested against real CLI demos and a small consumer; compatibility rules distinguish additive and breaking changes (AD-138, #217) | `schema/command-result.schema.json`; `tests/test_result_schema.py`; `fixtures/consume_result.py`; `docs/reference.md` |
+| Check, validate and report JSON results have a packaged schema; v2 preserves unmeasured call totals as null and reads legacy zero sentinels (AD-138, #217, #122, #276) | `schema/command-result.schema.json`; `tests/test_result_schema.py`; `tests/test_nullable_profile_measurements.py`; `fixtures/consume_result.py`; `docs/reference.md` |
 | All class-A rule types are enforced with one violation probe each and applied to Archkeel | `docs/rules.md`; `tests/test_analyzer.py`; `architecture-contract.json` |
 | Inside contracts use shared rule evaluators; green inner edges require checked import sites, not declarations alone (AD-110, #168) | `tests/test_inside_rule_parity.py`; `tests/test_inside_rule_coverage.py`; `tests/test_inside_rule_evidence_regressions.py`; `tests/test_architecture_demo.py` |
 | Child APIs stay local; parent publication remains explicit. Mounted reference checks reject invalid public/planned entries (AD-112, #170) | `tests/test_inside_publication.py`; `tests/test_inside_rule_parity.py`; `docs/architecture-demo.md` |
@@ -172,13 +172,11 @@ only when its row names repository evidence.
 | A `public_api` entry naming a module that declares `__all__` is checked against it, so `archkeel.api:Typo` is `api_surface.missing` instead of passing on its module alone; a module declaring no `__all__` keeps AD-66's module-only reading (AD-71, #58) | `src/archkeel/check/validation.py`; `tests/test_validation.py` |
 ## In progress
 
-- Implement the approved replaceable language-adapter boundary: configured process,
-  validated source facts, Core-owned rules, active nested contracts and the pinned
-  TypeScript npm package (AD-22, #122, #274–#276). The local Make gate and package
-  tests, local migration acceptance, package review and namespace review passed.
-  Exact-head cross-platform validation remains open. The extension target still
-  has seven UI-to-Platform type-import violations. The change has not merged or
-  been published.
+- Complete acceptance of the implemented language-adapter boundary: configured
+  process, validated source facts, Core-owned rules, active nested contracts and
+  the pinned TypeScript npm collector (AD-22, #122, #274–#276). Required gates and
+  capability limits live in [the decision](architecture/typescript-foundation-proposal.md).
+  Exact-head cross-platform validation and package publication remain separate gates.
 
 ## Next
 

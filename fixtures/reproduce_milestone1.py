@@ -27,6 +27,7 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.digest import package_digest
+from archkeel.ir.lock import LOCK_SCHEMA_VERSION
 
 # AD-100: `report --only calls` on case A's candidate lists the call the refactor made dynamic.
 CASE_A_CALL = {
@@ -152,7 +153,7 @@ def reproduce(output: Path, *, initial_pr: bool = False) -> dict:
         )
         accepted = parse_observation(decode_canonical_model(json.loads(report_path.read_bytes())))
         lock = {
-            "schema_version": "1.0.0",
+            "schema_version": LOCK_SCHEMA_VERSION,
             "accepted_commit": accepted_commit,
             "observation_digest": sha256_bytes(canonical_report_bytes(accepted)),
             "config_digest": sha256_bytes((root / "archkeel.toml").read_bytes()),

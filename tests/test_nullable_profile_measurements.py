@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+import json
 from copy import deepcopy
+from dataclasses import asdict
 from types import SimpleNamespace
 from typing import Any
 
@@ -12,7 +14,16 @@ from test_delta import _model, _record
 
 from archkeel.check.observation import _metrics
 from archkeel.check.ratchets import RatchetError, measure_python_ratchets
-from archkeel.ir.codec import parse_observation
+from archkeel.ir.codec import (
+    delta_payload,
+    parse_delta,
+    parse_lock,
+    parse_measurements,
+    parse_observation,
+    result_payload,
+)
+from archkeel.ir.lock import LockError, verify_observation
+from archkeel.ir.measurements import Measurements, RatchetScalars, compare_measurements
 from archkeel.ir.model import RunResult
 from archkeel.ir.profiles import TYPESCRIPT
 from archkeel.ir.structure import scope_metrics
@@ -75,7 +86,7 @@ def test_ratchets_skip_absent_typescript_sections_and_keep_python_validation() -
     result = measure_python_ratchets(typescript)
     assert result.scalars.typing_positions is None
     assert result.scalars.calls_unresolved is None
-    assert result.calls_total == 0
+    assert result.calls_total is None
     assert result.resolution == "n/a"
 
     malformed_python = _profile_model("archkeel-python-analyzer")
@@ -87,6 +98,106 @@ def test_ratchets_skip_absent_typescript_sections_and_keep_python_validation() -
     )
     with pytest.raises(RatchetError, match="calls_analyzed must equal"):
         measure_python_ratchets(parse_observation(malformed_python))
+
+
+@pytest.mark.parametrize("total", [None, 0])
+def test_absent_call_total_and_legacy_zero_decode_as_unmeasured(total: int | None) -> None:
+    scalars = RatchetScalars(0, 0, None, None, None, 0, None)
+    payload = {"scalars": asdict(scalars), "calls_total": total, "resolution": "n/a"}
+    decoded = parse_measurements(payload, "unmeasured")
+    assert decoded == Measurements(scalars, None, "n/a")
+    assert asdict(decoded)["calls_total"] is None
+    rows = compare_measurements(decoded, decoded)
+    assert next(row for row in rows if row[0] == "calls_unresolved")[3] == "n/a"
+    assert next(row for row in rows if row[0] == "unresolved_ratio") == (
+        "unresolved_ratio",
+        "n/a/n/a",
+        "n/a/n/a",
+        "n/a",
+    )
+
+
+@pytest.mark.parametrize(
+    ("total", "unresolved", "resolution"),
+    [
+        (None, 0, "n/a"),
+        (None, None, "measured"),
+        (1, None, "measured"),
+        (0, 0, "measured"),
+        (1, 0, "n/a"),
+        (1, 2, "measured"),
+        (True, 0, "measured"),
+        (-1, 0, "measured"),
+        (1.0, 0, "measured"),
+        ("1", 0, "measured"),
+    ],
+)
+def test_incoherent_or_malformed_call_measurements_are_rejected(
+    total: object, unresolved: int | None, resolution: str
+) -> None:
+    scalars = asdict(RatchetScalars(0, 0, 0, 0, unresolved, 0))
+    with pytest.raises(RatchetError):
+        parse_measurements(
+            {"scalars": scalars, "calls_total": total, "resolution": resolution}, "invalid"
+        )
+
+
+@pytest.mark.parametrize(("total", "unresolved"), [(None, 0), (0, None), (1, None)])
+def test_typed_call_count_availability_must_agree(
+    total: int | None, unresolved: int | None
+) -> None:
+    with pytest.raises(RatchetError):
+        Measurements(RatchetScalars(0, 0, 0, 0, unresolved, 0), total, "n/a")
+
+
+@pytest.mark.parametrize(("version", "total"), [("1.0.0", 0), ("2.0.0", None)])
+def test_unmeasured_accepted_lock_versions_preserve_legacy_reads(
+    version: str, total: int | None
+) -> None:
+    from test_git_lock import _lock
+
+    raw = json.loads(_lock(_profile_model("archkeel-python-analyzer")))
+    fresh = measure_python_ratchets(parse_observation(_profile_model("archkeel-dart-directives")))
+    raw["schema_version"] = version
+    raw["measurements"] = asdict(fresh)
+    raw["measurements"]["calls_total"] = total
+    lock = parse_lock(json.dumps(raw).encode())
+    assert lock.measurements == fresh
+    verify_observation(lock, observation_digest=lock.observation_digest, measurements=fresh)
+    measured_zero = measure_python_ratchets(
+        parse_observation(_profile_model("archkeel-python-analyzer"))
+    )
+    with pytest.raises(LockError, match="differs"):
+        verify_observation(
+            lock, observation_digest=lock.observation_digest, measurements=measured_zero
+        )
+    if version == "1.0.0":
+        raw["measurements"]["calls_total"] = None
+        with pytest.raises(LockError, match="null call totals"):
+            parse_lock(json.dumps(raw).encode())
+
+
+@pytest.mark.parametrize("version", ["1.2.0", "1.3.0", "1.4.0"])
+def test_only_profile_delta_version_accepts_fresh_null_call_totals(version: str) -> None:
+    from test_expectation import _delta_payload
+
+    raw = _delta_payload()
+    raw["schema_version"] = version
+    for side in ("baseline", "head"):
+        raw["ratchets"][side]["scalars"]["calls_unresolved"] = None
+    parsed = parse_delta(raw)
+    assert parsed.ratchets.head.calls_total is None
+    emitted = delta_payload(parsed)
+    assert emitted["ratchets"]["head"]["calls_total"] == (None if version == "1.4.0" else 0)
+    assert parse_delta(emitted) == parsed
+    assert result_payload(RunResult("check", 0, delta=parsed))["delta"] == emitted
+    for side in ("baseline", "head"):
+        raw["ratchets"][side]["calls_total"] = None
+    if version == "1.4.0":
+        assert parse_delta(raw).ratchets.head.calls_total is None
+    else:
+        with pytest.raises(RatchetError, match="null call totals"):
+            parse_delta(raw)
 
 
 def test_structure_and_coverage_render_n_a_for_unmeasured_calls() -> None:

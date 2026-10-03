@@ -346,6 +346,8 @@ def test_current_nullable_counts_roundtrip_and_legacy_unavailable_counts_never_d
     legacy["schema_version"] = "1.3.0"
     for name in UNAVAILABLE:
         legacy["dimensions"][name].update(before_count=0, after_count=0)
+    for side in ("baseline", "head"):
+        legacy["ratchets"][side]["calls_total"] = 0
     assert parse_delta(legacy).schema_version == "1.3.0"
     with pytest.raises(ExpectationError):
         evaluate_expectation(parse_delta(legacy), _expectation(delta))

@@ -7,14 +7,19 @@ unmeasured null for an empty list, or a report's exit 0 for PASS.
 
 ## Decision
 
-Publish `schema/command-result.schema.json` for check, validate and report. Keep the existing
-wire payload. Reuse the common IR evidence, decoded observation and contract rule schemas.
+Publish `schema/command-result.schema.json` for check, validate and report.
+Reuse the common IR evidence, decoded observation and contract rule schemas.
 Describe each mode's nullability, verdicts and structured evidence; require diagnostics at exit 2.
 Package the asset through the existing schema directory inclusion.
 
 The schema `$id` owns its version. Pin it with the producer CLI. Optional ignored properties
 are additive; field removals, new requirements, type/meaning/nullability changes and enum
 extensions are breaking. Details live once in `docs/reference.md`.
+
+Result schema and accepted lock 2.0.0 correct unmeasured call totals to null (#122, #276).
+The pending profile-aware Delta 1.4.0 carries the same field. Published older lock/delta
+versions retain integer totals; their zero/null sentinel remains readable. Measured zero
+and independent count/share guards keep their meaning (AD-97, AD-136).
 
 ## Rejected
 

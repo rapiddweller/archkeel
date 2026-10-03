@@ -235,7 +235,7 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 
 [`command-result.schema.json`](../schema/command-result.schema.json) describes the JSON
 stdout of `check`, `validate` and `report` (AD-138). It is included under `archkeel/schema`
-in installed packages. Its version is the `$id` suffix, currently `1.0.0`; command output
+in installed packages. Its version is the `$id` suffix, currently `2.0.0`; command output
 gains no version field. Pin the CLI and schema together. Register the bundled
 `architecture-ir-common.schema.json`, `architecture-ir-decoded.schema.json`,
 `architecture-ir-python-decoded.schema.json` and
@@ -602,16 +602,18 @@ new analyzer profile adds therefore counts. The same value sets `declared_rules`
 violation-free observation with a count above 0 is `UNKNOWN`, not `PASS`; the exit code does
 not change. Older measurement payloads without the scalar read as zero (AD-92).
 
-For profiles that measure calls, `calls_total` is the analyzer's `calls_analyzed`.
-For profiles that do not measure calls, the legacy command-result envelope keeps `calls_total: 0` and
-`resolution: n/a`; `calls_unresolved: null` marks the unavailable measurement.
-That zero does not prove an absence of calls. The report displays `n/a`, and call
-budgets refuse the unavailable signal.
-
-With measured `U = calls_unresolved` and `T = calls_total`,
+`calls_total` follows the analyzer's call measurement: null when unavailable, otherwise zero or a positive
+integer. Decoding older measurements with total zero and null `calls_unresolved` normalizes
+the total to null. Schema 2.0.0 accepts that legacy pair; schema 1.0.0 cannot read fresh null
+totals. Total and unresolved count availability must agree; inconsistent pairs are invalid.
+Fresh accepted locks use 2.0.0. Lock 1.0.0 and Delta 1.2/1.3 retain integer totals on the wire;
+their legacy zero/null pairs still decode. The profile-aware Delta 1.4.0 carries null totals.
+Re-emitting a legacy delta retains its zero sentinel and version.
+Reports show n/a and call budgets refuse unavailable signals.
+With `U = calls_unresolved` and `T = calls_total`,
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.
-Zero total means `resolution: n/a`; the absolute regression check still applies.
+Zero or null total means `resolution: n/a`; measured absolute counts still compare.
 A profile's unmeasured call count also leaves its share `n/a`, never PASS.
 Missing or inconsistent measurements produce `UNKNOWN`; regressions return failures.
 
