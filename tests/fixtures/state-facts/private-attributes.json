@@ -1,0 +1,120 @@
+[
+  {
+    "records": [
+      {
+        "id": "UNKNOWN-PRIVATE-ATTRIBUTE-86b0bde36017351c",
+        "evidence_class": "UNKNOWN",
+        "area": "type_architecture",
+        "kind": "private_attribute_access_limit",
+        "title": "sample.f accesses _value through untyped parameter ctx",
+        "subjects": [
+          "_value",
+          "ctx",
+          "sample.f"
+        ],
+        "evidence_ids": [
+          "EVD-38da2d3637190f4a"
+        ],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {
+          "function": "sample.f",
+          "parameter": "ctx",
+          "annotation": "T",
+          "attribute": "_value",
+          "path": "root._value",
+          "reason": "The parameter's runtime component owner is unknown."
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "EVD-38da2d3637190f4a",
+        "file": "sample.py",
+        "line": 3,
+        "end_line": 3,
+        "column": 11,
+        "excerpt": "    return ctx.root._value"
+      }
+    ]
+  },
+  {
+    "records": [],
+    "evidence": []
+  },
+  {
+    "records": [
+      {
+        "id": "UNKNOWN-PRIVATE-ATTRIBUTE-0e2a10c129a210c9",
+        "evidence_class": "UNKNOWN",
+        "area": "type_architecture",
+        "kind": "private_attribute_access_limit",
+        "title": "sample.C.f accesses _secret through untyped parameter unknown",
+        "subjects": [
+          "_secret",
+          "sample.C.f",
+          "unknown"
+        ],
+        "evidence_ids": [
+          "EVD-ae5e4979e832c8ae"
+        ],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {
+          "function": "sample.C.f",
+          "parameter": "unknown",
+          "annotation": "untyped",
+          "attribute": "_secret",
+          "path": "_secret",
+          "reason": "The parameter's runtime component owner is unknown."
+        }
+      },
+      {
+        "id": "UNKNOWN-PRIVATE-ATTRIBUTE-899f14a6ea4163f0",
+        "evidence_class": "UNKNOWN",
+        "area": "type_architecture",
+        "kind": "private_attribute_access_limit",
+        "title": "sample.C.nested accesses _value through untyped parameter unknown",
+        "subjects": [
+          "_value",
+          "sample.C.nested",
+          "unknown"
+        ],
+        "evidence_ids": [
+          "EVD-2bbf039a861a3ea7"
+        ],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {
+          "function": "sample.C.nested",
+          "parameter": "unknown",
+          "annotation": "untyped",
+          "attribute": "_value",
+          "path": "_value",
+          "reason": "The parameter's runtime component owner is unknown."
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "EVD-2bbf039a861a3ea7",
+        "file": "sample.py",
+        "line": 4,
+        "end_line": 4,
+        "column": 19,
+        "excerpt": "            return unknown._value"
+      },
+      {
+        "id": "EVD-ae5e4979e832c8ae",
+        "file": "sample.py",
+        "line": 5,
+        "end_line": 5,
+        "column": 15,
+        "excerpt": "        return unknown._secret"
+      }
+    ]
+  }
+]

@@ -26,8 +26,8 @@ FORBIDDEN = (
     b"/" + b"private/tmp",
     b"/" + b"tmp/",
     b"/" + b"var/folders",
-    b"C:" + bytes([92]),
 )
+WINDOWS_DRIVE_ROOT = b"C:" + bytes([92])
 # Split so this file does not match itself. A lone `=======` is a Markdown setext heading, so
 # only the two unambiguous markers count; a conflict always leaves at least one of them.
 CONFLICT_MARKERS = (b"<<<" + b"<<<<", b">>>" + b">>>>")
@@ -41,51 +41,109 @@ SOURCES = tuple(
 )
 LONG_FUNCTION_LINES = 80
 ALLOWED_LONG_FUNCTIONS = {
-    "src/archkeel/analyzer/__init__.py::observe": "Subprocess boundary; one try maps launch, "
-    "decode and failure to diagnostics.",
-    "src/archkeel/analyzer/embedded/contexts.py::_access_observations": "One ast.walk records "
-    "bindings while it scans accesses; separate passes would change which reads count.",
-    "src/archkeel/analyzer/embedded/contexts.py::_class_fields": "One walk per method body "
-    "threads fields, properties, post-init assignments and mutations together.",
-    "src/archkeel/analyzer/embedded/contract.py::_rule_declaration": "One classified record per "
-    "rule kind; the branches share nothing but the envelope below them.",
-    "src/archkeel/analyzer/embedded/contract.py::project_declarations": "One classified record "
-    "per declaration kind; nothing is shared between them.",
-    "src/archkeel/analyzer/embedded/report.py::_metrics": "One literal of metric records; the "
-    "sets above it only feed that literal.",
-    "src/archkeel/analyzer/embedded/scanner.py::scan_repository": "Sequences the collectors into "
-    "ScanResult; the remaining lines are collector calls and result fields.",
-    "src/archkeel/analyzer/embedded/violations.py::_direct_generic_candidate_types": "The existing "
-    "generic candidate walk preserves uncertain usage without claiming signature closure.",
-    "src/archkeel/analyzer/embedded/violations.py::facade_signature_types": "One signature "
-    "publication pass keeps resolved and uncertain inherited types tied to each facade.",
-    "src/archkeel/analyzer/embedded/violations.py::rule_violations": "Sequences independent "
-    "rule evaluators and keeps each receipt attached to its own scope proof.",
-    "src/archkeel/analyzer/embedded/violations.py::_scoped_facade_signature_types": "One nested "
-    "publication pass keeps inherited candidate evidence tied to its mount and publisher.",
-    "src/archkeel/analyzer/embedded/violations.py::_boundary_types_violations": "One rule and "
-    "position pass applies one violation and allowance policy to declared and inherited methods.",
-    "src/archkeel/analyzer/embedded/violations.py::_boundary_rule_positions": "One position "
-    "pass measures direct declarations, inherited methods and unresolved inherited surfaces.",
-    "src/archkeel/check/delta.py::_compare_records": "Exact, relocated and changed stages share "
-    "the unmatched record pools.",
-    "src/archkeel/check/delta.py::build_architecture_delta": "Shared, coverage and availability "
-    "reasons are decided in one place per dimension.",
-    "src/archkeel/check/run.py::run_check": "Sequences authentication, git and host order, both "
-    "snapshots and evaluation; one with-block owns the snapshot lifetimes.",
-    "src/archkeel/check/validation.py::run_validate": "Sequences baseline, contract, observation "
-    "and artifact decisions; the branches are the validation protocol.",
-    "src/archkeel/cli/__init__.py::build_parser": "Declarative argparse setup, one subparser per "
-    "command; help text is the length.",
-    "src/archkeel/cli/__init__.py::main": "Composition root; one error boundary maps every "
-    "command to a result.",
-    "src/archkeel/ir/codec.py::encode_canonical_model": "Columnizing and interning share the "
-    "sentinel rows.",
-    "src/archkeel/ir/codec.py::parse_contract": "Field lists plus one parser per kind; the "
-    "duplicate-id check spans all groups.",
-    "src/archkeel/ir/codec.py::parse_delta": "Checks the delta envelope in wire order and "
-    "assembles five named part parsers into one value.",
-    "src/archkeel/render/html.py::render_html": "One template with its bindings.",
+    ("src/archkeel/analyzer/python/collect.py::collect"): (
+        "One deterministic collector pass shares the parsed and resolved project."
+    ),
+    ("src/archkeel/check/declarations.py::_rule_declaration"): (
+        "One output record is built per declared rule kind."
+    ),
+    ("src/archkeel/check/declarations.py::project_declarations"): (
+        "One output pass projects each root declaration from the same observation."
+    ),
+    ("src/archkeel/check/evaluation/evaluate.py::_evaluate_inside_contract"): (
+        "One inside evaluation keeps local declarations and their parent scope together."
+    ),
+    ("src/archkeel/check/evaluation/evaluate.py::_inside_rule_results"): (
+        "One pass gathers evaluator receipts for each inside rule."
+    ),
+    ("src/archkeel/check/evaluation/evaluate.py::evaluate_source"): (
+        "One composition pass carries source facts through evaluation and coverage."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_boundary_rule_positions"): (
+        "One traversal retains direct, inherited and undecidable positions for the same rule."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_boundary_type_verdict"): (
+        "One decision path preserves proven, failed and unknown type outcomes."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_boundary_types_violations"): (
+        "One position pass applies the same rule and allowance policy to every facade."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_inherited_generic_facade_types"): (
+        "One proof walk binds base TypeVars and checks inherited signature positions."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_scoped_facade_signature_types"): (
+        "One nested pass ties inherited types to their contract mount and publisher."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::facade_signature_types"): (
+        "One publication pass preserves resolved and uncertain types per facade."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::public_api_exposed_types"): (
+        "One type walk serves every declared public API entry."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::requires_violations"): (
+        "One import pass applies complete-requires rules and records each missing dependency."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::rule_violations"): (
+        "One ordered pass retains each rule result and its evidence receipt."
+    ),
+    ("src/archkeel/check/evaluation/rules.py::_collect_rule_violations"): (
+        "One ordered composition keeps the rule families and their shared evidence together."
+    ),
+    ("src/archkeel/check/evaluation/state.py::evaluate_contexts"): (
+        "One context pass joins state facts with their exact receiver and mutation evidence."
+    ),
+    ("src/archkeel/check/observation.py::_metrics"): (
+        "One projection records the overview metrics from the same evaluated facts."
+    ),
+    ("src/archkeel/check/observation.py::assemble_observation"): (
+        "One assembly keeps coverage, declarations and evaluator results on one source snapshot."
+    ),
+    ("src/archkeel/check/onboarding.py::draft_contract"): (
+        "One draft derives ownership, measured size, interfaces and rules "
+        "from the same observation."
+    ),
+    ("src/archkeel/check/onboarding.py::run_init"): (
+        "One onboarding flow observes inputs, drafts the three files and "
+        "returns its open decisions."
+    ),
+    ("src/archkeel/check/observe.py::_observe"): (
+        "One observer boundary validates request, contract, facts and "
+        "completeness before publication."
+    ),
+    ("src/archkeel/ir/facts_validation.py::validate_source_facts"): (
+        "One fail-closed validation pass checks references across all fact sections."
+    ),
+    ("src/archkeel/check/delta.py::_compare_records"): (
+        "Exact, relocated and changed stages share the unmatched record pools."
+    ),
+    ("src/archkeel/check/delta.py::build_architecture_delta"): (
+        "Shared, coverage and availability reasons are decided in one place per dimension."
+    ),
+    ("src/archkeel/check/run.py::run_check"): (
+        "Sequences authentication, git and host order, both snapshots and "
+        "evaluation; one with-block owns the snapshot lifetimes."
+    ),
+    ("src/archkeel/check/validation.py::run_validate"): (
+        "Sequences baseline, contract, observation and artifact decisions; the "
+        "branches are the validation protocol."
+    ),
+    ("src/archkeel/cli/__init__.py::build_parser"): (
+        "Declarative argparse setup, one subparser per command; help text is the length."
+    ),
+    ("src/archkeel/cli/__init__.py::main"): (
+        "Composition root; one error boundary maps every command to a result."
+    ),
+    ("src/archkeel/ir/codec.py::encode_canonical_model"): (
+        "Columnizing and interning share the sentinel rows."
+    ),
+    ("src/archkeel/ir/codec.py::parse_contract"): (
+        "Field lists plus one parser per kind; the duplicate-id check spans all groups."
+    ),
+    ("src/archkeel/ir/codec.py::parse_delta"): (
+        "Checks the delta envelope in wire order and assembles five named part "
+        "parsers into one value."
+    ),
+    ("src/archkeel/render/html.py::render_html"): ("One template with its bindings."),
 }
 
 
@@ -160,9 +218,12 @@ def test_every_analyzer_collector_is_a_declared_peer() -> None:
         if rule["kind"] == "sibling_isolation"
         for member in rule["members"]
     }
+    python_root = ROOT / "src/archkeel/analyzer/python"
     collectors = {
-        f"archkeel.analyzer.embedded.{path.stem}"
-        for path in (ROOT / "src/archkeel/analyzer/embedded").glob("*.py")
+        f"archkeel.analyzer.python.{path.relative_to(python_root).with_suffix('')}".replace(
+            "/", "."
+        )
+        for path in python_root.rglob("*.py")
         if any(
             isinstance(node, ast.FunctionDef) and node.name.startswith("collect_")
             for node in ast.parse(path.read_bytes()).body
@@ -175,6 +236,7 @@ def test_every_analyzer_collector_is_a_declared_peer() -> None:
         for member in sorted(declared)
         if not (ROOT / f"src/{member.replace('.', '/')}.py").is_file()
     ] == []
+    assert list((ROOT / "src/archkeel/analyzer/embedded").rglob("*.py")) == []
 
 
 def test_sdist_ships_library_and_build_inputs_only() -> None:
@@ -247,7 +309,12 @@ def test_tracked_text_has_no_local_absolute_paths() -> None:
         if b"\0" in payload:
             continue
         for line, text in enumerate(payload.splitlines(), 1):
-            if any(prefix in text for prefix in FORBIDDEN):
+            suffix = text.partition(WINDOWS_DRIVE_ROOT)[2]
+            windows_path = bool(suffix) and not (
+                suffix.startswith((b"n", b"t", b"r"))
+                and suffix[1:2] in (b'"', b"'", b",", b")", b"]", b" ", b"\t")
+            )
+            if any(prefix in text for prefix in FORBIDDEN) or windows_path:
                 hits.append(f"{path.relative_to(ROOT)}:{line}")
     assert hits == []
 

@@ -9,8 +9,8 @@ from pathlib import Path
 
 from test_architecture_demo import CONFIG, _prepare_repo
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, repeated_logic
 from fixtures.architecture_demo import CATALOG

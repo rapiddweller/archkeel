@@ -6,10 +6,18 @@ Exact rules behind the [README](../README.md). Code is the source of truth; this
 
 [schema/archkeel.schema.json](../schema/archkeel.schema.json) defines `archkeel.toml`.
 Only `[scan]` with required `roots`, `namespace` and `contract` is accepted, plus the optional
-`language`: `"python"` (the default when absent, so an existing file keeps its digest) or
-`"dart"`. For Dart, `namespace` is the pubspec `name` and `roots` is normally `["lib"]`; a
-`pubspec.yaml` whose `name:` differs from `namespace` is `parse_error` (AD-97).
-Paths are relative to the repository root. Scan roots are directories, not globs.
+`language`: `"python"` (the default when absent, so an existing file keeps its digest), `"dart"`,
+or `"typescript"`. For Dart, `namespace` is the pubspec `name` and `roots` is normally `["lib"]`; a
+`pubspec.yaml` whose `name:` differs from `namespace` is `parse_error` (AD-97). TypeScript roots
+may be files or directories; Python and Dart roots are directories. Roots are repository-relative
+and cannot overlap or use glob syntax.
+
+`tsconfig` is valid only for TypeScript. If omitted, the parser selects `tsconfig.json`; runtime
+loading checks that the file exists inside the repository. `collector_argv` optionally overrides
+the collector command as a non-empty array of non-empty argument strings. Arguments stay separate
+and no shell parses them. On Windows, use an executable plus script path instead of a `.cmd` shim.
+Runtime loading checks that roots and `tsconfig` exist and stay inside the repository.
+
 The architecture schemas live once under `schema/`; builds include them as package data.
 
 `report` and `validate` read `archkeel.toml` at `--root`, or the file `--config` names relative
@@ -212,7 +220,8 @@ IR JSON decoding and encoding belongs to `ir/codec.py`; core models are frozen d
 stdout of `check`, `validate` and `report` (AD-138). It is included under `archkeel/schema`
 in installed packages. Its version is the `$id` suffix, currently `1.0.0`; command output
 gains no version field. Pin the CLI and schema together. Register the bundled
-`architecture-ir-common.schema.json`, `architecture-ir-python-decoded.schema.json` and
+`architecture-ir-common.schema.json`, `architecture-ir-decoded.schema.json`,
+`architecture-ir-python-decoded.schema.json` and
 `architecture-contract.schema.json` by
 their `$id` for offline Draft 2020-12 validation. This schema excludes argument-parser,
 `init` and `skill` results, and the separate canonical `architecture.json` artifact.

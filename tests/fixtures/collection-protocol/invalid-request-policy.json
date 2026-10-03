@@ -1,0 +1,18 @@
+{
+  "protocol_version": "1.0.0",
+  "snapshot": {
+    "root": "/source-project",
+    "git_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dirty": false
+  },
+  "scope": {
+    "roots": [
+      "src"
+    ],
+    "namespace": "project"
+  },
+  "resolver": {
+    "language": "python"
+  },
+  "contract": "contract.json"
+}

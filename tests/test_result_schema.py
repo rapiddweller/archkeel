@@ -17,13 +17,9 @@ import pytest
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-from archkeel.check.delta import SUPPORTED_DIMENSIONS, build_architecture_delta
-from archkeel.check.run import _incomplete
-from archkeel.ir.codec import delta_payload, observation_payload, result_payload
-from archkeel.ir.model import CLASSIFIED_SECTIONS, DiagnosticCode, DiagnosticKind, RunResult
+from archkeel.check.delta import SUPPORTED_DIMENSIONS
+from archkeel.ir.model import DiagnosticCode, DiagnosticKind, RunResult
 from fixtures.architecture_demo import CATALOG, materialized_fixture
-from tests.test_dart_profile import _observe
-from tests.test_exact_module_ownership import _contract, _observe_tree
 
 ROOT = Path(__file__).parents[1]
 VERDICTS = ("observation_complete", "declared_rules", "expectation_fulfilled")
@@ -114,6 +110,85 @@ def validator() -> Draft202012Validator:
     schema = json.loads((ROOT / "schema/command-result.schema.json").read_bytes())
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema, registry=registry)
+
+
+def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(validator) -> None:
+    coverage = json.loads((ROOT / "schema/architecture-ir-common.schema.json").read_bytes())[
+        "$defs"
+    ]["coverage"]
+    payload = {
+        "status": "PASS",
+        "files_discovered": 1,
+        "files_read": 1,
+        "files_parsed": 1,
+        "ast_coverage_percent": 100,
+        "failures": [],
+        "rules": "PASS",
+        **dict.fromkeys(
+            (
+                "calls_analyzed",
+                "calls_resolved",
+                "calls_partially_resolved",
+                "calls_unresolved",
+                "call_resolution_percent",
+            )
+        ),
+    }
+    neutral = validator.evolve(schema=validator.schema["properties"]["coverage"])
+    assert neutral.is_valid(payload)
+    payload["calls_analyzed"] = 0
+    assert not neutral.is_valid(payload)
+    assert not validator.evolve(schema=coverage).is_valid(payload)
+
+
+def test_python_decoded_schema_accepts_producer_and_legacy_omission(results) -> None:
+    schemas = [json.loads(path.read_bytes()) for path in (ROOT / "schema").glob("*.json")]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in schemas
+    )
+    schema_paths = (
+        ROOT / "schema/architecture-ir-decoded.schema.json",
+        ROOT / "schema/architecture-ir-python-decoded.schema.json",
+    )
+    observations = [
+        payload["observation"]
+        for payload in results.values()
+        if isinstance(payload.get("observation"), dict)
+        and payload["observation"]["analyzer"]["name"] == "archkeel-python-analyzer"
+    ]
+    assert observations
+    current = observations[0]
+    assert "producer" in current
+    legacy = {key: value for key, value in current.items() if key != "producer"}
+
+    for path in schema_paths:
+        schema = json.loads(path.read_bytes())
+        decoded = Draft202012Validator(schema, registry=registry)
+        assert not list(decoded.iter_errors(current))
+        assert not list(decoded.iter_errors(legacy))
+
+
+def test_decoded_typescript_schema_preserves_unmeasured_call_availability() -> None:
+    from test_nullable_profile_measurements import _profile_model
+
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    schemas = [json.loads(path.read_bytes()) for path in (ROOT / "schema").glob("*.json")]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in schemas
+    )
+    schema = json.loads((ROOT / "schema/architecture-ir-decoded.schema.json").read_bytes())
+    decoded = Draft202012Validator(schema, registry=registry)
+    payload = observation_payload(parse_observation(_profile_model("archkeel-typescript-imports")))
+    assert not list(decoded.iter_errors(payload))
+    payload["coverage"].update(
+        calls_analyzed=0,
+        calls_resolved=0,
+        calls_partially_resolved=0,
+        calls_unresolved=0,
+        call_resolution_percent=0,
+    )
+    assert not decoded.is_valid(payload)
 
 
 @pytest.fixture(scope="module")
@@ -224,64 +299,6 @@ def test_real_cli_demo_results_match_the_published_schema(validator, results) ->
         results["class-a-boundary-types-contained-mapping-unknown-report"]["declared_rules"]
         == "UNKNOWN"
     )
-
-
-def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path) -> None:
-    result = _observe(tmp_path, {"lib/a.dart": ""})
-    assert result.exit_code == 0 and result.observation is not None
-    delta = delta_payload(
-        build_architecture_delta(
-            result.observation,
-            result.observation,
-            baseline_digest="a" * 64,
-            head_digest="a" * 64,
-            checker_digest="b" * 64,
-        )
-    )
-    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:1.0.0#/$defs/delta"})
-    assert not list(schema.iter_errors(delta))
-    delta["analyzer"]["name"] = "unknown-analyzer"
-    assert not schema.is_valid(delta)
-
-
-def test_incomplete_dart_check_preserves_profile_sections(validator, tmp_path: Path) -> None:
-    result = _observe(tmp_path, {"lib/a.dart": "import 'x.dart'\n"})
-    assert result.exit_code == 2 and result.observation is not None
-    payload = result_payload(_incomplete(result))
-    assert not list(validator.iter_errors(payload))
-    python = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0"})
-    assert not python.is_valid(payload["observation"])
-    for section, invalid in (
-        ("symbols", []),
-        ("references", []),
-        ("bindings", []),
-        ("imports", None),
-    ):
-        malformed = copy.deepcopy(payload)
-        malformed["observation"][section] = invalid
-        assert not validator.is_valid(malformed), section
-        del malformed["observation"][section]
-        assert not validator.is_valid(malformed), section
-    payload["observation"]["analyzer"]["name"] = "unknown-analyzer"
-    assert not validator.is_valid(payload)
-
-
-def test_python_observation_sections_remain_required(validator, tmp_path: Path) -> None:
-    result = _observe_tree(tmp_path, {"sample/a.py": ""}, _contract([]))
-    assert result.exit_code == 0 and result.observation is not None
-    observation = observation_payload(result.observation)
-    schemas = (
-        validator.evolve(schema=validator.schema["properties"]["observation"]),
-        validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0"}),
-    )
-    for schema in schemas:
-        assert schema.is_valid(observation)
-        for section in CLASSIFIED_SECTIONS:
-            malformed = dict(observation)
-            del malformed[section]
-            assert not schema.is_valid(malformed), section
-            malformed[section] = None
-            assert not schema.is_valid(malformed), section
 
 
 def test_result_properties_cover_the_writer(validator) -> None:

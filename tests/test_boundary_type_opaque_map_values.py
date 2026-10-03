@@ -18,12 +18,12 @@ from test_boundary_types_contained_mapping import _commit_report_fixture, _Visib
 from test_boundary_types_nested_dtos import _write_app
 from test_contract_model import VALIDATOR
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import inspect_observation
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     contract_bytes,
     contract_digest,

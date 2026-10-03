@@ -12,9 +12,11 @@ import sys
 from dataclasses import dataclass
 from typing import Final, Literal, TypeAlias
 
-from .measurements import UnmeasurableScalar
+from .facts import Language as Language
 
-Language: TypeAlias = Literal["python", "dart", "typescript"]
+UnmeasurableScalar: TypeAlias = Literal[
+    "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"
+]
 DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupling_budgets"]
 ObservedSection: TypeAlias = Literal[
     "symbols", "references", "bindings", "calls", "typing_signals", "constructs"
@@ -32,6 +34,8 @@ class Profile:
     analyzer: str
     source_suffix: str
     unsupported_rules: frozenset[str] = frozenset()
+    dependency_symbols: bool = True
+    project_import_closure: bool = False
     unsupported_declarations: frozenset[DeclarationField] = frozenset()
     unmeasured: frozenset[UnmeasurableScalar] = frozenset()
     # A section the profile never produces is null in the observation, so a claim built on it
@@ -95,19 +99,19 @@ DART: Final = Profile(
 TYPESCRIPT: Final = Profile(
     analyzer=TYPESCRIPT_ANALYZER,
     source_suffix=".ts",
+    dependency_symbols=False,
+    project_import_closure=True,
     unsupported_rules=frozenset(
         {
             "symbol_placement",
             "boundary_types",
             "forbidden_construct",
-            "forbidden_call",
-            "private_access",
-            "api_surface",
-            "facade",
         }
     ),
-    unsupported_declarations=frozenset({"facade_budgets", "coupling_budgets"}),
-    unmeasured=frozenset({"typing_positions", "calls_unresolved", "private_crossings"}),
+    unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
+    unmeasured=frozenset(
+        {"typing_positions", "calls_unresolved", "private_crossings", "untyped_private_accesses"}
+    ),
     absent_sections=frozenset(
         {"symbols", "references", "bindings", "calls", "typing_signals", "constructs"}
     ),

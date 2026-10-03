@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| Built-in collectors isolate Python imports and clean their POSIX process group after every response (AD-148) | `tests/test_collector_safety_acceptance.py`; `tests/test_inheritance_proof_transport.py` |
 | Nested Diff retains scope and filters recorded differences; missing counterparts require explicit nearest-scope navigation (AD-144, #263) | `tests/test_diff_scope_acceptance.py`; `tests/test_actual_target_diff_acceptance.py`; `make report-browser` |
 | An explicit depth decision accepts one exact opaque map value separately from its outer map; duplicate occurrences and UNKNOWNs remain checked (AD-142, #253) | `tests/test_boundary_type_opaque_map_values.py`; `fixtures/demo_catalog_types.py`; `docs/rules.md` |
 | Exact native `object` / `object | None` positions accept opacity with decision provenance; controls and UNKNOWNs remain visible (AD-135, #229) | `tests/test_boundary_type_native_payloads.py`; `tests/test_widening.py`; native payload/control catalog variants |
@@ -168,8 +169,19 @@ only when its row names repository evidence.
 | `declarations.public_api` names the surface a consumer outside the package may rely on, narrowing AD-9's "superseded" reading of it now that AD-64 gave Archkeel such a surface; Archkeel declares its own three names, `test_api_all_matches_the_names_reference_md_documents` checks `archkeel.api.__all__` and `docs/reference.md` against that declaration instead of against each other, and a `public_api` entry the scan never saw is `api_surface.missing`, the same signal a missing `public` entry already gives (AD-66, #58) | `architecture-contract.json`; `src/archkeel/check/validation.py`; `src/archkeel/ir/model.py`; `tests/test_validation.py`; `tests/test_violations.py`; `fixtures/demo_catalog_validation.py`; `docs/architecture-demo.md` |
 | The external promise declares every type it hands out: `archkeel.api` is one call, `load_violations`, with `ViolationRow` and `ViolationFingerprint` declared beside it, so no `ir` type crosses the boundary undeclared (AD-70) | `src/archkeel/api.py`; `architecture-contract.json`; `tests/test_violations.py` |
 | A `public_api` entry naming a module that declares `__all__` is checked against it, so `archkeel.api:Typo` is `api_surface.missing` instead of passing on its module alone; a module declaring no `__all__` keeps AD-66's module-only reading (AD-71, #58) | `src/archkeel/check/validation.py`; `tests/test_validation.py` |
+## In progress
+
+- Implement the approved replaceable language-adapter boundary: configured process,
+  validated source facts, Core-owned rules and active nested contracts (AD-22, #122).
+  Python/Dart parity, replacement acceptance, complete gates and independent review
+  remain open. TypeScript packaging and extension onboarding follow separately.
+
 ## Next
 
+- Complete acceptance for the language-adapter migration, then implement the pinned
+  TypeScript npm adapter and extension onboarding (#274–#276).
+  Prove Python/Dart parity and replacement through configuration. Full Dart type
+  analysis is separate. See [the proposal](architecture/typescript-foundation-proposal.md).
 - Complete #218 against published baselines with explicit per-rule decision units and
   supported runtimes. EE's absent boundary policy is N/A; do not invent one for measurement.
 
@@ -207,10 +219,9 @@ answer key are prepared; human effectiveness and the need for a separate explore
   a standalone configuration for each level. Evidence: `init` on that scope drafts 12
   sub-components and 132 open decisions, one component per module, where the three decided
   layers need 6.
-- Make the analyzer a process port with a language profile and prove it with a second analyzer
-  (AD-22). Six places still assume Python: the import in the CLI, the namespace pattern in the
-  configuration, the `public` and dependency patterns in the schema, the construct enum and the
-  runtime gate.
+- Observe system interactions across languages using explicit HTTP/channel/schema
+  contracts and separate declaration, source and runtime evidence. Design boundary
+  only; no connector, Rust implementation or cross-language rule is scheduled.
 - Implement `accept` and add the GitHub host adapter (#216); retain the `ratchets` field
   for compatibility. AD-136 decides the conservative regression policy.
 - Act on the open onboarding findings in `docs/evidence/internal-service/README.md`: assign a

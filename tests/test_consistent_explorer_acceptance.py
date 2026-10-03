@@ -19,8 +19,8 @@ from test_target_hierarchy_independent_acceptance import (
     _placement_page_data,
 )
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.render.html import render_html
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from .profiles import Language
+from .facts import Language
 
 
 def _segments(path: str) -> tuple[str, ...]:

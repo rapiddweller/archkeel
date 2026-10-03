@@ -32,6 +32,15 @@ Record my reasons. Show unresolved findings and the file diff when finished.
 
 1. `archkeel init --json` drafts components, interfaces, and open dependency decisions.
    It writes `archkeel.toml`, `architecture-contract.json`, and `docs/architecture/architecture.md`.
+   For TypeScript, pass a source root, namespace, and project config, for example:
+
+   ```bash
+   archkeel init --language typescript --source src --namespace app --tsconfig tsconfig.json
+   ```
+
+   Repeat `--source` to scan more roots; TypeScript roots may be files or directories. Use
+   `--collector-argv node path/to/collector.js` to override the collector command. On Windows,
+   pass an executable and script path instead of a `.cmd` shim.
 2. Decide which directions are allowed. The agent records them as `requires` entries,
    with your rationale and `decided_by: "architect"`. `complete_requires` forbids all absent pairs.
 3. Run `archkeel validate --json`. Resolve `decision.open`, `rationale.placeholder`,

@@ -1,0 +1,1366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archkeel.dev/schema/source-facts/1.0.0",
+  "title": "ArchKeel source collection protocol 1.0.0",
+  "description": "Structural wire contract. facts_validation additionally checks section payloads, scope, digests, unique identities, coverage and references. Architecture policy never crosses this port.",
+  "$defs": {
+    "Record": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "evidence_class": {
+          "enum": [
+            "FACT",
+            "UNKNOWN"
+          ]
+        },
+        "area": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "rule_ids": {
+          "const": []
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "provenance": {
+          "const": []
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "source_binding_unique": {
+              "type": "boolean"
+            },
+            "source_member_binding_static": {
+              "type": "boolean"
+            },
+            "origin_binding_unique": {
+              "type": "boolean"
+            },
+            "origin_member_binding_static": {
+              "type": "boolean"
+            },
+            "class_header_static": {
+              "type": "boolean"
+            },
+            "class_body_control_flow": {
+              "type": "boolean"
+            },
+            "signature_decorators_proven": {
+              "type": "boolean"
+            },
+            "overload_signature": {
+              "type": "boolean"
+            },
+            "overloaded": {
+              "type": "boolean"
+            },
+            "reexport_candidates": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excerpt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "file",
+        "line",
+        "end_line",
+        "column",
+        "excerpt"
+      ],
+      "additionalProperties": false
+    },
+    "File": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "rel_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+        },
+        "module": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "all_exports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "all_literal": {
+          "type": "boolean"
+        },
+        "compatibility_logic_free": {
+          "type": "boolean"
+        },
+        "stable_bindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "blank": {
+          "type": "boolean"
+        },
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        }
+      },
+      "required": [
+        "id",
+        "rel_path",
+        "module",
+        "package",
+        "all_exports",
+        "all_literal",
+        "compatibility_logic_free",
+        "stable_bindings",
+        "blank",
+        "evidence_id"
+      ],
+      "additionalProperties": false
+    },
+    "Target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "local"
+            },
+            "import_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "module": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+            },
+            "runtime_file": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "declaration_file": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "import_id",
+            "module",
+            "file",
+            "runtime_file",
+            "declaration_file"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "external"
+            },
+            "import_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "package": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "import_id",
+            "package"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "builtin"
+            },
+            "import_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "import_id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unresolved"
+            },
+            "import_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "specifier": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "import_id",
+            "specifier",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "TypeShape": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "name"
+            },
+            "text": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "member"
+            },
+            "text": {
+              "type": "string"
+            },
+            "owner": {
+              "$ref": "#/$defs/TypeShape"
+            },
+            "member": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "owner",
+            "member"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "application"
+            },
+            "text": {
+              "type": "string"
+            },
+            "head": {
+              "$ref": "#/$defs/TypeShape"
+            },
+            "arguments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TypeShape"
+              }
+            },
+            "tuple_arguments": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "head",
+            "arguments",
+            "tuple_arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "union"
+            },
+            "text": {
+              "type": "string"
+            },
+            "left": {
+              "$ref": "#/$defs/TypeShape"
+            },
+            "right": {
+              "$ref": "#/$defs/TypeShape"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "literal"
+            },
+            "text": {
+              "type": "string"
+            },
+            "literal_kind": {
+              "enum": [
+                "string",
+                "integer",
+                "boolean",
+                "none",
+                "ellipsis",
+                "other"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "literal_kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unpack"
+            },
+            "text": {
+              "type": "string"
+            },
+            "argument": {
+              "$ref": "#/$defs/TypeShape"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "argument"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unresolved"
+            },
+            "text": {
+              "type": "string"
+            },
+            "valid_syntax": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "valid_syntax"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "FieldState": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "annotation": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "binding": {
+          "enum": [
+            "UNKNOWN",
+            "non_reassignable"
+          ]
+        },
+        "referent_mutability": {
+          "enum": [
+            "UNKNOWN",
+            "mutable_container"
+          ]
+        },
+        "mutability": {
+          "enum": [
+            "UNKNOWN",
+            "object_immutable",
+            "mutable"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "property_assignment": {
+          "anyOf": [
+            {
+              "enum": [
+                "available",
+                "unavailable"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "annotation",
+        "binding",
+        "referent_mutability",
+        "mutability",
+        "evidence_ids",
+        "property_assignment"
+      ],
+      "additionalProperties": false
+    },
+    "ClassState": {
+      "type": "object",
+      "properties": {
+        "qualified_name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "module": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "frozen": {
+          "type": "boolean"
+        },
+        "protocol": {
+          "type": "boolean"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldState"
+          }
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          }
+        }
+      },
+      "required": [
+        "qualified_name",
+        "module",
+        "frozen",
+        "protocol",
+        "fields",
+        "methods",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    "StateEvent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "assignment"
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\u0000]+$"
+              }
+            },
+            "constructor": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "annotation": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "alias": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "targets",
+            "constructor",
+            "annotation",
+            "alias"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "attribute"
+            },
+            "binding": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "path": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\u0000]+$"
+              },
+              "minItems": 1
+            },
+            "access": {
+              "enum": [
+                "read",
+                "write",
+                "mutation"
+              ]
+            },
+            "evidence_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "binding",
+            "path",
+            "access",
+            "evidence_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "pass"
+            },
+            "binding": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "evidence_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "binding",
+            "target",
+            "evidence_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "FunctionState": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "module": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]+$"
+        },
+        "class_owner": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receiver": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\u0000]+$"
+              },
+              "annotation": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[^\\u0000]+$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "annotation"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StateEvent"
+          }
+        }
+      },
+      "required": [
+        "scope",
+        "module",
+        "class_owner",
+        "receiver",
+        "parameters",
+        "events"
+      ],
+      "additionalProperties": false
+    },
+    "State": {
+      "type": "object",
+      "properties": {
+        "classes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ClassState"
+          }
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FunctionState"
+          }
+        }
+      },
+      "required": [
+        "classes",
+        "functions"
+      ],
+      "additionalProperties": false
+    },
+    "SourceFacts": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "enum": [
+            "archkeel-python-analyzer",
+            "archkeel-dart-directives",
+            "archkeel-typescript-imports"
+          ]
+        },
+        "adapter": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "code_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "name",
+            "version",
+            "code_digest"
+          ],
+          "additionalProperties": false
+        },
+        "runtime": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            }
+          },
+          "required": [
+            "name",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "git_head": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "dirty": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "const": "unknown"
+                }
+              ]
+            },
+            "source_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "scope": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\u0000]+$"
+              }
+            }
+          },
+          "required": [
+            "git_head",
+            "dirty",
+            "source_digest",
+            "scope"
+          ],
+          "additionalProperties": false
+        },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "sections": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "symbols",
+                  "imports",
+                  "calls",
+                  "references",
+                  "bindings",
+                  "typing_signals",
+                  "constructs",
+                  "unknowns"
+                ]
+              }
+            },
+            "resolution_features": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\u0000]+$"
+              }
+            }
+          },
+          "required": [
+            "sections",
+            "resolution_features"
+          ],
+          "additionalProperties": false
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "role": {
+                "enum": [
+                  "selected",
+                  "resolution"
+                ]
+              }
+            },
+            "required": [
+              "path",
+              "digest",
+              "role"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/File"
+          }
+        },
+        "imports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Target"
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "enum": [
+                  "symbols",
+                  "imports",
+                  "calls",
+                  "references",
+                  "bindings",
+                  "typing_signals",
+                  "constructs",
+                  "unknowns"
+                ]
+              },
+              "records": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Record"
+                }
+              }
+            },
+            "required": [
+              "name",
+              "records"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "selected_files": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+              }
+            },
+            "files_read": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "files_parsed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "full_scope": {
+              "type": "boolean"
+            },
+            "gaps": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record"
+              }
+            }
+          },
+          "required": [
+            "selected_files",
+            "files_read",
+            "files_parsed",
+            "full_scope",
+            "gaps"
+          ],
+          "additionalProperties": false
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        },
+        "uncertain_reexports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "binding": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\u0000]+$"
+              },
+              "origins": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000]+$"
+                }
+              }
+            },
+            "required": [
+              "binding",
+              "origins"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "type_shapes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "expression": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\u0000]+$"
+              },
+              "shape": {
+                "$ref": "#/$defs/TypeShape"
+              }
+            },
+            "required": [
+              "expression",
+              "shape"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "state": {
+          "$ref": "#/$defs/State"
+        },
+        "candidate_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          }
+        }
+      },
+      "required": [
+        "profile",
+        "adapter",
+        "runtime",
+        "source",
+        "capabilities",
+        "inputs",
+        "files",
+        "imports",
+        "sections",
+        "coverage",
+        "evidence",
+        "uncertain_reexports",
+        "type_shapes",
+        "state",
+        "candidate_evidence"
+      ],
+      "additionalProperties": false
+    },
+    "CollectionRequest": {
+      "type": "object",
+      "properties": {
+        "protocol_version": {
+          "const": "1.0.0"
+        },
+        "snapshot": {
+          "type": "object",
+          "properties": {
+            "root": {
+              "type": "string",
+              "pattern": "^/"
+            },
+            "git_head": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]+$"
+            },
+            "dirty": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "const": "unknown"
+                }
+              ]
+            }
+          },
+          "required": [
+            "root",
+            "git_head",
+            "dirty"
+          ],
+          "additionalProperties": false
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "roots": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "namespace": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+            }
+          },
+          "required": [
+            "roots",
+            "namespace"
+          ],
+          "additionalProperties": false
+        },
+        "resolver": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "const": "python"
+                }
+              },
+              "required": [
+                "language"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "const": "dart"
+                }
+              },
+              "required": [
+                "language"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "const": "typescript"
+                },
+                "tsconfig": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"
+                }
+              },
+              "required": [
+                "language",
+                "tsconfig"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol_version",
+        "snapshot",
+        "scope",
+        "resolver"
+      ],
+      "additionalProperties": false
+    },
+    "CollectionResponse": {
+      "type": "object",
+      "properties": {
+        "protocol_version": {
+          "const": "1.0.0"
+        },
+        "facts": {
+          "$ref": "#/$defs/SourceFacts"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "facts"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/CollectionRequest"
+    },
+    {
+      "$ref": "#/$defs/CollectionResponse"
+    }
+  ]
+}

@@ -10,16 +10,18 @@ import re
 import tomllib
 from collections.abc import Iterable
 from dataclasses import replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Final
 
 from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
 from archkeel.ir.decisions import DOCUMENT_PATH, identifier, open_decisions
+from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     CompleteAssignmentRule,
+    ComponentOwnership,
     ComponentRole,
     ContractComponent,
     Diagnostic,
@@ -177,8 +179,58 @@ def _drafted_public(
     return {label: tuple(sorted(entries)) for label, entries in proposals.items()}
 
 
+def _typescript_components(
+    observation: Observation, namespace: str, roots: tuple[str, ...]
+) -> tuple[dict[str, str], tuple[ContractComponent, ...]]:
+    groups: dict[PurePosixPath, list[str]] = {}
+    directories: set[PurePosixPath] = set()
+    for record in observation.records("modules") or ():
+        name, file = record.data.get("qualified_name"), record.data.get("file")
+        if not isinstance(name, str) or not isinstance(file, str):
+            raise ValueError("TypeScript modules require a qualified name and source file")
+        path = PurePosixPath(file)
+        source = next((PurePosixPath(root) for root in roots if path.is_relative_to(root)), None)
+        if source is None:
+            raise ValueError(f"TypeScript source is outside configured roots: {file}")
+        relative = path.relative_to(source)
+        group = source / relative.parts[0] if relative.parts else source
+        groups.setdefault(group, []).append(name)
+        if group != path:
+            directories.add(group)
+    labels: dict[str, str] = {}
+    components: list[ContractComponent] = []
+    for group, names in sorted(groups.items()):
+        selector = module_identity(namespace, group.as_posix(), "typescript")
+        # Mermaid identifiers are lowercase; preserve case and path distinctions by escaping.
+        label = re.sub(
+            "[A-Z]",
+            lambda match: f"_x{ord(match[0]):x}_",
+            selector.removeprefix(namespace + ".").replace(".", "_x2f_"),
+        )
+        labels.update((name, label) for name in names)
+        directory = group in directories
+        components.append(
+            ContractComponent(
+                f"COMP-{identifier(label)}",
+                label,
+                ComponentRole.COMPONENT,
+                (selector,) if directory else (),
+                (),
+                (),
+                (DOCUMENT_PATH,),
+                namespace=selector if directory else None,
+                exact_modules=None if directory else tuple(sorted(names)),
+            )
+        )
+    return labels, tuple(components)
+
+
 def draft_contract(
-    observation: Observation, namespace: str
+    observation: Observation,
+    namespace: str,
+    *,
+    roots: tuple[str, ...] = (),
+    language: Language = "python",
 ) -> tuple[ArchitectureContract, frozenset[tuple[str, str]], tuple[StructureMetric, ...]]:
     """Propose components, structural rules and each draft's measured size.
 
@@ -187,27 +239,31 @@ def draft_contract(
     AD-38: sizes come from `scope_metrics`, the same aggregation `structure_metrics` uses for
     a declared component, applied here to the draft grouping before any component exists.
     """
-    depth = len(namespace.split("."))
-    module_labels = {
-        name: name.split(".")[depth]
-        for record in observation.records("modules") or ()
-        if isinstance((name := record.data.get("qualified_name")), str)
-        and name != namespace
-        and in_scope(name, namespace)
-    }
-    labels = tuple(sorted(set(module_labels.values())))
-    draft_components = tuple(
-        ContractComponent(
-            f"COMP-{identifier(label)}",
-            label,
-            ComponentRole.COMPONENT,
-            (f"{namespace}.{label}",),
-            (),
-            (),
-            (DOCUMENT_PATH,),
+    if language == "typescript":
+        module_labels, draft_components = _typescript_components(observation, namespace, roots)
+    else:
+        depth = len(namespace.split("."))
+        module_labels = {
+            name: name.split(".")[depth]
+            for record in observation.records("modules") or ()
+            if isinstance((name := record.data.get("qualified_name")), str)
+            and name != namespace
+            and in_scope(name, namespace)
+        }
+        labels = tuple(sorted(set(module_labels.values())))
+        draft_components = tuple(
+            ContractComponent(
+                f"COMP-{identifier(label)}",
+                label,
+                ComponentRole.COMPONENT,
+                (f"{namespace}.{label}",),
+                (),
+                (),
+                (DOCUMENT_PATH,),
+            )
+            for label in labels
         )
-        for label in labels
-    )
+    labels = tuple(component.label for component in draft_components)
     scaffold = ArchitectureContract(CONTRACT_SCHEMA_VERSION, draft_components, ())
     edges = observed_component_edges(scaffold, observation)
     sizes = scope_metrics(observation, "component", module_labels)
@@ -300,8 +356,10 @@ def _ownership_label(component: ContractComponent) -> str:
     return packages or exact
 
 
-def _drafted_ownership(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    return tuple((item.label, item.packages) for item in contract.components)
+def _drafted_ownership(contract: ArchitectureContract) -> tuple[ComponentOwnership, ...]:
+    return tuple(
+        (item.label, item.packages, item.exact_modules or ()) for item in contract.components
+    )
 
 
 def _draft_sizes(sizes: tuple[StructureMetric, ...]) -> tuple[DraftedComponentSize, ...]:
@@ -311,13 +369,19 @@ def _draft_sizes(sizes: tuple[StructureMetric, ...]) -> tuple[DraftedComponentSi
 def run_init(
     root: Path,
     *,
-    source: str | None,
+    source: str | tuple[str, ...] | None,
     namespace: str | None,
     force: bool,
     analyzer: Analyzer,
     language: Language = "python",
+    tsconfig: str | None = None,
+    collector_argv: tuple[str, ...] | None = None,
 ) -> tuple[RunResult, FilesToWrite]:
     """Observe the repository and return the onboarding files without writing them."""
+    if language == "typescript" and (not source or not namespace or not tsconfig):
+        raise ValueError("TypeScript init requires --source, --namespace and --tsconfig")
+    if language != "typescript" and tsconfig is not None:
+        raise ValueError("--tsconfig requires --language typescript")
     if source is None or namespace is None:
         if source is not None or namespace is not None:
             raise ValueError("pass both --source and --namespace, or neither")
@@ -344,7 +408,8 @@ def run_init(
                 "Rerun archkeel init with --force to replace them.",
             )
         )
-    config = ScanConfig((source,), namespace, CONTRACT_PATH, "", language)
+    roots = (source,) if isinstance(source, str) else source
+    config = ScanConfig(roots, namespace, CONTRACT_PATH, "", language, tsconfig, collector_argv)
     with TemporaryDirectory(prefix="archkeel-init-") as temporary:
         scaffold = Path(temporary)
         (scaffold / CONTRACT_PATH).write_bytes(
@@ -355,14 +420,21 @@ def run_init(
         return RunResult(
             "init", 2, diagnostics=observed.diagnostics, coverage=observed.coverage
         ), FilesToWrite()
-    contract, edges, sizes = draft_contract(observed.observation, namespace)
+    contract, edges, sizes = draft_contract(
+        observed.observation, namespace, roots=roots, language=language
+    )
     # Absent means Python, so a Python draft keeps the exact bytes it always had.
     language_line = "" if language == "python" else f"language = {json.dumps(language)}\n"
+    tsconfig_line = "" if tsconfig is None else f"tsconfig = {json.dumps(tsconfig)}\n"
+    collector_line = (
+        "" if collector_argv is None else f"collector_argv = {json.dumps(collector_argv)}\n"
+    )
     files = FilesToWrite(
         {
             CONFIG_PATH: (
-                f"[scan]\nroots = [{json.dumps(source)}]\nnamespace = {json.dumps(namespace)}\n"
-                f"contract = {json.dumps(CONTRACT_PATH)}\n{language_line}"
+                f"[scan]\nroots = {json.dumps(roots)}\nnamespace = {json.dumps(namespace)}\n"
+                f"contract = {json.dumps(CONTRACT_PATH)}\n"
+                f"{language_line}{tsconfig_line}{collector_line}"
             ).encode(),
             CONTRACT_PATH: contract_bytes(contract),
             DOCUMENT_PATH: architecture_document(namespace, contract, edges, sizes).encode(),

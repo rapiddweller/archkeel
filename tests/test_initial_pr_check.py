@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 from test_result_schema import validator as validator
 
-from archkeel.analyzer import observe
 from archkeel.check.run import run_check
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import result_payload
 from archkeel.ir.host_records import InitialPRHeadEvidence, OrderingError
 from archkeel.render.html import render_check_html

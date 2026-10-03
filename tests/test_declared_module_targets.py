@@ -12,10 +12,10 @@ from typing import Any
 import pytest
 from test_architecture_demo import _prepare_repo
 
-from archkeel.analyzer import observe
-from archkeel.analyzer.embedded.report import _declared_module_name, analyze_snapshot
+from archkeel.check.observation import _declared_module_name
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     contract_bytes,
     decode_canonical_model,
@@ -123,16 +123,46 @@ def _report(
     if source_paths is None:
         observation = parse_observation(decode_canonical_model(json.loads(architecture)))
     else:
-        model, _ = analyze_snapshot(
-            root,
-            git_head="test",
-            dirty=False,
+        from dataclasses import replace
+
+        from archkeel.analyzer.python.collect import collect
+        from archkeel.check.observation import assemble_observation
+        from archkeel.ir.facts import CollectionCoverage
+        from archkeel.ir.protocol import (
+            CollectionRequest,
+            PythonSettings,
+            SnapshotInput,
+            SourceScope,
+        )
+        from archkeel.ir.state_facts import StateFacts
+
+        assert source_paths == []
+        request = CollectionRequest(
+            SnapshotInput(str(root), "test", False),
+            SourceScope(config.roots, config.namespace),
+            PythonSettings(),
+        )
+        facts = collect(request)
+        empty = replace(
+            facts,
+            files=(),
+            imports=(),
+            sections=tuple(replace(section, records=()) for section in facts.sections),
+            coverage=CollectionCoverage((), 0, 0, False, ()),
+            evidence=(),
+            uncertain_reexports=(),
+            type_shapes=(),
+            state=StateFacts((), ()),
+            candidate_evidence=(),
+        )
+        observation, _ = assemble_observation(
+            empty,
+            contract_root=root,
             contract_path=root / "architecture-contract.json",
-            source_paths=[root / path for path in source_paths],
             roots=config.roots,
             namespace=config.namespace,
+            language="python",
         )
-        observation = parse_observation(model)
     page = render_html(
         result, observation, repository="sample", architecture_href="architecture.json"
     ).decode()

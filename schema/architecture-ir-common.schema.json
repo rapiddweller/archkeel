@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:architecture-ir:common:1.2.0",
-  "title": "Shared ArchitectureIR record, source-evidence and decoded observation definitions",
+  "title": "Shared ArchitectureIR record and source-evidence definitions",
   "$comment": "DESIGN ARTIFACT. Derived from model.py RECORD_FIELDS/EVIDENCE_FIELDS/EvidenceClass. Cross-record references, ID uniqueness, evidence authenticity, canonical byte encoding and metric arithmetic require code.",
   "$ref": "#/$defs/record",
   "$defs": {
@@ -182,6 +182,314 @@
         }
       }
     },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "status",
+        "files_discovered",
+        "files_read",
+        "files_parsed",
+        "calls_analyzed",
+        "calls_resolved",
+        "calls_partially_resolved",
+        "calls_unresolved",
+        "ast_coverage_percent",
+        "call_resolution_percent",
+        "failures"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "files_discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_parsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls_analyzed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "calls_resolved": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "calls_partially_resolved": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "calls_unresolved": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "ast_coverage_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "call_resolution_percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "rules": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "calls_analyzed": {
+              "type": "null"
+            },
+            "calls_resolved": {
+              "type": "null"
+            },
+            "calls_partially_resolved": {
+              "type": "null"
+            },
+            "calls_unresolved": {
+              "type": "null"
+            },
+            "call_resolution_percent": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "calls_analyzed": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "calls_resolved": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "calls_partially_resolved": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "calls_unresolved": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "call_resolution_percent": {
+              "not": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "code_digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code_digest": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pythonImports": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "source_module",
+                  "source_package",
+                  "target_module",
+                  "target_package",
+                  "binding",
+                  "symbol",
+                  "relative_level",
+                  "under_type_checking",
+                  "reexport",
+                  "reexport_chain",
+                  "origin_definition",
+                  "symbol_visibility",
+                  "declared_in_all",
+                  "symbols_known"
+                ],
+                "properties": {
+                  "source_module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_package": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target_module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target_package": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "binding": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "symbol": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "relative_level": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "under_type_checking": {
+                    "type": "boolean"
+                  },
+                  "reexport": {
+                    "type": "boolean"
+                  },
+                  "reexport_chain": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "origin_definition": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "symbol_visibility": {
+                    "enum": [
+                      "private",
+                      "public_name",
+                      null
+                    ]
+                  },
+                  "declared_in_all": {
+                    "type": "boolean"
+                  },
+                  "source_binding_unique": {
+                    "type": "boolean",
+                    "description": "True when this publisher binding has one module-scope binder; false means a competing binder prevents unique publication evidence."
+                  },
+                  "symbols_known": {
+                    "type": "boolean",
+                    "description": "False when the import names no symbol, so which names cross is unknown (a Dart import without show, AD-97)."
+                  },
+                  "reexport_candidates": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "source_member_binding_static": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      }
+    },
     "observation": {
       "type": "object",
       "required": [
@@ -227,7 +535,8 @@
             "name": {
               "enum": [
                 "archkeel-python-analyzer",
-                "archkeel-dart-directives"
+                "archkeel-dart-directives",
+                "archkeel-typescript-imports"
               ]
             },
             "version": {
@@ -303,95 +612,7 @@
           "additionalProperties": false
         },
         "coverage": {
-          "type": "object",
-          "required": [
-            "status",
-            "files_discovered",
-            "files_read",
-            "files_parsed",
-            "calls_analyzed",
-            "calls_resolved",
-            "calls_partially_resolved",
-            "calls_unresolved",
-            "ast_coverage_percent",
-            "call_resolution_percent",
-            "failures"
-          ],
-          "properties": {
-            "status": {
-              "enum": [
-                "PASS",
-                "FAIL"
-              ]
-            },
-            "files_discovered": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "files_read": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "files_parsed": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "calls_analyzed": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "calls_resolved": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "calls_partially_resolved": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "calls_unresolved": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "ast_coverage_percent": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 100
-            },
-            "call_resolution_percent": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 100
-            },
-            "failures": {
-              "type": "array",
-              "items": {
-                "allOf": [
-                  {
-                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
-                  },
-                  {
-                    "not": {
-                      "properties": {
-                        "evidence_class": {
-                          "const": "HYPOTHESIS"
-                        }
-                      },
-                      "required": [
-                        "evidence_class"
-                      ]
-                    }
-                  }
-                ]
-              }
-            },
-            "rules": {
-              "enum": [
-                "PASS",
-                "FAIL"
-              ]
-            }
-          },
-          "additionalProperties": false
+          "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
         },
         "metrics": {
           "type": "array",
@@ -504,35 +725,13 @@
           }
         },
         "symbols": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "allOf": [
-              {
-                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
-              },
-              {
-                "not": {
-                  "properties": {
-                    "evidence_class": {
-                      "const": "HYPOTHESIS"
-                    }
-                  },
-                  "required": [
-                    "evidence_class"
-                  ]
-                }
-              }
-            ]
-          }
-        },
-        "imports": {
-          "type": "array",
-          "items": {
-            "allOf": [
-              {
+          "anyOf": [
+            {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
                 "allOf": [
                   {
                     "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
@@ -550,108 +749,30 @@
                     }
                   }
                 ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "imports": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
               },
               {
-                "properties": {
-                  "data": {
-                    "type": "object",
-                    "required": [
-                      "source_module",
-                      "source_package",
-                      "target_module",
-                      "target_package",
-                      "binding",
-                      "symbol",
-                      "relative_level",
-                      "under_type_checking",
-                      "reexport",
-                      "reexport_chain",
-                      "origin_definition",
-                      "symbol_visibility",
-                      "declared_in_all",
-                      "symbols_known"
-                    ],
-                    "properties": {
-                      "source_module": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "source_package": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "target_module": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "target_package": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "binding": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "symbol": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "relative_level": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "under_type_checking": {
-                        "type": "boolean"
-                      },
-                      "reexport": {
-                        "type": "boolean"
-                      },
-                      "reexport_chain": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "origin_definition": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "symbol_visibility": {
-                        "enum": [
-                          "private",
-                          "public_name",
-                          null
-                        ]
-                      },
-                      "declared_in_all": {
-                        "type": "boolean"
-                      },
-                      "source_binding_unique": {
-                        "type": "boolean",
-                        "description": "True when this publisher binding has one module-scope binder; false means a competing binder prevents unique publication evidence."
-                      },
-                      "symbols_known": {
-                        "type": "boolean",
-                        "description": "False when the import names no symbol, so which names cross is unknown (a Dart import without show, AD-97)."
-                      },
-                      "reexport_candidates": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "source_member_binding_static": {
-                        "type": "boolean"
-                      }
-                    },
-                    "additionalProperties": false
-                  }
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
                 }
               }
             ]
@@ -746,10 +867,106 @@
           }
         },
         "calls": {
-          "type": "array",
-          "items": {
-            "allOf": [
-              {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "allOf": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "evidence_class": {
+                              "const": "HYPOTHESIS"
+                            }
+                          },
+                          "required": [
+                            "evidence_class"
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "required": [
+                          "source_scope",
+                          "source_module",
+                          "expression",
+                          "status",
+                          "targets",
+                          "candidate_count",
+                          "candidates_truncated",
+                          "reason",
+                          "target_evidence_ids"
+                        ],
+                        "properties": {
+                          "source_scope": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "source_module": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "expression": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "resolved",
+                              "partially_resolved",
+                              "unresolved"
+                            ]
+                          },
+                          "targets": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "candidate_count": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "candidates_truncated": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "target_evidence_ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "typing_signals": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
                 "allOf": [
                   {
                     "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
@@ -767,116 +984,41 @@
                     }
                   }
                 ]
-              },
-              {
-                "properties": {
-                  "data": {
-                    "type": "object",
-                    "required": [
-                      "source_scope",
-                      "source_module",
-                      "expression",
-                      "status",
-                      "targets",
-                      "candidate_count",
-                      "candidates_truncated",
-                      "reason",
-                      "target_evidence_ids"
-                    ],
-                    "properties": {
-                      "source_scope": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "source_module": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "expression": {
-                        "type": "string"
-                      },
-                      "status": {
-                        "enum": [
-                          "resolved",
-                          "partially_resolved",
-                          "unresolved"
-                        ]
-                      },
-                      "targets": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "candidate_count": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "candidates_truncated": {
-                        "type": "boolean"
-                      },
-                      "reason": {
-                        "type": "string"
-                      },
-                      "target_evidence_ids": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      }
-                    },
-                    "additionalProperties": false
-                  }
-                }
               }
-            ]
-          }
-        },
-        "typing_signals": {
-          "type": "array",
-          "items": {
-            "allOf": [
-              {
-                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
-              },
-              {
-                "not": {
-                  "properties": {
-                    "evidence_class": {
-                      "const": "HYPOTHESIS"
-                    }
-                  },
-                  "required": [
-                    "evidence_class"
-                  ]
-                }
-              }
-            ]
-          }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "constructs": {
-          "type": "array",
-          "items": {
-            "allOf": [
-              {
-                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
-              },
-              {
-                "not": {
-                  "properties": {
-                    "evidence_class": {
-                      "const": "HYPOTHESIS"
-                    }
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "allOf": [
+                  {
+                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
                   },
-                  "required": [
-                    "evidence_class"
-                  ]
-                }
+                  {
+                    "not": {
+                      "properties": {
+                        "evidence_class": {
+                          "const": "HYPOTHESIS"
+                        }
+                      },
+                      "required": [
+                        "evidence_class"
+                      ]
+                    }
+                  }
+                ]
               }
-            ]
-          }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "contexts": {
           "type": "array",
@@ -978,187 +1120,352 @@
           "description": "Actual producer Python version. Historical observations may omit it; comparison requires a known equal version."
         },
         "bindings": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "allOf": [
-              {
+          "anyOf": [
+            {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
                 "allOf": [
                   {
-                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                    "allOf": [
+                      {
+                        "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "evidence_class": {
+                              "const": "HYPOTHESIS"
+                            }
+                          },
+                          "required": [
+                            "evidence_class"
+                          ]
+                        }
+                      }
+                    ]
                   },
                   {
-                    "not": {
-                      "properties": {
-                        "evidence_class": {
-                          "const": "HYPOTHESIS"
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "required": [
+                          "owner",
+                          "module",
+                          "name",
+                          "binding"
+                        ],
+                        "properties": {
+                          "owner": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "module": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "binding": {
+                            "enum": [
+                              "parameter",
+                              "local"
+                            ]
+                          }
                         }
-                      },
-                      "required": [
-                        "evidence_class"
-                      ]
+                      }
                     }
                   }
                 ]
-              },
-              {
-                "properties": {
-                  "data": {
-                    "type": "object",
-                    "required": [
-                      "owner",
-                      "module",
-                      "name",
-                      "binding"
-                    ],
-                    "properties": {
-                      "owner": {
-                        "type": "string",
-                        "minLength": 1
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "references": {
+          "anyOf": [
+            {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "allOf": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
                       },
-                      "module": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "binding": {
-                        "enum": [
-                          "parameter",
-                          "local"
-                        ]
+                      {
+                        "not": {
+                          "properties": {
+                            "evidence_class": {
+                              "const": "HYPOTHESIS"
+                            }
+                          },
+                          "required": [
+                            "evidence_class"
+                          ]
+                        }
                       }
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "required": [
+                          "source_scope",
+                          "source_module",
+                          "expression",
+                          "status",
+                          "targets",
+                          "use"
+                        ],
+                        "properties": {
+                          "source_scope": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "source_module": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "expression": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "resolved",
+                              "partially_resolved"
+                            ]
+                          },
+                          "targets": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "use": {
+                            "enum": [
+                              "value",
+                              "attribute"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "data"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runtime": {
+          "type": "object",
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "producer": {
+          "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/producer"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "analyzer": {
+                "properties": {
+                  "name": {
+                    "const": "archkeel-python-analyzer"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "imports": {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/pythonImports"
+              },
+              "symbols": {
+                "type": "array"
+              },
+              "references": {
+                "type": "array"
+              },
+              "bindings": {
+                "type": "array"
+              },
+              "calls": {
+                "type": "array"
+              },
+              "typing_signals": {
+                "type": "array"
+              },
+              "constructs": {
+                "type": "array"
+              },
+              "coverage": {
+                "properties": {
+                  "calls_analyzed": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "calls_resolved": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "calls_partially_resolved": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "calls_unresolved": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "call_resolution_percent": {
+                    "not": {
+                      "type": "null"
                     }
                   }
                 }
               }
-            ]
+            }
           }
         },
-        "references": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "allOf": [
-              {
-                "allOf": [
-                  {
-                    "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
-                  },
-                  {
-                    "not": {
-                      "properties": {
-                        "evidence_class": {
-                          "const": "HYPOTHESIS"
-                        }
-                      },
-                      "required": [
-                        "evidence_class"
-                      ]
-                    }
-                  }
-                ]
-              },
-              {
-                "properties": {
-                  "data": {
-                    "type": "object",
-                    "required": [
-                      "source_scope",
-                      "source_module",
-                      "expression",
-                      "status",
-                      "targets",
-                      "use"
-                    ],
-                    "properties": {
-                      "source_scope": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "source_module": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "expression": {
-                        "type": "string"
-                      },
-                      "status": {
-                        "enum": [
-                          "resolved",
-                          "partially_resolved"
-                        ]
-                      },
-                      "targets": {
-                        "type": "array",
-                        "minItems": 1,
-                        "items": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "use": {
-                        "enum": [
-                          "value",
-                          "attribute"
-                        ]
-                      }
-                    },
-                    "additionalProperties": false
-                  }
-                },
-                "required": [
-                  "data"
-                ]
-              }
-            ]
-          }
-        }
-      },
-      "additionalProperties": false,
-      "if": {
-        "properties": {
-          "analyzer": {
+        {
+          "if": {
             "properties": {
-              "name": {
-                "const": "archkeel-dart-directives"
+              "analyzer": {
+                "properties": {
+                  "name": {
+                    "const": "archkeel-dart-directives"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "symbols": {
+                "type": "null"
+              },
+              "references": {
+                "type": "null"
+              },
+              "bindings": {
+                "type": "null"
+              },
+              "calls": {
+                "type": "array"
+              },
+              "typing_signals": {
+                "type": "array"
+              },
+              "constructs": {
+                "type": "array"
+              },
+              "coverage": {
+                "properties": {
+                  "calls_analyzed": {},
+                  "calls_resolved": {},
+                  "calls_partially_resolved": {},
+                  "calls_unresolved": {},
+                  "call_resolution_percent": {}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "analyzer": {
+                "properties": {
+                  "name": {
+                    "const": "archkeel-typescript-imports"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "symbols": {
+                "type": "null"
+              },
+              "references": {
+                "type": "null"
+              },
+              "bindings": {
+                "type": "null"
+              },
+              "calls": {
+                "type": "null"
+              },
+              "typing_signals": {
+                "type": "null"
+              },
+              "constructs": {
+                "type": "null"
+              },
+              "coverage": {
+                "properties": {
+                  "calls_analyzed": {
+                    "type": "null"
+                  },
+                  "calls_resolved": {
+                    "type": "null"
+                  },
+                  "calls_partially_resolved": {
+                    "type": "null"
+                  },
+                  "calls_unresolved": {
+                    "type": "null"
+                  },
+                  "call_resolution_percent": {
+                    "type": "null"
+                  }
+                }
               }
             }
           }
         }
-      },
-      "then": {
-        "properties": {
-          "symbols": {
-            "type": "null"
-          },
-          "references": {
-            "type": "null"
-          },
-          "bindings": {
-            "type": "null"
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "symbols": {
-            "type": "array"
-          },
-          "references": {
-            "type": "array"
-          },
-          "bindings": {
-            "type": "array"
-          }
-        }
-      }
+      ]
     }
   }
 }

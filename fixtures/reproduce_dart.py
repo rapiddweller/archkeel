@@ -23,10 +23,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.demo_catalog_dart import VARIANTS

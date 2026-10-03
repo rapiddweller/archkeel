@@ -12,14 +12,14 @@ from typing import Any
 
 import pytest
 
-from archkeel.analyzer import observe
-from archkeel.analyzer.embedded.dart_directives import read_header
-from archkeel.analyzer.embedded.dart_lexer import DirectiveError
+from archkeel.analyzer.dart.directives import read_header
+from archkeel.analyzer.dart.lexer import DirectiveError
 from archkeel.check.ports import ScanConfig
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.check.run import inspect_observation
 from archkeel.check.validation import run_validate
 from archkeel.cli.config import ConfigError, parse_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     baseline_bytes,
     canonical_report_bytes,

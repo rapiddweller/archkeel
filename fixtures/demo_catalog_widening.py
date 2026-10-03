@@ -17,10 +17,10 @@ import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 
-from archkeel.analyzer import observe
 from archkeel.check.git import read_blob
 from archkeel.check.validation import run_validate
 from archkeel.cli.config import load_config, parse_config
+from archkeel.cli.observe import observe
 from archkeel.ir.model import RunResult
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_dependencies import module_cycle_rule

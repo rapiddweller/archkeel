@@ -5,13 +5,48 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Final, Literal, TypeAlias, get_args, get_type_hints
 
+from .facts import (
+    EVIDENCE_FIELDS as EVIDENCE_FIELDS,
+)
+from .facts import (
+    RECORD_FIELDS as RECORD_FIELDS,
+)
+from .facts import (
+    AnalyzerInfo as AnalyzerInfo,
+)
+from .facts import (
+    Evidence as Evidence,
+)
+from .facts import (
+    EvidenceClass as EvidenceClass,
+)
+from .facts import (
+    JsonValue as JsonValue,
+)
+from .facts import (
+    Record as Record,
+)
+from .facts import (
+    RecordData as RecordData,
+)
+from .facts import (
+    RuntimeInfo as RuntimeInfo,
+)
+from .facts import (
+    SourceInfo as SourceInfo,
+)
+from .facts import (
+    in_scope as in_scope,
+)
+from .facts import (
+    stable_id as stable_id,
+)
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
@@ -45,97 +80,6 @@ CLASSIFIED_SECTIONS = (
     "violations",
     "unknowns",
 )
-RECORD_FIELDS = (
-    "id",
-    "evidence_class",
-    "area",
-    "kind",
-    "title",
-    "subjects",
-    "evidence_ids",
-    "rule_ids",
-    "fact_ids",
-    "provenance",
-    "data",
-)
-EVIDENCE_FIELDS = ("id", "file", "line", "end_line", "column", "excerpt")
-
-
-class EvidenceClass(StrEnum):
-    FACT = "FACT"
-    DECLARED_RULE = "DECLARED_RULE"
-    VIOLATION = "VIOLATION"
-    HYPOTHESIS = "HYPOTHESIS"
-    UNKNOWN = "UNKNOWN"
-
-
-def stable_id(prefix: str, *parts: object) -> str:
-    """Return a compact content-derived ID independent of traversal order."""
-    payload = "\x1f".join(str(part) for part in parts).encode("utf-8")
-    return f"{prefix}-{hashlib.sha256(payload).hexdigest()[:16]}"
-
-
-@dataclass(frozen=True, slots=True)
-class RecordData:
-    """Immutable, profile-owned JSON payload; the common schema leaves its keys open."""
-
-    entries: tuple[tuple[str, JsonValue], ...] = ()
-
-    def __post_init__(self) -> None:
-        if len({key for key, _ in self.entries}) != len(self.entries):
-            raise ValueError("duplicate record data key")
-
-    def get(self, key: str, default: JsonValue = None) -> JsonValue:
-        return next((value for name, value in self.entries if name == key), default)
-
-
-JsonValue: TypeAlias = str | int | float | bool | None | tuple["JsonValue", ...] | RecordData
-
-
-@dataclass(frozen=True, slots=True)
-class Record:
-    id: str
-    evidence_class: EvidenceClass
-    area: str
-    kind: str
-    title: str
-    subjects: tuple[str, ...]
-    evidence_ids: tuple[str, ...]
-    rule_ids: tuple[str, ...]
-    fact_ids: tuple[str, ...]
-    provenance: tuple[str, ...]
-    data: RecordData
-
-
-@dataclass(frozen=True, slots=True)
-class Evidence:
-    id: str
-    file: str
-    line: int
-    end_line: int
-    column: int
-    excerpt: str
-
-
-@dataclass(frozen=True, slots=True)
-class AnalyzerInfo:
-    name: str
-    version: str
-    code_digest: str
-
-
-@dataclass(frozen=True, slots=True)
-class RuntimeInfo:
-    name: str
-    version: str
-
-
-@dataclass(frozen=True, slots=True)
-class SourceInfo:
-    git_head: str
-    dirty: bool | Literal["unknown"]
-    source_digest: str
-    scope: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -615,11 +559,6 @@ def int_value(value: object, *, default: int = 0) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else default
 
 
-def in_scope(name: str, scope: str) -> bool:
-    """Match a qualified name against a dotted prefix without partial segments."""
-    return name == scope or name.startswith(f"{scope}.")
-
-
 def module_in_ownership(module: str, packages: Iterable[str], exact_modules: Iterable[str]) -> bool:
     """Apply recursive package and exact module ownership selectors together."""
     return module in exact_modules or any(in_scope(module, package) for package in packages)
@@ -864,12 +803,12 @@ class Coverage:
     files_discovered: int
     files_read: int
     files_parsed: int
-    calls_analyzed: int
-    calls_resolved: int
-    calls_partially_resolved: int
-    calls_unresolved: int
+    calls_analyzed: int | None
+    calls_resolved: int | None
+    calls_partially_resolved: int | None
+    calls_unresolved: int | None
     ast_coverage_percent: float
-    call_resolution_percent: float
+    call_resolution_percent: float | None
     failures: tuple[Record, ...]
     rules: Verdict | None = None
 

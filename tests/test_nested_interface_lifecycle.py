@@ -14,9 +14,9 @@ from test_recursive_inside_independent_contracts import (
     _write_three_levels,
 )
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, run_validate
+from archkeel.cli.observe import observe
 
 _ENTRY = "sample.layer.source.api:Payload"
 _INTERFACE_RULE = {
