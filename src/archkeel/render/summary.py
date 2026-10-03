@@ -222,10 +222,7 @@ def _renames_line(result: RunResult) -> str:
 
 def _roots_reason(scan_roots: tuple[str, ...]) -> str:
     """Name the roots a scan read, so its PASS is not taken to cover code beside them (AD-101)."""
-    return (
-        f"All source files under {', '.join(scan_roots)} were read and parsed; "
-        "no source file beside them was read."
-    )
+    return f"All source files under {', '.join(scan_roots)} were read and parsed."
 
 
 def _observation_reason(result: RunResult) -> str:

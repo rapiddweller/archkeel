@@ -18,6 +18,7 @@ from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes
 from archkeel.ir.digest import package_digest
+from archkeel.ir.lock import LOCK_SCHEMA_VERSION
 from fixtures.reproduce_milestone1 import _git, _json
 
 
@@ -57,7 +58,7 @@ def run_snapshot_check(
     lock_bytes = _json(
         root / "architecture-accepted.json",
         {
-            "schema_version": "1.0.0",
+            "schema_version": LOCK_SCHEMA_VERSION,
             "accepted_commit": accepted_commit,
             "observation_digest": observation_digest,
             "config_digest": config.digest,

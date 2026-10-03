@@ -141,7 +141,11 @@ def test_an_unmeasured_call_count_cannot_produce_a_passing_ratio(
     before: int | None, after: int | None
 ) -> None:
     def measured(count: int | None) -> Measurements:
-        return Measurements(RatchetScalars(0, 0, 0, 0, count, 0), 10, "measured")
+        return Measurements(
+            RatchetScalars(0, 0, 0, 0, count, 0),
+            None if count is None else 10,
+            "n/a" if count is None else "measured",
+        )
 
     rows = compare_measurements(measured(before), measured(after))
     assert next(row for row in rows if row[0] == "unresolved_ratio")[3] == "n/a"

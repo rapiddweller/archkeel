@@ -145,6 +145,112 @@ def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(valida
     assert not validator.evolve(schema=coverage).is_valid(payload)
 
 
+@pytest.mark.parametrize(
+    ("language", "source", "total", "unresolved"),
+    [
+        ("python", "VALUE = 1\n", 0, 0),
+        ("python", "def run():\n    return missing()\n", 1, 1),
+        ("dart", "void main() { print('hello'); }\n", None, None),
+    ],
+)
+def test_real_cli_call_totals_preserve_availability(
+    validator,
+    tmp_path: Path,
+    language: str,
+    source: str,
+    total: int | None,
+    unresolved: int | None,
+) -> None:
+    from archkeel.ir.codec import parse_measurements
+
+    (tmp_path / "src").mkdir()
+    if language == "python":
+        (tmp_path / "src/sample").mkdir()
+    source_path = "src/app.dart" if language == "dart" else "src/sample/app.py"
+    (tmp_path / source_path).write_text(source)
+    (tmp_path / ("pubspec.yaml" if language == "dart" else "pyproject.toml")).write_text(
+        "name: sample\n" if language == "dart" else '[project]\nrequires-python=">=3.11"\n'
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": [], "rules": []})
+    )
+    (tmp_path / "archkeel.toml").write_text(
+        f'[scan]\nroots=["src"]\nnamespace="sample"\ncontract="contract.json"\n'
+        f'language="{language}"\n'
+    )
+    for args in (
+        ("init", "-q"),
+        ("add", "."),
+        (
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "Call measurement fixture",
+        ),
+    ):
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-m",
+            "archkeel.cli",
+            "report",
+            "--root",
+            str(tmp_path),
+            "--output",
+            str(tmp_path / "architecture.json"),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(run.stdout)
+    assert run.returncode == 0, (payload["diagnostics"], run.stderr)
+    assert payload["coverage"]["calls_analyzed"] == total
+    assert payload["measurements"]["calls_total"] == total
+    assert payload["measurements"]["scalars"]["calls_unresolved"] == unresolved
+    assert not list(validator.iter_errors(payload))
+    assert parse_measurements(payload["measurements"], "report").calls_total == total
+
+
+@pytest.mark.parametrize(
+    ("total", "unresolved", "resolution", "valid"),
+    [
+        (None, None, "n/a", True),
+        (0, None, "n/a", True),
+        (0, 0, "n/a", True),
+        (1, 1, "measured", True),
+        (None, 0, "n/a", False),
+        (None, None, "measured", False),
+        (1, None, "measured", False),
+        (0, 1, "n/a", False),
+        (0, 0, "measured", False),
+        (1, 0, "n/a", False),
+        (True, 0, "measured", False),
+        (-1, 0, "measured", False),
+        ("1", 0, "measured", False),
+    ],
+)
+def test_measurement_schema_rejects_incoherent_count_availability(
+    validator, total: object, unresolved: int | None, resolution: str, valid: bool
+) -> None:
+    from dataclasses import asdict
+
+    from archkeel.ir.measurements import RatchetScalars
+
+    payload = {
+        "scalars": asdict(RatchetScalars(0, 0, 0, 0, unresolved, 0)),
+        "calls_total": total,
+        "resolution": resolution,
+    }
+    measurements = validator.evolve(schema=validator.schema["$defs"]["measurements"])
+    assert measurements.is_valid(payload) is valid
+
+
 def test_decoded_typescript_schema_preserves_unmeasured_call_availability() -> None:
     from test_nullable_profile_measurements import _profile_model
 
@@ -290,10 +396,34 @@ def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path)
             checker_digest="b" * 64,
         )
     )
-    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:1.0.0#/$defs/delta"})
+    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:2.0.0#/$defs/delta"})
     assert not list(schema.iter_errors(delta))
     delta["analyzer"]["name"] = "unknown-analyzer"
     assert not schema.is_valid(delta)
+
+
+def test_delta_schema_keeps_legacy_integer_call_totals(validator, tmp_path: Path) -> None:
+    result = _observe_tree(tmp_path, {"sample/a.py": ""}, _contract([]))
+    assert result.observation is not None
+    delta = delta_payload(
+        build_architecture_delta(
+            result.observation,
+            result.observation,
+            baseline_digest="a" * 64,
+            head_digest="a" * 64,
+            checker_digest="b" * 64,
+        )
+    )
+    schema = validator.evolve(schema=validator.schema["$defs"]["delta"])
+    for side in ("baseline", "head"):
+        delta["ratchets"][side]["scalars"]["calls_unresolved"] = None
+    for version in ("1.3.0", "1.4.0"):
+        legacy = copy.deepcopy(delta)
+        legacy["schema_version"] = version
+        assert schema.is_valid(legacy)
+        for side in ("baseline", "head"):
+            legacy["ratchets"][side]["calls_total"] = None
+        assert schema.is_valid(legacy) is (version == "1.4.0")
 
 
 def test_incomplete_dart_check_preserves_profile_sections(validator, tmp_path: Path) -> None:
