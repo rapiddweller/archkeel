@@ -1,0 +1,47 @@
+[
+  {
+    "namespace": "app",
+    "path": "src/foo.ts",
+    "module": "app.src.foo_x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/foo.test.ts",
+    "module": "app.src.foo_x2e_test_x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/foo/test.ts",
+    "module": "app.src.foo.test_x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/index.ts",
+    "module": "app.src.index_x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/1-name.ts",
+    "module": "app.src._x31__x2d_name_x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/a_b.ts",
+    "module": "app.src.a_x5f_b_x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/a-b.ts",
+    "module": "app.src.a_x2d_b_x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/café.ts",
+    "module": "app.src.caf_xe9__x2e_ts"
+  },
+  {
+    "namespace": "app",
+    "path": "src/a.d.ts",
+    "module": "app.src.a_x2e_d_x2e_ts"
+  }
+]
