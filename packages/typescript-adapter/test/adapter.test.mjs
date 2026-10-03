@@ -696,7 +696,7 @@ test("resolution input and source digests bind exact source bytes", async t => {
 
 const hiddenLoaders = JSON.parse(readFileSync(join(repository, "fixtures/typescript-hidden-loaders.json"), "utf8"));
 for (const example of hiddenLoaders) test(`hidden loader coverage: ${example.name}`, t => {
-  const root = fixture(t, { "src/main.ts": example.source, "src/hidden.cjs": "require('./main.js');" }, { files: ["src/main.ts"], include: [] });
+  const root = fixture(t, { "package.json": JSON.stringify(example.manifest ?? {}), "src/main.ts": example.source, "src/hidden.cjs": "require('./main.js');" }, { files: ["src/main.ts"], include: [] });
   const facts = collect(request(root)).facts;
   assert.equal(facts.coverage.full_scope, example.complete);
   assert.equal(facts.files.length, example.cycle ? 2 : 1);

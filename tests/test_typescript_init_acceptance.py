@@ -387,6 +387,7 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     root = _repository(tmp_path / "project")
     (root / "src").mkdir()
     (root / "src/main.ts").write_text(example["source"])
+    (root / "package.json").write_text(json.dumps(example.get("manifest", {})))
     (root / "src/hidden.cjs").write_text("require('./main.js');")
     (root / "tsconfig.json").write_text(
         json.dumps(

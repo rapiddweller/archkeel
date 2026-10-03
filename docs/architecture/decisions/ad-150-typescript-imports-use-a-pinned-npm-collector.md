@@ -7,12 +7,15 @@ executes project code or scripts.
 
 Selected source and resolver inputs bind exact bytes to the revision. Explicit
 JavaScript runtime closure remains distinct from TypeScript and declarations.
+Extensionless CommonJS lookup checks the exact file, `.js`, `.json`, then `.node`.
+Observe a proven `.js` file or metadata-free `index.js`; digest its closure even
+when the compiler selects TypeScript. Exact extensionless files, JSON, native
+modules and directory metadata remain unproved.
 Computed, indirect and incomplete imports stay UNKNOWN. Local value aliases and
-relative package-directory targets retain compiler source evidence; Node runtime
-conditions and package metadata targets remain unproved.
-Their runtime_file stays null and coverage UNKNOWN; unread runtime bytes are
-not claimed in the source digest. Type-only aliases retain compiler resolution. Unavailable call, type,
-construct and private-use measurements stay null.
+unproved runtime targets keep compiler evidence, null runtime_file and UNKNOWN
+coverage; unread runtime bytes are not claimed in the digest. Type-only aliases
+retain compiler resolution. Unavailable call, type, construct and private-use
+measurements stay null.
 
 The package has its own source contract and a locked package verification Make
 entry point. CI and publication require separate proof. See [the decision](../typescript-foundation-proposal.md).

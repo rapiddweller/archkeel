@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { isBuiltin } from "node:module";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, extname, isAbsolute, resolve } from "node:path";
 import ts from "typescript";
 import { loadProject } from "./project.js";
 import { digest, id, moduleIdentity, nodeRequirement, type Evidence, type Request, type SourceRecord, type Target } from "./protocol.js";
@@ -71,10 +71,27 @@ export function collect(request: Request) {
       && resolutionInputs.has(resolve(lookup, "package.json"));
     const declaration = declarationExtension.test(path) ? rel : null;
     let runtime = declaration ? null : rel;
+    const commonJSLookup = relativeSpecifier && mode === ts.ModuleKind.CommonJS && !extname(specifier);
     if (!typeOnly) {
-      // The compiler may substitute TS or declarations for an existing JS runtime.
-      const runtimePath = relativeSpecifier && /\.(?:cjs|mjs|js)$/.test(specifier)
-        ? resolve(dirname(source.fileName), specifier) : undefined;
+      // Compiler substitution does not prove the file Node loads.
+      let runtimePath = relativeSpecifier && /\.(?:cjs|mjs|js)$/.test(specifier) ? lookup : undefined;
+      if (commonJSLookup) {
+        runtime = null;
+        const file = [lookup, `${lookup}.js`, `${lookup}.json`, `${lookup}.node`].find(project.host.fileExists);
+        if (file && file === `${lookup}.js`) runtimePath = file;
+        else if (file) gap(`CommonJS runtime file is not observed: ${project.pathOf(file)}`);
+        else if (project.host.directoryExists?.(lookup)) {
+          const metadata = resolve(lookup, "package.json");
+          if (project.host.fileExists(metadata)) {
+            project.readFile(metadata);
+            gap(`Local directory runtime metadata is not proven: ${specifier}`);
+          } else {
+            const index = ["index.js", "index.json", "index.node"].map(name => resolve(lookup, name)).find(project.host.fileExists);
+            if (index === resolve(lookup, "index.js")) runtimePath = index;
+            else gap(`CommonJS directory runtime is not observed: ${specifier}`);
+          }
+        } else gap(`CommonJS runtime target is unavailable: ${specifier}`);
+      }
       if (runtimePath && project.host.fileExists(runtimePath)) {
         const realRuntime = project.host.realpath?.(runtimePath) ?? runtimePath;
         if (project.options.preserveSymlinks && realRuntime !== runtimePath) return unresolved(`preserveSymlinks lookup context is not observed: ${specifier}`);
@@ -82,7 +99,7 @@ export function collect(request: Request) {
       } else if (declaration) gap(`Runtime implementation unavailable for declaration: ${rel}`);
     }
     observe(path);
-    if (!typeOnly && (!relativeSpecifier || directoryPackage)) {
+    if (!typeOnly && (!relativeSpecifier || (directoryPackage && !commonJSLookup))) {
       runtime = null;
       gap(directoryPackage ? `Local directory runtime metadata is not proven: ${specifier}` : `Local alias runtime conditions are not proven: ${specifier}`, [], moduleIdentity(request.scope.namespace, project.pathOf(source.fileName) ?? "unknown"));
     }
@@ -153,7 +170,8 @@ export function collect(request: Request) {
     function nodeModuleReference(node: ts.Node | undefined, seen = new Set<ts.Node>()): boolean {
       if (!node || seen.has(node)) return false;
       seen.add(node);
-      if (ts.isParenthesizedExpression(node) || ts.isAwaitExpression(node)) return nodeModuleReference(node.expression, seen);
+      if (ts.isParenthesizedExpression(node) || ts.isAwaitExpression(node) || ts.isAsExpression(node)
+        || ts.isTypeAssertionExpression(node) || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)) return nodeModuleReference(node.expression, seen);
       if (ts.isCallExpression(node)) {
         const argument = node.arguments[0];
         return (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))
@@ -193,6 +211,11 @@ export function collect(request: Request) {
       if (visited.has(node)) return;
       visited.add(node);
       if (createRequireReference(node)) gap("Node createRequire loader is not observed", [location(node)], module);
+      if (((ts.isPropertyAccessExpression(node) && node.name.text === "then")
+        || (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && node.argumentExpression.text === "then"))
+        && nodeModuleReference(node.expression)) gap("Node module callback namespace is not observed", [location(node)], module);
+      if ((ts.isCallExpression(node) || ts.isNewExpression(node))
+        && node.arguments?.some(argument => nodeModuleReference(argument))) gap("Node module namespace argument is not observed", [location(node)], module);
       if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
         let name: ts.Node = node.propertyName ?? node.name;
         while (ts.isComputedPropertyName(name) || ts.isParenthesizedExpression(name)) name = name.expression;

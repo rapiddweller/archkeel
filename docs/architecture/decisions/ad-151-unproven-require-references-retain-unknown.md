@@ -6,8 +6,11 @@ or `.apply`. A call-only guard loses these dependencies and falsely claims compl
 coverage.
 
 Mark unproven property and element references as coverage gaps at the reference
-site. Keep supported direct literal calls resolved. Resolving arbitrary loader
-aliases would require further binding and flow proof; this phase does not claim it.
+site. Erased TypeScript assertions, non-null and satisfies expressions retain the
+known Node namespace. Its `.then` use and escape through call or constructor
+arguments stay UNKNOWN. Keep supported direct literal calls resolved. Resolving
+arbitrary loader aliases would require further binding and flow proof; this phase
+does not claim it.
 
 The adapter test covers indirect forms and a direct positive control.
 `fixtures/typescript-hidden-loaders.json` and the CLI init acceptance test prove
