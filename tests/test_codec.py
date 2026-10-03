@@ -2,14 +2,27 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import pytest
+from test_expectation import _delta_payload
 
 from archkeel.ir.codec import (
     decode_canonical_model,
+    delta_payload,
     encode_canonical_model,
     observation_payload,
+    parse_delta,
     parse_observation,
 )
 from archkeel.ir.model import EvidenceClass, Observation, RecordData
+
+
+def test_nullable_snapshot_python_alias_roundtrips():
+    raw = _delta_payload()
+    raw["baseline"]["python_version"] = None
+    raw["head"]["python_version"] = None
+    parsed = parse_delta(raw)
+    assert parsed.baseline.python_version is None
+    assert parsed.head.python_version is None
+    assert parse_delta(delta_payload(parsed)) == parsed
 
 
 def raw_observation():
@@ -129,6 +142,60 @@ def test_old_python_observation_keeps_legacy_wire_fields():
     raw = raw_observation()
     observation = parse_observation(raw)
     assert set(observation_payload(observation)) == set(raw)
+
+
+@pytest.mark.parametrize("field", ["name", "version", "code_digest"])
+@pytest.mark.parametrize("missing", ["", " ", "unknown", "UNKNOWN"])
+def test_explicit_incomplete_producer_is_rejected(field, missing):
+    raw = raw_observation()
+    raw["producer"] = {"name": "parser", "version": "1.0", "code_digest": "b" * 64}
+    raw["producer"][field] = missing
+    with pytest.raises(ValueError, match="producer"):
+        parse_observation(raw)
+
+
+@pytest.mark.parametrize("field", ["name", "version"])
+@pytest.mark.parametrize("missing", ["", " ", "unknown", "UNKNOWN"])
+def test_explicit_incomplete_runtime_is_rejected(field, missing):
+    raw = raw_observation()
+    raw["runtime"] = {"name": "cpython", "version": "3.11.12"}
+    raw["runtime"][field] = missing
+    with pytest.raises(ValueError, match="runtime"):
+        parse_observation(raw)
+
+
+@pytest.mark.parametrize("snapshot", [False, True])
+@pytest.mark.parametrize("section", ["runtime", "producer"])
+@pytest.mark.parametrize("value", [None, True, 3, [], object(), {object(): "invalid"}])
+def test_provenance_boundaries_reject_non_json_shapes(snapshot, section, value):
+    raw = _delta_payload() if snapshot else raw_observation()
+    owner = raw["baseline"] if snapshot else raw
+    owner[section] = value
+    with pytest.raises(ValueError, match=section):
+        (parse_delta if snapshot else parse_observation)(raw)
+
+
+@pytest.mark.parametrize("snapshot", [False, True])
+@pytest.mark.parametrize(
+    ("section", "field"),
+    [
+        ("runtime", "name"),
+        ("runtime", "version"),
+        ("producer", "name"),
+        ("producer", "version"),
+        ("producer", "code_digest"),
+    ],
+)
+def test_provenance_boundaries_reject_non_json_field_values(snapshot, section, field):
+    raw = _delta_payload() if snapshot else raw_observation()
+    owner = raw["baseline"] if snapshot else raw
+    value: dict[str, object] = {"name": "python", "version": "3.11.12"}
+    if section == "producer":
+        value["code_digest"] = "b" * 64
+    value[field] = object()
+    owner[section] = value
+    with pytest.raises(ValueError, match=section):
+        (parse_delta if snapshot else parse_observation)(raw)
 
 
 def test_parse_rejects_invalid_coverage_rules():

@@ -53,7 +53,8 @@
           "not": {
             "const": "."
           },
-          "description": "TypeScript project config. TypeScript defaults to tsconfig.json; runtime validation checks that it exists inside the repository."
+          "default": "tsconfig.json",
+          "description": "Repository-relative TypeScript resolver config."
         },
         "collector_argv": {
           "type": "array",
@@ -63,27 +64,24 @@
             "minLength": 1,
             "pattern": "^[^\\u0000]+$"
           },
-          "description": "Optional collector command and arguments as separate tokens; no shell parsing is applied."
+          "description": "Explicit collector process command."
         }
       },
       "allOf": [
         {
           "if": {
+            "required": [
+              "tsconfig"
+            ]
+          },
+          "then": {
+            "required": [
+              "language"
+            ],
             "properties": {
               "language": {
                 "const": "typescript"
               }
-            },
-            "required": [
-              "language"
-            ]
-          },
-          "then": {},
-          "else": {
-            "not": {
-              "required": [
-                "tsconfig"
-              ]
             }
           }
         }
@@ -94,8 +92,8 @@
     "relativePath": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?![A-Za-z]:)(?![\\s\\S]*\\\\)(?![\\s\\S]*[:*?\\[\\]{}!])(?![\\s\\S]*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$",
-      "description": "Safe POSIX repository-relative path; no absolute path, colon, glob syntax, NUL, or parent component."
+      "pattern": "^(?!/)(?![\\s\\S]*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\:*?\\[\\]{}!]+$",
+      "description": "POSIX relative path without backslashes, NUL, colon, globs or parent components."
     }
   }
 }

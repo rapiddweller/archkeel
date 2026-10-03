@@ -100,6 +100,7 @@ from archkeel.ir.model import (
     TypeIgnoreAllowance,
     Verdict,
     contract_relative_path,
+    identity_is_known,
 )
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
@@ -270,14 +271,25 @@ def parse_observation(raw: object) -> Observation:
 def _parse_analyzer(raw: object, label: str) -> AnalyzerInfo:
     item = _exact(raw, {"name", "version", "code_digest"}, label)
     return AnalyzerInfo(
-        *(_string(item[key], f"{label}.{key}") for key in ("name", "version", "code_digest"))
+        *(
+            _known_identity(item[key], f"{label}.{key}")
+            for key in ("name", "version", "code_digest")
+        )
     )
+
+
+def _known_identity(raw: object, label: str) -> str:
+    value = _string(raw, label)
+    if not identity_is_known(value):
+        raise ValueError(f"{label} must identify a known producer/runtime")
+    return value
 
 
 def _parse_runtime(raw: object) -> RuntimeInfo:
     item = _exact(raw, {"name", "version"}, "runtime")
     return RuntimeInfo(
-        _nonempty(item["name"], "runtime.name"), _nonempty(item["version"], "runtime.version")
+        _known_identity(item["name"], "runtime.name"),
+        _known_identity(item["version"], "runtime.version"),
     )
 
 
@@ -954,6 +966,7 @@ def _parse_module_target(raw: RawJson, label: str) -> ContractModuleTarget:
     relative = contract_relative_path(path)
     if (
         relative is None
+        or "\x00" in path
         or str(relative) != path
         or re.match(r"^[A-Za-z]:", path) is not None
         or relative.suffix
@@ -1709,7 +1722,7 @@ def _parse_snapshot_summary(raw: RawJson, label: str) -> SnapshotSummary:
         _string(x["git_head"], f"{label}.git_head"),
         _string(x["source_digest"], f"{label}.source_digest"),
         coverage_status,
-        _python_version(x["python_version"]) if "python_version" in x else None,
+        _python_version(x["python_version"]) if x.get("python_version") is not None else None,
         _parse_runtime(x["runtime"]) if "runtime" in x else None,
         _parse_analyzer(x["producer"], f"{label}.producer") if "producer" in x else None,
     )

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
@@ -39,7 +40,7 @@ from .declarations import (
 from .evaluation.evaluate import ScanResult, evaluate_source
 from .ports import SourceCollector
 
-OBSERVATION_VERSION = "0.66.0"
+OBSERVATION_VERSION = "0.67.0"
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
@@ -370,6 +371,46 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
     )
 
 
+def _dart_target_names(
+    records: list[RawRecord], scan: ScanResult, roots: tuple[str, ...], namespace: str
+) -> dict[str, str]:
+    paths_by_name: dict[str, set[str]] = {}
+    names: dict[str, str] = {}
+    for record in scan.modules:
+        name, path = record["data"].get("qualified_name"), record["data"].get("file")
+        if isinstance(name, str) and isinstance(path, str):
+            paths_by_name.setdefault(name, set()).add(path)
+    for record in records:
+        path = record["data"].get("path")
+        if record["kind"] != "module_target" or not isinstance(path, str):
+            continue
+        name = _declared_module_name(path, roots, namespace, "dart")
+        if name is not None:
+            names[record["id"]] = name
+            paths_by_name.setdefault(name, set()).add(path)
+    for record in records:
+        name = names.get(record["id"])
+        if name is None or len(paths_by_name[name]) == 1:
+            continue
+        paths = sorted(paths_by_name[name])
+        del names[record["id"]]
+        scan.unknowns.append(
+            classified(
+                item_id=stable_id("UNKNOWN-MODULE-TARGET", record["id"]),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="module_targets",
+                kind="module_target_identity_ambiguity",
+                title=(
+                    f"different source paths share Dart module identity {name}: {', '.join(paths)}"
+                ),
+                subjects=paths,
+                provenance=record["provenance"],
+                data={"qualified_name": name, "paths": paths},
+            )
+        )
+    return names
+
+
 def _declaration_records(
     contract: ArchitectureContract,
     scan: ScanResult,
@@ -395,8 +436,8 @@ def _declaration_records(
         ),
         *inside_records,
     ]
-    scan.unknowns = sorted(scan.unknowns, key=lambda item: item["id"])
     roots, namespace = module_scope
+    dart_names = _dart_target_names(records, scan, roots, namespace) if language == "dart" else {}
     for record in records:
         data = record["data"]
         if record["kind"] != "module_target" or "path" not in data:
@@ -404,15 +445,36 @@ def _declaration_records(
         path = data["path"]
         if not isinstance(path, str):
             continue
-        qualified_name = _declared_module_name(path, roots, namespace, language)
+        qualified_name = (
+            dart_names.get(record["id"])
+            if language == "dart"
+            else _declared_module_name(path, roots, namespace, language)
+        )
         if qualified_name is not None:
             record["data"] = {**record["data"], "qualified_name": qualified_name}
+    scan.unknowns = sorted(scan.unknowns, key=lambda item: item["id"])
     return records
 
 
 def _declared_module_name(
     path: str, roots: tuple[str, ...], namespace: str, language: Language = "python"
 ) -> str | None:
+    if language == "dart":
+        source_path = PurePosixPath(path)
+        if source_path.suffix != ".dart":
+            return None
+        paths = [
+            source_path.relative_to(PurePosixPath(root)).as_posix()
+            for root in roots
+            if source_path.is_relative_to(PurePosixPath(root))
+        ]
+        if len(paths) != 1:
+            return None
+        parts = PurePosixPath(paths[0]).with_suffix("").parts
+        names = tuple(re.sub(r"[.-]", "_", part) for part in parts)
+        if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) for name in names):
+            return None
+        return ".".join((namespace, *names))
     if language == "typescript":
         source_path = PurePosixPath(path)
         if not any(source_path.is_relative_to(PurePosixPath(root)) for root in roots):
@@ -429,7 +491,7 @@ def _declared_module_name(
         }:
             return None
         try:
-            return module_identity(namespace, path, language)
+            return module_identity(namespace, path)
         except ValueError:
             return None
     target = Path(path).parts
@@ -573,8 +635,7 @@ def assemble_observation(
     }
     if language == "python":
         model["python_version"] = facts.runtime.version if facts.runtime.name == "python" else None
-    else:
-        model["runtime"] = {"name": facts.runtime.name, "version": facts.runtime.version}
+    model["runtime"] = {"name": facts.runtime.name, "version": facts.runtime.version}
     model["producer"] = {
         "name": facts.adapter.name,
         "version": facts.adapter.version,

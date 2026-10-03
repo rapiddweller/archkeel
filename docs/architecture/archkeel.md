@@ -203,9 +203,10 @@ often explains an earlier one; the index below keeps that order.
 | AD-144 | [Diff retains navigation scope](decisions/ad-144-diff-retains-navigation-scope.md) |
 | AD-145 | [Local inherited methods use the existing base proof](decisions/ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
 | AD-146 | [Analyzer identity selects the observation profile](decisions/ad-146-analyzer-identity-selects-observation-profile.md) |
-| AD-147 | [Source facts and Core evaluation have separate owners](decisions/ad-147-source-facts-and-core-evaluation-have-separate-owners.md) |
-
+| AD-147 | [Revision snapshots preserve language inputs](decisions/ad-147-revision-snapshots-preserve-language-inputs.md) |
 | AD-148 | [Built-in collectors isolate imports and finish process cleanup](decisions/ad-148-built-in-collectors-isolate-imports-and-finish-process-cleanup.md) |
+| AD-149 | [Uncertain publication retains inherited type candidates](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
+| AD-150 | [Source facts and Core evaluation have separate owners](decisions/ad-150-source-facts-and-core-evaluation-have-separate-owners.md) |
 
 ## Allowed dependencies
 
@@ -217,7 +218,7 @@ often explains an earlier one; the index below keeps that order.
 | `cli` → `host` | Supply the concrete, replaceable host-record loader to checks; `cli` composes, it does not fetch. |
 | `cli` → `ir` | Serialize the typed observation through `ir.codec` for the legacy JSON compatibility result. |
 | `cli` → `render` | Project typed results through the replaceable render adapter, keeping `cli` a thin composition root. |
-| `analyzer` → `ir` | Publish observations through the common model and codec boundary, so `analyzer` stays isolated behind its digest. |
+| `analyzer` → `ir` | Publish validated source facts through the shared protocol; Core owns contracts, policy and verdicts (AD-150). |
 | `check` → `ir` | Compare observations and return typed results without losing determinism or stability. |
 | `host` → `ir` | Construct validated host-record values through the stable evidence model, so `host` stays replaceable behind it. |
 | `render` → `ir` | Render typed evidence without importing policy implementations, so `render` stays replaceable behind the stable model. |

@@ -547,6 +547,69 @@ def test_typescript_declared_module_name_maps_native_sources_under_dot_root(
     )
 
 
+@pytest.mark.parametrize(
+    ("path", "roots", "expected"),
+    [
+        ("lib/planned.dart", ("lib",), "sample.planned"),
+        ("custom/nested/a-b.dart", ("custom",), "sample.nested.a_b"),
+        ("lib/planned.dart", (".",), "sample.lib.planned"),
+        ("lib/planned.dart", ("lib/nested",), None),
+        ("lib/planned.py", ("lib",), None),
+        ("lib/planned.dart", (".", "lib"), None),
+    ],
+)
+def test_dart_target_uses_the_collectors_active_root(
+    path: str, roots: tuple[str, ...], expected: str | None
+) -> None:
+    assert _declared_module_name(path, roots, "sample", "dart") == expected
+
+
+def test_dart_target_renders_under_its_owning_component(tmp_path: Path) -> None:
+    contract = _contract()
+    contract["components"][0].pop("inside")
+    contract["declarations"] = {"modules": [_module("lib/planned.dart")]}
+    result, _, payload, _ = _report(
+        tmp_path,
+        contract,
+        extra_files={"lib/main.dart": "void main() {}\n", "pubspec.yaml": "name: sample\n"},
+        config=ScanConfig(
+            ("lib",), "sample", "architecture-contract.json", "0" * 64, language="dart"
+        ),
+    )
+    assert result.exit_code == 0
+    assert payload is not None
+    app = next(node for node in _walk(payload["explorers"]["target"]) if node["label"] == "app")
+    assert any(_declared_file(node) == "lib/planned.dart" for node in _walk([app]))
+
+
+@pytest.mark.parametrize("observed", [False, True])
+def test_dart_target_collision_cannot_associate_different_file_spellings(
+    tmp_path: Path, observed: bool
+) -> None:
+    contract = _contract()
+    contract["components"][0].pop("inside")
+    paths = ["lib/a-b.dart"] if observed else ["lib/a-b.dart", "lib/a_b.dart"]
+    contract["declarations"] = {"modules": [_module(path) for path in paths]}
+    _, html, payload, actual = _report(
+        tmp_path,
+        contract,
+        extra_files={
+            "lib/main.dart": "void main() {}\n",
+            "pubspec.yaml": "name: sample\n",
+            **({"lib/a_b.dart": "class Existing {}\n"} if observed else {}),
+        },
+        config=ScanConfig(
+            ("lib",), "sample", "architecture-contract.json", "0" * 64, language="dart"
+        ),
+    )
+    assert payload is not None
+    assert ("sample.a_b" in actual) is observed
+    target = payload["explorers"]["target"]
+    unresolved = next(node for node in target if node["id"] == "module-targets")
+    assert {_declared_file(node) for node in unresolved["children"]} == set(paths)
+    assert "different source paths share Dart module identity sample.a_b" in html
+
+
 def test_empty_inventory_ids_are_unique_across_root_and_component_named_root(
     tmp_path: Path,
 ) -> None:
@@ -684,3 +747,11 @@ def test_root_ambiguity_is_not_resolved_by_a_deeper_child(tmp_path: Path) -> Non
     assert [_declared_file(node) for node in _walk(unresolved["children"])] == [
         "sample/core/api.py"
     ]
+
+
+@pytest.mark.parametrize(
+    ("path", "roots", "language"),
+    [("src/app/services.py", ("src",), "python"), ("lib/services.dart", ("lib",), "dart")],
+)
+def test_existing_language_target_identity_is_preserved(path, roots, language):
+    assert _declared_module_name(path, roots, "app", language) == "app.services"

@@ -12,7 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.check.onboarding import draft_contract
+from archkeel.check.onboarding import (
+    _crossing_targets,
+    draft_contract,
+    interface_entries,
+    module_all_exports,
+)
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     TARGET_GRAPH_MARKER,
@@ -84,7 +89,7 @@ def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
     baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
 
     assert public in check["public"] and public in foundation["public"]
-    # AD-147 adds the typed observation seam and its two shared type names.
+    # AD-150 adds the typed observation seam and its two shared type names.
     assert coupling["max_names"] == 14
     assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
 
@@ -92,7 +97,7 @@ def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
 def test_cli_check_measure_counts_named_shared_type_reexports(
     self_observation: Observation,
 ) -> None:
-    """AD-147: shared types stay named members of the Core seam, not an open module grant."""
+    """AD-150: shared types stay named members of the Core seam, not an open module grant."""
     profile = interface_profile(self_observation)
     width = next(
         item for item in profile.coupling if item.source == "cli" and item.target == "check"
@@ -246,64 +251,30 @@ def test_self_facades_record_the_declared_types_they_expose(self_observation: Ob
     assert scoped == {"archkeel.analyzer", "archkeel.check", "archkeel.render"}
 
 
-def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
-    """AD-9 `public` entries come from `draft_contract`, not hand edits (SPOT guard).
-
-    AD-65 gave an entry a second way of being reached, and `_drafted_public` proposes only the
-    first: it reads inbound crossing imports, so a type no consumer imports but a declared
-    facade signature exposes is never proposed. AD-68 declares three of those. The guard keeps
-    its teeth by checking both readings instead of one: nothing the drafter proposes may be
-    edited away, and every extra entry has to be a type the observation records some facade
-    signature as exposing, which is not something a hand edit can invent.
-    """
-    contract = _contract()
-    drafted, _, _ = draft_contract(self_observation, "archkeel")
+def _assert_public_surface(contract: ArchitectureContract, observation: Observation) -> None:
+    drafted, _, _ = draft_contract(observation, "archkeel")
     proposed = {component.label: component.public for component in drafted.components}
+    all_exports = module_all_exports(observation.records("modules") or ())
+    required: dict[str, set[str]] = {}
+    for module, (label, whole_module, names) in _crossing_targets(observation, contract).items():
+        required.setdefault(label, set()).update(
+            interface_entries(module, names, whole_module, all_exports.get(module, False), set())
+        )
     exposed = {
         item
-        for record in self_observation.records("symbols") or ()
+        for record in observation.records("symbols") or ()
         for item in (record.data.get("facade_types") or ())
         if isinstance(item, str)
     }
     for component in contract.components:
         entries = set(component.public or ())
-        expected = set(proposed.get(component.label) or ())
-        if component.label == "check":
-            # The drafter collapses imports covering half a module into a whole-module entry.
-            # This target deliberately keeps the Core seam finite, so retain the exact imported
-            # names when that heuristic proposes one of these two typed ports as a module.
-            for module in ("archkeel.check.observe", "archkeel.check.ports"):
-                if module not in expected or module in entries:
-                    continue
-                expected.remove(module)
-                imports = tuple(
-                    record.data
-                    for record in self_observation.records("imports") or ()
-                    if record.data.get("source_module", "").startswith("archkeel.cli")
-                    and record.data.get("target_module") == module
-                )
-                symbols = tuple(item.get("symbol") for item in imports)
-                assert imports and all(
-                    isinstance(symbol, str) and symbol != "*" for symbol in symbols
-                ), module
-                expected.update(f"{module}:{symbol}" for symbol in symbols)
-        elif component.label == "analyzer":
-            module = "archkeel.analyzer.process"
-            if module in expected and module not in entries:
-                expected.remove(module)
-                imports = tuple(
-                    record.data
-                    for record in self_observation.records("imports") or ()
-                    if record.data.get("source_module", "").startswith("archkeel.cli")
-                    and record.data.get("target_module") == module
-                )
-                symbols = tuple(item.get("symbol") for item in imports)
-                assert imports and all(
-                    isinstance(symbol, str) and symbol != "*" for symbol in symbols
-                ), module
-                expected.update(f"{module}:{symbol}" for symbol in symbols)
-        assert expected <= entries, component.label
-        extra = entries - expected
+        needed = required.get(component.label, set())
+        for entry in needed:
+            assert entry in entries or (":" in entry and entry.partition(":")[0] in entries), (
+                component.label,
+                entry,
+            )
+        extra = entries - set(proposed.get(component.label) or ()) - needed
         if component.label == "ir":
             extra -= APPROVED_IR_PUBLIC
         elif component.label == "analyzer":
@@ -311,8 +282,37 @@ def test_self_contract_public_matches_drafted_proposal(self_observation: Observa
         assert {item.replace(":", ".") for item in extra} <= exposed, (component.label, extra)
 
 
+def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
+    """Named exports may narrow the draft's half-use heuristic without dropping actual uses."""
+    _assert_public_surface(_contract(), self_observation)
+
+
+@pytest.mark.parametrize("remove_used", [True, False], ids=["missing-used", "unexposed-extra"])
+def test_self_public_guard_rejects_unsupported_surface(
+    self_observation: Observation, remove_used: bool
+) -> None:
+    contract = _contract()
+    public = "archkeel.ir.identity:module_identity"
+    modified = replace(
+        contract,
+        components=tuple(
+            replace(
+                component,
+                public=tuple(entry for entry in component.public or () if entry != public)
+                if remove_used
+                else (*(component.public or ()), "archkeel.ir.identity:_segments"),
+            )
+            if component.label == "ir"
+            else component
+            for component in contract.components
+        ),
+    )
+    with pytest.raises(AssertionError):
+        _assert_public_surface(modified, self_observation)
+
+
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
-    """AD-147: the process host and each language adapter own the modules they observe."""
+    """AD-150: the process host and each language adapter own the modules they observe."""
     levels = {level.parent: level for level in inside_levels(self_observation)}
     assert set(levels) == {"analyzer", "analyzer:dart", "analyzer:python", "check", "ir"}
     analyzer = levels["analyzer"]

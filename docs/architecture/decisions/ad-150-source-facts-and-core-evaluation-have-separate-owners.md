@@ -1,4 +1,4 @@
-# AD-147 Source facts and Core evaluation have separate owners
+# AD-150 Source facts and Core evaluation have separate owners
 
 Language adapters own parsing, resolution, local IR and source-fact collection.
 `ir.facts`, `ir.source_records`, `ir.protocol` and their codecs define the shared

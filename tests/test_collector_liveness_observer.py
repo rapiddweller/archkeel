@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import signal
 from pathlib import Path
 
@@ -82,6 +83,7 @@ def test_unexpected_permission_error_is_not_reported_as_stopped(
         acceptance._alive(424242)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group proof only")
 def test_acceptance_fixture_cleanup_tolerates_exit_before_sigkill(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
