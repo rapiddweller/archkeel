@@ -48,4 +48,6 @@ this adapter adds no HTTP/broker observer or cross-language rule.
 `make typescript-adapter` checks the locked package, an isolated offline consumer,
 and the actual Core decoder and Node runtime boundaries. Expanded CLI onboarding
 and incomplete-coverage controls retain UNKNOWN and unavailable measurements.
-Cross-platform CI, independent acceptance and publication remain separate gates.
+`make demo-typescript OUTPUT=build/typescript-demo` replays the 32-variant catalog
+and a committed revision check. See [the demo](typescript-demo.md). Cross-platform
+CI, independent acceptance and publication remain separate gates.
