@@ -39,6 +39,9 @@ from .facts import (
     SourceInfo as SourceInfo,
 )
 from .facts import (
+    in_scope as in_scope,
+)
+from .facts import (
     stable_id as stable_id,
 )
 from .host_records import InitialPRHeadEvidence
@@ -551,11 +554,6 @@ def int_value(value: object, *, default: int = 0) -> int:
     without ever failing; two derivations had each written this out separately.
     """
     return value if isinstance(value, int) and not isinstance(value, bool) else default
-
-
-def in_scope(name: str, scope: str) -> bool:
-    """Match a qualified name against a dotted prefix without partial segments."""
-    return name == scope or name.startswith(f"{scope}.")
 
 
 def module_in_ownership(module: str, packages: Iterable[str], exact_modules: Iterable[str]) -> bool:

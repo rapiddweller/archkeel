@@ -1,0 +1,18 @@
+{
+  "protocol_version": "1.0.0",
+  "snapshot": {
+    "root": "/tmp/project",
+    "git_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dirty": false
+  },
+  "scope": {
+    "roots": [
+      "src"
+    ],
+    "namespace": "project"
+  },
+  "resolver": {
+    "language": "typescript",
+    "tsconfig": "tsconfig.json"
+  }
+}

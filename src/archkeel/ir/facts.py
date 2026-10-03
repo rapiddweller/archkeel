@@ -211,3 +211,8 @@ class SourceFacts:
     type_shapes: tuple[tuple[str, TypeShape], ...] = ()
     state: StateFacts = StateFacts((), ())
     candidate_evidence: tuple[Evidence, ...] = ()
+
+
+def in_scope(name: str, scope: str) -> bool:
+    """Match a qualified name against a dotted prefix without partial segments."""
+    return name == scope or name.startswith(f"{scope}.")

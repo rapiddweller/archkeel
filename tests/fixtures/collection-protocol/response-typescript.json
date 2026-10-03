@@ -1,0 +1,128 @@
+{
+  "protocol_version": "1.0.0",
+  "facts": {
+    "state": {
+      "classes": [],
+      "functions": []
+    },
+    "candidate_evidence": [],
+    "profile": "archkeel-typescript-imports",
+    "adapter": {
+      "name": "@archkeel/typescript-adapter",
+      "version": "0.1.0+typescript.5.9.3",
+      "code_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "26.3.1"
+    },
+    "source": {
+      "git_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dirty": false,
+      "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "scope": [
+        "src/**"
+      ]
+    },
+    "capabilities": {
+      "sections": [
+        "imports",
+        "unknowns"
+      ],
+      "resolution_features": [
+        "static-imports"
+      ]
+    },
+    "inputs": [
+      {
+        "path": "src/app.ts",
+        "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "role": "selected"
+      }
+    ],
+    "files": [
+      {
+        "id": "FILE-app",
+        "rel_path": "src/app.ts",
+        "module": "project.src.app_x2e_ts",
+        "package": "project.src",
+        "all_exports": [],
+        "all_literal": false,
+        "compatibility_logic_free": false,
+        "stable_bindings": [],
+        "blank": false,
+        "evidence_id": "E-app"
+      }
+    ],
+    "imports": [
+      {
+        "kind": "external",
+        "import_id": "IMP-1",
+        "package": "library"
+      }
+    ],
+    "sections": [
+      {
+        "name": "imports",
+        "records": [
+          {
+            "id": "IMP-1",
+            "evidence_class": "FACT",
+            "area": "dependencies",
+            "kind": "import",
+            "title": "Import library",
+            "subjects": [
+              "project.src.app_x2e_ts",
+              "library"
+            ],
+            "evidence_ids": [
+              "E-app"
+            ],
+            "rule_ids": [],
+            "fact_ids": [],
+            "provenance": [],
+            "data": {
+              "source_module": "project.src.app_x2e_ts",
+              "source_package": "project.src",
+              "target_module": "library",
+              "target_package": "library",
+              "symbol": null,
+              "binding": "library",
+              "relative_level": 0,
+              "under_type_checking": false,
+              "ordinary_module": true,
+              "module_level_import": true,
+              "reexport": false,
+              "symbols_known": true
+            }
+          }
+        ]
+      },
+      {
+        "name": "unknowns",
+        "records": []
+      }
+    ],
+    "coverage": {
+      "selected_files": [
+        "src/app.ts"
+      ],
+      "files_read": 1,
+      "files_parsed": 1,
+      "full_scope": true,
+      "gaps": []
+    },
+    "evidence": [
+      {
+        "id": "E-app",
+        "file": "src/app.ts",
+        "line": 1,
+        "end_line": 1,
+        "column": 0,
+        "excerpt": "import library"
+      }
+    ],
+    "uncertain_reexports": [],
+    "type_shapes": []
+  }
+}
