@@ -595,22 +595,6 @@ def _opaque_import_member_escapes(
     return escaped
 
 
-def strip_internal_reexport_facts(imports: Sequence[RawRecord]) -> None:
-    """Keep reexport-route bookkeeping private, while retaining publisher uniqueness."""
-    for item in imports:
-        data = item["data"]
-        if "ordinary_module" in data:
-            del data["ordinary_module"]
-        if "origin_binding_unique" in data:
-            del data["origin_binding_unique"]
-        if "origin_member_binding_static" in data:
-            del data["origin_member_binding_static"]
-        if "reexport_candidate" in data:
-            del data["reexport_candidate"]
-        if "module_level_import" in data:
-            del data["module_level_import"]
-
-
 def all_is_one_literal(tree: ast.Module) -> bool:
     """True when `__all__` is bound once, at top level, to a literal of strings, and no other
     statement anywhere in the module names or imports it (AD-99).
