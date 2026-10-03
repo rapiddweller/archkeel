@@ -178,6 +178,7 @@ def test_same_unknown_record_with_larger_unresolved_extent_fails() -> None:
     assert unknowns["added"] == []
     assert len(unknowns["changed"]) == 1
     assert _evaluate(delta).failures == (
+        f"guardrail changed unknowns fingerprint {unknowns['changed'][0]}",
         "regression check failed in calls_unresolved: 0->1",
         "regression check failed in unresolved_ratio: 0/2->1/1",
     )

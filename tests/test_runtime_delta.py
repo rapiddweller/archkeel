@@ -22,6 +22,15 @@ def test_equal_missing_comparison_identity_never_grants_coverage(language, field
     raw = _model(git_head="a" * 40)
     profile = PROFILES[language]
     raw["analyzer"]["name"] = profile.analyzer
+    if "calls" in profile.absent_sections:
+        for key in (
+            "calls_analyzed",
+            "calls_resolved",
+            "calls_partially_resolved",
+            "calls_unresolved",
+            "call_resolution_percent",
+        ):
+            raw["coverage"][key] = None
     for name in profile.absent_sections:
         raw[name] = None
     observation = parse_observation(raw)
@@ -165,7 +174,8 @@ def test_equal_incomplete_runtime_cannot_pass_a_language_delta(field: str, missi
     assert error.value.diagnostic.kind == "incomparable_runtime"
 
 
-def test_producer_distribution_label_does_not_change_identical_parser_bytes() -> None:
+@pytest.mark.parametrize("labels", ["analyzer", "producer", "both"])
+def test_producer_distribution_label_does_not_change_identical_parser_bytes(labels: str) -> None:
     raw = _model(git_head="a" * 40)
     raw["analyzer"]["name"] = "archkeel-dart-directives"
     for section in ("symbols", "references", "bindings"):
@@ -177,8 +187,12 @@ def test_producer_distribution_label_does_not_change_identical_parser_bytes() ->
     )
     head = replace(
         baseline,
-        analyzer=replace(baseline.analyzer, version="1.0.1"),
-        producer=replace(baseline.producer, version="1.0.1"),
+        analyzer=replace(baseline.analyzer, version="1.0.1")
+        if labels in ("analyzer", "both")
+        else baseline.analyzer,
+        producer=replace(baseline.producer, version="1.0.1")
+        if labels in ("producer", "both")
+        else baseline.producer,
     )
     delta = build_architecture_delta(
         baseline,
@@ -188,6 +202,86 @@ def test_producer_distribution_label_does_not_change_identical_parser_bytes() ->
         checker_digest="c" * 64,
     )
     assert delta.coverage.status == "PASS"
+
+
+@pytest.mark.parametrize(
+    "producer",
+    [
+        None,
+        AnalyzerInfo("different-parser", "1.0.0", "b" * 64),
+        AnalyzerInfo("directive-parser", "1.0.0", "c" * 64),
+    ],
+)
+def test_changed_or_missing_producer_identity_is_incomparable(
+    producer: AnalyzerInfo | None,
+) -> None:
+    raw = _model(git_head="a" * 40)
+    raw["analyzer"]["name"] = "archkeel-dart-directives"
+    for section in PROFILES["dart"].absent_sections:
+        raw[section] = None
+    baseline = replace(
+        parse_observation(raw),
+        runtime=RuntimeInfo("python", "3.11.12"),
+        producer=AnalyzerInfo("directive-parser", "1.0.0", "b" * 64),
+    )
+    with pytest.raises(DiagnosticError) as error:
+        build_architecture_delta(
+            baseline,
+            replace(baseline, producer=producer),
+            baseline_digest="a" * 64,
+            head_digest="b" * 64,
+            checker_digest="c" * 64,
+        )
+    assert error.value.diagnostic.kind == "incomparable_runtime"
+
+
+@pytest.mark.parametrize(
+    "runtime", [None, RuntimeInfo("node", "3.11.12"), RuntimeInfo("python", "3.12.10")]
+)
+def test_changed_or_missing_explicit_runtime_is_incomparable(runtime: RuntimeInfo | None) -> None:
+    baseline = replace(
+        parse_observation(_model(git_head="a" * 40)),
+        runtime=RuntimeInfo("python", "3.11.12"),
+        producer=AnalyzerInfo("python-parser", "1.0.0", "b" * 64),
+    )
+    with pytest.raises(DiagnosticError) as error:
+        build_architecture_delta(
+            baseline,
+            replace(baseline, runtime=runtime),
+            baseline_digest="a" * 64,
+            head_digest="b" * 64,
+            checker_digest="c" * 64,
+        )
+    assert error.value.diagnostic.kind == "incomparable_runtime"
+
+
+def test_different_analyzer_bytes_never_grant_coverage() -> None:
+    baseline = parse_observation(_model(git_head="a" * 40))
+    delta = build_architecture_delta(
+        baseline,
+        replace(baseline, analyzer=replace(baseline.analyzer, code_digest="d" * 64)),
+        baseline_digest="a" * 64,
+        head_digest="b" * 64,
+        checker_digest="c" * 64,
+    )
+    assert delta.coverage.status == "FAIL"
+    assert delta.ratchets.status == "UNKNOWN"
+
+
+def test_different_analyzer_profile_is_incomparable() -> None:
+    baseline = parse_observation(_model(git_head="a" * 40))
+    with pytest.raises(DiagnosticError) as error:
+        build_architecture_delta(
+            baseline,
+            replace(
+                baseline,
+                analyzer=replace(baseline.analyzer, name="archkeel-dart-directives"),
+            ),
+            baseline_digest="a" * 64,
+            head_digest="b" * 64,
+            checker_digest="c" * 64,
+        )
+    assert error.value.diagnostic.kind == "incomparable_runtime"
 
 
 def test_python_profile_prefers_explicit_collector_runtime() -> None:

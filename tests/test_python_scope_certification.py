@@ -12,8 +12,8 @@ from test_analyzer import _component
 from test_cycle_levels import _component as _cycle_component
 from test_inside_rule_coverage import _inside_rule_report
 
-from archkeel.analyzer import observe
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import Observation

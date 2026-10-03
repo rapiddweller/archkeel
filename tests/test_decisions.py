@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import _prepare_repo
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import closed_world_diagnostics
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.decisions import (
     agent_decisions,
@@ -237,7 +237,7 @@ def test_open_decisions_counts_import_sites_for_components_with_split_or_nested_
     split across several packages, must still accumulate its observed import sites.
 
     The analyzer's own `package_dependency` edges truncate every module to `pkg.sub`
-    (`archkeel.analyzer.embedded.source.package_for`), which never equals a component
+    (`archkeel.analyzer.python.source.package_for`), which never equals a component
     package like `x.shared.a`; only module-level edges, matched by prefix like
     `ArchitectureContract.component_for`, count correctly.
     """

@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     canonical_json_bytes,
     canonical_report_bytes,
@@ -465,6 +465,14 @@ def test_typescript_delta_requires_same_explicit_runtime_and_producer() -> None:
             "code_digest": "a" * 64,
         }
         raw["runtime"] = {"name": "node", "version": runtime}
+        for key in (
+            "calls_analyzed",
+            "calls_resolved",
+            "calls_partially_resolved",
+            "calls_unresolved",
+            "call_resolution_percent",
+        ):
+            raw["coverage"][key] = None
         raw["producer"] = {
             "name": "custom-parser",
             "version": "1.0.0",
@@ -501,6 +509,14 @@ def test_typescript_delta_rejects_unknown_producer_identity() -> None:
             "code_digest": "a" * 64,
         }
         raw["runtime"] = {"name": "node", "version": "22.13.0"}
+        for key in (
+            "calls_analyzed",
+            "calls_resolved",
+            "calls_partially_resolved",
+            "calls_unresolved",
+            "call_resolution_percent",
+        ):
+            raw["coverage"][key] = None
         for section in (
             "symbols",
             "references",

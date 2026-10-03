@@ -7,12 +7,18 @@
       "label": "api",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.api"],
+      "packages": [
+        "archkeel.api"
+      ],
       "namespace": "archkeel.api",
       "requires": [
         {
           "component": "ir",
-          "through": ["archkeel.ir.baseline", "archkeel.ir.codec", "archkeel.ir.model"],
+          "through": [
+            "archkeel.ir.baseline",
+            "archkeel.ir.codec",
+            "archkeel.ir.model"
+          ],
           "rationale": "Read one architecture.json report from disk and hand its bytes to ir's codec and baseline derivations; api decodes nothing itself."
         }
       ],
@@ -20,16 +26,23 @@
         "The declared external contract: the named surface a consumer outside this repository may import, and the one place that reads its bytes.",
         "Quality goal: stable across every internal refactor of ir."
       ],
-      "forbidden_responsibilities": ["Decoding IR bytes into typed values, which ir.codec still owns."],
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
+      "forbidden_responsibilities": [
+        "Decoding IR bytes into typed values, which ir.codec still owns."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect",
+      "public": []
     },
     {
       "id": "COMP-IR",
       "label": "ir",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.ir"],
+      "packages": [
+        "archkeel.ir"
+      ],
       "namespace": "archkeel.ir",
       "public": [
         "archkeel.ir.baseline",
@@ -45,7 +58,6 @@
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
         "archkeel.ir.model",
-        "archkeel.ir.profiles",
         "archkeel.ir.references",
         "archkeel.ir.renames:Renamed",
         "archkeel.ir.renames:module_layouts",
@@ -54,30 +66,56 @@
         "archkeel.ir.structure",
         "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
-        "archkeel.ir.widening"
+        "archkeel.ir.widening",
+        "archkeel.ir.facts",
+        "archkeel.ir.facts_codec",
+        "archkeel.ir.protocol",
+        "archkeel.ir.state_facts",
+        "archkeel.ir.type_shapes",
+        "archkeel.ir.reexports",
+        "archkeel.ir.graph",
+        "archkeel.ir.profiles:Profile",
+        "archkeel.ir.profiles:Language",
+        "archkeel.ir.profiles:DeclarationField",
+        "archkeel.ir.profiles:profile_for",
+        "archkeel.ir.profiles:PROFILES",
+        "archkeel.ir.profiles:UnmeasurableScalar",
+        "archkeel.ir.facts_validation:validate_source_facts",
+        "archkeel.ir.source_records:RawData",
+        "archkeel.ir.source_records:RawRecord",
+        "archkeel.ir.source_records:RawEvidence",
+        "archkeel.ir.profiles:delta_dimension_applicable",
+        "archkeel.ir.source_records:FRAMEWORK_BASES",
+        "archkeel.ir.source_records:is_public_method_name"
       ],
       "responsibilities": [
-        "The shared evidence model, its codecs, and the pure derivations over them, without I/O, that more than one component needs.",
-        "Quality goal: deterministic and stable."
+        "Own immutable source facts, protocol values, governance models and pure derivations."
       ],
-      "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
+      "forbidden_responsibilities": [
+        "Source parsing, process or filesystem I/O, and workflow orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect",
+      "inside": "docs/architecture/contracts/ir.json"
     },
     {
       "id": "COMP-CHECK",
       "label": "check",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.check"],
+      "packages": [
+        "archkeel.check"
+      ],
       "namespace": "archkeel.check",
       "requires": [
         {
           "component": "ir",
-          "rationale": "Compare observations and return typed results."
+          "rationale": "Validate source facts, assemble observations and evaluate architecture policy from the shared typed model."
         }
       ],
-      "inside": "src/archkeel/check/architecture-contract.json",
+      "inside": "docs/architecture/contracts/check.json",
       "public": [
         "archkeel.check.git:read_blob",
         "archkeel.check.onboarding:run_init",
@@ -89,14 +127,22 @@
         "archkeel.check.run:run_check",
         "archkeel.check.snapshot:resolve_commit",
         "archkeel.check.validation:invalid_result",
-        "archkeel.check.validation:run_validate"
+        "archkeel.check.validation:run_validate",
+        "archkeel.check.ports:Language",
+        "archkeel.check.ports:ObservationResult",
+        "archkeel.check.ports:SourceCollector",
+        "archkeel.check.observe:Observer",
+        "archkeel.check.observation:analyze_source_snapshot"
       ],
       "responsibilities": [
-        "Deterministic deltas, regression checks, expectations and publication-order checks.",
-        "Quality goal: deterministic and stable."
+        "Own source-fact validation, observation assembly, architecture rule evaluation and report/check workflows."
       ],
-      "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"],
+      "forbidden_responsibilities": [
+        "Source parsing, process execution, or importing language adapters."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -104,7 +150,9 @@
       "label": "cli",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.cli"],
+      "packages": [
+        "archkeel.cli"
+      ],
       "namespace": "archkeel.cli",
       "requires": [
         {
@@ -120,24 +168,35 @@
           "rationale": "Supply the concrete host-record loader to checks."
         },
         {
+          "component": "ir",
+          "through": [
+            "archkeel.ir.codec"
+          ],
+          "rationale": "Serialize the typed observation to the legacy JSON payload at the CLI compatibility boundary."
+        },
+        {
           "component": "render",
           "rationale": "Project typed results and write presentation artifacts."
         }
       ],
       "responsibilities": [
-        "Command arguments and archkeel.toml configuration.",
-        "Quality goal: a thin composition root."
+        "Command arguments and configuration; compose the process collector with Core workflows."
       ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"],
-      "decided_by": "architect"
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
+      "decided_by": "architect",
+      "public": []
     },
     {
       "id": "COMP-HOST",
       "label": "host",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.host"],
+      "packages": [
+        "archkeel.host"
+      ],
       "namespace": "archkeel.host",
       "requires": [
         {
@@ -145,13 +204,17 @@
           "rationale": "Construct validated host-record values."
         }
       ],
-      "public": ["archkeel.host.gitlab"],
+      "public": [
+        "archkeel.host.gitlab"
+      ],
       "responsibilities": [
         "GitLab host records with SHA, event and timestamp.",
         "Quality goal: replaceable."
       ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -159,24 +222,38 @@
       "label": "analyzer",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.analyzer"],
+      "packages": [
+        "archkeel.analyzer"
+      ],
       "namespace": "archkeel.analyzer",
       "requires": [
         {
           "component": "ir",
-          "through": ["archkeel.ir.model", "archkeel.ir.codec", "archkeel.ir.profiles", "archkeel.ir.identity"],
-          "rationale": "The analyzer publishes raw signals through the common model and codec; claims and decisions stay with the reader (AD-4). Both share the profile table and source identity function so they interpret capabilities and paths identically (AD-97, AD-147).",
-          "decided_by": "agent"
+          "through": [
+            "archkeel.ir.facts",
+            "archkeel.ir.facts_codec",
+            "archkeel.ir.protocol",
+            "archkeel.ir.state_facts",
+            "archkeel.ir.type_shapes",
+            "archkeel.ir.reexports",
+            "archkeel.ir.source_records"
+          ],
+          "rationale": "Adapters publish immutable facts over the shared protocol. Core owns validation, ownership and policy; analyzers do not import it."
         }
       ],
-      "inside": "src/archkeel/analyzer/architecture-contract.json",
-      "public": ["archkeel.analyzer"],
-      "responsibilities": [
-        "Run the bundled Python analyzer and preserve typed diagnostics.",
-        "Quality goal: isolated; changes independently behind its digest."
+      "inside": "docs/architecture/contracts/analyzer.json",
+      "public": [
+        "archkeel.analyzer.process:ProcessCollector"
       ],
-      "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/archkeel.md"],
+      "responsibilities": [
+        "Run the configured source collector process and keep language parsing and fact collection behind isolated adapters."
+      ],
+      "forbidden_responsibilities": [
+        "Rule evaluation, baselines, ownership, verdicts, and importing sibling language adapters."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -184,7 +261,9 @@
       "label": "render",
       "capability_id": "CAP-ARCHKEEL",
       "role": "component",
-      "packages": ["archkeel.render"],
+      "packages": [
+        "archkeel.render"
+      ],
       "namespace": "archkeel.render",
       "requires": [
         {
@@ -206,8 +285,12 @@
         "Deterministic HTML and terminal projections of typed Archkeel evidence.",
         "Quality goal: replaceable."
       ],
-      "forbidden_responsibilities": ["Architecture decisions and persistence."],
-      "provenance": ["docs/architecture/archkeel.md"],
+      "forbidden_responsibilities": [
+        "Architecture decisions and persistence."
+      ],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     }
   ],
@@ -218,7 +301,9 @@
         "name": "ARCHKEEL",
         "label": "Archkeel governance",
         "review_order": 1,
-        "provenance": ["docs/architecture/archkeel.md"]
+        "provenance": [
+          "docs/architecture/archkeel.md"
+        ]
       }
     ],
     "review_scopes": [],
@@ -232,7 +317,9 @@
     ],
     "public_commands": [],
     "context_roots": [],
-    "context_roots_provenance": ["docs/architecture/archkeel.md"],
+    "context_roots_provenance": [
+      "docs/architecture/archkeel.md"
+    ],
     "paths": [],
     "spot_owners": [
       {
@@ -240,34 +327,48 @@
         "label": "Contract and observation vocabulary",
         "owner": "archkeel.ir.model",
         "responsibility": "Rule kinds, record shapes and scope matching stay the single source of truth every component reads.",
-        "provenance": ["docs/architecture/archkeel.md"]
+        "provenance": [
+          "docs/architecture/archkeel.md"
+        ]
       }
     ],
     "compat": [],
     "measurement_budgets": [
       {
         "name": "cycle_edges",
-        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"
+        ]
       },
       {
         "name": "private_crossings",
-        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"
+        ]
       },
       {
         "name": "typing_positions",
-        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"
+        ]
       },
       {
         "name": "calls_unresolved",
-        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"
+        ]
       },
       {
         "name": "untyped_private_accesses",
-        "provenance": ["docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-89-selected-measurements-share-the-validation-baseline.md"
+        ]
       },
       {
         "name": "unknown_positions",
-        "provenance": ["docs/architecture/decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-92-undecided-declared-evidence-is-unknown-by-default.md"
+        ]
       }
     ],
     "coupling_budgets": [
@@ -275,37 +376,50 @@
         "source": "api",
         "target": "ir",
         "max_names": 6,
-        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"
+        ]
       },
       {
         "source": "cli",
         "target": "analyzer",
         "max_names": 1,
-        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"
+        ]
       },
       {
         "source": "cli",
         "target": "check",
-        "max_names": 10,
-        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+        "max_names": 14,
+        "provenance": [
+          "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md",
+          "docs/architecture/decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md"
+        ]
       },
       {
         "source": "cli",
         "target": "host",
         "max_names": 1,
-        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"
+        ]
       },
       {
         "source": "cli",
         "target": "render",
         "max_names": 7,
-        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"
+        ]
       },
       {
         "source": "host",
         "target": "ir",
         "max_names": 4,
-        "provenance": ["docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"]
+        "provenance": [
+          "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"
+        ]
       }
     ]
   },
@@ -314,55 +428,104 @@
       "id": "REQUIRES-COMPLETE",
       "kind": "complete_requires",
       "rationale": "A cross-component import the source never asked for is an accident, so a component names what it needs and absence refuses the rest.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-DYNAMIC",
       "kind": "forbidden_construct",
       "source": "archkeel",
-      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "setattr", "delattr", "vars", "dunder_dict"],
+      "constructs": [
+        "getattr",
+        "hasattr",
+        "cast",
+        "eval",
+        "exec",
+        "dynamic_import",
+        "type_ignore",
+        "setattr",
+        "delattr",
+        "vars",
+        "dunder_dict"
+      ],
+      "allowed_type_ignores": [
+        {
+          "qualified_name": "archkeel.analyzer.windows_job._create_owned_job",
+          "line": 60,
+          "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
+          "tag": "[attr-defined]"
+        }
+      ],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-PLACEHOLDER",
       "kind": "forbidden_construct",
       "source": "archkeel",
-      "constructs": ["placeholder_body"],
+      "constructs": [
+        "placeholder_body"
+      ],
       "rationale": "A function whose body is pass, ellipsis or a lone NotImplementedError reports capability it does not have, and its callers are written against that promise.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-ASSERT",
       "kind": "forbidden_construct",
       "source": "archkeel",
-      "constructs": ["assert"],
+      "constructs": [
+        "assert"
+      ],
       "rationale": "Invariants are checked where values are built, because assert statements vanish under python -O.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-BROAD-EXCEPT",
       "kind": "forbidden_construct",
       "source": "archkeel",
-      "constructs": ["broad_except"],
-      "exact_sources": ["archkeel.cli.main"],
+      "constructs": [
+        "broad_except"
+      ],
+      "exact_sources": [
+        "archkeel.cli.main"
+      ],
       "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit-2 result.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-ANY",
       "kind": "forbidden_construct",
       "source": "archkeel",
-      "constructs": ["any_annotation"],
-      "allowed_sources": ["archkeel.ir.codec", "archkeel.analyzer.embedded"],
-      "exact_sources": ["archkeel.ir.widening._DataclassInstance.__dataclass_fields__"],
-      "rationale": "A typed boundary is the evidence; Any is allowed only where JSON enters, in the codec that decodes it and the collectors that write it (AD-2). The one exact exemption is structural, not a JSON boundary: _DataclassInstance mirrors _typeshed.DataclassInstance, whose own __dataclass_fields__ is Any-valued because a dataclass's fields have no one shared type (AD-62).",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "constructs": [
+        "any_annotation"
+      ],
+      "allowed_sources": [
+        "archkeel.ir.codec",
+        "archkeel.analyzer.python",
+        "archkeel.analyzer.dart"
+      ],
+      "exact_sources": [
+        "archkeel.ir.widening._DataclassInstance.__dataclass_fields__",
+        "archkeel.check.observation"
+      ],
+      "rationale": "Any is allowed only where JSON enters or is assembled into the canonical JSON report: the codec, source collectors and observation encoder. The one exact widening helper exemption mirrors the typeshed dataclass protocol.",
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -370,34 +533,48 @@
       "kind": "complete_external_scope",
       "source": "archkeel",
       "rationale": "A dependency no rule names is a dependency nobody chose, and a package that does not exist looks exactly the same from inside the code.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-PACKAGING-RUNTIME",
       "kind": "external_dependency_scope",
       "dependency": "packaging",
-      "exact_sources": ["archkeel.analyzer.runtime"],
-      "rationale": "Only the runtime gate interprets requires-python specifiers; the core stays dependency-free.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "exact_sources": [
+        "archkeel.check.runtime"
+      ],
+      "rationale": "Only the Core runtime gate interprets the scanned project requires-python specifier; packaging stays confined to that boundary.",
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-RICH-TERMINAL",
       "kind": "external_dependency_scope",
       "dependency": "rich",
-      "exact_sources": ["archkeel.render.terminal"],
+      "exact_sources": [
+        "archkeel.render.terminal"
+      ],
       "rationale": "Terminal styling stays replaceable; JSON and HTML evidence never depend on it.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-RICH-ARGPARSE-CLI",
       "kind": "external_dependency_scope",
       "dependency": "rich_argparse",
-      "exact_sources": ["archkeel.cli"],
+      "exact_sources": [
+        "archkeel.cli"
+      ],
       "rationale": "Help formatting belongs to the composition root that owns the argument parser.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -405,7 +582,9 @@
       "kind": "complete_assignment",
       "source": "archkeel",
       "rationale": "A module without one owning component escapes every boundary rule.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -422,14 +601,18 @@
         "archkeel.render"
       ],
       "rationale": "The package root exposes only its declared top-level packages and modules.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -437,43 +620,57 @@
       "kind": "no_component_cycles",
       "level": "module",
       "rationale": "Modules import in one direction, so a module is read, tested and moved after the modules it uses; the component rule alone cannot see a cycle inside one component.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "agent"
     },
     {
       "id": "COLLECTORS-ISOLATED",
       "kind": "sibling_isolation",
       "members": [
-        "archkeel.analyzer.embedded.bindings",
-        "archkeel.analyzer.embedded.calls",
-        "archkeel.analyzer.embedded.constructs",
-        "archkeel.analyzer.embedded.contexts",
-        "archkeel.analyzer.embedded.dependencies",
-        "archkeel.analyzer.embedded.imports",
-        "archkeel.analyzer.embedded.references",
-        "archkeel.analyzer.embedded.symbols",
-        "archkeel.analyzer.embedded.typing_signals",
-        "archkeel.analyzer.embedded.violations"
+        "archkeel.analyzer.python.bindings",
+        "archkeel.analyzer.python.calls",
+        "archkeel.analyzer.python.constructs",
+        "archkeel.analyzer.python.imports",
+        "archkeel.analyzer.python.private_attributes",
+        "archkeel.analyzer.python.references",
+        "archkeel.analyzer.python.state",
+        "archkeel.analyzer.python.symbols",
+        "archkeel.analyzer.python.type_shapes",
+        "archkeel.analyzer.python.typing_signals"
       ],
-      "rationale": "Collectors are peers behind one scanner (AD-1): each reads parsed sources and writes records, so a collector importing another would create an order between them that the scanner no longer controls.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "rationale": "Independent Python collectors read the shared parsed/resolved project and emit facts; peer imports would make collection order implicit.",
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
       "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "TYPES-ENUM-IN-MODEL",
       "kind": "symbol_placement",
       "source": "archkeel",
-      "class_kinds": ["enum"],
-      "exact_sources": ["archkeel.ir.model"],
-      "rationale": "Every enum Archkeel declares is a term of the contract vocabulary ir.model owns; a second module declaring one would fork that vocabulary.",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "class_kinds": [
+        "enum"
+      ],
+      "exact_sources": [
+        "archkeel.ir.model",
+        "archkeel.ir.facts",
+        "archkeel.ir.type_shapes"
+      ],
+      "rationale": "Governance enums stay in ir.model; the source-fact vocabulary and source type-shape vocabulary own their respective enums.",
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -481,7 +678,9 @@
       "kind": "boundary_types",
       "source": "archkeel.analyzer",
       "rationale": "analyzer's one declared facade function takes and returns only a type some component's own public list declares, never a bare dict/object standing in for one -- observe returning ir's own ObservationResult is exactly that pattern, not the leak a naming convention alone mistook it for (AD-58, AD-63).",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -489,7 +688,10 @@
       "kind": "boundary_types",
       "source": "archkeel.check",
       "rationale": "check's facade takes its ports by type: a caller cannot call run_check without satisfying Analyzer and Host. FilesToWrite receives arbitrary path-to-bytes output, and the host port receives arbitrary environment names; these three exact open-map positions are intentional (AD-123).",
-      "provenance": ["docs/architecture/archkeel.md", "docs/architecture/decisions/ad-123-proven-mappings-are-broad-boundary-types.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md",
+        "docs/architecture/decisions/ad-123-proven-mappings-are-broad-boundary-types.md"
+      ],
       "decided_by": "architect",
       "allowed_positions": [
         {
@@ -517,7 +719,9 @@
       "kind": "boundary_types",
       "source": "archkeel.render",
       "rationale": "render's three summary functions return the projection the composition root prints; a caller cannot use the value without the type, so Summary belongs to the facade (AD-68).",
-      "provenance": ["docs/architecture/archkeel.md"],
+      "provenance": [
+        "docs/architecture/archkeel.md"
+      ],
       "decided_by": "architect"
     }
   ]

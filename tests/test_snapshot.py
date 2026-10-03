@@ -193,8 +193,8 @@ def test_snapshot_preserves_selected_git_blobs_despite_export_attributes(
 
 
 def test_export_ignore_cannot_hide_an_unresolved_dart_import(tmp_path: Path) -> None:
-    from archkeel.analyzer import observe
     from archkeel.check.run import observe_revision
+    from archkeel.cli.observe import observe
 
     root, _ = _committed_repository(tmp_path)
     _write(root / "lib/main.dart", "void main() {}\n")

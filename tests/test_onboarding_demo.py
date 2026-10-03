@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.analyzer import observe
 from archkeel.check.onboarding import run_init
+from archkeel.cli.observe import observe
 from fixtures.reproduce_onboarding import Step, _repository, run_onboarding_demo
 from tools.onboarding_svg import render
 

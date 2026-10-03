@@ -13,7 +13,6 @@ from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 from test_delta import _model, _record
 
-from archkeel.analyzer import observe
 from archkeel.check.onboarding import architecture_document
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import observe_repository
@@ -31,6 +30,7 @@ from archkeel.check.validation import (
     run_validate,
 )
 from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
@@ -55,21 +55,36 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
     only those rules would pass anything the inside granted itself.
     """
     outer = json.loads((ROOT / "architecture-contract.json").read_text())
-    inner = json.loads((ROOT / "src/archkeel/check/architecture-contract.json").read_text())
-    analyzer_inner = json.loads(
-        (ROOT / "src/archkeel/analyzer/architecture-contract.json").read_text()
-    )
+    nested_contracts = {
+        component["label"]: component["inside"]
+        for component in outer["components"]
+        if component.get("inside") is not None
+    }
+    check_path = nested_contracts["check"]
+    analyzer_path = nested_contracts["analyzer"]
+    inner = json.loads((ROOT / check_path).read_text())
+    analyzer_inner = json.loads((ROOT / analyzer_path).read_text())
     root = tmp_path / "repository"
-    inside = root / "src/archkeel/check/architecture-contract.json"
+    inside = root / check_path
+    analyzer_inside = root / analyzer_path
     inside.parent.mkdir(parents=True)
-    analyzer_inside = root / "src/archkeel/analyzer/architecture-contract.json"
-    analyzer_inside.parent.mkdir(parents=True)
+    analyzer_inside.parent.mkdir(parents=True, exist_ok=True)
     (root / "architecture-contract.json").write_text(json.dumps(outer))
     inside.write_text(json.dumps(inner))
     analyzer_inside.write_text(json.dumps(analyzer_inner))
-    evidence = root / "docs/architecture/archkeel.md"
-    evidence.parent.mkdir(parents=True)
-    evidence.write_bytes((ROOT / "docs/architecture/archkeel.md").read_bytes())
+    for source in (ROOT / "docs/architecture/contracts").glob("*.json"):
+        target = root / source.relative_to(ROOT)
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
+    evidence_paths = {
+        "docs/architecture/archkeel.md",
+        "docs/architecture/language-adapter-target.md",
+    }
+    for source in evidence_paths:
+        target = root / source
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / source).read_bytes())
 
     inside_config = ScanConfig(("src",), "archkeel", "architecture-contract.json", "0" * 64)
     assert inside_diagnostics(root, parse_contract(outer), inside_config) == ()

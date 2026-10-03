@@ -116,6 +116,58 @@ def validator() -> Draft202012Validator:
     return Draft202012Validator(schema, registry=registry)
 
 
+def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(validator) -> None:
+    coverage = json.loads((ROOT / "schema/architecture-ir-common.schema.json").read_bytes())[
+        "$defs"
+    ]["coverage"]
+    payload = {
+        "status": "PASS",
+        "files_discovered": 1,
+        "files_read": 1,
+        "files_parsed": 1,
+        "ast_coverage_percent": 100,
+        "failures": [],
+        "rules": "PASS",
+        **dict.fromkeys(
+            (
+                "calls_analyzed",
+                "calls_resolved",
+                "calls_partially_resolved",
+                "calls_unresolved",
+                "call_resolution_percent",
+            )
+        ),
+    }
+    neutral = validator.evolve(schema=validator.schema["properties"]["coverage"])
+    assert neutral.is_valid(payload)
+    payload["calls_analyzed"] = 0
+    assert not neutral.is_valid(payload)
+    assert not validator.evolve(schema=coverage).is_valid(payload)
+
+
+def test_decoded_typescript_schema_preserves_unmeasured_call_availability() -> None:
+    from test_nullable_profile_measurements import _profile_model
+
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    schemas = [json.loads(path.read_bytes()) for path in (ROOT / "schema").glob("*.json")]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in schemas
+    )
+    schema = json.loads((ROOT / "schema/architecture-ir-decoded.schema.json").read_bytes())
+    decoded = Draft202012Validator(schema, registry=registry)
+    payload = observation_payload(parse_observation(_profile_model("archkeel-typescript-imports")))
+    assert not list(decoded.iter_errors(payload))
+    payload["coverage"].update(
+        calls_analyzed=0,
+        calls_resolved=0,
+        calls_partially_resolved=0,
+        calls_unresolved=0,
+        call_resolution_percent=0,
+    )
+    assert not decoded.is_valid(payload)
+
+
 @pytest.fixture(scope="module")
 def results(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict]:
     output = tmp_path_factory.mktemp("json-result-demos")

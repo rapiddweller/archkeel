@@ -14,8 +14,8 @@ import pytest
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 
-from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import amendment_bytes, baseline_bytes, contract_digest, parse_amendment
 from archkeel.ir.model import (

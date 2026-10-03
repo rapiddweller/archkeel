@@ -12,9 +12,11 @@ import sys
 from dataclasses import dataclass
 from typing import Final, Literal, TypeAlias
 
-from .measurements import UnmeasurableScalar
+from .facts import Language as Language
 
-Language: TypeAlias = Literal["python", "dart", "typescript"]
+UnmeasurableScalar: TypeAlias = Literal[
+    "private_crossings", "typing_positions", "calls_unresolved", "untyped_private_accesses"
+]
 DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupling_budgets"]
 ObservedSection: TypeAlias = Literal[
     "symbols", "references", "bindings", "calls", "typing_signals", "constructs"
@@ -32,6 +34,9 @@ class Profile:
     analyzer: str
     source_suffix: str
     unsupported_rules: frozenset[str] = frozenset()
+    dependency_symbols: bool = True
+    complete_api_crossings: bool = True
+    project_import_closure: bool = False
     unsupported_declarations: frozenset[DeclarationField] = frozenset()
     unmeasured: frozenset[UnmeasurableScalar] = frozenset()
     # A section the profile never produces is null in the observation, so a claim built on it
@@ -51,10 +56,11 @@ PYTHON: Final = Profile(
 
 DART: Final = Profile(
     analyzer=DART_ANALYZER,
+    complete_api_crossings=False,
     source_suffix=".dart",
     # `no_component_cycles` stays decided with `level: "module"` and `components` (AD-98): a
     # library is a module, and every directive edge a module cycle closes over is a FACT.
-    unsupported_rules=frozenset({"symbol_placement", "boundary_types", "forbidden_construct"}),
+    unsupported_rules=frozenset({"symbol_placement", "boundary_types"}),
     # AD-99: Dart has no `__all__` and its public names are UNKNOWN, so no facade count exists.
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
     unmeasured=frozenset(
@@ -95,19 +101,19 @@ DART: Final = Profile(
 TYPESCRIPT: Final = Profile(
     analyzer=TYPESCRIPT_ANALYZER,
     source_suffix=".ts",
+    dependency_symbols=False,
+    complete_api_crossings=False,
+    project_import_closure=True,
     unsupported_rules=frozenset(
         {
             "symbol_placement",
             "boundary_types",
-            "forbidden_construct",
-            "forbidden_call",
-            "private_access",
-            "api_surface",
-            "facade",
         }
     ),
-    unsupported_declarations=frozenset({"facade_budgets", "coupling_budgets"}),
-    unmeasured=frozenset({"typing_positions", "calls_unresolved", "private_crossings"}),
+    unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
+    unmeasured=frozenset(
+        {"typing_positions", "calls_unresolved", "private_crossings", "untyped_private_accesses"}
+    ),
     absent_sections=frozenset(
         {"symbols", "references", "bindings", "calls", "typing_signals", "constructs"}
     ),
@@ -131,3 +137,14 @@ def profile_for(analyzer: str) -> Profile:
         return _ANALYZER_PROFILES[analyzer]
     except KeyError as error:
         raise ValueError(f"unsupported analyzer identity: {analyzer}") from error
+
+
+def delta_dimension_applicable(profile: Profile, dimension: str) -> bool:
+    """Whether the profile provides complete evidence for this historical dimension."""
+    if dimension == "api_crossings":
+        return profile.complete_api_crossings
+    if dimension == "private_crossings":
+        return "private_crossings" not in profile.unmeasured
+    if dimension == "typing_signals":
+        return "typing_positions" not in profile.unmeasured
+    return True

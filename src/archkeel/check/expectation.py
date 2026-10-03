@@ -15,8 +15,9 @@ from typing import Final
 from archkeel.ir.baseline import CycleIdentity, is_contraction
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import ArchitectureDelta, DeltaProvenance, Projection, SemanticChange
+from archkeel.ir.profiles import Profile, delta_dimension_applicable, profile_for
 
-from .delta import SUPPORTED_DIMENSIONS, require_comparable_runtime
+from .delta import DELTA_SCHEMA_VERSION, SUPPORTED_DIMENSIONS, require_comparable_runtime
 from .ratchets import compare_ratchets
 
 EXPECTATION_SCHEMA_VERSION: Final = "1.2.0"
@@ -163,7 +164,8 @@ def evaluate_expectation(
     if delta_model.coverage.status != "PASS":
         raise ExpectationError("delta coverage status must be PASS")
 
-    dimension_counts = _require_dimension_counts(delta_model, expectation)
+    profile = _require_profile_coverage(delta_model)
+    dimension_counts = _require_dimension_counts(delta_model, expectation, profile)
     actual_changes, removed_cycles, added_cycles = _index_semantic_changes(
         delta_model.semantic_changes
     )
@@ -208,18 +210,73 @@ def _require_matching_provenance(
         raise ExpectationError("checker_digest differs from the running Archkeel package")
 
 
+def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
+    profile = profile_for(delta.analyzer.name)
+    if (
+        delta.analyzer.code_digest != delta.provenance.analyzer_digest
+        or delta.contract.digest != delta.provenance.contract_digest
+    ):
+        raise ExpectationError("delta identities disagree with comparison provenance")
+    dimensions = {item.name: item for item in delta.dimensions}
+    if len(dimensions) != len(delta.dimensions) or set(dimensions) != set(SUPPORTED_DIMENSIONS):
+        raise ExpectationError("delta must contain every dimension exactly once")
+    supported = {item.name for item in delta.dimensions if item.status == "SUPPORTED"}
+    unknown = {item.name for item in delta.dimensions if item.status == "UNKNOWN"}
+    applicable = {
+        name for name in SUPPORTED_DIMENSIONS if delta_dimension_applicable(profile, name)
+    }
+    for name in sorted(applicable):
+        if dimensions[name].status != "SUPPORTED":
+            raise ExpectationError(f"delta dimension {name} is not safely comparable")
+        _require_count(dimensions[name].before_count, f"dimensions.{name}.before_count")
+        _require_count(dimensions[name].after_count, f"dimensions.{name}.after_count")
+    if supported != applicable or unknown != set(SUPPORTED_DIMENSIONS) - applicable:
+        raise ExpectationError("delta dimension status disagrees with profile applicability")
+    if {item.dimension for item in delta.unknowns} != unknown:
+        raise ExpectationError("delta UNKNOWN evidence disagrees with dimension status")
+    coverage = delta.coverage
+    if (
+        len(set(coverage.supported_dimensions)) != len(coverage.supported_dimensions)
+        or len(set(coverage.unknown_dimensions)) != len(coverage.unknown_dimensions)
+        or set(coverage.supported_dimensions) != supported
+        or set(coverage.unknown_dimensions) != unknown
+    ):
+        raise ExpectationError("delta coverage lists disagree with dimension status")
+    if (
+        delta.baseline.coverage_status != "PASS"
+        or delta.head.coverage_status != "PASS"
+        or coverage.baseline_status != delta.baseline.coverage_status
+        or coverage.head_status != delta.head.coverage_status
+    ):
+        raise ExpectationError("delta coverage disagrees with complete snapshots")
+    if unknown and delta.schema_version != DELTA_SCHEMA_VERSION:
+        raise ExpectationError("profile-scoped comparison requires delta 1.4.0")
+    if any(
+        dimensions[name].before_count is not None or dimensions[name].after_count is not None
+        for name in unknown
+    ):
+        raise ExpectationError("unavailable delta dimensions cannot claim measured counts")
+    if any(change.dimension not in applicable for change in delta.semantic_changes):
+        raise ExpectationError("semantic change claims an unavailable dimension")
+    return profile
+
+
 def _require_dimension_counts(
-    delta_model: ArchitectureDelta, expectation: ArchitectureExpectation
+    delta_model: ArchitectureDelta, expectation: ArchitectureExpectation, profile: Profile
 ) -> dict[str, tuple[int, int]]:
     dimensions = {item.name: item for item in delta_model.dimensions}
     required_dimensions = {
-        *GUARDRAIL_DIMENSIONS,
+        *(name for name in GUARDRAIL_DIMENSIONS if delta_dimension_applicable(profile, name)),
         *(item.dimension for item in expectation.selected_changes),
     }
     dimension_counts: dict[str, tuple[int, int]] = {}
     for dimension in sorted(required_dimensions):
         if dimension not in SUPPORTED_DIMENSIONS:
             raise ExpectationError(f"unsupported expectation dimension: {dimension}")
+        if not delta_dimension_applicable(profile, dimension):
+            raise ExpectationError(
+                f"expectation dimension {dimension} is unavailable for {profile.analyzer}"
+            )
         record = dimensions.get(dimension)
         if record is None or record.status != "SUPPORTED":
             raise ExpectationError(f"delta dimension {dimension} is not safely comparable")
@@ -296,10 +353,17 @@ def _guardrail_failures(
     declared: set[tuple[str, str, str]],
 ) -> list[str]:
     failures = []
-    for dimension in GUARDRAIL_DIMENSIONS:
-        before_count, after_count = dimension_counts[dimension]
+    for dimension, (before_count, after_count) in dimension_counts.items():
+        if dimension not in GUARDRAIL_DIMENSIONS:
+            continue
         if dimension in _COUNT_REGRESSION_DIMENSIONS and after_count > before_count:
             failures.append(f"guardrail regression in {dimension}: {before_count}->{after_count}")
+        if dimension == "unknowns":
+            failures.extend(
+                f"guardrail changed unknowns fingerprint {fingerprint}"
+                for actual_dimension, kind, fingerprint in sorted(actual_changes)
+                if actual_dimension == dimension and kind == "changed"
+            )
         added_fingerprints = sorted(
             fingerprint
             for actual_dimension, kind, fingerprint in actual_changes

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
+.PHONY: gate check test collector-safety lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -13,6 +13,14 @@ self-validate:
 
 test:
 	$(UV) run --locked python -m pytest -q
+
+collector-safety:
+	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py \
+		tests/test_collection_process.py tests/test_collection_runtime_gate.py \
+		tests/test_runtime.py tests/test_source_trust_boundary.py \
+		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
+		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
+		tests/test_inheritance_proof_transport.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py \

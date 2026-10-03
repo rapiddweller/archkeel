@@ -5,17 +5,56 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Final, Literal, TypeAlias, get_args, get_type_hints
 
+from .facts import (
+    EVIDENCE_FIELDS as EVIDENCE_FIELDS,
+)
+from .facts import (
+    RECORD_FIELDS as RECORD_FIELDS,
+)
+from .facts import (
+    AnalyzerInfo as AnalyzerInfo,
+)
+from .facts import (
+    Evidence as Evidence,
+)
+from .facts import (
+    EvidenceClass as EvidenceClass,
+)
+from .facts import (
+    ForbiddenConstructKind as ForbiddenConstructKind,
+)
+from .facts import (
+    JsonValue as JsonValue,
+)
+from .facts import (
+    Record as Record,
+)
+from .facts import (
+    RecordData as RecordData,
+)
+from .facts import (
+    RuntimeInfo as RuntimeInfo,
+)
+from .facts import (
+    SourceInfo as SourceInfo,
+)
+from .facts import (
+    in_scope as in_scope,
+)
+from .facts import (
+    stable_id as stable_id,
+)
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
 SCHEMA_VERSION = "1.3.0"
+DELTA_SCHEMA_VERSION = "1.4.0"
 Verdict: TypeAlias = Literal["PASS", "FAIL"]
 ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
@@ -45,102 +84,11 @@ CLASSIFIED_SECTIONS = (
     "violations",
     "unknowns",
 )
-RECORD_FIELDS = (
-    "id",
-    "evidence_class",
-    "area",
-    "kind",
-    "title",
-    "subjects",
-    "evidence_ids",
-    "rule_ids",
-    "fact_ids",
-    "provenance",
-    "data",
-)
-EVIDENCE_FIELDS = ("id", "file", "line", "end_line", "column", "excerpt")
-
-
-class EvidenceClass(StrEnum):
-    FACT = "FACT"
-    DECLARED_RULE = "DECLARED_RULE"
-    VIOLATION = "VIOLATION"
-    HYPOTHESIS = "HYPOTHESIS"
-    UNKNOWN = "UNKNOWN"
-
-
-def stable_id(prefix: str, *parts: object) -> str:
-    """Return a compact content-derived ID independent of traversal order."""
-    payload = "\x1f".join(str(part) for part in parts).encode("utf-8")
-    return f"{prefix}-{hashlib.sha256(payload).hexdigest()[:16]}"
-
-
-@dataclass(frozen=True, slots=True)
-class RecordData:
-    """Immutable, profile-owned JSON payload; the common schema leaves its keys open."""
-
-    entries: tuple[tuple[str, JsonValue], ...] = ()
-
-    def __post_init__(self) -> None:
-        if len({key for key, _ in self.entries}) != len(self.entries):
-            raise ValueError("duplicate record data key")
-
-    def get(self, key: str, default: JsonValue = None) -> JsonValue:
-        return next((value for name, value in self.entries if name == key), default)
-
-
-JsonValue: TypeAlias = str | int | float | bool | None | tuple["JsonValue", ...] | RecordData
-
-
-@dataclass(frozen=True, slots=True)
-class Record:
-    id: str
-    evidence_class: EvidenceClass
-    area: str
-    kind: str
-    title: str
-    subjects: tuple[str, ...]
-    evidence_ids: tuple[str, ...]
-    rule_ids: tuple[str, ...]
-    fact_ids: tuple[str, ...]
-    provenance: tuple[str, ...]
-    data: RecordData
-
-
-@dataclass(frozen=True, slots=True)
-class Evidence:
-    id: str
-    file: str
-    line: int
-    end_line: int
-    column: int
-    excerpt: str
-
-
-@dataclass(frozen=True, slots=True)
-class AnalyzerInfo:
-    name: str
-    version: str
-    code_digest: str
-
-
-@dataclass(frozen=True, slots=True)
-class RuntimeInfo:
-    name: str
-    version: str
 
 
 def identity_is_known(value: str) -> bool:
     """Equality of missing provenance cannot establish comparable observations."""
     return bool(value.strip()) and value.strip().casefold() != "unknown"
-
-
-@dataclass(frozen=True, slots=True)
-class SourceInfo:
-    git_head: str
-    dirty: bool | Literal["unknown"]
-    source_digest: str
-    scope: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -373,25 +321,6 @@ class SymbolClassKind(StrEnum):
     CLASS = "class"
 
 
-class ForbiddenConstructKind(StrEnum):
-    GETATTR = "getattr"
-    HASATTR = "hasattr"
-    CAST = "cast"
-    EVAL = "eval"
-    EXEC = "exec"
-    DYNAMIC_IMPORT = "dynamic_import"
-    TYPE_IGNORE = "type_ignore"
-    ANY_ANNOTATION = "any_annotation"
-    PLACEHOLDER_BODY = "placeholder_body"
-    ASSERT = "assert"
-    BROAD_EXCEPT = "broad_except"
-    SETATTR = "setattr"
-    DELATTR = "delattr"
-    VARS = "vars"
-    DUNDER_DICT = "dunder_dict"
-    STRING_LITERAL_COMPARE = "string_literal_compare"
-
-
 @dataclass(frozen=True, slots=True)
 class TypeIgnoreAllowance:
     """One suppression bound to its scope, source line, statement and exact tag."""
@@ -618,11 +547,6 @@ def int_value(value: object, *, default: int = 0) -> int:
     without ever failing; two derivations had each written this out separately.
     """
     return value if isinstance(value, int) and not isinstance(value, bool) else default
-
-
-def in_scope(name: str, scope: str) -> bool:
-    """Match a qualified name against a dotted prefix without partial segments."""
-    return name == scope or name.startswith(f"{scope}.")
 
 
 def module_in_ownership(module: str, packages: Iterable[str], exact_modules: Iterable[str]) -> bool:
@@ -869,12 +793,12 @@ class Coverage:
     files_discovered: int
     files_read: int
     files_parsed: int
-    calls_analyzed: int
-    calls_resolved: int
-    calls_partially_resolved: int
-    calls_unresolved: int
+    calls_analyzed: int | None
+    calls_resolved: int | None
+    calls_partially_resolved: int | None
+    calls_unresolved: int | None
     ast_coverage_percent: float
-    call_resolution_percent: float
+    call_resolution_percent: float | None
     failures: tuple[Record, ...]
     rules: Verdict | None = None
 
@@ -1032,8 +956,8 @@ class SemanticChange:
 class DimensionDelta:
     name: str
     status: ComparisonStatus
-    before_count: int
-    after_count: int
+    before_count: int | None
+    after_count: int | None
     added: tuple[str, ...] = ()
     removed: tuple[str, ...] = ()
     relocated: tuple[str, ...] = ()

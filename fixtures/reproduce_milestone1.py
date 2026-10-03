@@ -14,12 +14,12 @@ from dataclasses import asdict
 from pathlib import Path
 from tempfile import mkdtemp
 
-from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.cli import html_path
 from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     canonical_report_bytes,
     decode_canonical_model,
@@ -271,6 +271,17 @@ def reproduce(output: Path, *, initial_pr: bool = False) -> dict:
             "ratchets": result["delta"]["ratchets"],
         }
         if case == "A":
+            (unknown_change,) = [
+                change
+                for change in result["delta"]["semantic_changes"]
+                if change["dimension"] == "unknowns" and change["change"] == "changed"
+            ]
+            assert result["host_order"] == "PASS"
+            assert set(result["failures"]) == {
+                f"guardrail changed unknowns fingerprint {unknown_change['fingerprint']}",
+                "regression check failed in calls_unresolved: 0->1",
+                "regression check failed in unresolved_ratio: 0/2->1/1",
+            }
             listed = command(
                 ["report", "--root", str(root), "--only", "calls", "--output"]
                 + [str(output / "A-candidate.json")],
@@ -284,13 +295,6 @@ def reproduce(output: Path, *, initial_pr: bool = False) -> dict:
                 "exit_code": missing["exit_code"],
                 "diagnostics": missing["diagnostics"],
             }
-    assert results["A"]["host_order"] == "PASS" and all(
-        "regression check failed" in item for item in results["A"]["failures"]
-    )
-    assert set(results["A"]["failures"]) == {
-        "regression check failed in calls_unresolved: 0->1",
-        "regression check failed in unresolved_ratio: 0/2->1/1",
-    }
     assert CASE_A_CALL in results["A"]["calls"]
     assert results["B"]["failures"] == [
         "expectation was not published before the first candidate submission"

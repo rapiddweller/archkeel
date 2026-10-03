@@ -11,11 +11,11 @@ from pathlib import Path
 import pytest
 from test_analyzer import _component
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, run_validate
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.model import Diagnostic
 
 

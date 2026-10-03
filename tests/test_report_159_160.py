@@ -16,9 +16,9 @@ from pathlib import Path
 from test_baseline import GETATTR_RULE, PROBE, _repo
 from test_report_filter import CONFIG, _tour_root
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import (
     KnownViolation,
     ViolationFingerprint,
