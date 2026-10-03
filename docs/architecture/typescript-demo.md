@@ -52,7 +52,7 @@ Measurements checked independently:
 - Cyclic: named SCCs and positive cycle-edge counts. A cycle inside domain stays absent from the component graph.
 - Structure: module counts, inner edges and fan-in/out for all four components.
 - Coverage and UNKNOWN: malformed input prevents complete measurements; computed imports remain undecided.
-- Unmeasured: private crossings, typing positions, unresolved calls and untyped private accesses remain null. Call resolution is n/a.
+- Unmeasured: private crossings, typing positions, call totals, unresolved calls and untyped private accesses remain null. Call resolution is n/a.
 
 Additional acceptance covers import forms, path-identity collisions, production
 exclusions, runtime/declaration separation and non-execution of project plugins

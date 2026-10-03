@@ -88,7 +88,7 @@ def test_each_demo_matches_independent_expectation(variant, outcomes: dict[str, 
     )
     for name in UNMEASURED:
         assert dict(outcome.report.measurements.scalars.items())[name] is None
-    assert outcome.report.measurements.calls_total == 0
+    assert outcome.report.measurements.calls_total is None
     assert outcome.report.measurements.resolution == "n/a"
     assert outcome.observation.records("calls") is None
     assert outcome.observation.records("symbols") is None
@@ -181,6 +181,10 @@ def test_demo_retains_normal_artifacts(tmp_path: Path) -> None:
     root = tmp_path / outcome.variant.id
     for name in ("validation-result.json", "report-result.json", "architecture.json"):
         assert (root / name).is_file()
+    measurements = json.loads((root / "report-result.json").read_bytes())["measurements"]
+    assert measurements["calls_total"] is None
+    assert measurements["scalars"]["calls_unresolved"] is None
+    assert measurements["resolution"] == "n/a"
 
 
 @pytest.mark.parametrize(
