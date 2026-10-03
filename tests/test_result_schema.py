@@ -141,6 +141,33 @@ def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(valida
     assert not validator.evolve(schema=coverage).is_valid(payload)
 
 
+def test_python_decoded_schema_accepts_producer_and_legacy_omission(results) -> None:
+    schemas = [json.loads(path.read_bytes()) for path in (ROOT / "schema").glob("*.json")]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in schemas
+    )
+    schema_paths = (
+        ROOT / "schema/architecture-ir-decoded.schema.json",
+        ROOT / "schema/architecture-ir-python-decoded.schema.json",
+    )
+    observations = [
+        payload["observation"]
+        for payload in results.values()
+        if isinstance(payload.get("observation"), dict)
+        and payload["observation"]["analyzer"]["name"] == "archkeel-python-analyzer"
+    ]
+    assert observations
+    current = observations[0]
+    assert "producer" in current
+    legacy = {key: value for key, value in current.items() if key != "producer"}
+
+    for path in schema_paths:
+        schema = json.loads(path.read_bytes())
+        decoded = Draft202012Validator(schema, registry=registry)
+        assert not list(decoded.iter_errors(current))
+        assert not list(decoded.iter_errors(legacy))
+
+
 def test_decoded_typescript_schema_preserves_unmeasured_call_availability() -> None:
     from test_nullable_profile_measurements import _profile_model
 

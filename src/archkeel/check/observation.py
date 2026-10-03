@@ -534,7 +534,7 @@ def assemble_observation(
             "name": profile.analyzer,
             "version": OBSERVATION_VERSION,
             "code_digest": hashlib.sha256(
-                f"{package_digest()}\0{facts.adapter.name}\0{facts.adapter.version}\0{facts.adapter.code_digest}".encode()
+                f"{package_digest()}\0{facts.adapter.name}\0{facts.adapter.code_digest}".encode()
             ).hexdigest(),
         },
         "source": {
@@ -575,12 +575,11 @@ def assemble_observation(
         model["python_version"] = facts.runtime.version if facts.runtime.name == "python" else None
     else:
         model["runtime"] = {"name": facts.runtime.name, "version": facts.runtime.version}
-    if language != "python" or facts.adapter.name != profile.analyzer:
-        model["producer"] = {
-            "name": facts.adapter.name,
-            "version": facts.adapter.version,
-            "code_digest": facts.adapter.code_digest,
-        }
+    model["producer"] = {
+        "name": facts.adapter.name,
+        "version": facts.adapter.version,
+        "code_digest": facts.adapter.code_digest,
+    }
     # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
     for section in profile.absent_sections:
         model[section] = None
