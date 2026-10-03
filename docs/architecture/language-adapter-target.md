@@ -1,11 +1,12 @@
 # Language adapter target
 
-Status: approved; implementation in progress. The process boundary, Python/Dart
-collectors and Core evaluation split are present in the working tree. Active
-contracts are `architecture-contract.json` plus
-`contracts/{analyzer,python,dart,check,ir}.json`. These contracts declare the
-target; they do not certify parity or completion. The current validation and full
-test suite still need to pass on the integrated change.
+Status: approved; package and namespace review passed, exact-head validation is
+pending. The process boundary,
+Python/Dart collectors, Core evaluation split and TypeScript npm package are in
+the working tree. Active Python contracts are `architecture-contract.json` plus
+`contracts/{analyzer,python,dart,check,ir}.json`. The npm package has its own
+contract because the Python scanner cannot inspect TypeScript. These contracts
+define the target; they do not certify parity or completion.
 
 ## Boundary
 
@@ -54,12 +55,14 @@ src/archkeel/check/
   observation.py, observe.py             facts + contract -> canonical observation
   evaluation/                            Core-owned policy and evidence sufficiency
   snapshot.py, git.py, ...                revision inputs / existing workflows
-packages/typescript-adapter/             approved, not implemented
+packages/typescript-adapter/
+  src/{entry,project,collect,protocol}.ts
+  test/{adapter,pack}.mjs                  pinned npm package and package tests
 ```
 
 Python retains its specialist collectors. Shared graph algorithms live in
 `ir.graph`; dependency/scope aggregation and policy live in `check.evaluation`.
-Dart retains directive-only capability. TypeScript can start with four source
+Dart retains directive-only capability. The TypeScript package uses four source
 files because the compiler owns its AST and resolver. Add another internal
 component only when responsibilities require it.
 
@@ -114,11 +117,19 @@ files remain the approved design record. They do not certify parity or completio
 The TypeScript npm package needs its own contract because the Python scanner cannot
 observe `.ts`.
 
-The target and Node/npm adapter choice are approved. The process/facts/Core and
-Python/Dart migration is in implementation. Acceptance still requires Python/Dart
-parity, replacement by another configured executable, negative protocol/coverage
-cases and independent review. TypeScript packaging, revision identity and
-extension onboarding remain separate follow-up work.
+## Current status
+
+The local Make gate completed with 3,053 passed and 179 skipped; two APFS fixture
+tests were explicitly deselected. The final npm tarball passed 36 package tests.
+The extension scan initialized 78 files across five owners and found seven
+UI-to-Platform type-import violations against the proposed target. The Core
+namespace guard rejects selected modules or packages outside the configured
+namespace and accepts dotted descendants with adapter-owned names; its QA run
+passed 15 tests. Independent npm acceptance and namespace review passed.
+
+These are local results, not CI or release evidence. Node 22/24, native Windows
+and exact-head full Linux CI remain pending. The change has not merged or been
+published; delivery gates remain open.
 
 Future HTTP/queue relationships are a separate interaction model: declared API
 contracts, source observations and runtime observations have distinct evidence.

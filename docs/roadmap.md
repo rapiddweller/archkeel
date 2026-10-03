@@ -171,16 +171,18 @@ only when its row names repository evidence.
 ## In progress
 
 - Implement the approved replaceable language-adapter boundary: configured process,
-  validated source facts, Core-owned rules and active nested contracts (AD-22, #122).
-  Python/Dart parity, replacement acceptance, complete gates and independent review
-  remain open. TypeScript packaging and extension onboarding follow separately.
+  validated source facts, Core-owned rules, active nested contracts and the pinned
+  TypeScript npm package (AD-22, #122, #274–#276). The local Make gate and package
+  tests, local migration acceptance, package review and namespace review passed.
+  Exact-head cross-platform validation remains open. The extension target still
+  has seven UI-to-Platform type-import violations. The change has not merged or
+  been published.
 
 ## Next
 
-- Complete acceptance for the language-adapter migration, then implement the pinned
-  TypeScript npm adapter and extension onboarding (#274–#276).
-  Prove Python/Dart parity and replacement through configuration. Full Dart type
-  analysis is separate. See [the proposal](architecture/typescript-foundation-proposal.md).
+- Complete exact-head cross-platform CI and extension onboarding (#274–#276).
+  Full Dart type analysis is separate. See
+  [the proposal](architecture/typescript-foundation-proposal.md).
 - Complete #218 against published baselines with explicit per-rule decision units and
   supported runtimes. EE's absent boundary policy is N/A; do not invent one for measurement.
 

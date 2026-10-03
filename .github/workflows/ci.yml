@@ -68,6 +68,48 @@ jobs:
           path: test-artifacts/architecture/
           if-no-files-found: error
 
+  collector-runtimes:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ["22.13.0", "24", "26"]
+        include:
+          - os: windows-latest
+            node: "22.13.0"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Verify packaged TypeScript collector
+        working-directory: packages/typescript-adapter
+        run: |
+          npm ci --ignore-scripts
+          npm run verify
+          npm run test:pack
+
+      - name: Verify native collection and process cleanup
+        run: >-
+          uv run --locked python -m pytest -q tests/test_collection_protocol.py
+          tests/test_collection_process.py tests/test_source_trust_boundary.py
+
   github-order-report:
     name: Collect GitHub order evidence (report only)
     if: github.event_name == 'pull_request'
