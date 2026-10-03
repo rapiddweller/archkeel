@@ -134,6 +134,9 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
 
+      - name: Install supported Python runtimes
+        run: uv python install 3.11.12 3.12.10
+
       - name: Install locked dependencies
         run: uv sync --locked
 
