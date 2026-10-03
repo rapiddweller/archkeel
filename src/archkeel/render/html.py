@@ -977,7 +977,7 @@ def _target_component_details(record: Record, packages: list[str]) -> list[dict[
     )
     details.append(
         {
-            "label": "Planned interface (not public)",
+            "label": "Planned interface (proposed)",
             "value": ", ".join(planned_values)
             if planned_values
             else "Explicitly empty"
