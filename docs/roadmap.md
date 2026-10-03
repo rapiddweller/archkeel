@@ -170,6 +170,10 @@ only when its row names repository evidence.
 | A `public_api` entry naming a module that declares `__all__` is checked against it, so `archkeel.api:Typo` is `api_surface.missing` instead of passing on its module alone; a module declaring no `__all__` keeps AD-66's module-only reading (AD-71, #58) | `src/archkeel/check/validation.py`; `tests/test_validation.py` |
 ## Next
 
+- Complete the replaceable language-adapter boundary before TypeScript: configured
+  process, validated source facts and Core-owned rules (AD-22, #122, #274–#276).
+  Prove Python/Dart parity and replacement through configuration. Full Dart type
+  analysis is separate. See [the proposal](architecture/typescript-foundation-proposal.md).
 - Complete #218 against published baselines with explicit per-rule decision units and
   supported runtimes. EE's absent boundary policy is N/A; do not invent one for measurement.
 
@@ -207,10 +211,9 @@ answer key are prepared; human effectiveness and the need for a separate explore
   a standalone configuration for each level. Evidence: `init` on that scope drafts 12
   sub-components and 132 open decisions, one component per module, where the three decided
   layers need 6.
-- Make the analyzer a process port with a language profile and prove it with a second analyzer
-  (AD-22). Six places still assume Python: the import in the CLI, the namespace pattern in the
-  configuration, the `public` and dependency patterns in the schema, the construct enum and the
-  runtime gate.
+- Observe system interactions across languages using explicit HTTP/channel/schema
+  contracts and separate declaration, source and runtime evidence. Design boundary
+  only; no connector, Rust implementation or cross-language rule is scheduled.
 - Implement `accept` and add the GitHub host adapter (#216); retain the `ratchets` field
   for compatibility. AD-136 decides the conservative regression policy.
 - Act on the open onboarding findings in `docs/evidence/internal-service/README.md`: assign a

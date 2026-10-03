@@ -1,13 +1,14 @@
 # TypeScript foundation — proposal
 
-Status: proposed; implementation and distribution need owner review.
+Status: revised proposal; owner requires replaceable language modules now.
+Runtime/distribution and the revised implementation scope remain proposed.
 Evidence: ArchKeel `7836515`, DATAMIMIC IDE working copy, 2026-10-03.
 
 ## Outcome
 
-Support TypeScript architecture checks, then onboard the DATAMIMIC VS Code,
-Kiro and Antigravity extension. Keep changes in separate PRs. Preserve the
-Python/Dart behavior and the extension's existing dependency-cruiser gate.
+Establish replaceable language adapters, add TypeScript architecture checks,
+then onboard the DATAMIMIC VS Code, Kiro and Antigravity extension. Keep changes
+in separate PRs. Preserve Python/Dart behavior and the existing extension gate.
 
 This is a design PR. TypeScript support is not implemented or advertised.
 
@@ -16,7 +17,8 @@ This is a design PR. TypeScript support is not implemented or advertised.
 **Recommended:** a Node analyzer using an exactly pinned TypeScript Compiler
 API, initially 5.9.3, the version exercised against the extension. Install its
 locked dependencies explicitly. Never install during `report` or `check`.
-Keep architecture-rule evaluation in Python; Node supplies source facts.
+Every language adapter supplies source facts through the same configured
+process port. The Python Core owns architecture-rule evaluation and verdicts.
 
 The cost is a second runtime and a separately versioned npm artifact. A missing
 or incompatible analyzer returns exit 2 with an actionable diagnostic.
@@ -25,8 +27,9 @@ Alternative: Python plus tree-sitter. This avoids Node but adds grammar/native
 dependencies and our own TypeScript module resolver. Regex is insufficient for
 the observed syntax and is excluded.
 
-The approval covers this written scope and runtime/distribution boundary. The
-implementation plan follows owner review; it is not a general AD-22 rewrite.
+The implementation plan follows review of this revised scope. AD-22's process
+boundary is now a prerequisite, not deferred work. Full Dart type/construct
+analysis remains separate; replaceability does not require those capabilities.
 
 ## Confirmed prerequisites
 
@@ -40,9 +43,10 @@ implementation plan follows owner review; it is not a general AD-22 rewrite.
 | Target files are Python-only | `ir/codec.py:928`; `analyzer/embedded/report.py:356` | profile-aware path validation and target identities |
 
 AD-22 and [#122](https://github.com/rapiddweller/archkeel/issues/122) describe the
-future configurable process port. The current Python/Dart bridge is fixed.
-Reuse that boundary and evaluator for the TS vertical slice; do not claim the
-general process-port migration is complete.
+configurable process port. The current Python/Dart bridge is fixed and scanners
+also evaluate rules. Extract the existing facts and policy boundary with parity
+tests. The Core remains implemented in Python; its current internals need to
+change. Reuse the rule semantics, not the scan/policy coupling.
 
 ## Concrete extension inputs
 
@@ -69,17 +73,40 @@ Observe the local JS dependency closure too, or leave affected transitive and
 whole-graph cycle checks UNKNOWN. A declaration file does not prove the runtime
 file has no outgoing imports.
 
-## Minimum vertical slice
+## Replaceable language boundary
+
+The module is a language adapter: parser, project resolver and fact extraction.
+A parser alone produces syntax; it does not resolve module aliases or imports.
+The complete analyzer is this adapter plus Core-owned policy evaluation.
 
 ```mermaid
 flowchart LR
-  CLI[ArchKeel CLI] --> BRIDGE[Existing Python analyzer bridge]
-  BRIDGE --> NODE[Node fact collector / pinned TypeScript]
-  NODE --> FACTS[Validated source and resolution facts]
-  FACTS --> EVAL[Existing Python rule evaluator]
-  EVAL --> IR[Canonical observation]
-  IR --> CHECK[Report / validate / check]
+  CLI["CLI / accepted configuration"] --> PORT["Configured process port"]
+  PORT --> PY["Python adapter"]
+  PORT --> DART["Dart adapter"]
+  PORT --> TS["TypeScript adapter"]
+  PY --> FACTS["Validated source facts / capabilities / coverage"]
+  DART --> FACTS
+  TS --> FACTS
+  FACTS --> CORE["Core: ownership / rules / verdicts"]
+  CORE --> IR["Canonical observation"]
+  IR --> CHECK["Report / validate / check"]
 ```
+
+- Configure an executable plus argument list, not a shell command. One
+  versioned JSON request on stdin, one response on stdout, diagnostics on stderr.
+  No discovery framework, dynamic loading or daemon.
+- Request snapshot/scope/resolver inputs, not the architecture contract or
+  baseline. Adapters do not decide allowed edges, violations or PASS/FAIL.
+- Reuse the source-fact portion of the existing IR. The Core validates profile,
+  protocol, identities, references, input provenance, capabilities and coverage
+  before constructing the final observation and evaluator receipts.
+- Python and Dart use this same port, with no privileged scan/policy shortcut.
+  A replacement executable is proven through configuration and acceptance tests.
+- Reject malformed/incompatible responses, unavailable tools and timeouts;
+  preserve UNKNOWN or exit 2 according to the existing diagnostic contract.
+
+## TypeScript scope
 
 - Observe static imports, re-exports, import types, literal dynamic imports and
   proven CommonJS imports. Computed or shadowed imports cannot prove absence.
@@ -120,19 +147,58 @@ There is no automatic dependency installation or guessed external source graph.
 
 1. **Profile evidence:** active-profile IR validation, explicit capability
    decisions and legacy compatibility tests. No TypeScript feature claim.
-2. **Revision evidence:** language-aware snapshots, runtime comparability and
-   file identities, logical selectors and ownership mapping. Python/Dart parity
-   and unsafe-archive tests.
-3. **TypeScript vertical slice:** pinned collector, packaging, CLI/config/init,
-   profile-aware evaluator/coverage paths, report/validate/check, deterministic
-   fixture and Make demo target. Requires both foundation PRs; full AD-22 remains
-   separately tracked.
-4. **Extension onboarding:** initialize TypeScript scope, document reviewed
+2. **AD-22 facts/process contract:** configured executable boundary, validated
+   facts/capabilities and Core-owned policy. Reuse existing IR records; define
+   file identities, selectors and ownership mapping without parser AST leakage.
+3. **Python/Dart migration and revision evidence:** both adapters use the port,
+   with policy out of scanners; language-aware snapshots/runtime/target paths,
+   semantic parity and unsafe-archive tests. Split transport migration from
+   snapshots if needed for a coherent review.
+4. **TypeScript vertical slice:** pinned collector, packaging, CLI/config/init,
+   report/validate/check, negative fixture and Make demo target. Uses the same
+   port, Core and declared capability boundary as Python/Dart.
+5. **Extension onboarding:** initialize TypeScript scope, document reviewed
    target, encode supported constraints and compare with dependency-cruiser.
    This PR belongs in the extension repository.
 
+## Future system interactions — design boundary only
+
+An import proves a code dependency. HTTP and queue communication need distinct
+relations, contract identities and evidence; they are not synthetic imports.
+
+```text
+TypeScript frontend -- HTTP operation / API contract --> Python backend
+Python producer -- publishes message --> queue channel
+Rust consumer -- consumes message --> queue channel
+```
+
+A later interaction observer can link source-backed clients, providers,
+publishers and consumers through explicit API/channel/schema contracts. Service
+and repository identities must not be conflated with a language module namespace.
+Contract declarations, source evidence and runtime evidence remain distinct:
+
+| Evidence | What it supports | What it does not prove |
+|---|---|---|
+| declaration | intended endpoint/channel/schema relationship | source usage or delivery |
+| source | matching client/provider or publisher/consumer code | deployed wiring or execution |
+| runtime | communication in an identified environment/time | universal behavior or complete source coverage |
+
+Dynamic endpoints, queue bindings, versions and unknown identities stay
+unresolved until evidence links them. Shared schema references alone do not
+prove connected deployments, authorization, compatibility or message delivery.
+
+Record this boundary now. Do not add HTTP/broker observers, cross-language rules,
+Rust support, speculative schema fields or a universal graph framework in this
+TypeScript project. Build those only for a concrete system and acceptance case.
+
 ## Acceptance before extension onboarding
 
+- Python and Dart fixtures run through the same configured port with unchanged
+  semantics. Known Python serialization/provenance changes are explicit; policy
+  results and preserved compatibility must not drift under the extraction.
+- A replacement test executable returns valid and deliberately invalid facts.
+  Prove configuration selects it, the Core owns decisions, malformed/profile-
+  incompatible output fails closed, and the Core never imports adapter ASTs.
 - Every enabled rule has a positive and negative fixture; unsupported and
   partial cases cannot become PASS. Missing facts are never violations.
 - Cover comments/strings, type imports, re-exports, literal/computed imports,
