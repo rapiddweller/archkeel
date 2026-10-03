@@ -53,6 +53,7 @@
         "archkeel.ir.duplication",
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
+        "archkeel.ir.identity:module_identity",
         "archkeel.ir.levels:inside_levels",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
@@ -73,7 +74,6 @@
         "archkeel.ir.state_facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
-        "archkeel.ir.identity",
         "archkeel.ir.graph",
         "archkeel.ir.source_records",
         "archkeel.ir.profiles:Profile",
@@ -391,7 +391,7 @@
         "max_names": 14,
         "provenance": [
           "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md",
-          "docs/architecture/decisions/ad-147-source-facts-and-core-evaluation-have-separate-owners.md"
+          "docs/architecture/decisions/ad-150-source-facts-and-core-evaluation-have-separate-owners.md"
         ]
       },
       {

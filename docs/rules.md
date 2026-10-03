@@ -394,7 +394,8 @@ A named type may be public through its owner's proven facade export; it need not
 implementation module. Without a proven public route, a matching uncertain export is UNKNOWN.
 An export by another owner does not grant publication. Public model fields are still checked.
 An inherited generic signature that is a possible but unproven use produces
-`interface.usage_unknown`, not `interface.unused`; it is not added to `facade_types`. A proven
+`interface.usage_unknown`, not `interface.unused`, at root and inside scopes, including uncertain
+re-exports (AD-149); it is not added to `facade_types`. A proven
 import or facade signature still wins over that candidate.
 Owned model fields, supported collections and unions are inspected recursively (AD-93). A repeated
 type ends only its current traversal path. Findings retain the signature-rooted field path;

@@ -82,6 +82,11 @@ CLASSIFIED_SECTIONS = (
 )
 
 
+def identity_is_known(value: str) -> bool:
+    """Missing provenance cannot establish comparable observations."""
+    return bool(value.strip()) and value.strip().casefold() != "unknown"
+
+
 @dataclass(frozen=True, slots=True)
 class ContractInfo:
     schema_version: str
