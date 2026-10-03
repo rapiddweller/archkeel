@@ -13,13 +13,13 @@ The process port makes collectors replaceable. It does not prove Python/Dart par
 TypeScript package completion or runtime isolation. Each remains subject to its
 own acceptance evidence.
 
-The CLI-to-Core coupling ceiling moves from 10 to 14 names. The four additions are
-`Observer`, `analyze_source_snapshot`, `Language` and `ObservationResult`. They
+The CLI-to-Core coupling ceiling moves from 11 to 14 names. The three additions are
+`Observer`, `analyze_source_snapshot` and `ObservationResult`. They
 compose the collector, preserve the snapshot entry point and type its result.
 Exact names define this seam; whole-module grants would make its width unknown.
 
-The self-baseline changes with this migration: unresolved calls 568 to 657,
-typing positions 53 to 58, UNKNOWN positions 40 to 42. Independent controls
+The self-baseline changes from the reviewed snapshot baseline: unresolved calls
+582 to 657, typing positions 55 to 58, UNKNOWN positions 40 to 42. Independent controls
 produce identical findings with both engines on the original baseline source.
 The new code adds process and protocol boundaries; recursive JSON and compatibility
 reexports still have explicit static limits. A redundant process-module publication
