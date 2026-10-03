@@ -8,6 +8,9 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 
+from archkeel.ir.facts import FileFact
+from archkeel.ir.facts_codec import RawRecord, classified
+from archkeel.ir.graph import condensation_ranks, strongly_connected_components, transitive_paths
 from archkeel.ir.model import (
     ContractComponent,
     ContractPath,
@@ -16,15 +19,6 @@ from archkeel.ir.model import (
     in_scope,
     stable_id,
 )
-
-from .graph import condensation_ranks, strongly_connected_components, transitive_paths
-from .records import RawRecord, classified
-from .source import ScannedModule
-
-
-def _top_level_scope(module: str) -> str | None:
-    parts = module.split(".")
-    return ".".join(parts[:2]) if len(parts) > 1 else None
 
 
 def aggregate_edges(
@@ -78,7 +72,7 @@ def aggregate_edges(
 
 
 def package_records(
-    parsed: Sequence[ScannedModule],
+    parsed: Sequence[FileFact],
     packages: Sequence[str],
     package_edge_pairs: Sequence[tuple[str, str]],
 ) -> list[RawRecord]:
@@ -114,7 +108,7 @@ def package_records(
 
 
 def module_records(
-    parsed: Sequence[ScannedModule],
+    parsed: Sequence[FileFact],
     module_names: set[str],
     module_edge_pairs: Sequence[tuple[str, str]],
     symbols: Sequence[RawRecord],
@@ -220,7 +214,7 @@ def _backed_package_cycles(
 ) -> list[RawRecord]:
     """Name, on each package SCC, the module SCCs that cross two or more of its packages.
 
-    AD-98: a package is a module's first two dotted segments, so `a.x -> b.y` and `b.z -> a.w`
+    AD-98: each module has an explicit package identity, so `a.x -> b.y` and `b.z -> a.w`
     close a package cycle that no module import cycle closes. Every package edge is real, but
     the cycle is the roll-up's: `backed_by` stays empty and the title says so. A module SCC
     inside one package never backs one.
@@ -388,7 +382,11 @@ def _declared_scope_record(
     )
     outgoing_modules = sorted({edge["data"]["target"] for edge in outgoing_edges})
     outgoing_scopes = sorted(
-        {scope for name in outgoing_modules if (scope := _top_level_scope(name)) is not None}
+        {
+            module_by_name[name]["data"]["package"]
+            for name in outgoing_modules
+            if name in module_by_name
+        }
     )
     module_facts = [module_by_name[name] for name in matched_names]
     record = classified(
@@ -456,7 +454,7 @@ def _unassigned_scope_records(
     """Build UNKNOWN records for modules under a top-level scope no component claims."""
     unassigned_by_scope: dict[str, list[str]] = defaultdict(list)
     for name in sorted(module_by_name):
-        scope = _top_level_scope(name)
+        scope = module_by_name[name]["data"]["package"]
         if scope is not None and name not in assigned_modules:
             unassigned_by_scope[scope].append(name)
 

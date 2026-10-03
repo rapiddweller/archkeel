@@ -6,7 +6,16 @@
 from collections.abc import Iterable
 from pathlib import PurePosixPath
 
-from .facts import EvidenceClass, JsonValue, LocalTarget, Record, RecordData, SourceFacts
+from .facts import (
+    BuiltinTarget,
+    EvidenceClass,
+    ExternalPackageTarget,
+    LocalTarget,
+    Record,
+    RecordData,
+    SourceFacts,
+    UnresolvedTarget,
+)
 from .state_facts import ArgumentPass, AttributeAccess
 
 _REQUIRED = {
@@ -19,6 +28,8 @@ _REQUIRED = {
         "symbol",
         "binding",
         "symbols_known",
+        "relative_level",
+        "under_type_checking",
     ),
     "calls": ("source_scope", "source_module", "expression", "status", "targets"),
     "references": ("source_scope", "source_module", "expression", "status", "targets", "use"),
@@ -67,6 +78,7 @@ _OPTIONAL_STRINGS = frozenset(
 _BOOLEAN_FIELDS = frozenset(
     {
         "under_type_checking",
+        "type_only",
         "ordinary_module",
         "module_level_import",
         "reexport",
@@ -96,25 +108,22 @@ def _unique(values: Iterable[str], label: str) -> set[str]:
     return set(sequence)
 
 
-def _payload(value: JsonValue) -> None:
-    if isinstance(value, tuple):
-        for child in value:
-            _payload(child)
-    elif isinstance(value, RecordData):
-        for key, child in value.entries:
-            if key in _POLICY_FIELDS:
-                raise ValueError(f"policy field {key} is not a source fact")
-            if key in _STRING_FIELDS and not isinstance(child, str):
-                raise ValueError(f"source payload {key} must be a string")
-            if key in _OPTIONAL_STRINGS and child is not None and not isinstance(child, str):
-                raise ValueError(f"source payload {key} must be a string or null")
-            if key in _BOOLEAN_FIELDS and child is not None and not isinstance(child, bool):
-                raise ValueError(f"source payload {key} must be a boolean")
-            if key in _STRING_ARRAYS and (
-                not isinstance(child, tuple) or any(not isinstance(item, str) for item in child)
-            ):
-                raise ValueError(f"source payload {key} must be a string array")
-            _payload(child)
+def _payload(value: RecordData) -> None:
+    # Nested mappings may use source-defined names such as `status` or `contract`.
+    # Only the record envelope's own fields have protocol meaning.
+    for key, child in value.entries:
+        if key in _POLICY_FIELDS:
+            raise ValueError(f"policy field {key} is not a source fact")
+        if key in _STRING_FIELDS and not isinstance(child, str):
+            raise ValueError(f"source payload {key} must be a string")
+        if key in _OPTIONAL_STRINGS and child is not None and not isinstance(child, str):
+            raise ValueError(f"source payload {key} must be a string or null")
+        if key in _BOOLEAN_FIELDS and child is not None and not isinstance(child, bool):
+            raise ValueError(f"source payload {key} must be a boolean")
+        if key in _STRING_ARRAYS and (
+            not isinstance(child, tuple) or any(not isinstance(item, str) for item in child)
+        ):
+            raise ValueError(f"source payload {key} must be a string array")
 
 
 def _source_record(record: Record, section: str) -> None:
@@ -139,6 +148,12 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("impossible collection coverage counts")
     if facts.coverage.files_parsed < len(selected) and not facts.coverage.gaps:
         raise ValueError("unobserved selected files require coverage gaps")
+    if not facts.coverage.full_scope and not facts.coverage.gaps:
+        raise ValueError("partial collection requires coverage gaps")
+    if facts.coverage.full_scope and (
+        facts.coverage.gaps or facts.coverage.files_parsed != len(selected)
+    ):
+        raise ValueError("complete collection contradicts coverage gaps or counts")
     inputs = _unique((item.path for item in facts.inputs), "resolution input")
     selected_inputs = {item.path for item in facts.inputs if item.role == "selected"}
     if not selected_inputs.issubset(selected):
@@ -150,6 +165,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("observed module needs a selected input")
     if len(facts.files) > facts.coverage.files_parsed:
         raise ValueError("observed modules exceed parsed files")
+    if (
+        facts.profile != "archkeel-dart-directives"
+        and len(facts.files) != facts.coverage.files_parsed
+    ):
+        raise ValueError("each parsed source file needs an observed module")
+    if facts.coverage.full_scope and facts.coverage.files_parsed and not facts.files:
+        raise ValueError("complete parsed source needs an observed module")
     evidence_ids = _unique((item.id for item in facts.evidence), "evidence id")
     candidate_ids = _unique((item.id for item in facts.candidate_evidence), "candidate evidence id")
     base_by_id = {item.id: item for item in facts.evidence}
@@ -172,6 +194,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
             raise ValueError("invalid evidence range")
     if any(item.evidence_id not in evidence_ids for item in facts.files):
         raise ValueError("file has dangling evidence reference")
+    if any(base_by_id[item.evidence_id].file != item.rel_path for item in facts.files):
+        raise ValueError("module evidence disagrees with source file")
     names = _unique((section.name for section in facts.sections), "section")
     declared = _unique(facts.capabilities.sections, "capability section")
     if names != declared:
@@ -205,16 +229,50 @@ def validate_source_facts(facts: SourceFacts) -> None:
     if target_ids != imports:
         raise ValueError("each import needs exactly one typed target")
     file_by_module = {item.module: item for item in facts.files}
+    for section in facts.sections:
+        if section.name == "unknowns":
+            continue
+        for record in section.records:
+            source_module = record.data.get("source_module", record.data.get("module"))
+            if not isinstance(source_module, str):
+                continue
+            source = file_by_module.get(source_module)
+            if source is None:
+                raise ValueError("source record names an unobserved module")
+            if not record.evidence_ids or any(
+                base_by_id[item].file != source.rel_path for item in record.evidence_ids
+            ):
+                raise ValueError("source record evidence disagrees with its module")
+            if section.name == "imports" and record.data.get("source_package") != source.package:
+                raise ValueError("import source package disagrees with its module")
     for target in facts.imports:
+        data = record_by_id[target.import_id].data
         if isinstance(target, LocalTarget):
             observed = file_by_module.get(target.module)
+            if observed is None and facts.coverage.full_scope:
+                raise ValueError("unobserved local target requires incomplete coverage")
             if observed is not None and observed.rel_path != target.file:
                 raise ValueError("local import target disagrees with observed module")
+            if observed is not None and data.get("target_package") != observed.package:
+                raise ValueError("local import package disagrees with observed module")
             for target_path in (target.file, target.runtime_file, target.declaration_file):
                 if target_path is not None and target_path not in inputs:
                     raise ValueError("local import target needs a digested input")
-            if record_by_id[target.import_id].data.get("target_module") != target.module:
+            if data.get("target_module") != target.module:
                 raise ValueError("local import target disagrees with import payload")
+        elif isinstance(target, ExternalPackageTarget):
+            if data.get("target_module") in file_by_module:
+                raise ValueError("observed local module cannot be an external target")
+            if data.get("target_package") != target.package:
+                raise ValueError("external import target disagrees with import payload")
+        elif isinstance(target, BuiltinTarget):
+            if data.get("target_module") in file_by_module:
+                raise ValueError("observed local module cannot be a builtin target")
+            if data.get("target_module") != target.name:
+                raise ValueError("builtin import target disagrees with import payload")
+        elif isinstance(target, UnresolvedTarget):
+            if data.get("target_module") != target.specifier:
+                raise ValueError("unresolved import target disagrees with import payload")
     _unique((binding for binding, _ in facts.uncertain_reexports), "reexport binding")
     _unique((expression for expression, _ in facts.type_shapes), "type expression")
 

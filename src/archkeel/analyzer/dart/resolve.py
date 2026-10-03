@@ -20,12 +20,17 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import Final
 
-from archkeel.ir.model import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts_codec import (
+    RawEvidence,
+    RawRecord,
+    classified,
+    file_evidence,
+    record_evidence,
+)
 
-from .dart_directives import Directive, Header, read_header
-from .dart_lexer import DirectiveError
-from .records import RawEvidence, RawRecord, classified
-from .source import file_evidence, package_for, record_evidence
+from .directives import Directive, Header, read_header
+from .lexer import DirectiveError
 
 _SEGMENT: Final = r"[A-Za-z_][A-Za-z0-9_]*"
 _SCHEME: Final = r"[A-Za-z][A-Za-z0-9+.-]*:.*"
@@ -370,3 +375,8 @@ def read_dart_sources(root: Path, *, roots: tuple[str, ...], namespace: str) -> 
     reader = _Reader(root, roots, namespace)
     reader.keep_unique([item for path in paths if (item := reader.read_file(path)) is not None])
     return reader.sources(paths)
+
+
+def package_for(module: str) -> str:
+    parts = module.split(".")
+    return ".".join(parts[:2]) if len(parts) > 1 else module

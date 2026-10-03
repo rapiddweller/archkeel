@@ -9,12 +9,17 @@ import ast
 import builtins
 from collections.abc import Sequence
 
-from archkeel.analyzer.embedded.records import RawEvidence, RawRecord, classified
-from archkeel.analyzer.embedded.source import ParsedModule, add_evidence, annotation_text, own_scope
 from archkeel.ir.facts import Evidence, EvidenceClass, Record, stable_id
-from archkeel.ir.facts_codec import parse_evidence, parse_record
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, parse_evidence, parse_record
 
-from .state import _attribute_path, _function_class_owners
+from .source import (
+    ParsedModule,
+    add_evidence,
+    annotation_text,
+    attribute_path,
+    function_class_owners,
+    own_scope,
+)
 
 _BUILTIN_NAMES = frozenset(dir(builtins))
 
@@ -200,7 +205,7 @@ def _private_attribute_records(
         parent = parents.get(id(node))
         if isinstance(parent, ast.Attribute) and parent.value is node:
             continue
-        rooted = _attribute_path(node)
+        rooted = attribute_path(node)
         if rooted is None or rooted[0] not in parameters:
             continue
         parameter, path = rooted
@@ -246,7 +251,7 @@ def _private_attribute_limits(
     """Record private attribute access where the parameter's runtime owner is undecidable."""
     records: dict[str, RawRecord] = {}
     for module in modules:
-        class_owners = _function_class_owners(module.tree, module.module)
+        class_owners = function_class_owners(module.tree, module.module)
         module_aliases = _module_scope_aliases(module)
         module_shadowed = _module_binding_names(module)
         lexical_shadowed = _lexical_shadowed_names(module.tree)

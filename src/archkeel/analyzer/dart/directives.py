@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
-from .dart_lexer import DirectiveError, Token, tokens
+from .lexer import DirectiveError, Token, tokens
 
 DirectiveKind: TypeAlias = Literal["import", "export"]
 

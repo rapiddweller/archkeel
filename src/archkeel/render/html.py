@@ -971,6 +971,20 @@ def _target_component_details(record: Record, packages: list[str]) -> list[dict[
             else "Not declared",
         }
     )
+    planned = record.data.get("planned")
+    planned_values = (
+        [item for item in planned if isinstance(item, str)] if isinstance(planned, tuple) else []
+    )
+    details.append(
+        {
+            "label": "Planned interface (proposed)",
+            "value": ", ".join(planned_values)
+            if planned_values
+            else "Explicitly empty"
+            if isinstance(planned, tuple)
+            else "Not declared",
+        }
+    )
     details.append({"label": "Provenance", "value": ", ".join(record.provenance)})
     responsibilities = record.data.get("responsibilities")
     if isinstance(responsibilities, tuple):
@@ -2553,10 +2567,10 @@ def _measurements(measurements: Measurements | None) -> str:
     )
     ratio = (
         "n/a"
-        if measurements.resolution == "n/a"
+        if measurements.resolution == "n/a" or measurements.scalars.calls_unresolved is None
         else f"{measurements.scalars.calls_unresolved}/{measurements.calls_total}"
     )
-    total = measurements.calls_total
+    total = "n/a" if measurements.scalars.calls_unresolved is None else measurements.calls_total
     rows += (
         f'<tr><td><code>calls_total</code></td><td class="numeric">{total}</td></tr>'
         f'<tr><td><code>unresolved_ratio</code></td><td class="numeric">{ratio}</td></tr>'
@@ -2571,14 +2585,17 @@ def _coverage(observation: Observation | None) -> str:
     if observation is None:
         return "<p>No observation is available.</p>"
     coverage = observation.coverage
-    resolution = (
-        "n/a"
-        if coverage.calls_analyzed == 0
-        else (
+    resolution = "n/a"
+    if (
+        coverage.calls_analyzed is not None
+        and coverage.calls_analyzed > 0
+        and coverage.calls_resolved is not None
+        and coverage.call_resolution_percent is not None
+    ):
+        resolution = (
             f"{coverage.calls_resolved}/{coverage.calls_analyzed} "
             f"({coverage.call_resolution_percent:.2f}%)"
         )
-    )
     rows = (
         ("Status", coverage.status),
         ("Rules coverage", coverage.rules or "UNKNOWN"),
@@ -2587,8 +2604,16 @@ def _coverage(observation: Observation | None) -> str:
         ("Files parsed", coverage.files_parsed),
         ("AST coverage", f"{coverage.files_parsed}/{coverage.files_discovered}"),
         ("Calls resolved", resolution),
-        ("Calls partially resolved", coverage.calls_partially_resolved),
-        ("Calls unresolved", coverage.calls_unresolved),
+        (
+            "Calls partially resolved",
+            "n/a"
+            if coverage.calls_partially_resolved is None
+            else coverage.calls_partially_resolved,
+        ),
+        (
+            "Calls unresolved",
+            "n/a" if coverage.calls_unresolved is None else coverage.calls_unresolved,
+        ),
     )
     body = "".join(
         f'<tr><td>{_text(label)}</td><td class="numeric"><code>{_text(value)}</code></td></tr>'
@@ -2856,12 +2881,19 @@ def render_html(
         if architecture_href is not None
         else "Canonical architecture.json is unavailable."
     )
+    calls_note = (
+        "Call resolution is not measured."
+        if observation is not None and observation.coverage.calls_unresolved is None
+        else f"{observation.coverage.calls_unresolved} of "
+        f"{observation.coverage.calls_analyzed} calls unresolved."
+        if observation is not None
+        else ""
+    )
     scope_note = (
         '<p class="report-scope"><strong>One repository snapshot.</strong> This report checks '
         "declared rules, not change against an earlier revision or runtime behavior. "
         f"{len(unknowns or ())} recorded analysis limits; "
-        f"{observation.coverage.calls_unresolved} of "
-        f"{observation.coverage.calls_analyzed} calls unresolved. "
+        f"{calls_note} "
         "These counts are not declared-rule violations.</p>"
         if observation is not None and not focused
         else ""
@@ -3053,7 +3085,13 @@ def render_check_html(result: RunResult, *, repository: str, result_href: str) -
 
 
 def _structure_row(metric: StructureMetric) -> str:
-    share = f"{metric.unresolved} of {metric.calls}" if metric.calls else "no calls"
+    share = (
+        "n/a"
+        if metric.calls is None or metric.unresolved is None
+        else f"{metric.unresolved} of {metric.calls}"
+        if metric.calls
+        else "no calls"
+    )
     return (
         f"<tr><td><code>{_text(metric.scope)}</code></td><td>{_text(metric.level)}</td>"
         f'<td class="numeric">{metric.modules}</td>'
@@ -3071,11 +3109,12 @@ def _claim_body(claim: SymbolReferences, observation: Observation) -> str:
             "alone would report every symbol that is only handed to a table as unreferenced.</p>"
         )
     coverage = observation.coverage
-    share = (
-        f"{coverage.calls_unresolved} of {coverage.calls_analyzed} calls stay unresolved"
-        if coverage.calls_analyzed
-        else "no calls analyzed"
-    )
+    if coverage.calls_analyzed is None or coverage.calls_unresolved is None:
+        share = "call resolution is not measured"
+    elif coverage.calls_analyzed:
+        share = f"{coverage.calls_unresolved} of {coverage.calls_analyzed} calls stay unresolved"
+    else:
+        share = "no calls analyzed"
     if not claim.candidates:
         return (
             f"<p>None: every one of {claim.symbols} symbols is named somewhere, and "

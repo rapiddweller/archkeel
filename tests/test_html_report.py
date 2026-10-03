@@ -13,9 +13,9 @@ from test_delta import _model
 from test_expectation import _delta_payload
 from test_interfaces import _declaration, _import_record, _symbol_record
 
-from archkeel.analyzer import observe
-from archkeel.analyzer.embedded.contract import _requires_entries
+from archkeel.check.declarations import _requires_entries
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observation
 from archkeel.ir.measurements import Measurements, RatchetScalars
 from archkeel.ir.model import (

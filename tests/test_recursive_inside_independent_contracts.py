@@ -18,7 +18,6 @@ from test_delta import _model
 from test_expectation import _expectation_payload
 from test_git_lock import _lock
 
-from archkeel.analyzer import observe
 from archkeel.check.git import GitError
 from archkeel.check.ports import ScanConfig
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
@@ -30,6 +29,7 @@ from archkeel.check.validation import (
     run_validate,
 )
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     amendment_bytes,
     canonical_report_bytes,

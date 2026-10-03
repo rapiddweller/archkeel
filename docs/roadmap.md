@@ -168,10 +168,17 @@ only when its row names repository evidence.
 | `declarations.public_api` names the surface a consumer outside the package may rely on, narrowing AD-9's "superseded" reading of it now that AD-64 gave Archkeel such a surface; Archkeel declares its own three names, `test_api_all_matches_the_names_reference_md_documents` checks `archkeel.api.__all__` and `docs/reference.md` against that declaration instead of against each other, and a `public_api` entry the scan never saw is `api_surface.missing`, the same signal a missing `public` entry already gives (AD-66, #58) | `architecture-contract.json`; `src/archkeel/check/validation.py`; `src/archkeel/ir/model.py`; `tests/test_validation.py`; `tests/test_violations.py`; `fixtures/demo_catalog_validation.py`; `docs/architecture-demo.md` |
 | The external promise declares every type it hands out: `archkeel.api` is one call, `load_violations`, with `ViolationRow` and `ViolationFingerprint` declared beside it, so no `ir` type crosses the boundary undeclared (AD-70) | `src/archkeel/api.py`; `architecture-contract.json`; `tests/test_violations.py` |
 | A `public_api` entry naming a module that declares `__all__` is checked against it, so `archkeel.api:Typo` is `api_surface.missing` instead of passing on its module alone; a module declaring no `__all__` keeps AD-66's module-only reading (AD-71, #58) | `src/archkeel/check/validation.py`; `tests/test_validation.py` |
+## In progress
+
+- Implement the approved replaceable language-adapter boundary: configured process,
+  validated source facts, Core-owned rules and active nested contracts (AD-22, #122).
+  Python/Dart parity, replacement acceptance, complete gates and independent review
+  remain open. TypeScript packaging and extension onboarding follow separately.
+
 ## Next
 
-- Complete the replaceable language-adapter boundary before TypeScript: configured
-  process, validated source facts and Core-owned rules (AD-22, #122, #274–#276).
+- Complete acceptance for the language-adapter migration, then implement the pinned
+  TypeScript npm adapter and extension onboarding (#274–#276).
   Prove Python/Dart parity and replacement through configuration. Full Dart type
   analysis is separate. See [the proposal](architecture/typescript-foundation-proposal.md).
 - Complete #218 against published baselines with explicit per-rule decision units and

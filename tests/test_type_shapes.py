@@ -7,7 +7,7 @@ import inspect
 
 import pytest
 
-from archkeel.analyzer.embedded import violations
+from archkeel.check.evaluation import rules as violations
 
 
 def test_rule_evaluation_does_not_import_a_python_parser() -> None:

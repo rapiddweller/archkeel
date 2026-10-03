@@ -16,9 +16,9 @@ from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 from test_renames import _git
 
-from archkeel.analyzer import observe
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
+from archkeel.cli.observe import observe
 from archkeel.ir.model import RunResult
 
 

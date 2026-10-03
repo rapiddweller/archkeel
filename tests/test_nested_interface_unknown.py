@@ -8,10 +8,10 @@ from pathlib import Path
 
 from test_recursive_inside_independent_contracts import _commit_tree, _write_three_levels
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.run import inspect_observation
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 
 
 def _nested_package(

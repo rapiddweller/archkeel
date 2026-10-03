@@ -10,9 +10,9 @@ from unittest.mock import patch
 import pytest
 from test_analyzer import _component, _observe
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Record, RunResult
 from archkeel.ir.trace import trace_valid_violations

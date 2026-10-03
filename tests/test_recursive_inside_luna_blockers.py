@@ -23,7 +23,6 @@ from test_recursive_inside_independent_contracts import (
     _write_three_levels,
 )
 
-from archkeel.analyzer import observe
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
@@ -31,6 +30,7 @@ from archkeel.check.validation import (
     _revision_contract_tree,
     run_validate,
 )
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError

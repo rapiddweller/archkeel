@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """The collection process exchanges source inputs, never architecture policy."""
 
 import json
@@ -9,7 +12,7 @@ def _request() -> bytes:
     return json.dumps(
         {
             "protocol_version": "1.0.0",
-            "snapshot": {"root": "/tmp/project", "git_head": "a" * 40, "dirty": False},
+            "snapshot": {"root": "/source-project", "git_head": "a" * 40, "dirty": False},
             "scope": {"roots": ["src"], "namespace": "project"},
             "resolver": {"language": "python"},
         }
@@ -218,3 +221,27 @@ def test_source_response_rejects_claims_core_cannot_use(invalid: str) -> None:
         facts["evidence"][0]["file"] = "../outside.py"
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(raw).encode())
+
+
+def test_source_defined_nested_names_do_not_inherit_envelope_field_constraints() -> None:
+    from archkeel.ir.facts_codec import decode_response
+
+    payload = _response()
+    record = payload["facts"]["sections"][0]["records"][0]
+    record["data"]["annotations"] = {
+        "status": {"text": "Literal[State.READY]"},
+        "contract": {"text": "str"},
+    }
+    facts = decode_response(json.dumps(payload).encode()).facts
+    assert facts.sections[0].records[0].data.get("annotations") is not None
+
+
+def test_snapshot_root_accepts_native_absolute_windows_paths() -> None:
+    from archkeel.ir.facts_codec import decode_request
+
+    payload = json.loads(_request())
+    payload["snapshot"]["root"] = "C:" + chr(92) + "source-project"
+    assert decode_request(json.dumps(payload).encode()).snapshot.root == payload["snapshot"]["root"]
+    payload["snapshot"]["root"] = "C:source-project"
+    with pytest.raises(ValueError, match="absolute"):
+        decode_request(json.dumps(payload).encode())

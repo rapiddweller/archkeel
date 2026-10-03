@@ -20,18 +20,24 @@ never select adapters or write presentation files.
 Third-party imports are confined by `external_dependency_scope` rules: `packaging` to the
 analyzer runtime gate, `rich` to `archkeel.render.terminal` and `rich_argparse` to `archkeel.cli`.
 
-The analyzer may import `archkeel.ir.model`, `archkeel.ir.codec` and the shared
-`archkeel.ir.profiles` table. It exposes typed `ObservationResult` values today.
+`analyzer` imports shared source facts, record builders, protocol and language fact
+values through the root contract's explicit IR whitelist. It does not import
+governance models or policy. `check` owns validation, observation assembly and
+evaluation; it has no dependency on `analyzer`. Python and Dart source modules live
+in separate nested contracts. `ir` keeps source facts, protocol and governance
+values in distinct internal groups.
 
-### Language boundary target (AD-22)
+### Language adapter boundary (AD-22)
 
-The shipped Python/Dart bridge is fixed, and its scanners still contain rule
-evaluation. Before adding TypeScript, establish one configured executable port:
-language adapters own parsing/resolution/facts; the Core owns policy and verdicts.
-Keep ASTs out of the Core and prove Python/Dart parity plus actual replacement.
-This is pending work, not a description of completed separation. See
+The approved process port and Python/Dart extraction are in progress, with active
+nested contracts under `contracts/`. The contracts describe ownership and interfaces;
+they do not prove semantic parity or complete behavior. Replacement-executable
+acceptance, integrated local gates and independent review remain open.
+TypeScript remains a separate pinned npm artifact described in
+[the foundation proposal](typescript-foundation-proposal.md); it is not included
+in the Python source contract. See
 [AD-22](decisions/ad-22-the-analyzer-is-a-process-port-with-a-language-profile.md)
-and [the proposal](typescript-foundation-proposal.md).
+and [the target](language-adapter-target.md).
 
 Future HTTP/queue interactions have distinct contract identities and declaration,
 source and runtime evidence. They are not imports; observers and rules remain
@@ -196,6 +202,7 @@ often explains an earlier one; the index below keeps that order.
 | AD-143 | [Initial PR head proves scoped order](decisions/ad-143-initial-pr-head-proves-scoped-order.md) |
 | AD-144 | [Diff retains navigation scope](decisions/ad-144-diff-retains-navigation-scope.md) |
 | AD-145 | [Analyzer identity selects the observation profile](decisions/ad-145-analyzer-identity-selects-observation-profile.md) |
+| AD-146 | [Source facts and Core evaluation have separate owners](decisions/ad-146-source-facts-and-core-evaluation-have-separate-owners.md) |
 
 ## Allowed dependencies
 
@@ -205,6 +212,7 @@ often explains an earlier one; the index below keeps that order.
 | `cli` → `analyzer` | Supply the concrete, replaceable source analyzer to report and check workflows; `cli` composes, it does not analyze. |
 | `cli` → `check` | Invoke deterministic and stable report and check services from the composition root. |
 | `cli` → `host` | Supply the concrete, replaceable host-record loader to checks; `cli` composes, it does not fetch. |
+| `cli` → `ir` | Serialize the typed observation through `ir.codec` for the legacy JSON compatibility result. |
 | `cli` → `render` | Project typed results through the replaceable render adapter, keeping `cli` a thin composition root. |
 | `analyzer` → `ir` | Publish observations through the common model and codec boundary, so `analyzer` stays isolated behind its digest. |
 | `check` → `ir` | Compare observations and return typed results without losing determinism or stability. |
@@ -220,6 +228,7 @@ flowchart LR
     cli --> analyzer
     cli --> check
     cli --> host
+    cli --> ir
     cli --> render
     host --> ir
     render --> ir
@@ -239,6 +248,7 @@ flowchart LR
     cli --> analyzer
     cli --> check
     cli --> host
+    cli --> ir
     cli --> render
     host --> ir
     render --> ir

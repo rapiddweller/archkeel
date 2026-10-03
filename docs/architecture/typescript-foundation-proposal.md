@@ -1,7 +1,8 @@
 # TypeScript foundation — proposal
 
-Status: revised proposal; owner requires replaceable language modules now.
-Runtime/distribution and the revised implementation scope remain proposed.
+Status: approved target; implementation not started. The shared process port and
+Python/Dart adapter split are in progress. TypeScript runtime/distribution remains
+a separate package implementation.
 Evidence: ArchKeel `7836515`, DATAMIMIC IDE working copy, 2026-10-03.
 
 ## Outcome
@@ -10,15 +11,15 @@ Establish replaceable language adapters, add TypeScript architecture checks,
 then onboard the DATAMIMIC VS Code, Kiro and Antigravity extension. Keep changes
 in separate PRs. Preserve Python/Dart behavior and the existing extension gate.
 
-This is a design PR. TypeScript support is not implemented or advertised.
+TypeScript support is not implemented or advertised.
 
-The [language adapter target](language-adapter-target.md) defines concrete paths,
-internal IR ownership, proposed interfaces and separate ArchKeel draft contracts
-for owner approval before implementation.
+The [language adapter target](language-adapter-target.md) defines the approved
+boundaries. Python-root ArchKeel contracts enforce the Python side; the npm package
+needs its own TypeScript contract because the Python scanner cannot observe `.ts`.
 
-## Decision requested
+## Approved decision
 
-**Recommended:** a Node analyzer using an exactly pinned TypeScript Compiler
+**Chosen:** a Node analyzer using an exactly pinned TypeScript Compiler
 API, initially 5.9.3, the version exercised against the extension. Install its
 locked dependencies explicitly. Never install during `report` or `check`.
 Every language adapter supplies source facts through the same configured

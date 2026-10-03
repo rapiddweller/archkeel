@@ -25,10 +25,12 @@ Unknown identities, missing evidence and protocol failures cannot grant PASS.
 
 ## Current gap and proof
 
-The shipped bridge is fixed and both scanners evaluate rules. TypeScript is the
+The working tree now has a process port, separate Python and Dart adapters, shared
+source facts, and Core-owned evaluation. The migration is still in progress; these
+changes do not prove parity or replacement-executable behavior. TypeScript is the
 concrete trigger to complete this boundary, rather than add a third special path.
-Implementation is pending; [the revised proposal](../typescript-foundation-proposal.md)
-and [#122](https://github.com/rapiddweller/archkeel/issues/122) track the work.
+Its implementation is pending; [the revised proposal](../typescript-foundation-proposal.md)
+and [#122](https://github.com/rapiddweller/archkeel/issues/122) track that work.
 
 Prove Python/Dart semantic parity through the port and replacement with another
 configured executable. Invalid facts, incompatible profiles and unavailable

@@ -13,9 +13,10 @@ import sys
 from collections.abc import Sequence
 from types import EllipsisType
 
-from archkeel.ir.model import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts_codec import RawData as RecordData
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
-from .records import RawEvidence, RawRecord, RecordData, classified
 from .source import (
     ParsedModule,
     add_evidence,

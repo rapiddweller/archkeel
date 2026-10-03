@@ -15,9 +15,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from archkeel.ir.model import EvidenceClass, stable_id
-
-from .records import RawEvidence, RawRecord, classified
+from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts_codec import (
+    RawEvidence,
+    RawRecord,
+    classified,
+)
+from archkeel.ir.facts_codec import (
+    file_evidence as file_evidence,
+)
+from archkeel.ir.facts_codec import (
+    record_evidence as record_evidence,
+)
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
@@ -29,6 +38,49 @@ def location(node: ast.AST) -> tuple[int, int, int]:
         return 1, 1, 0
     line = max(node.lineno, 1)
     return line, node.end_lineno or line, node.col_offset
+
+
+def attribute_path(node: ast.Attribute) -> tuple[str, list[str]] | None:
+    """Return a name-rooted attribute path used by state and private-attribute collectors."""
+    attributes: list[str] = []
+    current: ast.AST = node
+    while isinstance(current, ast.Attribute):
+        attributes.append(current.attr)
+        current = current.value
+    if not isinstance(current, ast.Name):
+        return None
+    return current.id, list(reversed(attributes))
+
+
+def function_class_owners(tree: ast.Module, module_name: str) -> dict[int, str]:
+    """Map each function node to its enclosing class, when it has one."""
+    owners: dict[int, str] = {}
+
+    class OwnerVisitor(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.stack: list[str] = []
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            qualified = (
+                f"{self.stack[-1]}.{node.name}" if self.stack else f"{module_name}.{node.name}"
+            )
+            self.stack.append(qualified)
+            self.generic_visit(node)
+            self.stack.pop()
+
+        def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+            if self.stack:
+                owners[id(node)] = self.stack[-1]
+            self.generic_visit(node)
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self._visit_function(node)
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+            self._visit_function(node)
+
+    OwnerVisitor().visit(tree)
+    return owners
 
 
 def own_scope(node: FunctionNode) -> Iterator[ast.AST]:
@@ -326,40 +378,6 @@ def add_evidence(evidence: dict[str, RawEvidence], module: ParsedModule, node: a
     return record_evidence(
         evidence, module.rel_path, (line, end_line, column), _excerpt(module, node)
     )
-
-
-def record_evidence(
-    evidence: dict[str, RawEvidence],
-    rel_path: str,
-    position: tuple[int, int, int],
-    excerpt: str,
-) -> str:
-    """File one source location as evidence; shared by every profile's reader (AD-97)."""
-    line, end_line, column = position
-    # One source location is one evidence owner even when several observations
-    # (for example a call and a dynamic-typing signal) refer to it.
-    evidence_id = stable_id("EVD", rel_path, line, end_line, column)
-    evidence[evidence_id] = {
-        "id": evidence_id,
-        "file": rel_path,
-        "line": line,
-        "end_line": end_line,
-        "column": column,
-        "excerpt": excerpt,
-    }
-    return evidence_id
-
-
-def file_evidence(evidence: dict[str, RawEvidence], rel_path: str, lines: Sequence[str]) -> str:
-    """Cite the file a module is: the fact root layout, assignment and placement judge (AD-107).
-
-    Line 1 shows the file when it holds text. An empty file, or one whose first line is blank,
-    has no line to show, so line 0 cites the file itself: an empty `__init__.py` still makes its
-    package exist, and its package's violation must stay traceable.
-    """
-    line: str = lines[0] if lines else ""
-    first = line.rstrip()
-    return record_evidence(evidence, rel_path, (1, 1, 0) if first else (0, 0, 0), first)
 
 
 def annotation_text(node: ast.AST | None) -> str | None:

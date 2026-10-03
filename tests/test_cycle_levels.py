@@ -13,10 +13,9 @@ import pytest
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 
-from archkeel.analyzer import observe
-from archkeel.analyzer.embedded.dependencies import cycle_sections
-from archkeel.analyzer.embedded.records import RawRecord, classified
+from archkeel.check.evaluation.topology import cycle_sections
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import (
     KnownViolation,
     ViolationFingerprint,
@@ -25,6 +24,7 @@ from archkeel.ir.baseline import (
 )
 from archkeel.ir.codec import contract_bytes, parse_contract
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import EvidenceClass, NoComponentCyclesRule, Observation, Record
 from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import baseline_widenings

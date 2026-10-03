@@ -25,7 +25,7 @@
           "items": {
             "$ref": "#/$defs/relativePath"
           },
-          "description": "Repository-relative source directories, not globs. A dot selects the repository root."
+          "description": "Repository-relative source roots, not globs. A dot selects the repository root. Python and Dart roots are directories; TypeScript roots may be files or directories. Runtime validation checks each path."
         },
         "namespace": {
           "type": "string",
@@ -35,10 +35,11 @@
         "language": {
           "enum": [
             "python",
-            "dart"
+            "dart",
+            "typescript"
           ],
           "default": "python",
-          "description": "Source language of the scan roots. Absent means python (AD-97)."
+          "description": "Source language. Absent means python (AD-97)."
         },
         "contract": {
           "$ref": "#/$defs/relativePath",
@@ -46,16 +47,55 @@
             "const": "."
           },
           "description": "Repository-relative architecture contract file, independent of scan roots."
+        },
+        "tsconfig": {
+          "$ref": "#/$defs/relativePath",
+          "not": {
+            "const": "."
+          },
+          "description": "TypeScript project config. TypeScript defaults to tsconfig.json; runtime validation checks that it exists inside the repository."
+        },
+        "collector_argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]+$"
+          },
+          "description": "Optional collector command and arguments as separate tokens; no shell parsing is applied."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "language": {
+                "const": "typescript"
+              }
+            },
+            "required": [
+              "language"
+            ]
+          },
+          "then": {},
+          "else": {
+            "not": {
+              "required": [
+                "tsconfig"
+              ]
+            }
+          }
+        }
+      ]
     }
   },
   "$defs": {
     "relativePath": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?![A-Za-z]:)(?![\\s\\S]*\\\\)(?![\\s\\S]*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$",
-      "description": "POSIX repository-relative path; no absolute path, backslash, NUL, or parent component."
+      "pattern": "^(?!/)(?![A-Za-z]:)(?![\\s\\S]*\\\\)(?![\\s\\S]*[:*?\\[\\]{}!])(?![\\s\\S]*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$",
+      "description": "Safe POSIX repository-relative path; no absolute path, colon, glob syntax, NUL, or parent component."
     }
   }
 }

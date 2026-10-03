@@ -8,9 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from archkeel.ir.facts import Language as Language
+from archkeel.ir.facts import SourceFacts
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
-from archkeel.ir.model import ObservationResult
-from archkeel.ir.profiles import Language
+from archkeel.ir.model import ObservationResult as ObservationResult
+from archkeel.ir.protocol import CollectionError, CollectionRequest
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,3 +73,7 @@ class Host(Protocol):
         candidate_sha: str,
         environ: Mapping[str, str],
     ) -> tuple[HostRecord, ...] | InitialPRHeadEvidence: ...
+
+
+class SourceCollector(Protocol):
+    def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError: ...

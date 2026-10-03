@@ -12,9 +12,11 @@ from typing import Any
 
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
+from test_exact_module_ownership import _component, _contract, _rule
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
+from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import EvidenceClass, Record, RecordData
 from archkeel.render.html import _target_diagrams, _target_roots, render_html
@@ -329,6 +331,7 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
             data={
                 "namespace": "app.declared",
                 "public": ("app.declared.api",),
+                "planned": ("app.declared.future:collect",),
                 "requires": (
                     {
                         "component": "provider",
@@ -339,6 +342,18 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
                 ),
             },
             provenance=("docs/architecture/declared.md",),
+        ),
+        _declaration_record(
+            "COMP-PLANNED-INSIDE",
+            "inside_component_responsibility",
+            "future adapter",
+            subjects=("app.declared.future",),
+            data={
+                "parent_id": "declared",
+                "public": (),
+                "planned": ("app.declared.future:main",),
+            },
+            provenance=("docs/architecture/declared-inside.json",),
         ),
         _declaration_record(
             "COMP-EMPTY",
@@ -391,6 +406,17 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
     }
     assert declared_details["Packages"] == "app.declared"
     assert declared_details["Public interface"] == "app.declared.api"
+    assert declared_details["Planned interface (proposed)"] == "app.declared.future:collect"
+    inside_details = {
+        detail["label"]: detail["value"]
+        for detail in next(
+            node
+            for node in first["nested"]["COMP-DECLARED"]["nodes"]
+            if node["id"] == "COMP-PLANNED-INSIDE"
+        )["details"]
+    }
+    assert inside_details["Public interface"] == "Explicitly empty"
+    assert inside_details["Planned interface (proposed)"] == "app.declared.future:main"
     requirement = next(
         edge["details"] for edge in first["root"]["edges"] if edge["source"] == "COMP-DECLARED"
     )
@@ -426,6 +452,132 @@ def test_target_diagrams_are_deterministic_and_preserve_declared_interfaces() ->
     }
     assert null_details["Public interface"] == "Not declared"
     assert absent_details["Public interface"] == "Not declared"
+
+
+def test_planned_interfaces_survive_contract_observation_and_html_projection(
+    tmp_path: Path,
+) -> None:
+    contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
+    app = next(item for item in contract["components"] if item["id"] == "COMP-APP")
+    app["planned"] = ["shop.app.future:collect"]
+    cli = next(item for item in contract["components"] if item["id"] == "COMP-CLI")
+    cli["planned"] = []
+
+    nested = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
+    store_api = next(item for item in nested["components"] if item["id"] == "COMP-STORE-API")
+    store_api["planned"] = ["shop.store.sqlite:future_cleanup"]
+    backend = next(item for item in nested["components"] if item["id"] == "COMP-STORE-BACKEND")
+    backend["planned"] = []
+
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "architecture-contract.json": json.dumps(contract),
+            "shop/store/architecture-contract.json": json.dumps(nested),
+            "shop/app/future.py": "def collect():\n    return ()\n",
+        },
+    )
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    declarations = {record.id: record for record in observation.records("declarations") or ()}
+    assert declarations["COMP-APP"].data.get("planned") == ("shop.app.future:collect",)
+    assert declarations["COMP-CLI"].data.get("planned") == ()
+    assert declarations["COMP-RENDER"].data.get("planned") is None
+    inside_api = next(
+        record
+        for record in declarations.values()
+        if record.kind == "inside_component_responsibility" and record.title == "api"
+    )
+    assert inside_api.data.get("planned") == ("shop.store.sqlite:future_cleanup",)
+    assert inside_api.data.get("parent_id") == "store"
+    assert inside_api.provenance == ("docs/architecture/shop.md",)
+
+    page = render_html(
+        result, observation, repository="shop", architecture_href="architecture.json"
+    ).decode()
+    marker = page.index('id="flow-data"')
+    payload = json.loads(page[page.index(">", marker) + 1 : page.index("</script>", marker)])
+    target_nodes = {node["id"]: node for node in _walk(payload["explorers"]["target"])}
+    root_details = {item["label"]: item["value"] for item in target_nodes["COMP-APP"]["details"]}
+    assert root_details["Planned interface (proposed)"] == "shop.app.future:collect"
+    cli_details = {item["label"]: item["value"] for item in target_nodes["COMP-CLI"]["details"]}
+    assert cli_details["Planned interface (proposed)"] == "Explicitly empty"
+    render_details = {
+        item["label"]: item["value"] for item in target_nodes["COMP-RENDER"]["details"]
+    }
+    assert render_details["Planned interface (proposed)"] == "Not declared"
+    inside_details = {
+        item["label"]: item["value"] for item in target_nodes[inside_api.id]["details"]
+    }
+    assert inside_details["Planned interface (proposed)"] == "shop.store.sqlite:future_cleanup"
+
+
+def test_planned_symbol_in_public_module_is_shown_as_a_proposal(tmp_path: Path) -> None:
+    entry = "shop.provider.api:run"
+    contract = _contract(
+        [
+            _component(
+                "provider",
+                ["shop.provider"],
+                public=["shop.provider.api"],
+                planned=[entry],
+                requires=[],
+                decided_by="architect",
+            ),
+            _component(
+                "client",
+                ["shop.client"],
+                public=[],
+                requires=[{"component": "provider", "rationale": "Use the published facade."}],
+                decided_by="architect",
+            ),
+        ],
+        [
+            _rule("interface_boundary", id="INTERFACE", include_type_checking=True),
+            _rule("complete_requires", id="REQUIRES"),
+        ],
+    )
+    empty_fixture = tmp_path / "empty"
+    empty_fixture.mkdir()
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
+            "architecture-contract.json": json.dumps(contract),
+            "docs/architecture/sample.md": (
+                "Architecture.\n<!-- archkeel-component-graph -->\n"
+                "```mermaid\ngraph TD\n  client --> provider\n```\n"
+            ),
+            "shop/provider/api.py": (
+                "__all__ = ['run', 'other']\n"
+                "def run() -> int:\n    return 1\n"
+                "def other() -> int:\n    return 2\n"
+            ),
+            "shop/client/api.py": "from shop.provider.api import other\nVALUE = other()\n",
+        },
+        fixture=empty_fixture,
+    )
+    validation, _ = run_validate(root, CONFIG, observe)
+    assert validation.exit_code == 0, validation.diagnostics
+    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
+    assert architecture is not None, result.diagnostics
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    html = render_html(
+        result, observation, repository="shop", architecture_href="architecture.json"
+    ).decode()
+    start = html.index('id="flow-data"')
+    payload = json.loads(html[html.index(">", start) + 1 : html.index("</script>", start)])
+    provider = next(
+        node for node in _walk(payload["explorers"]["target"]) if node["label"] == "provider"
+    )
+    details = {item["label"]: item["value"] for item in provider["details"]}
+    assert details["Public interface"] == "shop.provider.api"
+    assert details["Planned interface (proposed)"] == entry
+
+    (root / "shop/client/api.py").write_text("from shop.provider.api import run\nVALUE = run()\n")
+    validation, _ = run_validate(root, CONFIG, observe)
+    assert [item.code for item in validation.diagnostics] == ["interface.planned_built"]
 
 
 def test_target_graph_containers_are_local_and_single_component_frames_fold() -> None:

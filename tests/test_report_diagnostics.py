@@ -67,7 +67,7 @@ def test_cli_report_artifact_path_is_relative_only_inside_root(
             "archkeel.cli.load_config",
             return_value=ScanConfig((".",), "sample", "contract.json", "d" * 64),
         ),
-        patch("archkeel.cli.observe", analyzer),
+        patch("archkeel.cli.observer_for", return_value=analyzer),
     ):
         assert main(["report", "--root", str(root), "--output", str(output)]) == 0
     result = json.loads(capsys.readouterr().out)

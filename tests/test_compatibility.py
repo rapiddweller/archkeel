@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.model import ArchitectureContract, CompatibilityShim, ContractDeclarations
 from archkeel.ir.widening import contract_widenings

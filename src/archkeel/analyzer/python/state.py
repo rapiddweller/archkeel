@@ -10,15 +10,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Literal
 
-from archkeel.analyzer.embedded.records import RawEvidence
-from archkeel.analyzer.embedded.source import (
-    ParsedModule,
-    add_evidence,
-    annotation_text,
-    decorator_names,
-)
 from archkeel.ir.facts import Evidence, Record
-from archkeel.ir.facts_codec import parse_evidence
+from archkeel.ir.facts_codec import RawEvidence, parse_evidence
 from archkeel.ir.state_facts import (
     ArgumentPass,
     Assignment,
@@ -29,6 +22,15 @@ from archkeel.ir.state_facts import (
     StateEvent,
     StateFacts,
     StateParameter,
+)
+
+from .source import (
+    ParsedModule,
+    add_evidence,
+    annotation_text,
+    attribute_path,
+    decorator_names,
+    function_class_owners,
 )
 
 _MUTATING_METHODS = {
@@ -46,47 +48,6 @@ _MUTATING_METHODS = {
     "sort",
     "update",
 }
-
-
-def _attribute_path(node: ast.Attribute) -> tuple[str, list[str]] | None:
-    attributes: list[str] = []
-    current: ast.AST = node
-    while isinstance(current, ast.Attribute):
-        attributes.append(current.attr)
-        current = current.value
-    if not isinstance(current, ast.Name):
-        return None
-    return current.id, list(reversed(attributes))
-
-
-def _function_class_owners(tree: ast.Module, module_name: str) -> dict[int, str]:
-    owners: dict[int, str] = {}
-
-    class OwnerVisitor(ast.NodeVisitor):
-        def __init__(self) -> None:
-            self.stack: list[str] = []
-
-        def visit_ClassDef(self, node: ast.ClassDef) -> None:
-            qualified = (
-                f"{self.stack[-1]}.{node.name}" if self.stack else f"{module_name}.{node.name}"
-            )
-            self.stack.append(qualified)
-            self.generic_visit(node)
-            self.stack.pop()
-
-        def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-            if self.stack:
-                owners[id(node)] = self.stack[-1]
-            self.generic_visit(node)
-
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            self._visit_function(node)
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            self._visit_function(node)
-
-    OwnerVisitor().visit(tree)
-    return owners
 
 
 def _field(name: str, frozen: bool, evidence_ids: tuple[str, ...] = ()) -> FieldState:
@@ -218,7 +179,7 @@ def _function_events(
             parent = parents.get(id(node))
             if isinstance(parent, ast.Attribute) and parent.value is node:
                 continue
-            rooted = _attribute_path(node)
+            rooted = attribute_path(node)
             if rooted is None:
                 continue
             binding, path = rooted
@@ -282,7 +243,7 @@ def collect_state(
         )
     functions: list[FunctionStateTrace] = []
     for module in modules:
-        owners = _function_class_owners(module.tree, module.module)
+        owners = function_class_owners(module.tree, module.module)
         for function in ast.walk(module.tree):
             if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue

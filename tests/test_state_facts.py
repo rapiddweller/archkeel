@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.analyzer.embedded.calls import collect_calls
-from archkeel.analyzer.embedded.imports import collect_imports
-from archkeel.analyzer.embedded.resolve import build_symbol_index
-from archkeel.analyzer.embedded.source import parse_sources
-from archkeel.analyzer.embedded.symbols import collect_symbols
+from archkeel.analyzer.python.calls import collect_calls
+from archkeel.analyzer.python.imports import collect_imports
+from archkeel.analyzer.python.resolve import build_symbol_index
+from archkeel.analyzer.python.source import parse_sources
+from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.ir.facts_codec import freeze_data, parse_record
 from archkeel.ir.state_codec import parse_state_data, state_data
 

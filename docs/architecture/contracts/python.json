@@ -1,0 +1,230 @@
+{
+  "$schema": "../../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "TARGET-ENTRY",
+      "label": "entry",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.python.entry",
+        "archkeel.analyzer.python.collect"
+      ],
+      "responsibilities": [
+        "Decode the request and run collection once per module."
+      ],
+      "forbidden_responsibilities": [
+        "Local IR internals and architecture rules."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "exact_modules": [
+        "archkeel.analyzer.python"
+      ],
+      "requires": [
+        {
+          "component": "source",
+          "rationale": "Build the parsed and resolved project.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "collectors",
+          "rationale": "Gather independent source-fact kinds.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": []
+    },
+    {
+      "id": "TARGET-SOURCE",
+      "label": "source",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.python.source",
+        "archkeel.analyzer.python.resolve",
+        "archkeel.analyzer.python.receiver_types"
+      ],
+      "responsibilities": [
+        "Own Python AST/local IR and resolution helpers."
+      ],
+      "forbidden_responsibilities": [
+        "Collector order and governance policy."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "public": [
+        "archkeel.analyzer.python.source",
+        "archkeel.analyzer.python.source:attribute_path",
+        "archkeel.analyzer.python.source:function_class_owners",
+        "archkeel.analyzer.python.resolve",
+        "archkeel.analyzer.python.receiver_types"
+      ]
+    },
+    {
+      "id": "TARGET-COLLECTORS",
+      "label": "collectors",
+      "role": "component",
+      "packages": [
+        "archkeel.analyzer.python.bindings",
+        "archkeel.analyzer.python.calls",
+        "archkeel.analyzer.python.constructs",
+        "archkeel.analyzer.python.imports",
+        "archkeel.analyzer.python.private_attributes",
+        "archkeel.analyzer.python.references",
+        "archkeel.analyzer.python.state",
+        "archkeel.analyzer.python.symbols",
+        "archkeel.analyzer.python.type_shapes",
+        "archkeel.analyzer.python.typing_signals"
+      ],
+      "responsibilities": [
+        "Collect independent Python source facts and derive language-specific type and state evidence."
+      ],
+      "forbidden_responsibilities": [
+        "Importing peer collectors, importing Core policy, or evaluating architecture rules."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "source",
+          "rationale": "Read parsed modules and the resolved symbol index.",
+          "decided_by": "agent"
+        }
+      ],
+      "public": [
+        "archkeel.analyzer.python.bindings",
+        "archkeel.analyzer.python.calls",
+        "archkeel.analyzer.python.constructs",
+        "archkeel.analyzer.python.imports",
+        "archkeel.analyzer.python.private_attributes",
+        "archkeel.analyzer.python.references",
+        "archkeel.analyzer.python.state",
+        "archkeel.analyzer.python.symbols",
+        "archkeel.analyzer.python.type_shapes",
+        "archkeel.analyzer.python.typing_signals"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "TARGET-COMPLETE_REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Only intended component dependencies are permitted.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COMPLETE_ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every source module has one owner.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.analyzer.python"
+    },
+    {
+      "id": "TARGET-NO_COMPONENT_CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Components have one dependency direction.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-INTERFACE_BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Crossings use declared public interfaces.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "TARGET-COLLECTORS-ISOLATED",
+      "kind": "sibling_isolation",
+      "members": [
+        "archkeel.analyzer.python.bindings",
+        "archkeel.analyzer.python.calls",
+        "archkeel.analyzer.python.constructs",
+        "archkeel.analyzer.python.imports",
+        "archkeel.analyzer.python.private_attributes",
+        "archkeel.analyzer.python.references",
+        "archkeel.analyzer.python.state",
+        "archkeel.analyzer.python.symbols",
+        "archkeel.analyzer.python.type_shapes",
+        "archkeel.analyzer.python.typing_signals"
+      ],
+      "rationale": "Collectors read the shared parsed and resolved project. Peer imports would make collection order implicit.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "modules": [
+      {
+        "path": "src/archkeel/analyzer/python/entry.py",
+        "responsibility": "Serve the shared process protocol."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/collect.py",
+        "responsibility": "Run collection in deterministic order."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/source.py",
+        "responsibility": "Own ParsedModule and AST parsing."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/resolve.py",
+        "responsibility": "Own ResolvedProject and Python name resolution."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/receiver_types.py",
+        "responsibility": "Retain Python receiver-type facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/bindings.py",
+        "responsibility": "Collect bindings source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/calls.py",
+        "responsibility": "Collect calls source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/constructs.py",
+        "responsibility": "Collect constructs source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/contexts.py",
+        "responsibility": "Collect contexts source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/imports.py",
+        "responsibility": "Collect imports source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/references.py",
+        "responsibility": "Collect references source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/symbols.py",
+        "responsibility": "Collect symbols source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/typing_signals.py",
+        "responsibility": "Collect typing_signals source facts."
+      }
+    ]
+  }
+}

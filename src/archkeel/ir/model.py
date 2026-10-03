@@ -803,12 +803,12 @@ class Coverage:
     files_discovered: int
     files_read: int
     files_parsed: int
-    calls_analyzed: int
-    calls_resolved: int
-    calls_partially_resolved: int
-    calls_unresolved: int
+    calls_analyzed: int | None
+    calls_resolved: int | None
+    calls_partially_resolved: int | None
+    calls_unresolved: int | None
     ast_coverage_percent: float
-    call_resolution_percent: float
+    call_resolution_percent: float | None
     failures: tuple[Record, ...]
     rules: Verdict | None = None
 

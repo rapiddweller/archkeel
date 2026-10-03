@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from archkeel.analyzer.embedded.violations import _boundary_type_violation_records, _Position
+from archkeel.check.evaluation.rules import _boundary_type_violation_records, _Position
 from archkeel.ir.model import BoundaryTypesRule, stable_id
 
 _RULE = BoundaryTypesRule(

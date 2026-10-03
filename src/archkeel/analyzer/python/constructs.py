@@ -8,9 +8,10 @@ from __future__ import annotations
 import ast
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts_codec import RawData as RecordData
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
-from .records import RawEvidence, RawRecord, RecordData, classified
 from .source import ParsedModule, add_evidence, body_is_empty, decorator_names, location
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})

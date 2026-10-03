@@ -169,7 +169,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/nonEmpty"},
         "kind": {"const": "external_dependency_scope"},
-        "dependency": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        "dependency": {"type": "string", "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*|(?:@[a-z0-9_-]+/)?[a-z0-9][a-z0-9._-]*)$"},
         "allowed_sources": {"$ref": "#/$defs/strings"},
         "exact_sources": {"$ref": "#/$defs/strings"},
         "rationale": {"$ref": "#/$defs/nonEmpty"},

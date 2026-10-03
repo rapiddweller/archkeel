@@ -9,7 +9,7 @@ import ast
 from collections.abc import Iterable, Iterator
 from types import MappingProxyType
 
-from archkeel.analyzer.embedded.records import RawRecord
+from archkeel.ir.facts_codec import RawRecord
 from archkeel.ir.type_shapes import (
     LiteralKind,
     TypeApplication,

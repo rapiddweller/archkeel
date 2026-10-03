@@ -14,12 +14,12 @@ from dataclasses import asdict
 from pathlib import Path
 from tempfile import mkdtemp
 
-from archkeel.analyzer import observe
 from archkeel.check.delta import build_architecture_delta
 from archkeel.check.expectation import EXPECTATION_SCHEMA_VERSION, GUARDRAIL_KEYS, sha256_bytes
 from archkeel.check.ratchets import measure_python_ratchets
 from archkeel.cli import html_path
 from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     canonical_report_bytes,
     decode_canonical_model,

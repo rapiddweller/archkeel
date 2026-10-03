@@ -106,6 +106,14 @@ def test_language_observation_additive_runtime_and_producer_round_trip():
     }
     for section in ("symbols", "references", "bindings", "calls", "typing_signals", "constructs"):
         raw[section] = None
+    for key in (
+        "calls_analyzed",
+        "calls_resolved",
+        "calls_partially_resolved",
+        "calls_unresolved",
+        "call_resolution_percent",
+    ):
+        raw["coverage"][key] = None
     raw.pop("python_version", None)
     raw["runtime"] = {"name": "node", "version": "22.13.0"}
     raw["producer"] = {"name": "custom-ts-parser", "version": "1.2.0", "code_digest": "b" * 64}

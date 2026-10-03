@@ -10,9 +10,9 @@ import io
 import tokenize
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
-from .records import RawEvidence, RawRecord, classified
 from .source import ParsedModule, add_evidence, annotation_text, location
 
 

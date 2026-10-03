@@ -16,7 +16,6 @@ from typing import Final, NoReturn
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-from ..analyzer import observe
 from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.report import render_result, run_report, unknown_result
@@ -28,6 +27,7 @@ from ..render.html import render_architecture_html, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
 from .config import CONFIG_PATH, load_check_config, load_config, parse_config
+from .observe import observe, observer_for
 from .skill import install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -291,14 +291,16 @@ def build_parser() -> _Parser:
         help="Draft archkeel.toml, a closed contract and its architecture page.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
-            "Observes the only top-level package, or the one pyproject.toml's [project] name\n"
-            "names when several sit side by side, and proposes one component per subpackage.\n"
+            "Observes the configured source roots and proposes components from their layout.\n"
+            "Python can detect its top-level package from pyproject.toml or package markers.\n"
             "It writes no dependency rule: every ordered component pair is an open decision,\n"
             "reported by import weight for the architect to allow or forbid.\n\n"
             "Examples:\n"
             "  archkeel init\n"
             "  archkeel init --source lib/shop --namespace shop --json\n"
-            "  archkeel init --language dart --source lib --namespace my_app\n\n"
+            "  archkeel init --language dart --source lib --namespace my_app\n"
+            "  archkeel init --language typescript --source src --namespace app "
+            "--tsconfig tsconfig.json\n\n"
             "Exit codes:\n"
             "  0  draft written\n"
             "  2  not checked: no single package, existing files or incomplete observation\n\n"
@@ -306,14 +308,26 @@ def build_parser() -> _Parser:
         ),
     )
     _observing(init, None)
-    init.add_argument("--source", help="Package directory to scan, relative to --root.")
-    init.add_argument("--namespace", help="Dotted package name of --source.")
+    init.add_argument(
+        "--source",
+        action="append",
+        help="Source directory or TypeScript file relative to --root; repeat for more roots.",
+    )
+    init.add_argument("--namespace", help="Dotted namespace for the observed source modules.")
     init.add_argument(
         "--language",
-        choices=["python", "dart"],
+        choices=["python", "dart", "typescript"],
         default="python",
         help="Source language of --source. Dart needs --source and --namespace (the pubspec "
-        "name). Default: python.",
+        "name). TypeScript also needs --tsconfig. Default: python.",
+    )
+    init.add_argument("--tsconfig", help="TypeScript project config relative to --root.")
+    init.add_argument(
+        "--collector-argv",
+        nargs="+",
+        metavar="ARG",
+        help="Collector command and arguments. TypeScript defaults to archkeel-typescript. "
+        "On Windows, pass node and the collector entry file instead of an npm .cmd shim.",
     )
     init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
 
@@ -370,11 +384,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 subject = str(root)
                 result, files = run_init(
                     root,
-                    source=args.source,
+                    source=tuple(args.source) if args.source is not None else None,
                     namespace=args.namespace,
                     force=args.force,
-                    analyzer=observe,
+                    analyzer=observer_for(
+                        args.language,
+                        collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
+                        tsconfig=args.tsconfig or "tsconfig.json",
+                    ),
                     language=args.language,
+                    tsconfig=args.tsconfig,
+                    collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                 )
             elif command == "report":
                 config = load_config(root, args.config)
@@ -386,7 +406,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result, architecture = run_report(
                     root,
                     config=config,
-                    analyzer=observe,
+                    analyzer=observer_for(
+                        config.language,
+                        collector_argv=config.collector_argv,
+                        tsconfig=config.tsconfig or "tsconfig.json",
+                    ),
                     only_violations=args.only == "violations",
                     only_calls=args.only == "calls",
                     rule=args.rule,
@@ -450,7 +474,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result, files = run_validate(
                     root,
                     config,
-                    observe,
+                    observer_for(
+                        config.language,
+                        collector_argv=config.collector_argv,
+                        tsconfig=config.tsconfig or "tsconfig.json",
+                    ),
                     write_graph=args.write_graph,
                     # AD-103: run_validate reads both relative to --root, like the contract.
                     baseline=args.baseline,

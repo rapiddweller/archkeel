@@ -13,6 +13,8 @@ from typing import Literal, TypeAlias
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
 
+Language: TypeAlias = Literal["python", "dart", "typescript"]
+
 RECORD_FIELDS = (
     "id",
     "evidence_class",

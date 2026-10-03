@@ -15,6 +15,8 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from archkeel.ir.facts_codec import RawRecord
+
 from .receiver_types import (
     ReceiverType,
     constructor_receiver_type,
@@ -22,7 +24,6 @@ from .receiver_types import (
     method_return_type,
     receiver_call_target,
 )
-from .records import RawRecord
 from .source import ParsedModule
 
 _BUILTINS = frozenset(dir(builtins))

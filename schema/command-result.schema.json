@@ -50,9 +50,9 @@
     "expectation_fulfilled": {"enum": ["PASS", "FAIL", "UNKNOWN", "n/a"]},
     "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}},
     "coverage": {
-      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/coverage"}, {"type": "null"}]
+      "anyOf": [{"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"}, {"type": "null"}]
     },
-    "observation": {"anyOf": [{"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0"}, {"type": "null"}]},
+    "observation": {"anyOf": [{"$ref": "urn:archkeel:architecture-ir:decoded:1.3.0"}, {"type": "null"}]},
     "python_version": {
       "anyOf": [{"$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/python_version"}, {"type": "null"}]
     },

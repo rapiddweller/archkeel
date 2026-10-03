@@ -11,9 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.analyzer.embedded.source import AliasBinding, ParsedModule
-from archkeel.analyzer.embedded.symbols import collect_symbols
-from archkeel.analyzer.embedded.violations import (
+from archkeel.analyzer.python.source import AliasBinding, ParsedModule
+from archkeel.analyzer.python.symbols import collect_symbols
+from archkeel.analyzer.python.type_shapes import collect_type_shapes
+from archkeel.check.evaluation.rules import (
     _AMBIGUOUS,
     BindingIndex,
     _bare_type_verdict,
@@ -21,7 +22,6 @@ from archkeel.analyzer.embedded.violations import (
     _typing_wrapper_inner,
     boundary_type_indexes,
 )
-from archkeel.analyzer.python.type_shapes import collect_type_shapes
 from archkeel.ir.model import ArchitectureContract, ComponentRole, ContractComponent
 from archkeel.ir.type_shapes import TypeShapeIndex
 

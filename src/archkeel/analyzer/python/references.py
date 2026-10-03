@@ -13,9 +13,9 @@ from __future__ import annotations
 import ast
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass, in_scope, stable_id
+from archkeel.ir.facts import EvidenceClass, in_scope, stable_id
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
-from .records import RawEvidence, RawRecord, classified
 from .resolve import SymbolIndex, dotted_expression, resolve_name
 from .source import (
     ParsedModule,

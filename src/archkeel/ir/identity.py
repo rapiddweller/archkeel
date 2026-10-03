@@ -1,10 +1,13 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Collision-free source identities for language-aware import graphs."""
 
 from __future__ import annotations
 
 import re
 
-from .profiles import Language
+from .facts import Language
 
 
 def _segments(path: str) -> tuple[str, ...]:

@@ -13,7 +13,7 @@ from test_boundary_types_nested_dtos import _write_app
 from test_dart_directives import dart_package
 from test_inside_publication import _child, _inside, _rule
 
-from archkeel.analyzer.embedded.report import analyze_snapshot
+from archkeel.cli.observe import analyze_snapshot
 from tools import rule_yield
 from tools.rule_yield import _captured_analysis, _rule_measures, measure
 
@@ -1117,7 +1117,7 @@ def test_contract_path_steps_cross_the_real_json_wire_boundary(tmp_path: Path) -
     assert rule["population_reconciled"] is True
     assert rule["decided_pass_positions"] == 2
     [path] = [row for row in observation["declarations"] if row["id"] == "PATH-ONE"]
-    assert path["data"]["steps"] == ("sample.app",)
+    assert path["data"]["steps"] == ["sample.app"]
 
 
 def test_root_and_inside_rules_preserve_scope_and_occurrence_identity(tmp_path: Path) -> None:

@@ -9,10 +9,10 @@ import ast
 import builtins
 from collections.abc import Sequence
 
-from archkeel.ir.model import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .receiver_types import ReceiverType, annotation_receiver_type, literal_receiver_type
-from .records import RawEvidence, RawRecord, classified
 from .resolve import SymbolIndex, call_result_type, resolve_name
 from .source import FunctionNode, ParsedModule, add_evidence, annotation_text, location, own_scope
 

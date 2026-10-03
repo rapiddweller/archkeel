@@ -1,8 +1,15 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Replaceable argv collectors fail with bounded, named diagnostics."""
 
 import json
+import os
 import sys
+import time
+from pathlib import Path
 
+import pytest
 from test_collection_protocol import _request, _response
 
 from archkeel.ir.facts_codec import decode_request
@@ -13,6 +20,102 @@ def _collector(code: str, **limits):
     from archkeel.analyzer.process import ProcessCollector
 
     return ProcessCollector((sys.executable, "-B", "-c", code), **limits)
+
+
+def _assert_process_exited(pid: int) -> None:
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            kernel32.OpenProcess.restype = wintypes.HANDLE
+            kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            kernel32.WaitForSingleObject.restype = wintypes.DWORD
+            kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+            handle = kernel32.OpenProcess(0x00100000, False, pid)
+            if not handle:
+                error = ctypes.get_last_error()
+                if error == 87:
+                    return
+                raise OSError(error, "OpenProcess failed while checking collector descendant")
+            try:
+                if kernel32.WaitForSingleObject(handle, 0) == 0:
+                    return
+            finally:
+                kernel32.CloseHandle(handle)
+            time.sleep(0.02)
+            continue
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        if sys.platform.startswith("linux"):
+            stat = Path(f"/proc/{pid}/stat")
+            if stat.exists() and stat.read_text().split()[2] == "Z":
+                return
+        time.sleep(0.02)
+    pytest.fail(f"collector descendant {pid} remained alive after cleanup")
+
+
+@pytest.mark.skipif(os.name not in ("posix", "nt"), reason="requires process-tree cleanup support")
+@pytest.mark.parametrize("failure", ["timeout", "parent_exits", "output_limit", "io_error"])
+def test_failure_terminates_collector_descendants(tmp_path, monkeypatch, failure) -> None:
+    from archkeel.analyzer.process import ProcessCollector
+
+    pid_file = tmp_path / "child.pid"
+    code = (
+        "import subprocess,sys,time; "
+        "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
+        f"open({str(pid_file)!r},'w').write(str(child.pid)); "
+    )
+    if failure == "output_limit":
+        code += "sys.stdout.write('x'*100000); sys.stdout.flush(); time.sleep(30)"
+    elif failure == "parent_exits":
+        code += "pass"
+    else:
+        code += "time.sleep(30)"
+
+    limits = {"output_limit_bytes": 1000} if failure == "output_limit" else {}
+    if failure in ("timeout", "parent_exits"):
+        limits["timeout_seconds"] = 0.1
+    collector = _collector(code, **limits)
+    if failure == "io_error":
+
+        def fail_exchange(self, process, payload, workers):
+            deadline = time.monotonic() + 2
+            while not pid_file.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert pid_file.exists()
+            raise OSError("simulated pipe failure")
+
+        monkeypatch.setattr(ProcessCollector, "_exchange", fail_exchange)
+
+    from dataclasses import replace
+
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+    result = collector.collect(request)
+
+    assert isinstance(result, CollectionError)
+    assert pid_file.is_file()
+    _assert_process_exited(int(pid_file.read_text()))
+
+
+def test_windows_kill_on_close_uses_extended_job_limits() -> None:
+    from archkeel.analyzer.windows_job import (
+        _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+        _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        _IoCounters,
+        _kill_on_close_limit_information,
+    )
+
+    limits = _kill_on_close_limit_information()
+    assert _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION == 9
+    assert limits.basic_limit_information.limit_flags == _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    assert len(_IoCounters._fields_) == 6
 
 
 def test_configured_executable_collects_facts_without_receiving_policy(tmp_path) -> None:

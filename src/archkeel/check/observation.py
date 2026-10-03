@@ -5,32 +5,41 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Literal
 
 from archkeel.ir.codec import (
     ContractInputError,
     InsideContractMount,
+    canonical_json_bytes,
+    decode_json,
     load_inside_contract_tree,
+    parse_observation,
 )
+from archkeel.ir.digest import package_digest
+from archkeel.ir.facts import SourceFacts
+from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureContract,
     EvidenceClass,
+    Observation,
     contract_relative_path,
     stable_id,
 )
-from archkeel.ir.profiles import PROFILES, Language
+from archkeel.ir.profiles import PROFILES, Language, Profile
 
-from .contract import (
+from .declarations import (
     load_contract,
     project_declarations,
     project_inside_declarations,
 )
-from .dart_scanner import scan_dart_repository
-from .records import ANALYZER_VERSION, RawRecord, analyzer_code_digest, classified
-from .scanner import ScanResult, scan_repository
+from .evaluation.evaluate import ScanResult, evaluate_source
+from .ports import SourceCollector
+
+OBSERVATION_VERSION = "0.65.0"
 
 DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
@@ -103,7 +112,7 @@ def _contract_source(
 def _metric(
     kind: str,
     title: str,
-    value: int | float | str,
+    value: int | float | str | None,
     tab: str,
     *,
     fact_ids: list[str] | None = None,
@@ -119,7 +128,7 @@ def _metric(
     )
 
 
-def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord]:
+def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile) -> list[RawRecord]:
     dependency_violations = [
         item for item in scan.violations if item["kind"] == "forbidden_dependency"
     ]
@@ -151,13 +160,27 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
         if evidence_id in evidence_by_id
     }
     affected_violation_modules = {item["data"]["source_module"] for item in dependency_violations}
-    forbidden_package_edges = {
-        (
-            ".".join(item["data"]["source_module"].split(".")[:2]),
-            ".".join(item["data"]["target_module"].split(".")[:2]),
-        )
-        for item in dependency_violations
+    package_by_module = {
+        item["data"]["qualified_name"]: item["data"]["package"]
+        for item in scan.modules
+        if item["data"].get("qualified_name") and item["data"].get("package")
     }
+    imports_by_pair: dict[tuple[str, str], list[RawRecord]] = {}
+    for item in scan.imports:
+        pair = (item["data"]["source_module"], item["data"]["target_module"])
+        imports_by_pair.setdefault(pair, []).append(item)
+    forbidden_package_edges: set[tuple[str, str]] = set()
+    for violation in dependency_violations:
+        pair = (
+            violation["data"]["source_module"],
+            violation["data"]["target_module"],
+        )
+        matching_imports = imports_by_pair.get(pair, ())
+        for item in matching_imports:
+            source_package = package_by_module.get(pair[0], item["data"]["source_package"])
+            target_package = package_by_module.get(pair[1], item["data"]["target_package"])
+            if source_package and target_package:
+                forbidden_package_edges.add((source_package, target_package))
     violation_fact_ids = sorted(
         {fact_id for item in scan.violations for fact_id in item["fact_ids"]}
     )
@@ -201,9 +224,13 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
             _metric(
                 "symbols",
                 "Symbols",
-                len(scan.symbols),
+                None if "symbols" in profile.absent_sections else len(scan.symbols),
                 "components",
-                fact_ids=[item["id"] for item in scan.symbols],
+                fact_ids=(
+                    [item["id"] for item in scan.symbols]
+                    if "symbols" not in profile.absent_sections
+                    else None
+                ),
             ),
             _metric(
                 "package_cycles",
@@ -267,29 +294,49 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
             _metric(
                 "private_crossings",
                 "Confirmed private symbol crossings",
-                len(private_crossings),
+                None if "private_crossings" in profile.unmeasured else len(private_crossings),
                 "api",
-                fact_ids=[item["id"] for item in private_crossings],
+                fact_ids=(
+                    [item["id"] for item in private_crossings]
+                    if "private_crossings" not in profile.unmeasured
+                    else None
+                ),
             ),
             _metric(
                 "untyped_private_accesses",
                 "Private attribute accesses through untyped or Any parameters",
-                len(private_attribute_limits),
+                None
+                if "untyped_private_accesses" in profile.unmeasured
+                else len(private_attribute_limits),
                 "api",
             ),
             _metric(
                 "typing_signals",
                 "Typing & dynamic signals",
-                len(scan.typing_signals),
+                None
+                if "typing_signals" in profile.absent_sections
+                or "typing_positions" in profile.unmeasured
+                else len(scan.typing_signals),
                 "types",
-                fact_ids=[item["id"] for item in scan.typing_signals],
+                fact_ids=(
+                    [item["id"] for item in scan.typing_signals]
+                    if "typing_signals" not in profile.absent_sections
+                    and "typing_positions" not in profile.unmeasured
+                    else None
+                ),
             ),
             _metric(
                 "unresolved_calls",
                 "Unresolved calls",
-                scan.coverage["calls_unresolved"],
+                None
+                if "calls_unresolved" in profile.unmeasured
+                else scan.coverage["calls_unresolved"],
                 "calls",
-                fact_ids=[item["id"] for item in unresolved_calls],
+                fact_ids=(
+                    [item["id"] for item in unresolved_calls]
+                    if "calls_unresolved" not in profile.unmeasured
+                    else None
+                ),
             ),
             _metric(
                 "ast_coverage",
@@ -301,9 +348,15 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract) -> list[RawRecord
             _metric(
                 "call_resolution",
                 "Uniquely resolved calls",
-                f"{scan.coverage['call_resolution_percent']}%",
+                None
+                if "calls_unresolved" in profile.unmeasured
+                else f"{scan.coverage['call_resolution_percent']}%",
                 "calls",
-                fact_ids=[item["id"] for item in resolved_calls],
+                fact_ids=(
+                    [item["id"] for item in resolved_calls]
+                    if "calls_unresolved" not in profile.unmeasured
+                    else None
+                ),
             ),
             _metric(
                 "interface_surface",
@@ -338,6 +391,7 @@ def _declaration_records(
             contract_path,
             unknowns=scan.unknowns,
             type_shapes=scan.type_shapes,
+            measured_types="symbols" not in PROFILES[language].absent_sections,
         ),
         *inside_records,
     ]
@@ -430,35 +484,6 @@ def _add_git_failure(scan: ScanResult, git_head: str, dirty: bool | str) -> None
     scan.coverage["status"] = "FAIL"
 
 
-def _scan_contract(
-    source_root: Path,
-    contract: ArchitectureContract,
-    *,
-    language: Language,
-    source_paths: list[Path] | tuple[Path, ...] | None,
-    roots: tuple[str, ...],
-    namespace: str,
-    inside_contracts: list[InsideContractMount],
-) -> ScanResult:
-    """Run the selected profile once with its loaded inside contracts."""
-    if language == "dart":
-        return scan_dart_repository(
-            source_root,
-            contract,
-            roots=roots,
-            namespace=namespace,
-            inside_contracts=inside_contracts,
-        )
-    return scan_repository(
-        source_root,
-        contract,
-        source_paths=source_paths,
-        roots=roots,
-        namespace=namespace,
-        inside_contracts=inside_contracts,
-    )
-
-
 def _record_inside_failures(scan: ScanResult, failures: list[RawRecord]) -> None:
     """Carry unreadable or out-of-scope nested contracts as scan UNKNOWNs and coverage failures."""
     if not failures:
@@ -471,32 +496,27 @@ def _record_inside_failures(scan: ScanResult, failures: list[RawRecord]) -> None
     scan.coverage["rules"] = "FAIL"
 
 
-def analyze_snapshot(
-    source_root: Path,
+def assemble_observation(
+    facts: SourceFacts,
     *,
-    git_head: str,
-    dirty: bool | str,
-    contract_root: Path | None = None,
+    contract_root: Path,
     contract_path: Path | None = None,
-    source_paths: list[Path] | tuple[Path, ...] | None = None,
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
     language: Language = "python",
-) -> tuple[dict[str, Any], int]:
+) -> tuple[Observation, int]:
     """Analyze explicit source bytes; keep the model open for the canonical codec boundary."""
-    source_root = source_root.resolve()
-    declarations_root, contract_file = _contract_source(source_root, contract_root, contract_path)
+    git_head, dirty = facts.source.git_head, facts.source.dirty
+    declarations_root, contract_file = _contract_source(contract_root, contract_root, contract_path)
     contract_reference = contract_file.relative_to(declarations_root).as_posix()
     contract, contract_digest = load_contract(contract_file)
     inside_records, full_contract_digest, inside_contracts, inside_failures = _inside_levels(
         declarations_root, contract_file, contract, contract_digest
     )
     profile = PROFILES[language]
-    scan = _scan_contract(
-        source_root,
+    scan = evaluate_source(
+        facts,
         contract,
-        language=language,
-        source_paths=source_paths,
         roots=roots,
         namespace=namespace,
         inside_contracts=inside_contracts,
@@ -508,18 +528,20 @@ def analyze_snapshot(
     declarations = _declaration_records(
         contract, scan, inside_records, contract_reference, scope, language
     )
-    model: dict[str, Any] = {
+    model: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {
             "name": profile.analyzer,
-            "version": ANALYZER_VERSION,
-            "code_digest": analyzer_code_digest(),
+            "version": OBSERVATION_VERSION,
+            "code_digest": hashlib.sha256(
+                f"{package_digest()}\0{facts.adapter.name}\0{facts.adapter.version}\0{facts.adapter.code_digest}".encode()
+            ).hexdigest(),
         },
         "source": {
             "git_head": git_head,
             "dirty": dirty,
             "source_digest": scan.source_digest,
-            "scope": [f"{source}/**/*{profile.source_suffix}" for source in roots],
+            "scope": list(facts.source.scope),
         },
         "contract": {
             "schema_version": contract.schema_version,
@@ -527,7 +549,7 @@ def analyze_snapshot(
             "path": contract_reference,
         },
         "coverage": scan.coverage,
-        "metrics": _metrics(scan, contract),
+        "metrics": _metrics(scan, contract, profile),
         "declarations": declarations,
         "scope_observations": scan.scope_observations,
         "packages": scan.packages,
@@ -549,7 +571,71 @@ def analyze_snapshot(
         "unknowns": scan.unknowns,
         "evidence": scan.evidence,
     }
+    if language == "python":
+        model["python_version"] = facts.runtime.version if facts.runtime.name == "python" else None
+    else:
+        model["runtime"] = {"name": facts.runtime.name, "version": facts.runtime.version}
+    if language != "python" or facts.adapter.name != profile.analyzer:
+        model["producer"] = {
+            "name": facts.adapter.name,
+            "version": facts.adapter.version,
+            "code_digest": facts.adapter.code_digest,
+        }
     # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
     for section in profile.absent_sections:
         model[section] = None
-    return model, 0 if scan.coverage["status"] == "PASS" else 2
+    normalized = decode_json(canonical_json_bytes(model))
+    if not isinstance(normalized, dict):
+        raise ValueError("assembled observation must be an object")
+    return parse_observation(normalized), 0 if scan.coverage["status"] == "PASS" else 2
+
+
+def analyze_source_snapshot(
+    collector: SourceCollector,
+    source_root: Path,
+    *,
+    git_head: str,
+    dirty: bool | Literal["unknown"],
+    contract_root: Path | None = None,
+    contract_path: Path | None = None,
+    roots: tuple[str, ...] = ("src",),
+    namespace: str = "src",
+    language: Language = "python",
+) -> tuple[Observation, int]:
+    """Collect and assemble one snapshot for demo and audit callers."""
+    from archkeel.ir.protocol import (
+        CollectionError,
+        CollectionRequest,
+        DartSettings,
+        PythonSettings,
+        ResolverSettings,
+        SnapshotInput,
+        SourceScope,
+        TypeScriptSettings,
+    )
+
+    if dirty != "unknown" and not isinstance(dirty, bool):
+        raise ValueError("dirty must be a boolean or unknown")
+    resolver: ResolverSettings = (
+        TypeScriptSettings()
+        if language == "typescript"
+        else DartSettings()
+        if language == "dart"
+        else PythonSettings()
+    )
+    request = CollectionRequest(
+        SnapshotInput(str(source_root.resolve()), git_head, dirty),
+        SourceScope(roots, namespace),
+        resolver,
+    )
+    facts = collector.collect(request)
+    if isinstance(facts, CollectionError):
+        raise ValueError(facts.message)
+    return assemble_observation(
+        facts,
+        contract_root=contract_root or source_root,
+        contract_path=contract_path,
+        roots=roots,
+        namespace=namespace,
+        language=language,
+    )

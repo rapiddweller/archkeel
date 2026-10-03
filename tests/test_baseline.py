@@ -11,9 +11,9 @@ from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
 from test_codec import raw_observation
 
-from archkeel.analyzer import observe
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.baseline import (
     BASELINE_SCHEMA_VERSION,
     KnownViolation,

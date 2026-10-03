@@ -181,6 +181,162 @@
           }
         }
       }
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "status",
+        "files_discovered",
+        "files_read",
+        "files_parsed",
+        "calls_analyzed",
+        "calls_resolved",
+        "calls_partially_resolved",
+        "calls_unresolved",
+        "ast_coverage_percent",
+        "call_resolution_percent",
+        "failures"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "files_discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_parsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls_analyzed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "calls_resolved": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "calls_partially_resolved": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "calls_unresolved": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "ast_coverage_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "call_resolution_percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "rules": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "calls_analyzed": {
+              "type": "null"
+            },
+            "calls_resolved": {
+              "type": "null"
+            },
+            "calls_partially_resolved": {
+              "type": "null"
+            },
+            "calls_unresolved": {
+              "type": "null"
+            },
+            "call_resolution_percent": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "calls_analyzed": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "calls_resolved": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "calls_partially_resolved": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "calls_unresolved": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "call_resolution_percent": {
+              "not": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

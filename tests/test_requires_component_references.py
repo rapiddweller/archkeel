@@ -14,11 +14,11 @@ from test_delta import _model
 from test_expectation import _expectation_payload
 from test_git_lock import _lock
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
 from archkeel.check.validation import run_validate
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import ContractInputError, declaration_paths, parse_contract
 from archkeel.ir.lock import LOCK_PATH, LockError
 

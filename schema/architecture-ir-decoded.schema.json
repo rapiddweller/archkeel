@@ -1,0 +1,411 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:architecture-ir:decoded:1.3.0",
+  "title": "Decoded ArchitectureIR by analyzer profile",
+  "$comment": "Decode the canonical columnar model first. Code validates references, evidence and metric arithmetic.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "analyzer",
+    "source",
+    "contract",
+    "coverage",
+    "metrics",
+    "declarations",
+    "scope_observations",
+    "packages",
+    "modules",
+    "symbols",
+    "imports",
+    "dependency_edges",
+    "transitive_paths",
+    "path_observations",
+    "cycles",
+    "calls",
+    "references",
+    "bindings",
+    "typing_signals",
+    "constructs",
+    "contexts",
+    "context_evidence",
+    "violations",
+    "unknowns",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/schema_version"
+    },
+    "analyzer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "code_digest"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "archkeel-python-analyzer",
+            "archkeel-dart-directives",
+            "archkeel-typescript-imports"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code_digest": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/source"
+    },
+    "contract": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/contract"
+    },
+    "coverage": {
+      "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
+    },
+    "metrics": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/metrics"
+    },
+    "declarations": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/declarations"
+    },
+    "scope_observations": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/scope_observations"
+    },
+    "packages": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/packages"
+    },
+    "modules": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/modules"
+    },
+    "symbols": {
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/symbols"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+          },
+          {
+            "not": {
+              "properties": {
+                "evidence_class": {
+                  "const": "HYPOTHESIS"
+                }
+              },
+              "required": [
+                "evidence_class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "dependency_edges": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/dependency_edges"
+    },
+    "transitive_paths": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/transitive_paths"
+    },
+    "path_observations": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/path_observations"
+    },
+    "cycles": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/cycles"
+    },
+    "calls": {
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/calls"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "typing_signals": {
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/typing_signals"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "constructs": {
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/constructs"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "contexts": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/contexts"
+    },
+    "context_evidence": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/context_evidence"
+    },
+    "violations": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/violations"
+    },
+    "unknowns": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/unknowns"
+    },
+    "evidence": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/evidence"
+    },
+    "python_version": {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/python_version"
+    },
+    "bindings": {
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/bindings"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "references": {
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/references"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "code_digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code_digest": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{64}|unknown)$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "analyzer": {
+            "properties": {
+              "name": {
+                "const": "archkeel-python-analyzer"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "imports": {
+            "$ref": "urn:archkeel:architecture-ir:python-decoded:1.3.0#/properties/imports"
+          },
+          "symbols": {
+            "type": "array"
+          },
+          "references": {
+            "type": "array"
+          },
+          "bindings": {
+            "type": "array"
+          },
+          "calls": {
+            "type": "array"
+          },
+          "typing_signals": {
+            "type": "array"
+          },
+          "constructs": {
+            "type": "array"
+          },
+          "coverage": {
+            "properties": {
+              "calls_analyzed": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "calls_resolved": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "calls_partially_resolved": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "calls_unresolved": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "call_resolution_percent": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "analyzer": {
+            "properties": {
+              "name": {
+                "const": "archkeel-dart-directives"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "symbols": {
+            "type": "null"
+          },
+          "references": {
+            "type": "null"
+          },
+          "bindings": {
+            "type": "null"
+          },
+          "calls": {
+            "type": "array"
+          },
+          "typing_signals": {
+            "type": "array"
+          },
+          "constructs": {
+            "type": "array"
+          },
+          "coverage": {
+            "properties": {
+              "calls_analyzed": {},
+              "calls_resolved": {},
+              "calls_partially_resolved": {},
+              "calls_unresolved": {},
+              "call_resolution_percent": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "analyzer": {
+            "properties": {
+              "name": {
+                "const": "archkeel-typescript-imports"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "symbols": {
+            "type": "null"
+          },
+          "references": {
+            "type": "null"
+          },
+          "bindings": {
+            "type": "null"
+          },
+          "calls": {
+            "type": "null"
+          },
+          "typing_signals": {
+            "type": "null"
+          },
+          "constructs": {
+            "type": "null"
+          },
+          "coverage": {
+            "properties": {
+              "calls_analyzed": {
+                "type": "null"
+              },
+              "calls_resolved": {
+                "type": "null"
+              },
+              "calls_partially_resolved": {
+                "type": "null"
+              },
+              "calls_unresolved": {
+                "type": "null"
+              },
+              "call_resolution_percent": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

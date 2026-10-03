@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Deterministic graph operations used by the architecture analyzer."""
+"""Deterministic graph operations used by the architecture graphs."""
 
 from __future__ import annotations
 

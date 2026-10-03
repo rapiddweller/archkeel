@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from archkeel.analyzer.embedded.records import RawRecord, RecordData, classified
 from archkeel.ir.facts import Evidence
+from archkeel.ir.facts_codec import RawData as RecordData
+from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import EvidenceClass, stable_id
 from archkeel.ir.state_facts import (
     ArgumentPass,

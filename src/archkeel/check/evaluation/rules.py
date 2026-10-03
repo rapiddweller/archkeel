@@ -13,6 +13,9 @@ from pathlib import PurePosixPath
 from typing import Final, NamedTuple, TypeAlias, assert_never
 from typing import Literal as _Literal
 
+from archkeel.ir.facts_codec import RawData as RecordData
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
+from archkeel.ir.graph import strongly_connected_components
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -56,9 +59,6 @@ from archkeel.ir.type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
-
-from .graph import strongly_connected_components
-from .records import RawEvidence, RawRecord, RecordData, classified
 
 # AD-97: an import either decides a symbol rule or, when the scan cannot see which names it
 # uses (a Dart import without `show`), leaves it undecided -- never a pass, never a violation.
@@ -326,7 +326,11 @@ def _external_dependency_violations(
             source_module = data["source_module"]
             if (
                 (source_modules is not None and source_module not in source_modules)
-                or not in_scope(data["target_module"], rule.dependency)
+                or not (
+                    data["external_package"] == rule.dependency
+                    if "external_package" in data
+                    else in_scope(data["target_module"], rule.dependency)
+                )
                 or any(in_scope(source_module, allowed) for allowed in rule.allowed_sources)
                 or source_module in rule.exact_sources
             ):
@@ -378,10 +382,17 @@ def _external_completeness_violations(
                 continue
             if source_modules is not None and data["source_module"] not in source_modules:
                 continue
-            root = target.split(".")[0]
-            if root in internal_roots or root in standard_library:
+            root = data.get("external_package", target.split(".")[0])
+            if data.get("builtin_target") or root in internal_roots or root in standard_library:
                 continue
-            if any(in_scope(target, declared.dependency) for declared in declared):
+            if any(
+                (
+                    root == declared.dependency
+                    if "external_package" in data
+                    else in_scope(target, declared.dependency)
+                )
+                for declared in declared
+            ):
                 continue
             violations.append(
                 classified(
@@ -809,11 +820,15 @@ def _interface_violations(
     exports_by_module: dict[str, frozenset[str]],
     forbidden_rejected_ids: frozenset[str],
     source_modules: frozenset[str] | None = None,
+    *,
+    dependency_symbols: bool = True,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
     for rule, item, source, target, verdict in _interface_verdicts(
         imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
     ):
+        if not dependency_symbols and any(":" in entry for entry in target.public or ()):
+            continue
         if verdict != "violation":
             continue
         data = item["data"]
@@ -1114,6 +1129,27 @@ def profile_failures(contract: ArchitectureContract, profile: Profile) -> list[R
             (rule.id, [rule.id], f"rule kind {rule.kind}")
             for rule in contract.rules
             if rule.kind in profile.unsupported_rules
+        ),
+        *(
+            (rule.id, [rule.id], "symbol-level dependency selector")
+            for rule in contract.rules
+            if isinstance(rule, ForbiddenDependencyRule)
+            and rule.target_symbol is not None
+            and not profile.dependency_symbols
+        ),
+        *(
+            (component.id, [], "symbol-level public interface")
+            for component in contract.components
+            if not profile.dependency_symbols
+            and any(":" in entry for entry in component.public or ())
+        ),
+        *(
+            (component.id, [], "symbol-level required interface")
+            for component in contract.components
+            if not profile.dependency_symbols
+            and any(
+                ":" in entry for required in component.requires or () for entry in required.through
+            )
         ),
         *(
             (f"declarations.{name}", [], f"declarations.{name}")
@@ -1838,7 +1874,11 @@ def _index_owner_facade_type_states(
         data = item["data"]
         module, binding = data["source_module"], data["binding"]
         owner = contract.component_for(module)
-        if owner is None or not facade_covers(module, binding, owner, exports_by_module):
+        if (
+            owner is None
+            or not isinstance(binding, str)
+            or not facade_covers(module, binding, owner, exports_by_module)
+        ):
             continue
         qualified_binding = f"{module}.{binding}"
         for origin in uncertain_reexport_origins.get(qualified_binding, frozenset()):
@@ -2878,7 +2918,11 @@ def _reexport_facade_entries(
             own_uncertainty or binding_key in ambiguous_bindings or inherited_uncertainty
         )
         owner = contract.component_for(facade_module)
-        if owner is not None and facade_covers(facade_module, binding, owner, exports_by_module):
+        if (
+            owner is not None
+            and isinstance(binding, str)
+            and facade_covers(facade_module, binding, owner, exports_by_module)
+        ):
             facade_entries.append((facade_module, binding, resolution_module, entry_uncertain))
     return facade_entries
 
@@ -4066,7 +4110,11 @@ def _unresolved_public_alias_routes(
         ):
             continue
         owner = contract.component_for(module)
-        if owner is None or not facade_covers(module, binding, owner, exports_by_module):
+        if (
+            owner is None
+            or not isinstance(binding, str)
+            or not facade_covers(module, binding, owner, exports_by_module)
+        ):
             continue
         route = (f"{module}.{binding}", *data.get("reexport_chain", ()))
         unresolved = tuple(
@@ -4783,6 +4831,7 @@ def requires_violations(
     assessment_facts: list[RawRecord] | None = None,
     assessment_parent: str | None = None,
     source_modules: frozenset[str] | None = None,
+    dependency_symbols: bool = True,
 ) -> list[RawRecord]:
     """AD-32: a cross-component import no `requires` entry of the source covers is a violation.
 
@@ -4807,6 +4856,11 @@ def requires_violations(
                 or source == target
                 or (source_modules is not None and data["source_module"] not in source_modules)
                 or (data["under_type_checking"] and not rule.include_type_checking)
+            ):
+                continue
+            if not dependency_symbols and any(
+                entry.component == target.label and any(":" in name for name in entry.through)
+                for entry in source.requires or ()
             ):
                 continue
             evaluated.append(item)
@@ -4976,6 +5030,7 @@ def _collect_rule_violations(
             assessment_facts=assessment_facts,
             assessment_parent=assessment_parent,
             source_modules=source_modules,
+            dependency_symbols=profile.dependency_symbols,
         ),
         *_assignment_violations(module_facts, contract, blank_modules),
         *_root_layout_violations(package_facts, module_facts, contract.rules),
@@ -4994,7 +5049,12 @@ def _collect_rule_violations(
             cycle_namespace_complete,
         ),
         *_interface_violations(
-            imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
+            imports,
+            contract,
+            exports_by_module,
+            forbidden_rejected_ids,
+            source_modules,
+            dependency_symbols=profile.dependency_symbols,
         ),
         *_sibling_violations(imports, contract.rules, source_modules),
         *_symbol_placement_violations(symbols, contract.rules, source_modules),
@@ -5171,7 +5231,7 @@ def _cycle_scan_coverage(
     namespace: str | None,
 ) -> tuple[bool, tuple[str, ...]]:
     """Prove cycle domains are recursively inside configured scan roots."""
-    if not roots or namespace is None or profile.source_suffix != ".py":
+    if not roots or namespace is None:
         return False, ()
 
     components = tuple(
@@ -5181,7 +5241,18 @@ def _cycle_scan_coverage(
             if _scan_covers_ownership(component, modules, profile, roots)
         )
     )
-    namespace_complete = _scan_covers_packages((namespace,), modules, profile, roots)
+    if profile.project_import_closure:
+        # The caller supplies roots only after the collector proves complete project closure.
+        scan_roots = tuple(_relative_path(root) for root in roots)
+        namespace_complete = bool(modules) and all(
+            in_scope(item["data"]["qualified_name"], namespace)
+            and any(_contains(root, _relative_path(item["data"]["file"])) for root in scan_roots)
+            for item in modules
+        )
+    elif profile.source_suffix == ".py":
+        namespace_complete = _scan_covers_packages((namespace,), modules, profile, roots)
+    else:
+        return False, ()
     return namespace_complete, components
 
 

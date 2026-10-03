@@ -14,7 +14,6 @@ from test_recursive_inside_independent_contracts import (
     _write_three_levels,
 )
 
-from archkeel.analyzer import observe
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
@@ -22,6 +21,7 @@ from archkeel.check.validation import (
     interface_diagnostics,
     run_validate,
 )
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     canonical_report_bytes,
     decode_canonical_model,

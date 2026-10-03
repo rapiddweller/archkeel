@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Conservative deterministic AST scanner for the Python architecture profile."""
+"""Evaluate architecture rules and topology over immutable source facts."""
 
 from __future__ import annotations
 
@@ -9,10 +9,19 @@ from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, replace
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, TypeAlias
 
-from archkeel.analyzer.python.type_shapes import collect_type_shapes, symbol_type_expressions
 from archkeel.ir.codec import InsideContractMount
+from archkeel.ir.facts import BuiltinTarget, ExternalPackageTarget, SourceFacts, UnresolvedTarget
+from archkeel.ir.facts_codec import (
+    ProtocolError,
+    RawEvidence,
+    RawRecord,
+    classified,
+    raw_evidence,
+    raw_record,
+)
 from archkeel.ir.model import (
     ArchitectureContract,
     ContractComponent,
@@ -23,30 +32,11 @@ from archkeel.ir.model import (
     module_in_ownership,
     stable_id,
 )
-from archkeel.ir.profiles import PYTHON, Profile
+from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
 
-from .bindings import collect_bindings
-from .calls import collect_calls
-from .constructs import collect_constructs
-from .contexts import collect_contexts, private_attribute_limits
-from .dependencies import (
-    aggregate_edges,
-    component_scope_observations,
-    cycle_sections,
-    declared_path_observations,
-    module_records,
-    package_records,
-    transitive_path_records,
-)
-from .imports import collect_imports, resolve_reexports, strip_internal_reexport_facts
-from .records import RawEvidence, RawRecord, classified
-from .references import collect_references
-from .resolve import build_symbol_index
-from .source import file_evidence, parse_sources, stable_direct_module_bindings
-from .symbols import collect_symbols
-from .typing_signals import collect_typing_signals
-from .violations import (
+from .imports import strip_internal_reexport_facts
+from .rules import (
     boundary_type_limits,
     exports_by_module,
     facade_signature_types,
@@ -54,6 +44,16 @@ from .violations import (
     rule_subject_failures,
     rule_violations,
     symbol_limits,
+)
+from .state import evaluate_contexts
+from .topology import (
+    aggregate_edges,
+    component_scope_observations,
+    cycle_sections,
+    declared_path_observations,
+    module_records,
+    package_records,
+    transitive_path_records,
 )
 
 InsideRuleResults: TypeAlias = tuple[
@@ -95,18 +95,6 @@ class ScanResult:
     unknowns: list[RawRecord]
 
 
-def iter_source_paths(root: Path, *, roots: tuple[str, ...]) -> tuple[Path, ...]:
-    return tuple(
-        sorted(
-            path
-            for source_root in (root / source for source in roots)
-            if source_root.is_dir()
-            for path in source_root.rglob("*.py")
-            if "__pycache__" not in path.parts
-        )
-    )
-
-
 def coverage_payload(
     *,
     paths: Sequence[Path],
@@ -115,6 +103,7 @@ def coverage_payload(
     failures: Sequence[RawRecord],
     rule_failures: Sequence[RawRecord],
     calls: Sequence[RawRecord],
+    calls_measured: bool = True,
 ) -> CoveragePayload:
     """Summarize file discovery, rule and call-resolution coverage for one scan."""
     calls_analyzed = len(calls)
@@ -133,17 +122,23 @@ def coverage_payload(
         "failures": [
             *sorted(
                 failures,
-                key=lambda item: (item["data"]["file"], item["data"]["line"], item["kind"]),
+                key=lambda item: (
+                    item["data"].get("file", ""),
+                    item["data"].get("line", 0),
+                    item["kind"],
+                ),
             ),
             *sorted(rule_failures, key=lambda item: item["id"]),
         ],
-        "calls_analyzed": calls_analyzed,
-        "calls_resolved": calls_resolved,
-        "calls_partially_resolved": calls_partially_resolved,
-        "calls_unresolved": calls_unresolved,
-        "call_resolution_percent": round(calls_resolved / calls_analyzed * 100, 2)
-        if calls_analyzed
-        else 0.0,
+        "calls_analyzed": calls_analyzed if calls_measured else None,
+        "calls_resolved": calls_resolved if calls_measured else None,
+        "calls_partially_resolved": calls_partially_resolved if calls_measured else None,
+        "calls_unresolved": calls_unresolved if calls_measured else None,
+        "call_resolution_percent": (
+            round(calls_resolved / calls_analyzed * 100, 2) if calls_analyzed else 0.0
+        )
+        if calls_measured
+        else None,
     }
 
 
@@ -328,17 +323,18 @@ def _inside_rule_results(
             cycle_namespace=cycle_namespace,
             type_shapes=type_shapes,
         )
-        symbols = _mount_facade_signature_types(
-            symbols,
-            imports,
-            mount,
-            scoped,
-            source_modules,
-            exports_by_module,
-            uncertain_reexport_origins,
-            owner_levels,
-            type_shapes=type_shapes,
-        )
+        if "symbols" not in profile.absent_sections:
+            symbols = _mount_facade_signature_types(
+                symbols,
+                imports,
+                mount,
+                scoped,
+                source_modules,
+                exports_by_module,
+                uncertain_reexport_origins,
+                owner_levels,
+                type_shapes=type_shapes,
+            )
         violations.extend(results[0])
         unknowns.extend(results[1])
         failures.extend(results[2])
@@ -522,75 +518,125 @@ def _evaluate_inside_contract(
         cycle_namespace=cycle_namespace,
         type_shapes=type_shapes,
     )
-    unknowns = boundary_type_limits(
-        symbols,
-        imports,
-        scoped,
-        exports_by_module,
-        evidence,
-        uncertain_reexport_origins,
-        scanned_modules,
-        stable_bindings_by_module,
-        source_modules,
-        ancestor_contracts,
-        type_shapes=type_shapes,
+    unknowns = (
+        boundary_type_limits(
+            symbols,
+            imports,
+            scoped,
+            exports_by_module,
+            evidence,
+            uncertain_reexport_origins,
+            scanned_modules,
+            stable_bindings_by_module,
+            source_modules,
+            ancestor_contracts,
+            type_shapes=type_shapes,
+        )
+        if "symbols" not in profile.absent_sections
+        else []
     )
     unknowns.extend(symbol_limits(imports, scoped, exports_by_module, source_modules))
     return violations, unknowns, failures, allowance_facts
 
 
-def scan_repository(
-    root: Path,
+def evaluate_source(
+    facts: SourceFacts,
     contract: ArchitectureContract,
     *,
-    source_paths: Sequence[Path] | None = None,
     roots: tuple[str, ...],
     namespace: str,
     inside_contracts: Sequence[InsideContractMount] = (),
 ) -> ScanResult:
-    """Scan production Python and return the deterministic observed model sections."""
-    paths = (
-        tuple(source_paths) if source_paths is not None else iter_source_paths(root, roots=roots)
+    """Evaluate a contract against one immutable collection without language parser access."""
+    for file in facts.files:
+        if not in_scope(file.module, namespace) or not in_scope(file.package, namespace):
+            raise ProtocolError("selected source identity is outside the configured namespace")
+    profile = profile_for(facts.profile)
+    is_python = facts.profile == "archkeel-python-analyzer"
+    required = (
+        {
+            "symbols",
+            "imports",
+            "calls",
+            "references",
+            "bindings",
+            "typing_signals",
+            "constructs",
+            "unknowns",
+        }
+        if is_python
+        else {"imports", "unknowns"}
     )
-    paths = tuple(sorted(paths, key=lambda path: path.relative_to(root).as_posix()))
-    parsed_sources = parse_sources(paths, root=root, namespace=namespace)
-    parsed = parsed_sources.modules
-    failures = parsed_sources.failures
-    stable_bindings_by_module = {
-        module.module: stable_direct_module_bindings(module) for module in parsed
+    if set(facts.capabilities.sections) != required:
+        raise ProtocolError("source sections do not match the registered profile")
+    sections = {
+        section.name: [raw_record(record) for record in section.records]
+        for section in facts.sections
     }
-    evidence: dict[str, RawEvidence] = {}
-
+    parsed = facts.files
+    paths = tuple(Path(path) for path in facts.coverage.selected_files)
+    failures = [raw_record(record) for record in facts.coverage.gaps]
+    source_unknowns = sections.get("unknowns", [])
+    stable_bindings_by_module = {module.module: module.stable_bindings for module in parsed}
+    evidence = {entry.id: raw_evidence(entry) for entry in facts.evidence}
     module_names = {module.module for module in parsed}
-    module_evidence = {
-        module.module: file_evidence(evidence, module.rel_path, module.lines) for module in parsed
-    }
-    imports = collect_imports(parsed, module_names, evidence, namespace=namespace)
-
-    # Exports exist only after the import loop, and re-exports must resolve before symbols.
+    module_evidence = {module.module: module.evidence_id for module in parsed}
     module_all_exports = {module.module: module.all_exports for module in parsed}
-    uncertain_reexport_origins = resolve_reexports(imports, module_all_exports, parsed)
+    uncertain_reexport_origins = {
+        binding: frozenset(origins) for binding, origins in facts.uncertain_reexports
+    }
+    type_shapes = MappingProxyType(dict(facts.type_shapes))
+    imports = sections.get("imports", [])
+    unresolved_targets = {
+        target.import_id: target for target in facts.imports if isinstance(target, UnresolvedTarget)
+    }
+    unresolved_imports = [item for item in imports if item["id"] in unresolved_targets]
+    imports = [item for item in imports if item["id"] not in unresolved_targets]
+    for item in unresolved_imports:
+        unresolved = unresolved_targets[item["id"]]
+        item["data"]["resolution"] = "unresolved"
+        failures.append(
+            classified(
+                item_id=stable_id("UNKNOWN-IMPORT", item["id"]),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="analysis_coverage",
+                kind="unresolved-import",
+                title=unresolved.reason,
+                subjects=item["subjects"],
+                evidence_ids=item["evidence_ids"],
+                fact_ids=[item["id"]],
+                data={"source_module": item["data"]["source_module"], "reason": unresolved.reason},
+            )
+        )
+    if facts.profile == "archkeel-typescript-imports":
+        targets = {target.import_id: target for target in facts.imports}
+        for item in imports:
+            target = targets[item["id"]]
+            if isinstance(target, ExternalPackageTarget):
+                item["data"]["external_package"] = target.package
+            elif isinstance(target, BuiltinTarget):
+                item["data"]["builtin_target"] = True
 
-    symbols, symbol_nodes, symbol_owners = collect_symbols(parsed, evidence)
-    type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
-    symbol_index = build_symbol_index(symbols)
-    calls = collect_calls(parsed, symbol_index, evidence)
-    references = collect_references(parsed, symbol_index, evidence)
-    bindings = collect_bindings(parsed, evidence)
-
-    typing_signals = collect_typing_signals(parsed, calls, symbols, imports, evidence)
-    constructs = collect_constructs(parsed, evidence)
+    symbols = sections.get("symbols", [])
+    calls = sections.get("calls", [])
+    references = sections.get("references", [])
+    bindings = sections.get("bindings", [])
+    typing_signals = sections.get("typing_signals", [])
+    constructs = sections.get("constructs", [])
     declarations = contract.declarations or ContractDeclarations()
-    contexts, context_evidence = collect_contexts(
-        parsed,
-        symbols,
-        symbol_nodes,
-        symbol_owners,
-        imports,
-        calls,
-        declarations.context_roots,
-        evidence,
+    contexts, context_evidence, used_evidence = (
+        evaluate_contexts(
+            facts.state,
+            symbols,
+            imports,
+            calls,
+            declarations.context_roots,
+            facts.candidate_evidence,
+        )
+        if is_python
+        else ([], [], ())
     )
+    evidence.update((entry.id, raw_evidence(entry)) for entry in used_evidence)
 
     module_edges, module_edge_pairs = aggregate_edges(
         imports, level="module", internal_modules=module_names, namespace=namespace
@@ -604,6 +650,9 @@ def scan_repository(
     packages = sorted({module.package for module in parsed})
     package_facts = package_records(parsed, packages, package_edge_pairs)
     module_facts = module_records(parsed, module_names, module_edge_pairs, symbols, module_evidence)
+    if "symbols" in profile.absent_sections:
+        for module in module_facts:
+            module["data"]["symbol_count"] = None
     # boundary_types reads the declared facade, not a naming convention (AD-63): a rule whose
     # source matches a scanned module can still have zero functions to check, so
     # rule_subject_failures needs symbols and the contract to see that, not module_names alone
@@ -613,16 +662,17 @@ def scan_repository(
     # AD-65: a type a declared facade signature names reaches the boundary without any import,
     # so the resolution boundary_types already runs is recorded on the facade function itself
     # and travels to validate's unused-entry check in the observation, not in a second copy.
-    symbols = facade_signature_types(
-        symbols,
-        imports,
-        contract,
-        facade_exports,
-        uncertain_reexport_origins,
-        type_shapes=type_shapes,
-    )
+    if "symbols" not in profile.absent_sections:
+        symbols = facade_signature_types(
+            symbols,
+            imports,
+            contract,
+            facade_exports,
+            uncertain_reexport_origins,
+            type_shapes=type_shapes,
+        )
     rule_failures = rule_subject_failures(
-        contract.rules,
+        tuple(rule for rule in contract.rules if rule.kind not in profile.unsupported_rules),
         module_names,
         symbols=symbols,
         imports=imports,
@@ -631,7 +681,10 @@ def scan_repository(
         uncertain_reexport_origins=uncertain_reexport_origins,
         stable_bindings_by_module=stable_bindings_by_module,
         type_shapes=type_shapes,
+        sdk_libraries=profile.sdk_libraries
+        | frozenset(target.name for target in facts.imports if isinstance(target, BuiltinTarget)),
     )
+    rule_failures.extend(profile_failures(contract, profile))
     scope_observations = component_scope_observations(
         components=contract.components,
         modules=module_facts,
@@ -648,7 +701,7 @@ def scan_repository(
         package_edges=package_edges,
         package_edge_pairs=package_edge_pairs,
     )
-    blank_modules = frozenset(module.module for module in parsed if not module.tree.body)
+    blank_modules = frozenset(module.module for module in parsed if module.blank)
     violations, boundary_allowances = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -661,11 +714,11 @@ def scan_repository(
         module_cycles=module_cycles,
         contract=contract,
         exports_by_module=facade_exports,
-        profile=PYTHON,
+        profile=profile,
         uncertain_reexport_origins=uncertain_reexport_origins,
         assessment_facts=scope_observations,
         assessment_parent="root",
-        cycle_scan_roots=roots if source_paths is None and not failures else (),
+        cycle_scan_roots=roots if facts.coverage.full_scope and not failures else (),
         cycle_namespace=namespace,
         type_shapes=type_shapes,
     )
@@ -687,13 +740,13 @@ def scan_repository(
         symbols=symbols,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
-        profile=PYTHON,
+        profile=profile,
         exports_by_module=facade_exports,
         uncertain_reexport_origins=uncertain_reexport_origins,
         scanned_modules=module_names,
         stable_bindings_by_module=stable_bindings_by_module,
         evidence=evidence,
-        cycle_scan_roots=roots if source_paths is None and not failures else (),
+        cycle_scan_roots=roots if facts.coverage.full_scope and not failures else (),
         cycle_namespace=namespace,
         type_shapes=type_shapes,
     )
@@ -707,21 +760,29 @@ def scan_repository(
     )
 
     unknowns = [
-        *_analysis_limits(calls, declarations, namespace),
-        *private_attribute_limits(parsed, evidence),
+        *(
+            _analysis_limits(calls, declarations, namespace)
+            if is_python
+            else symbol_limits(imports, contract, facade_exports)
+        ),
+        *source_unknowns,
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.
-        *boundary_type_limits(
-            symbols,
-            imports,
-            contract,
-            facade_exports,
-            evidence,
-            uncertain_reexport_origins,
-            module_names,
-            stable_bindings_by_module,
-            type_shapes=type_shapes,
+        *(
+            boundary_type_limits(
+                symbols,
+                imports,
+                contract,
+                facade_exports,
+                evidence,
+                uncertain_reexport_origins,
+                module_names,
+                stable_bindings_by_module,
+                type_shapes=type_shapes,
+            )
+            if "symbols" not in profile.absent_sections
+            else []
         ),
         *api_surface_limits(
             declarations,
@@ -737,24 +798,25 @@ def scan_repository(
 
     coverage = coverage_payload(
         paths=paths,
-        files_read=parsed_sources.files_read,
-        files_parsed=len(parsed),
+        files_read=facts.coverage.files_read,
+        files_parsed=facts.coverage.files_parsed,
         failures=failures,
         rule_failures=rule_failures,
         calls=calls,
+        calls_measured="calls_unresolved" not in profile.unmeasured,
     )
 
     strip_internal_reexport_facts(imports)
     return ScanResult(
         type_shapes=type_shapes,
-        source_digest=parsed_sources.source_digest,
+        source_digest=facts.source.source_digest,
         coverage=coverage,
         evidence=sorted(evidence.values(), key=lambda item: item["id"]),
         scope_observations=scope_observations,
         packages=sorted(package_facts, key=lambda item: item["id"]),
         modules=sorted(module_facts, key=lambda item: item["id"]),
         symbols=symbols,
-        imports=imports,
+        imports=sorted([*imports, *unresolved_imports], key=lambda item: item["id"]),
         dependency_edges=dependency_edges,
         transitive_paths=sorted(transitive_records, key=lambda item: item["id"]),
         path_observations=path_observations,
@@ -767,5 +829,7 @@ def scan_repository(
         contexts=contexts,
         context_evidence=context_evidence,
         violations=violations,
-        unknowns=sorted(unknowns, key=lambda item: item["id"]),
+        unknowns=sorted(
+            {item["id"]: item for item in unknowns}.values(), key=lambda item: item["id"]
+        ),
     )
