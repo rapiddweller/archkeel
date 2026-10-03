@@ -100,7 +100,7 @@ from archkeel.ir.model import (
     Verdict,
     contract_relative_path,
 )
-from archkeel.ir.profiles import OPTIONAL_SECTIONS
+from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
 
 from .facts_codec import (
@@ -219,6 +219,7 @@ def parse_observation(raw: object) -> Observation:
     coverage = _object(item["coverage"], "coverage")
     if set(analyzer) != {"name", "version", "code_digest"}:
         raise ValueError("analyzer fields mismatch")
+    profile = profile_for(_string(analyzer["name"], "analyzer.name"))
     if set(source) != {"git_head", "dirty", "source_digest", "scope"}:
         raise ValueError("source fields mismatch")
     if set(contract) != {"schema_version", "digest", "path"}:
@@ -233,15 +234,12 @@ def parse_observation(raw: object) -> Observation:
     evidence_raw = item["evidence"]
     if not isinstance(evidence_raw, list):
         raise ValueError("coverage.failures and evidence must be arrays")
+    _validate_profile_sections(item, profile)
     sections = tuple(
         Section(name, tuple(parse_record(value, f"{name}[]") for value in section_items))
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    # AD-97: a section the profile never observes is null, so `records()` answers None for it.
-    absent = {name for name in OPTIONAL_SECTIONS if item[name] is None}
-    if len(sections) + len(absent) != len(CLASSIFIED_SECTIONS):
-        raise ValueError("sections must be arrays")
     return Observation(
         schema_version=_string(item["schema_version"], "schema_version"),
         analyzer=AnalyzerInfo(
@@ -310,6 +308,22 @@ def _raw_object(value: dict[str, Any]) -> dict[str, RawJson]:
     return {key: _raw_value(item) for key, item in value.items()}
 
 
+def _observation_profile(model: Mapping[str, RawJson]) -> Profile:
+    analyzer = _object(model.get("analyzer"), "analyzer")
+    return profile_for(_string(analyzer.get("name"), "analyzer.name"))
+
+
+def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -> None:
+    for section in CLASSIFIED_SECTIONS:
+        raw = model.get(section, _MISSING_VALUE)
+        if section in profile.absent_sections:
+            if raw is None:
+                continue
+            raise ValueError(f"{section} must be null for analyzer {profile.analyzer}")
+        if not isinstance(raw, list):
+            raise ValueError(f"{section} must be an array for analyzer {profile.analyzer}")
+
+
 def _raw_value(value: JsonValue | dict[str, Any] | tuple[Any, ...]) -> RawJson:
     if isinstance(value, RecordData):
         return {key: _raw_value(item) for key, item in value.entries}
@@ -334,7 +348,8 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         del result["python_version"]
     del result["sections"]
     result["coverage"] = _coverage_payload(observation.coverage)
-    for name in OPTIONAL_SECTIONS:
+    profile = profile_for(observation.analyzer.name)
+    for name in profile.absent_sections:
         result[name] = None
     result.update(
         {
@@ -342,6 +357,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             for section in observation.sections
         }
     )
+    _validate_profile_sections(result, profile)
     return result
 
 
@@ -354,6 +370,8 @@ def canonical_json_bytes(model: dict[str, RawJson]) -> bytes:
 
 def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     """Losslessly columnize and intern repeated IR strings for browser-safe reports."""
+    profile = _observation_profile(model)
+    _validate_profile_sections(model, profile)
     encoded = {
         key: value for key, value in model.items() if key not in {*CLASSIFIED_SECTIONS, "evidence"}
     }
@@ -361,8 +379,8 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     # AD-2: rows hold the non-JSON _MISSING_VALUE sentinel until intern writes "$m".
     rows_by_section: dict[str, list[list[Any]]] = {}
     for section in CLASSIFIED_SECTIONS:
-        raw_items = model.get(section, [])
-        if raw_items is None and section in OPTIONAL_SECTIONS:
+        raw_items = model[section]
+        if raw_items is None:
             encoded[section] = None
             section_data_fields[section] = []
             continue
@@ -445,7 +463,10 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     """Inflate the canonical columnar report into the in-memory ArchitectureIR."""
     encoding = encoded.get("encoding")
     if not isinstance(encoding, dict) or encoding.get("kind") != "architecture-ir-columnar-v1":
+        _validate_profile_sections(encoded, _observation_profile(encoded))
         return encoded
+    profile = _observation_profile(encoded)
+    _validate_profile_sections(encoded, profile)
     string_table = _strings(encoded["string_table"], "string_table")
 
     def expand(value: Any) -> Any:
@@ -478,8 +499,8 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
             # An observation from an analyzer that predates this section: fail closed (AD-3).
             raise ValueError(f"observation has no section {section}")
         data_fields = _strings(section_data_fields[section], f"section_data_fields.{section}")
-        encoded_rows = encoded.get(section, [])
-        if encoded_rows is None and section in OPTIONAL_SECTIONS:
+        encoded_rows = encoded[section]
+        if encoded_rows is None:
             model[section] = None
             continue
         if not isinstance(encoded_rows, list):

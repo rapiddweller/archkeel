@@ -75,7 +75,7 @@ def _module_edge(source: str, target: str, count: int) -> Record:
 def _observation(edges: tuple[Record, ...], declarations: tuple[Record, ...] = ()) -> Observation:
     return Observation(
         schema_version="1.3.0",
-        analyzer=AnalyzerInfo("test-analyzer", "0.0.0", "0" * 16),
+        analyzer=AnalyzerInfo("archkeel-python-analyzer", "0.0.0", "0" * 16),
         source=SourceInfo("0" * 40, False, "0" * 16, ()),
         contract=ContractInfo("2.1.0", "0" * 16, "architecture-contract.json"),
         coverage=_COVERAGE,
