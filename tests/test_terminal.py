@@ -182,9 +182,7 @@ def test_terminal_view_counts_every_review_claim_without_a_verdict() -> None:
     assert all(len(line) <= 80 for line in _render(result, summary, 80).splitlines())
 
 
-_ROOTS_REASON = (
-    "All source files under shop were read and parsed; no source file beside them was read."
-)
+_ROOTS_REASON = "All source files under shop were read and parsed."
 
 
 @pytest.mark.parametrize(
