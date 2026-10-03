@@ -27,8 +27,24 @@ def archive(event: object, entries: tuple[str, ...] = ("original-event.json",)) 
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as output:
         for name in entries:
-            output.writestr(name, json.dumps(event).encode())
+            # Repeated API responses must retain the original provider digest.
+            output.writestr(
+                zipfile.ZipInfo(name),
+                json.dumps(event).encode(),
+                compress_type=zipfile.ZIP_DEFLATED,
+            )
     return stream.getvalue()
+
+
+def test_receipt_archive_does_not_change_with_the_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    event = {"action": "opened"}
+    monkeypatch.setattr(zipfile.time, "localtime", lambda *_: (2026, 10, 3, 0, 0, 0, 5, 276, 0))
+    before = archive(event)
+    monkeypatch.setattr(zipfile.time, "localtime", lambda *_: (2026, 10, 3, 0, 0, 2, 5, 276, 0))
+    assert archive(event) == before
+    with zipfile.ZipFile(io.BytesIO(before)) as zipped:
+        assert zipped.getinfo("original-event.json").compress_type == zipfile.ZIP_DEFLATED
+        assert json.loads(zipped.read("original-event.json")) == event
 
 
 @pytest.fixture
