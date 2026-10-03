@@ -84,7 +84,9 @@
         "archkeel.ir.source_records:RawData",
         "archkeel.ir.source_records:RawRecord",
         "archkeel.ir.source_records:RawEvidence",
-        "archkeel.ir.profiles:delta_dimension_applicable"
+        "archkeel.ir.profiles:delta_dimension_applicable",
+        "archkeel.ir.source_records:FRAMEWORK_BASES",
+        "archkeel.ir.source_records:is_public_method_name"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -233,7 +235,8 @@
             "archkeel.ir.protocol",
             "archkeel.ir.state_facts",
             "archkeel.ir.type_shapes",
-            "archkeel.ir.reexports"
+            "archkeel.ir.reexports",
+            "archkeel.ir.source_records"
           ],
           "rationale": "Adapters publish immutable facts over the shared protocol. Core owns validation, ownership and policy; analyzers do not import it."
         }

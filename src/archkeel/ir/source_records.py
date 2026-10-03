@@ -4,7 +4,7 @@
 """Mutable record builders used before freezing the source protocol values."""
 
 from collections.abc import Sequence
-from typing import Any, TypeAlias, TypedDict
+from typing import Any, Final, TypeAlias, TypedDict
 
 from .facts import EvidenceClass, stable_id
 
@@ -100,3 +100,23 @@ def file_evidence(evidence: dict[str, RawEvidence], rel_path: str, lines: Sequen
     line: str = lines[0] if lines else ""
     first = line.rstrip()
     return record_evidence(evidence, rel_path, (1, 1, 0) if first else (0, 0, 0), first)
+
+
+FRAMEWORK_BASES: Final = frozenset(
+    {
+        "object",
+        "builtins.object",
+        "abc.ABC",
+        "enum.Enum",
+        "enum.IntEnum",
+        "enum.StrEnum",
+        "pydantic.BaseModel",
+        "typing.Generic",
+        "typing.Protocol",
+        "typing_extensions.Protocol",
+    }
+)
+
+
+def is_public_method_name(name: str) -> bool:
+    return not name.startswith("_") or (name.startswith("__") and name.endswith("__"))

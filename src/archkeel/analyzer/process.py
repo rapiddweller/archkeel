@@ -71,7 +71,7 @@ class ProcessCollector:
                         "configure an explicit executable and script argv.",
                     )
                 helper = Path(__file__).with_name("windows_job.py")
-                command = (sys.executable, "-B", str(helper), "--", *self.argv)
+                command = (sys.executable, "-I", "-B", str(helper), "--", *self.argv)
             with subprocess.Popen(
                 command,
                 cwd=request.snapshot.root,

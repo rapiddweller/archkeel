@@ -1,5 +1,5 @@
 {
-  "$schema": "../../../../schema/architecture-contract.schema.json",
+  "$schema": "../../../schema/architecture-contract.schema.json",
   "schema_version": "2.1.0",
   "components": [
     {

@@ -48,6 +48,8 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.profiles import DeclarationField, Profile
+from archkeel.ir.source_records import FRAMEWORK_BASES as _FRAMEWORK_BASES
+from archkeel.ir.source_records import is_public_method_name as _is_public_method_name
 from archkeel.ir.type_shapes import (
     LiteralKind,
     TypeApplication,
@@ -60,26 +62,6 @@ from archkeel.ir.type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
-
-_FRAMEWORK_BASES: Final = frozenset(
-    {
-        "object",
-        "builtins.object",
-        "abc.ABC",
-        "enum.Enum",
-        "enum.IntEnum",
-        "enum.StrEnum",
-        "pydantic.BaseModel",
-        "typing.Generic",
-        "typing.Protocol",
-        "typing_extensions.Protocol",
-    }
-)
-
-
-def _is_public_method_name(name: str) -> bool:
-    return not name.startswith("_") or (name.startswith("__") and name.endswith("__"))
-
 
 # AD-97: an import either decides a symbol rule or, when the scan cannot see which names it
 # uses (a Dart import without `show`), leaves it undecided -- never a pass, never a violation.
@@ -4816,7 +4798,7 @@ def _member_origin_static(origin: str, imports: Sequence[RawRecord]) -> bool:
     module, _, _ = origin.rpartition(".")
     for item in imports:
         imported = item["data"]
-        if imported.get("source_member_binding_static") is not False:
+        if imported.get("source_member_binding_static") is True:
             continue
         if imported.get("origin_definition") == origin or origin in imported.get(
             "reexport_candidates", ()
@@ -4850,7 +4832,7 @@ def _base_route_member_static(
     for alias in binding.get("reexport_chain", ()):
         alias_module, _, alias_name = alias.rpartition(".")
         imported = imports.get((alias_module, alias_name))
-        if isinstance(imported, dict) and imported.get("source_member_binding_static") is False:
+        if isinstance(imported, dict) and imported.get("source_member_binding_static") is not True:
             return False
     return True
 

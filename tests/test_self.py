@@ -37,6 +37,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     Observation,
     in_scope,
+    module_in_ownership,
     text_value,
 )
 from archkeel.ir.structure import oversized_insides
@@ -51,6 +52,7 @@ ANALYZER_PUBLIC_IR = frozenset(
         "archkeel.ir.state_facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
+        "archkeel.ir.source_records",
     }
 )
 ROOT = Path(__file__).parents[1]
@@ -62,25 +64,57 @@ def _contract() -> ArchitectureContract:
     return parse_contract(decode_json((ROOT / "architecture-contract.json").read_bytes()))
 
 
-def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
+def _assert_cli_resolver_publication(inside: ArchitectureContract) -> None:
     public = "archkeel.check.snapshot:resolve_commit"
-    contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
-    check = next(component for component in contract["components"] if component["label"] == "check")
-    inside = json.loads((ROOT / "src/archkeel/check/architecture-contract.json").read_bytes())
-    foundation = next(
-        component for component in inside["components"] if component["label"] == "foundation"
-    )
+    contract = _contract()
+    check = next(component for component in contract.components if component.label == "check")
+    owners = [
+        component
+        for component in inside.components
+        if module_in_ownership(
+            "archkeel.check.snapshot", component.packages, component.exact_modules or ()
+        )
+    ]
+    assert len(owners) == 1
+    assert contract.declarations is not None
     coupling = next(
         item
-        for item in contract["declarations"]["coupling_budgets"]
-        if (item["source"], item["target"]) == ("cli", "check")
+        for item in contract.declarations.coupling_budgets
+        if (item.source, item.target) == ("cli", "check")
     )
     baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
 
-    assert public in check["public"] and public in foundation["public"]
+    assert public in (check.public or ()) and public in (owners[0].public or ())
     # AD-148 adds the typed observation seam and its two shared type names.
-    assert coupling["max_names"] == 14
+    assert coupling.max_names == 14
     assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
+
+
+def _check_inside() -> ArchitectureContract:
+    check = next(component for component in _contract().components if component.label == "check")
+    assert check.inside is not None
+    return parse_contract(decode_json((ROOT / check.inside).read_bytes()))
+
+
+def test_cli_resolver_is_published_and_the_coupling_ceiling_tracks_it() -> None:
+    _assert_cli_resolver_publication(_check_inside())
+
+
+def test_cli_resolver_guard_rejects_missing_active_inside_publication() -> None:
+    inside = _check_inside()
+    public = "archkeel.check.snapshot:resolve_commit"
+    changed = replace(
+        inside,
+        components=tuple(
+            replace(
+                component,
+                public=tuple(entry for entry in component.public or () if entry != public),
+            )
+            for component in inside.components
+        ),
+    )
+    with pytest.raises(AssertionError):
+        _assert_cli_resolver_publication(changed)
 
 
 def test_cli_check_measure_counts_named_shared_type_reexports(

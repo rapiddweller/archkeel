@@ -87,11 +87,23 @@ _BOOLEAN_FIELDS = frozenset(
         "reexport",
         "reexport_candidate",
         "symbols_known",
-        "origin_binding_unique",
         "frozen_object",
         "candidates_truncated",
         "conditional",
         "is_async",
+    }
+)
+_PROOF_FLAGS = frozenset(
+    {
+        "origin_binding_unique",
+        "source_binding_unique",
+        "source_member_binding_static",
+        "origin_member_binding_static",
+        "class_header_static",
+        "class_body_control_flow",
+        "signature_decorators_proven",
+        "overload_signature",
+        "overloaded",
     }
 )
 _STRING_ARRAYS = frozenset(
@@ -123,6 +135,13 @@ def _payload(value: RecordData) -> None:
             raise ValueError(f"source payload {key} must be a string or null")
         if key in _BOOLEAN_FIELDS and child is not None and not isinstance(child, bool):
             raise ValueError(f"source payload {key} must be a boolean")
+        if key in _PROOF_FLAGS and not isinstance(child, bool):
+            raise ValueError(f"source payload {key} must be a boolean")
+        if key == "reexport_candidates" and (
+            not isinstance(child, tuple)
+            or any(not isinstance(item, str) or not item for item in child)
+        ):
+            raise ValueError("source payload reexport_candidates must be a nonempty-string array")
         if key in _STRING_ARRAYS and (
             not isinstance(child, tuple) or any(not isinstance(item, str) for item in child)
         ):

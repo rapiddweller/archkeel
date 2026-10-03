@@ -28,6 +28,8 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_codec import (
     record_evidence as record_evidence,
 )
+from archkeel.ir.source_records import FRAMEWORK_BASES as FRAMEWORK_BASES
+from archkeel.ir.source_records import is_public_method_name as is_public_method_name
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 NATIVE_DATACLASS_DECORATOR: Final = "dataclasses.dataclass"
@@ -47,21 +49,6 @@ DATACLASS_OPTIONS: Final = frozenset(
         "kw_only",
         "slots",
         "weakref_slot",
-    }
-)
-
-FRAMEWORK_BASES: Final = frozenset(
-    {
-        "object",
-        "builtins.object",
-        "abc.ABC",
-        "enum.Enum",
-        "enum.IntEnum",
-        "enum.StrEnum",
-        "pydantic.BaseModel",
-        "typing.Generic",
-        "typing.Protocol",
-        "typing_extensions.Protocol",
     }
 )
 
@@ -1220,10 +1207,6 @@ def exposes_dynamic_namespace(
         and namespace_access
         and name in {"locals", "vars", "builtins.locals", "builtins.vars"}
     )
-
-
-def is_public_method_name(name: str) -> bool:
-    return not name.startswith("_") or (name.startswith("__") and name.endswith("__"))
 
 
 def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:

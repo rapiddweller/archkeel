@@ -64,7 +64,43 @@
           "const": []
         },
         "data": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "source_binding_unique": {
+              "type": "boolean"
+            },
+            "source_member_binding_static": {
+              "type": "boolean"
+            },
+            "origin_binding_unique": {
+              "type": "boolean"
+            },
+            "origin_member_binding_static": {
+              "type": "boolean"
+            },
+            "class_header_static": {
+              "type": "boolean"
+            },
+            "class_body_control_flow": {
+              "type": "boolean"
+            },
+            "signature_decorators_proven": {
+              "type": "boolean"
+            },
+            "overload_signature": {
+              "type": "boolean"
+            },
+            "overloaded": {
+              "type": "boolean"
+            },
+            "reexport_candidates": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       },
       "required": [
