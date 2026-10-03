@@ -501,8 +501,8 @@ def build_architecture_delta(
     analyzer_digest, contract_digest = head.analyzer.code_digest, head.contract.digest
     shared = (
         identity_is_known(analyzer_digest)
-        and baseline.analyzer == head.analyzer
-        and baseline.producer == head.producer
+        and baseline.analyzer.name == head.analyzer.name
+        and baseline.analyzer.code_digest == analyzer_digest
         and identity_is_known(contract_digest)
         and baseline.contract.digest == contract_digest
         and baseline.schema_version == head.schema_version == SCHEMA_VERSION

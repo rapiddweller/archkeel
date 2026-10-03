@@ -69,16 +69,18 @@ component only when responsibilities require it.
 |---|---|---|
 | `check.ports` | `SourceCollector.collect(request) -> SourceFacts \| CollectionError` | Core depends on this port; implementation is injected by CLI |
 | `ir.protocol` | `CollectionRequest` | immutable revision inputs; no architecture contract, baseline or verdict |
-| `ir.protocol` | `CollectionResponse` / `CollectionError` | exactly one versioned JSON message; diagnostics use stderr |
+| `ir.protocol` | `CollectionResponse` | exactly one versioned JSON message; diagnostics use stderr |
 | `ir.facts` | `SourceFacts` | source claims carry identity and evidence; no policy decisions |
 | `ir.facts` | `Capabilities` | claims ability to collect facts, never authority to pass a rule |
 | `ir.facts` | `CollectionCoverage` | resolution-only input is not a fully observed graph node |
 | `ir.facts` | `ImportTarget = LocalTarget \| ExternalPackageTarget \| BuiltinTarget \| UnresolvedTarget` | `.cjs` runtime and `.d.cts` declaration remain distinct |
 | `ir.facts_codec` | `decode_request` / `encode_request` / `decode_response` / `encode_response` | typed envelopes; reject malformed versions, identities, references and coverage |
-| `check.observation` | `assemble_observation(facts, contract)` / `analyze_source_snapshot(...)` | ownership and evaluator receipts are Core-owned |
+| `check.observation` | `assemble_observation` / `analyze_source_snapshot` | ownership and evaluator receipts are Core-owned |
 | `check.evaluation.evaluate` | `ScanResult` / `evaluate_source(...)` | unsupported or incomplete evidence remains UNKNOWN |
 | `check.evaluation.rules` | `public_api_exposed_types(...)` | declaration projection uses the same Core type evidence |
 | `check.declarations` | `ContractError`, `load_contract`, `project_declarations`, `project_inside_declarations` | root and nested contracts share one validated projection |
+
+`CollectionError` is a local host/port result, not a wire message.
 
 Inside the shared IR: `protocol -> facts`, `profiles -> facts`,
 `facts_codec -> protocol/facts/source_records`, `source_records -> facts`, and
@@ -95,8 +97,9 @@ Python's `parse_sources` returns `ParsedSources`; specialist collectors read its
 `entry.main` serves the protocol. The Python contract isolates collector peers.
 
 `SourceFacts` lives in `ir.facts`; the Core maps validated facts to the governance
-model in `ir.model`. File/module IDs include source
-space and repository-relative path. Adapter-local models never cross the port:
+model in `ir.model`. Requests identify the snapshot, scope namespace and
+language-specific resolver. File facts bind repository-relative paths to module
+names; collectors derive file IDs from module names. Adapter-local models never cross the port:
 Python `ParsedModule`/`SymbolIndex`, Dart `Header`/`DartSources`, TypeScript compiler
 `Program`/`SourceFile`. No universal AST or shared parser base class.
 
