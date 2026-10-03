@@ -214,6 +214,7 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             if (
                 record.kind != "method"
                 or owner is None
+                or owner.data.get("source_binding_unique") is not True
                 or record.data.get("qualified_name") != f"{parent}.{name}"
                 or owner.data.get("module") != record.data.get("module")
                 or record.data.get("decorators") != ()

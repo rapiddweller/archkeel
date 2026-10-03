@@ -143,6 +143,40 @@ def test_repeated_class_names_do_not_create_final_binding_proof(tmp_path):
     assert observation.records("violations") == ()
 
 
+@pytest.mark.parametrize("missing_owner_proof", [False, True])
+@pytest.mark.parametrize("replacement", ["class Child: pass\n", "Child.value = object\n"])
+def test_unstable_class_cannot_claim_a_final_plain_method_binding(
+    tmp_path, missing_owner_proof, replacement
+):
+    source = (
+        "class Child:\n    def value(self) -> int: ...\n"
+        "    def value(self, arg: object) -> object: ...\n" + replacement
+    )
+    _, report, observation = _validate(tmp_path, source)
+    assert report.declared_rules == "UNKNOWN"
+    assert observation.records("violations") == ()
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    if missing_owner_proof:
+        for record in _records(payload):
+            if record["kind"] == "class":
+                record["data"].pop("source_binding_unique", None)
+    obsolete = next(
+        record
+        for record in _records(payload)
+        if record["kind"] == "method" and record["data"]["returns"] == "object"
+    )
+    obsolete["data"]["source_final_method_binding"] = True
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
 @pytest.mark.parametrize("replacement", ["ordinary", "property"])
 def test_replaced_plain_method_does_not_leak_its_broad_signature(tmp_path, replacement):
     source = (
