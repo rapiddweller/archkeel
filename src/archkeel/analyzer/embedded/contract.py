@@ -366,6 +366,7 @@ def project_inside_declarations(
                 **({"inside": component.inside} if component.inside else {}),
                 **({"namespace": component.namespace} if component.namespace else {}),
                 **({"public": sorted(component.public)} if component.public is not None else {}),
+                **({"planned": sorted(component.planned)} if component.planned is not None else {}),
                 **(
                     {"decided_by": component.decided_by} if component.decided_by is not None else {}
                 ),
@@ -428,6 +429,11 @@ def project_declarations(
                     ),
                     **(
                         {"public": sorted(component.public)} if component.public is not None else {}
+                    ),
+                    **(
+                        {"planned": sorted(component.planned)}
+                        if component.planned is not None
+                        else {}
                     ),
                     **(
                         {"decided_by": component.decided_by}

@@ -971,6 +971,20 @@ def _target_component_details(record: Record, packages: list[str]) -> list[dict[
             else "Not declared",
         }
     )
+    planned = record.data.get("planned")
+    planned_values = (
+        [item for item in planned if isinstance(item, str)] if isinstance(planned, tuple) else []
+    )
+    details.append(
+        {
+            "label": "Planned interface (proposed)",
+            "value": ", ".join(planned_values)
+            if planned_values
+            else "Explicitly empty"
+            if isinstance(planned, tuple)
+            else "Not declared",
+        }
+    )
     details.append({"label": "Provenance", "value": ", ".join(record.provenance)})
     responsibilities = record.data.get("responsibilities")
     if isinstance(responsibilities, tuple):
