@@ -72,8 +72,6 @@ from archkeel.ir.model import (
     DeltaProvenance,
     DeltaUnknown,
     DimensionDelta,
-    Evidence,
-    EvidenceClass,
     ExternalDependencyScopeRule,
     FacadeBudget,
     ForbiddenConstructKind,
@@ -104,6 +102,16 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.profiles import OPTIONAL_SECTIONS
 from archkeel.ir.widening import AMENDMENT_SCHEMA_VERSION, Amendment
+
+from .facts_codec import (
+    freeze_data as _data,
+)
+from .facts_codec import (
+    parse_evidence as parse_evidence,
+)
+from .facts_codec import (
+    parse_record as parse_record,
+)
 
 _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
@@ -199,71 +207,6 @@ def _percent(value: RawJson, label: str) -> float:
     ):
         raise ValueError(f"{label} percentages invalid")
     return value
-
-
-def _data(raw: object, label: str = "data") -> RecordData:
-    value = _object(raw, label)
-    return RecordData(tuple((key, _value(item, f"{label}.{key}")) for key, item in value.items()))
-
-
-def _value(raw: object, label: str) -> JsonValue:
-    if raw is None or isinstance(raw, (str, bool, int, float)):
-        return raw
-    if isinstance(raw, list):
-        return tuple(_value(item, f"{label}[]") for item in raw)
-    if isinstance(raw, dict):
-        return _data(raw, label)
-    raise ValueError(f"{label} is not a JSON value")
-
-
-def parse_record(raw: object, label: str = "record") -> Record:
-    item = _object(raw, label)
-    if set(item) != _RECORD_KEYS:
-        raise ValueError(f"{label} fields mismatch")
-    try:
-        evidence_class = EvidenceClass(_string(item["evidence_class"], f"{label}.evidence_class"))
-    except ValueError as exc:
-        raise ValueError(f"{label}.evidence_class is invalid") from exc
-    rule_ids = _strings(item["rule_ids"], f"{label}.rule_ids")
-    # schema/architecture-ir-common.schema.json promises minItems: 1 here for VIOLATION but
-    # does not enforce it at runtime; a downstream count keyed on `rule_ids[0]` (AD-51, AD-54)
-    # would otherwise fail on a malformed file with an IndexError, not a named diagnosis.
-    if evidence_class == EvidenceClass.VIOLATION and not rule_ids:
-        raise ValueError(f"{label}.rule_ids must not be empty for a VIOLATION record")
-    return Record(
-        id=_string(item["id"], f"{label}.id"),
-        evidence_class=evidence_class,
-        area=_string(item["area"], f"{label}.area"),
-        kind=_string(item["kind"], f"{label}.kind"),
-        title=_string(item["title"], f"{label}.title"),
-        subjects=_strings(item["subjects"], f"{label}.subjects"),
-        evidence_ids=_strings(item["evidence_ids"], f"{label}.evidence_ids"),
-        rule_ids=rule_ids,
-        fact_ids=_strings(item["fact_ids"], f"{label}.fact_ids"),
-        provenance=_strings(item["provenance"], f"{label}.provenance"),
-        data=_data(item["data"], f"{label}.data"),
-    )
-
-
-def _position(raw: RawJson, label: str) -> int:
-    if not isinstance(raw, int) or isinstance(raw, bool):
-        raise ValueError(f"{label} positions must be integers")
-    return raw
-
-
-def parse_evidence(raw: object, label: str = "evidence") -> Evidence:
-    item = _object(raw, label)
-    if set(item) != _EVIDENCE_KEYS:
-        raise ValueError(f"{label} fields mismatch")
-    line, end_line, column = (_position(item[key], label) for key in ("line", "end_line", "column"))
-    return Evidence(
-        id=_string(item["id"], f"{label}.id"),
-        file=_string(item["file"], f"{label}.file"),
-        line=line,
-        end_line=end_line,
-        column=column,
-        excerpt=_string(item["excerpt"], f"{label}.excerpt"),
-    )
 
 
 def parse_observation(raw: object) -> Observation:
