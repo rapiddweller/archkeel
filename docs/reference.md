@@ -585,7 +585,13 @@ new analyzer profile adds therefore counts. The same value sets `declared_rules`
 violation-free observation with a count above 0 is `UNKNOWN`, not `PASS`; the exit code does
 not change. Older measurement payloads without the scalar read as zero (AD-92).
 
-`calls_total` is the analyzer's `calls_analyzed`. With `U = calls_unresolved` and `T = calls_total`,
+For profiles that measure calls, `calls_total` is the analyzer's `calls_analyzed`.
+For profiles that do not measure calls, the legacy command-result envelope keeps `calls_total: 0` and
+`resolution: n/a`; `calls_unresolved: null` marks the unavailable measurement.
+That zero does not prove an absence of calls. The report displays `n/a`, and call
+budgets refuse the unavailable signal.
+
+With measured `U = calls_unresolved` and `T = calls_total`,
 checks require `U_candidate <= U_accepted` and, when both totals exceed zero,
 `U_candidate * T_accepted <= U_accepted * T_candidate`. No rounded percentages are used.
 Zero total means `resolution: n/a`; the absolute regression check still applies.

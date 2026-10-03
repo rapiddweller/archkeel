@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 UV ?= uv
 
-.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
+.PHONY: gate check test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture loop-figure demo-screenshots browser-install report-browser plugin plugin-directory build smoke release-check rule-yield
 check: lint typecheck test
 
 gate: release-check self-validate
@@ -21,7 +21,7 @@ typescript-adapter:
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
 	tools/onboarding_svg.py tools/report_browser.py tools/package_plugin.py tools/github_pr_report.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py fixtures/reproduce_self.py \
-	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
+	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/reproduce_typescript.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py
 
 lint:
@@ -62,6 +62,9 @@ demo-onboarding:
 
 demo-dart:
 	@$(UV) run --locked python -m fixtures.reproduce_dart
+
+demo-typescript:
+	@$(UV) run --locked python -m fixtures.reproduce_typescript $(if $(OUTPUT),--output "$(OUTPUT)")
 
 demo-snapshot-check:
 	@$(UV) run --locked python -m fixtures.reproduce_snapshot_check
