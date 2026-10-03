@@ -20,6 +20,8 @@ class ScanConfig:
     contract: str
     digest: str
     language: Language = "python"
+    tsconfig: str | None = None
+    collector_argv: tuple[str, ...] | None = None
 
 
 class FilesToWrite(Mapping[str, bytes]):

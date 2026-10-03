@@ -14,12 +14,15 @@ from typing import Final, Literal, TypeAlias
 
 from .measurements import UnmeasurableScalar
 
-Language: TypeAlias = Literal["python", "dart"]
+Language: TypeAlias = Literal["python", "dart", "typescript"]
 DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupling_budgets"]
-ObservedSection: TypeAlias = Literal["symbols", "references", "bindings"]
+ObservedSection: TypeAlias = Literal[
+    "symbols", "references", "bindings", "calls", "typing_signals", "constructs"
+]
 
 PYTHON_ANALYZER: Final = "archkeel-python-analyzer"
 DART_ANALYZER: Final = "archkeel-dart-directives"
+TYPESCRIPT_ANALYZER: Final = "archkeel-typescript-imports"
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,8 +92,37 @@ DART: Final = Profile(
     ),
 )
 
-PROFILES: Final[dict[Language, Profile]] = {"python": PYTHON, "dart": DART}
-_ANALYZER_PROFILES: Final = {PYTHON_ANALYZER: PYTHON, DART_ANALYZER: DART}
+TYPESCRIPT: Final = Profile(
+    analyzer=TYPESCRIPT_ANALYZER,
+    source_suffix=".ts",
+    unsupported_rules=frozenset(
+        {
+            "symbol_placement",
+            "boundary_types",
+            "forbidden_construct",
+            "forbidden_call",
+            "private_access",
+            "api_surface",
+            "facade",
+        }
+    ),
+    unsupported_declarations=frozenset({"facade_budgets", "coupling_budgets"}),
+    unmeasured=frozenset({"typing_positions", "calls_unresolved", "private_crossings"}),
+    absent_sections=frozenset(
+        {"symbols", "references", "bindings", "calls", "typing_signals", "constructs"}
+    ),
+)
+
+PROFILES: Final[dict[Language, Profile]] = {
+    "python": PYTHON,
+    "dart": DART,
+    "typescript": TYPESCRIPT,
+}
+_ANALYZER_PROFILES: Final = {
+    PYTHON_ANALYZER: PYTHON,
+    DART_ANALYZER: DART,
+    TYPESCRIPT_ANALYZER: TYPESCRIPT,
+}
 
 
 def profile_for(analyzer: str) -> Profile:

@@ -205,7 +205,7 @@ def test_explicit_empty_module_inventory_differs_from_omission(tmp_path: Path) -
         "sample/../outside.py",
         "../sample/api.py",
         "/sample/api.py",
-        "lib/core/api.dart",
+        "sample/core/api.txt",
         r"sample\\api.py",
     ],
 )
@@ -214,6 +214,16 @@ def test_module_declaration_rejects_unsafe_or_non_python_paths(path: str) -> Non
     raw["declarations"] = {"modules": [_module(path)]}
     with pytest.raises(ValueError):
         parse_contract(raw)
+
+
+@pytest.mark.parametrize(
+    "suffix", [".py", ".dart", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
+)
+def test_module_declaration_accepts_supported_language_source_suffixes(suffix: str) -> None:
+    raw = _contract()
+    raw["declarations"] = {"modules": [_module(f"sample/core/api{suffix}")]}
+
+    assert parse_contract(raw).declarations.modules[0].path == f"sample/core/api{suffix}"
 
 
 def test_module_declaration_paths_are_unique_and_responsibility_is_required() -> None:
@@ -481,6 +491,30 @@ def test_module_file_cannot_masquerade_as_a_configured_root(
     path: str, root: tuple[str, ...]
 ) -> None:
     assert _declared_module_name(path, root, "sample") is None
+
+
+@pytest.mark.parametrize(
+    ("suffix", "encoded_suffix"),
+    [
+        (".ts", "_x2e_ts"),
+        (".tsx", "_x2e_tsx"),
+        (".mts", "_x2e_mts"),
+        (".cts", "_x2e_cts"),
+        (".js", "_x2e_js"),
+        (".jsx", "_x2e_jsx"),
+        (".mjs", "_x2e_mjs"),
+        (".cjs", "_x2e_cjs"),
+        (".d.ts", "_x2e_d_x2e_ts"),
+    ],
+)
+def test_typescript_declared_module_name_maps_native_sources_under_dot_root(
+    suffix: str, encoded_suffix: str
+) -> None:
+    path = f"src/nested/module{suffix}"
+
+    assert _declared_module_name(path, (".",), "app", "typescript") == (
+        f"app.src.nested.module{encoded_suffix}"
+    )
 
 
 def test_empty_inventory_ids_are_unique_across_root_and_component_named_root(
