@@ -1,6 +1,6 @@
 {
   "name": "archkeel",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "Declare architecture boundaries and check coding-agent changes with Archkeel.",
   "author": { "name": "Rapiddweller Asia Co., Ltd.", "email": "info@rapiddweller.com" },
   "homepage": "https://archkeel.com",
