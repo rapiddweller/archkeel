@@ -72,6 +72,65 @@ def test_git_snapshot_contains_only_tracked_production_python(tmp_path: Path) ->
         assert not (snapshot.root / "example/untracked.py").exists()
 
 
+def test_typescript_snapshot_includes_tracked_resolver_closure_outside_roots(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    _git(root, "init", "-q")
+    _git(root, "config", "user.email", "architecture@example.invalid")
+    _git(root, "config", "user.name", "Architecture")
+    for path, value in {
+        "src/app/main.ts": "import '../shared/helper.js';\n",
+        "src/shared/helper.mts": "export const helper = 1;\n",
+        "types/shared.d.ts": "export declare const value: string;\n",
+        "package.json": '{"type":"module"}\n',
+        "src/app/tsconfig.json": '{"compilerOptions":{}}\n',
+        "src/app/not-source.txt": "ignored\n",
+    }.items():
+        _write(root / path, value)
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "TypeScript source")
+    revision = _git(root, "rev-parse", "HEAD")
+    _write(root / "node_modules/pkg/index.ts", "untracked\n")
+
+    with materialize_git_snapshot(
+        root, revision, roots=("src/app",), language="typescript", tsconfig="src/app/tsconfig.json"
+    ) as snapshot:
+        paths = {
+            path.relative_to(snapshot.root).as_posix()
+            for path in snapshot.root.rglob("*")
+            if path.is_file()
+        }
+        assert paths == {
+            "src/app/main.ts",
+            "src/shared/helper.mts",
+            "types/shared.d.ts",
+            "package.json",
+            "src/app/tsconfig.json",
+        }
+        assert not (snapshot.root / "node_modules/pkg/index.ts").exists()
+
+
+def test_dart_snapshot_binds_pubspec_and_scoped_dart_sources(tmp_path: Path) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    _git(root, "init", "-q")
+    _git(root, "config", "user.email", "architecture@example.invalid")
+    _git(root, "config", "user.name", "Architecture")
+    _write(root / "pubspec.yaml", "name: package_name\n")
+    _write(root / "lib/main.dart", "void main() {}\n")
+    _write(root / "lib/readme.md", "ignored\n")
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "Dart source")
+    revision = _git(root, "rev-parse", "HEAD")
+
+    with materialize_git_snapshot(root, revision, roots=("lib",), language="dart") as snapshot:
+        assert (snapshot.root / "pubspec.yaml").is_file()
+        assert (snapshot.root / "lib/main.dart").is_file()
+        assert not (snapshot.root / "lib/readme.md").exists()
+
+
 def test_git_snapshot_binds_pyproject_to_each_revision(tmp_path: Path) -> None:
     root, first = _committed_repository(tmp_path)
     _write(root / "pyproject.toml", '[project]\nrequires-python = ">=3.12"\n')

@@ -51,14 +51,39 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     if set(raw) != {"scan"} or not isinstance(raw["scan"], dict):
         raise ConfigError("configuration must contain only [scan]")
     scan = raw["scan"]
-    if set(scan) - {"language"} != _REQUIRED_SCAN:
+    optional = {"language", "tsconfig", "collector_argv"}
+    if set(scan) - optional != _REQUIRED_SCAN:
         raise ConfigError(
-            "[scan] must contain exactly roots, namespace, and contract, and optionally language"
+            "[scan] requires roots, namespace, and contract; language, tsconfig, and "
+            "collector_argv are optional"
         )
     # AD-97: absent means Python, so an existing archkeel.toml keeps its bytes and its digest.
     language = scan.get("language", "python")
-    if language != "python" and language != "dart":
-        raise ConfigError('scan.language must be "python" or "dart"')
+    if not isinstance(language, str) or language not in {"python", "dart", "typescript"}:
+        raise ConfigError('scan.language must be "python", "dart", or "typescript"')
+    tsconfig_raw = scan.get("tsconfig")
+    if tsconfig_raw is not None and language != "typescript":
+        raise ConfigError("scan.tsconfig is only valid when scan.language is typescript")
+    tsconfig = (
+        _path(tsconfig_raw, field="scan.tsconfig", allow_dot=False)
+        if tsconfig_raw is not None
+        else "tsconfig.json"
+        if language == "typescript"
+        else None
+    )
+    argv_raw = scan.get("collector_argv")
+    if argv_raw is not None:
+        if (
+            not isinstance(argv_raw, list)
+            or not argv_raw
+            or not all(
+                isinstance(value, str) and value and "\x00" not in value for value in argv_raw
+            )
+        ):
+            raise ConfigError("scan.collector_argv must be a non-empty array of non-empty strings")
+        collector_argv = tuple(argv_raw)
+    else:
+        collector_argv = None
     roots_raw = scan["roots"]
     if not isinstance(roots_raw, list) or not roots_raw:
         raise ConfigError("scan.roots must be a non-empty list")
@@ -83,6 +108,8 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
         contract=PurePosixPath(contract).as_posix(),
         digest=hashlib.sha256(payload).hexdigest(),
         language=language,
+        tsconfig=tsconfig,
+        collector_argv=collector_argv,
     )
 
 
@@ -119,6 +146,10 @@ def load_config(root: Path, path: str = CONFIG_PATH) -> ScanConfig:
     contract = _contained(repository, config.contract, field="scan.contract")
     if not contract.is_file():
         raise ConfigError(f"scan contract is not a file: {config.contract}")
+    if config.tsconfig is not None:
+        tsconfig = _contained(repository, config.tsconfig, field="scan.tsconfig")
+        if not tsconfig.is_file():
+            raise ConfigError(f"scan TypeScript config is not a file: {config.tsconfig}")
     return config
 
 

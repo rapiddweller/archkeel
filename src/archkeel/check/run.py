@@ -193,7 +193,13 @@ def observe_revision(
     with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
         declarations = Path(temporary)
         materialize_declarations(root, declared_at, config, declarations)
-        with materialize_git_snapshot(root, revision, roots=config.roots) as snapshot:
+        with materialize_git_snapshot(
+            root,
+            revision,
+            roots=config.roots,
+            language=config.language,
+            tsconfig=config.tsconfig,
+        ) as snapshot:
             return analyzer(
                 snapshot.root,
                 roots=config.roots,

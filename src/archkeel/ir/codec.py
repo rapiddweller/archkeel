@@ -91,6 +91,7 @@ from archkeel.ir.model import (
     RequiredComponent,
     RootLayoutRule,
     RunResult,
+    RuntimeInfo,
     Section,
     SemanticChange,
     SiblingIsolationRule,
@@ -268,7 +269,8 @@ def parse_evidence(raw: object, label: str = "evidence") -> Evidence:
 
 def parse_observation(raw: object) -> Observation:
     item = _object(raw, "observation")
-    if set(item) - {"python_version"} != _TOP_LEVEL:
+    optional = {"python_version", "runtime", "producer"}
+    if set(item) - optional != _TOP_LEVEL:
         raise ValueError("observation fields mismatch")
     analyzer = _object(item["analyzer"], "analyzer")
     source = _object(item["source"], "source")
@@ -317,6 +319,22 @@ def parse_observation(raw: object) -> Observation:
         python_version=_python_version(item["python_version"])
         if "python_version" in item
         else None,
+        runtime=_parse_runtime(item["runtime"]) if "runtime" in item else None,
+        producer=_parse_analyzer(item["producer"], "producer") if "producer" in item else None,
+    )
+
+
+def _parse_analyzer(raw: object, label: str) -> AnalyzerInfo:
+    item = _exact(raw, {"name", "version", "code_digest"}, label)
+    return AnalyzerInfo(
+        *(_string(item[key], f"{label}.{key}") for key in ("name", "version", "code_digest"))
+    )
+
+
+def _parse_runtime(raw: object) -> RuntimeInfo:
+    item = _exact(raw, {"name", "version"}, "runtime")
+    return RuntimeInfo(
+        _nonempty(item["name"], "runtime.name"), _nonempty(item["version"], "runtime.version")
     )
 
 
@@ -403,6 +421,10 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     result = _raw_object(asdict(observation))
     if observation.python_version is None:
         del result["python_version"]
+    if observation.runtime is None:
+        del result["runtime"]
+    if observation.producer is None:
+        del result["producer"]
     del result["sections"]
     result["coverage"] = _coverage_payload(observation.coverage)
     profile = profile_for(observation.analyzer.name)
@@ -608,6 +630,13 @@ def _projection_payload(value: Projection) -> dict[str, RawJson]:
 
 def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
     result = _raw_object(asdict(delta))
+    for side in ("baseline", "head"):
+        snapshot = result[side]
+        if isinstance(snapshot, dict):
+            if snapshot.get("runtime") is None:
+                del snapshot["runtime"]
+            if snapshot.get("producer") is None:
+                del snapshot["producer"]
     result["dimensions"] = {
         item.name: {key: value for key, value in _raw_object(asdict(item)).items() if key != "name"}
         for item in delta.dimensions
@@ -954,9 +983,10 @@ def _parse_module_target(raw: RawJson, label: str) -> ContractModuleTarget:
         relative is None
         or str(relative) != path
         or re.match(r"^[A-Za-z]:", path) is not None
-        or relative.suffix != ".py"
+        or relative.suffix
+        not in {".py", ".dart", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
     ):
-        raise ValueError(f"{label}.path must be a repository-relative .py path")
+        raise ValueError(f"{label}.path must be a repository-relative source path")
     responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
     if "\n" in responsibility or "\r" in responsibility:
         raise ValueError(f"{label}.responsibility must be one sentence on one line")
@@ -1693,7 +1723,8 @@ def parse_delta(raw: object) -> ArchitectureDelta:
 
 def _parse_snapshot_summary(raw: RawJson, label: str) -> SnapshotSummary:
     x = _object(raw, label)
-    if set(x) - {"python_version"} != {"git_head", "source_digest", "coverage_status"}:
+    optional = {"python_version", "runtime", "producer"}
+    if set(x) - optional != {"git_head", "source_digest", "coverage_status"}:
         raise ValueError(f"{label} fields mismatch")
     coverage_status = x["coverage_status"]
     if not _is_verdict(coverage_status):
@@ -1703,6 +1734,8 @@ def _parse_snapshot_summary(raw: RawJson, label: str) -> SnapshotSummary:
         _string(x["source_digest"], f"{label}.source_digest"),
         coverage_status,
         _python_version(x["python_version"]) if "python_version" in x else None,
+        _parse_runtime(x["runtime"]) if "runtime" in x else None,
+        _parse_analyzer(x["producer"], f"{label}.producer") if "producer" in x else None,
     )
 
 

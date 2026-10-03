@@ -18,7 +18,7 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.digest import package_digest
-from archkeel.ir.model import CLASSIFIED_SECTIONS
+from archkeel.ir.model import CLASSIFIED_SECTIONS, DiagnosticError
 
 
 def _evidence(identifier: str, line: int) -> dict[str, Any]:
@@ -452,3 +452,96 @@ def test_one_module_with_one_intra_component_import_is_one_semantic_change(
     assert len(delta.semantic_changes) == 1
     change = delta.semantic_changes[0]
     assert (change.dimension, change.change) == ("dependency_edges", "added")
+
+
+def test_typescript_delta_requires_same_explicit_runtime_and_producer() -> None:
+    before = _model(git_head="1" * 40)
+    after = _model(git_head="2" * 40)
+    for raw, runtime in ((before, "22.13.0"), (after, "22.14.0")):
+        raw.pop("python_version")
+        raw["analyzer"] = {
+            "name": "archkeel-typescript-imports",
+            "version": "5.9.3",
+            "code_digest": "a" * 64,
+        }
+        raw["runtime"] = {"name": "node", "version": runtime}
+        raw["producer"] = {
+            "name": "custom-parser",
+            "version": "1.0.0",
+            "code_digest": "c" * 64,
+        }
+        for section in (
+            "symbols",
+            "references",
+            "bindings",
+            "calls",
+            "typing_signals",
+            "constructs",
+        ):
+            raw[section] = None
+
+    with pytest.raises(DiagnosticError, match="explicit runtime"):
+        build_architecture_delta(
+            parse_observation(before),
+            parse_observation(after),
+            baseline_digest="b" * 64,
+            head_digest="h" * 64,
+            checker_digest="c" * 64,
+        )
+
+
+def test_typescript_delta_rejects_unknown_producer_identity() -> None:
+    before = _model(git_head="1" * 40)
+    after = _model(git_head="2" * 40)
+    for raw in (before, after):
+        raw.pop("python_version")
+        raw["analyzer"] = {
+            "name": "archkeel-typescript-imports",
+            "version": "5.9.3",
+            "code_digest": "a" * 64,
+        }
+        raw["runtime"] = {"name": "node", "version": "22.13.0"}
+        for section in (
+            "symbols",
+            "references",
+            "bindings",
+            "calls",
+            "typing_signals",
+            "constructs",
+        ):
+            raw[section] = None
+
+    with pytest.raises(DiagnosticError, match="compiler/parser identities"):
+        build_architecture_delta(
+            parse_observation(before),
+            parse_observation(after),
+            baseline_digest="b" * 64,
+            head_digest="h" * 64,
+            checker_digest="c" * 64,
+        )
+
+
+def test_dart_delta_ignores_python_version_when_dart_runtime_matches() -> None:
+    before = _model(git_head="1" * 40)
+    after = _model(git_head="2" * 40)
+    for raw, python_version in ((before, "3.11.0"), (after, "3.12.0")):
+        raw["analyzer"] = {
+            "name": "archkeel-dart-directives",
+            "version": "1.0.0",
+            "code_digest": "a" * 64,
+        }
+        raw["python_version"] = python_version
+        raw["runtime"] = {"name": "dart", "version": "3.6.0"}
+        raw["producer"] = {"name": "dart-parser", "version": "3.6.0", "code_digest": "b" * 64}
+        for section in ("symbols", "references", "bindings"):
+            raw[section] = None
+
+    delta = build_architecture_delta(
+        parse_observation(before),
+        parse_observation(after),
+        baseline_digest="b" * 64,
+        head_digest="h" * 64,
+        checker_digest="c" * 64,
+    )
+
+    assert delta.analyzer.name == "archkeel-dart-directives"
