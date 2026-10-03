@@ -8,6 +8,7 @@ import test from "node:test";
 
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 const repository = resolve(packageRoot, "../..");
+const uvCache = process.env.UV_CACHE_DIR ?? join(tmpdir(), "archkeel-uv-cache");
 
 function fixture(t, files, config = {}) {
   const root = mkdtempSync(join(tmpdir(), "archkeel-ts-"));
@@ -100,7 +101,7 @@ test("actual Python decoder accepts Node SourceFacts", t => {
   const root = fixture(t, { "src/main.ts": "import './value.js';\n", "src/value.ts": "export const value = 1;\n" });
   const output = invoke(request(root));
   assert.equal(output.status, 0, output.stderr);
-  const decoded = spawnSync("uv", ["run", "--locked", "python", "-c", "import sys; from archkeel.ir.facts_codec import decode_response; facts = decode_response(sys.stdin.buffer.read()).facts; assert facts.profile == 'archkeel-typescript-imports'; assert facts.coverage.full_scope"], { cwd: repository, input: output.stdout, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? "/private/tmp/archkeel-uv-cache" } });
+  const decoded = spawnSync("uv", ["run", "--locked", "python", "-c", "import sys; from archkeel.ir.facts_codec import decode_response; facts = decode_response(sys.stdin.buffer.read()).facts; assert facts.profile == 'archkeel-typescript-imports'; assert facts.coverage.full_scope"], { cwd: repository, input: output.stdout, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: uvCache } });
   assert.equal(decoded.status, 0, decoded.stderr);
 });
 
@@ -162,7 +163,7 @@ test("shared protocol schema and strict Core decoder accept actual output", t =>
   const root = fixture(t, { "src/main.ts": "import 'node:fs';" });
   const output = invoke(request(root));
   const script = `import json, pathlib, sys\nimport jsonschema\nfrom archkeel.ir.facts_codec import decode_response\npayload = sys.stdin.buffer.read()\nfacts = decode_response(payload).facts\nschema = json.loads(pathlib.Path('schema/source-facts.schema.json').read_text())\njsonschema.Draft202012Validator(schema).validate(json.loads(payload))\nassert facts.runtime.name == 'node'\nassert facts.adapter.version == '1.0.0+typescript.5.9.3'\n`;
-  const decoded = spawnSync("uv", ["run", "--locked", "python", "-c", script], { cwd: repository, input: output.stdout, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? "/private/tmp/archkeel-uv-cache" } });
+  const decoded = spawnSync("uv", ["run", "--locked", "python", "-c", script], { cwd: repository, input: output.stdout, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: uvCache } });
   assert.equal(decoded.status, 0, decoded.stderr);
 });
 
@@ -369,7 +370,8 @@ test("preserved symlink lookup context cannot emit a canonical-path dependency",
 
 test("request snapshot roots accept native absolute paths, while relative paths stay POSIX", async () => {
   const { decodeRequest } = await import("../dist/protocol.js");
-  for (const root of ["/tmp/repo", "/", String.raw`C:\repo`, "C:/repo", String.raw`\\server\share\repo`]) {
+  const windowsRoot = win32.join("C:", win32.sep, "repo");
+  for (const root of ["/repo", "/", windowsRoot, "C:/repo", String.raw`\\server\share\repo`]) {
     const input = request(root, ["src/app"]);
     input.resolver.tsconfig = "config/tsconfig.json";
     const decoded = decodeRequest(JSON.stringify(input));
@@ -377,12 +379,12 @@ test("request snapshot roots accept native absolute paths, while relative paths 
     assert.deepEqual(decoded.scope.roots, ["src/app"]);
     assert.equal(decoded.resolver.tsconfig, "config/tsconfig.json");
   }
-  for (const root of ["repo", "C:repo", "C:", String.raw`\repo`, String.raw`\\server`, String.raw`C:\repo/mixed`, String.raw`/tmp\repo`, ""]) {
+  for (const root of ["repo", "C:repo", "C:", String.raw`\repo`, String.raw`\\server`, windowsRoot + "/mixed", String.raw`/repo\mixed`, ""]) {
     assert.throws(() => decodeRequest(JSON.stringify(request(root))), undefined, root);
   }
-  const invalidScope = request(String.raw`C:\repo`, [String.raw`src\app`]);
+  const invalidScope = request(windowsRoot, [String.raw`src\app`]);
   assert.throws(() => decodeRequest(JSON.stringify(invalidScope)));
-  const invalidConfig = request(String.raw`C:\repo`);
+  const invalidConfig = request(windowsRoot);
   invalidConfig.resolver.tsconfig = String.raw`config\tsconfig.json`;
   assert.throws(() => decodeRequest(JSON.stringify(invalidConfig)));
 });
@@ -390,16 +392,17 @@ test("request snapshot roots accept native absolute paths, while relative paths 
 
 test("source containment follows platform path rules", async () => {
   const { withinRoot } = await import("../dist/project.js");
+  const windowsScope = win32.join("C:", win32.sep, "repo", "src");
   for (const [platform, scope, path, expected] of [
     [posix, "/repo/src", "/repo/src/main.ts", true],
     [posix, "/repo/src", "/repo/src", true],
     [posix, "/repo/src", "/repo/src2/main.ts", false],
     [posix, "/repo/src", "/repo/src/../other/main.ts", false],
-    [win32, String.raw`C:\repo\src`, "C:/repo/src/main.ts", true],
-    [win32, String.raw`C:\repo\src`, String.raw`C:\repo\src`, true],
-    [win32, String.raw`C:\repo\src`, String.raw`C:\repo\src2\main.ts`, false],
-    [win32, String.raw`C:\repo\src`, String.raw`C:\repo\src\..\other\main.ts`, false],
-    [win32, String.raw`C:\repo\src`, String.raw`D:\repo\src\main.ts`, false],
+    [win32, windowsScope, "C:/repo/src/main.ts", true],
+    [win32, windowsScope, windowsScope, true],
+    [win32, windowsScope, windowsScope + String.raw`2\main.ts`, false],
+    [win32, windowsScope, windowsScope + String.raw`\..\other\main.ts`, false],
+    [win32, windowsScope, String.raw`D:\repo\src\main.ts`, false],
     [win32, String.raw`\\server\share\src`, String.raw`\\server\share\src\main.ts`, true],
     [win32, String.raw`\\server\share\src`, String.raw`\\server\other\src\main.ts`, false],
   ]) assert.equal(withinRoot(scope, path, platform), expected, `${scope}: ${path}`);
@@ -532,7 +535,7 @@ test("external package import aliases cannot inherit declaration-provider identi
   }
   for (const external of [true, false]) {
     if (!external) writeFileSync(join(root, "src/main.ts"), "import '#local';");
-    const result = spawnSync("uv", ["run", "--locked", "archkeel", "report", "--root", root, "--json"], { cwd: repository, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? "/private/tmp/archkeel-uv-cache" } });
+    const result = spawnSync("uv", ["run", "--locked", "archkeel", "report", "--root", root, "--json"], { cwd: repository, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: uvCache } });
     assert.equal(result.status, external ? 2 : 0, result.stderr || result.stdout);
     const report = JSON.parse(result.stdout);
     assert.equal(report.observation_complete, external ? "UNKNOWN" : "PASS");
