@@ -6,7 +6,7 @@ architecture policy, metrics and verdicts. The four modules stay in `src`.
 | Module | Responsibility | Internal dependencies |
 |---|---|---|
 | `entry.ts` | stdin, stdout and process errors | collect, protocol |
-| `collect.ts` | AST imports, source evidence and package runtime provenance | project, protocol |
+| `collect.ts` | AST imports and source evidence | project, protocol |
 | `project.ts` | Selected project and contained resolution inputs | protocol |
 | `protocol.ts` | Wire values, request validation and stable identities | none |
 

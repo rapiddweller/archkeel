@@ -3,19 +3,17 @@ import { isBuiltin } from "node:module";
 import { dirname, isAbsolute, resolve } from "node:path";
 import ts from "typescript";
 import { loadProject } from "./project.js";
-import { digest, id, moduleIdentity, type Evidence, type Request, type SourceRecord, type Target } from "./protocol.js";
+import { digest, id, moduleIdentity, nodeRequirement, type Evidence, type Request, type SourceRecord, type Target } from "./protocol.js";
 
 const sourceExtensions = /\.(?:[cm]?ts|tsx|[cm]?js|jsx)$/;
 const declarationExtension = /\.d\.(?:[cm]?ts)$/;
-const packageMetadata = readFileSync(new URL("../package.json", import.meta.url), "utf8");
-const metadata: unknown = JSON.parse(packageMetadata);
-if (!metadata || typeof metadata !== "object" || !("engines" in metadata)) throw Error("Missing package engines");
-const engines = metadata.engines;
-if (!engines || typeof engines !== "object" || !("node" in engines) || typeof engines.node !== "string") throw Error("Missing Node requirement");
-// Both runtimes use the same comparison ranges; Core separates bounds with commas.
-const requiredRuntime = engines.node.split("||").map(range => range.trim().split(/\s+/).join(",")).join(" || ");
 export function collect(request: Request) {
   if (ts.version !== "5.9.3") throw Error("TypeScript compiler version must be 5.9.3");
+  const manifest = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+  const metadata: unknown = JSON.parse(manifest);
+  if (metadata === null || typeof metadata !== "object" || !("engines" in metadata)
+    || metadata.engines === null || typeof metadata.engines !== "object" || !("node" in metadata.engines)) throw Error("Missing package Node engines policy");
+  const required = nodeRequirement(metadata.engines.node);
   const project = loadProject(request);
   const evidence: Evidence[] = [];
   const imports: SourceRecord[] = [];
@@ -39,8 +37,14 @@ export function collect(request: Request) {
     return content;
   }
   function targetFor(specifier: string, source: ts.SourceFile, importId: string, typeOnly: boolean, mode: ts.ResolutionMode): Target {
-    if (specifier.startsWith("node:") && isBuiltin(specifier)) return { kind: "builtin", import_id: importId, name: specifier };
-    const resolution = ts.resolveModuleName(specifier, source.fileName, project.options, project.host, undefined, undefined, mode).resolvedModule;
+    if (!typeOnly && specifier.startsWith("node:") && isBuiltin(specifier)) return { kind: "builtin", import_id: importId, name: specifier };
+    const resolutionInputs = new Set<string>();
+    const resolution = ts.resolveModuleName(specifier, source.fileName, project.options, {
+      ...project.host, readFile: path => {
+        resolutionInputs.add(resolve(path));
+        return project.readFile(path);
+      },
+    }, undefined, undefined, mode).resolvedModule;
     function unresolved(reason: string): Target {
       gap(reason, [], moduleIdentity(request.scope.namespace, project.pathOf(source.fileName) ?? "unknown"));
       return { kind: "unresolved", import_id: importId, specifier, reason };
@@ -61,16 +65,27 @@ export function collect(request: Request) {
       if (!packageName) return unresolved(`Unidentified external package: ${specifier}`);
       return { kind: "external", import_id: importId, package: packageName };
     }
+    const relativeSpecifier = specifier.startsWith("./") || specifier.startsWith("../");
+    const lookup = resolve(dirname(source.fileName), specifier);
+    const directoryPackage = relativeSpecifier && project.host.directoryExists?.(lookup)
+      && resolutionInputs.has(resolve(lookup, "package.json"));
     const declaration = declarationExtension.test(path) ? rel : null;
     let runtime = declaration ? null : rel;
-    if (declaration && !typeOnly) {
-      // Only an explicit runtime path proves which file a declaration describes.
-      const runtimePath = (specifier.startsWith("./") || specifier.startsWith("../")) && /\.(?:cjs|mjs|js)$/.test(specifier)
+    if (!typeOnly) {
+      // The compiler may substitute TS or declarations for an existing JS runtime.
+      const runtimePath = relativeSpecifier && /\.(?:cjs|mjs|js)$/.test(specifier)
         ? resolve(dirname(source.fileName), specifier) : undefined;
-      if (runtimePath && project.host.fileExists(runtimePath) && observe(runtimePath) !== undefined) runtime = project.pathOf(runtimePath) ?? null;
-      else gap(`Runtime implementation unavailable for declaration: ${rel}`);
+      if (runtimePath && project.host.fileExists(runtimePath)) {
+        const realRuntime = project.host.realpath?.(runtimePath) ?? runtimePath;
+        if (project.options.preserveSymlinks && realRuntime !== runtimePath) return unresolved(`preserveSymlinks lookup context is not observed: ${specifier}`);
+        if (observe(realRuntime) !== undefined) runtime = project.pathOf(realRuntime) ?? null;
+      } else if (declaration) gap(`Runtime implementation unavailable for declaration: ${rel}`);
     }
     observe(path);
+    if (!typeOnly && (!relativeSpecifier || directoryPackage)) {
+      runtime = null;
+      gap(directoryPackage ? `Local directory runtime metadata is not proven: ${specifier}` : `Local alias runtime conditions are not proven: ${specifier}`, [], moduleIdentity(request.scope.namespace, project.pathOf(source.fileName) ?? "unknown"));
+    }
     const file = !typeOnly && runtime ? runtime : rel;
     return { kind: "local", import_id: importId, module: moduleIdentity(request.scope.namespace, file), file, runtime_file: runtime, declaration_file: declaration };
   }
@@ -135,17 +150,20 @@ export function collect(request: Request) {
       return parent !== undefined && ts.isImportDeclaration(parent) && ts.isStringLiteralLike(parent.moduleSpecifier)
         && ["module", "node:module"].includes(parent.moduleSpecifier.text);
     }
-    function nodeModuleRequire(node: ts.Node | undefined): boolean {
-      if (!node || !ts.isCallExpression(node) || !ts.isIdentifier(node.expression) || node.expression.text !== "require") return false;
-      const argument = node.arguments[0];
-      return argument !== undefined && ts.isStringLiteralLike(argument) && ["module", "node:module"].includes(argument.text);
-    }
-    function nodeModuleReference(node: ts.Node | undefined): boolean {
-      if (nodeModuleRequire(node)) return true;
-      if (!node || !ts.isIdentifier(node)) return false;
+    function nodeModuleReference(node: ts.Node | undefined, seen = new Set<ts.Node>()): boolean {
+      if (!node || seen.has(node)) return false;
+      seen.add(node);
+      if (ts.isParenthesizedExpression(node) || ts.isAwaitExpression(node)) return nodeModuleReference(node.expression, seen);
+      if (ts.isCallExpression(node)) {
+        const argument = node.arguments[0];
+        return (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))
+          && argument !== undefined && ts.isStringLiteralLike(argument) && ["module", "node:module"].includes(argument.text);
+      }
+      if (!ts.isIdentifier(node)) return false;
+      if (commonJS && node.text === "module" && !checker.getSymbolAtLocation(node)?.declarations?.length) return true;
       return checker.getSymbolAtLocation(node)?.declarations?.some(declaration => {
         if (ts.isNamespaceImport(declaration) || ts.isImportClause(declaration)) return nodeModuleImport(declaration);
-        if (ts.isVariableDeclaration(declaration)) return nodeModuleRequire(declaration.initializer);
+        if (ts.isVariableDeclaration(declaration)) return nodeModuleReference(declaration.initializer, seen);
         if (ts.isImportEqualsDeclaration(declaration) && ts.isExternalModuleReference(declaration.moduleReference)) {
           const expression = declaration.moduleReference.expression;
           return expression !== undefined && ts.isStringLiteralLike(expression) && ["module", "node:module"].includes(expression.text);
@@ -155,8 +173,10 @@ export function collect(request: Request) {
     }
     function createRequireReference(node: ts.Node): boolean {
       if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent) && ts.isVariableDeclaration(node.parent.parent)) {
-        const name = node.propertyName ?? node.name;
-        if ((ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && name.text === "createRequire") return nodeModuleReference(node.parent.parent.initializer);
+        let name: ts.Node = node.propertyName ?? node.name;
+        while (ts.isComputedPropertyName(name) || ts.isParenthesizedExpression(name)) name = name.expression;
+        if (((ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && name.text === "createRequire")
+          || (node.propertyName && ts.isComputedPropertyName(node.propertyName) && !ts.isStringLiteralLike(name))) return nodeModuleReference(node.parent.parent.initializer);
       }
       if (ts.isIdentifier(node) && !ts.isImportSpecifier(node.parent)) {
         return checker.getSymbolAtLocation(node)?.declarations?.some(declaration =>
@@ -173,6 +193,13 @@ export function collect(request: Request) {
       if (visited.has(node)) return;
       visited.add(node);
       if (createRequireReference(node)) gap("Node createRequire loader is not observed", [location(node)], module);
+      if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
+        let name: ts.Node = node.propertyName ?? node.name;
+        while (ts.isComputedPropertyName(name) || ts.isParenthesizedExpression(name)) name = name.expression;
+        if (((ts.isIdentifier(name) || ts.isStringLiteralLike(name)) && name.text === "require")
+          || (node.propertyName && ts.isComputedPropertyName(node.propertyName) && !ts.isStringLiteralLike(name)
+            && ts.isVariableDeclaration(node.parent.parent) && nodeModuleReference(node.parent.parent.initializer))) gap("Indirect require binding is not resolved", [location(node)], module);
+      }
       if ((ts.isPropertyAccessExpression(node) && node.name.text === "require")
         || (ts.isElementAccessExpression(node) && ((ts.isStringLiteralLike(node.argumentExpression) && node.argumentExpression.text === "require")
           || (!ts.isStringLiteralLike(node.argumentExpression) && ts.isIdentifier(node.expression) && node.expression.text === "module")))) {
@@ -199,12 +226,12 @@ export function collect(request: Request) {
   const scope = request.scope.roots.map(root => project.host.directoryExists?.(resolve(project.root, root)) ? `${root}/**` : root);
   for (const problem of project.problems) gap(problem);
   const inputs = [...project.inputs.values()].sort((a, b) => a.path.localeCompare(b.path, "en"));
-  const artifact = ["entry.js", "project.js", "collect.js", "protocol.js"].map(name => readFileSync(new URL(name, import.meta.url), "utf8")).join("\0") + "\0" + requiredRuntime;
+  const artifact = [...["entry.js", "project.js", "collect.js", "protocol.js"].map(name => readFileSync(new URL(name, import.meta.url), "utf8")), manifest].join("\0");
   return { protocol_version: "1.0.0", facts: {
     profile: "archkeel-typescript-imports", adapter: { name: "@archkeel/typescript-adapter", version: "1.0.0+typescript.5.9.3", code_digest: digest(artifact) },
-    runtime: { name: "node", version: process.versions.node, required: requiredRuntime },
+    runtime: { name: "node", version: process.versions.node, required },
     source: { git_head: request.snapshot.git_head, dirty: request.snapshot.dirty, source_digest: digest(JSON.stringify(inputs)), scope },
-    capabilities: { constructs: [], sections: ["imports", "unknowns"], resolution_features: ["typescript-compiler-5.9.3", "literal-imports", "local-runtime-closure"] },
+    capabilities: { sections: ["imports", "unknowns"], resolution_features: ["typescript-compiler-5.9.3", "literal-imports", "local-runtime-closure"], constructs: [] },
     inputs, files: files.sort((a, b) => a.rel_path.localeCompare(b.rel_path, "en")), imports: targets,
     sections: [{ name: "imports", records: imports }, { name: "unknowns", records: gaps }],
     coverage: { selected_files: [...queue].map(path => project.pathOf(path)).sort(), files_read: filesRead, files_parsed: parsed.size, full_scope: gaps.length === 0, gaps },

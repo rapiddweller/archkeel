@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,13 +20,20 @@ try {
   const paths = packed.files.map(file => file.path);
   for (const name of ["entry", "project", "collect", "protocol"]) assert.ok(paths.includes(`dist/${name}.js`));
   assert.ok(paths.includes("README.md"));
+  assert.ok(paths.includes("LICENSE"));
   assert.ok(paths.includes(".node-version"));
   assert.ok(!paths.some(path => path.startsWith("src/") || path.startsWith("test/") || path.startsWith("node_modules/")));
   const consumer = join(temp, "consumer");
   mkdirSync(consumer);
   writeFileSync(join(consumer, "package.json"), JSON.stringify({ private: true, dependencies: { "@archkeel/typescript-adapter": `file:${join(temp, packed.filename)}` } }));
-  run(process.execPath, [npmEntry, "install", "--package-lock-only", "--ignore-scripts", "--no-audit"], consumer);
+  const compiler = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).dependencies.typescript;
+  run(process.execPath, [npmEntry, "cache", "add", `typescript@${compiler}`, "--ignore-scripts"], root);
+  run(process.execPath, [npmEntry, "install", "--package-lock-only", "--ignore-scripts", "--offline", "--no-audit"], consumer);
   run(process.execPath, [npmEntry, "ci", "--ignore-scripts", "--offline", "--no-audit"], consumer);
+  const installed = join(consumer, "node_modules", "@archkeel", "typescript-adapter");
+  for (const path of ["LICENSE", "dist/entry.js", "dist/project.js", "dist/collect.js", "dist/protocol.js"]) {
+    assert.deepEqual(readFileSync(join(installed, path)), readFileSync(join(root, path)), `Packed source differs: ${path}`);
+  }
   const fixture = join(temp, "fixture");
   mkdirSync(join(fixture, "src"), { recursive: true });
   writeFileSync(join(fixture, "tsconfig.json"), '{"compilerOptions":{"module":"NodeNext","moduleResolution":"NodeNext"},"include":["src"]}');

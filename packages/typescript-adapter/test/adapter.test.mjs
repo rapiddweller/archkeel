@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -170,6 +170,87 @@ test("local JS closure is parsed, never executed", t => {
   assert.ok(output.facts.imports.some(item => item.kind === "builtin"));
 });
 
+test("explicit runtime JS survives compiler source substitution and changes the digest", async t => {
+  const ts = (await import("typescript")).default;
+  for (const [runtime, source] of [["js", "ts"], ["mjs", "mts"], ["cjs", "cts"]]) {
+    const root = fixture(t, {
+      "package.json": '{"type":"module"}',
+      "src/main.mts": `import './leaf.${runtime}';`,
+      [`src/leaf.${source}`]: "export const value = 1;",
+      [`src/leaf.${runtime}`]: "throw new Error('must not execute'); import('./missing.js');",
+    }, { compilerOptions: { module: "NodeNext", moduleResolution: "NodeNext", noEmit: true }, files: ["src/main.mts"], include: [] });
+    const resolved = ts.resolveModuleName(`./leaf.${runtime}`, join(root, "src/main.mts"), { module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext }, ts.sys).resolvedModule;
+    assert.equal(resolved.resolvedFileName, join(root, `src/leaf.${source}`));
+    const output = collect(request(root));
+    assert.equal(output.facts.coverage.full_scope, false);
+    assert.ok(output.facts.files.some(item => item.rel_path === `src/leaf.${runtime}`));
+    assert.ok(output.facts.inputs.some(item => item.path === `src/leaf.${runtime}` && item.role === "selected"));
+    assert.ok(output.facts.imports.some(item => item.kind === "local" && item.file === `src/leaf.${runtime}` && item.runtime_file === `src/leaf.${runtime}`));
+    assert.ok(output.facts.imports.some(item => item.kind === "unresolved" && item.specifier === "./missing.js"));
+    writeFileSync(join(root, `src/leaf.${runtime}`), "throw new Error('must not execute'); import('node:fs');");
+    const complete = collect(request(root));
+    assert.equal(complete.facts.coverage.full_scope, true, JSON.stringify(complete.facts.coverage.gaps));
+    assert.notEqual(complete.facts.source.source_digest, output.facts.source.source_digest);
+  }
+});
+
+test("type-only node aliases use compiler closure while runtime imports stay builtins", async t => {
+  const ts = (await import("typescript")).default;
+  const root = fixture(t, {
+    "src/main.ts": "import type { Value } from 'node:fs'; import 'node:fs';",
+    "src/local.ts": "import './missing.js'; export type Value = string;",
+  }, { compilerOptions: { module: "ESNext", moduleResolution: "Bundler", baseUrl: ".", paths: { "node:fs": ["src/local.ts"] } }, files: ["src/main.ts"], include: [] });
+  const options = { module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, baseUrl: root, paths: { "node:fs": ["src/local.ts"] } };
+  assert.equal(ts.resolveModuleName("node:fs", join(root, "src/main.ts"), options, ts.sys).resolvedModule.resolvedFileName, join(root, "src/local.ts"));
+  const output = collect(request(root));
+  assert.equal(output.facts.coverage.full_scope, false);
+  assert.deepEqual(output.facts.imports.slice(0, 2).map(item => [item.kind, item.file ?? item.name]), [["local", "src/local.ts"], ["builtin", "node:fs"]]);
+  assert.ok(output.facts.files.some(item => item.rel_path === "src/local.ts"));
+  writeFileSync(join(root, "src/local.ts"), "export type Value = string;");
+  const complete = collect(request(root));
+  assert.equal(complete.facts.coverage.full_scope, true, JSON.stringify(complete.facts.coverage.gaps));
+  assert.notEqual(complete.facts.source.source_digest, output.facts.source.source_digest);
+});
+
+test("runtime policy comes from package engines and keeps unsupported constructs absent", async t => {
+  const root = fixture(t, { "src/main.ts": "export {};" });
+  const output = collect(request(root));
+  assert.equal(output.facts.runtime.required, ">=22.13.0,<23 || >=24.0.0,<25 || >=26.0.0");
+  assert.deepEqual(output.facts.capabilities.constructs, []);
+  const { nodeRequirement } = await import("../dist/protocol.js");
+  const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+  assert.equal(output.facts.runtime.required, nodeRequirement(manifest.engines.node));
+  assert.equal(nodeRequirement("^24.1.2 || >=26.3.1"), ">=24.1.2,<25 || >=26.3.1");
+  for (const invalid of ["", "^0.1.0", "^22", "22.13.0", "^22.13.0 || ", ">=26.0.0 || *", "^22.13.0 <23"]) assert.throws(() => nodeRequirement(invalid));
+  const policy = spawnSync("uv", ["run", "--locked", "python", "-c", "import sys; from packaging.specifiers import SpecifierSet; from packaging.version import Version; ranges=[SpecifierSet(x.strip()) for x in sys.stdin.read().split('||')]; cases={'22.12.0':False,'22.13.0':True,'22.23.3':True,'23.0.0':False,'24.0.0':True,'24.8.1':True,'25.0.0':False,'26.0.0':True,'27.0.0':True}; assert all(any(Version(v) in r for r in ranges)==want for v,want in cases.items())"], { cwd: repository, input: output.facts.runtime.required, encoding: "utf8" });
+  assert.equal(policy.status, 0, policy.stderr);
+});
+
+test("manifest runtime policy changes artifact identity and malformed policy is refused", t => {
+  const root = fixture(t, { "src/main.ts": "export {};" });
+  const clone = join(root, "collector");
+  mkdirSync(clone);
+  cpSync(join(packageRoot, "dist"), join(clone, "dist"), { recursive: true });
+  symlinkSync(join(packageRoot, "node_modules"), join(clone, "node_modules"), "junction");
+  const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+  writeFileSync(join(clone, "package.json"), JSON.stringify(manifest));
+  function run() {
+    return spawnSync(process.execPath, [join(clone, "dist/entry.js")], { input: JSON.stringify(request(root)), encoding: "utf8" });
+  }
+  const first = JSON.parse(run().stdout);
+  manifest.engines.node = "^24.0.0";
+  writeFileSync(join(clone, "package.json"), JSON.stringify(manifest));
+  const second = JSON.parse(run().stdout);
+  assert.equal(second.facts.runtime.required, ">=24.0.0,<25");
+  assert.notEqual(first.facts.adapter.code_digest, second.facts.adapter.code_digest);
+  assert.equal(first.facts.source.source_digest, second.facts.source.source_digest);
+  manifest.engines.node = "*";
+  writeFileSync(join(clone, "package.json"), JSON.stringify(manifest));
+  const invalid = run();
+  assert.notEqual(invalid.status, 0);
+  assert.equal(invalid.stdout, "");
+});
+
 test("missing inputs, project references, and malformed requests never look complete", t => {
   const root = fixture(t, { "src/main.ts": "export {};" }, { references: [{ path: "../generated" }], include: ["src"] });
   assert.equal(collect(request(root)).facts.coverage.full_scope, false);
@@ -192,8 +273,9 @@ test("shared request fixtures and identity cases agree with the adapter", async 
   assert.equal(decodeRequest(valid).resolver.language, "typescript");
   const invalid = readFileSync(join(repository, "tests/fixtures/collection-protocol/invalid-request-policy.json"), "utf8");
   assert.throws(() => decodeRequest(invalid));
-  const identityPath = process.env.ARCHKEEL_IDENTITY_FIXTURE ?? join(repository, "fixtures/typescript-module-identities.json");
+  const identityPath = join(repository, "fixtures/typescript-module-identities.json");
   const cases = JSON.parse(readFileSync(identityPath, "utf8"));
+  assert.equal(cases.length, 9);
   for (const example of cases) assert.equal(moduleIdentity(example.namespace, example.path), example.module);
   const paths = ["src/foo.ts", "src/foo.js", "src/foo.test.ts", "src/foo/test.ts", "src/foo/index.ts", "src/a_b.ts", "src/a-b.ts", "src/_x2e_.ts", "src/@scope/name.ts"];
   assert.equal(new Set(paths.map(path => moduleIdentity("app", path))).size, paths.length);
@@ -357,6 +439,11 @@ test("selected workspace symlinks stay local and expose their dependency closure
   assert.ok(output.facts.imports.some(item => item.kind === "unresolved" && item.specifier === "./missing.js"));
   assert.ok(output.facts.inputs.some(item => item.path === "src/shared/index.ts" && item.role === "selected"));
   writeFileSync(join(root, "src/shared/hidden.ts"), "export const value = 1;");
+  const valueAlias = collect(request(root)).facts;
+  assert.equal(valueAlias.coverage.full_scope, false);
+  assert.ok(valueAlias.coverage.gaps.some(gap => gap.title.includes("Local alias runtime conditions")));
+  assert.equal(valueAlias.imports.find(target => target.kind === "local").runtime_file, null);
+  writeFileSync(join(root, "src/main.ts"), "import type {} from 'example';");
   assert.equal(collect(request(root)).facts.coverage.full_scope, true);
 });
 
@@ -508,13 +595,19 @@ test("tsconfig cannot select installed node_modules declarations as local graph 
 test("external runtime API identity stays distinct from its declaration provider", t => {
   const root = fixture(t, {
     "package.json": '{"name":"app","imports":{"#local":"./src/local.ts"}}',
-    "src/main.ts": "import type { Uri } from 'vscode'; import type { Feature } from '@vendor/host/feature'; import '#local';",
+    "src/main.ts": "import type { Uri } from 'vscode'; import type { Feature } from '@vendor/host/feature'; import type {} from '#local';",
     "src/local.ts": "export {};",
     "node_modules/@types/vscode/package.json": '{"name":"@types/vscode","version":"1.0.0","types":"index.d.ts"}',
     "node_modules/@types/vscode/index.d.ts": "export interface Uri { path: string };",
     "node_modules/@types/vendor__host/package.json": '{"name":"@types/vendor__host","version":"1.0.0","types":"index.d.ts"}',
     "node_modules/@types/vendor__host/feature.d.ts": "export interface Feature { name: string };",
   });
+  writeFileSync(join(root, "src/main.ts"), "import type { Uri } from 'vscode'; import type { Feature } from '@vendor/host/feature'; import '#local';");
+  const valueAlias = collect(request(root)).facts;
+  assert.equal(valueAlias.coverage.full_scope, false);
+  assert.equal(valueAlias.imports.find(target => target.kind === "local").runtime_file, null);
+  assert.ok(valueAlias.coverage.gaps.some(gap => gap.title.includes("Local alias runtime conditions")));
+  writeFileSync(join(root, "src/main.ts"), "import type { Uri } from 'vscode'; import type { Feature } from '@vendor/host/feature'; import type {} from '#local';");
   const output = collect(request(root));
   assert.equal(output.facts.coverage.full_scope, true, JSON.stringify(output.facts.coverage.gaps));
   assert.deepEqual(output.facts.imports.filter(target => target.kind === "external").map(target => target.package), ["vscode", "@vendor/host"]);
@@ -553,13 +646,21 @@ test("external package import aliases cannot inherit declaration-provider identi
     assert.equal(result.status, 0, result.stderr);
   }
   for (const external of [true, false]) {
-    if (!external) writeFileSync(join(root, "src/main.ts"), "import '#local';");
+    if (!external) writeFileSync(join(root, "src/main.ts"), "import type {} from '#local';");
     const result = spawnSync("uv", ["run", "--locked", "archkeel", "report", "--root", root, "--json"], { cwd: repository, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: uvCache } });
     assert.equal(result.status, external ? 2 : 0, result.stderr || result.stdout);
     const report = JSON.parse(result.stdout);
     assert.equal(report.observation_complete, external ? "UNKNOWN" : "PASS");
     assert.equal(report.declared_rules, external ? "UNKNOWN" : "PASS");
   }
+  writeFileSync(join(root, "src/main.ts"), "import '#local';");
+  const localValue = collect(request(root)).facts;
+  assert.equal(localValue.coverage.full_scope, false);
+  assert.equal(localValue.imports.find(target => target.kind === "local").runtime_file, null);
+  const partial = spawnSync("uv", ["run", "--locked", "archkeel", "report", "--root", root, "--json"], { cwd: repository, encoding: "utf8", env: { ...process.env, UV_CACHE_DIR: uvCache } });
+  assert.equal(partial.status, 2, partial.stderr || partial.stdout);
+  assert.equal(JSON.parse(partial.stdout).declared_rules, "UNKNOWN");
+
 });
 
 test("resolution input and source digests bind exact source bytes", async t => {
@@ -593,6 +694,43 @@ test("resolution input and source digests bind exact source bytes", async t => {
   assert.equal(valid.facts.inputs.find(input => input.path === "src/main.ts").digest, digest(validBytes));
 });
 
+const hiddenLoaders = JSON.parse(readFileSync(join(repository, "fixtures/typescript-hidden-loaders.json"), "utf8"));
+for (const example of hiddenLoaders) test(`hidden loader coverage: ${example.name}`, t => {
+  const root = fixture(t, { "src/main.ts": example.source, "src/hidden.cjs": "require('./main.js');" }, { files: ["src/main.ts"], include: [] });
+  const facts = collect(request(root)).facts;
+  assert.equal(facts.coverage.full_scope, example.complete);
+  assert.equal(facts.files.length, example.cycle ? 2 : 1);
+  if (!example.complete) assert.ok(facts.coverage.gaps.length > 0);
+  if (example.cycle) assert.equal(facts.imports.filter(item => item.kind === "local").length, 2);
+});
+
+const runtimeAliases = JSON.parse(readFileSync(join(repository, "fixtures/typescript-runtime-aliases.json"), "utf8"));
+for (const example of runtimeAliases) test(`explicit runtime alias closure: ${example.name}`, t => {
+  const root = fixture(t, { "package.json": JSON.stringify(example.manifest), [example.entry_path ?? "src/main.ts"]: example.source ?? `import '${example.specifier}';`, ...(example.files ?? { "src/runtime.ts": "export const value=1;", "src/runtime.js": "throw Error('must not execute');" }) }, { files: example.selected_files ?? ["src/main.ts"], include: [] });
+  if (example.runtime) writeFileSync(join(root, "src", example.runtime), "import './missing.js';");
+  const first = collect(request(root)).facts;
+  const complete = example.complete ?? example.name === "relative";
+  const runtimePath = example.runtime_path ?? "src/runtime.js";
+  assert.equal(first.coverage.full_scope, complete);
+  assert.deepEqual(first.files.map(file => file.rel_path), example.observed_files ?? (complete ? ["src/main.ts", "src/runtime.js", "src/runtime.ts"] : ["src/main.ts", "src/runtime.ts"]));
+  assert.equal(first.imports.find(item => item.kind === "local").runtime_file, example.type_only ? "src/pkg/types.ts" : complete ? runtimePath : null);
+  assert.equal(first.inputs.some(input => input.path === runtimePath), complete && !example.type_only);
+  if (example.runtime) assert.ok(!first.inputs.some(input => input.path === `src/${example.runtime}`));
+  writeFileSync(join(root, runtimePath), "throw Error('still must not execute');");
+  const changed = collect(request(root)).facts;
+  assert.equal(changed.coverage.full_scope, complete);
+  if (complete && !example.type_only) assert.notEqual(first.source.source_digest, changed.source.source_digest);
+  else assert.equal(first.source.source_digest, changed.source.source_digest);
+  writeFileSync(join(root, runtimePath), example.files ? "require('./missing.cjs');" : "import './missing.js';");
+  const hidden = collect(request(root)).facts;
+  assert.equal(hidden.coverage.full_scope, example.type_only ?? false);
+  if (!example.type_only) assert.ok(hidden.coverage.gaps.length > 0);
+  if (example.files?.["src/pkg/package.json"]) {
+    writeFileSync(join(root, "src/pkg/package.json"), example.files["src/pkg/package.json"] + " ");
+    const metadata = collect(request(root)).facts;
+    if (!complete || example.type_only) assert.notEqual(hidden.source.source_digest, metadata.source.source_digest);
+  }
+});
 
 test("runtime support agrees with Core at Node range boundaries", t => {
   const root = fixture(t, { "src/main.ts": "export {};" });

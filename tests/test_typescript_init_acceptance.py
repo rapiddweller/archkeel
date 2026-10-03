@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.ir.codec import parse_contract
+from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
 from archkeel.ir.model import in_scope
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -320,3 +320,260 @@ def test_missing_tsconfig_refuses_without_writing_a_draft(tmp_path: Path) -> Non
     assert json.loads(result.stdout)["diagnostics"]
     assert not (root / "archkeel.toml").exists()
     assert not (root / "architecture-contract.json").exists()
+
+
+@pytest.mark.parametrize("closure", ["runtime", "type-alias"])
+def test_hidden_compiler_closure_refuses_init_and_binds_report_digest(
+    tmp_path: Path, closure: str
+) -> None:
+    root = _repository(tmp_path / "project")
+    (root / "src").mkdir()
+    (root / "config").mkdir()
+    options: dict[str, object] = {"module": "NodeNext", "moduleResolution": "NodeNext"}
+    if closure == "runtime":
+        (root / "package.json").write_text('{"type":"module"}')
+        (root / "src/main.ts").write_text("import './leaf.js';")
+        (root / "src/leaf.ts").write_text("export const value = 1;")
+        leaf = root / "src/leaf.js"
+    else:
+        options = {
+            "module": "ESNext",
+            "moduleResolution": "Bundler",
+            "baseUrl": "..",
+            "paths": {"node:fs": ["src/leaf.ts"]},
+        }
+        (root / "src/main.ts").write_text("import type { Value } from 'node:fs';")
+        leaf = root / "src/leaf.ts"
+    (root / "config/production.json").write_text(
+        json.dumps({"compilerOptions": options, "files": ["../src/main.ts"]})
+    )
+    leaf.write_text(
+        "import './missing.js'; export type Value = string;"
+        if closure == "type-alias"
+        else "import './missing.js';"
+    )
+    refused = _init(root)
+    assert refused.returncode == 2, refused.stdout + refused.stderr
+    assert not (root / "archkeel.toml").exists()
+    leaf.write_text(
+        "export type Value = string;"
+        if closure == "type-alias"
+        else "throw Error('must not execute'); import 'node:fs';"
+    )
+    initialized = _init(root)
+    assert initialized.returncode == 0, initialized.stdout + initialized.stderr
+    output = root / "report.json"
+    result = _invoke(root, "report", "--output", str(output))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout)["observation_complete"] == "PASS"
+    first = parse_observation(decode_canonical_model(json.loads(output.read_text())))
+    assert leaf.relative_to(root).as_posix() in {
+        item.data.get("file") for item in first.records("modules") or ()
+    }
+    leaf.write_text(leaf.read_text() + "\n// Changed only the resolved closure.\n")
+    assert _invoke(root, "report", "--output", str(output)).returncode == 0
+    second = parse_observation(decode_canonical_model(json.loads(output.read_text())))
+    assert first.source.source_digest != second.source.source_digest
+
+
+@pytest.mark.parametrize(
+    "example",
+    json.loads((ROOT / "fixtures/typescript-hidden-loaders.json").read_text()),
+    ids=lambda example: example["name"],
+)
+def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
+    tmp_path: Path, example: dict
+) -> None:
+    root = _repository(tmp_path / "project")
+    (root / "src").mkdir()
+    (root / "src/main.ts").write_text(example["source"])
+    (root / "src/hidden.cjs").write_text("require('./main.js');")
+    (root / "tsconfig.json").write_text(
+        json.dumps(
+            {
+                "compilerOptions": {"module": "NodeNext", "moduleResolution": "NodeNext"},
+                "files": ["src/main.ts"],
+            }
+        )
+    )
+    (root / "architecture.md").write_text(
+        "Source modules must not form cycles.\n\n<!-- archkeel-component-graph -->\n"
+        "```mermaid\nflowchart LR\n    source\n```\n"
+    )
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots=["src"]\nnamespace="app"\nlanguage="typescript"\n'
+        'tsconfig="tsconfig.json"\ncontract="architecture-contract.json"\n'
+        + "collector_argv="
+        + json.dumps(["node", str(ADAPTER)])
+        + "\n"
+    )
+    (root / "architecture-contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        "id": "source",
+                        "label": "source",
+                        "role": "component",
+                        "packages": ["app.src"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["architecture.md"],
+                    }
+                ],
+                "rules": [
+                    {
+                        "id": "no-cycles",
+                        "kind": "no_component_cycles",
+                        "level": "module",
+                        "rationale": "Source modules must not form cycles.",
+                        "provenance": ["architecture.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    result = _invoke(root, "report")
+    assert result.returncode == (0 if example["complete"] else 2), result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["observation_complete"] == ("PASS" if example["complete"] else "UNKNOWN")
+    assert payload["declared_rules"] == (
+        "FAIL" if example["cycle"] else "PASS" if example["complete"] else "UNKNOWN"
+    )
+    assert payload["coverage"]["files_parsed"] == (2 if example["cycle"] else 1)
+    if example["cycle"]:
+        assert payload["violations_by_rule"] == [["no-cycles", 1]]
+    validation = _invoke(root, "validate")
+    assert validation.returncode == (0 if example["complete"] and not example["cycle"] else 2)
+
+
+@pytest.mark.parametrize(
+    "example",
+    json.loads((ROOT / "fixtures/typescript-runtime-aliases.json").read_text()),
+    ids=lambda example: example["name"],
+)
+def test_package_aliases_preserve_explicit_runtime_and_reject_hidden_imports(
+    tmp_path: Path, example: dict
+) -> None:
+    root = _repository(tmp_path / "project")
+    files = {
+        example.get("entry_path", "src/main.ts"): example.get(
+            "source", f"import '{example['specifier']}';"
+        )
+    }
+    files.update(
+        example.get(
+            "files",
+            {
+                "src/runtime.ts": "export const value=1;",
+                "src/runtime.js": "throw Error('must not execute');",
+            },
+        )
+    )
+    for name, content in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    runtime = root / example.get("runtime_path", "src/runtime.js")
+    (root / "package.json").write_text(json.dumps(example["manifest"]))
+    (root / "tsconfig.json").write_text(
+        json.dumps(
+            {
+                "compilerOptions": {"module": "NodeNext", "moduleResolution": "NodeNext"},
+                "files": example.get("selected_files", ["src/main.ts"]),
+            }
+        )
+    )
+    (root / "architecture.md").write_text(
+        "No module cycles.\n\n<!-- archkeel-component-graph -->\n"
+        "```mermaid\nflowchart LR\n    source\n```\n"
+    )
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots=["src"]\nnamespace="app"\nlanguage="typescript"\ntsconfig="tsconfig.json"\ncontract="architecture-contract.json"\ncollector_argv='
+        + json.dumps(["node", str(ADAPTER)])
+        + "\n"
+    )
+    (root / "architecture-contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    {
+                        "id": "source",
+                        "label": "source",
+                        "role": "component",
+                        "packages": ["app.src"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["architecture.md"],
+                    }
+                ],
+                "rules": [
+                    {
+                        "id": "no-cycles",
+                        "kind": "no_component_cycles",
+                        "level": "module",
+                        "rationale": "No module cycles.",
+                        "provenance": ["architecture.md"],
+                        "decided_by": "architect",
+                    }
+                ],
+            }
+        )
+    )
+    if example.get("runtime"):
+        (root / "src" / example["runtime"]).write_text("import './missing.js';")
+        result = _invoke(root, "validate")
+        assert result.returncode == 2, result.stdout + result.stderr
+        result = json.loads(result.stdout)
+        assert result["observation_complete"] == result["declared_rules"] == "UNKNOWN"
+        return
+    complete = example.get("complete", example["name"] == "relative")
+    if not complete:
+        for runtime_source in (
+            "throw Error('must not execute');",
+            "require('../main.js');" if example.get("files") else "import './main.js';",
+            "require('./missing.cjs');" if example.get("files") else "import './missing.js';",
+        ):
+            runtime.write_text(runtime_source)
+            result = _invoke(root, "validate")
+            assert result.returncode == 2, result.stdout + result.stderr
+            result = json.loads(result.stdout)
+            assert result["observation_complete"] == result["declared_rules"] == "UNKNOWN"
+        return
+    artifact = root / "report.json"
+    positive = _invoke(root, "report", "--output", str(artifact))
+    assert positive.returncode == 0, positive.stdout + positive.stderr
+    first = parse_observation(decode_canonical_model(json.loads(artifact.read_bytes())))
+    assert first.coverage.files_parsed == len(example.get("observed_files", [1, 2, 3]))
+    assert json.loads(positive.stdout)["declared_rules"] == "PASS"
+    if example.get("type_only"):
+        runtime.write_text("require('./missing.cjs');")
+        result = _invoke(root, "validate")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert json.loads(result.stdout)["observation_complete"] == "PASS"
+        return
+    cycle_source = example.get("cycle_source") or (
+        "require('./main.js');"
+        if example["name"] == "relative-file-before-directory"
+        else "require('../main.js');"
+        if example.get("files")
+        else "import './main.js';"
+    )
+    runtime.write_text(cycle_source)
+    cycle = _invoke(root, "report", "--output", str(artifact))
+    assert cycle.returncode == 0, cycle.stdout + cycle.stderr
+    result = json.loads(cycle.stdout)
+    assert result["declared_rules"] == "FAIL"
+    assert result["violations_by_rule"] == [["no-cycles", 1]]
+    second = parse_observation(decode_canonical_model(json.loads(artifact.read_bytes())))
+    assert first.source.source_digest != second.source.source_digest
+    runtime.write_text(
+        "require('./missing.cjs');" if example.get("files") else "import './missing.js';"
+    )
+    hidden = _invoke(root, "validate")
+    assert hidden.returncode == 2, hidden.stdout + hidden.stderr
+    result = json.loads(hidden.stdout)
+    assert result["observation_complete"] == result["declared_rules"] == "UNKNOWN"
