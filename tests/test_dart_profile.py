@@ -100,7 +100,7 @@ def test_dart_observation_identifies_its_actual_python_parser_runtime(tmp_path: 
     assert model.producer is not None
     assert model.producer != model.analyzer
     assert model.producer.name == "archkeel-dart-directives"
-    assert model.analyzer.version == "0.68.0"
+    assert model.analyzer.version == "0.69.0"
     assert len(model.producer.code_digest) == 64
 
 
