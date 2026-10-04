@@ -960,5 +960,32 @@
     },
     "complete": false,
     "cycle": false
+  },
+  {
+    "name": "factory-shorthand",
+    "source": "import {createRequire} from 'node:module'; const holder={createRequire}; const load=holder.createRequire(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "factory-renamed-shorthand",
+    "source": "import {createRequire as factory} from 'node:module'; const holder={factory}; const load=holder.factory(import.meta.url); load('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "ordinary-local-factory-shorthand",
+    "source": "const createRequire=()=>()=>1; const holder={createRequire}; holder.createRequire()();",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
   }
 ]
