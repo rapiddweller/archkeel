@@ -87,6 +87,22 @@ def test_terminal_view_shows_regressions_failures_and_diagnostics() -> None:
     assert "Diagnostic · missing_tool" in unverifiable and "Install Git and retry." in unverifiable
 
 
+@pytest.mark.parametrize("code", ["graph.drift", "rule.violated", "decision.open"])
+def test_terminal_panel_names_its_validation_code(code: str) -> None:
+    diagnostic = Diagnostic(
+        "contract_invalid",
+        "contract",
+        "The contract needs a decision.",
+        "Review the target.",
+        "/components",
+        code,
+    )
+    result = RunResult("report", 2, diagnostics=(diagnostic,))
+    rendered = _render(result, report_summary(result), 80)
+    assert f"Diagnostic · {code}" in rendered
+    assert "Diagnostic · contract_invalid" not in rendered
+
+
 def test_terminal_view_does_not_interpret_markup_in_evidence() -> None:
     diagnostic = replace(_DIAGNOSTIC, subject="[bold]src[/bold]")
     result = RunResult("report", 2, diagnostics=(diagnostic,))

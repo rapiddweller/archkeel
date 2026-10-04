@@ -446,3 +446,60 @@ def test_init_flags_namespace_ownership_without_choosing_owner(
     assert "AST-empty" in document
     draft = _contract(root / CONTRACT_PATH)
     assert draft.component_for("archkeel") is None
+
+
+def test_first_validation_groups_open_pairs_and_requires_remedy_closes_them(
+    tmp_path: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _repository(tmp_path)
+    for name in ("billing", "events", "storage", "web"):
+        directory = root / "src" / "archkeel" / name
+        directory.mkdir()
+        (directory / "__init__.py").write_text("")
+        (directory / "api.py").write_text("VALUE = 1\n")
+    draft = _init(root, capsys)
+    assert len(draft["open_decisions"]) == 42
+
+    assert main(["validate", "--root", str(root), "--json"]) == 2
+    validated = json.loads(capsys.readouterr().out)
+    decisions = [item for item in validated["diagnostics"] if item["code"] == "decision.open"]
+    assert len(decisions) == 1
+    assert decisions[0]["subject"] == "42 open dependency decisions"
+    assert "requires" in decisions[0]["remedy"]
+    assert "complete_requires" in decisions[0]["remedy"]
+    assert "unique id" in decisions[0]["remedy"]
+    assert "open_decisions" in decisions[0]["remedy"]
+    assert " -> " not in json.dumps(decisions)
+    assert validated["open_decisions"] == draft["open_decisions"]
+
+    with monkeypatch.context() as patch:
+        patch.setattr("sys.stdout.isatty", lambda: True)
+        assert main(["validate", "--root", str(root)]) == 2
+    terminal = capsys.readouterr().out
+    assert terminal.count("Diagnostic · decision.open") == 1
+    assert "complete_requires" in terminal
+
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    allowed = {"cli": ("ir",), "check": ("cli", "ir")}
+    for component in contract["components"]:
+        component["requires"] = [
+            {"component": target, "rationale": _REAL_RATIONALE, "decided_by": "architect"}
+            for target in allowed.get(component["label"], ())
+        ]
+    for rule in contract["rules"]:
+        rule["rationale"] = _REAL_RATIONALE
+    contract["rules"].append(
+        {
+            "id": "REQUIRES-COMPLETE",
+            "kind": "complete_requires",
+            "provenance": ["docs/architecture/architecture.md"],
+            "rationale": _REAL_RATIONALE,
+            "decided_by": "architect",
+        }
+    )
+    contract_path.write_text(json.dumps(contract))
+    assert main(["validate", "--root", str(root), "--json"]) == 0
+    decided = json.loads(capsys.readouterr().out)
+    assert decided["open_decisions"] == []
+    assert not any(item["code"] == "decision.open" for item in decided["diagnostics"])

@@ -7,6 +7,7 @@ only when its row names repository evidence.
 
 | Capability | Evidence |
 |---|---|
+| First validation groups open dependency decisions with a count and the `requires` + `complete_requires` remedy; terminal panels show their own code (AD-155, #313) | `tests/test_onboarding.py`; `tests/test_terminal.py`; `make demo-onboarding` |
 | Validated construct identity controls rules; descriptive kinds cannot hide accepted facts (AD-152) | `tests/test_collection_capabilities.py` |
 | TypeScript runtime aliases, unproved CommonJS targets and hidden namespace escapes retain coverage gaps; existing explicit JavaScript substitution observes runtime closure (AD-150, AD-151) | `packages/typescript-adapter/test/adapter.test.mjs`; `fixtures/typescript-runtime-aliases.json`; `fixtures/typescript-hidden-loaders.json`; `tests/test_typescript_init_acceptance.py` |
 | Explicit Python bases project to typed inheritance and Protocol realization with binding limits and classifier coverage (AD-181); complete binding proof and static instances remain open | `tests/test_uml_classifier_facts.py`; `tests/test_source_graph.py`; `tests/test_uml_comparison.py`; `docs/architecture/decisions/ad-181-uml-bases-retain-binding-evidence.md` |
@@ -212,11 +213,9 @@ answer key are prepared; human effectiveness and the need for a separate explore
 1. Compare the self-observation of a pull request with an accepted baseline on `main` in CI.
    GitHub now saves bounded host observations report-only; #216 still needs the accepted main
    lock and an authentic original opened(E) receipt before the M → B → E → H proof can pass.
-2. Title each validation panel with its own code instead of `contract_invalid`, and group the
-   panels by code with a count, so a first run does not present fifteen identical-looking boxes
-   (AD-19). Evidence: one `validate` run on the shop sample with a removed decision prints 15
-   panels, all titled `contract_invalid`, covering graph drift, rule violations and the open
-   decision.
+2. Group repeated validation diagnostics beyond `decision.open` by code with a count
+   (AD-19). Open dependency decisions already share one remedy and panel (AD-155, #313);
+   individual graph drift and rule violation findings still retain their own evidence.
 3. Replace the remaining internal vocabulary in the HTML report labels: `Canonical result`,
    `Reproduction metadata`, `Coverage dimension`, `Fingerprint` and
    `Publication order evidence` name concepts a reader has to look up (AD-19).

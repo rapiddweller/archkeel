@@ -221,24 +221,20 @@ def _pair_diagnostics(
 
 
 def _open_decision_diagnostics(observation: Observation) -> list[Diagnostic]:
+    decisions = open_decisions(observation)
+    if not decisions:
+        return []
     return [
         _diagnostic(
             "decision.open",
-            "/rules",
-            f"{decision.source} -> {decision.target}",
-            f"{decision.import_sites} import site(s) use this pair, and no rule decides it."
-            if decision.observed
-            else "No import uses this pair today, and no rule decides it.",
-            (
-                "No automatic dependency-rule suggestion is provided for pairs involving exact "
-                "ownership. Decide its policy explicitly; when both components declare packages, "
-                "an unqualified package-endpoint rule still decides the whole pair."
-                if decision.options_unavailable_reason is not None
-                else "Allow or forbid the pair: add an allowed_dependency or forbidden_dependency "
-                "rule with a rationale."
-            ),
+            "/components",
+            f"{len(decisions)} open dependency decision{'s' if len(decisions) != 1 else ''}",
+            "Component dependency directions remain undecided.",
+            "Review open_decisions. Add each allowed component to its owner's requires list "
+            "with a rationale and decided_by; add one complete_requires rule with a unique id, "
+            "rationale, provenance and decided_by to forbid absent pairs. "
+            "Do not infer permission from existing imports. See docs/onboarding.md.",
         )
-        for decision in open_decisions(observation)
     ]
 
 
