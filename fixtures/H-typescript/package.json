@@ -1,0 +1,10 @@
+{
+  "name": "archkeel-typescript-shop",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "@shop/transport": "1.0.0",
+    "transport-client": "1.0.0",
+    "transport.client": "1.0.0"
+  }
+}
