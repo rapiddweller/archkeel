@@ -15,7 +15,7 @@ IR's factual records rather than inventing a parallel final-result format.
 
 Python, Dart and TypeScript use the same port. Python-specific AST objects stay
 inside its adapter; Dart keeps its limited directive capabilities. The Core
-remains implemented in Python, but existing scanner/policy coupling must change.
+remains implemented in Python and owns policy evaluation.
 Full Dart type/construct analysis is not required to establish replaceability.
 
 Capabilities, runtime and file/selector identities are profile-aware. Analyzer
@@ -23,18 +23,21 @@ identity and digests still decide comparability
 ([AD-3](ad-03-the-analyzer-digest-decides-comparability-the-version-names.md)).
 Unknown identities, missing evidence and protocol failures cannot grant PASS.
 
-## Current gap and proof
+## Implementation and acceptance
 
-The working tree now has a process port, separate Python and Dart adapters, shared
-source facts, and Core-owned evaluation. The migration is still in progress; these
-changes do not prove parity or replacement-executable behavior. TypeScript is the
-concrete trigger to complete this boundary, rather than add a third special path.
-Its implementation is pending; [the revised proposal](../typescript-foundation-proposal.md)
-and [#122](https://github.com/rapiddweller/archkeel/issues/122) track that work.
+The process port, separate Python/Dart adapters, shared source facts and Core
+evaluation are implemented. TypeScript uses the pinned npm collector under
+`packages/typescript-adapter/`, with its own source contract. Its import-only
+capabilities and packaging are defined in
+[the decision](../typescript-foundation-proposal.md).
 
-Prove Python/Dart semantic parity through the port and replacement with another
-configured executable. Invalid facts, incompatible profiles and unavailable
-tools must fail closed. A language switch in one bridge is not replacement proof.
+Acceptance requires Python/Dart semantic parity, replacement by a configured
+executable and refusal of invalid facts, incompatible profiles and unavailable
+tools. See [configured collection](../../../tests/test_collection_process.py),
+[wire conformance](../../../tests/test_collection_conformance.py),
+[collector facts](../../../tests/test_language_collectors.py) and
+[boundary regressions](../../../tests/test_collection_boundary_regressions.py). Integrated local gates and
+cross-platform CI remain required; source implementation does not prove publication.
 
 ## Future boundary
 

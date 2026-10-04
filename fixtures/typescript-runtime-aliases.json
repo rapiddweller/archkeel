@@ -1,0 +1,446 @@
+[
+  {
+    "name": "relative",
+    "specifier": "./runtime.js",
+    "manifest": {
+      "type": "module"
+    }
+  },
+  {
+    "name": "package-import",
+    "specifier": "#runtime",
+    "manifest": {
+      "type": "module",
+      "imports": {
+        "#runtime": "./src/runtime.js"
+      }
+    }
+  },
+  {
+    "name": "self-reference",
+    "specifier": "local-app/runtime",
+    "manifest": {
+      "type": "module",
+      "name": "local-app",
+      "exports": {
+        "./runtime": "./src/runtime.js"
+      }
+    }
+  },
+  {
+    "name": "conditional-export",
+    "specifier": "local-app/runtime",
+    "manifest": {
+      "type": "module",
+      "name": "local-app",
+      "exports": {
+        "./runtime": {
+          "types": "./src/runtime.js",
+          "import": "./src/actual.js",
+          "require": "./src/common.cjs"
+        }
+      }
+    },
+    "runtime": "actual.js"
+  },
+  {
+    "name": "directory-main-types",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "files": {
+      "src/pkg/package.json": "{\"types\": \"types.ts\", \"main\": \"runtime.cjs\"}",
+      "src/pkg/types.ts": "export interface Value {value: string};",
+      "src/pkg/runtime.cjs": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/runtime.cjs",
+    "observed_files": [
+      "src/main.ts",
+      "src/pkg/types.ts"
+    ],
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "directory-declaration-main",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "files": {
+      "src/pkg/package.json": "{\"types\": \"types.d.ts\", \"main\": \"runtime.js\"}",
+      "src/pkg/types.d.ts": "export interface Value {value: string};",
+      "src/pkg/runtime.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/runtime.js",
+    "observed_files": [
+      "src/main.ts",
+      "src/pkg/types.d.ts"
+    ],
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "directory-types-index",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "files": {
+      "src/pkg/package.json": "{\"types\": \"types.ts\"}",
+      "src/pkg/types.ts": "export interface Value {value: string};",
+      "src/pkg/index.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/index.js",
+    "observed_files": [
+      "src/main.ts",
+      "src/pkg/types.ts"
+    ],
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "directory-explicit-runtime",
+    "specifier": "./pkg/runtime.cjs",
+    "source": "require('./pkg/runtime.cjs');",
+    "files": {
+      "src/pkg/package.json": "{\"types\": \"types.ts\", \"main\": \"runtime.cjs\"}",
+      "src/pkg/types.ts": "export interface Value {value: string};",
+      "src/pkg/runtime.cjs": "throw Error('must not execute');",
+      "src/main.js": "require('./pkg/runtime.cjs');"
+    },
+    "runtime_path": "src/pkg/runtime.cjs",
+    "observed_files": [
+      "src/main.ts",
+      "src/pkg/runtime.cjs"
+    ],
+    "manifest": {},
+    "complete": true,
+    "metadata_observed": false
+  },
+  {
+    "name": "directory-index",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "files": {
+      "src/pkg/index.ts": "export const value=1;",
+      "src/pkg/index.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/index.js",
+    "observed_files": [
+      "src/main.ts",
+      "src/pkg/index.ts"
+    ],
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "relative-file-before-directory",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "files": {
+      "src/pkg.ts": "export const value=1;",
+      "src/pkg/package.json": "{\"types\": \"types.ts\", \"main\": \"runtime.cjs\"}",
+      "src/pkg/types.ts": "export interface Value {value: string};",
+      "src/pkg/runtime.cjs": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/runtime.cjs",
+    "observed_files": [
+      "src/main.ts",
+      "src/pkg.ts"
+    ],
+    "manifest": {},
+    "complete": false,
+    "metadata_observed": false
+  },
+  {
+    "name": "directory-type-only",
+    "specifier": "./pkg",
+    "source": "import type {Value} from './pkg';",
+    "files": {
+      "src/pkg/package.json": "{\"types\": \"types.ts\", \"main\": \"runtime.cjs\"}",
+      "src/pkg/types.ts": "export interface Value {value: string};",
+      "src/pkg/runtime.cjs": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/runtime.cjs",
+    "observed_files": [
+      "src/main.ts",
+      "src/pkg/types.ts"
+    ],
+    "manifest": {},
+    "complete": true,
+    "type_only": true
+  },
+  {
+    "name": "directory-types-outside",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "files": {
+      "src/pkg/package.json": "{\"types\": \"../types.ts\", \"main\": \"runtime.cjs\"}",
+      "src/types.ts": "export interface Value {value:string};",
+      "src/pkg/runtime.cjs": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/runtime.cjs",
+    "observed_files": [
+      "src/main.ts",
+      "src/types.ts"
+    ],
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "relative-file-after-unrelated-package-input",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "files": {
+      "src/pkg.ts": "export const value=1;",
+      "src/pkg/package.json": "{\"types\": \"types.ts\", \"main\": \"runtime.cjs\"}",
+      "src/pkg/types.ts": "export interface Value {value: string};",
+      "src/pkg/runtime.cjs": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/runtime.cjs",
+    "observed_files": [
+      "src/pkg.ts",
+      "src/pkg/types.ts",
+      "src/z.ts"
+    ],
+    "manifest": {},
+    "complete": false,
+    "entry_path": "src/z.ts",
+    "selected_files": [
+      "src/z.ts",
+      "src/pkg/types.ts"
+    ],
+    "cycle_source": "require('./z.js');"
+  },
+  {
+    "name": "extensionless-commonjs-substitution",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "commonjs-typescript-target",
+    "specifier": "./runtime.ts",
+    "source": "require('./runtime.ts');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;"
+    },
+    "runtime_path": "src/runtime.ts",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "commonjs-trailing-slash-directory",
+    "specifier": "./pkg/",
+    "source": "require('./pkg/');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/pkg.js": "throw Error('must not execute');",
+      "src/pkg/index.ts": "export const value=1;",
+      "src/pkg/index.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/index.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/pkg/index.ts"
+    ],
+    "cycle_source": "require('../main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "commonjs-dotted-stem-substitution",
+    "specifier": "./runtime.local",
+    "source": "require('./runtime.local');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.local.ts": "export const value=1;",
+      "src/runtime.local.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime.local.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.local.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-commonjs-js",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.js"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-directory-substitution",
+    "specifier": "./pkg",
+    "source": "require('./pkg');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/pkg/index.ts": "export const value=1;",
+      "src/pkg/index.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/pkg/index.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/pkg/index.ts"
+    ],
+    "cycle_source": "require('../main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-exact-file-before-js",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime": "throw Error('must not execute');",
+      "src/runtime.js": "throw Error('must not execute');"
+    },
+    "runtime_path": "src/runtime",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-json-before-node",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.json": "{}",
+      "src/runtime.node": "not a loadable binary"
+    },
+    "runtime_path": "src/runtime.json",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-native-node",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.node": "not a loadable binary"
+    },
+    "runtime_path": "src/runtime.node",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "extensionless-js-before-json",
+    "specifier": "./runtime",
+    "source": "require('./runtime');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/runtime.ts": "export const value=1;",
+      "src/runtime.js": "throw Error('must not execute');",
+      "src/runtime.json": "{}",
+      "src/runtime.node": "not a loadable binary"
+    },
+    "runtime_path": "src/runtime.js",
+    "observed_files": [
+      "src/main.cts",
+      "src/runtime.ts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false
+  },
+  {
+    "name": "commonjs-explicit-js-missing-runtime",
+    "specifier": "./leaf.worker.js",
+    "source": "require('./leaf.worker.js');",
+    "entry_path": "src/main.cts",
+    "selected_files": [
+      "src/main.cts"
+    ],
+    "files": {
+      "src/leaf.worker.ts": "export const value=1;",
+      "src/main.cjs": "require('./leaf.worker.js');"
+    },
+    "runtime_path": "src/leaf.worker.js",
+    "observed_files": [
+      "src/leaf.worker.ts",
+      "src/main.cts"
+    ],
+    "cycle_source": "require('./main.cjs');",
+    "manifest": {},
+    "complete": false,
+    "runtime_missing": true
+  }
+]

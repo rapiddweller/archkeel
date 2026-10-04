@@ -29,11 +29,11 @@ values in distinct internal groups.
 
 ### Language adapter boundary (AD-22)
 
-The approved process port and Python/Dart extraction are in progress, with active
-nested contracts under `contracts/`. The contracts describe ownership and interfaces;
-they do not prove semantic parity or complete behavior. Replacement-executable
-acceptance, integrated local gates and independent review remain open.
-TypeScript remains a separate pinned npm artifact described in
+The process port, Python/Dart collectors and Core evaluation split are implemented,
+with active nested contracts under `contracts/`. The contracts describe ownership
+and interfaces. Acceptance requires semantic parity, configured replacement,
+integrated local gates, independent review and cross-platform CI.
+TypeScript uses a separate pinned npm collector described in
 [the foundation proposal](typescript-foundation-proposal.md); it is not included
 in the Python source contract. See
 [AD-22](decisions/ad-22-the-analyzer-is-a-process-port-with-a-language-profile.md)
@@ -206,6 +206,8 @@ often explains an earlier one; the index below keeps that order.
 | AD-147 | [Revision snapshots preserve language inputs](decisions/ad-147-revision-snapshots-preserve-language-inputs.md) |
 | AD-148 | [Source facts and Core evaluation have separate owners](decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md) |
 | AD-149 | [Uncertain publication retains inherited type candidates](decisions/ad-149-uncertain-publication-retains-inherited-type-candidates.md) |
+| AD-150 | [TypeScript imports use a pinned npm collector](decisions/ad-150-typescript-imports-use-a-pinned-npm-collector.md) |
+| AD-151 | [Unproven require references retain UNKNOWN](decisions/ad-151-unproven-require-references-retain-unknown.md) |
 | AD-152 | [Validated construct identity controls rules](decisions/ad-152-validated-construct-identity-controls-rules.md) |
 
 ## Allowed dependencies
