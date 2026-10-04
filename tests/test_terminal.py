@@ -350,3 +350,37 @@ def test_completed_validation_diagnostics_do_not_claim_nothing_checked(declared,
     if declared != "UNKNOWN":
         assert "NOT CHECKED" not in rendered
     assert "Scan complete" in rendered and "PASS" in rendered
+
+
+@pytest.mark.parametrize(
+    "module",
+    ["shop.store", "platform.data_processing.repository." + "very_long_component_name_" * 4],
+)
+def test_unknown_ownership_reason_preserves_long_ids_and_tokens_at_80_columns(module: str) -> None:
+    identifier = "platform:data_processing:repository:BOUNDARY-EXPORTED-INTERFACES" + ":INNER" * 5
+    file = module.replace(".", "/") + "/__init__.py"
+    reason = (
+        f"{module} ({file}) has no owner in scope repository. "
+        f'Assign it to one existing component using exact_modules: ["{module}"].'
+    )
+    assessment = RuleAssessment(
+        id=identifier,
+        kind="interface_boundary",
+        status="UNKNOWN",
+        evaluation_proven=False,
+        count=0,
+        undecided=0,
+        decided_by="architect",
+        rationale="Own the facade.",
+        provenance=(),
+        reason=reason,
+        scope="repository",
+        components=(),
+    )
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", rule_assessments=(assessment,))
+    narrow = _render(result, report_summary(result), 80)
+    assert all(len(line) <= 80 for line in narrow.splitlines())
+    assert "…" not in narrow
+    compact = "".join(narrow.split())
+    for value in (identifier, module, file, f'exact_modules: ["{module}"]'):
+        assert "".join(value.split()) in compact

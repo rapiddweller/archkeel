@@ -97,12 +97,10 @@ def print_result(
     output.print(verdicts)
     unknown_rules = [item for item in result.rule_assessments or () if item.status == "UNKNOWN"]
     if unknown_rules:
-        rules = Table(title="Rules UNKNOWN", title_justify="left", box=box.SIMPLE_HEAD, expand=True)
-        rules.add_column("Rule", no_wrap=True)
-        rules.add_column("Reason", ratio=1)
+        output.print(Text("Rules UNKNOWN", style="bold"))
         for item in unknown_rules:
-            rules.add_row(Text(item.id), Text(item.reason))
-        output.print(rules)
+            output.print(Text(item.id, style="bold", overflow="fold"))
+            output.print(Text(item.reason, overflow="fold"))
     if summary.claims:
         output.print(Text(summary.claims, style="dim"))
     if summary.regressions:
