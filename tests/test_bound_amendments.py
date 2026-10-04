@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """An approval binds policy contents, not just totals or the contract."""
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -284,3 +285,14 @@ def test_selector_main_pins_base_and_calls_existing_cli(
     monkeypatch.setattr(sys, "argv", ["against", "--base", "missing-ref"])
     assert against.main() == 2
     assert len(commands) == 1
+
+
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        ("baseline.json", b"\0no baseline at baseline.json"),
+        ("docs/maß.json", b"\0no baseline at docs/ma\xc3\x9f.json"),
+    ],
+)
+def test_absent_baseline_digest_preserves_canonical_bytes(path: str, payload: bytes) -> None:
+    assert absent_baseline_digest(path) == hashlib.sha256(payload).hexdigest()

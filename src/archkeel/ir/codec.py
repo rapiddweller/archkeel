@@ -2658,7 +2658,7 @@ def baseline_digest(
 
 
 def absent_baseline_digest(path: str) -> str:
-    return hashlib.sha256(("\0no baseline at " + path).encode()).hexdigest()
+    return hashlib.sha256(b"\0no baseline at " + path.encode()).hexdigest()
 
 
 def parse_amendment(raw: object) -> Amendment:
