@@ -40,7 +40,13 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
-from archkeel.ir.model import ArchitectureContract, Observation, ObservationResult, Record
+from archkeel.ir.model import (
+    ArchitectureContract,
+    Observation,
+    ObservationResult,
+    Record,
+    RunResult,
+)
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import FIXTURE_DIR
 
@@ -108,10 +114,16 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
     assert "REQUIRES-COMPLETE" in diagnostics[0].unknown_claim
 
 
-def test_validate_accepts_archkeel_self_contract() -> None:
+@pytest.fixture(scope="module")
+def self_validation() -> RunResult:
     result, _ = run_validate(
         ROOT, load_config(ROOT), observe, baseline=ROOT / "architecture-baseline.json"
     )
+    return result
+
+
+def test_validate_accepts_archkeel_self_contract(self_validation: RunResult) -> None:
+    result = self_validation
     assert result.exit_code == 0
     assert result.observation_complete == "PASS"
     # AD-72: declaring boundary_types for check and render leaves 16 positions the checker
@@ -120,15 +132,15 @@ def test_validate_accepts_archkeel_self_contract() -> None:
     assert result.expectation_fulfilled == "n/a"
 
 
-def test_validate_reports_no_check_types_declared_violation_against_this_repository() -> None:
+def test_validate_reports_no_check_types_declared_violation_against_this_repository(
+    self_validation: RunResult,
+) -> None:
     """AD-68's Limit (issue #59): `check.run_init` and `check.run_validate` both return
     `tuple[RunResult, dict[str, bytes]]`, and a bare `dict[str, bytes]` is exactly the
     untyped container CHECK-TYPES-DECLARED (AD-58) exists to reject. Declaring `boundary_types`
     for `check` must not leave its own two facade functions violating the rule they now carry.
     """
-    result, _ = run_validate(
-        ROOT, load_config(ROOT), observe, baseline=ROOT / "architecture-baseline.json"
-    )
+    result = self_validation
     subjects = {diagnostic.subject for diagnostic in result.diagnostics}
     assert "CHECK-TYPES-DECLARED" not in subjects
     assert result.exit_code == 0

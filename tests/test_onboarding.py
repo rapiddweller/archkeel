@@ -2,7 +2,6 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
-import shutil
 import subprocess
 from collections import Counter
 from collections.abc import Callable
@@ -37,8 +36,6 @@ from archkeel.ir.model import (
 
 _REAL_RATIONALE = "The owners decided this on purpose."
 
-ROOT = Path(__file__).parents[1]
-
 
 def _contract(path: Path) -> ArchitectureContract:
     return parse_contract(decode_json(path.read_bytes()))
@@ -46,12 +43,30 @@ def _contract(path: Path) -> ArchitectureContract:
 
 def _repository(root: Path, packages: tuple[str, ...] = ("archkeel",)) -> Path:
     for package in packages:
-        shutil.copytree(
-            ROOT / "src/archkeel",
-            root / "src" / package,
-            ignore=shutil.ignore_patterns("__pycache__"),
-        )
-    shutil.copyfile(ROOT / "pyproject.toml", root / "pyproject.toml")
+        files = {
+            "__init__.py": "",
+            "ir/__init__.py": "",
+            "ir/model.py": '__all__ = ["VALUE"]\nVALUE = 1\n',
+            "cli/__init__.py": "",
+            "cli/app.py": f"from {package}.ir import model\nVALUE = model.VALUE\n",
+            "check/__init__.py": "",
+            "check/rules.py": (
+                f"from {package}.ir import model\n"
+                "from .nested import extra\nVALUE = model.VALUE + extra.VALUE\n"
+            ),
+            "check/nested/__init__.py": "",
+            "check/nested/extra.py": (
+                f"from {package}.ir import model\n"
+                f"from {package}.cli import app\nVALUE = model.VALUE + app.VALUE\n"
+            ),
+        }
+        for name, source in files.items():
+            path = root / "src" / package / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(source)
+    (root / "pyproject.toml").write_text(
+        '[project]\nname = "archkeel"\nrequires-python = ">=3.11"\n'
+    )
     for args in (
         ("init", "-q"),
         ("config", "user.email", "init@example.invalid"),
@@ -133,8 +148,7 @@ def test_init_drafts_no_dependency_rule_but_still_drafts_structural_rules(
     assert any(isinstance(rule, NoComponentCyclesRule) for rule in draft.rules)
     assert any(isinstance(rule, InterfaceBoundaryRule) for rule in draft.rules)
 
-    # Every other component imports archkeel.ir.model, so ir always gets a public entry for
-    # it; pin a concrete case instead of only asserting properties that hold vacuously.
+    # Cross-component imports make this public-entry assertion non-vacuous.
     ir_component = next(component for component in draft.components if component.label == "ir")
     assert ir_component.public is not None
     assert "archkeel.ir.model" in ir_component.public
@@ -209,7 +223,7 @@ def test_init_open_decisions_are_sorted_and_cover_every_ordered_pair_exactly_onc
     root = _repository(tmp_path)
     result = _init(root, capsys)
     decisions = result["open_decisions"]
-    assert decisions, "archkeel's own components observe each other"
+    assert decisions, "the fixture's components observe each other"
 
     sites = [item["import_sites"] for item in decisions]
     assert sites == sorted(sites, reverse=True), "heaviest observed edges must come first"
@@ -286,12 +300,9 @@ def test_deciding_every_open_pair_from_init_options_makes_validate_pass(
 def test_open_decision_import_sites_match_a_ground_truth_count_from_imports(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
-    """The regression from issue: package-level truncation undercounted nested packages.
+    """Nested imports must count toward their owning component, without package truncation.
 
-    `init` drafts no dependency rule, so every ordered pair among Archkeel's own components
-    is an open decision; its `import_sites` must equal the number of raw `imports` records
-    that cross that pair, independently grouped here through the drafted contract's own
-    `component_for`, not through `_component_import_sites` itself.
+    Group raw imports through the contract independently of init's counting helper.
     """
     root = _repository(tmp_path)
     _init(root, capsys)
@@ -314,6 +325,8 @@ def test_open_decision_import_sites_match_a_ground_truth_count_from_imports(
             ground_truth[(source.label, target.label)] += 1
 
     labels = [component.label for component in contract.components]
+    assert ground_truth[("check", "ir")] == 2
+    assert ground_truth[("check", "cli")] == 1
     expected = {
         (source, target): ground_truth.get((source, target), 0)
         for source in labels
@@ -352,7 +365,7 @@ def test_init_asks_for_the_source_when_the_package_is_ambiguous(
 def test_init_picks_the_package_the_project_is_named_after(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
-    # AD-47: the copied pyproject.toml declares `name = "archkeel"`; `tests_pkg` sits beside it.
+    # AD-47: the project is named archkeel; tests_pkg sits beside it.
     root = _repository(tmp_path, ("archkeel", "tests_pkg"))
     _init(root, capsys)
     assert (

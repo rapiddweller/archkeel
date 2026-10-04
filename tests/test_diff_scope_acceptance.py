@@ -15,8 +15,8 @@ from test_target_hierarchy_independent_acceptance import _ce_nested_route_page
 def test_nested_diff_keyboard_drill_recovers_logical_target_after_view_switch_and_back(
     tmp_path: Path, width: int, back: str
 ) -> None:
-    html, _ = _ce_nested_route_page(tmp_path, include_scoped_diff_controls=True)
     playwright_api = pytest.importorskip("playwright.sync_api")
+    html, _ = _ce_nested_route_page(tmp_path, include_scoped_diff_controls=True)
     with playwright_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
@@ -62,6 +62,7 @@ def test_nested_diff_keyboard_drill_recovers_logical_target_after_view_switch_an
 def test_diff_module_counterparts_keep_exact_declaration_or_explain_absence(
     tmp_path: Path, width: int, declared: bool, action: str
 ) -> None:
+    playwright_api = pytest.importorskip("playwright.sync_api")
     html, payload = _ce_nested_route_page(
         tmp_path, include_scoped_diff_controls=True, include_worker_module_target=True
     )
@@ -71,7 +72,6 @@ def test_diff_module_counterparts_keep_exact_declaration_or_explain_absence(
         else "datamimic_ce.engine.runtime.storage"
     )
     module = "generate_worker" if declared else "extra_0"
-    playwright_api = pytest.importorskip("playwright.sync_api")
     with playwright_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
@@ -123,10 +123,10 @@ def test_diff_module_counterparts_keep_exact_declaration_or_explain_absence(
 def test_overlapping_diff_scope_owners_require_explicit_target_navigation(
     tmp_path: Path, width: int
 ) -> None:
+    playwright_api = pytest.importorskip("playwright.sync_api")
     html, payload = _ce_nested_route_page(
         tmp_path, include_scoped_diff_controls=True, include_overlapping_worker_owner=True
     )
-    playwright_api = pytest.importorskip("playwright.sync_api")
     with playwright_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
