@@ -10,7 +10,8 @@ from contextlib import contextmanager
 from typing import Final
 
 from rich import box
-from rich.console import Console, Group
+from rich.console import Console
+from rich.console import Group as _Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -101,7 +102,7 @@ def print_result(
         for line in (item.id, item.reason)
     )
     output.print(
-        Group(
+        _Group(
             verdicts,
             *((Text("Rules UNKNOWN", style="bold"), *unknown_details) if unknown_details else ()),
         )
