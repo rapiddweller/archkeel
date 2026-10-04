@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from typing import Final
 
 from rich import box
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -94,13 +94,18 @@ def print_result(
             _badge(badge(row.value)),
             Text(row.reason),
         )
-    output.print(verdicts)
-    unknown_rules = [item for item in result.rule_assessments or () if item.status == "UNKNOWN"]
-    if unknown_rules:
-        output.print(Text("Rules UNKNOWN", style="bold"))
-        for item in unknown_rules:
-            output.print(Text(item.id, style="bold", overflow="fold"))
-            output.print(Text(item.reason, overflow="fold"))
+    unknown_details = tuple(
+        Text(line, overflow="fold")
+        for item in result.rule_assessments or ()
+        if item.status == "UNKNOWN"
+        for line in (item.id, item.reason)
+    )
+    output.print(
+        Group(
+            verdicts,
+            *((Text("Rules UNKNOWN", style="bold"), *unknown_details) if unknown_details else ()),
+        )
+    )
     if summary.claims:
         output.print(Text(summary.claims, style="dim"))
     if summary.regressions:
