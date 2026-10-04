@@ -168,6 +168,8 @@ class ScannedModule(Protocol):
 
 @dataclass
 class ParsedModule:
+    """The AST stays fixed for one snapshot; import and escape state can still change."""
+
     path: Path
     rel_path: str
     module: str
@@ -182,11 +184,21 @@ class ParsedModule:
     all_literal: bool = False
     compatibility_logic_free: bool = False
     incoming_member_escapes: set[str] = field(default_factory=set)
+    all_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
+    scope_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
+    bound_names: tuple[str, ...] = field(init=False, repr=False)
+    scope_bound_names: tuple[str, ...] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.all_nodes = tuple(ast.walk(self.tree))
+        self.scope_nodes = tuple(_module_scope_nodes(self.tree))
+        self.bound_names = tuple(_bound_names(self.all_nodes))
+        self.scope_bound_names = tuple(_bound_names(self.scope_nodes))
 
 
 def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
     """Names with one direct definition or import and no competing binder in the module."""
-    nodes = list(ast.walk(module.tree))
+    nodes = module.all_nodes
     imports = [
         (name, node in module.tree.body)
         for node in nodes
@@ -213,8 +225,7 @@ def unique_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
         and node in module.tree.body
     ] + [name for name, is_direct in imports if is_direct]
-    binders = _bound_names(nodes)
-    counts = Counter(binders)
+    counts = Counter(module.bound_names)
     return frozenset(name for name in direct if counts[name] == 1)
 
 
@@ -234,15 +245,15 @@ def stable_direct_module_bindings(module: ParsedModule) -> frozenset[str]:
             for target in targets:
                 for name in _bound_names(ast.walk(target)):
                     direct[name] = direct.get(name, 0) + 1
-    nodes = list(_module_scope_nodes(module.tree))
+    nodes = module.scope_nodes
     if any(
         isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
         for node in nodes
     ):
         return frozenset()
-    counts = Counter(_bound_names(nodes))
+    counts = Counter(module.scope_bound_names)
     # ponytail: visible writes invalidate shared imports; prove scopes if false UNKNOWNs grow.
-    all_nodes = list(ast.walk(module.tree))
+    all_nodes = module.all_nodes
     if any(exposes_dynamic_namespace(module, node) for node in all_nodes) or any(
         exposes_dynamic_namespace(module, node, local_namespace=True) for node in nodes
     ):
@@ -714,7 +725,7 @@ def class_namespace_static(module: ParsedModule, owner: ast.ClassDef) -> bool:
 
 
 def _class_base_operands_static(module: ParsedModule, node: ast.ClassDef) -> bool:
-    bound = frozenset(_bound_names(ast.walk(module.tree)))
+    bound = frozenset(module.bound_names)
     stable = stable_direct_module_bindings(module) & unique_direct_module_bindings(module)
     custom = 0
     for base in node.bases:
@@ -912,7 +923,7 @@ def _contained_member_roots(
         for node in nodes
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
     ]
-    module_nodes = frozenset(_module_scope_nodes(module.tree))
+    module_nodes = frozenset(module.scope_nodes)
     owners += [
         (target.id, node.value)
         for node in nodes
@@ -945,7 +956,7 @@ def _contained_member_roots(
         if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Load)
     }
     # Native functions expose their defining namespace, including through a class's methods.
-    namespace = frozenset(_bound_names(_module_scope_nodes(module.tree)))
+    namespace = frozenset(module.scope_bound_names)
     uncertain_bases = member_binding_closure(
         nodes, module.incoming_member_escapes, member_surface=True
     )
@@ -984,12 +995,11 @@ def unproven_member_bindings(
     include_creation_uncertainty: bool = True,
 ) -> frozenset[str]:
     """Visible member escapes, independent of whether an import binds unconditionally."""
-    nodes = list(ast.walk(module.tree))
+    nodes = module.all_nodes
     if any(exposes_dynamic_namespace(module, node, member_surface=True) for node in nodes) or any(
-        exposes_dynamic_namespace(module, node, local_namespace=True)
-        for node in _module_scope_nodes(module.tree)
+        exposes_dynamic_namespace(module, node, local_namespace=True) for node in module.scope_nodes
     ):
-        return frozenset(_bound_names(nodes))
+        return frozenset(module.bound_names)
     return frozenset(
         _member_binding_roots(
             module,
@@ -1211,7 +1221,7 @@ def _type_reference_nodes(module: ParsedModule, expressions: Sequence[ast.expr])
     """Exclude declared type references, not executable operands of an unknown type shape."""
     protected: set[ast.AST] = set()
     pending: list[ast.AST] = list(expressions)
-    bound = frozenset(_bound_names(ast.walk(module.tree)))
+    bound = frozenset(module.bound_names)
     stable = stable_direct_module_bindings(module) & unique_direct_module_bindings(module)
     while pending:
         node = pending.pop()
@@ -1406,7 +1416,7 @@ def module_scope_bindings(
     module: ParsedModule,
 ) -> Iterator[tuple[ast.AST, str]]:
     """Yield names that module-evaluated binding forms may bind."""
-    for node in _module_scope_nodes(module.tree):
+    for node in module.scope_nodes:
         targets: Iterable[ast.AST] = ()
         if isinstance(node, ast.Assign | ast.AnnAssign | ast.AugAssign):
             if isinstance(node, ast.AnnAssign) and node.value is None:
