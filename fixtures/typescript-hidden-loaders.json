@@ -797,5 +797,168 @@
     },
     "complete": false,
     "cycle": false
+  },
+  {
+    "name": "export-implicit-type-module-alias",
+    "source": "import type {Module} from 'node:module'; export {Module as M};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-factory-alias",
+    "source": "import type {createRequire} from 'node:module'; export {createRequire as factory};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-default-alias",
+    "source": "import type ctor from 'node:module'; export {ctor as M};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-namespace-alias",
+    "source": "import type * as mod from 'node:module'; export {mod as api};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-specifier-module",
+    "source": "import {type Module} from 'node:module'; export {Module as M};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-specifier-factory",
+    "source": "import {type createRequire} from 'node:module'; export {createRequire as factory};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-specifier-default",
+    "source": "import {type default as ctor} from 'node:module'; export {ctor as M};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-module-unaliased",
+    "source": "import type {Module} from 'node:module'; export {Module};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-factory-unaliased",
+    "source": "import type {createRequire} from 'node:module'; export {createRequire};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-namespace-unaliased",
+    "source": "import type * as mod from 'node:module'; export {mod};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-equals-alias",
+    "source": "import type mod = require('node:module'); export {mod as api};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-implicit-type-mixed-value",
+    "source": "import {type Module,isBuiltin} from 'node:module'; export {Module as M,isBuiltin};",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false
+  },
+  {
+    "name": "export-implicit-type-barrel",
+    "source": "import type {M} from './barrel.js'; export type T=M;",
+    "files": {
+      "src/barrel.ts": "import type {Module} from 'node:module'; export {Module as M};"
+    },
+    "observed_files": [
+      "src/barrel.ts",
+      "src/main.ts"
+    ],
+    "manifest": {
+      "type": "module"
+    },
+    "complete": true,
+    "cycle": false,
+    "erased_export": true
+  },
+  {
+    "name": "export-type-origin-value-use-module",
+    "source": "import type {Module} from 'node:module'; Module.createRequire(import.meta.url)('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "export-type-origin-value-use-factory",
+    "source": "import type {createRequire} from 'node:module'; createRequire(import.meta.url)('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
+  },
+  {
+    "name": "export-type-origin-value-use-namespace",
+    "source": "import type * as mod from 'node:module'; mod.createRequire(import.meta.url)('./hidden.cjs');",
+    "manifest": {
+      "type": "module"
+    },
+    "complete": false,
+    "cycle": false
   }
 ]

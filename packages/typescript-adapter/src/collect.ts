@@ -193,9 +193,18 @@ export function collect(request: Request) {
         return false;
       }) ?? false;
     }
+    function typeOnlyImport(declaration: ts.Declaration): boolean {
+      if (ts.isImportSpecifier(declaration)) return declaration.isTypeOnly || declaration.parent.parent.isTypeOnly;
+      if (ts.isNamespaceImport(declaration)) return declaration.parent.isTypeOnly;
+      return (ts.isImportClause(declaration) || ts.isImportEqualsDeclaration(declaration)) && declaration.isTypeOnly;
+    }
     function isValueUse(node: ts.Node): boolean {
       for (let parent = node.parent; parent; parent = parent.parent) {
         if (ts.isTypeNode(parent) || ((ts.isExportDeclaration(parent) || ts.isExportSpecifier(parent)) && parent.isTypeOnly)) return false;
+        if (ts.isExportSpecifier(parent)) {
+          const declarations = checker.getExportSpecifierLocalTargetSymbol(parent)?.declarations;
+          if (declarations?.length && declarations.every(typeOnlyImport)) return false;
+        }
       }
       return true;
     }
