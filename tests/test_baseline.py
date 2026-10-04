@@ -193,9 +193,34 @@ def test_a_refused_write_says_why_and_how_to_proceed_without_advising_itself(
     )
 
 
-def test_a_refusal_stays_the_last_failure_beside_a_widening(tmp_path: Path) -> None:
-    """AD-106: under --against the refused write also widens the committed baseline; the
-    refusal still closes the list, so the way on is the last line read."""
+@pytest.mark.parametrize(
+    "current_count, expected_failures",
+    [
+        (
+            1,
+            (
+                f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+                "(1 observed, 0 in the baseline)",
+                REFUSED,
+            ),
+        ),
+        (
+            2,
+            (
+                f"resolved violation: {GETATTR_RULE} | shop.model.probe.read "
+                "(1 observed, 2 in the baseline)",
+                f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
+                "(1 observed, 0 in the baseline)",
+                f"baseline entry widened: {GETATTR_RULE} | shop.model.probe.read (2 now, 1 before)",
+                REFUSED,
+            ),
+        ),
+    ],
+    ids=["unchanged-policy", "widened-policy"],
+)
+def test_a_refusal_compares_current_policy_and_stays_the_last_failure(
+    tmp_path: Path, current_count: int, expected_failures: tuple[str, ...]
+) -> None:
     known = (KnownViolation(ViolationFingerprint((GETATTR_RULE,), ("shop.model.probe.read",)), 1),)
     root = _repo(
         tmp_path,
@@ -203,23 +228,21 @@ def test_a_refusal_stays_the_last_failure_beside_a_widening(tmp_path: Path) -> N
         {"shop/model/probe.py": PROBE, "known-violations.json": baseline_bytes(known).decode()},
     )
     (root / "shop/model/probe_two.py").write_text(SECOND_PROBE)
+    baseline = _baseline_file(root, (KnownViolation(known[0].fingerprint, current_count),))
+    before = baseline.read_bytes()
 
     result, files = run_validate(
         root,
         SHOP_CONFIG,
         observe,
-        baseline=root / "known-violations.json",
+        baseline=baseline,
         write_baseline=True,
         against="main",
     )
 
-    assert (result.exit_code, files) == (1, {})
-    assert result.failures == (
-        f"new violation: {GETATTR_RULE} | shop.model.probe_two.read "
-        "(1 observed, 0 in the baseline)",
-        f"baseline entry widened: {GETATTR_RULE} | shop.model.probe_two.read (1 now, 0 before)",
-        REFUSED,
-    )
+    assert (result.exit_code, result.artifact, files) == (1, None, {})
+    assert baseline.read_bytes() == before
+    assert result.failures == expected_failures
 
 
 def test_accept_new_explicitly_updates_an_existing_baseline(tmp_path: Path) -> None:
